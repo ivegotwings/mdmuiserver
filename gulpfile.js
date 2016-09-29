@@ -14,6 +14,8 @@ const path = require('path');
 const gulp = require('gulp');
 const gulpif = require('gulp-if');
 const debug = require('gulp-debug');
+const browserSync = require('browser-sync');
+const reload = browserSync.reload;
 
 // Got problems? Try logging 'em
 // const logging = require('plylog');
@@ -86,3 +88,24 @@ gulp.task('default', gulp.series([
   project.merge(source, dependencies),
   project.serviceWorker,
 ]));
+
+gulp.task('watch', function() {
+  browserSync({
+    port: 5000,
+    notify: true,
+    reloadOnRestart: true,
+    logPrefix: 'RS',
+    snippetOptions: {
+      rule: {
+        match: '<span id="browser-sync-binding"></span>',
+        fn: function(snippet) { return snippet; }
+      }
+    },
+    https: false,
+    files: [".tmp/**/*.*", "src/**/*.*"],
+    proxy: 'http://localhost:8080',
+    serveStatic: ['.tmp', 'app']
+  });
+
+  gulp.watch(['src/**/*'], gulp.series([project.copyReusableComponents, reload]));
+});
