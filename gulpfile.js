@@ -41,7 +41,10 @@ global.config = {
   swPrecacheConfig: {
     navigateFallback: '/index.html',
   },
-  reusableComponentsSourcePath: './src/ruf-os-components/**/*'
+  uiElementsSourcePath: './src/ui-elements/**/*',
+  dataElementsSourcePath: './src/data-elements/**/*',
+  serviceElementsSourcePath: './src/service-elements/**/*',
+  themesSourcePath: './src/themes/**/*'
 };
 
 // Add your own custom gulp tasks to the gulp-tasks directory
@@ -78,8 +81,8 @@ function dependencies() {
 // and process them, and output bundled and unbundled versions of the project
 // with their own service workers
 gulp.task('default', gulp.series([
+  project.copyReusableComponents,
   clean.build,
   project.merge(source, dependencies),
   project.serviceWorker,
-  project.copyReusableComponents
 ]));

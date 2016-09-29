@@ -14,6 +14,8 @@ const path = require('path');
 const gulp = require('gulp');
 const mergeStream = require('merge-stream');
 const polymer = require('polymer-build');
+const debug = require('gulp-debug');
+const plugins = require('gulp-load-plugins');
 
 const polymerJSON = require(global.config.polymerJsonPath);
 const project = new polymer.PolymerProject(polymerJSON);
@@ -56,12 +58,15 @@ function merge(source, dependencies) {
   return function output() {
     const mergedFiles = mergeStream(source(), dependencies())
       .pipe(project.analyzer);
+      //.pipe(debug());
+
     const bundleType = global.config.build.bundleType;
     let outputs = [];
 
     if (bundleType === 'both' || bundleType === 'bundled') {
       outputs.push(writeBundledOutput(polymer.forkStream(mergedFiles)));
     }
+
     if (bundleType === 'both' || bundleType === 'unbundled') {
       outputs.push(writeUnbundledOutput(polymer.forkStream(mergedFiles)));
     }
@@ -74,7 +79,8 @@ function merge(source, dependencies) {
 // then output to the dest dir
 function writeBundledOutput(stream) {
   return new Promise(resolve => {
-    stream.pipe(project.bundler)
+    stream
+      .pipe(project.bundler)
       .pipe(gulp.dest(bundledPath))
       .on('end', resolve);
   });
@@ -83,6 +89,7 @@ function writeBundledOutput(stream) {
 // Just output files to the dest dir without bundling. This is for projects that
 // use HTTP/2 server push
 function writeUnbundledOutput(stream) {
+  //stream.pipe(gulp.dest(unbundledPath));
   return new Promise(resolve => {
     stream.pipe(gulp.dest(unbundledPath))
       .on('end', resolve);
@@ -131,8 +138,12 @@ function writeUnbundledServiceWorker() {
 
 function copyReusableComponents()
 {
-  const reusableComponentsSourcePath = global.config.reusableComponentsSourcePath; 
-  gulp.src(reusableComponentsSourcePath).pipe(gulp.dest('bower_components/'));
+    var uiElements = gulp.src(global.config.uiElementsSourcePath).pipe(gulp.dest('bower_components/'));
+    var dataElements = gulp.src(global.config.dataElementsSourcePath).pipe(gulp.dest('bower_components/'));
+    var serviceElements = gulp.src(global.config.serviceElementsSourcePath).pipe(gulp.dest('bower_components/'));
+    var themes = gulp.src(global.config.themesSourcePath).pipe(gulp.dest('bower_components/'));
+
+    return mergeStream(uiElements, dataElements, serviceElements, themes);
 }
 
 module.exports = {
