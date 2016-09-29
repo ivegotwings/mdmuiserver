@@ -15,15 +15,15 @@ Below steps are needed only for the first time when you setup your dev machine
 
 3. Install [bower](https://www.npmjs.com/package/bower)
 
-    npm install -g bower
+    `npm install -g bower`
 
 4. Install [gulp](http://gulpjs.com/)
 
-    npm install -g gulp
+    `npm install -g gulp`
 
 5. Install [polymer-cli](https://github.com/Polymer/polymer-cli):
 
-    npm install -g polymer-cli
+    `npm install -g polymer-cli`
 
 6. Clone this git repository, if you haven't done already
 
@@ -34,12 +34,11 @@ Below steps are needed only for the first time when you setup your dev machine
 This command serves the app at `http://localhost:8080` and provides basic URL
 routing for the app. Internally this command runs `gulp & polymer serve --open`
 
-    npm run dev
+    `npm run dev`
 
-Use below url format to view component's demo and api page:
+Use below url format to view component's demo and API page:
 
-    http://localhost:8080/components/{component-name}
-
+    http://localhost:8080/components/{component-name}/
     Example: http://localhost:8080/components/ruf-ui-textbox/
 
 ### Build
@@ -56,7 +55,7 @@ H2/push-compatible servers or to clients that do not support H2/Push.
 
 Internally this command runs `gulp & polymer build` 
 
-    npm run build
+    `npm run build`
 
 ### Preview the build
 
@@ -64,13 +63,13 @@ This command serves the minified version of the app in an unbundled state, as it
 be served by a push-compatible server. 
 Internally this command runs `gulp & polymer serve build/bundled`
 
-    npm run build/bundled
+    `npm run build/bundled`
     # Open your browser and navigate to localhost:8080
 
 This command serves the minified version of the app generated using fragment bundling.
 Internally this command runs `gulp & polymer serve build/bundled`
 
-    npm run build/unbundled
+    `npm run build/unbundled`
     # Open your browser and navigate to localhost:8080
 
     polymer serve build/bundled
@@ -82,7 +81,7 @@ This command will run
 [Web Component Tester](https://github.com/Polymer/web-component-tester) against the
 browsers currently installed on your machine. Internally this command runs `gulp & polymer serve build/bundled`
 
-    npm run test
+    `npm run test`
 
 ## Browser sync / Live reload changes
 
@@ -90,5 +89,5 @@ Use below command in different terminal to live reload changes.
 This command would serve only when `npm run dev` command is already running in different terminal.
 Internally this command runs `gulp watch`
 
-    npm run watch
+    `npm run watch`
 
