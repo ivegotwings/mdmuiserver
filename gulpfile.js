@@ -103,7 +103,7 @@ gulp.task('watch', function() {
     },
     https: false,
     files: [".tmp/**/*.*", "src/**/*.*"],
-    proxy: 'http://localhost:8080',
+    proxy: 'http://localhost:8080/components/ruf-ui-textbox/demo/',
     serveStatic: ['.tmp', 'app']
   });
 
