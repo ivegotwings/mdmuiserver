@@ -109,3 +109,5 @@ gulp.task('watch', function() {
 
   gulp.watch(['src/**/*'], gulp.series([project.copyReusableComponents, reload]));
 });
+
+gulp.task("copyX", gulp.series([project.copyReusableComponents]));
