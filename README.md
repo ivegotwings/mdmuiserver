@@ -58,7 +58,7 @@ Use below url format to view component's demo and API page:
 
 ## Browser sync / Live reload changes
 
-Use below command in different terminal to live reload changes. 
+Use below command in <b>different terminal</b> to live reload changes. 
 This command would serve only when `npm run dev` command is already running in different terminal.
 Internally this command runs `gulp watch`
 
