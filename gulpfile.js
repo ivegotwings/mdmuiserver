@@ -66,7 +66,7 @@ const project = require('./gulp-tasks/project.js');
 function source() {
   return project.splitSource()
     // Add your own build tasks here!
-    .pipe(gulpif('**/*.{png,gif,jpg,svg}', images.minify()))
+    //.pipe(gulpif('**/*.{png,gif,jpg,svg}', images.minify()))
     .pipe(project.rejoin()); // Call rejoin when you're finished
 }
 
