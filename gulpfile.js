@@ -17,6 +17,8 @@ const debug = require('gulp-debug');
 const browserSync = require('browser-sync');
 const reload = browserSync.reload;
 
+var historyApiFallback = require('connect-history-api-fallback');
+
 // Got problems? Try logging 'em
 // const logging = require('plylog');
 // logging.setVerbose();
@@ -102,12 +104,15 @@ gulp.task('watch', function() {
       }
     },
     https: false,
-    files: [".tmp/**/*.*", "src/**/*.*"],
+    files: [".tmp/**/*.*", "src/**/*.*", "bower_components/**/*.*"],
     proxy: 'http://localhost:8080/components/ruf-ui-textbox/demo/',
-    serveStatic: ['.tmp', 'app']
+    //serveStatic: ['.tmp', 'src'],
+    //server: '.',
+    //middleware: [historyApiFallback()]
   });
 
   gulp.watch(['src/**/*'], gulp.series([project.copyReusableComponents, reload]));
 });
+
 
 gulp.task("copyX", gulp.series([project.copyReusableComponents]));
