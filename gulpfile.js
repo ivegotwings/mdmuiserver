@@ -15,6 +15,8 @@ const gulp = require('gulp');
 const gulpif = require('gulp-if');
 const debug = require('gulp-debug');
 const browserSync = require('browser-sync');
+const superstatic = require('superstatic');
+
 const reload = browserSync.reload;
 
 var historyApiFallback = require('connect-history-api-fallback');
@@ -104,15 +106,46 @@ gulp.task('watch', function() {
       }
     },
     https: false,
-    files: [".tmp/**/*.*", "src/**/*.*", "bower_components/**/*.*"],
-    proxy: 'http://localhost:8080/components/ruf-ui-textbox/demo/',
-    //serveStatic: ['.tmp', 'src'],
-    //server: '.',
-    //middleware: [historyApiFallback()]
+    //files: [".tmp/**/*.*", "src/**/*.*"],
+    proxy: 'http://localhost:8080',
   });
 
   gulp.watch(['src/**/*'], gulp.series([project.copyReusableComponents, reload]));
+  //gulp.watch(['src/**/*'], reload);
 });
 
+// // Watch Files For Changes & Reload
+// gulp.task('serveY', function () {
+//   var dirs = ['.tmp','src'];
+
+//   var mw = [
+//     function(req, res, next) {
+//       req.url = req.url.replace(/^\/components/,'/bower_components/');
+
+//       // if (req.url.indexOf('/bower_components') !== 0) return next();
+//       // req.url = req.url.replace(/^\/bower_components/,'');
+
+//       return superstatic({config: {root: 'src'}})(req,res,next);
+//     },
+//     superstatic({config: {root: '.tmp'}}),
+//     superstatic({config: {root: 'src'}})
+//   ];
+
+//   browserSync({
+//     notify: true,
+//     server: {
+//       baseDir: dirs,
+//       index: "./index.html",
+//       //middleware: mw,
+//       routes: {
+//         "/bower_components": "bower_components"
+//       }
+//     }
+//   });
+
+//   gulp.watch(['src/**/*.*'], reload);
+//   gulp.watch(['bower_components/**/*.*'], reload);
+
+// });
 
 gulp.task("copyX", gulp.series([project.copyReusableComponents]));

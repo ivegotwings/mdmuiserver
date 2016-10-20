@@ -54,7 +54,7 @@ routing for the app. Internally this command runs `gulp & polymer serve --open`
 Use below url format to view component's demo and API page:
 
     http://localhost:8080/components/{component-name}/
-    Example: http://localhost:8080/components/ruf-ui-textbox/
+    Example: http://localhost:8080/components/pebble-textbox/
 
 ## Browser sync / Live reload changes
 
