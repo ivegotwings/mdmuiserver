@@ -138,12 +138,9 @@ function writeUnbundledServiceWorker() {
 
 function copyReusableComponents()
 {
-    var uiElements = gulp.src(global.config.uiElementsSourcePath).pipe(gulp.dest('bower_components/'));
-    var dataElements = gulp.src(global.config.dataElementsSourcePath).pipe(gulp.dest('bower_components/'));
-    var serviceElements = gulp.src(global.config.serviceElementsSourcePath).pipe(gulp.dest('bower_components/'));
-    var themes = gulp.src(global.config.themesSourcePath).pipe(gulp.dest('bower_components/'));
-
-    return mergeStream(uiElements, dataElements, serviceElements, themes);
+    var elements = gulp.src(global.config.elementsSourcePath).pipe(gulp.dest('bower_components/'));
+    
+    return mergeStream(elements);
 }
 
 module.exports = {

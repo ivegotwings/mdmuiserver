@@ -15,11 +15,7 @@ const gulp = require('gulp');
 const gulpif = require('gulp-if');
 const debug = require('gulp-debug');
 const browserSync = require('browser-sync');
-const superstatic = require('superstatic');
-
 const reload = browserSync.reload;
-
-var historyApiFallback = require('connect-history-api-fallback');
 
 // Got problems? Try logging 'em
 // const logging = require('plylog');
@@ -47,10 +43,8 @@ global.config = {
   swPrecacheConfig: {
     navigateFallback: '/index.html',
   },
-  uiElementsSourcePath: './src/ui-elements/**/*',
-  dataElementsSourcePath: './src/data-elements/**/*',
-  serviceElementsSourcePath: './src/service-elements/**/*',
-  themesSourcePath: './src/themes/**/*'
+  
+  elementsSourcePath: './src/elements/**/*',
 };
 
 // Add your own custom gulp tasks to the gulp-tasks directory
@@ -87,7 +81,7 @@ function dependencies() {
 // and process them, and output bundled and unbundled versions of the project
 // with their own service workers
 gulp.task('default', gulp.series([
-  project.copyReusableComponents,
+  //project.copyReusableComponents,
   clean.build,
   project.merge(source, dependencies),
   project.serviceWorker,
@@ -106,46 +100,12 @@ gulp.task('watch', function() {
       }
     },
     https: false,
-    //files: [".tmp/**/*.*", "src/**/*.*"],
+    files: [".tmp/**/*.*", "src/**/*.*"],
     proxy: 'http://localhost:8080',
   });
 
-  gulp.watch(['src/**/*'], gulp.series([project.copyReusableComponents, reload]));
-  //gulp.watch(['src/**/*'], reload);
+  //gulp.watch(['src/**/*'], gulp.series([project.copyReusableComponents, reload]));
+  gulp.watch(['src/**/*'], reload);
 });
-
-// // Watch Files For Changes & Reload
-// gulp.task('serveY', function () {
-//   var dirs = ['.tmp','src'];
-
-//   var mw = [
-//     function(req, res, next) {
-//       req.url = req.url.replace(/^\/components/,'/bower_components/');
-
-//       // if (req.url.indexOf('/bower_components') !== 0) return next();
-//       // req.url = req.url.replace(/^\/bower_components/,'');
-
-//       return superstatic({config: {root: 'src'}})(req,res,next);
-//     },
-//     superstatic({config: {root: '.tmp'}}),
-//     superstatic({config: {root: 'src'}})
-//   ];
-
-//   browserSync({
-//     notify: true,
-//     server: {
-//       baseDir: dirs,
-//       index: "./index.html",
-//       //middleware: mw,
-//       routes: {
-//         "/bower_components": "bower_components"
-//       }
-//     }
-//   });
-
-//   gulp.watch(['src/**/*.*'], reload);
-//   gulp.watch(['bower_components/**/*.*'], reload);
-
-// });
 
 gulp.task("copyX", gulp.series([project.copyReusableComponents]));
