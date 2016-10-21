@@ -1,1 +1,0 @@
-ruf-data-getentity
