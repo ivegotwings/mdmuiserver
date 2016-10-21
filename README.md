@@ -44,25 +44,17 @@ Below steps are needed every time you pull new changes, specially in the initial
 
 npm and bower will not install the components for which the required/latest versions are already available locally, so there is no harm in running them
 
-## Start the development server
+## Start the development server with live browser reloading
 
 This command serves the app at `http://localhost:8080` and provides basic URL
-routing for the app. Internally this command runs `gulp & polymer serve --open`
+routing for the app. Internally this command runs `polymer lint & polymer serve & gulp watch`
 
-    `npm run dev`
+    npm run dev
 
-Use below url format to view component's demo and API page:
+Use below url format to view element's demo and API page:
 
-    http://localhost:8080/components/{component-name}/
-    Example: http://localhost:8080/components/pebble-textbox/
-
-## Browser sync / Live reload changes
-
-Use below command in <b>different terminal</b> to live reload changes. 
-This command would serve only when `npm run dev` command is already running in different terminal.
-Internally this command runs `gulp watch`
-
-    `npm run watch`
+    http://localhost:8080/src/elements/{component-name}/
+    Example: http://localhost:8080/src/elements/pebble-textbox/
 
 ## Build
 
@@ -78,24 +70,21 @@ H2/push-compatible servers or to clients that do not support H2/Push.
 
 Internally this command runs `gulp & polymer build` 
 
-    `npm run build`
+    npm run build
 
 ## Preview the build
 
 This command serves the minified version of the app in an unbundled state, as it would
 be served by a push-compatible server. 
-Internally this command runs `gulp & polymer serve build/bundled`
+Internally this command runs `polymer lint & gulp & polymer serve build/bundled`
 
-    `npm run build/bundled`
+    npm run build/bundled
     # Open your browser and navigate to localhost:8080
 
-This command serves the minified version of the app generated using fragment bundling.
-Internally this command runs `gulp & polymer serve build/bundled`
+This command serves the unbundled version of the app generated using fragment bundling.
+Internally this command runs `polymer lint & gulp & polymer serve build/unbundled`
 
-    `npm run build/unbundled`
-    # Open your browser and navigate to localhost:8080
-
-    `polymer serve build/bundled`
+    npm run build/unbundled
     # Open your browser and navigate to localhost:8080
 
 ## Run tests
@@ -104,4 +93,4 @@ This command will run
 [Web Component Tester](https://github.com/Polymer/web-component-tester) against the
 browsers currently installed on your machine. Internally this command runs `gulp & polymer serve build/bundled`
 
-    `npm run test`
+    npm run test

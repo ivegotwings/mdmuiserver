@@ -15,11 +15,7 @@ const gulp = require('gulp');
 const gulpif = require('gulp-if');
 const debug = require('gulp-debug');
 const browserSync = require('browser-sync');
-const superstatic = require('superstatic');
-
 const reload = browserSync.reload;
-
-var historyApiFallback = require('connect-history-api-fallback');
 
 // Got problems? Try logging 'em
 // const logging = require('plylog');
