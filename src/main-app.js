@@ -8,25 +8,6 @@
       document.querySelector('#caching-complete').show();
     }
   };
-
-  // Toggle Drawer
-  app.toggleDrawer = function() {
-    var drawerPanel = document.getElementById('paperDrawerPanel');
-    if (drawerPanel.narrow) {
-      drawerPanel.togglePanel();
-    } else {
-      drawerPanel.classList.toggle('collapsed-menu');
-    }
-  };
-
-  // Scroll page to top and expand header
-  app.scrollPageToTop = function() {
-    document.getElementById('mainContainer').scrollTop = 0;
-  };
-
-  // Initial widgets cols number
-  app.cols = '2';
-
   // Firebase location
   app.location = 'https://polymer-admin.firebaseio.com';
 
