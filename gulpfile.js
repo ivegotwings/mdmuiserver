@@ -101,7 +101,7 @@ gulp.task('watch', function() {
     },
     https: false,
     files: [".tmp/**/*.*", "src/**/*.*"],
-    proxy: 'http://localhost:8080',
+    proxy: 'http://localhost:8080/index.html',
   });
 
   //gulp.watch(['src/**/*'], gulp.series([project.copyReusableComponents, reload]));
