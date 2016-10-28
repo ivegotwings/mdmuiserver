@@ -41,7 +41,7 @@ global.config = {
   // Service Worker precache options based on
   // https://github.com/GoogleChrome/sw-precache#options-parameter
   swPrecacheConfig: {
-    navigateFallback: '/index.html',
+    navigateFallback: '/',
   },
   
   elementsSourcePath: './src/elements/**/*',
@@ -101,7 +101,7 @@ gulp.task('watch', function() {
     },
     https: false,
     files: [".tmp/**/*.*", "src/**/*.*"],
-    proxy: 'http://localhost:8080/index.html',
+    proxy: 'http://localhost:8080',
   });
 
   //gulp.watch(['src/**/*'], gulp.series([project.copyReusableComponents, reload]));
