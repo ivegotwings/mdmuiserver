@@ -7,7 +7,10 @@
 Below steps are needed only for the first time when you setup your dev machine
 
 1. Install node.js server from https://nodejs.org/en/download/
-
+If installing on MAC OS open Terminal and run 
+        'echo $PATH'
+        Copy the Path returned
+        Set the updated path using the command 'PATH=<<old copied path>>:/usr/local/bin/node:/usr/local/bin/npm'
 2. Install git repository and configure it
 
     `https://git-scm.com/downloads`
@@ -15,15 +18,15 @@ Below steps are needed only for the first time when you setup your dev machine
 3. Install [bower](https://www.npmjs.com/package/bower)
 
     `npm install -g bower`
-
+ If installing on Mac OS, then run the command 'sudo npm install -g bower'
 4. Install [gulp](http://gulpjs.com/)
 
     `npm install -g gulp`
-
+If installing on Mac OS, then run the command 'sudo npm install -g gulp'
 5. Install [polymer-cli](https://github.com/Polymer/polymer-cli):
 
     `npm install -g polymer-cli`
-
+  If installing on Mac OS, then run the command 'sudo npm install -g polymer-cli'
 6. Clone this git repository, if you haven't done already. 
 This command would create local folder for the repository. Make sure you are in right folder. 
 
