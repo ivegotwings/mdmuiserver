@@ -1,0 +1,297 @@
+<!doctype html>
+
+<html>
+  <head>
+    <title>pebble-image-viewer test</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1, user-scalable=yes">
+    <script src="../../../../bower_components/webcomponentsjs/webcomponents-lite.js"></script>
+    <script src="../../../../bower_components/web-component-tester/browser.js"></script>
+
+    <link rel="import" href="../pebble-image-viewer.html">
+
+    <style is="custom-style">
+      .fixed-width-container {
+        width: 500px;
+      }
+
+      .fixed-width-container pebble-image-viewer {
+        width: 100%;
+        --pebble-image-width: 100%;
+      }
+
+      .fixed-height-container {
+        height: 500px;
+      }
+
+      .fixed-height-container pebble-image-viewer {
+        height: 100%;
+        --pebble-image-height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+
+    <test-fixture id="TrivialImage">
+      <template>
+        <pebble-image-viewer></pebble-image-viewer>
+      </template>
+    </test-fixture>
+
+    <test-fixture id="FixedWidthContainer">
+      <template>
+        <div class="fixed-width-container">
+          <pebble-image-viewer></pebble-image-viewer>
+        </div>
+      </template>
+    </test-fixture>
+
+    <test-fixture id="FixedHeightContainer">
+      <template>
+        <div class="fixed-height-container">
+          <pebble-image-viewer></pebble-image-viewer>
+        </div>
+      </template>
+    </test-fixture>
+
+    <script>
+    suite('<pebble-image>', function() {
+        function randomImageUrl () {
+          return '../../../../bower_components/iron-image/demo/polymer.svg?' + Math.random();
+        }
+
+        var image;
+
+        suite('basic behavior', function() {
+          setup(function() {
+            image = fixture('TrivialImage');
+          });
+
+          test('instantiating the element works', function() {
+            assert.equal(image.is, 'pebble-image-viewer');
+          });
+
+          test('loading, loaded, error are false before any src is set', function() {
+            expect(image.loading).to.be.eql(false);
+            expect(image.loaded).to.be.eql(false);
+            expect(image.error).to.be.eql(false);
+          });
+
+          test('loading, loaded, error are false when src is set to empty string', function(done) {
+            image.addEventListener('loaded-changed', function onLoadedChanged() {
+              if (image.loaded) {
+                image.removeEventListener('loaded-changed', onLoadedChanged);
+                image.addEventListener('loaded-changed', function onLoadedChanged2() {
+                  image.removeEventListener('loaded-changed', onLoadedChanged2);
+
+                  expect(image.loading).to.be.eql(false);
+                  expect(image.loaded).to.be.eql(false);
+                  expect(image.error).to.be.eql(false);
+                  done();
+                });
+
+                expect(image.loading).to.be.eql(false);
+                expect(image.loaded).to.be.eql(true);
+                expect(image.error).to.be.eql(false);
+                image.src = '';
+              }
+            });
+            image.src = randomImageUrl();
+          });
+
+          test('can load images given a src', function(done) {
+            image.addEventListener('loaded-changed', function onLoadedChanged() {
+              image.removeEventListener('loaded-changed', onLoadedChanged);
+
+              try {
+                expect(image.loaded).to.be.eql(true);
+                done();
+              } catch (e) {
+                done(e);
+              }
+            });
+            image.src = randomImageUrl();
+          });
+
+          test('will reload images when src changes', function(done) {
+            var loadCount = 0;
+
+            image.addEventListener('loaded-changed', function onLoadedChanged() {
+              if (image.loaded === true) {
+                loadCount++;
+
+                if (loadCount === 2) {
+                  image.removeEventListener('loaded-changed', onLoadedChanged);
+                  done();
+                } else {
+                  image.src = randomImageUrl();
+                }
+              }
+            });
+
+            image.src = randomImageUrl();
+          });
+
+          test('error property is set when the image fails to load', function(done) {
+            image.addEventListener('error-changed', function onErrorChanged() {
+              assert(image.error, 'image has error property set');
+              image.removeEventListener('error-changed', onErrorChanged);
+              done();
+            });
+
+            image.src = '/this_image_should_not_exist.jpg';
+          });
+
+           test('placeholder is hidden after loading when src is changed from invalid to valid', function(done) {
+            image.preload = true;
+
+            image.addEventListener('error-changed', function onErrorChanged() {
+              image.removeEventListener('error-changed', onErrorChanged);
+
+              assert.equal(image.loading, false, 'errored image loading = false');
+              assert.equal(image.loaded, false, 'errored image loaded = false');
+              assert.equal(image.error, true, 'errored image error = true');
+
+              image.addEventListener('loaded-changed', function onLoadedChanged() {
+                if (!image.loaded) return;
+
+                image.removeEventListener('loaded-changed', onLoadedChanged);
+
+                assert.equal(image.loading, false, 'ok image loading = false');
+                assert.equal(image.loaded, true, 'ok image loaded = true');
+                assert.equal(image.error, false, 'ok image error = false');
+                assert.equal(getComputedStyle(image.$.img.$.placeholder).display, 'none', 'placeholder has style.display = none');
+
+                done();
+              });
+
+              image.src = randomImageUrl();
+            });
+
+            image.src = '/this_image_should_not_exist.jpg';
+          });
+
+          test('image is not shown below placeholder if previous image was loaded with' +
+               ' sizing on and current image fails to load', function(done) {
+            image.preload = true;
+            image.sizing = 'cover';
+
+            image.addEventListener('loaded-changed', function onLoadedChanged() {
+              if (!image.loaded) return;
+              image.removeEventListener('loaded-changed', onLoadedChanged);
+
+              assert.notEqual(getComputedStyle(image.$.img.$.sizedImgDiv).backgroundImage, 'none', 'image visible after successful load');
+              assert.equal(getComputedStyle(image.$.img.$.placeholder).display, 'none', 'placeholder hidden after successful load');
+
+              image.addEventListener('error-changed', function onErrorChanged() {
+                if (!image.error) return;
+                image.removeEventListener('error-changed', onErrorChanged);
+
+                assert.equal(getComputedStyle(image.$.img.$.sizedImgDiv).backgroundImage, 'none', 'image hidden after failed load');
+                assert.notEqual(getComputedStyle(image.$.img.$.placeholder).display, 'none', 'placeholder visible after failed load');
+
+                done();
+              });
+
+              image.src = '/this_image_should_not_exist.jpg';
+            });
+
+            image.src = randomImageUrl();
+          });
+
+          test('image is fit into circular shape when shape attribute value given "circle"', function(done) {
+              image.sizing="contain";
+              image.shape = "circle";
+
+              image.addEventListener('loaded-changed', function onLoadedChanged() {
+                  if (!image.loaded) return;
+                  image.removeEventListener('loaded-changed', onLoadedChanged);
+
+                  expect(image.loaded).to.be.eql(true);
+                  assert.equal(getComputedStyle(image.$.img).borderRadius, '50%', 'Image fit into circular shape after successful load');
+                  done();
+              });
+              image.src = randomImageUrl();
+          });
+
+          test('primary image is clickable only when back ground image source is not given', function(done) {
+              image.addEventListener('loaded-changed', function onLoadedChanged() {
+                  if (!image.loaded) return;
+                  image.removeEventListener('loaded-changed', onLoadedChanged);
+
+                  assert.strictEqual(image.$.bigImage.src,'');
+                  assert.equal(image.$.img.onclick, null);
+                  done();
+              });
+              image.src = randomImageUrl();
+          });
+
+          test('primary image is clickable only when back ground image source is given', function(done) {
+              image.addEventListener('loaded-changed', function onLoadedChanged() {
+                  if (!image.loaded) return;
+                  image.removeEventListener('loaded-changed', onLoadedChanged);
+
+                  assert.strictEqual(image.$.bigImage.src,'http://localhost:8080/src/elements/pebble-image-viewer/demo/no-photo.jpg');
+                  assert.notEqual(image.$.img.onclick, 'null');
+                  done();
+              });
+              image.src = randomImageUrl();
+              image.bigImageSrc = '../demo/no-photo.jpg';
+          });
+        });
+
+        suite('--pebble-image-width, --pebble-image-height', function() {
+          var fixedWidthContainer;
+          var fixedWidthIronImage;
+          var fixedHeightContainer;
+          var fixedHeightIronImage;
+
+          setup(function() {
+            fixedWidthContainer = fixture('FixedWidthContainer');
+            fixedWidthPebbleImage = fixedWidthContainer.querySelector('pebble-image-viewer');
+            fixedHeightContainer = fixture('FixedHeightContainer');
+            fixedHeightPebbleImage = fixedHeightContainer.querySelector('pebble-image-viewer');
+          });
+
+          test('100% width image fills container', function(done) {
+            fixedWidthPebbleImage.$.img.$.img.addEventListener('load', function onLoadedChanged(e) {
+              fixedWidthPebbleImage.$.img.$.img.removeEventListener('load', onLoadedChanged);
+              Polymer.updateStyles();
+
+              var containerRect = fixedWidthContainer.getBoundingClientRect();
+              var pebbleImageRect = fixedWidthPebbleImage.getBoundingClientRect();
+              var wrappedImageRect = fixedWidthPebbleImage.$.img.$.img.getBoundingClientRect();
+
+              expect(containerRect.width).to.be.closeTo(500, 0.5);
+              expect(pebbleImageRect.width).to.be.closeTo(500, 0.5);
+              expect(wrappedImageRect.width).to.be.closeTo(500, 0.5);
+
+              done();
+            });
+
+            fixedWidthPebbleImage.src = randomImageUrl();
+          });
+
+          test('100% height image fills container', function(done) {
+            fixedHeightPebbleImage.$.img.$.img.addEventListener('load', function onLoadedChanged(e) {
+              fixedHeightPebbleImage.$.img.$.img.removeEventListener('load', onLoadedChanged);
+              Polymer.updateStyles();
+
+              var containerRect = fixedHeightContainer.getBoundingClientRect();
+              var pebbleImageRect = fixedHeightPebbleImage.getBoundingClientRect();
+              var wrappedImageRect = fixedHeightPebbleImage.$.img.$.img.getBoundingClientRect();
+
+              expect(containerRect.height).to.be.closeTo(500, 0.5);
+              expect(pebbleImageRect.height).to.be.closeTo(500, 0.5);
+              expect(wrappedImageRect.height).to.be.closeTo(500, 0.5);
+
+              done();
+            });
+
+            fixedHeightPebbleImage.src = randomImageUrl();
+          });
+        });
+      });
+    </script>
+  </body>
+</html>
