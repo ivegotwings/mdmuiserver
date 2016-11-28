@@ -1,5 +1,47 @@
 <link rel="import" href="../../../../bower_components/polymer/polymer.html">
 
+<!--
+`<rock-header>` Represents a header layout structure inside rock-layout. 
+This element is a child element of `<rock-layout>` element.
+
+It can contian any elements or components.
+
+### Accessibility
+
+Defualt behavior, header will get shrinked while scrolling of rock layout content.
+for that '<rock-header>' shold contain it's all content in two divs with class name of each `fixedContent` and `shrinkedContent`.
+So when header is shrinked then div with class `shrinkedContent` content will get render else div with class `fixedContent` will get render inside `<rock-header>`. 
+
+For example:
+
+    <rock-layout>
+        <rock-header>
+            <div class='fixedContent'>
+                fixed header content . . .
+            </div>
+            <div class='shrinkedContent'>
+                shrinked header content . . .
+            </div>
+        </rock-header>
+        main layout content . . .
+    </rock-layout>
+
+To make header frozen in rock layout use `frozen` property, so that header will not get shrinked.
+
+For example:
+
+    <rock-layout>
+        <rock-header frozen>
+            <div class='fixedContent'>
+                fixed header content . . .
+            </div>
+        </rock-header>
+        main layout content . . .
+    </rock-layout>
+
+@demo ../demo/index.html
+-->
+
 <dom-module id="rock-header">
     <template>
         <style>
@@ -10,12 +52,13 @@
             #rockHeaderContainer {
                 min-height: 85px;
                 height: auto;
-                border: 3px solid green;
-                width: inherit;
-                overflow-x: auto;
+                width: 100%;
                 white-space: normal;
+                overflow: hidden;
+                border-top: thin solid #D8DDE4;
+                border-bottom: thin solid #D8DDE4;
             }
-
+            
             @media only screen and (max-width: 768px) {
                 #rockHeaderContainer {
                     width: auto;
@@ -23,61 +66,117 @@
             }
         </style>
         <div id="rockHeaderContainer">
-            <content id="headerContent" select=".fixedContent"></content>
+            <div style="float:left; display:inline-block;">
+                <content select=".rock-header-right-sidebar">
+                </content>
+            </div>
+            <div id="fixedHeader" style="display:inline-block;">
+                <content id="headerContent" select=".fixedContent"></content>
+            </div>
+            <div id="shrinkedHeader" style="display:inline-block">
+                <content id="headerContent" select=".shrinkedContent"></content>
+            </div>
+            <div style="float:right; display:inline-block;">
+                <content select=".rock-header-left-sidebar">
+                </content>
+            </div>
         </div>
     </template>
     <script>
         Polymer({
             is: 'rock-header',
             properties: {
-                fixedPosition: {
+                /*
+                * Indicates that the header should be frozen or not while scrolling of rock layout content.
+                * If `true` then header will be frozen.
+                * If `false` then header will get shrinked while scrolling of rock layout content.
+                */
+                frozen: {
                     type: Boolean,
                     reflectToAttribute: true
                 }
             },
+            _headerContainerHeight: 0,
+            _scrollContentHeight: 0,
+            _shrinkableHeight:0,
+            _scrollableHeight:0,
+            _scrollableContainerHeight:0,
+            _lastTop:0,
             get _scrollerElement(){
                 return Polymer.dom(this).parentNode.$.rockLayoutContainer;
             },
             attached: function() {
                 this._scrollerElement.addEventListener('scroll', this.scrollHandler, false);
+                this._hideAndShowContent('inline-block','none');
             },
             ready: function() {
                 this.scrollHandler = this._scroll.bind(this);
             },
             _scroll: function() {
+                if(this._lastTop == 0){
+                    this._headerContainerHeight = this.$.rockHeaderContainer.offsetHeight;
+                    this._shrinkableHeight = this._headerContainerHeight - 40;
+                    this._scrollContentHeight = this._scrollerElement.scrollHeight;
+                    this._scrollableContainerHeight = this._scrollerElement.offsetHeight;
+                    this._scrollableHeight = this._scrollContentHeight - this._scrollableContainerHeight;
+                }
                 this._updateScrollState();
             },
             _updateScrollState: function() {
-                if(!this.fixedPosition)
+                if(!this.frozen)
                 {
                     var headerHeight = 0;
                     var scrollTop = this._scrollerElement.scrollTop;
-                    var shrinkedHeight = 43;
-                    var shrinkTimeDuration = 4;
-                    var fixedHeight = 85;
 
                     if(scrollTop > 0)
                     {
-                        if(scrollTop >= (shrinkedHeight * shrinkTimeDuration))
+                        if(this._scrollableHeight > (this._shrinkableHeight * 2))
                         {
-                            this.$.rockHeaderContainer.style.height = '43px';
-                            this.$.rockHeaderContainer.style.minHeight = '0px';
+                            if(scrollTop >= (this._headerContainerHeight - 40))
+                            {
+                                this.$.rockHeaderContainer.style.height = '40px';
+                                this.$.rockHeaderContainer.style.minHeight = '0px';
+                                this._hideAndShowContent('none','inline-block');
+                            }
+                            else
+                            {
+                                headerHeight = this._headerContainerHeight - scrollTop;
+                                this.$.rockHeaderContainer.style.height = headerHeight + 'px';
+                                this.$.rockHeaderContainer.style.minHeight = headerHeight + 'px';
+                                this._hideAndShowContent('inline-block','none');
+                            }
                         }
                         else
                         {
-                            headerHeight = (fixedHeight - (scrollTop/4));
-                            this.$.rockHeaderContainer.style.height = headerHeight + 'px';
-                            this.$.rockHeaderContainer.style.minHeight = headerHeight + 'px';
+                            this.$.rockHeaderContainer.style.height = '40px';
+                            this.$.rockHeaderContainer.style.minHeight = '0px';
+                            this._hideAndShowContent('none','inline-block');
                         }
-
-                        this.$.headerContent.select = '.shrinkedContent';
+                        
                     }
                     else if(scrollTop == 0)
                     {
                         this.$.rockHeaderContainer.style.height = 'auto';
-                        this.$.rockHeaderContainer.style.minHeight = fixedHeight + 'px';
+                        this.$.rockHeaderContainer.style.minHeight = this._headerContainerHeight + 'px';
                         this.$.headerContent.select = '.fixedContent';
+                        this._hideAndShowContent('inline-block','none');
                     }
+                    
+                    this._lastTop = scrollTop;
+                }
+            },
+            _hideAndShowContent: function(frozen, shrink) {
+                this.$.fixedHeader.style.display = frozen;
+                this.$.shrinkedHeader.style.display = shrink;
+                if(Polymer.dom(this).firstElementChild && Polymer.dom(this).firstElementChild.$)
+                {
+                    Polymer.dom(this).firstElementChild.$.fixedHeader.style.display = frozen;
+                    Polymer.dom(this).firstElementChild.$.shrinkedHeader.style.display = shrink;                    
+                }
+                if(Polymer.dom(this).lastElementChild && Polymer.dom(this).lastElementChild.$)
+                {
+                    Polymer.dom(this).lastElementChild.$.fixedHeader.style.display = frozen;
+                    Polymer.dom(this).lastElementChild.$.shrinkedHeader.style.display = shrink;
                 }
             }
         });
