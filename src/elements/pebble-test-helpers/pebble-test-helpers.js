@@ -1,10 +1,10 @@
-var TestHelpers = {};
+var PebbleTestHelpers = {};
 
 (function(scope, global) {
   'use strict';
 
   // In case the var above was not global, or if it was renamed.
-  global.TestHelpers = scope;
+  global.PebbleTestHelpers = scope;
 
   global.scrollTestHelper = function(scroller, test) {
 
@@ -29,4 +29,4 @@ var TestHelpers = {};
     }
 
   scope.scrollTestHelper = global.scrollTestHelper;
-})(TestHelpers, this);
+})(PebbleTestHelpers, this);
