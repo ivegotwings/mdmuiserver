@@ -1,41 +1,99 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
-
 <link rel="import" href="../rock-attribute/rock-attribute.html">
+<link rel="import" href="../pebble-horizontal-divider/pebble-horizontal-divider.html">
 <link rel="import" href="../liquid-entity-get/liquid-entity-get.html">
-
 <!--
 `rock-attribute-list` Represents attribute-list component in the framework.
 It renders the list of attributes based on the specified parameters.
 
 @demo demo/index.html 
 -->
-
 <dom-module id="rock-attribute-list">
   <template>
-    <style include="shared-styles"></style>
-    <template is="dom-repeat" items="[[_getAttributeModels(attributeModelResponse)]]">
-      <rock-attribute mode="{{mode}}" 
-         attribute-model-object="[[item]]" attribute-object="{{_getAttribute(item, attributeResponse)}}"></rock-attribute>
+    <style include="shared-styles">
+
+      .group-container {
+        /*border-top:1px solid black;*/
+        /*border-bottom:1px solid black;*/
+      }
+
+      .group-name {
+        font-weight: 500;
+        font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        clear: both;
+        padding-top: 10px;
+        margin: 0px;
+        font-size: 22px;
+      }
+      
+      .group-name-container {
+        clear: left;
+        @apply(--layout-horizontal);
+      }
+
+      .group-line-box {
+        margin-top:16px;
+        margin-left:8px;
+        margin-right:8px;
+        @apply(--layout-flex);
+      }
+      
+      .group-line-container {
+        float: right;
+        border-bottom: 1px solid black;
+      }
+      
+      .attribute-box {
+        display: inline-block;
+        /*border: 1px solid black;*/
+      }
+      
+      .attribute-box1 {
+        width: 100%;
+      }
+      
+      .attribute-box2 {
+        width: 49%;
+      }
+      
+      .attribute-box3 {
+        width: 33%;
+      }
+      pebble-horizontal-divider {
+            --pebble-horizontal-divider-color: black;
+        }
+    </style>
+    <template is="dom-repeat" items="[[_attributeValues]]" as="group">
+      <div class="group-container">
+        <div class="group-name-container" align="left">
+          <div class="group-name-box" style="display:inline-block"><span class="group-name">[[group.longName]]</span></div>
+          <div class="group-line-box"> <pebble-horizontal-divider></pebble-horizontal-divider></div>
+        </div>
+        <template is="dom-repeat" items="[[group.attributes]]" as="attribute">
+            <div class$="[[_getAttributeClass(noOfColumns)]]">
+              <rock-attribute mode="{{mode}}" attribute-model-object="[[_getAttributeModel(attributeModelResponse, attribute)]]" attribute-object="{{attribute.value}}" original-attribute-object="[[_cloneObject(attribute.value)]]"></rock-attribute>
+            </div>
+        </template>
+      </div>
     </template>
     <liquid-entity-get name="attributeGetService" request="{{attributeRequest}}" response="{{attributeResponse}}"></liquid-entity-get>
     <liquid-entity-get name="attributeModelGetService" request="{{attributeModelRequest}}" response="{{attributeModelResponse}}"></liquid-entity-get>
   </template>
-
   <script>
     (function() {
       'use strict';
-      console.log('outside polymer of list');
+      //console.log('outside polymer of list');
       
       Polymer({
         is: 'rock-attribute-list',
         created: function() {
-          console.log('list created');
+          //console.log('list created');
         },
         attached: function() {
-          console.log('list attached');
+          //console.log('list attached');
         },
         ready: function() {
-          console.log('list ready');
+          //console.log('list ready');
         },
         properties: {
           /**
@@ -44,7 +102,12 @@ It renders the list of attributes based on the specified parameters.
           */
           mode: {
             type: String,
-            value: "view"
+            value: "view",
+            notify: true
+          },
+          noOfColumns: {
+            type: Number,
+            value: 1
           },
           /**
           * Indicates the request object that is passed to the data element to retrive attribute data.
@@ -87,21 +150,124 @@ It renders the list of attributes based on the specified parameters.
             value: function(){
               return {};
             }
+          },
+          _attributeValues: {
+            type: Array,
+            value: function(){
+              return [];
+            }
           }
         },
-        _getAttribute: function(attributeModel, attributeResponse) {
-          if(attributeResponse && attributeResponse.returnValue 
-              && attributeResponse.returnValue.attributes && (attributeModel.name in attributeResponse.returnValue.attributes)){
-            return attributeResponse.returnValue.attributes[attributeModel.name];
+        observers: [
+          '_attributeResponseChanged(attributeResponse, attributeModelResponse)'
+        ],
+        _getAttributeClass: function(n) {
+          return "attribute-box attribute-box" + n;
+        },
+        _getAttribute: function(attributeModel, attributeValues) {
+          if(attributeModel && attributeValues && attributeModel.name in attributeValues){
+            var attribute = attributeValues[attributeModel.name];
+            return attribute;
           }
         },
-        _getAttributeModels: function(attributeModelResponse) {
+        _getAttributeGroups: function(attributeModelResponse) {
+          var groups = [];
           if(attributeModelResponse && attributeModelResponse.returnValue && attributeModelResponse.returnValue.attributeModels){
-            return attributeModelResponse.returnValue.attributeModels;
+            var groups = attributeModelResponse.returnValue.attributeModels;
+            var groupsArray = this._toArray(groups);
+            return groupsArray;
           }
+        },
+        _arrayExists: function(a, item) {
+          for(var i=0; i<a.length;i++) {
+            if(a[i].name === item.name) {
+              return true;
+            }
+          }
+          return false;
+        },
+        _toArray: function(obj) {
+          return Object.keys(obj).map(function(key) {
+            return obj[key];
+          });
+        },
+        _attributeResponseChanged: function(attributeResponse, attributeModelResponse) {
+          var values = [];
+          var locale = 'en-US', time = 'now', source = 'golden';
+          if(attributeResponse && attributeResponse.returnValue && attributeResponse.returnValue.attributes &&
+              attributeModelResponse && attributeModelResponse.returnValue && attributeModelResponse.returnValue.attributeModels){
+            values = this._transformAttributeToDisplayFormat(attributeResponse.returnValue.attributes, attributeModelResponse.returnValue.attributeModels, locale, time, source);
+          }
+          this._attributeValues = values;
+        },
+        _transformAttributeToDisplayFormat: function(attributes, attributeModels, locale, time, source) {
+          var attributesData = [];
+          for(var attributeGroupName in attributeModels) {
+            var attributeGroupJSON = {"name": attributeGroupName, "longName": attributeModels[attributeGroupName].longName, attributes: []};
+            for(var attributeModelName in attributeModels[attributeGroupName]) {
+              var value;
+              var attributeModel = attributeModels[attributeGroupName][attributeModelName];
+              if(attributeModel.name) {
+                var attribute = attributes[attributeModel.name];
+                if(attribute && attribute.values) {
+                  value = this._getCurrentValue(attribute.values, locale, time, source);
+                }
+                if(value == undefined) {
+                  value = this._getEmptyValue(locale, time, source);
+                }
+                var attributeJSON = {"name": attributeModel.name, "value": value};
+                attributeGroupJSON.attributes.push(attributeJSON);
+              }
+            }
+            attributesData.push(attributeGroupJSON)
+          }
+          //console.log(attributesData);
+          return attributesData;
+        },
+        _getCurrentValue: function(values, locale, time, source) {
+          var value;
+          if(values) {
+            for(var i=0;i<values.length;i++) {
+              var currentValue = values[i];
+              if(currentValue.locale && currentValue.locale != locale) {
+                continue;
+              }
+              if(currentValue.source && currentValue.source != source) {
+                continue;
+              }
+              value = currentValue;
+            }
+          }
+          return value;
+        },
+        _getEmptyValue: function(locale, time, source) {
+          return {
+            "value": "",
+            "locale": locale,
+            "time": time,
+            "source": source
+          };
+        },
+        _getAttributeModel: function(attributeModelResponse, attribute) {
+          if(attribute && attributeModelResponse && attributeModelResponse.returnValue 
+            && attributeModelResponse.returnValue.attributeModels){
+            for(var attributeGroupName in attributeModelResponse.returnValue.attributeModels) {
+              if(attribute.name in attributeModelResponse.returnValue.attributeModels[attributeGroupName]) {
+                return attributeModelResponse.returnValue.attributeModels[attributeGroupName][attribute.name];
+              }
+            }
+          }
+        },
+        getAttributeValues: function() {
+          return this._attributeValues;
+        },
+        _log: function(o) {
+          console.log(JSON.stringify(o));
+        },
+        _cloneObject: function(o) {
+          return JSON.parse(JSON.stringify(o));
         }
       });
     })();
   </script>
-
 </dom-module>
