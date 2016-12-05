@@ -1,30 +1,22 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
-
 <link rel="import" href="../../../bower_components/iron-flex-layout/iron-flex-layout.html">
 <link rel="import" href="../../../bower_components/paper-icon-button/paper-icon-button.html">
-
 <link rel="import" href="../../../bower_components/iron-menu-behavior/iron-menubar-behavior.html">
 <link rel="import" href="../../../bower_components/iron-resizable-behavior/iron-resizable-behavior.html">
-
 <link rel="import" href="../../../bower_components/paper-styles/color.html">
 <link rel="import" href="../../../bower_components/iron-icon/iron-icon.html">
 <link rel="import" href="../../../bower_components/paper-tabs/paper-tabs-icons.html">
-
 <link rel="import" href="../../../bower_components/pebble-styles-shared/pebble-styles-shared.html">
-
 <link rel="import" href="../pebble-tab/pebble-tab.html">
-
 <!--
 ` <pebble-tab-group>` Represents a group of tabs with Material Design styling.
 
 @demo demo/index.html
 -->
-
 <dom-module id="pebble-tab-group">
     <template>
-
         <style include="shared-styles">
-            :host {
+             :host {
                 @apply(--layout);
                 @apply(--layout-center);
                 height: 48px;
@@ -42,7 +34,7 @@
                 @apply(--paper-tabs);
             }
             
-            :host-context([dir=rtl]) {
+             :host-context([dir=rtl]) {
                 @apply(--layout-horizontal-reverse);
             }
             
@@ -78,7 +70,7 @@
                 min-width: 100%;
             }
             
-            #tabsContent.scrollable.fit-container >::content > * {
+            #tabsContent.scrollable.fit-container>::content>* {
                 /* IE - prevent tabs from compressing when they should scroll. */
                 -ms-flex: 1 0 auto;
                 -webkit-flex: 1 0 auto;
@@ -132,28 +124,21 @@
                 transition-timing-function: cubic-bezier(0.0, 0.0, 0.2, 1);
             }
             
-            #tabsContent >::content > *:not(#selectionBar) {
+            #tabsContent>::content>*:not(#selectionBar) {
                 height: 100%;
             }
-
-            
         </style>
-
-        <paper-icon-button icon="paper-tabs:chevron-left" class$="[[_computeScrollButtonClass(_leftHidden, scrollable, hideScrollButtons)]]"
-            on-up="_onScrollButtonUp" on-down="_onLeftScrollButtonDown" tabindex="-1"></paper-icon-button>
-
         <div id="tabsContainer" on-track="_scroll" on-down="_down">
             <div id="tabsContent" class$="[[_computeTabsContentClass(scrollable, fitContainer)]]">
                 <div id="selectionBar" class$="[[_computeSelectionBarClass(noBar, alignBottom)]]" on-transitionend="_onBarTransitionEnd"></div>
                 <content select="*"></content>
             </div>
         </div>
-
+        <paper-icon-button icon="paper-tabs:chevron-left" class$="[[_computeScrollButtonClass(_leftHidden, scrollable, hideScrollButtons)]]"
+            on-up="_onScrollButtonUp" on-down="_onLeftScrollButtonDown" tabindex="-1"></paper-icon-button>
         <paper-icon-button icon="paper-tabs:chevron-right" class$="[[_computeScrollButtonClass(_rightHidden, scrollable, hideScrollButtons)]]"
             on-up="_onScrollButtonUp" on-down="_onRightScrollButtonDown" tabindex="-1"></paper-icon-button>
-
     </template>
-
     <script>
 
         (function() {
@@ -291,6 +276,16 @@
                     data: {
                         type: Object,
                         notify: true
+                    },
+
+                    _isMenuItemClicked: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    _isDropdownMenuIconClicked: {
+                        type: Boolean,
+                        value: false
                     }
                 },
 
@@ -345,7 +340,8 @@
                     }
 
                     if (hideThisButton) {
-                        return 'not-visible';
+                        // Note: Show both icons on a page 
+                        // return 'not-visible';
                     }
 
                     return '';
@@ -373,6 +369,13 @@
                 },
 
                 _onIronSelect: function(event) {
+                    // Note: More Info. available in Select method
+                    if(event.srcElement.nodeName === "PAPER-MENU") {
+                        this._isMenuItemClicked = true;
+                    }
+
+                    this._isDropdownMenuIconClicked = false;
+                    
                     this._tabChanged(event.detail.item, this._previousTab);
                     this._previousTab = event.detail.item;
                     this.cancelDebouncer('tab-changed');
@@ -390,6 +393,12 @@
                     // Cancel item activations scheduled by keyboard events when any other
                     // action causes an item to be activated (e.g. clicks).
                     this._cancelPendingActivation();
+                    if (arguments && arguments[0]) {
+                        if ((arguments[0].srcElement.nodeName === "PAPER-ICON-BUTTON" || arguments[0].srcElement.nodeName === "IRON-ICON" ) && 
+                            arguments[0].srcElement.parentElement.classList.contains("dropdown-trigger")) {
+                            this._isDropdownMenuIconClicked = true; // Note: More Info. available in Select method
+                        }
+                    }
 
                     Polymer.IronMenuBehaviorImpl._activateHandler.apply(this, arguments);
                 },
@@ -595,7 +604,34 @@
                     } else if (cl.contains('contract')) {
                         cl.remove('contract');
                     }
-                }            
+                },
+
+                select: function(item) {
+                    /*
+                     Hacky Work: Here we have overrided the method of IronSelection Behaviour
+                     Issue 1: If a user has loaded some content of a menuitem and now if user wants to loaded the content of a tab, then
+                              it will not work because the tabitem selection has not been changed.
+                     Fix: Added a flag "_isMenuItemClicked". If true then allow then control to load tab content else ignore
+
+                     Issue 2: Whenever user clicks on dropdown menu button, the tab selection event was triggering first and it was loading
+                              the content of a tab which should not happen as per the requirement.
+                     Fix: To resolve this we added a flag "_isDropdownMenuIconClicked" to verify that if dropdownMenuIconClicked then 
+                          do not load then tab content.  
+                     */
+                    
+                    if (this._isDropdownMenuIconClicked) {
+                        return;
+                    }
+
+                    item = this.querySelectorAll('pebble-tab')[item];
+                    if (this._selection.multi) {
+                        this._selection.toggle(item);
+                    } else if (this._selection.get() !== item || this._isMenuItemClicked) {
+                        this._selection.setItemSelected(this._selection.get(), false);
+                        this._selection.setItemSelected(item, true);
+                        this._isMenuItemClicked = false;
+                    }
+                }  
             });
         })();
 
