@@ -89,27 +89,13 @@ var EntityRouterBase = Router.createClass([
                         });
                     }
                     else {
-                        var entities = JSON.stringify(resultData);
-
-                        //console.log(entities);
-
                         var index = 0;
                         resultData.forEach(function (entity) {
                             if (entity.id !== undefined) {
                                 results.push({
                                     path: ['searchResult', requestId, "entities", index++],
-                                    value: $atom(['entitiesById', entity.id])
+                                    value: $ref(['entitiesById', entity.id])
                                 });
-
-                                // var entityAsString = JSON.stringify(entity);
-
-                                //  results.push({
-                                //     path: ['entitiesById', entity.id], 
-                                //     value: entityAsString
-                                // });
-                            }
-                            else {
-                                console.log('entity not found');
                             }
                         });
 
@@ -121,7 +107,7 @@ var EntityRouterBase = Router.createClass([
                 }
             });
 
-            console.log(results);
+            //console.log(results);
             return results;
         }
     },
