@@ -61,8 +61,8 @@ var EntityRouterBase = Router.createClass([
         get: function (pathSet) {
             var results = [];
 
-            console.log(pathSet.requestIds);
-            console.log(pathSet.entityRanges);
+            //console.log(pathSet.requestIds);
+            //console.log(pathSet.entityRanges);
 
             var requestId = pathSet.requestIds[0];
 
@@ -116,14 +116,14 @@ var EntityRouterBase = Router.createClass([
         get: function (pathSet) {
             var results = [];
 
-            console.log(pathSet.requestIds);
+            //console.log(pathSet.requestIds);
 
             var serviceResult = require("../data/entityJson_EXTERNAL.json");
 
             //console.log(serviceResult);
 
             pathSet.requestIds.forEach(function (request) {
-                console.log(request);
+                //console.log(request);
 
                 //var requestDataObj = JSON.parse(request).requestData;
 
@@ -154,7 +154,7 @@ var EntityRouterBase = Router.createClass([
                 }
             });
 
-            console.log(results);
+            //console.log(results);
             return results;
         }
     }
