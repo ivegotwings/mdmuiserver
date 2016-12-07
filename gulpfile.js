@@ -113,13 +113,12 @@ gulp.task('watch', function() {
 
 gulp.task("copyX", gulp.series([project.copyReusableComponents]));
 
-
+//env: { 'NODE_ENV': 'development', 'DEBUG':'express:*' }
 gulp.task('app', function (cb) {
   var started = false;
   return nodemon({
     script: 'src/server/app.js',
     nodeArgs:['--debug']
-    //env: { 'NODE_ENV': 'development', 'DEBUG':'express:*' }
   }).on('start', function () {
     // to avoid nodemon being started multiple times
     if (!started) {

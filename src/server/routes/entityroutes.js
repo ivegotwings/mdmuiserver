@@ -5,9 +5,11 @@ var falcorExpress = require('falcor-express'),
     flatten = require('flatten'),
     Promise = require('promise'),
     jsonGraph = require('falcor-json-graph'),
+    uuidV1 = require('uuid/v1'),
     $ref = jsonGraph.ref,
     $error = jsonGraph.error,
-    $atom = jsonGraph.atom;
+    $atom = jsonGraph.atom,
+    expireTime = -60 * 60 * 1000; // 60 mins
 
 var EntityRouterBase = Router.createClass([
     {
@@ -18,8 +20,10 @@ var EntityRouterBase = Router.createClass([
             //console.log(callPath);
             //console.log(args);
 
-            var requestId = args[0],
-                request = args[1];
+            var requestId = uuidV1(),
+                request = args[0];
+
+            //console.log(requestId);
 
             var serviceResult = require("../data/entityJson_EXTERNAL.json");
 
@@ -37,15 +41,23 @@ var EntityRouterBase = Router.createClass([
                     if (entity.id !== undefined) {
                         results.push({
                             path: ['searchResults', requestId, "entities", entity.id],
-                            value: $ref(['entitiesById', entity.id])
+                            value: $ref(['entitiesById', entity.id]),
+                            $expires: expireTime
                         });
                     }
                 });
             }
 
             results.push({
+                path: ['searchResults', requestId, "requestId"],
+                value: $atom(requestId),
+                $expires: expireTime
+            });
+
+            results.push({
                 path: ['searchResults', requestId, "request"],
-                value: $atom(request)
+                value: $atom(request),
+                $expires: expireTime
             });
 
             //console.log(results);   

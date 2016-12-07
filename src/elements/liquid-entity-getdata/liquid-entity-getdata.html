@@ -16,7 +16,7 @@ Boolean control
         is: 'liquid-entity-getdata',
         attached: function() {
           //console.log(this.id + " service attached");
-          this._makeServiceCall(this);
+          //this._makeServiceCall(this.requestId, this.request);
         },
         ready: function(){
           //console.log(this.id + " service ready");
@@ -137,30 +137,49 @@ Boolean control
             },
             notify: true
           },
+          requestId:{
+              type: String,
+              value: '',
+              notify: true
+          },
           logInternalDetail:{
             type: Boolean,
             value: false,
             notify: true
           },
         },
-        _makeServiceCall: function(self) {
-            if(self.request){
+        observers: [    
+            '_makeServiceCall(requestId, request)'
+        ],
+        _makeServiceCall: function(requestId, request) {
+            var operation = this.operation, response = this.response, self = this;
+            //var request = this.request;
+            if(request){
                 var falcorDataSource = new falcor.HttpDataSource('http://localhost:5005/entityData.json', { crossDomain: true, withCredentials: false } );
-                var model = new falcor.Model({source: falcorDataSource});
-                var _this = this;
+                var model = new falcor.Model({source: falcorDataSource, maxSize: 15000, collectRatio: 0.75});
+                var self = this;
 
-                var requestId = self.request.requestData.requestId;
+                if(operation == 'initiatesearch') {
+                    model.call(["searchResults", "create"], [request],[],[]).then(function(initiateSearchResponsePkg){
+                        
+                        var responseObj = {'requestId': Object.keys(initiateSearchResponsePkg.json.searchResults)[0]};
 
-                if(self.operation == 'initiatesearch') {
-                    model.call(["searchResults", "create"], [requestId, self.request],[],[]).then(function(entityResponsePkg){
-                        //console.log(entityResponsePkg);
-                        console.log('model cache after initiatesearch call');
-                        console.log(model.getCache());
+                        if(self.logInternalDetail){
+                            console.log('model cache after initiatesearch call');
+                            console.log(model.getCache());
+                            console.log('Response from initiate search ' + JSON.stringify(responseObj));
+                        }
+
+                        self.set('response', responseObj);
                     });
                 }
-                else if(self.operation == 'getsearchresultdetail') {
-                    console.log('model cache before getsearchresultdetail call');
-                    console.log(model.getCache());
+                else if(requestId != '' && operation == 'getsearchresultdetail') {
+                    if(self.logInternalDetail){
+                        console.log('RequestId inside getsearchresultdetail ' + requestId);
+                        console.log('model cache before getsearchresultdetail call');
+                        console.log(model.getCache());
+                    }
+
                     model.get(["searchResults", [requestId], "entities"]).then(function(searchResponsePkg) {
                             if(searchResponsePkg !== undefined){
                                 console.log(searchResponsePkg);
@@ -178,19 +197,19 @@ Boolean control
                                 
                                 model.get(["entitiesById", entityListToGet]).then(function(entityResponsePkg) {
                                         //console.log(entityResponsePkg.json);
-                                        self.response = {"response": {"entities": entityResponsePkg.json.entitiesById}};
+                                        response = {"response": {"entities": entityResponsePkg.json.entitiesById}};
 
                                         if(self.logInternalDetail){
                                             console.log('Request');
-                                            console.log(self.request);
+                                            console.log(request);
                                             console.log('response');
-                                            console.log(self.response);
+                                            console.log(response);
                                         }
                                     });
                             }
                         });
                 }
-                else if(self.operation == 'getentitybyquery'){
+                else if(operation == 'getentitybyquery'){
                     var entityId = request.requestData.query.id;
                     model.get(["entitiesById", entityId, request]).then(function(entityResponsePkg) {
                             //console.log(entityResponsePkg.json);
@@ -198,9 +217,9 @@ Boolean control
 
                             if(self.logInternalDetail){
                                 console.log('Request');
-                                console.log(self.request);
+                                console.log(request);
                                 console.log('response');
-                                console.log(self.response);
+                                console.log(response);
                             }
                             });
                 }
@@ -208,13 +227,13 @@ Boolean control
                     var entityId = request.requestData.query.id;
                     model.get(["entitiesById", entityId, query]).then(function(entityResponsePkg) {
                             //console.log(entityResponsePkg.json);
-                            self.response = {"response": {"entities": entityResponsePkg.json.entitiesById}};
+                            response = {"response": {"entities": entityResponsePkg.json.entitiesById}};
 
                             if(self.logInternalDetail){
                                 console.log('Request');
-                                console.log(self.request);
+                                console.log(request);
                                 console.log('response');
-                                console.log(self.response);
+                                console.log(response);
                             }
                             });
                 }
