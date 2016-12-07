@@ -73,51 +73,11 @@ var EntityRouterBase = Router.createClass([
             var requestId = pathSet.requestIds[0];
             //console.log(requestId);
 
-            var serviceResult = require("../data/entityJson_EXTERNAL.json");
-
-            pathSet.requestIds.forEach(function(request) {
-                if (request != requestId) {
-                    //console.log(request);
-
-                    results.push({
-                        path: ['searchResults', requestId, "entities", index++],
-                        value: $ref(['entitiesById', entity.id])
-                    });
-
-                    var requestDataObj = JSON.parse(request).requestData;
-
-                    //console.log(requestDataObj);
-
-                    var resultData = serviceResult["dataObjects"];
-
-                    //console.log(resultData);
-
-                    if (resultData === undefined) {
-                        results.push({
-                            path: ['searchResult', requestId],
-                            value: $error('data not found in system')
-                        });
-                    }
-                    else {
-                        var index = 0;
-                        resultData.forEach(function(entity) {
-                            if (entity.id !== undefined) {
-                                results.push({
-                                    path: ['searchResults', requestId, "entities", index++],
-                                    value: $ref(['entitiesById', entity.id])
-                                });
-                            }
-                        });
-
-                        results.push({
-                            path: ['searchResult', request],
-                            value: 'success'
-                        });
-                    }
-                }
+            results.push({
+                path: ['searchResults', requestId],
+                value: $error('search result is expired. Retry the search operation.')
             });
 
-            //console.log(results);
             return results;
         }
     },
