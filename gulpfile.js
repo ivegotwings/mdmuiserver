@@ -119,6 +119,7 @@ gulp.task('app', function (cb) {
   return nodemon({
     script: 'src/server/app.js',
     nodeArgs:['--debug']
+    //env: { 'NODE_ENV': 'development', 'DEBUG':'express:*' }
   }).on('start', function () {
     // to avoid nodemon being started multiple times
     if (!started) {

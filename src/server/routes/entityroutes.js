@@ -11,8 +11,105 @@ var falcorExpress = require('falcor-express'),
 
 var EntityRouterBase = Router.createClass([
     {
+        route: 'searchResults.create',
+        call: function(callPath, args) {
+            var results = [];
+
+            //console.log(callPath);
+            //console.log(args);
+
+            var requestId = args[0],
+                request = args[1];
+
+            var serviceResult = require("../data/entityJson_EXTERNAL.json");
+
+            var resultData = serviceResult["dataObjects"];
+
+            if (resultData === undefined) {
+                results.push({
+                    path: ['searchResult', requestId],
+                    value: $error('data not found in system')
+                });
+            }
+            else {
+                var index = 0;
+                resultData.forEach(function(entity) {
+                    if (entity.id !== undefined) {
+                        results.push({
+                            path: ['searchResults', requestId, "entities", entity.id],
+                            value: $ref(['entitiesById', entity.id])
+                        });
+                    }
+                });
+            }
+
+            results.push({
+                path: ['searchResults', requestId, "request"],
+                value: $atom(request)
+            });
+
+            //console.log(results);   
+            return results;
+        }
+    },
+    {
+        route: 'searchResult[{keys:requestIds}].entities[{ranges:entityRanges}]',
+        get: function(pathSet) {
+            var results = [];
+
+            //console.log(pathSet.requestIds);
+            //console.log(pathSet.entityRanges);
+
+            var requestId = pathSet.requestIds[0];
+
+            //console.log(requestId);
+
+            var serviceResult = require("../data/entityJson_EXTERNAL.json");
+
+            pathSet.requestIds.forEach(function(request) {
+                if (request != requestId) {
+                    //console.log(request);
+
+                    var requestDataObj = JSON.parse(request).requestData;
+
+                    //console.log(requestDataObj);
+
+                    var resultData = serviceResult["dataObjects"];
+
+                    //console.log(resultData);
+
+                    if (resultData === undefined) {
+                        results.push({
+                            path: ['searchResult', requestId],
+                            value: $error('data not found in system')
+                        });
+                    }
+                    else {
+                        var index = 0;
+                        resultData.forEach(function(entity) {
+                            if (entity.id !== undefined) {
+                                results.push({
+                                    path: ['searchResults', requestId, "entities", index++],
+                                    value: $ref(['entitiesById', entity.id])
+                                });
+                            }
+                        });
+
+                        results.push({
+                            path: ['searchResult', request],
+                            value: 'success'
+                        });
+                    }
+                }
+            });
+
+            //console.log(results);
+            return results;
+        }
+    },
+    {
         route: "entitiesById[{keys:ids}]",
-        get: function (pathSet) {
+        get: function(pathSet) {
 
             //console.log('entitiesById call:' + pathSet);
 
@@ -21,7 +118,7 @@ var EntityRouterBase = Router.createClass([
 
             var serviceResult = require("../data/entityJson_EXTERNAL.json");
 
-            pathSet.ids.forEach(function (id) {
+            pathSet.ids.forEach(function(id) {
 
                 //console.log(id);
 
@@ -29,7 +126,7 @@ var EntityRouterBase = Router.createClass([
 
                 //console.log(resultData);
 
-                resultData.forEach(function (obj) {
+                resultData.forEach(function(obj) {
                     if (obj.id == id) {
                         entity = obj;
                         return false;
@@ -56,64 +153,10 @@ var EntityRouterBase = Router.createClass([
             return results;
         }
     },
-    {
-        route: 'searchResult[{keys:requestIds}].entities[{ranges:entityRanges}]',
-        get: function (pathSet) {
-            var results = [];
 
-            //console.log(pathSet.requestIds);
-            //console.log(pathSet.entityRanges);
-
-            var requestId = pathSet.requestIds[0];
-
-            //console.log(requestId);
-
-            var serviceResult = require("../data/entityJson_EXTERNAL.json");
-
-            pathSet.requestIds.forEach(function (request) {
-                if (request != requestId) {
-                    //console.log(request);
-
-                    var requestDataObj = JSON.parse(request).requestData;
-
-                    //console.log(requestDataObj);
-
-                    var resultData = serviceResult["dataObjects"];
-
-                    //console.log(resultData);
-
-                    if (resultData === undefined) {
-                        results.push({
-                            path: ['searchResult', requestId],
-                            value: $error('data not found in system')
-                        });
-                    }
-                    else {
-                        var index = 0;
-                        resultData.forEach(function (entity) {
-                            if (entity.id !== undefined) {
-                                results.push({
-                                    path: ['searchResult', requestId, "entities", index++],
-                                    value: $ref(['entitiesById', entity.id])
-                                });
-                            }
-                        });
-
-                        results.push({
-                            path: ['searchResult', request],
-                            value: 'success'
-                        });
-                    }
-                }
-            });
-
-            //console.log(results);
-            return results;
-        }
-    },
     {
         route: "searchResultById[{keys:requestIds}]",
-        get: function (pathSet) {
+        get: function(pathSet) {
             var results = [];
 
             //console.log(pathSet.requestIds);
@@ -122,7 +165,7 @@ var EntityRouterBase = Router.createClass([
 
             //console.log(serviceResult);
 
-            pathSet.requestIds.forEach(function (request) {
+            pathSet.requestIds.forEach(function(request) {
                 //console.log(request);
 
                 //var requestDataObj = JSON.parse(request).requestData;
@@ -160,19 +203,20 @@ var EntityRouterBase = Router.createClass([
     }
 ]);
 
-var EntityRouter = function () {
+var EntityRouter = function() {
+    //console.log(this);
     EntityRouterBase.call(this);
 };
 
 EntityRouter.prototype = Object.create(EntityRouterBase.prototype);
 
-module.exports = function () {
+module.exports = function() {
     return new EntityRouter();
 };
 
-module.exports = function (app) {
+module.exports = function(app) {
     app.use('/entityData.json',
-        falcorExpress.dataSourceRoute(function (req, res) {
+        falcorExpress.dataSourceRoute(function(req, res) {
             return new EntityRouter();
         }));
 };
