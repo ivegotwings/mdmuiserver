@@ -17,6 +17,9 @@ const debug = require('gulp-debug');
 const browserSync = require('browser-sync');
 const reload = browserSync.reload;
 
+const nodemon = require('gulp-nodemon');
+
+
 // Got problems? Try logging 'em
 // const logging = require('plylog');
 // logging.setVerbose();
@@ -109,3 +112,18 @@ gulp.task('watch', function() {
 });
 
 gulp.task("copyX", gulp.series([project.copyReusableComponents]));
+
+
+gulp.task('app', function (cb) {
+  var started = false;
+  return nodemon({
+    script: 'src/server/app.js',
+    nodeArgs:['--debug']
+  }).on('start', function () {
+    // to avoid nodemon being started multiple times
+    if (!started) {
+      cb();
+      started = true;
+    }
+  });
+});
