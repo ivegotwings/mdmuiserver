@@ -17,13 +17,10 @@ var EntityRouterBase = Router.createClass([
         call: function(callPath, args) {
             var results = [];
 
-            //console.log(callPath);
-            //console.log(args);
+            //console.log(callPath, args);
 
             var requestId = uuidV1(),
                 request = args[0];
-
-            //console.log(requestId);
 
             var serviceResult = require("../data/entityJson_EXTERNAL.json");
 
@@ -37,11 +34,14 @@ var EntityRouterBase = Router.createClass([
             }
             else {
                 var index = 0;
+                var entityIdArray = [];
                 resultData.forEach(function(entity) {
                     if (entity.id !== undefined) {
+                        //entityIdArray.push(entity.id);
                         results.push({
-                            path: ['searchResults', requestId, "entities", entity.id],
-                            value: $ref(['entitiesById', entity.id]),
+                            path: ['searchResults', requestId, "entities", index++],
+                            $type: "ref",
+                            value: $ref({'id': entity.id}),
                             $expires: expireTime
                         });
                     }
@@ -65,15 +65,12 @@ var EntityRouterBase = Router.createClass([
         }
     },
     {
-        route: 'searchResult[{keys:requestIds}].entities[{ranges:entityRanges}]',
+        route: 'searchResults[{keys:requestIds}].entities[{ranges:entityRanges}]',
         get: function(pathSet) {
             var results = [];
-
-            //console.log(pathSet.requestIds);
-            //console.log(pathSet.entityRanges);
+            //console.log(pathSet.requestIds, pathSet.entityRanges);
 
             var requestId = pathSet.requestIds[0];
-
             //console.log(requestId);
 
             var serviceResult = require("../data/entityJson_EXTERNAL.json");
@@ -81,6 +78,11 @@ var EntityRouterBase = Router.createClass([
             pathSet.requestIds.forEach(function(request) {
                 if (request != requestId) {
                     //console.log(request);
+
+                    results.push({
+                        path: ['searchResults', requestId, "entities", index++],
+                        value: $ref(['entitiesById', entity.id])
+                    });
 
                     var requestDataObj = JSON.parse(request).requestData;
 
@@ -157,54 +159,6 @@ var EntityRouterBase = Router.createClass([
                     results.push({
                         path: ['entitiesById', id],
                         value: $atom(entity)
-                    });
-                }
-            });
-
-            //console.log(results);
-            return results;
-        }
-    },
-
-    {
-        route: "searchResultById[{keys:requestIds}]",
-        get: function(pathSet) {
-            var results = [];
-
-            //console.log(pathSet.requestIds);
-
-            var serviceResult = require("../data/entityJson_EXTERNAL.json");
-
-            //console.log(serviceResult);
-
-            pathSet.requestIds.forEach(function(request) {
-                //console.log(request);
-
-                //var requestDataObj = JSON.parse(request).requestData;
-
-                //console.log(requestDataObj);
-
-                var requestId = request;
-
-                //console.log(requestId);
-
-                var resultData = serviceResult["dataObjects"];
-
-                //console.log(resultData);
-
-                if (resultData === undefined) {
-                    results.push({
-                        path: ['searchResultById', requestId],
-                        value: $error('data not found in system')
-                    });
-                }
-                else {
-                    var entities = JSON.stringify(resultData);
-
-                    //console.log(entities);
-                    results.push({
-                        path: ['searchResultById', requestId],
-                        value: entities
                     });
                 }
             });
