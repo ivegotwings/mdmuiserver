@@ -1,5 +1,6 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
-<script src="../../../node_modules/falcor/dist/falcor.browser.js"></script>
+
+<link rel="import" href="./DataChannelBehavior.html">
 <!--
 `liquid-entity-getdata`
 Boolean control
@@ -15,18 +16,15 @@ Boolean control
 
       Polymer({
         is: 'liquid-entity-getdata',
+        behaviors: [RUFBehaviors.DataChannel],
         attached: function() {
-          //console.log(this.id + " service attached");
-          //this._makeServiceCall(this.requestId, this.request);
         },
         ready: function(){
-          //console.log(this.id + " service ready");
         },
         properties: {
           operation: {
-              type: String,  // 'getentitybyid', 'initiatesearch', 'getsearchresultdetail'
-              value: 'initiatesearch'
-              //value: 'getsearchresultdetail' 
+              type: String, // 'initiatesearch', 'getsearchresultdetail', 'getentities'
+              value: ''
           },
           request: {
             type: Object,
@@ -147,98 +145,103 @@ Boolean control
             type: Boolean,
             value: false,
             notify: true
-          },
+          }
         },
         observers: [    
             '_makeServiceCall(requestId, request)'
         ],
         _makeServiceCall: function(requestId, request) {
-            var operation = this.operation, response = this.response, self = this;
-            //var request = this.request;
+            var operation = this.operation, 
+                self = this;
+
             if(request){
-                var falcorDataSource = new falcor.HttpDataSource('http://localhost:5005/entityData.json', { crossDomain: true, withCredentials: false } );
-                var model = new falcor.Model({source: falcorDataSource, maxSize: 15000, collectRatio: 0.75});
-                var self = this;
+                var model = RUFBehaviors.DataChannel.getModel();
 
                 if(operation == 'initiatesearch') {
-                    model.call(["searchResults", "create"], [request],[],[]).then(function(initiateSearchResponsePkg){
-                        
-                        var responseObj = {'requestId': Object.keys(initiateSearchResponsePkg.json.searchResults)[0]};
-
-                        if(self.logInternalDetail){
-                            console.log('model cache after initiatesearch call');
-                            console.log(model.getCache());
-                            console.log('Response from initiate search ' + JSON.stringify(responseObj));
-                        }
-
-                        self.set('response', responseObj);
-                    });
+                    self._callInitiateSearch(self, model, request);
                 }
                 else if(requestId != '' && operation == 'getsearchresultdetail') {
-                    if(self.logInternalDetail){
-                        console.log('RequestId inside getsearchresultdetail ' + requestId);
-                        console.log('model cache before getsearchresultdetail call');
-                        console.log(model.getCache());
-                    }
-
-                    model.get(["searchResults", [requestId], "entities"]).then(function(searchResponsePkg) {
-                            if(searchResponsePkg !== undefined){
-                                console.log(searchResponsePkg);
-
-                                var entities = searchResponsePkg.json.searchResults[requestId].entities;
-                                //console.log(entities);
-
-                                var entityListToGet = [];
-                                for(var e in entities){
-                                    var entity = entities[e];
-                                    //console.log(entity);
-                                    entityListToGet.push(entity[1]);
-                                }
-                                //console.log(entityListToGet);
-                                
-                                model.get(["entitiesById", entityListToGet]).then(function(entityResponsePkg) {
-                                        //console.log(entityResponsePkg.json);
-                                        response = {"response": {"entities": entityResponsePkg.json.entitiesById}};
-
-                                        if(self.logInternalDetail){
-                                            console.log('Request');
-                                            console.log(request);
-                                            console.log('response');
-                                            console.log(response);
-                                        }
-                                    });
-                            }
-                        });
+                    self._callSearchResultDetail(self, model, requestId, request);
                 }
-                else if(operation == 'getentitybyquery'){
-                    var entityId = request.requestData.query.id;
-                    model.get(["entitiesById", entityId, request]).then(function(entityResponsePkg) {
-                            //console.log(entityResponsePkg.json);
-                            self.response = {"response": {"entities": entityResponsePkg.json.entitiesById}};
-
-                            if(self.logInternalDetail){
-                                console.log('Request');
-                                console.log(request);
-                                console.log('response');
-                                console.log(response);
-                            }
-                            });
-                }
-                else if(self.operation == 'getentitybyid' && request.requestData && request.requestData.query){
-                    var entityId = request.requestData.query.id;
-                    model.get(["entitiesById", entityId, request]).then(function(entityResponsePkg) {
-                            //console.log(entityResponsePkg.json);
-                            self.response = {"response": {"entities": entityResponsePkg.json.entitiesById}};
-
-                            if(self.logInternalDetail){
-                                console.log('Request');
-                                console.log(request);
-                                console.log('response');
-                                console.log(response);
-                            }
-                            });
+                else if(operation == 'getentities') {
+                    self._callGetEntities(self, model, request);
                 }
             }
+        },
+        _callInitiateSearch: function(self, model, request){
+            if(self.logInternalDetail){
+                console.log('Request for initiate search call: ', request);
+            }
+
+            model.call(["searchResults", "create"], [request],[],[]).then(function(responsePkg){
+                
+                var responseObj = self._createSuccessResponse({requestId: Object.keys(responsePkg.json.searchResults)[0], totalRecords: 0});
+
+                if(self.logInternalDetail){
+                    console.log('Response from initiate search call: ', responseObj);
+                }
+
+                self.set('response', responseObj);
+            },
+            function(reason){ //on failure
+                self.response = self._createErrorResponse(reason);  
+            });
+        },
+        _callSearchResultDetail: function(self, model, requestId, request){
+            if(self.logInternalDetail){
+                console.log('Request Id for get search result detail: ', requestId);
+            }
+
+            //model.setCache({});
+            model.get(["searchResults", requestId, "entities", [{from:0,to:1}]]).then(function(responsePkg) {
+                    if(self.logInternalDetail){
+                        console.log('Response from get search result detail call: ', responsePkg);
+                    }
+
+                    if(responsePkg !== undefined){
+                        var entities = responsePkg.json.searchResults[requestId].entities;
+
+                        var entityIds = [];
+                        for(var e in entities){
+                            entityIds.push(entities[e].id);
+                        }
+
+                        if(entityIds.length > 0){
+                            self._callGetEntities(self, model, request, entityIds);
+                        }
+                    }
+                },
+                function(reason){ //on failure
+                    self.response = self._createErrorResponse(reason);  
+                });
+        },
+        _callGetEntities: function(self, model, request, entityIds){
+            if(self.logInternalDetail){
+                    console.log('Request for get entities call...request: ', request, ' entityIds: ', entityIds);
+            }
+
+            model.get(["entitiesById", entityIds]).then(function(responsePkg) {
+                    self.response = self._createSuccessResponse({'entities': responsePkg.json.entitiesById});
+
+                    if(self.logInternalDetail){
+                        console.log('Response from get entities call: ', self.response);
+                    }
+                },
+                function(reason){
+                  self.response = self._createErrorResponse(reason);  
+                });
+        },
+        _createSuccessResponse: function(data){
+            return {status:'success', data:data};
+        },
+        _createErrorResponse: function(reason){
+            var result = {status: 'error', reason};
+
+            if(this.logInternalDetail){
+                console.log('Error response for the operation: ', this.operation, result);
+            }
+            
+            return result;
         }
       });
     })();
