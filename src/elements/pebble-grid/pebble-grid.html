@@ -11,6 +11,7 @@
 <link rel="import" href="../pebble-vertical-divider/pebble-vertical-divider.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 <link rel="import" href="./grid-list-view.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
 
 
 <!--
@@ -191,10 +192,12 @@ The following JSON object is a sample of data to be used to bind grid
 				width: 90px;
 				--paper-input-container-underline: {
 					display: none;
-				};
+				}
+				;
 				--paper-input-container-underline-focus: {
 					display: none;
-				};
+				}
+				;
 			}
 		</style>
 		<iron-ajax auto url="/src/data/EntitySearchApp/gridListData.json" handle-as="json" last-response="{{products}}"></iron-ajax>
@@ -382,6 +385,10 @@ The following JSON object is a sample of data to be used to bind grid
 
 					_pageRange: {
 						value: ""
+					},
+
+					_attributeModelMap: {
+						type: Object
 					}
                 },
 
@@ -490,7 +497,14 @@ The following JSON object is a sample of data to be used to bind grid
 
 				_dataSource: function(opts, cb) {
                     this._currentPage = opts.page;
-					cb(this.data.slice(opts.page * opts.pageSize, (opts.page  * opts.pageSize) + opts.pageSize))
+					var pagedData = this.data.slice(opts.page * opts.pageSize, (opts.page  * opts.pageSize) + opts.pageSize)
+					if(this.config.schemaType == undefined || this.config.schemaType == "Simple"){
+						cb(pagedData);
+					}
+					else {
+						DataHelper.transformEntitySchemaForGrid(pagedData,  this.config.attributeModels);
+						cb(pagedData);
+					}
 				 },
 
 				_calculatePageRange: function(currentPage, pageSize, size){
@@ -502,7 +516,19 @@ The following JSON object is a sample of data to be used to bind grid
 				},
 
                 _columnValue: function(gridData, index) {
-                    var cellData = gridData[this.config.tabular.columns[index].name];
+					var cellData;
+					var columnName = this.config.tabular.columns[index].name;
+					if(this.config.schemaType == undefined || this.config.schemaType == "simple") {
+                    	cellData = gridData[columnName];
+					}
+					else if(this.config.schemaType == "attribute") {
+					    for(var key in gridData.attributes) {
+							if(gridData.attributes[key].hasOwnProperty(columnName)) {
+								cellData = gridData.attributes[key][columnName].value;
+								break;
+							}
+						}
+					}
                     if(cellData != undefined) {
                        index++;
                     }
@@ -518,16 +544,43 @@ The following JSON object is a sample of data to be used to bind grid
 					return viewMode == 'List';
 				},
 				_isTextBox: function(col){
-					return this.config.mode == "Edit" && col.editType == 'text';
+					if(this.config.schemaType == undefined || this.config.schemaType == "simple") {
+                    	return this.config.mode == "Edit" && col.editType == 'textbox';
+					}
+					else if(this.config.schemaType == "attribute") {
+						var displayType = this._getAttributeModelMap(col.name).displayType;
+						return this.config.mode == "Edit" && displayType == 'textbox';
+					}
 				},
 				_isCheckBox: function(col){
-					return this.config.mode == "Edit" && col.editType == 'checkbox';
+					if(this.config.schemaType == undefined || this.config.schemaType == "simple") {
+                    	return this.config.mode == "Edit" && col.editType == 'checkbox';
+					}
+					else if(this.config.schemaType == "attribute") {
+						var displayType = this._getAttributeModelMap(col.name).displayType;
+						return this.config.mode == "Edit" && displayType == 'checkbox';
+					}
+					
 				}, 
 				_isTextArea: function(col){
-					return this.config.mode == "Edit" && col.editType == 'textarea';
+					if(this.config.schemaType == undefined || this.config.schemaType == "simple") {
+                    	return this.config.mode == "Edit" && col.editType == 'textarea';
+					}
+					else if(this.config.schemaType == "attribute") {
+						var displayType = this._getAttributeModelMap(col.name).displayType;
+						return this.config.mode == "Edit" && displayType == 'textarea';
+					}
+					
 				},
 				_isRadioButton: function(col){
-					return this.config.mode == "Edit" && col.editType == 'radio';
+					if(this.config.schemaType == undefined || this.config.schemaType == "simple") {
+                    	return this.config.mode == "Edit" && col.editType == 'radio';
+					}
+					else if(this.config.schemaType == "attribute") {
+						var displayType = this._getAttributeModelMap(col.name).displayType;
+						return this.config.mode == "Edit" && displayType == 'radio';
+					}
+					
 				},
 				_isNotEditable: function(col){
 					return this.config.mode == "Read" || col.editType == '';
@@ -581,7 +634,22 @@ The following JSON object is a sample of data to be used to bind grid
 
 				_onCollapsingItem: function(e){
 					this.fire('bedrock-event', { name: "grid-collapsing-item", data: e.detail} );
+				},
+
+				_getAttributeModelMap: function(name){
+					if(this._attributeModelMap == undefined){
+						this._attributeModelMap = {};
+						for(var key in this.config.attributeModels) {
+							for(var attrKey in this.config.attributeModels[key]){
+								if(attrKey != "name") {
+									this._attributeModelMap[attrKey] = this.config.attributeModels[key][attrKey];
+								}
+							}
+						}
+					}
+					return this._attributeModelMap[name];
 				}
+
             });
         })();
     </script>
