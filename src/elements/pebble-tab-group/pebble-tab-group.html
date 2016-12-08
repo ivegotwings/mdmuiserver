@@ -140,7 +140,6 @@
             on-up="_onScrollButtonUp" on-down="_onRightScrollButtonDown" tabindex="-1"></paper-icon-button>
     </template>
     <script>
-
         (function() {
             'use strict';
 
@@ -271,7 +270,7 @@
                         value: false
                     },
 
-                    _previousTab: {
+                    previousTab: {
                         type: Object
                     },
 
@@ -285,7 +284,7 @@
                         value: false
                     },
 
-                    _isDropdownMenuIconClicked: {
+                    _isMenuIconClicked: {
                         type: Boolean,
                         value: false
                     }
@@ -371,20 +370,25 @@
                 },
 
                 _onIronSelect: function(event) {
+                    var tab;
+
                     // Note: More Info. available in Select method
                     if(event.srcElement.nodeName === "PAPER-MENU") {
                         this._isMenuItemClicked = true;
+                        tab = this.querySelector("#" + event.detail.item.tabConfig.name);
+                    } else {
+                        tab = event.detail.item;
                     }
 
-                    this._tabChanged(event.detail.item, this._previousTab);
-                    this._previousTab = event.detail.item;
+                    this._tabChanged(tab, this.previousTab);
+                    this.previousTab = tab;
                     this.cancelDebouncer('tab-changed');
                 },
 
                 _onIronDeselect: function(event) {
                     this.debounce('tab-changed', function() {
-                        this._tabChanged(null, this._previousTab);
-                        this._previousTab = null;
+                        this._tabChanged(null, this.previousTab);
+                        this.previousTab = null;
                         // See polymer/polymer#1305
                     }, 1);
                 },
@@ -393,12 +397,13 @@
                     // Cancel item activations scheduled by keyboard events when any other
                     // action causes an item to be activated (e.g. clicks).
                     this._cancelPendingActivation();
-                    this._isDropdownMenuIconClicked = false;
+                    this._isMenuIconClicked = false;
 
                     if (arguments && arguments[0]) {
-                        if ((arguments[0].srcElement.nodeName === "PAPER-ICON-BUTTON" || arguments[0].srcElement.nodeName === "IRON-ICON" ) && 
-                            arguments[0].srcElement.parentElement.classList.contains("dropdown-trigger")) {
-                            this._isDropdownMenuIconClicked = true; // Note: More Info. available in Select method
+                        if (((arguments[0].srcElement.nodeName === "PAPER-ICON-BUTTON" || arguments[0].srcElement.nodeName === "IRON-ICON") && 
+                              arguments[0].srcElement.parentElement.classList.contains("dropdown-trigger")) || arguments[0].srcElement.nodeName === "PEBBLE-TAB"
+                           ) {
+                            this._isMenuIconClicked = true; // Note: More Info. available in Select method
                         }
                     }
 
@@ -555,7 +560,6 @@
                     if (this.scrollable) {
                         this._scrollToSelectedIfNeeded(tabRect.width, tabOffsetLeft);
                     }
-
                 },
 
                 _scrollToSelectedIfNeeded: function(tabWidth, tabOffsetLeft) {
@@ -607,40 +611,57 @@
 
                      Issue 2: Whenever user clicks on dropdown menu button, the tab selection event was triggering first and it was loading
                               the content of a tab which should not happen as per the requirement.
-                     Fix: To resolve this we added a flag "_isDropdownMenuIconClicked" to verify that if dropdownMenuIconClicked then 
+                     Fix: To resolve this we added a flag "_isMenuIconClicked" to verify that if dropdownMenuIconClicked then 
                           do not load then tab content.  
                      */
                     item = this.querySelectorAll('pebble-tab')[item];
                     
                     this._closeDropdownMenus(item.id);
 
-                    if (this._isDropdownMenuIconClicked) {
+                    if (this._isMenuIconClicked) {
                         return;
                     }
-                    
-                    if (item.querySelector("paper-menu").selected > 0) {
+
+                    if (item && item.querySelector("paper-menu").selected >= 0) {
                         item.querySelector("paper-menu").selected = -1;
                     }
-                    
+
+                    if (this.previousTab && this.previousTab.querySelector("paper-menu").selected >= 0) {
+                        this.previousTab.querySelector("paper-menu").selected = -1;
+                    }
+
                     if (this._selection.multi) {
                         this._selection.toggle(item);
                     } else if (this._selection.get() !== item || this._isMenuItemClicked) {
+                        this._isMenuItemClicked = false;
                         this._selection.setItemSelected(this._selection.get(), false);
                         this._selection.setItemSelected(item, true);
-                        this._isMenuItemClicked = false;
                     }
                 },
 
                 _closeDropdownMenus: function(tabName) {
-                    var ironDropdowns = Polymer.dom(this).node.querySelectorAll("iron-dropdown");
-                     if(ironDropdowns) {
-                        for(var i = 0; i < ironDropdowns.length; i++) {
-                            var ironDropdown = ironDropdowns[i];
-                            if(ironDropdown.parentNode.id !== tabName && ironDropdown.opened) {
-                                ironDropdown.close();
+                    var tabs = this.getEffectiveChildren("#tabsContent");
+                    if (tabs) {
+                        for(var index in tabs) {
+                            var tab = tabs[index];
+                            if (tab) {
+                                var ironDropdown = tab.root.querySelector("iron-dropdown");
+                                var menu = tab.querySelector("paper-menu");
+                                if(tab.id !== tabName) {
+                                    // if (menu && menu.selected >= 0) {
+                                    //     tab.querySelector("paper-menu").selected = -1;
+                                    // }
+                                    // var tabSubTtile = tab.querySelector(".tab-subtitle-content");
+                                    // if(tabSubTtile) {
+                                    //     tabSubTtile.textContent = "";
+                                    // }
+                                    if(ironDropdown && ironDropdown.opened) {
+                                        ironDropdown.close();
+                                    }
+                                }
                             }
                         }
-                     }
+                    }
                 }
             });
         })();
