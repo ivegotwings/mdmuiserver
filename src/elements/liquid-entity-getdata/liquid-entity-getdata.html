@@ -1,0 +1,260 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="./DataChannelBehavior.html">
+<!--
+`liquid-entity-getdata`
+Boolean control
+
+@demo demo/index.html 
+-->
+<dom-module id="liquid-entity-getdata">
+    <template>
+    </template>
+    <script>
+    (function() {
+      'use strict';
+
+      Polymer({
+        is: 'liquid-entity-getdata',
+        behaviors: [RUFBehaviors.DataChannel],
+        attached: function() {
+        },
+        ready: function(){
+        },
+        properties: {
+          operation: {
+              type: String, // 'initiatesearch', 'getsearchresultdetail', 'getentities'
+              value: ''
+          },
+          request: {
+            type: Object,
+            value: function() {
+              return {
+                requestData:{
+                  "query":
+                  {
+                      "ctx":
+                      [
+                          {
+                              "list": "fall2016",
+                              "categorization": "shoes"
+                          },
+              
+                          {
+                              "list": "master",
+                              "categorization": "shoes"
+                          }
+                      ],
+              
+                      "valCtx":
+                      [
+                          {
+                              "source": "indix",
+                              "timeslice": "current",
+                              "governed": "true",
+                              "locale": "en-US"
+                          },
+              
+                          {
+                              "source": "cnet",
+                              "timeslice": "current",
+                              "governed": "true",
+                              "locale": "en-US"
+                          }
+                      ],
+              
+                      "id": "guid",
+                      "filters":
+                      {
+                          "attributesCriterion":
+                          [
+                              {
+                                  "upc":
+                                  {
+                                      "eq": "123456789"
+                                  }
+                              },
+              
+                              {
+                                  "msrp":
+                                  {
+                                      "gte": 10,
+                                      "lte": 20
+                                  }
+                              }
+                          ],
+              
+                          "relationshipsCriterion":
+                          [
+                              
+                          ],
+              
+                          "typesCriterion":
+                          [
+                              "ALL",
+                              "sku",
+                              "product"
+                          ]
+                      }
+                  },
+              
+                  "fields":
+                  {
+                      "ctxTypes":
+                      [
+                          "properties"
+                      ],
+              
+                      "attributes":
+                      [
+                          "msrp",
+                          "launchDate"
+                      ],
+              
+                      "relationships":
+                      [
+                          "ALL"
+                      ]
+                  },
+              
+                  "options":
+                  {
+                      "totalRecords": 100,
+                      "includeRequest": false
+                  },
+
+                  "requestId": "requestUID_00001"
+                }
+              };
+            },
+            notify: true
+          },
+          response: {
+            type: Object,
+            value: function() {
+              return {};
+            },
+            notify: true
+          },
+          requestId:{
+              type: String,
+              value: '',
+              notify: true
+          },
+          logInternalDetail:{
+            type: Boolean,
+            value: false,
+            notify: true
+          }
+        },
+        observers: [    
+            '_makeServiceCall(requestId, request)'
+        ],
+        _makeServiceCall: function(requestId, request) {
+            var operation = this.operation, 
+                self = this;
+
+            if(request){
+                var model = RUFBehaviors.DataChannel.getModel();
+
+                if(operation == 'initiatesearch') {
+                    self._callInitiateSearch(self, model, request);
+                }
+                else if(requestId != '' && operation == 'getsearchresultdetail') {
+                    self._callSearchResultDetail(self, model, requestId, request);
+                }
+                else if(operation == 'getentities') {
+                    self._callGetEntities(self, model, request);
+                }
+            }
+        },
+        _callInitiateSearch: function(self, model, request){
+            if(self.logInternalDetail){
+                console.log('Request for initiate search call: ', request);
+            }
+
+            model.call(["searchResults", "create"], [request],[],[]).then(function(responsePkg){
+                
+                var responseObj = self._createSuccessResponse({requestId: Object.keys(responsePkg.json.searchResults)[0], totalRecords: 0});
+
+                if(self.logInternalDetail){
+                    console.log('Response from initiate search call: ', responseObj);
+                }
+
+                self.set('response', responseObj);
+            },
+            function(reason){ //on failure
+                self.response = self._createErrorResponse(reason);  
+            });
+        },
+        _callSearchResultDetail: function(self, model, requestId, request){
+            if(self.logInternalDetail){
+                console.log('Request Id for get search result detail: ', requestId);
+            }
+
+            //model.setCache({});
+            model.get(["searchResults", requestId, "entities", [{from:0,to:1}]]).then(function(responsePkg) {
+                    if(self.logInternalDetail){
+                        console.log('Response from get search result detail call: ', responsePkg);
+                    }
+
+                    if(responsePkg !== undefined){
+                        var entities = responsePkg.json.searchResults[requestId].entities;
+
+                        var entityIds = [];
+                        for(var e in entities){
+                            entityIds.push(entities[e].id);
+                        }
+
+                        if(entityIds.length > 0){
+                            self._callGetEntities(self, model, request, entityIds);
+                        }
+                    }
+                },
+                function(reason){ //on failure
+                    self.response = self._createErrorResponse(reason);  
+                });
+        },
+        _callGetEntities: function(self, model, request, entityIds){
+            if(self.logInternalDetail){
+                    console.log('Request for get entities call...request: ', request, ' entityIds: ', entityIds);
+            }
+
+            if((!entityIds || entityIds.length == 0) 
+                && request.requestData && request.requestData.query && request.requestData.query.id) {
+                entityIds = [];
+                entityIds.push(request.requestData.query.id);
+            }
+
+            if(!entityIds || entityIds.length == 0) {
+                self.response = self._createErrorResponse("Cannot find entityIds for get request");
+                return;
+            }
+
+            model.get(["entitiesById", entityIds]).then(function(responsePkg) {
+                    self.response = self._createSuccessResponse({'entities': responsePkg.json.entitiesById});
+
+                    if(self.logInternalDetail){
+                        console.log('Response from get entities call: ', self.response);
+                    }
+                },
+                function(reason){
+                    self.response = self._createErrorResponse(reason);  
+                });
+        },
+        _createSuccessResponse: function(data){
+            return {status:'success', data:data};
+        },
+        _createErrorResponse: function(reason){
+            var result = {status: 'error', reason};
+
+            if(this.logInternalDetail){
+                console.log('Error response for the operation: ', this.operation, result);
+            }
+            
+            return result;
+        }
+      });
+    })();
+  </script>
+</dom-module>
