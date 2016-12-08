@@ -128,10 +128,10 @@
         </style>
            <div id="headerSection">
                 <div id="attributePanel">
-                    <template is="dom-repeat" items="[[headerAttributes]]">
+                    <template is="dom-repeat" items="[[_headerAttributeValues]]">
                             <div id="attribute" class$="[[_computeAttributeClass(item)]]">
                                 <span id="attrName">[[_getAttributeLabel(headerAttributeModelResponse, item)]] :</span>
-                                <span id="attrVal">[[_getAttributeValue(headerAttributeResponse, item)]]</span>
+                                <span id="attrVal">[[item.value]]</span>
                             </div>
                     </template>
                 </div>
@@ -174,7 +174,8 @@
                     <pebble-toolbar config-data="[[buttons]]"></pebble-toolbar>
                 </div>
             </div>
-            <liquid-entity-get name="headerAttributeGetService" request="[[headerAttributeRequest]]" response="{{headerAttributeResponse}}"></liquid-entity-get>
+            <liquid-entity-getdata  log-internal-detail name="attributeGetDataService" operation="getentities" request="{{headerAttributeRequest}}" response="{{headerAttributeResponse}}"></liquid-entity-getdata>
+            <!--<liquid-entity-get name="headerAttributeGetService" request="[[headerAttributeRequest]]" response="{{headerAttributeResponse}}"></liquid-entity-get>-->
             <liquid-entity-get name="headerAttributeModelGetService" request="[[headerAttributeModelRequest]]" response="{{headerAttributeModelResponse}}"></liquid-entity-get>
     </template>
     <script>
@@ -185,7 +186,7 @@
                 /**
                 * Indicates the attributes that gets displayed in the header section.
                 */
-                headerAttributes: {
+                headerConfig: {
                     type: Array,
                     value: []
                 },
@@ -212,7 +213,7 @@
                 headerAttributeRequest: {
                     type: Object,
                     value: function(){
-                    return { action: "getHeaderAttribute" };
+                    return { };
                     }
                 },
                 /**
@@ -245,63 +246,112 @@
                     return {};
                     }
                 },
+                _headerAttributeValues: {
+                    type: Array,
+                    value: function(){
+                        return [];
+                    }
+                }
+            },
+            observers: [
+                '_headerAttributeResponseChanged(headerAttributeResponse)',
+                '_headerAttributeModelResponseChanged(headerAttributeModelResponse)',
+                '_headerConfigChanged(headerConfig)'
+            ],
+
+            _headerConfigChanged: function(headerConfig) {
+                if(headerConfig) {
+                    var attributeNames = [];
+                    for(var i=0; i< headerConfig.length; i++) {
+                        if(headerConfig[i].attributeName) {
+                            attributeNames.push(headerConfig[i].attributeName);
+                        }
+                    }
+                    var t = { action: "getHeaderAttributeModels", "attributeNames": attributeNames };
+                    this.set("headerAttributeModelRequest", t);
+                }
             },
 
-            _getAttributeLabel: function(attributeModelResponse, attribute) {
-                var attributeModel = this._getAttributeModel(attributeModelResponse, attribute)
+            _headerAttributeModelResponseChanged: function(headerAttributeModelResponse) {
+                if(headerAttributeModelResponse && headerAttributeModelResponse.returnValue && headerAttributeModelResponse.returnValue.attributeModels){
+                    var attributeNames = [];
+                    for(var attributeGroupName in headerAttributeModelResponse.returnValue.attributeModels) {
+                        for(var attributeName in headerAttributeModelResponse.returnValue.attributeModels[attributeGroupName]) {
+                            attributeNames.push(attributeName);
+                        }
+                    }
+                    var t = {
+                            requestData: { 
+                                query: {
+                                    "id": "e1",
+                                    "fields": {
+                                        "attributes": attributeNames
+                                    }
+                                } 
+                            }
+                        };
+                    this.set("headerAttributeRequest", t);
+                    //this.set("attributeRequest.attributeNames", attributeNames);
+                }
+            },
+
+            _headerAttributeResponseChanged: function(headerAttributeResponse) {
+                var attributesData = [];
+                var locale = 'en-US', time = 'now', source = 'golden';
+                if(headerAttributeResponse && headerAttributeResponse.data && headerAttributeResponse.data.entities &&
+                    this.headerAttributeModelResponse && this.headerAttributeModelResponse.returnValue && this.headerAttributeModelResponse.returnValue.attributeModels){
+                    var attributes = headerAttributeResponse.data.entities["e1"].data.ctxInfo[0].attributes;
+                    //values = DataHelper.transformAttributeToUIFormat(attributes, this.headerAttributeModelResponse.returnValue.attributeModels, locale, time, source);
+                    var attributeModels = this.headerAttributeModelResponse.returnValue.attributeModels;
+                    for(var attributeGroupName in attributeModels) {
+                        for(var attributeModelName in attributeModels[attributeGroupName]) {
+                            var attributeJSON = undefined;
+                            var attributeModel = attributeModels[attributeGroupName][attributeModelName];
+                            if(attributeModel.name) {
+                                var attribute = attributes[attributeModel.name];
+                                if(attribute && attribute.values) {
+                                    attributeJSON = DataHelper._getCurrentValue(attribute.values, locale, time, source);
+                                }
+                                if(attributeJSON == undefined) {
+                                    attributeJSON = DataHelper._getEmptyValue(locale, time, source);
+                                }
+                                attributeJSON.name = attributeModel.name;
+                                attributesData.push(attributeJSON);
+                            }   
+                        }
+                    }
+                }
+                this.set("_headerAttributeValues",  attributesData);
+            },
+
+            _getAttributeLabel: function(attributeModelResponse, attributeValue) {
+                var configItem = this._getConfigItem(this.headerConfig, attributeValue.name);
+                if(configItem && configItem.label) {
+                    return configItem.label;
+                }
+                var attributeModel = this._getAttributeModel(attributeModelResponse, attributeValue.name)
                 if(attributeModel && attributeModel.longName) {
                     return attributeModel.longName;
                 }
-                else {
-                    return attribute.label;
-                }
             },
 
-            _getAttributeValue: function(attributeResponse, attribute) {
-                var locale = 'en-US', time = 'now', source = 'golden';
-                var attrValue;
-                if(attributeResponse && attributeResponse.returnValue && attributeResponse.returnValue.attributes) {
-                    var attributes = attributeResponse.returnValue.attributes;
-                    var attr = attributes[attribute.attributeName];
-                    if(attr && attr.values) {
-                        attrValue = this._getCurrentValue(attr.values, locale, time, source);
+            _getAttributeValue: function(values, configItem) {
+                var attrValue = "";
+                for(var i=0; i< values.length; i++) {
+                    var attributes = values[i].attributes;
+                    for(var j=0; j<attributes.length;j++) {
+                        if(attributes[j].name == configItem.attributeName) {
+                            attrValue = attributes[j].value;
+                        }
                     }
-                    if(attrValue == undefined) {
-                        attrValue = this._getEmptyValue(locale, time, source);
-                    }
-                    return attrValue.value;
                 }
             },
-            _getCurrentValue: function(values, locale, time, source) {
-                var value;
-                if(values) {
-                    for(var i=0;i<values.length;i++) {
-                        var currentValue = values[i];
-                        if(currentValue.locale && currentValue.locale != locale) {
-                            continue;
-                        }
-                        if(currentValue.source && currentValue.source != source) {
-                            continue;
-                        }
-                        value = currentValue;
-                        }
-                    }
-                return value;
-            },
-            _getEmptyValue: function(locale, time, source) {
-                return {
-                    "value": "",
-                    "locale": locale,
-                    "time": time,
-                    "source": source
-                };
-            },
-            _getAttributeModel: function(attributeModelResponse, attribute) {
-                if(attribute && attributeModelResponse && attributeModelResponse.returnValue 
+            _getAttributeModel: function(attributeModelResponse, attributeName) {
+                if(attributeName && attributeModelResponse && attributeModelResponse.returnValue 
                     && attributeModelResponse.returnValue.attributeModels){
                     for(var attributeGroupName in attributeModelResponse.returnValue.attributeModels) {
-                        if(attribute.attributeName in attributeModelResponse.returnValue.attributeModels[attributeGroupName]) {
-                            return attributeModelResponse.returnValue.attributeModels[attributeGroupName][attribute.attributeName];
+                        if(attributeName in attributeModelResponse.returnValue.attributeModels[attributeGroupName]) {
+                            return attributeModelResponse.returnValue.attributeModels[attributeGroupName][attributeName];
                         }
                     }
                 }
@@ -314,12 +364,20 @@
             _openPopover: function() {
                     this.$.warningsPopover.show();
             },
-            _computeAttributeClass: function(attribute) {
-                if(attribute.noTrim) {
+            _computeAttributeClass: function(attributeValue) {
+                var configItem = this._getConfigItem(this.headerConfig, attributeValue.name);
+                if(configItem.noTrim) {
                     return "attribute";
                 }
                 else {
                     return "attribute trim";
+                }
+            },
+            _getConfigItem: function(headerConfig, attributeName) {
+                for(var i=0; i<headerConfig.length;i++) {
+                    if(headerConfig[i].attributeName == attributeName) {
+                        return headerConfig[i];
+                    }
                 }
             }
         })
