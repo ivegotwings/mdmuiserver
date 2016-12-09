@@ -8,6 +8,7 @@
 <link rel="import" href="../../../bower_components/paper-tabs/paper-tabs-icons.html">
 <link rel="import" href="../../../bower_components/pebble-styles-shared/pebble-styles-shared.html">
 <link rel="import" href="../pebble-tab/pebble-tab.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <!--
 ` <pebble-tab-group>` Represents a group of tabs with material design styling.
 
@@ -32,6 +33,7 @@
                 -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
                 -webkit-tap-highlight-color: transparent;
                 @apply(--paper-tabs);
+                border-bottom: 1px solid #ccc;
             }
             
              :host-context([dir=rtl]) {
@@ -48,8 +50,7 @@
             }
             
             #tabsContent {
-                height: 98%;
-                border-bottom: 1px solid #ccc;
+                height: 100%;
                 -moz-flex-basis: auto;
                 -ms-flex-basis: auto;
                 flex-basis: auto;
@@ -138,9 +139,10 @@
             on-up="_onScrollButtonUp" on-down="_onLeftScrollButtonDown" tabindex="-1"></paper-icon-button>
         <paper-icon-button icon="paper-tabs:chevron-right" class$="[[_computeScrollButtonClass(_rightHidden, scrollable, hideScrollButtons)]]"
             on-up="_onScrollButtonUp" on-down="_onRightScrollButtonDown" tabindex="-1"></paper-icon-button>
+        <bedrock-pubsub on-bedrock-event-menu-open="_onMenuOpen"></bedrock-pubsub>
+        <bedrock-pubsub on-bedrock-event-menu-close="_onMenuClose"></bedrock-pubsub>
     </template>
     <script>
-
         (function() {
             'use strict';
 
@@ -285,7 +287,7 @@
                         value: false
                     },
 
-                    _isDropdownMenuIconClicked: {
+                    _isMenuIconClicked: {
                         type: Boolean,
                         value: false
                     }
@@ -322,7 +324,7 @@
                 detached: function() {
                     this._cancelPendingActivation();
                 },
-
+                
                 _noinkChanged: function(noink) {
                     var childTabs = Polymer.dom(this).querySelectorAll('pebble-tab');
                     childTabs.forEach(noink ? this._setNoinkAttribute : this._removeNoinkAttribute);
@@ -371,15 +373,25 @@
                 },
 
                 _onIronSelect: function(event) {
+                    var tab;
+
                     // Note: More Info. available in Select method
-                    if(event.srcElement.nodeName === "PAPER-MENU") {
-                        this._isMenuItemClicked = true;
+                    if (event) {
+                        if(event.srcElement.nodeName === "PAPER-MENU") {
+                            this._isMenuItemClicked = true;
+                            if (event.detail && event.detail.item) {
+                                var item = event.detail.item;
+                                if (item) {
+                                    tab = this.querySelector("#" + item.tabConfig.name);
+                                }
+                            }
+                        } else {
+                            tab = event.detail.item;
+                        }
                     }
 
-                    this._isDropdownMenuIconClicked = false;
-                    
-                    this._tabChanged(event.detail.item, this._previousTab);
-                    this._previousTab = event.detail.item;
+                    this._tabChanged(tab, this._previousTab);
+                    this._previousTab = tab;
                     this.cancelDebouncer('tab-changed');
                 },
 
@@ -395,13 +407,6 @@
                     // Cancel item activations scheduled by keyboard events when any other
                     // action causes an item to be activated (e.g. clicks).
                     this._cancelPendingActivation();
-                    if (arguments && arguments[0]) {
-                        if ((arguments[0].srcElement.nodeName === "PAPER-ICON-BUTTON" || arguments[0].srcElement.nodeName === "IRON-ICON" ) && 
-                            arguments[0].srcElement.parentElement.classList.contains("dropdown-trigger")) {
-                            this._isDropdownMenuIconClicked = true; // Note: More Info. available in Select method
-                        }
-                    }
-
                     Polymer.IronMenuBehaviorImpl._activateHandler.apply(this, arguments);
                 },
 
@@ -555,17 +560,6 @@
                     if (this.scrollable) {
                         this._scrollToSelectedIfNeeded(tabRect.width, tabOffsetLeft);
                     }
-
-                     var ironDropdowns = Polymer.dom(this).node.querySelectorAll("iron-dropdown");
-                     if(ironDropdowns) {
-                        for(var i = 0; i < ironDropdowns.length; i++){
-                            var ironDropdown = ironDropdowns[i];
-                            if(ironDropdown.opened)
-                            {
-                                ironDropdown.close();
-                            }
-                        }
-                     }
                 },
 
                 _scrollToSelectedIfNeeded: function(tabWidth, tabOffsetLeft) {
@@ -608,7 +602,15 @@
                     }
                 },
 
-                select: function(item) {
+                _onMenuOpen: function(e) {
+                    this._isMenuIconClicked = true;
+                },
+
+                _onMenuClose: function(e) {
+                    this._isMenuIconClicked = false;
+                },
+
+                select: function(selectedTabIndex) {
                     /*
                      Hacky Work: Here we have overrided the method of IronSelection Behaviour
                      Issue 1: If a user has loaded some content of a menuitem and now if user wants to loaded the content of a tab, then
@@ -617,23 +619,56 @@
 
                      Issue 2: Whenever user clicks on dropdown menu button, the tab selection event was triggering first and it was loading
                               the content of a tab which should not happen as per the requirement.
-                     Fix: To resolve this we added a flag "_isDropdownMenuIconClicked" to verify that if dropdownMenuIconClicked then 
+                     Fix: To resolve this we added a flag "_isMenuIconClicked" to verify that if dropdownMenuIconClicked then 
                           do not load then tab content.  
                      */
+                    var selectedTab = this.querySelectorAll('pebble-tab')[selectedTabIndex];
                     
-                    if (this._isDropdownMenuIconClicked) {
+                    this._closeDropdownMenus(selectedTab.id);
+
+                    if (this._isMenuIconClicked) {
                         return;
                     }
 
-                    item = this.querySelectorAll('pebble-tab')[item];
-                    if (this._selection.multi) {
-                        this._selection.toggle(item);
-                    } else if (this._selection.get() !== item || this._isMenuItemClicked) {
-                        this._selection.setItemSelected(this._selection.get(), false);
-                        this._selection.setItemSelected(item, true);
-                        this._isMenuItemClicked = false;
+                    if (selectedTab) {
+                        var menu = selectedTab.querySelector("paper-menu");
+                        if(menu && menu.selected >= 0) {
+                            menu.selected = -1;
+                        }
                     }
-                }  
+
+                    if (this._previousTab) {
+                        menu = this._previousTab.querySelector("paper-menu");
+                        if( menu && menu.selected >= 0) {
+                            menu.selected = -1;
+                        }
+                    }
+
+                    if (this._selection.multi) {
+                        this._selection.toggle(selectedTab);
+                    } else if (this._selection.get() !== selectedTab || this._isMenuItemClicked) {
+                        this._isMenuItemClicked = false;
+                        this._selection.setItemSelected(this._selection.get(), false);
+                        this._selection.setItemSelected(selectedTab, true);
+                    }
+                },
+
+                _closeDropdownMenus: function(tabId) {
+                    var tabs = this.getEffectiveChildren("#tabsContent");
+                    if (tabs) {
+                        for(var index in tabs) {
+                            var tab = tabs[index];
+                            if (tab) {
+                                var ironDropdown = tab.root.querySelector("iron-dropdown"); // Shadow DOM
+                                if(tab.id !== tabId) {
+                                    if(ironDropdown && ironDropdown.opened) {
+                                        ironDropdown.close();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             });
         })();
 
