@@ -3,12 +3,14 @@
 <link rel="import" href="../../../bower_components/iron-icon/iron-icon.html">
 <link rel="import" href="../../../bower_components/paper-menu/paper-menu.html">
 <link rel="import" href="../../../bower_components/paper-item/paper-item.html">
-
 <link rel="import" href="../pebble-tab-group/pebble-tab-group.html">
 <link rel="import" href="../pebble-horizontal-divider/pebble-horizontal-divider.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../pebble-badge/pebble-badge.html">
 <!--
-`<rock-tabs>` Represents tabs with material design styling.`<rock-tabs>` makes it easy to explore and 
+`<rock-tabs>` Represents a wrapper on top of element `<pebble-tab-group>`. 
+This element will generate tabs with material design styling based on the configuration provided by the user.
+`<rock-tabs>` makes it easy to explore and 
 switch between different views or functional aspects of an app or to browse categorized datasets dynamically.
 
 @demo demo/index.html
@@ -16,7 +18,7 @@ switch between different views or functional aspects of an app or to browse cate
 <dom-module id="rock-tabs">
     <style include="pebble-styles-shared">
         pebble-horizontal-divider {
-            --pebble-horizontal-divider-color: black;
+            --pebble-horizontal-divider-color: #000;
         }
         pebble-tab{
             margin-right: 20px;
@@ -28,33 +30,74 @@ switch between different views or functional aspects of an app or to browse cate
             margin-right: 0.5em
         }
         
+        paper-menu iron-icon {
+            --iron-icon-height: 20px;
+            --iron-icon-width: 20px;
+            margin-right: 10px;
+        }
+        
         paper-menu {
             --paper-menu-background-color: white;
         }
+        
+        .tab-subtitle-wrapper>pebble-badge {
+            --pebble-badge-margin-left: 2%;
+            --pebble-badge-margin-bottom: 1%;
+        }
+        
+        .tab-title iron-icon {
+            width: 30px;
+            height: 18px;
+        }
+        
+        .hide-element {
+            display: none;
+        }
+        
+        .truncate {
+            width: 75px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        paper-item {
+            /* this can be moved if paper item is moved inside the pebble tab*/
+            --paper-item-min-height: 30px;
+            --paper-item-selected-weight: 100;
+            --paper-item: {
+                font-size: 14px;
+            }
+        }
     </style>
     <template>
-        <pebble-tab-group id="pebbletabgroup" selected="{{selectedTabIndex}}" scrollable="[[config.scrollable)]]" fit-container="[[config.fitContainer]]"
-            on-iron-select="_onTabItemSelected">
+        <pebble-tab-group id="pebbleTabGroup" selected="{{selectedTabIndex}}" on-iron-select="_onIronSelect" noink noSlide>
             <template is="dom-repeat" items="[[config.tabItems]]" as="tabItem">
-                <pebble-tab id="[[tabItem.name]]" display-menu="[[tabItem.enableDropdownMenu]]" tab-config="[[tabItem]]">
-                    <div class="tab-title">
-                        <template is="dom-if" if="[[tabItem.icon]]">
-                            <iron-icon icon="[[tabItem.icon]]"></iron-icon>
-                        </template>
-                        [[tabItem.title]]
+                <pebble-tab id="[[tabItem.name]]" display-menu="[[tabItem.enableDropdownMenu]]" tab-config="{{tabItem}}">
+                    <div class="tab-title-content">
+                        <div class="tab-subtitle">
+                            <span class="tab-subtitle-content truncate">[[tabItem.subtitle]]</span>
+                        </div>
+                        <div class="tab-badge">
+                            <pebble-badge hidden></pebble-badge>
+                        </div>
+                        <div class="tab-title">
+                            <template is="dom-if" if="[[tabItem.icon]]">
+                                <iron-icon icon="[[tabItem.icon]]"></iron-icon>
+                            </template>
+                            <span class="truncate">[[tabItem.title]]</span>
+                        </div>
                     </div>
-                    <paper-menu class="dropdown-content" on-iron-select="_onMenuItemSelected">
+                    <paper-menu class="dropdown-content">
                         <template is="dom-repeat" items="[[tabItem.menuItems]]" as="menuItem">
                             <template is="dom-if" if="[[!_isDivider(menuItem)]]">
-                                <paper-item tab-config="[[tabItem]]" menu-item-config="[[menuItem]]">
+                                <paper-item id="[[tabItem.name]]-[[menuItem.name]]" tab-config="[[tabItem]]" menu-item-config="[[menuItem]]">
                                     <iron-icon icon="[[menuItem.icon]]"></iron-icon>
                                     [[menuItem.title]]
                                 </paper-item>
                             </template>
                             <template is="dom-if" if="[[_isDivider(menuItem)]]">
-                                <paper-item menu-item-config="[[menuItem]]">
-                                    <pebble-horizontal-divider></pebble-horizontal-divider>
-                                </paper-item>
+                                <pebble-horizontal-divider></pebble-horizontal-divider>
                             </template>
                         </template>
                     </paper-menu>
@@ -86,7 +129,7 @@ switch between different views or functional aspects of an app or to browse cate
                     */
                     config: {
                         type: Object,
-                        observer: '_getSelectedTab',
+                        observer: '_configChanged',
                         value: function() { return {}; }
                     },
 
@@ -98,70 +141,155 @@ switch between different views or functional aspects of an app or to browse cate
                         reflectToAttribute : true,
                         notify: true
                     },
-
-                   /**
-                    * Indicates whether or not the tabs are scrollable and the tab width is based on the label width.
-                    */
-                    scrollable: {
-                        type: Boolean,
-                        value: false,
-                    },
-
-                   /**
-                    * Indicates whether or not the tabs can expand to fit to their container. At present, this applies only when
-                    * scrollable is true.
-                    */
-                    fitContainer: {
-                        type: Boolean,
-                        value: false
-                    },
                     
                     _currentTabName: {
                         type: String
                     }
                 },
 
-                _getSelectedTab: function(config) {
-                    if(config != null && config != undefined)
-                    {
+                /*
+                 * Can be used to get the value of a badge for tabname specified by the user.
+                 */
+                getTabByName: function(tabName) {
+                    return this.$$("#pebbleTabGroup").querySelector("#" + tabName);
+                },
+
+                /*
+                 * Can be used to set the value of a badge for tabname specified by the user.
+                 */
+                setBadgeValue: function(tabName, value) {
+                    var self = this;
+                    var tab = self.$$("#pebbleTabGroup").querySelector("#" + tabName);
+                    if (tab) {
+                        var badge = tab.querySelector("pebble-badge");
+                        if (badge && value) {
+                            badge.label = value;
+                            self.toggleBadge(tab, true);
+                        } else {
+                            self.toggleBadge(tab, false);
+                        }
+                    } else {
+                        console.log("Tab having a name " + tabName + " does not exists");
+                    }
+                },
+
+                /*
+                 * Can be used to returns the value of a badge for tabname specified by the user.
+                 */
+                getBadgeValue: function(tabName) {
+                    var tab = this.$$("#pebbleTabGroup").querySelector("#" + tabName);
+                    if (tab) {
+                        var badge = tab.querySelector("pebble-badge");
+                        if (badge) {
+                            return badge.label;
+                        }
+                    } else {
+                        console.log("Tab having a name " + tabName + " does not exists");
+                    }
+                },
+
+                /*
+                 * Can be used to toggle the display value of the badge element.
+                 */
+                toggleBadge: function(tab, showHide) {
+                    if (tab) {
+                        var badge = tab.querySelector("pebble-badge");
+                        if (badge) {
+                            if(showHide) {
+                                badge.removeAttribute("hidden");
+                            } else {
+                                badge.setAttribute("hidden", "");
+                            }
+                        } else {
+                            console.log("Pebble badge element does not exits");
+                        }
+                    } else {
+                        console.log("Tab having a name " + tabName + " does not exists");
+                    }
+                },
+
+                _configChanged: function(config) {
+                    if(config != null && config != undefined) {
                         if (config && config.tabItems) {
                             var tabItems = config.tabItems;
-                            if (tabItems != null && tabItems != undefined && tabItems.length > 0)
-                            {
-                                for(var tabItemIndex in tabItems)
-                                {   
-                                    if(tabItems[tabItemIndex].selected)
-                                    {
+
+                            if (tabItems != null && tabItems != undefined && tabItems.length > 0) {
+                                for(var tabItemIndex in tabItems) {   
+                                    if(tabItems[tabItemIndex].selected) {
                                         this.selectedTabIndex = tabItemIndex;
-                                        return tabItemIndex; 
                                     }
                                 }
                             }
                         }
-                    }
-                },
-                
-                _onTabItemSelected: function(e) {
-                    if (e.detail.item && e.detail.item.tabConfig) {
-                        this._loadContent(e.detail.item.tabConfig);
-                    }
-                },
 
-                _onMenuItemSelected: function(e) {
-                    if (e.detail.item && e.detail.item.tabConfig && e.detail.item.menuItemConfig) {
-                        this._loadContent(e.detail.item.menuItemConfig, e.detail.item.tabConfig.name);
-                        e.stopPropagation();
+                        if (config.scrollable){
+                            this.$$("#pebbleTabGroup").setAttribute("scrollable","");
+                        } else {
+                            this.$$("#pebbleTabGroup").setAttribute("fitContainer","");
+                        }
                     }
                 },
 
                 _isDivider: function(item) {
                     return item.name == "divider";
                 },
+                
+                _onIronSelect: function(e) {
+                    if (e && e.detail && e.detail.item) {
+                        var tabConfig = e.detail.item.tabConfig;
+                        var menuItemConfig = e.detail.item.menuItemConfig;
+                        var subTitle = tabConfig.subtitle;
 
-                _loadContent: function(config, tabConfigName) {
+                        if (tabConfig && menuItemConfig) {
+                            subTitle = menuItemConfig.title;
+                            this._loadContent(menuItemConfig, tabConfig.name);
+                        } else {
+                            this._loadContent(tabConfig);
+                        }
+
+                        this._resetSubTitles(tabConfig);
+                        
+                        var tabSubTitle = this.$$("#" + tabConfig.name + " .tab-subtitle-content");
+                        if (tabSubTitle) {
+                            tabSubTitle.textContent = subTitle;
+                        }
+
+                        if (subTitle) {
+                            this._applyMargin(tabConfig.name, true);
+                        } else {
+                            this._applyMargin(tabConfig.name, false);
+                        }
+                    }
+                },
+
+                _resetSubTitles: function(currentTabConfig) {
+                    var tabsConfig = this.config.tabItems;
+                    var pebbleTabGroup = this.$$("#pebbleTabGroup");
+                    
+                    if (tabsConfig && pebbleTabGroup) {
+                        for(var index in tabsConfig) {
+                            var tabConfig = tabsConfig[index];
+                            var tab = pebbleTabGroup.querySelector("#" + tabConfig.name);
+
+                            if(tab) {
+                                var tabSubTtile = tab.querySelector(".tab-subtitle-content");
+                                if(tabConfig && tabSubTtile) {
+                                    tabSubTtile.textContent = "";
+                                }
+                            
+                                var menu = tab.querySelector("paper-menu");
+                                if (currentTabConfig.name !== tab.id && menu && menu.selected >= 0) {
+                                    menu.selected = -1;
+                                }
+                            }
+                        }
+                    }
+                },
+
+                _loadContent: function(config, tabName) {
                     if(config) {
                         var viewName = config.name;
-                        viewName = tabConfigName ? tabConfigName + '-' + viewName : viewName;
+                        viewName = tabName ? tabName + '-' + viewName : viewName;
                         var contentElement = this.$$("#content-" + viewName);
 
                         if(contentElement && contentElement.children.length > 0) {
@@ -227,6 +355,22 @@ switch between different views or functional aspects of an app or to browse cate
                         var contentView = this.$$("#content-" + viewName);
                         if(contentView) {
                             contentView.setAttribute("hidden", "");
+                        }
+                    }
+                },
+
+                _applyMargin: function(tabName, apply) {
+                    var tab = this.getTabByName(tabName);
+
+                    if (tab) {
+                        var dropdownWrapper = tab.querySelector("#dropdown-wrapper");
+
+                        if (dropdownWrapper && apply) {
+                            if (apply) {
+                                dropdownWrapper.style.marginTop = "2%";
+                            } else {
+                                dropdownWrapper.style.marginTop = "0%";
+                            }
                         }
                     }
                 }
