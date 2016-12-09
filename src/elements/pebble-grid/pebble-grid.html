@@ -200,8 +200,7 @@ The following JSON object is a sample of data to be used to bind grid
 				;
 			}
 		</style>
-		<!--<iron-ajax auto url="/src/data/EntitySearchApp/gridListData.json" handle-as="json" last-response="{{products}}"></iron-ajax>-->
-		<template is="dom-if" if="{{_dataIsNotNull(data)}}">
+		<template is="dom-if" if="{{_dataIsNotNull(data, config, attributeModels)}}">
 			<div id="gridHeader" align="right">
 				<span>[[config.title]]</span>
 				<pebble-button class="pageRange" button-text="{{_pageRange}}" elevation="1" noink raised></pebble-button>
@@ -222,8 +221,8 @@ The following JSON object is a sample of data to be used to bind grid
 			</div>
 			<div id="pebbleGridContainer">
 				<template is="dom-if" if="{{_isTabularMode(config.viewMode)}}">
-					<iron-data-table page-size="{{pageSize}}" size="{{size}}" selection-enabled multi-selection="{{config.tabular.settings.isMultiSelect}}"
-						data-source="{{dataSource}}" selected-items = "{{selectedItems}}" selected-item = "{{selectedItem}}">
+					<iron-data-table page-size="{{pageSize}}" size="{{_getRecordSize()}}" selection-enabled multi-selection="{{config.tabular.settings.isMultiSelect}}"
+						data-source="{{dataSource}}">
 						<template is="dom-repeat" items="[[config.tabular.columns]]" as="col" index-as="colIndex">
 							<template is="dom-if" if="[[_isCheckBox(col)]]">
 								<data-table-column name="[[col.header]]" column-index="{{colIndex}}" filter-by$="[[_isFilterEnabled(col)]]" sort-by$="[[_isSortable(col)]]">
@@ -351,9 +350,7 @@ The following JSON object is a sample of data to be used to bind grid
 					 */	
 					size: {
 						notify: true,
-						value: function() {
-							return this.data ? this.data.length : 0;
-						}
+						type: Number
 					},
 
 					/**
@@ -370,7 +367,19 @@ The following JSON object is a sample of data to be used to bind grid
 					 * The format for the JSON object is given in above description.
 					 */	
 					config: {
-						type: Object
+						type: Object,
+						notify: true
+					},
+
+				    /**
+					 * Indicates an attribute models to be used if schema type is "attribute".
+				     */	
+					attributeModels: {
+						type: Object,
+						notify: true,
+						value: function() {
+							return {};
+						}
 					},
 
 					_currentPage:{
@@ -403,11 +412,12 @@ The following JSON object is a sample of data to be used to bind grid
                          //value : {},
                          notify : true,
                          reflectToAttribute : true
-                     },
+                     }
+
                 },
 
 				observers: [
-					'_calculatePageRange(_currentPage, pageSize, data.length)'
+					'_calculatePageRange(_currentPage, pageSize, data)'
 				],
 
 				listeners: {
@@ -515,22 +525,30 @@ The following JSON object is a sample of data to be used to bind grid
 
 				_dataSource: function(opts, cb) {
                     this._currentPage = opts.page;
-					var pagedData = this.data.slice(opts.page * opts.pageSize, (opts.page  * opts.pageSize) + opts.pageSize)
 					if(this.config.schemaType == undefined || this.config.schemaType == "Simple"){
+						var pagedData = this.data.slice(opts.page * opts.pageSize, (opts.page  * opts.pageSize) + opts.pageSize)
 						cb(pagedData);
 					}
 					else {
-						DataHelper.transformEntitySchemaForGrid(pagedData,  this.config.attributeModels);
+						var data = this.data;
+						var dataArray = Object.keys(data).map(function(key) { 
+							if(data.hasOwnProperty(key)) {
+								return data[key];
+							}
+						});
+						
+						var pagedData = dataArray.slice(opts.page * opts.pageSize, (opts.page  * opts.pageSize) + opts.pageSize)
+						DataHelper.transformEntitySchemaForGrid(pagedData,  this.attributeModels);
 						cb(pagedData);
 					}
 				 },
 
-				_calculatePageRange: function(currentPage, pageSize, size){
+				_calculatePageRange: function(currentPage, pageSize, data){
 					var totalSize = pageSize + currentPage * pageSize;
-					if(totalSize > size) {
-						totalSize = size;
+					if(totalSize > this._getRecordSize()) {
+						totalSize = this._getRecordSize();
 					}
-					this._pageRange = "1 - " + totalSize + " / " + size;
+					this._pageRange = "1 - " + totalSize + " / " + this._getRecordSize();
 				},
 
                 _columnValue: function(gridData, index) {
@@ -576,7 +594,7 @@ The following JSON object is a sample of data to be used to bind grid
 					}
 					else if(this.config.schemaType == "attribute") {
 						var displayType = this._getAttributeModelMap(col.name).displayType;
-						return this.config.mode == "Edit" && displayType == 'checkbox';
+						return this.config.mode == "Edit" && displayType == 'boolean';
 					}
 					
 				}, 
@@ -609,8 +627,13 @@ The following JSON object is a sample of data to be used to bind grid
 				_isSortable: function(col){
 					return col.sortable ? col.name : undefined;
 				},
-				_dataIsNotNull: function(){
-					return typeof(this.data) == "object";
+
+				_dataIsNotNull: function(data, config, attributeModels){
+					var result = typeof(data) == "object" && typeof(config) == "object";
+					if (result && config.schemaType == "attribute" && Object.keys(attributeModels).length == 0){
+						result = false;
+					}
+				    return result;
 				},
 
 				_onRefresh: function(e) {
@@ -655,17 +678,35 @@ The following JSON object is a sample of data to be used to bind grid
 				},
 
 				_getAttributeModelMap: function(name){
-					if(this._attributeModelMap == undefined){
-						this._attributeModelMap = {};
-						for(var key in this.config.attributeModels) {
-							for(var attrKey in this.config.attributeModels[key]){
-								if(attrKey != "name") {
-									this._attributeModelMap[attrKey] = this.config.attributeModels[key][attrKey];
+					if(this.attributeModels) {
+						if(this._attributeModelMap == undefined){
+							this._attributeModelMap = {};
+							for(var key in this.attributeModels) {
+								for(var attrKey in this.attributeModels[key]){
+									if(attrKey != "name") {
+										this._attributeModelMap[attrKey] = this.attributeModels[key][attrKey];
+									}
 								}
 							}
 						}
+						return this._attributeModelMap[name];
 					}
-					return this._attributeModelMap[name];
+					return {};
+				},
+
+				_getRecordSize: function() {
+					if(this.size > 0){
+						return this.size;
+					}
+					if(this.data){
+						if(this.config && this.config.schemaType == "attribute"){
+							return Object.keys(this.data).length;
+						}
+						else {
+							return this.data.length;
+						}
+				    }
+					return 0;
 				}
 
             });
