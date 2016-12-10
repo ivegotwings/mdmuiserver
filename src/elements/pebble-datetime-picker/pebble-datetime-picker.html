@@ -1,0 +1,458 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/iron-overlay-behavior/iron-overlay-behavior.html">
+<link rel="import" href="../../../bower_components/paper-button/paper-button.html">
+
+<link rel="import" href="paper-date-picker/paper-date-picker.html">
+<link rel="import" href="paper-date-picker/paper-date-picker-dialog-style.html">
+
+<link rel="import" href="paper-time-picker/paper-time-picker.html">
+<link rel="import" href="paper-time-picker/paper-time-picker-dialog-style.html">
+
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+
+<!--
+`<pebble-datetime-picker>` Represents an element that provides date and time.
+
+Example:
+
+    <template is="dom-bind">
+				<paper-button id="datetimePicker" raised onclick="picker.show()">Date Time Picker</paper-button>
+				<pebble-datetime-picker id="picker" 
+				                        for="datetimePicker"
+										dtp-date-time="{{dtpDateTime}}"></pebble-datetime-picker>
+				<span>{{dtpDateTime}}</span>
+		</template>
+
+### Styling
+
+The following custom properties and mixins are available for styling:
+
+Custom property | Description | Default
+----------------|-------------|----------
+`--pebble-date-picker-width` | Date picker width | 275px
+`--pebble-date-picker-height` | Date picker height | 300px
+`--pebble-date-picker-heading-width` | Date picker heading width | ``
+`--pebble-date-picker-heading-height` | Date picker heading height | 76px
+`--pebble-date-picker-heading-date-font` | Date picker heading date font | 16px
+`--pebble-time-picker-width` | Time picker width | 275px
+`--pebble-time-picker-height` | Time picker height | 300px
+`--pebble-time-picker-heading-width` | Time picker heading width | ``
+`--pebble-time-picker-heading-height` | Time picker heading height | 76px
+`--pebble-time-picker-heading-font` | Time picker heading font | 35px
+`--pebble-date-picker` | Mixin applied to date picker | {}
+`--pebble-date-picker-heading` | Mixin applied to date picker heading | {}
+`--pebble-date-picker-heading-date` | Mixin applied to date picker heading date | {}
+`--pebble-date-picker-calendar` | Mixin applied to date picker calendar | {}
+`--pebble-time-picker` | Mixin applied to time picker | {}
+`--pebble-time-picker-heading` | Mixin applied to time picker heading | {}
+`--pebble-time-picker-clock` | Mixin applied to time picker clock | {}
+
+
+@group Pebble Elements
+@element pebble-datetime-picker
+@demo demo/index.html
+-->
+
+<dom-module id="pebble-datetime-picker">
+  <template>    
+    <style is="custom-style" include="paper-date-picker-dialog-style"></style>
+    <style is="custom-style" include="paper-time-picker-dialog-style"></style>
+    <style is="custom-style" include="pebble-shared-styles">     
+        :host {
+        display: block;
+        position: absolute;
+        background-color: #ffffff;        
+        box-sizing: border-box;
+        box-shadow: 0 2px 5px 0 rgba(0, 0, 0, 0.26);
+        border-radius: 2px;        
+        font-size: 14px;
+        overflow:auto;
+        padding: 5px;
+        margin: 5px;
+      } 
+
+      #datePicker {
+        
+        --date-picker-width: var(--pebble-date-picker-width, 275px);
+        --date-picker-height: var(--pebble-date-picker-height, 300px);
+        --date-picker-heading-width: var(--pebble-date-picker-heading-width);
+        --date-picker-heading-height:  var(--pebble-date-picker-heading-height, 76px);
+
+        --paper-date-picker: @apply(--pebble-date-picker);        
+        --paper-date-picker-heading-date: @apply(--pebble-date-picker-heading-date);
+        --paper-date-picker-calendar: @apply(--pebble-date-picker-calendar); 
+        
+        --paper-date-picker-heading {
+            --paper-font-display1: {
+              font-size: var(--pebble-date-picker-heading-date-font, 16px);
+            };
+
+            @apply(--pebble-date-picker-heading);
+			    };
+      }
+
+      #timePicker {
+
+        --time-picker-width: var(--pebble-time-picker-width, 275px);
+        --time-picker-height: var(--pebble-time-picker-height, 300px);
+        --time-picker-heading-width: var(--pebble-time-picker-heading-width);
+        --time-picker-heading-height:  var(--pebble-time-picker-heading-height, 76px);
+        --time-picker-heading-font: var(--pebble-time-picker-heading-font, 35px);
+
+        --paper-time-picker: @apply(--pebble-time-picker);
+        --paper-time-picker-heading: @apply(--pebble-time-picker-heading);
+        --paper-time-picker-clock: @apply(--pebble-time-picker-clock);
+      }
+      
+    </style>
+    
+    <template is="dom-if" if="{{!_showTime}}">
+      <section class="paper-date-picker-dialog">
+          <paper-date-picker id="datePicker"
+                             date="{{_date}}" 
+                             min-date="{{minDate}}" 
+                             max-date="{{maxDate}}" 
+                             force-narrow                             
+                             heading-format="{{headingFormat}}"></paper-date-picker>
+          <div class="buttons" align="right">
+            <paper-button dialog-dismiss on-tap="hide">Cancel</paper-button>
+            <paper-button dialog-confirm on-tap="_onDateSelect">Ok</paper-button>
+          </div>
+      </section>
+    </template>
+
+    <template is="dom-if" if="{{_showTime}}">
+      <section class="paper-time-picker-dialog">
+          <paper-time-picker id="timePicker" 
+                             force-narrow 
+                             time="{{_time}}"
+                             enable-seconds></paper-time-picker>
+          <div class="buttons" align="right">
+            <paper-button dialog-dismiss on-tap="_onTimeCancel">Cancel</paper-button>
+            <paper-button dialog-confirm on-tap="_onTimeSelect">OK</paper-button>
+          </div>
+      </section>
+    </template>
+
+  </template>
+
+  <script>
+
+    //To capture current opened Datetime picker
+    var currentDateTimePicker = null;
+
+    Polymer({
+      is: 'pebble-datetime-picker',
+
+      properties: {
+
+        
+        /*
+         * Indicates the selected date (YYYY-MM-DD)
+         */
+        _date: {
+          type: Date,
+          notify: true,
+          //observer: '_onDateChange'
+        },
+
+        /*
+         * Indicates selected time
+         */
+        _time: {
+            type: String,            
+            notify: true ,
+          //observer: '_onTimeChange'            
+          },
+
+        /*
+         *  Specifies the popover not to overlap with target.
+         */
+        _noOverlap: {
+           type: Boolean,
+           value: true
+         },
+
+       /*
+        * Specifies hide/show date and time
+        */  
+       _showTime: {
+           type: Boolean,
+           value: false,
+           notify: true
+         },
+
+        /*
+         * Indicates selected date and time
+         */
+        dtpDateTime: {
+          type: Date,
+          notify: true          
+        },
+
+        /*
+         * Indicates selected date
+         */
+        dtpDate: {
+          type: String,
+          notify: true         
+        },
+
+        /*
+         * Indicates selected time
+         */
+        dtpTime: {
+          type: String,
+          notify: true
+        },
+
+        /**
+         * Specifies the minimum allowed date
+         */
+        minDate: {
+          type: Date,
+          value: null
+        },
+
+        /**
+         * Specifies the maximum allowed date
+         */
+        maxDate: {
+          type: Date,
+          value: null
+        }, 
+       
+        /**
+         * Specifies the format of the date displayed in the heading.
+         * See documentation for Moment.js for more info.
+         */
+        headingFormat: {
+           type: String,
+           value: 'ddd, MMM D'
+        },
+
+        /**
+         * Specifies the date format for pricker type date
+         */
+        format: {
+          type: String,
+          value: "MM/DD/YYYY"
+        },
+
+          /*
+          *  Indicates the target for picker to display.
+          */
+           for: {
+             type: String,
+             value: null
+           },
+
+           /*
+           *  Indicates the "vertical" alignment of the picker.            
+           *  If <b>value</b> is selected as "top", then picker is aligned below the target.  
+           *  If <b>value</b> is selected as "below", then picker is aligned above the target.
+           */
+
+           verticalAlign: {
+             type: String,
+             value: "top"
+           },
+
+           /*
+           *  Indicates the "horizontal" alignment of the picker.            
+           *  If <b>value</b> is selected as "left", then picker is aligned to the left of the target.  
+           *  If <b>value</b> is selected as "right", then picker is aligned to the right of the target.
+           */
+           horizontalAlign: {
+             type: String,
+             value: "left"
+           },
+           
+           /*
+            * Indicates type of the picker (DateTime or Date or Time)
+            */
+           pickerType: {
+             type: String,
+             value: "DateTime"
+           },        
+      },
+
+      listeners: {
+        'iron-overlay-opened': '_datetimePickerOpened',
+        'iron-overlay-closed': '_datetimePickerClosed',        
+        },
+
+      behaviors: [
+          Polymer.IronOverlayBehavior          
+        ],
+
+      attached: function(){
+            window.addEventListener('scroll', this._fixPickerOnScrollAndResize);
+            window.addEventListener('resize', this._fixPickerOnScrollAndResize);
+        },
+
+        /*
+        *  To display Date and Time Picker.
+        */
+        show : function() {
+
+            this.noOverlap = this._noOverlap //Alwaya noOverlap as true
+
+            this.open(); //IronOverlayBehavior to display popover
+
+            var scope = Polymer.dom(this).getOwnerRoot();
+            var target = Polymer.dom(scope).querySelector('#' + this.for);            
+            this.positionTarget = target;
+
+            this._refitPopover();
+          },
+
+          /*
+          *  To hide/close Date and Time Picker
+         */
+
+          hide: function() {
+            this.close();
+          },
+
+          /*
+           * This is for date formating, only for date picker type
+           */
+         _getDateByFormat: function() { 			
+          return moment(this._date).format(this.format);         
+		     },
+
+        /*
+         * Fix the overlay picker postion on scroll or resize
+         */
+        _fixPickerOnScrollAndResize: function() {
+              if(currentDateTimePicker == null)
+              {
+                return;
+              }
+              currentDateTimePicker._refitPopover();
+          },
+
+          /*
+           * Triggers when open the picker
+           */
+          _datetimePickerOpened: function(){
+              currentDateTimePicker = this;
+
+              if(this.pickerType == "DateTime")
+              {
+                if(!this.dtpDateTime)
+                {
+                  this._date = new Date();
+                }
+                else
+                {
+                this._date = new Date(this.dtpDateTime);
+                }
+
+                this._time = moment(this._date).format("hh:mm:ss a");
+              }
+              else if(this.pickerType == "Date")
+              {
+                if(!this.dtpDate)
+                {
+                  this._date = new Date();
+                }
+                else
+                {
+                  this._date = new Date(moment(this.dtpDate, this.format).format('MM/DD/YYYY'));
+                }
+              }
+              else
+              {
+                  this._time = this.dtpTime ? this.dtpTime : moment(this._date).format("hh:mm:ss a");
+              }
+              
+              //Show Date/Time as per pickerType
+              if(this.pickerType == "Time")
+              {
+                this._showTime = true;
+              }
+              else
+              {
+                this._showTime = false;
+              }
+          },
+
+          /*
+           * Triggers when close the picker
+           */
+          _datetimePickerClosed: function(){              
+              if(currentDateTimePicker == this)
+              {
+                if(this.opened)
+                {
+                  return;
+                }
+                currentDateTimePicker = null;
+              }
+          },
+         
+          /*
+          *  Used to reset the position of the Date and Time Picker.
+          */
+          _refitPopover: function() 
+          {
+              this.refit();
+          },
+
+         /*
+          *  Selected a date on clicking OK
+          */
+          _onDateSelect: function(){
+              if(this.pickerType == "Date")
+              {
+                this.dtpDate = this._getDateByFormat(this._date);
+                this.close();
+              }
+              else
+              {
+                this._showTime = true;
+              }
+          },
+          
+         /*
+          *  On cancel time selection
+          */
+          _onTimeCancel: function(){
+              if(this.pickerType == "Time")
+              {
+                this.close();
+              }
+              else
+              {
+                this._showTime = false;
+              }
+          },
+
+         /*
+          *  Selected time on clicking OK
+          */
+          _onTimeSelect: function(){
+            if(this.pickerType == "DateTime")
+            {
+              var parseTime = this.querySelector("#timePicker").parseTime(this._time);
+              this._date.setHours(parseTime.hour);
+              this._date.setMinutes(parseTime.minute);
+              this._date.setSeconds(parseTime.second);            
+              this._date = new Date(this._date);
+                      
+              this.dtpDateTime = this._date;
+            }
+            else if(this.pickerType == "Time")
+            {
+              this.dtpTime = this._time;
+            }
+
+            this.close();
+          }
+
+         
+    })
+  </script>
+</dom-module>
