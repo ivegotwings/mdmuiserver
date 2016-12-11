@@ -11,6 +11,8 @@ var falcorExpress = require('falcor-express'),
     $atom = jsonGraph.atom,
     expireTime = -60 * 60 * 1000; // 60 mins
 
+var EntityManageService = require('../api/EntityManageService');
+
 var EntityRouterBase = Router.createClass([
     {
         route: 'searchResults.create',
@@ -82,43 +84,57 @@ var EntityRouterBase = Router.createClass([
         }
     },
     {
-        route: "entitiesById[{keys:ids}]",
+        route: "entitiesById[{keys:entityIds}].ctx[{keys:ctxKeys}].attrs[{keys:attrNames}]",
         get: function(pathSet) {
-
             //console.log('entitiesById call:' + pathSet);
 
-            var results = [],
-                entity;
+            var entityIds = pathSet.entityIds;
+            var ctxKeys = pathSet.ctxKeys;
+            var attrNames = pathSet.attrNames;
+
+            var results = [];
 
             var serviceResult = require("../data/entityJson_EXTERNAL.json");
 
-            pathSet.ids.forEach(function(id) {
+            var entityManagerService = new EntityManageService();
 
-                //console.log(id);
+            var request = this._createRequestJson(ctxKeys, attrNames);
 
-                var resultData = serviceResult["dataObjects"];
+            entityIds.forEach(function(entityId) {
 
-                //console.log(resultData);
+                //update entity id in request query for current id
+                request.query.id = entityId;    
 
-                resultData.forEach(function(obj) {
-                    if (obj.id == id) {
-                        entity = obj;
-                        return false;
+                //console.log('req to api ', JSON.stringify(request));
+
+                var res = entityManagerService.getEntity(request);
+                
+                //var resultData = serviceResult["dataObjects"]; 
+                var entity;
+                                
+                if(res !== undefined && res.dataObjectOperationResponse !== undefined && res.dataObjectOperationResponse.status == "success")
+                {
+                    //console.log('response', JSON.stringify(res.dataObjectOperationResponse));
+                    if(res.dataObjectOperationResponse.dataObjects !== undefined){
+                        res.dataObjectOperationResponse.dataObjects.forEach(function(en){
+                            entity = en;
+                            //TODO:: This is temporary as RDP is not sending id back..we shall remove this once ids come back...
+                            entity.id = entityId;
+                            if (entity.id == entityId) {
+                                results.push({
+                                    path: ['entitiesById', entityId],
+                                    value: $atom(entity)
+                                });
+                                return false;
+                            }
+                        });
                     }
-                });
-
-                //console.log('Entity:' + entity);
-
+                }
+                
                 if (entity === undefined) {
                     results.push({
-                        path: ['entitiesById', id],
-                        value: $error(id + ' not found in system')
-                    });
-                }
-                else {
-                    results.push({
-                        path: ['entitiesById', id],
-                        value: $atom(entity)
+                        path: ['entitiesById', entityId],
+                        value: $error(entityId + ' is not found')
                     });
                 }
             });
@@ -130,11 +146,53 @@ var EntityRouterBase = Router.createClass([
 ]);
 
 var EntityRouter = function() {
-    //console.log(this);
     EntityRouterBase.call(this);
 };
 
 EntityRouter.prototype = Object.create(EntityRouterBase.prototype);
+
+EntityRouter.prototype._createRequestJson = function (ctxKeys, attrNames) {
+    var ctxGroups = [];
+    var valCtxGroups = [];
+
+    ctxKeys.forEach(function (ctxKey) {
+        var ctxKeySegments = ctxKey.split('#@#');
+        var ctxGroupObj = { list: ctxKeySegments[0], classification: ctxKeySegments[1] };
+        var valCtxGroupObj = { source: ctxKeySegments[2], locale: ctxKeySegments[3] };
+
+        //TODO:: Right now RDP is not working with below 2 parameters passed..need to fix this soon..
+        //valCtxGroupObj.timeslice = "current";
+        //valCtxGroupObj.governed = "true";
+
+        if (!ctxGroups.find(c => c.list === ctxGroupObj.list
+            && c.categorization === ctxGroupObj.categorization)) {
+            ctxGroups.push(ctxGroupObj);
+        }
+
+        if (!valCtxGroups.find(v => v.source === valCtxGroupObj.source
+            && v.locale === valCtxGroupObj.locale)) {
+            valCtxGroups.push(valCtxGroupObj);
+        }
+    });
+
+    var fields = { ctxTypes: ["properties"], attributes: attrNames, relationships: ["ALL"] };
+    var options = { totalRecords: 1, includeRequest: false };
+
+    //TODO:: This is hard coded as of now as RDP is not working wtihout entity types....need to fix this ASAP
+    var filters = {
+        attributesCriterion: [], relationshipsCriterion: [],
+        typesCriterion: [
+            "sku",
+            "style"
+        ]
+    };
+
+    var query = {ctx: ctxGroups, valCtx: valCtxGroups, id: "", filters: filters};
+
+    var request = {query:query, fields:fields, options:options};
+
+    return request;
+};
 
 module.exports = function() {
     return new EntityRouter();
