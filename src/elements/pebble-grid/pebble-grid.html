@@ -10,7 +10,9 @@
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-vertical-divider/pebble-vertical-divider.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="./grid-list-view.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../pebble-icons/pebble-icons.html">
 
 
 <!--
@@ -23,6 +25,7 @@ The following JSON object is a sample of config used to configure grid
 {
     "viewMode": "Tabular",
     "title": "Simple Data Table",
+    "readOnly":true,
     "tabular": {
         "settings": {
         
@@ -90,7 +93,7 @@ The following JSON object is a sample of data to be used to bind grid
 
 <dom-module id="pebble-grid">
 	<template>
-		<style include="pebble-shared-styles">
+		<style include="pebble-styles-shared">
 			#viewMode {
 				padding: 0 20px 0 0;
 				width: 110px;
@@ -206,6 +209,10 @@ The following JSON object is a sample of data to be used to bind grid
 				<pebble-vertical-divider></pebble-vertical-divider>
 				<pebble-button icon="refresh" on-tap="_onRefresh" noink raised></pebble-button>
 				<pebble-vertical-divider></pebble-vertical-divider>
+				<template is="dom-if" if="[[!config.readOnly]]">
+				  <pebble-button icon="pebble-icons:Icons/Edit" on-tap="_changeToEditMode" noink raised></pebble-button>
+				  <pebble-vertical-divider></pebble-vertical-divider>
+				</template>
 				<pebble-button icon="file-download" on-tap="_onDownload" noink raised></pebble-button>
 				<pebble-vertical-divider></pebble-vertical-divider>
 				<pebble-button icon="file-upload" on-tap="_onUpload" noink raised></pebble-button>
@@ -220,10 +227,11 @@ The following JSON object is a sample of data to be used to bind grid
 			</div>
 			<div id="pebbleGridContainer">
 				<template is="dom-if" if="{{_isTabularMode(config.viewMode)}}">
+                  <template is="dom-if" if="{{!_isNotEditable(config.mode)}}" >
 					<iron-data-table page-size="{{pageSize}}" size="{{_getRecordSize()}}" selection-enabled multi-selection="{{config.tabular.settings.isMultiSelect}}"
 						data-source="{{dataSource}}">
-						<template is="dom-repeat" items="[[config.tabular.columns]]" as="col" index-as="colIndex">
-							<template is="dom-if" if="[[_isCheckBox(col)]]">
+								<template is="dom-repeat" items="[[config.tabular.columns]]" as="col" index-as="colIndex">
+								<template is="dom-if" if="[[_isCheckBox(col)]]">
 								<data-table-column name="[[col.header]]" column-index="{{colIndex}}" filter-by$="[[_isFilterEnabled(col)]]" sort-by$="[[_isSortable(col)]]">
 									<template>
 										<paper-checkbox checked$="{{_columnValue(item, column.columnIndex)}}"></paper-checkbox>
@@ -251,19 +259,32 @@ The following JSON object is a sample of data to be used to bind grid
 									</template>
 								</data-table-column>
 							</template>
-							<template is="dom-if" if="[[_isNotEditable(col)]]">
+							<template is="dom-if" if="[[_hasNoEditType(col)]]">
 								<data-table-column name="[[col.header]]" column-index="{{colIndex}}" filter-by$="[[_isFilterEnabled(col)]]" sort-by$="[[_isSortable(col)]]">
 									<template>[[_columnValue(item, column.columnIndex)]]</template>
 								</data-table-column>
 							</template>
 						</template>
 					</iron-data-table>
+					</template>
+						<template is="dom-if" if="{{_isNotEditable(config.mode)}}" >
+							<iron-data-table page-size="{{pageSize}}" size="{{_getRecordSize()}}" selection-enabled multi-selection="{{config.tabular.settings.isMultiSelect}}"
+											 data-source="{{dataSource}}">
+								<template is="dom-repeat" items="[[config.tabular.columns]]" as="col" index-as="colIndex">
+									<data-table-column  name="[[col.header]]" column-index="{{colIndex}}" filter-by$="[[_isFilterEnabled(col)]]" sort-by$="[[_isSortable(col)]]">
+										<template>[[_columnValue(item, column.columnIndex)]]</template>
+									</data-table-column>
+								</template>
+							</iron-data-table>
+					</template>
 				</template>
 				<template is="dom-if" if="{{_isTileMode(config.viewMode)}}">
 					<h1>Under Design</h1>
 				</template>
 				<template is="dom-if" if="{{_isListMode(config.viewMode)}}">
-					<h1>Under Design</h1>
+					<grid-list-view items = "{{data}}" multi-selection = "{{config.list.settings.isMultiSelect}}"
+                		selected-item = "{{selectedItem}}" selected-items = "{{selectedItems}}" list-items= "{{config.list.listItems}}"
+						></grid-list-view>
 				</template>
 			</div>
 		</template>
@@ -325,7 +346,7 @@ The following JSON object is a sample of data to be used to bind grid
 					/**
 					 * Indicates a data which is wrapped in data-source that is used as a grid data.
 					 * The format for the JSON object is given in above description.
-					 */					
+					 */
 					data: {
 						type: Object,
 						notify: true
@@ -390,9 +411,27 @@ The following JSON object is a sample of data to be used to bind grid
 
 					_attributeModelMap: {
 						type: Object
-					}
+					},
 
-					
+					/**
+					 * When multiSelection is true, this is an array that contains the selected items.
+					 */
+					 selectedItems : {
+                         type : Array,
+                         //value : [],
+                         notify : true,
+                         reflectToAttribute : true
+                    },
+					/**
+					 * When multiSelection is false, this is the currently selected item, or null if no item is selected.
+					 */
+                     selectedItem : {
+                         type : Object,
+                         //value : {},
+                         notify : true,
+                         reflectToAttribute : true
+                     }
+
                 },
 
 				observers: [
@@ -498,6 +537,10 @@ The following JSON object is a sample of data to be used to bind grid
 					return ironDataTable.selectedItem;
 				},
 
+				//_computeCachedItems : function() {
+				//	return this.data.slice(0, (this._currentPage * this.pageSize) + this.pageSize);
+				//},
+
 				_dataSource: function(opts, cb) {
                     this._currentPage = opts.page;
 					if(this.config.schemaType == undefined || this.config.schemaType == "Simple"){
@@ -556,45 +599,48 @@ The following JSON object is a sample of data to be used to bind grid
 				},
 				_isTextBox: function(col){
 					if(this.config.schemaType == undefined || this.config.schemaType == "simple") {
-                    	return this.config.mode == "Edit" && col.editType == 'textbox';
+                    	return col.editType == 'textbox';
 					}
 					else if(this.config.schemaType == "attribute") {
 						var displayType = this._getAttributeModelMap(col.name).displayType;
-						return this.config.mode == "Edit" && displayType == 'textbox';
+						return  displayType == 'textbox';
 					}
 				},
 				_isCheckBox: function(col){
 					if(this.config.schemaType == undefined || this.config.schemaType == "simple") {
-                    	return this.config.mode == "Edit" && col.editType == 'checkbox';
+                    	return col.editType == 'checkbox';
 					}
 					else if(this.config.schemaType == "attribute") {
 						var displayType = this._getAttributeModelMap(col.name).displayType;
-						return this.config.mode == "Edit" && displayType == 'boolean';
+						return displayType == 'boolean';
 					}
 					
 				}, 
 				_isTextArea: function(col){
 					if(this.config.schemaType == undefined || this.config.schemaType == "simple") {
-                    	return this.config.mode == "Edit" && col.editType == 'textarea';
+                    	return col.editType == 'textarea';
 					}
 					else if(this.config.schemaType == "attribute") {
 						var displayType = this._getAttributeModelMap(col.name).displayType;
-						return this.config.mode == "Edit" && displayType == 'textarea';
+						return  displayType == 'textarea';
 					}
 					
 				},
 				_isRadioButton: function(col){
 					if(this.config.schemaType == undefined || this.config.schemaType == "simple") {
-                    	return this.config.mode == "Edit" && col.editType == 'radio';
+                    	return col.editType == 'radio';
 					}
 					else if(this.config.schemaType == "attribute") {
 						var displayType = this._getAttributeModelMap(col.name).displayType;
-						return this.config.mode == "Edit" && displayType == 'radio';
+						return displayType == 'radio';
 					}
 					
 				},
-				_isNotEditable: function(col){
-					return this.config.mode == "Read" || col.editType == '';
+                _hasNoEditType: function (col) {
+                    return col.editType == '';
+                },
+				_isNotEditable: function(mode){
+					return mode == "Read";
 				},
 				_isFilterEnabled: function(col){
 					return col.filterable ? col.name : undefined;
@@ -649,7 +695,7 @@ The following JSON object is a sample of data to be used to bind grid
 				},
 
 				_onCollapsingItem: function(e){
-					this.fire('bedrock-event', { name: "grid-collapsing-item", data: e.detail} );	
+					this.fire('bedrock-event', { name: "grid-collapsing-item", data: e.detail} );
 				},
 
 				_getAttributeModelMap: function(name){
@@ -682,6 +728,9 @@ The following JSON object is a sample of data to be used to bind grid
 						}
 				    }
 					return 0;
+				},
+                _changeToEditMode: function () {
+                    this.set('config.mode', "Edit");
 				}
 
             });
