@@ -1,0 +1,185 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="./DataChannelBehavior.html">
+<!--
+`liquid-entity-getdata`
+Boolean control
+
+@demo demo/index.html 
+-->
+<dom-module id="liquid-entity-getdata">
+    <template>
+    </template>
+    <script>
+    (function() {
+      'use strict';
+
+      Polymer({
+        is: 'liquid-entity-getdata',
+        behaviors: [RUFBehaviors.DataChannel],
+        attached: function() {
+        },
+        ready: function(){
+        },
+        properties: {
+          operation: {
+              type: String, // 'initiatesearch', 'getsearchresultdetail', 'getentities'
+              value: ''
+          },
+          request: {
+            type: Object,
+            value: function() {
+              return {
+              };
+            },
+            notify: true
+          },
+          response: {
+            type: Object,
+            value: function() {
+              return {};
+            },
+            notify: true
+          },
+          requestId:{
+              type: String,
+              value: '',
+              notify: true
+          },
+          logInternalDetail:{
+            type: Boolean,
+            value: false,
+            notify: true
+          }
+        },
+        observers: [    
+            '_makeServiceCall(requestId, request)'
+        ],
+        _makeServiceCall: function(requestId, request) {
+            var operation = this.operation, 
+                self = this;
+
+            if(request){
+                var model = RUFBehaviors.DataChannel.getModel();
+
+                if(operation == 'initiatesearch') {
+                    self._callInitiateSearch(self, model, request);
+                }
+                else if(requestId != '' && operation == 'getsearchresultdetail') {
+                    self._callSearchResultDetail(self, model, requestId, request);
+                }
+                else if(operation == 'getentities') {
+                    self._callGetEntities(self, model, request);
+                }
+            }
+        },
+        _callInitiateSearch: function(self, model, request){
+            if(self.logInternalDetail){
+                console.log('Request for initiate search call: ', request);
+            }
+
+            model.call(["searchResults", "create"], [request],[],[]).then(function(responsePkg){
+                var resSearchResultId = Object.keys(responsePkg.json.searchResults)[0];
+                var resSearchResultObj = responsePkg.json.searchResults[resSearchResultId];
+                var responseObj = self._createSuccessResponse(resSearchResultObj);
+
+                if(self.logInternalDetail){
+                    console.log('Response from initiate search call: ', responseObj);
+                }
+
+                self.set('response', responseObj);
+            },
+            function(reason){ //on failure
+                self.response = self._createErrorResponse(reason);  
+            });
+        },
+        _callSearchResultDetail: function(self, model, requestId, request){
+            if(self.logInternalDetail){
+                console.log('Request Id for get search result detail: ', requestId);
+            }
+
+            model.get(["searchResults", requestId, "totalRecords"]).then(function(totalRecordsPkg){
+                    
+                    var totalRecords = totalRecordsPkg.json.searchResults[requestId].totalRecords;
+                    var from = 0;
+                    var to = 10;
+                    var to1 = (to + 1) < totalRecords ? to : totalRecords - 1; // make sure to range is < total records
+                    
+                    model.get(["searchResults", requestId, "entities", [{from:from,to:to1}]]).then(function(responsePkg) {
+                            if(self.logInternalDetail){
+                                console.log('Response from get search result detail call: ', responsePkg);
+                            }
+
+                            if(responsePkg !== undefined){
+                                var entities = responsePkg.json.searchResults[requestId].entities;
+
+                                var entityIds = [];
+                                for(var e in entities){
+                                    entityIds.push(entities[e].id);
+                                }
+
+                                if(entityIds.length > 0){
+                                    self._callGetEntities(self, model, request, entityIds);
+                                }
+                            }
+                        },
+                        function(reason){ //on failure of getting search result detail
+                            self.response = self._createErrorResponse(reason);  
+                        });
+                },
+                function(reason){ //on failure of getting total records
+                    self.response = self._createErrorResponse(reason);  
+                });
+        },
+        _callGetEntities: function(self, model, request, entityIds){
+            if(self.logInternalDetail){
+                    console.log('Request for get entities call...request: ', request, ' entityIds: ', entityIds);
+            }
+
+            if((!entityIds || entityIds.length == 0) 
+                && request.data && request.data.query && request.data.query.id) {
+                entityIds = [];
+                entityIds.push(request.data.query.id);
+            }
+
+            if(!entityIds || entityIds.length == 0) {
+                self.response = self._createErrorResponse("Cannot find entityIds for get request");
+                return;
+            }
+
+            var contextKeys = []
+            request.data.query.ctx.forEach(function(ctxGroup){
+                request.data.query.valCtx.forEach(function(valCtxGroup){
+                    var contextKey = "".concat(ctxGroup.list,'#@#', ctxGroup.classification, '#@#', valCtxGroup.source, '#@#',valCtxGroup.locale);
+                    contextKeys.push(contextKey);
+                });
+            });
+
+            var attrs = request.data.fields.attributes;
+            model.get(["entitiesById", entityIds, "ctx", contextKeys, "attrs", attrs]).then(function(responsePkg) {
+                    self.response = self._createSuccessResponse({'entities': responsePkg.json.entitiesById});
+
+                    if(self.logInternalDetail){
+                        console.log('Response from get entities call: ', self.response);
+                    }
+                },
+                function(reason){
+                    self.response = self._createErrorResponse(reason);  
+                });
+        },
+        _createSuccessResponse: function(data){
+            return {status:'success', data:data};
+        },
+        _createErrorResponse: function(reason){
+            var result = {status: 'error', reason};
+
+            if(this.logInternalDetail){
+                console.log('Error response for the operation: ', this.operation, result);
+            }
+            
+            return result;
+        }
+      });
+    })();
+  </script>
+</dom-module>

@@ -2,7 +2,6 @@
 <link rel="import" href="../../../bower_components/iron-fit-behavior/iron-fit-behavior.html">
 <link rel="import" href="../../../bower_components/iron-overlay-behavior/iron-overlay-behavior.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
-<!--<link rel="import" href="popover-styles.html">--> <!--Arrow styles-->
 
 <!--
 `<pebble-popover>` Represents a popover raised for a target.
@@ -24,42 +23,113 @@ Custom property | Description | Default
 `--pebble-popover-text-color` | The color of the popover text | `#000000`
 `--pebble-popover-max-height` | The max height of the popover | `300px`
 `--pebble-popover-max-width` | The max width of the popover | `300px`
+`--pebble-popover-height` | The height of the popover | ``
+`--pebble-popover-width` | The width of the popover | ``
 
 @group Pebble Elements
 @element pebble-popover
 @demo demo/index.html
 -->
 
-
 <dom-module id="pebble-popover">
-  <template>
-    <!--<style include="popover-styles"></style>--> <!--For arrow styles-->
-    <style is="custom-style" include="shared-styles">
+  <template>   
+    <style is="custom-style" include="pebble-styles-shared">
       :host {
-        display: block;
-        position: absolute;
+        display: inline-table;
+        position: absolute;        
         background-color: var(--pebble-popover-background-color, #ffffff);
-        color: var(--pebble-popover-text-color, #000000);
-        max-height: var(--pebble-popover-max-height, 300px);
-        max-width: var(--pebble-popover-max-width, 300px);        
+        color: var(--pebble-popover-text-color, #000000);        
         box-sizing: border-box;
-        box-shadow: 0 2px 5px 0 rgba(0, 0, 0, 0.26);
-        border-radius: 2px;        
-        font-size: 14px;
-        overflow: auto;
+        box-shadow: 0 0 4px 0 #c1cad4;
+        border: 1px solid #c1cad4;
+        border-radius: 5px;        
+        font-size: 14px;        
         padding: 5px;
         margin: 5px;
+      }  
+      .popover::shadow ::-webkit-scrollbar, ::-webkit-scrollbar {
+      width: 4px;
+      height: 5px;
       }
+      
+      .popover::shadow ::-webkit-scrollbar-thumb, ::-webkit-scrollbar-thumb {
+      background: var(--palette-cloudy-blue);
+      border-radius: 2px;
+      }
+
+      .popover::shadow ::-webkit-scrollbar-track, ::-webkit-scrollbar-track {
+        background: #e6eaee;
+        border-radius: 2px;
+      }
+    
+      .popover {
+          overflow: auto;
+          border-radius: 2px;
+          height: var(--pebble-popover-height);
+          width: var(--pebble-popover-width);
+          max-height: var(--pebble-popover-max-height, 300px);
+          max-width: var(--pebble-popover-max-width, 300px);
+      }
+
+      .arrow_box {
+                position: relative;              
+            }
+        
+      .arrow_box:before, .arrow_box:after {
+                
+                bottom: var(--arrow-position-bottom); /*Arrow moved to top from bottom*/
+                top: var(--arrow-position-top); /*Arrow moved to bottom from top*/
+                left: var(--arrow-position-left); /*Arrow moved to right from left*/ 
+                right: var(--arrow-position-right); /*Arrow moved to left from right*/
+
+                border: solid transparent;
+                content: " ";
+                height: 0;
+                width: 0;
+                position: absolute;
+                pointer-events: none;
+            }
+
+      .arrow_box:before {   
+                
+                border-bottom-color: var(--up-arrow-border-color);
+                border-left-color: var(--right-arrow-border-color);
+                border-right-color: var(--left-arrow-border-color);
+                border-top-color: var(--down-arrow-border-color);
+
+                border-width: var(--arrow-size, 8px); /*Arrow size*/
+                margin-left: var(--arrow-margin-left);
+                margin-bottom: var(--arrow-margin-bottom);
+      }
+            
+      .arrow_box:after {
+                border-color: rgba(194, 225, 245, 0);
+                
+                border-bottom-color: var(--up-arrow);
+                border-left-color: var(--right-arrow);
+                border-right-color: var(--left-arrow);
+                border-top-color: var(--down-arrow);
+
+                border-width: var(--arrow-size, 7px); /*Arrow size reduced to 1px from before to get shadow effect*/
+
+                margin-left: var(--arrow-margin-left);
+                margin-bottom: var(--arrow-margin-bottom);            
+            } 
     </style>
-
-    <div>
-      <content>
-      </content>
+        
+    <div class="arrow_box">
+      <div class="popover">      
+        <content>
+        </content> 
+      </div>     
     </div>
-
+    
   </template>
 
   <script>
+      //To capture current opened popover
+      var currentPopover = null;
+
       Polymer({
         is: 'pebble-popover',
 
@@ -102,9 +172,21 @@ Custom property | Description | Default
            noOverlap: {
              type: Boolean,
              value: false
+           },
+
+           /*
+           *  Indicates display arrow as per target without any position calculations
+           */
+           displayArrowAsPerTarget: {
+             type: Boolean,
+             value: false
            }
         },
 
+        listeners: {
+        'iron-overlay-opened': '_popoverOpened',
+        'iron-overlay-closed': '_popoverClosed',        
+        },
         
         behaviors: [
           Polymer.IronOverlayBehavior
@@ -117,16 +199,13 @@ Custom property | Description | Default
         },
 
         _fixPopoverOnScrollAndResize: function() {
-              //looped for multiple popovers on same window       
-              var popoversList = document.querySelectorAll('pebble-popover');
-              popoversList.forEach(function(popover){
-                    if(popover.opened)
-                    {
-                      popover._refitPopover();
-                    }
-              });
-          },
+              if(currentPopover == null)
+              {
+                return;
+              }
 
+              currentPopover._refitPopover();
+          },
         
         /*
         *  Display the popover
@@ -153,8 +232,7 @@ Custom property | Description | Default
           *  Update alignment based on properties
           */
 
-          _updateAlign: function(e) {
-            var scope = Polymer.dom(this).getOwnerRoot();         
+          _updateAlign: function(e) {                     
             this.horizontalAlign = this.horizontalAlign;
             this.verticalAlign = this.verticalAlign;
             this.noOverlap = this.noOverlap;            
@@ -165,10 +243,185 @@ Custom property | Description | Default
           *  Reset position of the popover
           */
 
-          _refitPopover: function() {
-              var scope = Polymer.dom(this).getOwnerRoot();              
-              this.refit();
-          }
+          _refitPopover: function() {                            
+              this.refit();              
+              //After resetting the popover, now fix the arrow position
+              this._fitArrowPosition();
+          },
+
+          /*
+           * Raised when popover opens, initial arrow position will be set from here
+           */
+         _popoverOpened: function(){ 
+              currentPopover = this; 
+              this._fitArrowPosition();
+          },
+
+          _popoverClosed: function(){
+              //If popover opened, then do NOT make it to null and just return back
+              if(currentPopover.opened)
+              {
+                return;
+              }        
+
+              currentPopover = null;              
+          },
+
+          _fitArrowPosition: function(){
+              var scope = Polymer.dom(this).getOwnerRoot();
+              var targetBounding = Polymer.dom(scope).querySelector('#' + this.for).getBoundingClientRect();
+              var popoverBounding = this.getBoundingClientRect(); 
+
+              //Popover opened first time, so popover size not determined yet and now return back
+              if(popoverBounding.width == 0)
+              {
+                return;
+              }
+
+              //Enable default arrow
+              this._enableArrow(); 
+
+              var padding = 5;
+              var margin = 5;
+              var arrowboxsize = 16;
+
+              if(this.displayArrowAsPerTarget)
+              {
+                if(this.verticalAlign == "bottom")
+                {
+                  this._enableArrow('down'); 
+                  this.customStyle['--arrow-position-bottom'] = -(arrowboxsize + padding) + 'px';
+                  this.customStyle['--arrow-position-left'] = (targetBounding.width / 2) + 'px';
+                }
+                else
+                {
+                  this.customStyle['--arrow-position-bottom'] = '100%';
+                  this.customStyle['--arrow-position-left'] = (targetBounding.right - popoverBounding.left) - (padding + margin) - (targetBounding.width / 2) + 'px';
+
+                  this.customStyle['--arrow-margin-bottom'] = padding + 'px';
+                }                
+
+                this.updateStyles();
+              }
+              else if(this.horizontalAlign == "left" && this.verticalAlign == "top")
+              {
+                this.customStyle['--arrow-margin-bottom'] = padding + 'px';                
+
+                if(targetBounding.right < popoverBounding.left)
+                {
+                  this._enableArrow('left');
+
+                  this.customStyle['--arrow-margin-left'] = -(padding + margin) + 'px';
+                  this.customStyle['--arrow-position-left'] = -(padding + margin) + 'px'; 
+                  this.customStyle['--arrow-position-bottom'] = popoverBounding.height - arrowboxsize - (targetBounding.height / 2) + 'px';                 
+                }   
+                else
+                {
+                  this._enableArrow();
+                  this.customStyle['--arrow-position-bottom'] = '100%'        
+                  this.customStyle['--arrow-position-left'] = (targetBounding.width / 2) + 'px';
+                }     
+
+                this.updateStyles();
+              }
+              else if(this.horizontalAlign == "right" && this.verticalAlign == "top")
+              { 
+
+                this.customStyle['--arrow-margin-bottom'] = padding + 'px';
+
+                if(targetBounding.left > popoverBounding.right)
+                {
+                   this._enableArrow('right');
+                   this.customStyle['--arrow-position-bottom'] = popoverBounding.height - arrowboxsize - (targetBounding.height / 2)  + 'px';
+                   this.customStyle['--arrow-position-left'] = popoverBounding.width - padding + 'px';                   
+                }
+                else
+                {
+                  //Enables default arrow                  
+                  this._enableArrow();                                    
+                  this.customStyle['--arrow-position-bottom'] = '100%';
+                  this.customStyle['--arrow-position-left'] = popoverBounding.width  - arrowboxsize - (targetBounding.width / 2) + 'px';
+                }
+
+                this.updateStyles();
+              }
+              else if(this.horizontalAlign == "right" && this.verticalAlign == "bottom")
+              {
+                  if(targetBounding.left > popoverBounding.right)
+                  {
+                    this._enableArrow('right');
+                    this.customStyle['--arrow-position-bottom'] = popoverBounding.height - arrowboxsize - (targetBounding.height / 2)  + 'px';
+                    this.customStyle['--arrow-position-left'] = popoverBounding.width - padding + 'px';                   
+                  }
+                  else
+                  {
+                    this._enableArrow('down'); 
+                    this.customStyle['--arrow-position-bottom'] = -(arrowboxsize + padding) + 'px';
+                    this.customStyle['--arrow-position-left'] = popoverBounding.width - (targetBounding.width / 2) + 'px';
+                  }
+
+                  this.updateStyles();
+              }
+              else if(this.horizontalAlign == "left" && this.verticalAlign == "bottom")
+              {
+                  if(targetBounding.right < popoverBounding.left)
+                  {
+                    this._enableArrow('left');
+
+                    this.customStyle['--arrow-margin-left'] = -(padding + margin) + 'px';
+                    this.customStyle['--arrow-position-left'] = -(padding + margin) + 'px'; 
+                    this.customStyle['--arrow-position-bottom'] = popoverBounding.height - arrowboxsize - (targetBounding.height / 2) + 'px';                 
+                  }
+                  else
+                  {
+                    this._enableArrow('down'); 
+                    this.customStyle['--arrow-position-bottom'] = -(arrowboxsize + padding) + 'px';
+                    this.customStyle['--arrow-position-left'] = (targetBounding.width / 2) + 'px';
+                  }
+
+                  this.updateStyles();
+              }
+          },
+
+          _enableArrow: function(type){
+
+              this.customStyle['--up-arrow'] = '';
+              this.customStyle['--down-arrow'] = '';
+              this.customStyle['--left-arrow'] = '';
+              this.customStyle['--right-arrow'] = '';
+
+              this.customStyle['--up-arrow-border-color'] = '';
+              this.customStyle['--down-arrow-border-color'] = '';
+              this.customStyle['--left-arrow-border-color'] = '';
+              this.customStyle['--right-arrow-border-color'] = '';
+
+              var backgroundColor = window.getComputedStyle(this, null).getPropertyValue('background-color');
+             
+              if(type == 'right')
+              {
+                this.customStyle['--right-arrow'] = backgroundColor;
+                this.customStyle['--right-arrow-border-color'] = 'rgba(0, 0, 0, 0.26)';
+              }
+              else if(type == 'left')
+              {
+                this.customStyle['--left-arrow'] = backgroundColor;
+                this.customStyle['--left-arrow-border-color'] = 'rgba(0, 0, 0, 0.26)';
+              }
+              else if(type == 'down')
+              {
+                this.customStyle['--down-arrow'] = backgroundColor;
+                this.customStyle['--down-arrow-border-color'] = 'rgba(0, 0, 0, 0.26)';
+              }
+              else
+              {  
+                this.customStyle['--up-arrow-border-color'] = 'rgba(0, 0, 0, 0.26)';
+                this.customStyle['--up-arrow'] = backgroundColor;                 
+              }
+
+              this.updateStyles();
+          },
+
+         
       });
   </script>
 

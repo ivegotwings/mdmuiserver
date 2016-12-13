@@ -58,7 +58,6 @@ function merge(source, dependencies) {
   return function output() {
     const mergedFiles = mergeStream(source(), dependencies())
       .pipe(project.analyzer);
-      //.pipe(debug());
 
     const bundleType = global.config.build.bundleType;
     let outputs = [];

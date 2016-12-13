@@ -17,6 +17,9 @@ const debug = require('gulp-debug');
 const browserSync = require('browser-sync');
 const reload = browserSync.reload;
 
+const nodemon = require('gulp-nodemon');
+
+var argv = require('yargs').argv;
 // Got problems? Try logging 'em
 // const logging = require('plylog');
 // logging.setVerbose();
@@ -109,3 +112,28 @@ gulp.task('watch', function() {
 });
 
 gulp.task("copyX", gulp.series([project.copyReusableComponents]));
+
+//env: { 'NODE_ENV': 'development', 'DEBUG':'express:*' }
+gulp.task('app', function (cb) {
+  var started = false;
+  var buildPath = "app.js";
+  
+  var mode = (argv.mode === undefined) ? 'dev' : argv.mode;
+
+  if(mode === "build/bundled"){
+    buildPath = 'build/bundled/app.js';
+  }else if(mode === "build/unbundled"){
+    buildPath = 'build/unbundled/app.js';
+  }
+
+  return nodemon({
+    script: buildPath,
+    nodeArgs:['--debug']
+  }).on('start', function () {
+    // to avoid nodemon being started multiple times
+    if (!started) {
+      cb();
+      started = true;
+    }
+  });
+});
