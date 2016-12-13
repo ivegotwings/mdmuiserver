@@ -7,7 +7,7 @@ function EntityManageService(options) {
 }
 
 EntityManageService.prototype = {
-    getEntity: function(request){
+    getEntities: function(request){
         var dataConnection = new DataConnection();
         var client = dataConnection.getClient();
 
