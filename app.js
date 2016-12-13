@@ -22,7 +22,7 @@ var buildPath = __dirname;
 
 var oneDay = 86400000;
 
-app.use(express.static(buildPath,{maxAge : oneDay}));
+app.use(express.static(buildPath,{maxAge : "1s"}));
 
 entityRoute(app);
 
