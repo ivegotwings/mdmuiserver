@@ -14,7 +14,7 @@ app.use(bodyParser.urlencoded({
 
 app.use(cors());
 
-//Load falcor routes    
+//Load falcor routes
 var entityRoute = require('./src/server/routes/entityroutes.js');
 
 var buildPath = __dirname;
@@ -22,9 +22,13 @@ var buildPath = __dirname;
 
 var oneDay = 86400000;
 
-app.use(express.static(buildPath,{maxAge : oneDay}));
+app.use(express.static(buildPath,{maxAge : "1s"}));
 
 entityRoute(app);
+
+app.get('*', function(req, res){
+    res.sendFile(buildPath+'/index.html');
+});
 
 app.listen(5005, function () {
     console.log("Server started at port 5005");
