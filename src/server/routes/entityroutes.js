@@ -43,7 +43,7 @@ var EntityRouterBase = Router.createClass([
                     totalRecords = dataObjects.length;
                     dataObjects.forEach(function(entity){
                         //TODO:: Search result is not coming back with id field...assign some random id for now..
-                        entity.id = uuidV1();
+                        //entity.id = uuidV1();
 
                         if (entity.id !== undefined) {
                             results.push({
@@ -135,7 +135,7 @@ var EntityRouterBase = Router.createClass([
                         res.dataObjectOperationResponse.dataObjects.forEach(function(en){
                             entity = en;
                             //TODO:: This is temporary as RDP is not sending id back..we shall remove this once ids come back...
-                            entity.id = entityId;
+                            //entity.id = entityId;
                             if (entity.id == entityId) {
                                 results.push({
                                     path: ['entitiesById', entityId],
