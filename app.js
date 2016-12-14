@@ -12,21 +12,23 @@ app.use(bodyParser.urlencoded({
     extended: true
 }));
 
-// // parse application/json
-// app.use(bodyParser.json());
-// // parse text
-// app.use(bodyParser.text({ type: 'any' }));
-
 app.use(cors());
 
-//Load falcor routes    
-var entityRoute = require('./routes/entityroutes.js');
+//Load falcor routes
+var entityRoute = require('./src/server/routes/entityroutes.js');
+
+var buildPath = __dirname;
+//console.log(buildPath);
+
+var oneDay = 86400000;
+
+app.use(express.static(buildPath,{maxAge : "1s"}));
 
 entityRoute(app);
 
-app.locals.basedir = '/src/server';
-
-app.use(express.static('__dirname' + '/'));
+app.get('*', function(req, res){
+    res.sendFile(buildPath+'/index.html');
+});
 
 app.listen(5005, function () {
     console.log("Server started at port 5005");
