@@ -250,8 +250,7 @@ EntityRouter.prototype._createRequestJson = function (ctxKeys, attrNames) {
     var filters = {
         attributesCriterion: [], relationshipsCriterion: [],
         typesCriterion: [
-            "sku",
-            "style"
+            "nart"
         ]
     };
 
