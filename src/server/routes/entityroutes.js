@@ -272,3 +272,10 @@ module.exports = function(app) {
             return new EntityRouter();
         }));
 };
+
+module.exports = function(app) {
+    app.use('/file-upload',(function(req, res) {
+            
+        })
+       );
+};
