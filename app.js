@@ -15,12 +15,12 @@ app.use(bodyParser.urlencoded({
 app.use(cors());
 
 //Load falcor routes
-var entityRoute = require('./src/server/routes/entityroutes.js');
+var entityRoute = require('./src/server/routes/entity-data/router');
 
 var buildPath = __dirname;
 //console.log(buildPath);
 
-var oneDay = 86400000;
+//var oneDay = 86400000;
 
 app.use(express.static(buildPath,{maxAge : "1s"}));
 
@@ -31,6 +31,6 @@ app.get('*', function(req, res){
 });
 
 app.listen(5005, function () {
-    console.log("Server started at port 5005");
+    console.log("Web server started at port http://localhost:5005/");
 });
 
