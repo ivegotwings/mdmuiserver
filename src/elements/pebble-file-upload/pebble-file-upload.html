@@ -1,13 +1,14 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
-<!--<link rel="import" href="../../../bower_components/file-upload/file-upload.html">-->
 <link rel="import" href="../../../bower_components/iron-flex-layout/iron-flex-layout-classes.html">
 <link rel="import" href="../../../bower_components/paper-styles/paper-styles.html">
-<link rel="import" href="../../../bower_components/neon-animation/neon-animation-runner-behavior.html">
 <link rel="import" href="../../../bower_components/paper-button/paper-button.html">
 <link rel="import" href="../../../bower_components/paper-progress/paper-progress.html">
 <link rel="import" href="../../../bower_components/iron-icon/iron-icon.html">
 <link rel="import" href="../pebble-image-viewer/pebble-image-viewer.html">
 <link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+
 <!--
 `pebble-file-upload`
 A material design file upload element with drag and drop feature
@@ -18,18 +19,14 @@ Example:
 <pebble-file-upload></pebble-file-upload>
 TODO:
 ###Attributes
-- file size
-- upload url
-- additional parameters
 - small, medium and large sizes
-- headers for auth related data
 
-@demo demo/index.html 
+@demo demo/index.html
 -->
 
 <dom-module id="pebble-file-upload">
     <template>
-        <style>
+        <style include="pebble-styles-shared">
             :host {
                 display: block;
                 margin: 0 24px;
@@ -105,19 +102,12 @@ TODO:
             }
 
         </style>
-        <style is="custom-style">
-            .small {
-                --iron-icon-height: 12px;
-                --iron-icon-width: 12px;
-                --iron-icon-fill-color: #EF345D;
-            }
-        </style>
 
         <div id="main" class="layout vertical">
             <section id="dropSection" hidden$=[[hasFile]] class$="[[_dropSectionClass]]">
                 <iron-icon icon="icons:cloud-upload" class="upload-icon"></iron-icon>
                 <h3>Drag &amp; Drop</h3>
-                <span>Your files to assets, or <a href="#" on-tap="selectFile">Browse</a></span>
+                <span>Your files to assets, or <a href="#" on-tap="_selectFile">Browse</a></span>
                 <input type="file" id="file" on-change="_manualSelected" multiple$="[[multiple]]" accept$="[[accept]]">
             </section>
             <section id="progressSection" class="progress-zone" hidden$=[[!hasFile]]>
@@ -128,11 +118,16 @@ TODO:
                         {{file.name}}
 
                         <paper-progress value$="{{progress}}" error$="{{error}}"></paper-progress>
-                        <template is="dom-if" if$="{{_showUploading()}}">
+                        <template is="dom-if" if$="[[!complete]]">
                             <span>Uploading</span>
                         </template>
-                        <template is="dom-if" if$="[[error]]">
-                            <span>Error occured</span>
+                        <template is="dom-if" if$="[[complete]]">
+                            <template is="dom-if" if$="[[error]]">
+                                <span>Error occured</span>
+                            </template>
+                            <template is="dom-if" if$="[[!error]]">
+                                <span>uploaded</span>
+                            </template>
                         </template>
 
                     </div>
@@ -153,12 +148,9 @@ TODO:
                     'dragenter': '_onDragEnter',
                     'dragleave': '_onDragLeave',
                     'dragover': '_onDragOver',
-                    'drop': '_onDrop',
-                    'neon-animation-finish': '_onNeonAnimationFinish'
+                    'drop': '_onDrop'
                 },
-                behaviors: [
-                    Polymer.NeonAnimationRunnerBehavior
-                ],
+
 
                 /**
                  * Fired when the file has been accepted and ready to use.
@@ -188,15 +180,6 @@ TODO:
                     _dropSectionClass: {
                         type: String,
                         computed: '_computeDropSectionClassName(dragging)'
-                    },
-
-                    /**
-                     * Set to true if multiple files can be selected.
-                     * If not set only first file fille be selected.
-                     */
-                    multiple: {
-                        type: Boolean,
-                        value: false
                     },
 
                     /**
@@ -236,9 +219,9 @@ TODO:
                     /**
                      *  denotes the max size of file that can be uploaded. It should be in bytes. default limit is 1 MB
                      **/
-                    sizeLimit : {
-                        type:Number,
-                        value : 1048576
+                    sizeLimit: {
+                        type: Number,
+                        value: 1048576
                     },
 
                     /**
@@ -261,34 +244,24 @@ TODO:
                         value: false,
                         computed: '_computeHasFile(file)'
                     },
-                    animationConfig: {
-                        value: function () {
-                            return {
-                                'entry': {
-                                    name: 'fade-out-animation',
-                                    node: this.$.dropSection,
-                                    timing: {
-                                        duration: 700
-                                    }
-                                },
-                                'exit': {
-                                    name: 'fade-in-animation',
-                                    node: this.$.dropSection,
-                                    timing: {
-                                        duration: 700
-                                    }
-                                }
-                            };
-                        }
-                    }
+
+                    /**
+                     * `headers` is a key value map of header names and values
+                     */
+                    headers: {
+                        type: Object,
+                        value: {}
+                    },
                 },
 
                 _setDragging: function (dragging) {
                     this.dragging = dragging;
                 },
 
-                // Opens a file selector.
-                selectFile: function (e) {
+                /**
+                 *  Handler for opening a file selector
+                 */
+                _selectFile: function (e) {
                     e.preventDefault();
                     this.$.file.click();
                 },
@@ -322,53 +295,51 @@ TODO:
                         return;
                     }
 
-                    var length = event.dataTransfer.files.length;
-                   // for (var i = 0; i < length; i++) {
-                        var file = event.dataTransfer.files[0];
+                    var file = event.dataTransfer.files[0];
 
-                        // Check if filetype is accepted
-                        var mimeType = ((file.type !== '') ? file.type.match(/^[^\/]*\//)[0] : null);
-                        var fileType = file.name.match(/\.[^\.]*$/)[0];
-                        if ((this.accept !== '' && !(this.accept.indexOf(mimeType) > -1) || this.accept.indexOf(fileType) > -1) || file.size > this.sizeLimit) {
-                            return;
-                        }
+                    // Check if filetype is accepted
+                    var mimeType = ((file.type !== '') ? file.type.match(/^[^\/]*\//)[0] : null);
+                    var fileType = file.name.match(/\.[^\.]*$/)[0];
+                    if ((this.accept !== '' && !(this.accept.indexOf(mimeType) > -1) || this.accept.indexOf(fileType) > -1) || file.size > this.sizeLimit) {
+                        return;
+                    }
 
-                        this.set('error', false);
-                        this.set('complete', false);
-                        this.set('progress', 0);
-                        this.set('file', file);
-                        if (!this.manualUpload) {
-                            this.uploadFile(file);
-                        }
-                   // }
-
+                    this.set('error', false);
+                    this.set('complete', false);
+                    this.set('progress', 0);
+                    this.set('file', file);
+                    this._uploadFile(file);
                 },
 
-                // A handler called when the user manually selected the file (not by drag and drop)
+                /**
+                 * A handler called when the user manually selected the file (not by drag and drop)
+                 */
                 _manualSelected: function () {
                     var input = this.$.file;
 
                     if (!input.files.length) {
                         this.set('file', undefined);
-                    } else if(input.files.size < this.sizeLimit){
+                    } else {
                         var file = Array.from(input.files)[0];
-                        this.progress = 0;
-                        this.error = false;
-                        this.complete = false;
-                        this.set('file', file);
-                        if (!this.manualUpload) {
-                            this.uploadFile(file);
+                        if (file.size < this.sizeLimit) {
+                            this.progress = 0;
+                            this.error = false;
+                            this.complete = false;
+                            this._uploadFile(file);
+                            this.set('file', file);
                         }
                     }
                 },
 
-                uploadFile: function (file) {
+                /**
+                 *  This function uploads file to the server.
+                 * @param file
+                 * @private
+                 */
+                _uploadFile: function (file) {
                     if (!file) {
                         return;
                     }
-                    this.fire('before-upload');
-                    // this._showDropText();
-                    // var prefix = 'files.' + this.files.indexOf(file);
                     var self = this;
 
                     var formData = new FormData();
@@ -391,7 +362,7 @@ TODO:
                     };
 
                     var url = this.target.replace('<name>', file.name);
-                    xhr.open(this.method, url, true);
+                    xhr.open('POST', url, true);
                     for (key in this.headers) {
                         if (this.headers.hasOwnProperty(key)) {
                             xhr.setRequestHeader(key, this.headers[key]);
@@ -399,29 +370,56 @@ TODO:
                     }
                     xhr.onload = function (e) {
                         if (xhr.status >= 200 && xhr.status < 300) {
+                            var eventData = {
+                                name : "pebble-file-upload-success",
+                                data : {
+                                    "fileName": file.name
+                                }
+                            };
+                            self.fire('bedrock-event',eventData);
                             self.fire('success', {xhr: xhr});
                             self.set('complete', true);
+                            self.set('progress', 100);
                         } else {
+                            var eventData = {
+                                name : "pebble-file-upload-error",
+                                data : {
+                                    "error": xhr.response
+                                }
+                            };
+                            self.fire('bedrock-event',eventData);
                             self.set('error', true);
-                            self.set('complete', false);
+                            self.set('complete', true);
                             self.set('progress', 100);
                             // self.updateStyles();
                             self.fire('error', {xhr: xhr});
                         }
                     };
-                    // xhr.send(formData);
+                    xhr.send(formData);
 
                 },
 
+                /**
+                 *  handles cancel of an uploaded file
+                 * @param e
+                 * @private
+                 */
                 _cancelUpload: function (e) {
                     e.preventDefault();
                     console.log("called cancel button tap");
-                    this.file.xhr.abort();
+                    if (this.file.xhr) {
+                        this.file.xhr.abort();
+                    }
                     this.file = undefined;
                     this.$.file.value = null;
+                    this.set('error', false);
+                    this.set('complete', false);
+                    this.set('progress', 0);
                 },
 
-                // Computes class name for dragging section.
+                /**
+                 * Computes class name for dragging section.
+                 */
                 _computeDropSectionClassName: function (dragging) {
                     var cls = 'drop-zone';
                     if (dragging) {
@@ -429,41 +427,26 @@ TODO:
                     }
                     return cls;
                 },
-                // Compute if the element received a file
+
+                /**
+                 *  Compute if the element received a file
+                 */
                 _computeHasFile: function (file) {
                     return !!file;
                 },
-                // Resets the state of the element to the default view.
+
+                /**
+                 * Resets the state of the element to the default view.
+                 */
                 reset: function () {
-                    if(this.file.xhr) {
+                    if (this.file.xhr) {
                         this.file.xhr.abort();
                     }
                     this.file = null;
                     this.$.file.value = null;
-                    // this.cancelAnimation();
-                    // var section = Polymer.dom(this.root).querySelector('#dropSection');
-                    // if (section.classList.contains('with-file')) {
-                    //   section.classList.remove('with-file');
-                    // }
-                    // this.playAnimation('exit');
-                },
-
-                _onNeonAnimationFinish: function () {
-                    var section = Polymer.dom(this.root).querySelector('#dropSection');
-                    if (this.file) {
-                        if (!section.classList.contains('with-file')) {
-                            section.classList.add('with-file');
-                        }
-                        section.classList.remove('without-file');
-                    } else {
-                        if (section.classList.contains('with-file')) {
-                            section.classList.remove('with-file');
-                        }
-                        section.classList.add('without-file');
-                    }
-                },
-                _showUploading: function () {
-                    return !this.complete || !this.error;
+                    this.set('error', false);
+                    this.set('complete', false);
+                    this.set('progress', 0);
                 }
             });
         })();
