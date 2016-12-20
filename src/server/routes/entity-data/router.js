@@ -58,11 +58,11 @@ module.exports = function(app) {
     app.use(fileUpload());
     var dir = './upload';
 
-    if (!fs.existsSync(dir)){
+    if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir);
     }
 
-    app.post('/file-upload',function(req, res) {
+    app.post('/file-upload', function (req, res) {
             if (!req.files) {
                 res.send('No files were uploaded.');
                 return;
@@ -71,8 +71,7 @@ module.exports = function(app) {
             var fileName = file.name;
 
 
-
-            file.mv('./upload/'+fileName, function(err) {
+            file.mv('./upload/' + fileName, function (err) {
                 if (err) {
                     res.status(500).send(err);
                 }
@@ -82,3 +81,4 @@ module.exports = function(app) {
             });
         }
     );
+};
