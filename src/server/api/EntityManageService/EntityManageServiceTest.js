@@ -1,11 +1,13 @@
 'use strict';
 
+require("babel-register");
+require("babel-polyfill");
+
 var EntityManageService = require('./EntityManageService');
 
 function testOfflineInitialization(){
     var entityManageService = new EntityManageService({mode:"offline"});
 }
-
 
 function testOfflineGetEntitiesForSingleId(){
     console.log('testOfflineGetEntitiesForSingleId started..');
@@ -84,6 +86,44 @@ function testOfflineGetEntitiesForRandomSearchResult(){
     
 }
 
+function testDPGetEntitiesForSingleId(){
+    console.log('testDPGetEntitiesForSingleId started...');
+    var entityManageService = new EntityManageService({mode:"online"});
+
+    var request = {
+            "query":{
+                "ctx":[
+                    {
+                        "list":"productMaster",
+                        "classification":"nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
+                    }
+                ],
+                "valCtx":[
+                    {
+                        "source":"SAP",
+                        "locale":"en-US"
+                    }
+                ],
+                "id":"e1",
+                "filters":{
+                    "attributesCriterion":[],
+                    "typesCriterion":["nart"]
+                }
+            },
+            "fields":{
+                "ctxTypes":["properties"],
+                "attributes":["cpimProductName","csapDescriptionOfNart"],
+                "relationships":["ALL"]
+            }
+        };
+
+    var response = entityManageService.getEntities(request);
+
+    console.log(JSON.stringify(response));
+
+    console.log('testDPGetEntitiesForSingleId completed.');
+    
+}
 //console.log(JSON.stringify(response, null, 4));
 
 //console.log(JSON.stringify(response, null, 4));
@@ -95,7 +135,7 @@ module.exports = {
 };
 
 module.exports = new function(){
-    testOfflineGetEntitiesForSingleId();
+    testDPGetEntitiesForSingleId();
 }
 
 

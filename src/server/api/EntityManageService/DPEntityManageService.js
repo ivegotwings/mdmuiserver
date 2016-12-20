@@ -7,28 +7,22 @@ var DPEntityManageService = function(options) {
 };
 
 DPEntityManageService.prototype = {
-    getEntities: function(request){
+    getEntities: async function(request){
         var url = this.baseUrl + '/entityManageService/get';
+        
         var options = {
-            //url: url,
-            //method: "POST",
+            url: url,
+            method: "POST",
             headers:{
                 //"Content-type": "application/json",
                 "Cache-Control": "no-cache"
             },
-            json: request
+            body: request,
+            json: true
         };
 
-        var res = this.client("POST", url, options);
-        var resBody = res.getBody('utf8');
-        
-        var response = {};
-        if(resBody !== undefined){
-            response = JSON.parse(resBody);
-            //console.log('server data', JSON.stringify(response));
-        }
-
-        return response;
+        var res = await this.client(options);
+        return res;
     }
 };
 

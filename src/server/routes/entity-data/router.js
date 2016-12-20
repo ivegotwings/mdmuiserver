@@ -2,8 +2,6 @@
 
 var falcorExpress = require('falcor-express'),
     Router = require('falcor-router'),
-    flatten = require('flatten'),
-    Promise = require('promise'),
     jsonGraph = require('falcor-json-graph'),
     uuidV1 = require('uuid/v1'),
     $ref = jsonGraph.ref,
@@ -18,20 +16,19 @@ var EntityManageService = require('../../api/EntityManageService/EntityManageSer
 var EntityRouterBase = Router.createClass([
     {
         route: 'searchResults.create',
-        call: (callPath, args) => resolver.initiateSearchRequest(callPath, args)
+        call: async (callPath, args) => await resolver.initiateSearchRequest(callPath, args)
     },
     {
         route: 'searchResults[{keys:requestIds}].entities[{ranges:entityRanges}]',
-        get: (pathSet) => resolver.getSearchResultDetail(pathSet)
+        get: async (pathSet) => await resolver.getSearchResultDetail(pathSet)
     },
     {
         route: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].values",
-        get: (pathSet) => resolver.getEntities(pathSet)
+        get: async (pathSet) => await resolver.getEntities(pathSet)
     },
     {
-       
         route: "entitiesById[{keys:entityIds}][{keys:entityFields}]",
-        get: (pathSet) => resolver.getEntities(pathSet)
+        get: async (pathSet) => await resolver.getEntities(pathSet)
     }
 ]);
 
