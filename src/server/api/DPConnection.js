@@ -1,6 +1,6 @@
 'use strict';
 
-var request = require('sync-request');
+var request = require('request-promise-native');
 var rdpConnectionConfig = require("../data/rdp-connection-config.json");
 
 var DPConnection = function(options) {
