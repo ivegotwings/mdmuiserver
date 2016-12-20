@@ -1,121 +1,713 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
-<link rel="import" href="../../../bower_components/paper-toast/paper-toast.html">
+<link rel="import" href="../../../bower_components/iron-a11y-announcer/iron-a11y-announcer.html">
+<link rel="import" href="../../../bower_components/iron-overlay-behavior/iron-overlay-behavior.html">
+
+<link rel="import" href="../../../bower_components/iron-flex-layout/iron-flex-layout-classes.html">
+<link rel="import" href="../pebble-icons/pebble-icons.html">
+<link rel="import" href="../pebble-icon/pebble-icon.html">
 
 <!--
-` <pebble-toast> ` Represents a container with a drop shadow. 
-  They may contain a photo, text, and a link about a single subject. 
-  They may display content containing elements of varying size, such as notification list or charts.
 
-@demo demo/index.html 
+`pebble-toast` provides a subtle notification toast. multiple `pebble-toast` will
+be visible on screen.
+
+Example:
+
+        <paper-button id="btnError" raised>Show Error</paper-button>
+				<pebble-toast id="toastError" toast-type="error" align-toast="top">
+					This is an error message!
+				</pebble-toast>
+				<script>
+					window.addEventListener('WebComponentsReady', function(e) {
+							document.querySelector("#btnError").addEventListener('click', function(e) {
+								document.querySelector("#toastError").show();
+							});
+					});
+				</script>
+
+### Styling
+The following custom properties and mixins are available for styling:
+
+Custom property | Description | Default
+----------------|-------------|----------
+`--pebble-toast` | Mixin applied to toast | {}
+
+@group Pebble Elements
+@element pebble-toast
+@demo demo/index.html
 -->
 
 <dom-module id="pebble-toast">
-	<template>
+  <template>
+    <style is="custom-style" include="iron-flex iron-flex-alignment">
+      :host {
+        display: block;
+        position: fixed;
+        background-color: var(--pebble-toast-background-color, rgba(50, 50, 50, 0.25));
+        color: var(--pebble-toast-color, rgba(50, 50, 50, 1));
+        border: 1px solid var(--pebble-toast-color);
+        min-height: 48px;
+        min-width: 288px;
+        padding: 5px;
+        box-sizing: border-box;
+        box-shadow: 0 2px 5px 0 rgba(0, 0, 0, 0.26);
+        border-radius: 2px;
+        margin: 12px 22px;
+        font-size: 14px;
+        cursor: default;
+        -webkit-transition: -webkit-transform 0.3s, opacity 0.3s;
+        transition: transform 0.3s, opacity 0.3s;
+        opacity: 0;
+        -webkit-transform: translateX(100px);
+        transform: translateX(100px);
+        @apply(--pebble-font-common-base);
+        @apply(--pebble-toast);
+      }
 
-		<style include="shared-styles"></style>
+      :host(.capsule) {
+        border-radius: 24px;
+      }
 
-		<paper-toast id="toast" duration="[[duration]]" position-target="[[positionTarget]]" fit-into = "[[fitInto]]"
-    no-overlap="[[noOverlap]]" horizontal-align="[[horizontalAlign]]" vertical-align="[[verticalAlign]]"
-    dynamic-align="[[dynamicAlign]]">
-      <content></content>
-    </paper-toast>
-	</template>
+      :host(.fit-bottom) {
+        width: 100%;
+        min-width: 0;
+        border-radius: 0;
+        margin: 0;
+      }
 
-	<script>
+      :host(.paper-toast-open) {
+        opacity: 1;
+        -webkit-transform: translateX(0px);
+        transform: translateX(0px);
+      }
+
+      .container{
+        @apply(--layout-horizontal);
+        @apply(--layout-justified);        
+        align-items: center;
+        min-height: 48px;
+        min-width: 288px;
+      }
+
+      .layout-vertical{
+        @apply(--layout-vertical);
+      }
+
+      .toast-content{
+        margin: 5px;
+      }
+
+      .toast-heading{
+        font-weight: bold;
+      }
+
+      .toast-close{
+        align-self: flex-start;
+      }
+
+      pebble-icon {
+       --pebble-icon-width: 16px;
+       --pebble-icon-height: 16px;
+      }
+
+      pebble-icon .toast-type-icon {
+        margin-right: 5px;
+      }
+
+    </style>
+
+    <div class="container">
+      <template is="dom-if" if="[[heading]]">
+        <div class="layout-vertical">
+          <div>
+            <span class="toast-type-icon"><pebble-icon icon="[[toastIcon]]"></pebble-icon></span>
+            <span class="toast-heading">{{heading}}</span>
+          </div>
+          <div class="toast-content">
+            <span id="label">{{text}}</span>
+            <content></content>
+          </div>
+        </div>
+      </template>  
+      <template is="dom-if" if="[[!heading]]">   
+        <div class="toast-content">
+          <span class="toast-type-icon"><pebble-icon icon="[[toastIcon]]"></pebble-icon></span>   
+          <span id="label">{{text}}</span>
+          <content></content>
+        </div>
+      </template>
+      <div class="toast-close">
+        <template is="dom-if" if="[[!autoClose]]">
+          <pebble-icon icon="pebble-icons:clear" on-tap="hide"></pebble-icon>
+        </template>
+      </div>
+    </div>
+  </template>
+
+  <script>
     (function() {
-      'use strict';
+      // Keeps track of the toast currently opened.
+      var currentToast = null;
+
+      var currentTopOpenedToasts = [];
+      var currentBottomOpenedToasts = [];
+      var currentCenterOpenedToasts = [];
+
+      var _top = "top";
+      var _bottom = "bottom";
+      var _center = "center";
+      var _right = "right";      
 
       Polymer({
         is: 'pebble-toast',
-        ready: function(){
-        },
-        properties: {
-				  /**
-           * The duration in milliseconds to show the toast.
-           * Set to `0`, a negative number, or `Infinity`, to disable the
-           * toast auto-closing.
-           */
-          duration: {
-            type: Number,
-            value: 3000
-          },
 
+        behaviors: [
+          Polymer.IronOverlayBehavior
+        ],
+
+        properties: {
           /**
-          * The element that should be used to position the element. If not set, it will
-          * default to the parent node.
-          * @type {!Element}
-          */
-          positionTarget: {
-            type: Element,
-          },
-          /**
-           * The element to fit `this` into.
+           * Specifies the element to fit `this` into.
            * Overridden from `Polymer.IronFitBehavior`.
            */
           fitInto: {
             type: Object,
-            value: window
-          },
-          /**
-          * Will position the element around the positionTarget without overlapping it.
-          */
-          noOverlap: {
-            type: Boolean
-          },
-          /**
-          * The orientation against which to align the element horizontally
-          * relative to the `positionTarget`. Possible values are "left", "right", "auto".
-          */
-          horizontalAlign: {
-            type: String
-          },
+            value: window,
+            observer: '_onFitIntoChanged'
+          },          
 
           /**
-          * The orientation against which to align the element vertically
-          * relative to the `positionTarget`. Possible values are "top", "bottom", "auto".
-          */
-          verticalAlign: {
-            type: String
+           * Indicates alignment of the toast. center as default and allows top and bottom 
+           */
+          alignToast: {
+            type: String,
+            value: "center",
+            observer: "_alignToastChanged"
           },
-
-          /**
-          * If true, it will use `horizontalAlign` and `verticalAlign` values as preferred alignment
-          * and if there's not enough space, it will pick the values which minimize the cropping.
-          */
-          dynamicAlign: {
-            type: Boolean
-          },
-				},
-        /**
-        * Show the toast. Properties argument is optional.
-        * @param {(Object|string)=} properties Properties to be set before opening the toast.
-        * e.g. `toast.show({text: "new message", duration: 3000})`
-        */
-        show: function(properties) {
           
-          //if(typeof properties == "string") {
-          //  content = properties;
-          //  properties = {};
-          //}
-          //else if(properties.text) {
-          //  delete properties.text;
-          //}
-          this.$.toast.show(properties);
+
+          /**
+           * Indicates duration in milliseconds to show the toast.
+           * It is linked with auto-close property, it effects only auto-close is true
+           */
+          toastDuration: {
+            type: Number,
+            value: 5000
+          },
+
+          /**
+           * Indicates text to display in the toast.
+           */
+          text: {
+            type: String,
+            value: null
+          },
+
+          /**
+           * Indicates should not close toast on outside click
+           * Overridden from `IronOverlayBehavior`.
+           */
+          noCancelOnOutsideClick: {
+            type: Boolean,
+            value: true
+          },
+
+          /**
+           * Indicates no auto focus on the toast or child nodes 
+           * Overridden from `IronOverlayBehavior`.
+           */
+          noAutoFocus: {
+            type: Boolean,
+            value: true
+          },
+
+          /**
+           * Indicates icon to display as per toast type
+           * also user can override the icon
+           */
+          toastIcon: {
+            type: String,
+            value: null
+          },
+
+          /**
+           * Indicates toast background color as per toast type
+           * also user can override the toast background color
+           */
+          toastColor: {
+            type: String,
+            value: null            
+          },
+
+          /**
+           * Indicates toast text and border color as per toast type
+           * also user can override the toast text and border color
+           */
+          toastTextColor: {
+            type: String,
+            value: null
+          },
+
+          /**
+           * Indicates toast type, as per this toast icon, color will be defined.
+           * Defined toast types are success, warning, information, error and task
+           */
+          toastType: {
+            type: String,
+            value: null,
+            observer: '_toastChanged'
+          },
+
+          /**
+           * Indicates close a toast without user action
+           */
+          autoClose: {
+            type: Boolean,
+            value: false,
+            observer: '_autoCloseChanged'
+          },
+
+          /**
+           * Indicates heading of a toast
+           */
+          heading: {
+            type: String,
+            value: null
+          }
+
         },
+
+        listeners: {
+          'transitionend': '__onTransitionEnd',
+          'iron-overlay-opened': '_toastOpened',
+          'iron-overlay-closed': '_toastClosed',
+        },        
+
+        //Triggers when autoClose changed
+        _autoCloseChanged: function(){
+          if(this.autoClose)
+          {
+            this.duration = this.toastDuration <= 0 ? 1000 : this.toastDuration;
+          }
+          else
+          {
+            this.duration = 0;
+          }
+        },
+
+        //Triggers when alignToast changed
+        _alignToastChanged: function(){          
+          if(this.alignToast == _bottom)
+          {
+            this.verticalAlign = _bottom;
+            this.horizontalAlign = _right;
+          }
+          else
+          {
+            this.verticalAlign = _top;
+            this.horizontalAlign = _right;
+          }
+        },
+
+        //Triggers when toast type changed 
+        _toastChanged: function(){          
+          if(!this.toastType)
+          {
+            return;
+          }
+          
+          if(this.toastType == 'error')
+          {            
+            if(this.toastIcon == '' || this.toastIcon == undefined)
+            {
+              this.toastIcon = "pebble-icons:error-outline"
+            }
+
+            if(this.toastColor == '' || this.toastColor == undefined)
+            {
+              this.toastColor = "rgba(251, 96, 103, 0.25)";
+              this.toastTextColor = "rgba(251, 96, 103, 1)";
+            }
+          }
+          else if(this.toastType == 'warning')
+          {
+            if(this.toastIcon == '' || this.toastIcon == undefined)
+            {
+              this.toastIcon = "pebble-icons:warning"
+            }
+
+            if(this.toastColor == '' || this.toastColor == undefined)
+            {
+              this.toastColor = "rgba(244, 166, 65, 0.25)";
+              this.toastTextColor = "rgba(244, 166, 65, 1)";
+            }
+          }
+          else if(this.toastType == 'success')
+          {
+            if(this.toastIcon == '' || this.toastIcon == undefined)
+            {
+              this.toastIcon = "pebble-icons:warning"
+            }
+
+            if(this.toastColor == '' || this.toastColor == undefined)
+            {
+              this.toastColor = "rgba(93, 202, 115, 0.25)";
+              this.toastTextColor = "rgba(93, 202, 115, 1)";
+            }
+          }
+          else if(this.toastType == 'information')
+          {
+            if(this.toastIcon == '' || this.toastIcon == undefined)
+            {
+              this.toastIcon = "pebble-icons:warning"
+            }
+
+            if(this.toastColor == '' || this.toastColor == undefined)
+            {
+              this.toastColor = "rgba(22, 180, 252, 0.25)";
+              this.toastTextColor = "rgba(22, 180, 252, 1)";
+            }
+          }
+          else if(this.toastType == 'task')
+          {
+            if(this.toastIcon == '' || this.toastIcon == undefined)
+            {
+              this.toastIcon = "pebble-icons:warning"
+            }
+
+            if(this.toastColor == '' || this.toastColor == undefined)
+            {
+              this.toastColor = "rgba(187, 134, 239, 0.25)";
+              this.toastTextColor = "rgba(187, 134, 239, 1)";
+            }
+          }
+
+
+          this.customStyle['--pebble-toast-background-color'] = this.toastColor;
+          this.customStyle['--pebble-toast-color'] = this.toastTextColor;          
+          this.updateStyles();
+        },
+
+         /**
+          * Refits if the overlay is opened and not animating.
+          * @protected
+          */
+          _onIronResize: function() {            
+            var currentOpenedToasts = [];            
+            currentOpenedToasts = currentCenterOpenedToasts.concat(currentTopOpenedToasts).concat(currentBottomOpenedToasts);
+            
+            if (currentOpenedToasts.length > 0) 
+            {               
+              for(var idx = 0; idx < currentOpenedToasts.length; idx++)
+              { 
+                  currentOpenedToasts[idx].style.transition = '';
+                  currentOpenedToasts[idx].refit();                  
+              }
+                this._arrangeToasts(_center);
+                this._arrangeToasts(_top);
+                this._arrangeToasts(_bottom);
+            }
+          },
+
+        // When overlay opened, as per alignment stack the toast
+        _toastOpened: function(){          
+          if(this.alignToast == _top)
+          {
+            currentTopOpenedToasts.push(this);            
+          }
+          else if(this.alignToast == _bottom)
+          {
+            currentBottomOpenedToasts.push(this);            
+          }
+          else
+          {
+            this.alignToast = _center;
+            currentCenterOpenedToasts.push(this);
+          }
+          
+          //Arrangment will be done as per alignment
+          this._arrangeToasts(this.alignToast, true);
+        },
+
+        // When overlay closed, as per alignment remove the overlay from stack 
+        _toastClosed: function()
+        {          
+          if(this.alignToast == _bottom)
+          {
+            this._removeToastFromProcess(currentBottomOpenedToasts, this);
+            this._refitAndArrangeToasts(currentBottomOpenedToasts, this.alignToast); //Refit toasts before alignment            
+          }
+          else if(this.alignToast == _top)
+          {
+            this._removeToastFromProcess(currentTopOpenedToasts, this);
+            this._refitAndArrangeToasts(currentTopOpenedToasts, this.alignToast); //Refit toasts before alignment
+          }
+          else
+          {
+            this._removeToastFromProcess(currentCenterOpenedToasts, this);
+            this._refitAndArrangeToasts(currentCenterOpenedToasts, this.alignToast); //Refit toasts before alignment
+          }
+        },
+
+        //When toast closed a gap will be displayed, so refit the toasts before arrangments
+        _refitAndArrangeToasts: function(currentOpenedToasts, alignment)
+        {
+          if (currentOpenedToasts.length > 0) 
+            {               
+              for(var idx = 0; idx < currentOpenedToasts.length; idx++)
+              { 
+                  currentOpenedToasts[idx].refit();    
+              }    
+              
+              //Arrangment will be done as per alignment
+              this._arrangeToasts(alignment);    
+            }
+        },
+
+        //Remove toast from process
+        _removeToastFromProcess: function(currentOpenedToasts, closedToast)
+        {
+          for(var idx = 0; idx < currentOpenedToasts.length; idx++)
+          {
+              if(currentOpenedToasts[idx].attributes["id"] != undefined && closedToast.attributes["id"] != undefined)
+              {                
+                if(currentOpenedToasts[idx].attributes["id"].value == closedToast.attributes["id"].value)
+                {
+                  currentOpenedToasts.splice(idx, 1);
+                  break;
+                }
+              }
+          }
+        },
+
+        //This is to arrange toasts.
+        //alignment - toast group will be picked based on alignment
+        //isOpen - will true when toast opens
+        _arrangeToasts: function(alignment, isOpen){
+          
+          if(alignment == _center)
+          {
+            this._arrangeToastsPerAlignment(currentCenterOpenedToasts, alignment, isOpen);
+          }
+          else if(alignment == _top)
+          {
+            this._arrangeToastsPerAlignment(currentTopOpenedToasts, alignment, isOpen);
+          }
+          else if(alignment == _bottom)
+          {
+            this._arrangeToastsPerAlignment(currentBottomOpenedToasts, alignment, isOpen);
+          }
+          else
+          {
+            this._arrangeToastsPerAlignment(currentCenterOpenedToasts, _center, isOpen);
+            this._arrangeToastsPerAlignment(currentTopOpenedToasts, _top, isOpen);
+            this._arrangeToastsPerAlignment(currentBottomOpenedToasts, _bottom, isOpen);
+          }
+        },
+
+        // Actual position will be calculated here for center/top/bottom
+        _arrangeToastsPerAlignment: function(currentOpenedToasts, alignment, isOpen){
+
+          if(currentOpenedToasts.length > 0) //Alignment is needed when toasts available
+          {
+            var margin = 10;
+           
+            for(var idx = (currentOpenedToasts.length - 1); idx >= 0; idx--)
+            {              
+                var presentToast = window.getComputedStyle(currentOpenedToasts[idx], null);
+                
+                if(currentOpenedToasts.length != (idx + 1))
+                {
+                  var previousToast = window.getComputedStyle(currentOpenedToasts[idx + 1], null);
+                }
+
+                if(alignment == _bottom) 
+                {
+                  var topPosition = 0;
+                    
+                    for(var j = idx; j < (currentOpenedToasts.length - 1); j++)
+                    {
+                        topPosition += currentOpenedToasts[j].getBoundingClientRect().height + margin;
+                    }
+
+                    latestToastTop = currentOpenedToasts[currentOpenedToasts.length - 1].getBoundingClientRect().top;
+                    currentOpenedToasts[idx].style.top =  latestToastTop - margin - topPosition + 'px';                                                                    
+                }
+                else if(alignment == _top)
+                {                                      
+                    var topPosition = 0;
+                    for(j = idx + 1; j <= (currentOpenedToasts.length - 1); j++)
+                    {
+                      topPosition += currentOpenedToasts[j].getBoundingClientRect().height + margin;
+                    }
+
+                    currentOpenedToasts[idx].style.top = topPosition + 'px';
+                }
+                else
+                {
+                  if(!previousToast) //Current toast is latest
+                  {
+                    this._applyStyleForCenter(currentOpenedToasts[idx]);
+                  }
+                  else
+                  {
+                    if(!isOpen)
+                    {
+                      this._applyStyleForCenter(currentOpenedToasts[idx]);                      
+                    }
+
+                    var topPosition = 0;
+                    for(j = idx + 1; j <= (currentOpenedToasts.length - 1); j++)
+                    {
+                      topPosition += currentOpenedToasts[j].getBoundingClientRect().height + margin;
+                    }
+
+                    currentOpenedToasts[idx].style.top = topPosition + 'px';
+                  }
+                }
+
+                // Apply style when toast opens
+                 if(isOpen)
+                 {
+                   this._addTransitionStyle(currentOpenedToasts[idx]);
+                 }
+                 else
+                 {
+                   this._removeTransitionStyle(currentOpenedToasts[idx]);
+                 }
+            }
+          }         
+        },
+
+        // Add style for smooth transition
+        _addTransitionStyle: function(toast){
+          toast.style.transition =  'all 0.5s ease-in-out';
+        },
+
+        // Smooth transition not needed for toast close or refit
+        _removeTransitionStyle: function(toast){
+          toast.style.transition =  '';
+        },
+
+        // Display toast at center of the window
+        _applyStyleForCenter: function(toast){         
+          toast.style.left = toast.style.left.replace('px', '') / 2 + 'px';         
+        },
+
         /**
-         * Hide the toast.
+         * Read-only. Can auto-close if duration is a positive finite number.
+         * @property _canAutoClose
+         */
+        get _canAutoClose() {
+          return this.duration > 0 && this.duration !== Infinity;
+        },
+
+        created: function() {
+          this._autoClose = null;
+          Polymer.IronA11yAnnouncer.requestAvailability();
+        },
+
+        /**
+         * Show the toast. Without arguments, this is the same as `open()` from `IronOverlayBehavior`.
+         * @param {(Object|string)=} properties Properties to be set before opening the toast.         
+         */
+        show: function(properties) {
+          if (typeof properties == 'string') {
+            properties = { text: properties };
+          }
+          for (var property in properties) {
+            if (property.indexOf('_') === 0) {
+              Polymer.Base._warn('The property "' + property + '" is private and was not set.');
+            } else if (property in this) {
+              this[property] = properties[property];
+            } else {
+              Polymer.Base._warn('The property "' + property + '" is not valid.');
+            }
+          }
+          this.open();
+        },
+
+        /**
+         * Hide the toast. Same as `close()` from `IronOverlayBehavior`.
          */
         hide: function() {
-          this.$.toast.close();
+          this.close();
         },
+
         /**
-        * True if the overlay is currently displayed.
-        */
-        get opened() {
-          return this.$.toast.opened;
+         * Called on transitions of the toast, indicating a finished animation
+         * @private
+         */
+        __onTransitionEnd: function(e) {
+          // there are different transitions that are happening when opening and
+          // closing the toast. The last one so far is for `opacity`.
+          // This marks the end of the transition, so we check for this to determine if this
+          // is the correct event.
+          if (e && e.target === this && e.propertyName === 'opacity') {
+            if (this.opened) {
+              this._finishRenderOpened();
+            } else {
+              this._finishRenderClosed();
+            }
+          }
+        },
+
+        /**
+         * Overridden from `IronOverlayBehavior`.
+         * Called when the value of `opened` changes.
+         */
+        _openedChanged: function() {
+          if (this._autoClose !== null) {
+            this.cancelAsync(this._autoClose);
+            this._autoClose = null;
+          }
+          if (this.opened) {
+
+            // if (currentToast && currentToast !== this) {
+            //   currentToast.close();
+            // }
+
+            currentToast = this;
+            this.fire('iron-announce', {
+              text: this.text
+            });
+            if (this._canAutoClose) {
+              this._autoClose = this.async(this.close, this.duration);
+            }
+          } else if (currentToast === this) {
+            currentToast = null;
+          }
+          Polymer.IronOverlayBehaviorImpl._openedChanged.apply(this, arguments);
+        },
+
+        /**
+         * Overridden from `IronOverlayBehavior`.
+         */
+        _renderOpened: function() {
+          this.classList.add('paper-toast-open');
+        },
+
+        /**
+         * Overridden from `IronOverlayBehavior`.
+         */
+        _renderClosed: function() {
+          this.classList.remove('paper-toast-open');
+        },
+
+        /**
+         * @private
+         */
+        _onFitIntoChanged: function(fitInto) {
+          this.positionTarget = fitInto;
         }
+
+        /**
+         * Fired when `paper-toast` is opened.
+         *
+         * @event 'iron-announce'
+         * @param {{text: string}} detail Contains text that will be announced.
+         */
       });
     })();
   </script>
-
 </dom-module>

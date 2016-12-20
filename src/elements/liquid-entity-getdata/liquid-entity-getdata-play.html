@@ -1,0 +1,149 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
+
+<link rel="import" href="../bedrock-datachannel/bedrock-datachannel.html">
+
+<!--
+`liquid-entity-getdata`
+Boolean control
+
+@demo demo/index.html 
+-->
+<dom-module id="liquid-entity-getdata-play">
+    <template>
+        <iron-ajax auto url="SampleEntityJsonGraph.json" handle-as="json" last-response="{{entityJsonGraph}}"></iron-ajax>
+    </template>
+    <script>
+    (function() {
+      'use strict';
+
+      Polymer({
+        is: 'liquid-entity-getdata-play',
+        behaviors: [RUFBehaviors.DataChannel],
+        attached: function() {
+        },
+        ready: function(){
+        },
+        properties: {
+          operation: {
+              type: String, // 'initiatesearch', 'getsearchresultdetail', 'getentities'
+              value: ''
+          },
+          request: {
+            type: Object,
+            value: function() {
+              return {
+              };
+            },
+            notify: true
+          },
+          response: {
+            type: Object,
+            value: function() {
+              return {};
+            },
+            notify: true
+          },
+          requestId:{
+              type: String,
+              value: '',
+              notify: true
+          },
+          logInternalDetail:{
+            type: Boolean,
+            value: false,
+            notify: true
+          },
+          entityJsonGraph:{
+            type: Object,
+            value: function() {
+                return {};
+            },
+            notify: true,
+            reflectToAttribute: true,
+            observer: '_makeServiceCall'
+          }
+        },
+        _makeServiceCall: function() {
+            var operation = this.operation, 
+                self = this;
+
+            var entityJsonGraph = self.entityJsonGraph;
+            var request = self.request;
+            var requestId = self.requestId;
+
+            console.log('yay', entityJsonGraph);
+
+            if(request && entityJsonGraph && entityJsonGraph.entitiesById !== undefined){
+                var model = RUFBehaviors.DataChannel.getModel();
+                model.setCache({});
+                model.setCache(this.entityJsonGraph);
+                
+                if(operation == 'getentities') {
+                    self._callGetEntities(self, model, request);
+                }
+            }
+        },
+        _callGetEntities: function(self, model, request, entityIds){           
+            if(request === undefined || request.data === undefined) {
+                return;
+            }
+
+            if(self.logInternalDetail){
+                    console.log('Request for get entities call...request: ', request, ' entityIds: ', entityIds);
+            }
+
+            if((!entityIds || entityIds.length == 0) 
+                && request.data && request.data.query && request.data.query.id) {
+                entityIds = [];
+                entityIds.push(request.data.query.id);
+            }
+
+            if(!entityIds || entityIds.length == 0) {
+                self.response = self._createErrorResponse("Cannot find entityIds for get request");
+                return;
+            }
+
+            var contextKeys = []
+            request.data.query.ctx.forEach(function(ctxGroup){
+                request.data.query.valCtx.forEach(function(valCtxGroup){
+                    var contextKey = "".concat(ctxGroup.list,'#@#', ctxGroup.classification, '#@#', valCtxGroup.source, '#@#',valCtxGroup.locale);
+                    contextKeys.push(contextKey);
+                });
+            });
+
+            var attrs = request.data.fields.attributes;
+
+            console.log('model cache before getEntitiesById call', model.getCache());
+
+            //brand, alternativeTaxonomy, salesPrice, category, vendorCost, status, copy, weight, launchDate, 
+
+            var path1 = ['entitiesById', 'e1', ['id', 'name', 'dataObjectInfo', 'systemInfo', 'properties']];
+            var path2 = ['entitiesById', 'e1', 'data', 'master', 'attributes', ['productName', 'productType'], 'values'];
+            var path3 = ['entitiesById', 'e1', 'data', 'master', 'attributes', ['productName', 'vendorCost'], 'values'];
+            var path4 = ['entitiesById', 'e1', 'data', 'master', 'attributes', ['productName', 'salesPrice'], 'values'];
+
+            model.get(path1, path2, path3, path4).then(function(responsePkg) {
+                    console.log('getEntitiesById raw response for path:', path1, path2);
+                    console.log(JSON.stringify(responsePkg, null, 4));
+                });
+        },
+        _createSuccessResponse: function(data){
+            return {status:'success', data:data};
+        },
+        _createErrorResponse: function(reason){
+            var result = {status: 'error', reason};
+
+            if(this.logInternalDetail){
+                console.log('Error response for the operation: ', this.operation, result);
+            }
+            
+            return result;
+        },
+        _getModeWithCache: function(){
+            
+        }
+      });
+    })();
+  </script>
+</dom-module>
