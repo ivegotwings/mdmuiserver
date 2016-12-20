@@ -1,0 +1,490 @@
+<!--
+@element pebble-lookup-overlay
+-->
+<link rel="import" href="/bower_components/iron-list/iron-list.html">
+<link rel="import" href="/bower_components/paper-styles/shadow.html">
+<link rel="import" href="/bower_components/paper-checkbox/paper-checkbox.html">
+<link rel="import" href="pebble-lookup-overlay-behavior.html">
+<link rel="import" href="pebble-lookup-spinner.html">
+<dom-module id="pebble-lookup-overlay">
+    <style>
+         :host {
+            position: absolute;
+            @apply(--shadow-elevation-2dp);
+            background: #fff;
+            border-radius: 0 0 2px 2px;
+            top: 0;
+            left: 0;
+            /**
+              * Keep the pebble-lookup-overlay above paper-dialogs.
+              * iron-overlay-manager.html: Polymer.IronOverlayManagerClass.prototype._applyOverlayZ
+              */
+            z-index: 200;
+            overflow: hidden;
+        }
+        
+        #scroller {
+            overflow: auto;
+            max-height: var(--pebble-lookup-overlay-max-height, 65vh);
+            /* Fixes item background from getting on top of scrollbars on Safari */
+            transform: translate3d(0, 0, 0);
+            /* Enable momentum scrolling on iOS (iron-list v1.2+ no longer does it for us) */
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        #selector {
+            --iron-list-items-container: {
+                border-top: 8px solid transparent;
+                border-bottom: 8px solid transparent;
+            }
+        }
+        
+        #selector .item {
+            cursor: pointer;
+            padding: 13px 16px;
+            color: var(--primary-text-color);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+         :host([opened][loading]) {
+            /* roughly the size of a list with one item */
+            display: block !important;
+            height: 58px;
+        }
+        
+        #selector:not([touch-device]) .item:hover,
+        #selector .item[focused] {
+            background: #eee;
+        }
+        
+        #selector .item[selected] {
+            color: var(--primary-color);
+        }
+    </style>
+    <template>
+        <pebble-lookup-spinner active="[[loading]]"></pebble-lookup-spinner>
+        <div id="scroller" scroller="[[_getScroller()]]" on-tap="_stopPropagation" hidden$="[[loading]]">
+            <iron-list id="selector" role="listbox" touch-device$="[[touchDevice]]" on-touchend="_preventDefault" multi-selection="[[_multiSelectionBoolean]]"
+                items="[[_items]]" selected-item="{{_selectedItem}}" selected-items="{{_selectedItems}}" selection-enabled scroll-target="[[_getScroller()]]">
+                <template>
+                    <div class="item" on-tap="_onTap" selected$="[[_isItemSelected(item, _selectedItem)]]" role$="[[_getAriaRole(index)]]" aria-selected$="[[_getAriaSelected(_focusedIndex,index)]]"
+                        focused$="[[_isItemFocused(_focusedIndex,index)]]">
+                        <paper-checkbox>[[getItemLabel(item)]]</paper-checkbox>
+                    </div>
+                </template>
+            </iron-list>
+        </div>
+    </template>
+</dom-module>
+<script>
+    Polymer({
+        is: 'pebble-lookup-overlay',
+
+        behaviors: [
+            RUFBehaviors.elements.pebblelookup.PebbleLookupOverlayBehavior
+        ],
+
+        properties: {
+            multiSelection: {
+                type: String,
+                value: "false"
+            },
+
+            _multiSelectionBoolean: {
+                type: Boolean,
+                computed: "_stringToBoolean(multiSelection)"
+            },
+
+            _items: {
+                type: Object
+            },
+
+            _selectedItem: {
+                type: Object,
+                value: function () {
+                    return;
+                },
+                notify: true
+            },
+
+            _selectedItems: {
+                type: Array,
+                value: function () {
+                    return [];
+                },
+                notify: true
+            },
+
+            _focusedIndex: {
+                type: Number,
+                notify: true,
+                value: -1,
+                observer: '_focusedIndexChanged'
+            },
+
+            _focusedItem: {
+                type: String,
+                computed: '_getFocusedItem(_focusedIndex)'
+            },
+
+            _itemLabelPath: {
+                type: String,
+                value: 'label'
+            },
+
+            _itemValuePath: {
+                type: String,
+                value: 'value'
+            },
+
+            /*
+             * `true` when new items are being loaded.
+             */
+            loading: {
+                type: Boolean,
+                value: false,
+                reflectToAttribute: true,
+                observer: 'notifyResize'
+            },
+
+            /**
+             * True if the device supports touch events.
+             */
+            touchDevice: {
+                type: Boolean,
+                reflectToAttribute: true,
+                value: function () {
+                    try {
+                        document.createEvent('TouchEvent');
+                        return true;
+                    } catch (e) {
+                        return false;
+                    }
+                }
+            }
+        },
+
+        created: function () {
+            console.log("pebble-lookup-overlay: created");
+        },
+
+        ready: function () {
+            console.log("pebble-lookup-overlay: ready");
+            this._patchWheelOverScrolling();
+
+            // Fix for #182. Only relevant for iron-list 1.0.X and 1.1.X.
+            // 1.2.X works fine without this.
+            if (this.$.selector._scroller !== undefined) {
+                this.$.selector._scroller = this._getScroller();
+            }
+        },
+
+        attached: function () {
+            console.log("pebble-lookup-overlay: attached");
+        },
+
+        detached: function () {
+            console.log("pebble-lookup-overlay: detached");
+        },
+
+        _onTap: function (e) {
+            console.log("pebble-lookup-overlay: _onTap");
+            var checkBox = e.currentTarget.querySelector("paper-checkbox");
+            if (!this._multiSelectionBoolean) {
+                this.unCheckAll();
+                checkBox.checked = true;
+            } else {
+                if (checkBox && e.path.indexOf(checkBox) == -1) {
+                    if (!checkBox.checked) {
+                        checkBox.checked = true;
+                    } else {
+                        checkBox.checked = false;
+                    }
+                }
+            }
+
+            // this.fire('selection-changed', {
+            //   item: e.model.item
+            // });
+        },
+
+        checkItem: function (item) {
+            item = (typeof item === 'number') ? this._items[item] : item;
+            var listItems = this.$.selector.$.items;
+            if (listItems) {
+                var checkBox = listItems.querySelector('[focused]').querySelector('paper-checkbox');
+                if (!checkBox.checked) {
+                    this.unCheckAll();
+                    checkBox.checked = true;
+                }
+            }
+        },
+
+        checkAll: function () {
+            var listItems = this.$.selector.querySelectorAll("paper-checkbox");
+            if (listItems && listItems.length > 0) {
+                for (var index in listItems) {
+                    var listItem = listItems[index];
+                    if (listItem && !listItem.checked) {
+                        listItem.checked = true;
+                    }
+                }
+            }
+        },
+
+        unCheckItem: function (item) {
+            var listItems = this.$.selector.querySelectorAll("paper-checkbox");
+            if (listItems && listItems.length > 0) {
+                for (var index in listItems) {
+                    var listItem = listItems[index];
+                    if (listItem && listItem.checked) {
+                        listItem.checked = false;
+                    }
+                }
+            }
+        },
+
+        unCheckAll: function () {
+            var listItems = this.$.selector.querySelectorAll("paper-checkbox");
+            if (listItems && listItems.length > 0) {
+                for (var index in listItems) {
+                    var listItem = listItems[index];
+                    if (listItem && listItem.checked) {
+                        listItem.checked = false;
+                    }
+                }
+            }
+        },
+
+        toggleSelectionForItem: function (index) {
+            this.$.selector.toggleSelectionForItem(index);
+            var focuedItem = this.$.selector.$.items.querySelector('[focused]');
+            if (focuedItem) {
+                var checkBox = focuedItem.querySelector("paper-checkbox");
+                if (checkBox) {
+                    if (!checkBox.checked) {
+                        checkBox.checked = true;
+                    } else {
+                        checkBox.checked = false;
+                    }
+                }
+            }
+        },
+
+        clearSelection: function () {
+            this.$.selector.clearSelection();
+        },
+
+        /**
+         * Gets the index of the item with the provided label.
+         * @return {Number}
+         */
+        indexOfLabel: function (label) {
+            console.log("pebble-lookup-overlay: indexOfLabel");
+            if (this._items && label) {
+                for (var i = 0; i < this._items.length; i++) {
+                    if (this.getItemLabel(this._items[i]).toString().toLowerCase() === label.toString().toLowerCase()) {
+                        return i;
+                    }
+                }
+            }
+
+            return -1;
+        },
+
+        /**
+         * Gets the label string for the item based on the `_itemLabelPath`.
+         * @return {String}
+         */
+        getItemLabel: function (item) {
+            console.log("pebble-lookup-overlay: getItemLabel");
+            var label = this.get(this._itemLabelPath, item);
+            if (label === undefined || label === null) {
+                label = item ? item.toString() : '';
+            }
+            return label;
+        },
+
+        updateViewportBoundaries: function () {
+            console.log("pebble-lookup-overlay: updateViewportBoundaries");
+            this._cachedViewportTotalPadding = undefined;
+            this.$.selector.updateViewportBoundaries();
+        },
+
+        ensureItemsRendered: function () {
+            console.log("pebble-lookup-overlay: ensureItemsRendered");
+            this.$.selector.flushDebouncer('_debounceTemplate');
+            this.$.selector._render && this.$.selector._render();
+        },
+
+        adjustScrollPosition: function () {
+            console.log("pebble-lookup-overlay: adjustScrollPosition");
+            if (this._items) {
+                this._scrollIntoView(this._focusedIndex);
+            }
+        },
+
+        _getFocusedItem: function (focusedIndex) {
+            console.log("pebble-lookup-overlay: _getFocusedItem");
+            if (focusedIndex >= 0) {
+                return this._items[focusedIndex];
+            }
+        },
+
+        _isItemSelected: function (item, selectedItem) {
+            console.log("pebble-lookup-overlay: _isItemSelected");
+            return item === selectedItem;
+        },
+
+        _isItemFocused: function (focusedIndex, itemIndex) {
+            console.log("pebble-lookup-overlay: _isItemFocused");
+            return focusedIndex == itemIndex;
+        },
+
+        _getAriaSelected: function (focusedIndex, itemIndex) {
+            console.log("pebble-lookup-overlay: _getAriaSelected");
+            return this._isItemFocused(focusedIndex, itemIndex).toString();
+        },
+
+        _getAriaRole: function (itemIndex) {
+            console.log("pebble-lookup-overlay: _getAriaRole");
+            return itemIndex !== undefined ? 'option' : false;
+        },
+
+        _focusedIndexChanged: function (index) {
+            console.log("pebble-lookup-overlay: _focusedIndexChanged");
+            if (index >= 0) {
+                this._scrollIntoView(index);
+            }
+        },
+
+        _scrollIntoView: function (index) {
+            console.log("pebble-lookup-overlay: _scrollIntoView");
+            if (this._visibleItemsCount() === undefined) {
+                // Scroller is not visible. Moving is unnecessary.
+                return;
+            }
+
+            var targetIndex = index;
+
+            if (index > this._lastVisibleIndex()) {
+                // Index is below the bottom, scrolling down. Make the item appear at the bottom.
+                targetIndex = index - this._visibleItemsCount() + 1;
+
+                // From iron-list 1.2.4, scrolling to an index guarantees that the item
+                // is visible into the viewport, but does not gurarantee that it is at the
+                // first position. Jumping first to the item we want to be at the bottom,
+                // fixes the problem.
+                this.$.selector.scrollToIndex(index);
+            } else if (index > this.$.selector.firstVisibleIndex) {
+                // The item is already visible, scrolling is unnecessary per se. But we need to trigger iron-list to set
+                // the correct scrollTop on the scrollTarget. Scrolling to firstVisibleIndex.
+                targetIndex = this.$.selector.firstVisibleIndex;
+            }
+            this.$.selector.scrollToIndex(Math.max(0, targetIndex));
+        },
+
+        /* Note: this whole scroller thing is done to support iron lists scrollToIndex()
+           and features that use it like keyboard navigation in IE11 for iron-list 1.0.x.
+           Tested that iron-list 1.2.x works nicely even without the external scroller, but
+           left these here for now for backwards compatibility.
+         */
+        _getScroller: function () {
+            console.log("pebble-lookup-overlay: _getScroller");
+            return this.$.scroller;
+        },
+
+        /**
+         * We want to prevent the kinetic scrolling energy from being transferred from the overlay contents over to the parent.
+         * Further improvement ideas: after the contents have been scrolled to the top or bottom and scrolling has stopped, it could allow
+         * scrolling the parent similarily to touch scrolling.
+         */
+        _patchWheelOverScrolling: function () {
+            console.log("pebble-lookup-overlay: _patchWheelOverScrolling");
+            var selector = this.$.selector;
+            selector.addEventListener('wheel', function (e) {
+                var scroller = selector._scroller || selector.scrollTarget;
+                var scrolledToTop = scroller.scrollTop === 0;
+                var scrolledToBottom = (scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight) <=
+                    1;
+
+                if (scrolledToTop && e.deltaY < 0) {
+                    e.preventDefault();
+                } else if (scrolledToBottom && e.deltaY > 0) {
+                    e.preventDefault();
+                }
+            });
+        },
+
+        get _viewportTotalPadding() {
+            console.log("pebble-lookup-overlay: _viewportTotalPadding");
+            if (this._cachedViewportTotalPadding === undefined) {
+                var itemsStyle = window.getComputedStyle(this._unwrapIfNeeded(this.$.selector.$.items));
+                this._cachedViewportTotalPadding = [
+                    itemsStyle.paddingTop,
+                    itemsStyle.paddingBottom,
+                    itemsStyle.borderTopWidth,
+                    itemsStyle.borderBottomWidth
+                ].map(function (v) {
+                    return parseInt(v, 10);
+                }).reduce(function (sum, v) {
+                    return sum + v;
+                });
+            }
+
+            return this._cachedViewportTotalPadding;
+        },
+
+        // TODO: PR for iron-list: https://github.com/PolymerElements/iron-list/pull/150
+        _visibleItemsCount: function () {
+            console.log("pebble-lookup-overlay: _visibleItemsCount");
+            var firstItemIndex = this.$.selector._physicalStart;
+            var firstItemHeight = this.$.selector._physicalSizes[firstItemIndex];
+
+            var viewportHeight = this.$.selector._viewportHeight || this.$.selector._viewportSize; //Changed in v1.3.0.
+
+            if (firstItemHeight && viewportHeight) {
+                var visibleItems = (viewportHeight - this._viewportTotalPadding) / firstItemHeight;
+                return Math.floor(visibleItems);
+            }
+        },
+
+        // TODO: PR for iron-list: https://github.com/PolymerElements/iron-list/pull/150
+        _lastVisibleIndex: function () {
+            console.log("pebble-lookup-overlay: _lastVisibleIndex");
+            if (this._visibleItemsCount()) {
+                return this.$.selector.firstVisibleIndex + this._visibleItemsCount() - 1;
+            }
+        },
+
+        _selectItem: function (item) {
+            console.log("pebble-lookup-overlay: _selectItem");
+            item = (typeof item === 'number') ? this._items[item] : item;
+            if (this.$.selector.selectedItem !== item) {
+                this.$.selector.selectItem(item);
+            }
+        },
+
+        _deSelectItem: function (item) {
+            console.log("pebble-lookup-overlay: _deSelectItem");
+            // Todo..
+        },
+
+        _stringToBoolean: function (_str) {
+            console.log("pebble-lookup-overlay: _stringToBoolean");
+            return _str === "true";
+        },
+
+        _preventDefault: function (e) {
+            console.log("pebble-lookup-overlay: _preventDefault");
+            e.preventDefault();
+        },
+
+        _stopPropagation: function (e) {
+            console.log("pebble-lookup-overlay: _stopPropagation");
+            e.stopPropagation();
+        }
+    });
+</script>
