@@ -1,7 +1,6 @@
 'use strict';
 
-var Promise = require('promise'),
-    jsonGraph = require('falcor-json-graph'),
+var jsonGraph = require('falcor-json-graph'),
     uuidV1 = require('uuid/v1'),
     $ref = jsonGraph.ref,
     $error = jsonGraph.error,
@@ -86,8 +85,103 @@ function createRequestJson(ctxKeys, attrNames) {
     return request;
 }
 
+function buildEntityFieldsResponse(entity, entityFields, pathRootKey){
+    var response = [];
+    
+    entityFields.forEach(function(entityField){
+        if(entityField !== "data"){
+            var entityFieldValue = entity[entityField] !== undefined ? entity[entityField] : {};                                  
+            response.push(createPath([pathRootKey, entity.id, entityField], $atom(entityFieldValue))); 
+        }
+    });               
+
+    return response;   
+}
+
+function buildEntityAttributesResponse(entity, request, pathRootKey){
+    var response = [];
+    var entityId = entity.id;
+
+    request.query.ctx.forEach(function(reqCtxGroup){
+        entity.data.ctxInfo.forEach(function(enCtxInfo){
+            //console.log('enCtxInfo: ', JSON.stringify(enCtxInfo));
+            if(enCtxInfo.ctxGroup.list === reqCtxGroup.list && enCtxInfo.ctxGroup.classification === reqCtxGroup.classification)
+            {
+                request.fields.attributes.forEach(function(attrName){
+                    var attr = enCtxInfo.attributes[attrName];
+
+                    request.query.valCtx.forEach(function(reqValCtxGroup){
+                        var valFound = false;
+                        if(attr !== undefined){
+                            var valCtxSpecifiedValues = [];
+                            attr.values.forEach(function(val){
+                                if(val.source == reqValCtxGroup.source && val.locale == reqValCtxGroup.locale){
+                                    valCtxSpecifiedValues.push(val);
+                                    valFound = true;
+                                }
+                            });
+
+                            if(valCtxSpecifiedValues.length > 0){
+                                var contextKey = "".concat(enCtxInfo.ctxGroup.list,'#@#', enCtxInfo.ctxGroup.classification, '#@#', reqValCtxGroup.source, '#@#',reqValCtxGroup.locale);
+                                response.push(createPath([pathRootKey, entityId, 'data', 'ctxInfo', contextKey, 'attributes', attrName, "values"], $atom(valCtxSpecifiedValues))); 
+                            }
+                        }
+                        else{
+                            valFound = false;
+                        }
+
+                        if(!valFound){
+                            var val = {source: reqValCtxGroup.source, locale: reqValCtxGroup.locale, value: ''};
+                            var contextKey2 = "".concat(enCtxInfo.ctxGroup.list,'#@#', enCtxInfo.ctxGroup.classification, '#@#', val.source, '#@#',val.locale);
+                            response.push(createPath([pathRootKey, entityId, 'data', 'ctxInfo', contextKey2, 'attributes', attrName, "values"], $atom([val]))); 
+                        }
+                    });
+                });
+
+                return false;       
+            }
+        });
+    });
+
+    return response;
+}
+
+async function getSingleEntity(request, entityId, entityFields, pathRootKey){
+    var response = [];
+    //update entity id in request query for current id
+    request.query.id = entityId;    
+
+    //console.log('req to api ', JSON.stringify(request));
+    var res = await entityManageService.getEntities(request);
+    //console.log(JSON.stringify(res, null, 4));
+
+    var entity;
+                    
+    if(res !== undefined && res.dataObjectOperationResponse !== undefined && res.dataObjectOperationResponse.status == "success")
+    {
+        //console.log('response from api', JSON.stringify(res));
+        if(res.dataObjectOperationResponse.dataObjects !== undefined){
+            for(let en of res.dataObjectOperationResponse.dataObjects){
+                entity = en;
+                
+                if (entity.id == entityId) {
+                    response.push.apply(response, buildEntityFieldsResponse(entity, entityFields, pathRootKey));                        
+                    response.push.apply(response, buildEntityAttributesResponse(entity, request, pathRootKey));
+                }
+            }
+        }
+    }
+    
+    if (entity === undefined) {
+        response.push(createPath([pathRootKey, entityId], $error(entityId + ' is not found')));
+    }
+
+    //console.log(JSON.stringify(response, null, 4));
+    return response;
+}
+
 //pathSet pattern: searchResults.create 
-function initiateSearchRequest(callPath, args) {
+async function initiateSearchRequest(callPath, args) {
     var response = [];
     //console.log(callPath, args);
 
@@ -97,7 +191,7 @@ function initiateSearchRequest(callPath, args) {
     var requestForApi = request.data;
     //console.log('request str', JSON.stringify(requestForApi, null, 4));
 
-    var res = entityManageService.getEntities(requestForApi);
+    var res = await entityManageService.getEntities(requestForApi);
     //console.log('response raw str', JSON.stringify(res.data, null, 4));
 
     var totalRecords = 0;
@@ -129,7 +223,7 @@ function initiateSearchRequest(callPath, args) {
 }
 
 //pathSet pattern: searchResults[{keys:requestIds}].entities[{ranges:entityRanges}]
-function getSearchResultDetail(pathSet) {
+async function getSearchResultDetail(pathSet) {
     var response = [];
     //console.log(pathSet.requestIds, pathSet.entityRanges);
 
@@ -143,7 +237,7 @@ function getSearchResultDetail(pathSet) {
 
 //route1: "entitiesById[{keys:entityIds}][{keys:entityFields}]"
 //route2: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].values"
-function getEntities(pathSet) {
+async function getEntities(pathSet) {
     //console.log('entitiesById call:' + pathSet);
 
     var entityIds = pathSet.entityIds;
@@ -152,99 +246,20 @@ function getEntities(pathSet) {
     var attrNames = pathSet.attrNames === undefined ? ['ALL'] : pathSet.attrNames;
 
     var pathRootKey = pathSet[0];
-
-    //console.log(pathRootKey);
-    //console.log(entityIds);
-    //console.log(entityFields);
-    //console.log(ctxKeys);
-    //console.log(attrNames);
     var response = [];
 
     var request = createRequestJson(ctxKeys, attrNames);
 
-    entityIds.forEach(function(entityId) {
-        //update entity id in request query for current id
-        request.query.id = entityId;    
-
-        //console.log('req to api ', JSON.stringify(request));
-        var res = entityManageService.getEntities(request);
-        
-        var entity;
-                        
-        if(res !== undefined && res.dataObjectOperationResponse !== undefined && res.dataObjectOperationResponse.status == "success")
-        {
-            //console.log('response from api', JSON.stringify(res));
-            if(res.dataObjectOperationResponse.dataObjects !== undefined){
-                res.dataObjectOperationResponse.dataObjects.forEach(function(en){
-                    entity = en;
-                    
-                    //console.log(JSON.stringify(entity));
-
-                    if (entity.id == entityId) {
-                        entityFields.forEach(function(entityField){
-                            if(entityField !== "data"){
-                                var entityFieldValue = entity[entityField] !== undefined ? entity[entityField] : {};                                  
-                                response.push(createPath([pathRootKey, entityId, entityField], $atom(entityFieldValue))); 
-                            }
-                        });
-                        
-                        request.query.ctx.forEach(function(reqCtxGroup){
-                                entity.data.ctxInfo.forEach(function(enCtxInfo){
-                                    //console.log('enCtxInfo: ', JSON.stringify(enCtxInfo));
-                                    if(enCtxInfo.ctxGroup.list === reqCtxGroup.list && enCtxInfo.ctxGroup.classification === reqCtxGroup.classification)
-                                    {
-                                        request.fields.attributes.forEach(function(attrName){
-                                            var attr = enCtxInfo.attributes[attrName];
-
-                                            request.query.valCtx.forEach(function(reqValCtxGroup){
-                                                var valFound = false;
-                                                if(attr !== undefined){
-                                                    var valCtxSpecifiedValues = [];
-                                                    attr.values.forEach(function(val){
-                                                        if(val.source == reqValCtxGroup.source && val.locale == reqValCtxGroup.locale){
-                                                            valCtxSpecifiedValues.push(val);
-                                                            valFound = true;
-                                                        }
-                                                    });
-
-                                                    if(valCtxSpecifiedValues.length > 0){
-                                                        var contextKey = "".concat(enCtxInfo.ctxGroup.list,'#@#', enCtxInfo.ctxGroup.classification, '#@#', reqValCtxGroup.source, '#@#',reqValCtxGroup.locale);
-                                                        response.push(createPath([pathRootKey, entityId, 'data', 'ctxInfo', contextKey, 'attributes', attrName, "values"], $atom(valCtxSpecifiedValues))); 
-                                                    }
-                                                }
-                                                else{
-                                                    valFound = false;
-                                                }
-
-                                                if(!valFound){
-                                                    var val = {source: reqValCtxGroup.source, locale: reqValCtxGroup.locale, value: ''};
-                                                    var contextKey2 = "".concat(enCtxInfo.ctxGroup.list,'#@#', enCtxInfo.ctxGroup.classification, '#@#', val.source, '#@#',val.locale);
-                                                    response.push(createPath([pathRootKey, entityId, 'data', 'ctxInfo', contextKey2, 'attributes', attrName, "values"], $atom([val]))); 
-                                                }
-                                            });
-                                        });
-                                        return false;       
-                                    }
-                                });
-                        });
-
-                        return false;
-                    }
-                });
-            }
-        }
-        
-        if (entity === undefined) {
-            response.push(createPath([pathRootKey, entityId], $error(entityId + ' is not found')));
-        }
-    });
+    for(let entityId of entityIds){
+        var singleEntityResponse = await getSingleEntity(request, entityId, entityFields, pathRootKey);
+        response.push.apply(response, singleEntityResponse);
+    }
 
     //console.log(JSON.stringify(response, null, 4));
     return response;
 }
 
 module.exports = {
-    createPath: createPath,
     initiateSearchRequest: initiateSearchRequest,
     getSearchResultDetail: getSearchResultDetail,
     getEntities: getEntities
