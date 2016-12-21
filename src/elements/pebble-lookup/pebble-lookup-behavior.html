@@ -18,6 +18,15 @@
             },
 
             /**
+             * Filtering string the user has typed into the input field.
+             */
+            filter: {
+                type: String,
+                value: '',
+                notify: true
+            },
+
+            /**
              * A subset of items, filtered based on the user input. Filtered items
              * can be assigned directly to omit the internal filtering functionality.
              * The items can be of either `String` or `Object` type.
@@ -35,7 +44,6 @@
                     return;
                 },
                 notify: true,
-                observer: '_selectedItemChanged'
             },
 
             /**
@@ -87,6 +95,9 @@
              */
             values: {
                 type: Array,
+                value: function () {
+                    return [];
+                },
                 observer: '_valuesChanged',
                 //notify: true already set in IronFormBehavior, setting this to true will make two value-changed events(?)
                 notify: false
@@ -102,23 +113,6 @@
                 value: false,
                 readonly: true,
                 reflectToAttribute: true
-            },
-
-            /*
-             * When set to `true`, a loading spinner is displayed on top of the list of options.
-             */
-            loading: {
-                type: Boolean,
-                value: false
-            },
-
-            /**
-             * Filtering string the user has typed into the input field.
-             */
-            filter: {
-                type: String,
-                value: '',
-                notify: true
             },
 
             /**
@@ -160,6 +154,14 @@
                 value: -1
             },
 
+            /*
+             * When set to `true`, a loading spinner is displayed on top of the list of options.
+             */
+            loading: {
+                type: Boolean,
+                value: false
+            },
+
             _toggleElement: Object,
 
             _clearElement: Object,
@@ -173,8 +175,9 @@
             '_filterChanged(filter, itemValuePath, itemLabelPath)',
             '_itemsChanged(items.*, itemValuePath, itemLabelPath)',
             '_filteredItemsChanged(filteredItems.*, itemValuePath, itemLabelPath)',
-            '_loadingChanged(loading)',
-            '_selectedItemsChanged(selectedItems.*)'
+            '_selectedItemChanged(selectedItem)',
+            '_selectedItemsChanged(selectedItems.*)',
+            '_loadingChanged(loading)'
         ],
 
         listeners: {
@@ -196,6 +199,7 @@
             if (this.value === undefined) {
                 this.value = '';
             }
+            // Do we need focusIndexes array as well
             Polymer.IronA11yAnnouncer.requestAvailability();
         },
 
@@ -263,10 +267,15 @@
          */
         _clear: function () {
             console.log("pebble-lookup-behavior: _clear");
-            this.selectedItem = null;
-            this.selectedItems = [];
+            // Do we need to set hasValue to false ?
             this.$.overlay.clearSelection();
             this.$.overlay.unCheckAll();
+
+            if (!this.$.overlay._multiSelectionBoolean) {
+                this.selectedItem = null;
+            } else {
+                this.selectedItems = [];
+            }
 
             if (this.allowCustomValue) {
                 this.value = '';
@@ -303,11 +312,9 @@
                     this.$.overlay.toggleSelectionForItem(this._focusedIndex);
 
                     // make sure input field is updated in case value doesn't change (i.e. FOO -> foo)
-                    if (this.selectedItems.length > 0) {
-                        this._inputElementValue = this.selectedItems.length + ' item(s) selected';
-                    } else {
-                        this._inputElementValue = "";
-                    }
+                    this._inputElementValue = this._getItemsLabels(this.selectedItems);
+                } else {
+                    this._onEnter(e);
                 }
 
                 // Do not submit the surrounding form.
@@ -325,7 +332,7 @@
             if (this.opened) {
                 if (this.$.overlay._items) {
                     this._focusedIndex = Math.min(this.$.overlay._items.length - 1, this._focusedIndex + 1);
-                    this._prefillFocusedItemLabel();
+                    // this._prefillFocusedItemLabel();
                 }
             } else {
                 this.open();
@@ -343,7 +350,7 @@
                     }
                 }
 
-                this._prefillFocusedItemLabel();
+                // this._prefillFocusedItemLabel();
             } else {
                 this.open();
             }
@@ -389,7 +396,7 @@
                     this._focusedIndex = -1;
                     this._revertInputValue();
                 } else {
-                    this.cancel();
+                    this._cancel();
                 }
             }
         },
@@ -399,15 +406,7 @@
             if (this.filter !== '') {
                 this._inputElementValue = this.filter;
             } else {
-                if (!this.$.overlay._multiSelectionBoolean) {
-                    this._inputElementValue = this._getItemLabel(this.selectedItem);
-                } else {
-                    if (this.selectedItems.length > 0) {
-                        this._inputElementValue = this.selectedItems.length + " item(s) selected";
-                    } else {
-                        this._inputElementValue = "";
-                    }
-                }
+                this._resetLabels();
             }
 
             this._clearSelectionRange();
@@ -416,10 +415,19 @@
         /**
          * Reverts back to original value.
          */
-        cancel: function () {
-            console.log("pebble-lookup-behavior: cancel");
-            this._inputElementValue = this._getItemLabel(this.selectedItem);
+        _cancel: function () {
+            console.log("pebble-lookup-behavior: _cancel");
+            this._resetLabels();
             this.close();
+        },
+
+        _resetLabels: function () {
+            console.log("pebble-lookup-behavior: _resetLabels");
+            if (!this.$.overlay._multiSelectionBoolean) {
+                this._inputElementValue = this._getItemLabel(this.selectedItem);
+            } else {
+                this._inputElementValue = this._getItemsLabels(this.selectedItems);
+            }
         },
 
         _onOpened: function () {
@@ -463,14 +471,10 @@
                         this.value = customValue;
                     }
                 } else {
-                    if (!this.$.overlay.multiSelection) { // this.$.overlay._multiSelection set this to some private variable
+                    if (!this.$.overlay.multiSelection) {
                         this._inputElementValue = this._getItemLabel(this.selectedItem);
                     } else {
-                        if (this.selectedItems.length > 0) {
-                            this._inputElementValue = this.selectedItems.length + " item(s) selected";
-                        } else {
-                            this._inputElementValue = "";
-                        }
+                        this._inputElementValue = this._getItemsLabels(this.selectedItems);
                     }
                 }
             }
@@ -478,6 +482,42 @@
             this._clearSelectionRange();
 
             this.filter = '';
+        },
+
+        _clearSelectionRange: function () {
+            // Note: Not able to understand this ?
+            console.log("pebble-lookup-behavior: _clearSelectionRange");
+            // Setting selection range focuses and/or moves the caret in some browsers,
+            // and there's no need to modify the selection range if the input isn't focused anyway.
+            //
+            // Notice also that document.activeElement doesn't return elements from inside shadow root
+            // and therefore we're using _focusedInput method here.
+            if (this._focusedInput() === this.inputElement && this.inputElement.setSelectionRange) {
+                var caretIndex = this._inputElementValue ? this._inputElementValue.length : 0;
+                this.inputElement.setSelectionRange(caretIndex, caretIndex);
+            }
+        },
+
+        _focusedInput: function () {
+            console.log("pebble-lookup-behavior: _focusedInput");
+            // Use either light DOM input or one from local DOM.
+            return Polymer.dom(this).querySelector('input:focus') || Polymer.dom(this.root).querySelector(
+                'input:focus');
+        },
+
+        _itemsChanged: function (e) {
+            console.log("pebble-lookup-behavior: _itemsChanged");
+            if (e.path === 'items' || e.path === 'items.splices') {
+                this.filteredItems = this.items ? this.items.slice(0) : this.items;
+
+                var valueIndex = this._indexOfValue(this.value, this.items);
+                this._focusedIndex = valueIndex;
+
+                var item = valueIndex > -1 && this.items[valueIndex];
+                if (item) {
+                    this.selectedItem = item;
+                }
+            }
         },
 
         /**
@@ -504,27 +544,6 @@
             }
         },
 
-        _clearSelectionRange: function () {
-            console.log("pebble-lookup-behavior: _clearSelectionRange");
-            // Note: Not able to understand this ?
-            // Setting selection range focuses and/or moves the caret in some browsers,
-            // and there's no need to modify the selection range if the input isn't focused anyway.
-            //
-            // Notice also that document.activeElement doesn't return elements from inside shadow root
-            // and therefore we're using _focusedInput method here.
-            if (this._focusedInput() === this.inputElement && this.inputElement.setSelectionRange) {
-                var caretIndex = this._inputElementValue ? this._inputElementValue.length : 0;
-                this.inputElement.setSelectionRange(caretIndex, caretIndex);
-            }
-        },
-
-        _focusedInput: function () {
-            console.log("pebble-lookup-behavior: _focusedInput");
-            // Use either light DOM input or one from local DOM.
-            return Polymer.dom(this).querySelector('input:focus') || Polymer.dom(this.root).querySelector(
-                'input:focus');
-        },
-
         _filterChanged: function (filter) {
             console.log("pebble-lookup-behavior: _filterChanged");
             if (this.items) {
@@ -536,90 +555,6 @@
             console.log("pebble-lookup-behavior: _loadingChanged");
             if (loading) {
                 this._focusedIndex = -1;
-            }
-        },
-
-        _selectedItemChanged: function (selectedItem) {
-            console.log("pebble-lookup-behavior: _selectedItemChanged");
-            if (!this.filteredItems) {
-                return;
-            }
-
-            if (selectedItem === null) {
-                this.value = this.allowCustomValue ? this.value : '';
-                this.hasValue = this.value !== '';
-                this._inputElementValue = this.value;
-            } else {
-                this.hasValue = true;
-                this.$.overlay.checkItem(selectedItem);
-                this.value = this._getItemValue(selectedItem);
-                this._inputElementValue = this._getItemLabel(selectedItem);
-            }
-
-            this._focusedIndex = this.filteredItems.indexOf(selectedItem);
-        },
-
-        _selectedItemsChanged: function (selectedItems) {
-            console.log("pebble-lookup-behavior: _selectedItemChanged");
-
-            if (!this.filteredItems) {
-                return;
-            }
-
-            if (selectedItems === null && selectedItems.length < 1) {
-                this.value = this.allowCustomValue ? this.value : '';
-                this.hasValue = this.value !== '';
-                this._inputElementValue = this.value;
-            } else {
-                this.hasValue = true;
-                // this.value = this._getItemValue(selectedItem); ??
-                if (selectedItems.base.length > 0) {
-                    this._inputElementValue = selectedItems.base.length + ' item(s) selected'; // a common string set in a private variable
-                } else {
-                    this._inputElementValue = '';
-                }
-            }
-
-            // this._focusedIndex = this.filteredItems.indexOf(selectedItem); ??
-        },
-
-        _valueChanged: function (value) {
-            console.log("pebble-lookup-behavior: _valueChanged");
-            if (this._isValidValue(value)) {
-                var valueIndex = this._indexOfValue(value, this.filteredItems);
-                var item = valueIndex > -1 && this.filteredItems[valueIndex];
-                this.selectedItem = item ? item : null;
-
-                if (!item && this.allowCustomValue) {
-                    this._inputElementValue = value;
-                }
-
-                this.hasValue = this.value !== '';
-            } else {
-                this.selectedItem = null;
-            }
-
-            this.fire('change', undefined, {
-                bubbles: true
-            });
-        },
-
-        _valuesChanged: function (values) {
-            console.log("pebble-lookup-behavior: _valuesChanged");
-        },
-
-        _itemsChanged: function (e) {
-            console.log("pebble-lookup-behavior: _itemsChanged");
-            if (e.path === 'items' || e.path === 'items.splices') {
-                this.filteredItems = this.items ? this.items.slice(0) : this.items;
-
-                var valueIndex = this._indexOfValue(this.value, this.items);
-                this._focusedIndex = valueIndex;
-
-                var item = valueIndex > -1 && this.items[valueIndex];
-                if (item) {
-                    this.selectedItem = item;
-                }
             }
         },
 
@@ -640,72 +575,113 @@
             }
         },
 
-        _filterItems: function (arr, filter) {
-            console.log("pebble-lookup-behavior: _filterItems");
-            if (!arr) {
-                return arr;
+        _selectedItemChanged: function (selectedItem) {
+            console.log("pebble-lookup-behavior: _selectedItemChanged");
+            if (!this.filteredItems) {
+                return;
             }
 
-            return arr.filter((function (item) {
-                filter = filter ? filter.toString().toLowerCase() : '';
+            if (selectedItem === null) {
+                this.value = this.allowCustomValue ? this.value : '';
+                this._inputElementValue = this.value;
+                this.hasValue = this.value !== '';
+            } else {
+                this.value = this._getItemValue(selectedItem);
+                this._inputElementValue = this._getItemLabel(selectedItem);
+                this.hasValue = true;
+            }
 
-                // Check if item contains input value.
-                return this._getItemLabel(item).toString().toLowerCase()
-                    .indexOf(filter) > -1;
-            }).bind(this));
+            this._focusedIndex = this.filteredItems.indexOf(selectedItem);
+
+            if (this._focusedIndex > 0) {
+                this.$.overlay.toggleSelectionForItem(this._focusedIndex);
+            }
         },
 
-        _setOverlayItems: function (items) {
-            console.log("pebble-lookup-behavior: _setOverlayItems");
-            // ??
-            //TODO: There is something wrong with observers and using set function
-            // see here: https://github.com/Polymer/polymer/issues/3254
-            //As a workaround setting/notifying the observer with the value undefined helps
-            this.$.overlay.notifyPath('_items', undefined);
-            this.$.overlay.set('_items', items);
+        _selectedItemsChanged: function (selectedItems) {
+            console.log("pebble-lookup-behavior: _selectedItemChanged");
 
-            this.$.overlay.hidden = !this._hasItems(items);
-            this.$.overlay.notifyResize();
+            if (!this.filteredItems) {
+                return;
+            }
+
+            if (selectedItems === null && selectedItems.length < 1) {
+                this.value = this.allowCustomValue ? this.value : '';
+                this._inputElementValue = this.value;
+                this.hasValue = this.value !== '';
+            } else {
+                this.set('values', this._getItemsValues(selectedItems.base));
+                this._inputElementValue = this._getItemsLabels(selectedItems.base);
+                this.hasValue = true;
+            }
+
+            // this._focusedIndex = this.filteredItems.indexOf(selectedItem); ??
         },
 
-        _hasItems: function (array) {
-            console.log("pebble-lookup-behavior: _hasItems");
-            return array && array.length;
+        _valueChanged: function (value) {
+            console.log("pebble-lookup-behavior: _valueChanged");
+            if (this._isValidValue(value)) {
+                var valueIndex = this._indexOfValue(value, this.filteredItems);
+                var item = valueIndex > -1 && this.filteredItems[valueIndex];
+
+                // Why do we need to perform below actions again it is already set in selectedItemChanged ?
+                // Third-Party Code
+                // This will never fire selected-item-changed event as both the values are going to be same
+                this.selectedItem = item ? item : null;
+
+                if (!item && this.allowCustomValue) {
+                    this._inputElementValue = value;
+                }
+
+                this.hasValue = this.value !== '';
+            } else {
+                this.selectedItem = null;
+            }
+
+            // Who is listening to this event
+            this.fire('change', undefined, {
+                bubbles: true
+            });
         },
 
-        _indexOfValue: function (value, items) {
-            console.log("pebble-lookup-behavior: _indexOfValue");
-            if (items && this._isValidValue(value)) {
-                for (var i = 0; i < items.length; i++) {
-                    if (this._getItemValue(items[i]) === value) {
-                        return i;
-                    }
+        _valuesChanged: function (values) {
+            console.log("pebble-lookup-behavior: _valuesChanged");
+            var validItemValues = true;
+            for (var i = 0; i < values.length; i++) {
+                if (!this._isValidValue(values[i])) {
+                    validItemValues = false;
+                    console.log("Invalid item value: " + values[i] + " at index: " + i);
                 }
             }
 
-            return -1;
-        },
+            var selectedFilteredItems = [];
+            if (validItemValues) {
+                if (values.length > 0) {
+                    for (var i = 0; i < values.length; i++) {
+                        var valueIndex = this._indexOfValue(values[i], this.filteredItems);
+                        var item = valueIndex > -1 && this.filteredItems[valueIndex];
+                        if (item) {
+                            selectedFilteredItems.push(item);
+                        }
+                    }
 
-        /**
-         * Checks if the value is supported as an item value in this control.
-         *
-         * @return {boolean}
-         */
-        _isValidValue: function (value) {
-            console.log("pebble-lookup-behavior: _isValidValue");
-            return value !== NaN && value !== undefined && value !== null; // eslint-disable-line use-isnan
-        },
+                    // this.selectedItems = selectedFilteredItems;
+                }
 
-        /**
-         * Validates the input element and sets an error style if needed.
-         *
-         * @return {boolean}
-         */
-        _getValidity: function () {
-            console.log("pebble-lookup-behavior: _getValidity");
-            if (this.inputElement.validate) {
-                return this.inputElement.validate();
+                // if (!values && this.allowCustomValue) {
+                //     this._inputElementValue = value; // Depricate the allow custom value code
+                // }
+
+                this.hasValue = values.length > 0;
+            } else {
+                console.log("Selected items are cleared");
+                this.selectedItems = [];
             }
+
+            // Who is listening to this event
+            // this.fire('change', undefined, {
+            //     bubbles: true
+            // });
         },
 
         _overlaySelectedItemChanged: function (event) {
@@ -738,18 +714,98 @@
             }
         },
 
+        _filterItems: function (arr, filter) {
+            console.log("pebble-lookup-behavior: _filterItems");
+            if (!arr) {
+                return arr;
+            }
+
+            return arr.filter((function (item) {
+                filter = filter ? filter.toString().toLowerCase() : '';
+
+                // Check if item contains input value.
+                return this._getItemLabel(item).toString().toLowerCase()
+                    .indexOf(filter) > -1;
+            }).bind(this));
+        },
+
+        _setOverlayItems: function (items) {
+            console.log("pebble-lookup-behavior: _setOverlayItems");
+            // ??
+            //TODO: There is something wrong with observers and using set function
+            // see here: https://github.com/Polymer/polymer/issues/3254
+            //As a workaround setting/notifying the observer with the value undefined helps
+            this.$.overlay.notifyPath('_items', undefined);
+            this.$.overlay.set('_items', items);
+
+            this.$.overlay.hidden = !this._hasItems(items);
+            this.$.overlay.notifyResize();
+        },
+
+        _hasItems: function (array) {
+            console.log("pebble-lookup-behavior: _hasItems"); // replace this everywhere in the file
+            return array && array.length;
+        },
+
+        _indexOfValue: function (value, items) { // items parameter required or not
+            console.log("pebble-lookup-behavior: _indexOfValue");
+            if (this._isValidValue(value)) {
+                return this.$.overlay.indexOfValue(value);
+            }
+
+            return -1;
+        },
+
+        /**
+         * Checks if the value is supported as an item value in this control.
+         *
+         * @return {boolean}
+         */
+        _isValidValue: function (value) {
+            console.log("pebble-lookup-behavior: _isValidValue");
+            return value !== NaN && value !== undefined && value !== null; // eslint-disable-line use-isnan
+        },
+
+        /**
+         * Validates the input element and sets an error style if needed.
+         *
+         * @return {boolean}
+         */
+        _getValidity: function () {
+            console.log("pebble-lookup-behavior: _getValidity");
+            if (this.inputElement.validate) {
+                return this.inputElement.validate();
+            }
+        },
+
         _getItemLabel: function (item) {
             console.log("pebble-lookup-behavior: _getItemLabel");
             return this.$.overlay.getItemLabel(item);
         },
 
+        _getItemsLabels: function (items) {
+            console.log("pebble-lookup-behavior: _getItemsLabel");
+            if (items.length > 0) {
+                return items.length + ' item(s) selected';
+            } else {
+                return '';
+            }
+        },
+
         _getItemValue: function (item) {
             console.log("pebble-lookup-behavior: _getItemValue");
-            var value = this.get(this.itemValuePath, item);
-            if (value === undefined || value === null) {
-                value = item ? item.toString() : '';
+            return this.$.overlay.getItemValue(item);
+        },
+
+        _getItemsValues: function (items) {
+            console.log("pebble-lookup-behavior: _getItemValue");
+            var itemsValues = [];
+
+            for (var i = 0; i < items.length; i++) {
+                itemsValues.push(this.$.overlay.getItemValue(items[i]));
             }
-            return value;
+
+            return itemsValues;
         },
 
         _onBlur: function () {

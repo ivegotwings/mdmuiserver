@@ -191,9 +191,11 @@
 
         _onTap: function (e) {
             console.log("pebble-lookup-overlay: _onTap");
+
             var checkBox = e.currentTarget.querySelector("paper-checkbox");
+            // checkbox selection and de-selection using mouse
             if (!this._multiSelectionBoolean) {
-                this.unCheckAll();
+                this.deSelectAllCheckbox();
                 checkBox.checked = true;
             } else {
                 if (checkBox && e.path.indexOf(checkBox) == -1) {
@@ -210,67 +212,23 @@
             // });
         },
 
-        checkItem: function (item) {
-            item = (typeof item === 'number') ? this._items[item] : item;
-            var listItems = this.$.selector.$.items;
-            if (listItems) {
-                var checkBox = listItems.querySelector('[focused]').querySelector('paper-checkbox');
-                if (!checkBox.checked) {
-                    this.unCheckAll();
-                    checkBox.checked = true;
-                }
-            }
-        },
-
-        checkAll: function () {
-            var listItems = this.$.selector.querySelectorAll("paper-checkbox");
-            if (listItems && listItems.length > 0) {
-                for (var index in listItems) {
-                    var listItem = listItems[index];
-                    if (listItem && !listItem.checked) {
-                        listItem.checked = true;
-                    }
-                }
-            }
-        },
-
-        unCheckItem: function (item) {
-            var listItems = this.$.selector.querySelectorAll("paper-checkbox");
-            if (listItems && listItems.length > 0) {
-                for (var index in listItems) {
-                    var listItem = listItems[index];
-                    if (listItem && listItem.checked) {
-                        listItem.checked = false;
-                    }
-                }
-            }
-        },
-
-        unCheckAll: function () {
-            var listItems = this.$.selector.querySelectorAll("paper-checkbox");
-            if (listItems && listItems.length > 0) {
-                for (var index in listItems) {
-                    var listItem = listItems[index];
-                    if (listItem && listItem.checked) {
-                        listItem.checked = false;
-                    }
-                }
-            }
-        },
-
         toggleSelectionForItem: function (index) {
-            this.$.selector.toggleSelectionForItem(index);
-            var focuedItem = this.$.selector.$.items.querySelector('[focused]');
-            if (focuedItem) {
-                var checkBox = focuedItem.querySelector("paper-checkbox");
-                if (checkBox) {
-                    if (!checkBox.checked) {
-                        checkBox.checked = true;
-                    } else {
-                        checkBox.checked = false;
-                    }
-                }
+            // checkbox selection and de-selection using keyboard
+            if (!this._multiSelectionBoolean) {
+                this.deSelectAllCheckbox();
+                this.toggleSelectionForCheckbox();
+            } else {
+                this.$.selector.toggleSelectionForItem(index);
+                this.toggleSelectionForCheckbox();
             }
+        },
+
+        selectAllCheckbox: function () {
+            this._toggleSelectionForAllCheckboxes(true);
+        },
+
+        deSelectAllCheckbox: function () {
+            this._toggleSelectionForAllCheckboxes(false);
         },
 
         clearSelection: function () {
@@ -295,6 +253,23 @@
         },
 
         /**
+         * Gets the index of the item with the provided value.
+         * @return {Number}
+         */
+        indexOfValue: function (value) {
+            console.log("pebble-lookup-overlay: indexOfValue");
+            if (this._items && value) {
+                for (var i = 0; i < this._items.length; i++) {
+                    if (this.getItemValue(this._items[i]).toString().toLowerCase() === value.toString().toLowerCase()) {
+                        return i;
+                    }
+                }
+            }
+
+            return -1;
+        },
+
+        /**
          * Gets the label string for the item based on the `_itemLabelPath`.
          * @return {String}
          */
@@ -305,6 +280,21 @@
                 label = item ? item.toString() : '';
             }
             return label;
+        },
+
+        /**
+         * Gets the label string for the item based on the `_itemValuePath`.
+         * @return {String}
+         */
+        getItemValue: function (item) {
+            console.log("pebble-lookup-behavior: getItemValue");
+            var value = this.get(this._itemLabelPath, item);
+
+            if (value === undefined || value === null) {
+                value = item ? item.toString() : '';
+            }
+
+            return value;
         },
 
         updateViewportBoundaries: function () {
@@ -323,6 +313,54 @@
             console.log("pebble-lookup-overlay: adjustScrollPosition");
             if (this._items) {
                 this._scrollIntoView(this._focusedIndex);
+            }
+        },
+
+        toggleSelectionForCheckbox: function () {
+            var focusedItem = this.$.selector.querySelector('[focused]');
+
+            if (focusedItem) {
+                var checkBox = focusedItem.querySelector('paper-checkbox');
+                if (!checkBox.checked) {
+                    checkBox.checked = true;
+                } else {
+                    checkBox.checked = false;
+                }
+            }
+        },
+
+        _toggleSelectionForAllCheckboxes: function (checkedStatus) {
+            var listItems = this.$.selector.querySelectorAll("paper-checkbox");
+
+            if (listItems && listItems.length > 0) {
+                for (var i = 0; i < listItems.length; i++) {
+                    var listItem = listItems[i];
+                    if (checkedStatus) {
+                        if (!listItem.checked) {
+                            listItem.checked = checkedStatus;
+                        }
+                    } else {
+                        if (listItem.checked) {
+                            listItem.checked = checkedStatus;
+                        }
+                    }
+                }
+            }
+        },
+
+        _selectItem: function (item) {
+            console.log("pebble-lookup-overlay: _selectItem");
+            item = (typeof item === 'number') ? this._items[item] : item;
+            if (this.$.selector.selectedItem !== item) {
+                this.$.selector.selectItem(item);
+            }
+        },
+
+        _deSelectItem: function (item) {
+            console.log("pebble-lookup-overlay: _deSelectItem");
+            item = (typeof item === 'number') ? this._items[item] : item;
+            if (this.$.selector.selectedItem === item) {
+                this.$.selector.deselectItem(item);
             }
         },
 
@@ -457,19 +495,6 @@
             if (this._visibleItemsCount()) {
                 return this.$.selector.firstVisibleIndex + this._visibleItemsCount() - 1;
             }
-        },
-
-        _selectItem: function (item) {
-            console.log("pebble-lookup-overlay: _selectItem");
-            item = (typeof item === 'number') ? this._items[item] : item;
-            if (this.$.selector.selectedItem !== item) {
-                this.$.selector.selectItem(item);
-            }
-        },
-
-        _deSelectItem: function (item) {
-            console.log("pebble-lookup-overlay: _deSelectItem");
-            // Todo..
         },
 
         _stringToBoolean: function (_str) {
