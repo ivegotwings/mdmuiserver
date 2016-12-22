@@ -10,7 +10,7 @@ function createPath(pathSet, value) {
     return { path: pathSet, 'value': value, $expires: expireTime };
 }
 
-function unboxEntityData(entity){
+function unboxEntityData(entity) {
     var unboxedEntity = {};
 
     unboxedEntity.id = entity.id;
@@ -18,10 +18,10 @@ function unboxEntityData(entity){
     unboxedEntity.systemInfo = unboxJsonObject(entity.systemInfo);
     unboxedEntity.properties = unboxJsonObject(entity.properties);
 
-    if(entity.data && entity.data.ctxInfo){
-        for(var ctxKey in entity.data.ctxInfo){
+    if (entity.data && entity.data.ctxInfo) {
+        for (var ctxKey in entity.data.ctxInfo) {
             var attrs = entity.data.ctxInfo[ctxKey].attributes;
-            for(var attrId in attrs){
+            for (var attrId in attrs) {
                 var attr = attrs[attrId];
                 attr.values = unboxJsonObject(attr.values);
             }
@@ -33,11 +33,11 @@ function unboxEntityData(entity){
     return unboxedEntity;
 }
 
-function unboxJsonObject(obj){
+function unboxJsonObject(obj) {
     if (obj && obj.$type) {
         return obj.value;
     }
-    else{
+    else {
         return obj;
     }
 }
@@ -67,10 +67,10 @@ function buildEntityAttributesResponse(entity, request, pathRootKey) {
         for (var x in entity.data.ctxInfo) {
             var enCtxInfo = entity.data.ctxInfo[x];
 
-            if(!enCtxInfo.ctxGroup){
+            if (!enCtxInfo.ctxGroup) {
                 enCtxInfo.ctxGroup = reqCtxGroup; //TODO: For now, save call is not sending ctxGroup object so has beed assign with request object's ctxGroup..
             }
-            
+
             if (enCtxInfo.ctxGroup.list === reqCtxGroup.list && enCtxInfo.ctxGroup.classification === reqCtxGroup.classification) {
                 request.fields.attributes.forEach(function (attrName) {
                     var attr = enCtxInfo.attributes[attrName];
@@ -79,7 +79,7 @@ function buildEntityAttributesResponse(entity, request, pathRootKey) {
                         var valFound = false;
                         if (attr !== undefined) {
                             var valCtxSpecifiedValues = [];
-                            for(var valKey in attr.values){
+                            for (var valKey in attr.values) {
                                 var val = attr.values[valKey];
                                 if (val.source == reqValCtxGroup.source && val.locale == reqValCtxGroup.locale) {
                                     valCtxSpecifiedValues.push(val);
