@@ -1,17 +1,9 @@
 'use strict';
 
 var falcorExpress = require('falcor-express'),
-    Router = require('falcor-router'),
-    jsonGraph = require('falcor-json-graph'),
-    uuidV1 = require('uuid/v1'),
-    $ref = jsonGraph.ref,
-    $error = jsonGraph.error,
-    $atom = jsonGraph.atom,
-    expireTime = -60 * 60 * 1000; // 60 mins
-
-var resolver = require('../entity-data/route-resolver');
-
-var EntityManageService = require('../../api/EntityManageService/EntityManageService');
+    Router = require('falcor-router');
+ 
+var resolver = require('./route-resolver');
 
 var EntityRouterBase = Router.createClass([
     {
@@ -29,6 +21,14 @@ var EntityRouterBase = Router.createClass([
     {
         route: "entitiesById[{keys:entityIds}][{keys:entityFields}]",
         get: async (pathSet) => await resolver.getEntities(pathSet)
+    },
+    {
+        route: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].values",
+        set: async (pathSet) => await resolver.saveEntities(pathSet)
+    },
+    {
+        route: "entitiesById[{keys:entityIds}][{keys:entityFields}]",
+        set: async (jsonEnvelope) => await resolver.saveEntities(jsonEnvelope)
     }
 ]);
 
