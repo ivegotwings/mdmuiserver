@@ -84,6 +84,30 @@ Element displaying the items in grid-list-view.
                 font-size:18px;
                 font-weight: 500;
             }
+
+            .actions {
+                margin-left : 2%;
+                /*margin-top: -7px;*/
+            }
+
+            .top {
+                display: inline-flex;
+                width : 100%;
+                height: 40px;
+                text-align: center;
+                box-sizing: border-box;
+                border-bottom: 1px solid var(--palette-cloudy-blue);
+                padding: var(--list-padding,7px);
+            }
+
+            .header-button-container {
+                position:relative;
+                top:50%;
+                left:0.6%;
+                float: left;
+                margin-top: -7px;
+            }
+
             paper-checkbox::shadow #checkboxContainer{
                 height:var(--paper-checkbox-size, var(--default-checkbox-size));
                 width:var(--paper-checkbox-size, var(--default-checkbox-size));
@@ -107,14 +131,17 @@ Element displaying the items in grid-list-view.
                 transform-origin: 60% 110%;
             }
         </style>
+        <div class="top">
+            <paper-checkbox class = "header-button-container" checked="{{_isSelectAll(_selectAll,_intermediate)}}"></paper-checkbox>
+            <span class="actions">Actions</span>
+        </div>
         <div id="scrollingRegion">
-            <iron-list id="list" items="{{cachedItems}}" as="item" scroll-target="html" multi-selection="{{multiSelection}}" 
-                selected-item="{{selectedItem}}" selected-items = "{{selectedItems}}" selection-enabled>
+            <iron-list id="list" items="{{cachedItems}}" as="item" scroll-target="html" selection-enabled>
                 <template>
                     <!--<grid-list-item item="{{item}}" index = "[[index]]" list-items="{{listItems}}"></grid-list-item>-->
                     <div class="container" on-tap="_tapEvent">
                         <div class = "left">
-                            <paper-checkbox class = "button-container" checked$="{{_selected}}"></paper-checkbox>
+                            <paper-checkbox class = "button-container" checked="[[_isSelected(item, selectedItems, selectedItems.*)]]"></paper-checkbox>
                             <!--<paper-radio-button class = "button-container" checked$></paper-radio-button>-->
                         </div>
                         <!--<div >-->
@@ -231,7 +258,7 @@ Element displaying the items in grid-list-view.
 					 */
                      selectedItems : {
                          type : Array,
-                         //value : [],
+                         value : [],
                          notify : true,
                          reflectToAttribute : true                 
                     },
@@ -285,6 +312,19 @@ Element displaying the items in grid-list-view.
                      thirdColFields : {
                          type : Array,
                          value :[]
+                     },
+
+                     _selectAll : {
+                         type : Boolean,
+//                         value : false,
+                         notify : true,
+                         observer : '_selectAllChanged'
+                     },
+                     indeterminate: {
+                         type: Boolean,
+                         reflectToAttribute: true,
+                         observer: '_indeterminateChanged',
+                         value: false
                      }
                  },
 
@@ -389,14 +429,12 @@ Element displaying the items in grid-list-view.
                  * This is an internal function to handle the tap event. It fires event 'deselecting-item' if an item was already selected.
                  *  It fires event 'selecting-item' if an item was not selected. The data of the event fired is the data of the item.
                  */
-                _tapEvent : function() {
-                    if(this._selected) {
-                        this.fire('deselecting-item',this.item);
+                _tapEvent : function(e) {
+                    if (this._isSelected(e.model.item, this.selectedItems)) {
+                        this._fireEvent('deselecting-item', e.model.item, this.deselectItem);
                     } else {
-                        this.fire('selecting-item',this.item);
+                        this._fireEvent('selecting-item', e.model.item, this.selectItem);
                     }
-                    this._selected = !this._selected;
-
                 },
 
                 /**
@@ -424,7 +462,132 @@ Element displaying the items in grid-list-view.
                  */
                 _computeValue : function(item,field) {
                     return item[field];
-                }
+                },
+
+
+                _setSelectedItem : function(item) {
+                    this.set('selectedItem',item);
+                },
+
+                _setSelectedItems :function(items) {
+                    this.set('selectedItems',items);
+                },
+
+                /**
+                 * Select the list item at the given index.
+                 *
+                 * @method selectItem
+                 * @param {(Object|number)} item The item object or its index
+                 */
+                selectItem: function(item) {
+                    if (typeof item === 'number' && item >= 0 && this.items && this.items.length > item) {
+                        this._selectItem(this.items[item]);
+                    } else {
+                        this._selectItem(item);
+                    }
+                },
+                _selectItem: function(item) {
+                    this._setSelectedItem(item);
+                    if (this.multiSelection) {
+                        if (this.selectedItems.inverted) {
+                            var index;
+                            if ((index = this.selectedItems.indexOf(item)) > -1) {
+                                this.splice('selectedItems', index, 1);
+//                                if(this.selectedItems.length ==0) {
+//                                    this.set('_selectAll',true);
+//                                }
+                            }
+                        } else {
+                            this.push('selectedItems', item);
+//                            if(this.selectedItems.length == this.cachedItems.length) {
+//                                this.set('_selectAll',true);
+//                            }
+                        }
+                    } else {
+                        this.splice('selectedItems', 0, this.selectedItems.length, item);
+                    }
+                },
+                /**
+                 * Deselects the given item list if it is already selected.
+                 *
+                 * @method deselect
+                 * @param {(Object|number)} item The item object or its index
+                 */
+                deselectItem: function(item) {
+                    if (typeof item === 'number' && item >= 0 && this.items && this.items.length > item) {
+                        this._deselectItem(this.items[item]);
+                    } else {
+                        this._deselectItem(item);
+                    }
+                },
+                _deselectItem: function(item) {
+                    this._setSelectedItem(null);
+                    var index = this.selectedItems.indexOf(item);
+//                    if(this._selectAll) {
+//                        this.set('_selectAll',false);
+//                    }
+                    if (this.selectedItems.inverted) {
+                        if (index === -1) {
+                            this.push('selectedItems', item);
+                        }
+                    } else {
+                        if (index > -1) {
+                            this.splice('selectedItems', index, 1);
+                        }
+                    }
+                },
+                _isSelected: function(item, selectedItems) {
+                    var selected = selectedItems.indexOf(item) > -1;
+                    console.log(selectedItems.inverted ? !selected : selected);
+                    return selectedItems.inverted ? !selected : selected;
+                },
+                /*
+                 * Selects all the items in the list.
+                 */
+                selectAll: function() {
+                    console.log('selectAll');
+                    var selectedItems = [];
+                    selectedItems.inverted = true;
+                    // use a copy of filter so that we can safely send separate changed
+                    // notifications for both filter and selectedItems.filter
+//                    selectedItems.filters = this.filter.slice(0) || [];
+                    this._setSelectedItems(selectedItems);
+                },
+                /**
+                 * Clears the current selection state.
+                 */
+                clearSelection: function() {
+                    console.log('clearSelection');
+                    var selectedItems = [];
+                    selectedItems.inverted = false;
+                    // use a copy of filter so that we can safely send separate changed
+                    // notifications for both filter and selectedItems.filter
+//                    selectedItems.filters = this.filter.slice(0) || [];
+                    this._setSelectedItems(selectedItems);
+                    if (this.selectedItem !== undefined) {
+                        this._setSelectedItem(null);
+                    }
+                },
+
+                _fireEvent: function(eventName, item, defaultAction) {
+                    var e = this.fire(eventName, {item: item}, {cancelable: true});
+                    if (!e.defaultPrevented) {
+                        defaultAction.call(this, item);
+                    }
+                },
+
+                _selectAllChanged: function() {
+                    console.log('toggleAll');
+                    if (!this._selectAll) {
+                        this._fireEvent("deselecting-all-items", {items: this.selectedItems}, this.clearSelection);
+                    } else {
+                        this._fireEvent("selecting-all-items", {items: this.selectedItems}, this.selectAll);
+                    }
+                },
+
+                _isSelectAllChecked: function(selectedItemsLength, inverted, size) {
+                    return size > 0 && selectedItemsLength === (inverted ? 0 : size);
+                },
             });
         })();
     </script>
