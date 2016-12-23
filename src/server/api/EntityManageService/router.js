@@ -2,7 +2,7 @@
 
 var falcorExpress = require('falcor-express'),
     Router = require('falcor-router');
- 
+
 var resolver = require('./route-resolver');
 
 var EntityRouterBase = Router.createClass([
@@ -32,19 +32,19 @@ var EntityRouterBase = Router.createClass([
     }
 ]);
 
-var EntityRouter = function() {
+var EntityRouter = function () {
     EntityRouterBase.call(this);
 };
 
 EntityRouter.prototype = Object.create(EntityRouterBase.prototype);
 
-module.exports = function() {
+module.exports = function () {
     return new EntityRouter();
 };
 
-module.exports = function(app) {
+module.exports = function (app) {
     app.use('/entityData.json',
-        falcorExpress.dataSourceRoute(function(req, res) {
+        falcorExpress.dataSourceRoute(function (req, res) {
             return new EntityRouter();
         }));
 };
