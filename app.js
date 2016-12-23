@@ -1,5 +1,8 @@
 'use strict';
 
+require("babel-register");
+require("babel-polyfill");
+
 var express = require('express');
 var history = require('connect-history-api-fallback');
 var cors = require('cors');
@@ -14,19 +17,23 @@ app.use(bodyParser.urlencoded({
 
 app.use(cors());
 
-//Load falcor routes    
-var entityRoute = require('./src/server/routes/entityroutes.js');
+//Load falcor routes
+var entityRoute = require('./src/server/api/EntityManageService/router');
 
 var buildPath = __dirname;
 //console.log(buildPath);
 
-var oneDay = 86400000;
+//var oneDay = 86400000;
 
-app.use(express.static(buildPath,{maxAge : oneDay}));
+app.use(express.static(buildPath,{maxAge : "1s"}));
 
 entityRoute(app);
 
+app.get('*', function(req, res){
+    res.sendFile(buildPath + '/index.html');
+});
+
 app.listen(5005, function () {
-    console.log("Server started at port 5005");
+    console.log("Web server started at port http://localhost:5005/");
 });
 

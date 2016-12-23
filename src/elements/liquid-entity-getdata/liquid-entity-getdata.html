@@ -1,6 +1,6 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../bedrock-datachannel/bedrock-datachannel.html">
 
-<link rel="import" href="./DataChannelBehavior.html">
 <!--
 `liquid-entity-getdata`
 Boolean control
@@ -74,16 +74,17 @@ Boolean control
             }
         },
         _callInitiateSearch: function(self, model, request){
-            if(self.logInternalDetail){
-                console.log('Request for initiate search call: ', request);
-            }
-
+            
             model.call(["searchResults", "create"], [request],[],[]).then(function(responsePkg){
-                
-                var responseObj = self._createSuccessResponse({requestId: Object.keys(responsePkg.json.searchResults)[0], totalRecords: 0});
+                var resSearchResultId = Object.keys(responsePkg.json.searchResults)[0];
+                var resSearchResultObj = responsePkg.json.searchResults[resSearchResultId];
+                var responseObj = self._createSuccessResponse(resSearchResultObj);
 
                 if(self.logInternalDetail){
+                    RUFBehaviors.DataChannel.updateCallCounters(self.operation);
+                    console.log('Request for initiate search call: ', request);
                     console.log('Response from initiate search call: ', responseObj);
+                    console.log('Approx. no of total calls to api server at :', Date.now(), RUFBehaviors.DataChannel.getCallCounters());
                 }
 
                 self.set('response', responseObj);
@@ -100,12 +101,14 @@ Boolean control
             model.get(["searchResults", requestId, "totalRecords"]).then(function(totalRecordsPkg){
                     var totalRecords = totalRecordsPkg.json.searchResults[requestId].totalRecords;
                     var from = 0;
-                    var to = 10;
+                    var to = 3;
                     var to1 = (to + 1) < totalRecords ? to : totalRecords - 1; // make sure to range is < total records
-                    
+
                     model.get(["searchResults", requestId, "entities", [{from:from,to:to1}]]).then(function(responsePkg) {
                             if(self.logInternalDetail){
+                                RUFBehaviors.DataChannel.updateCallCounters(self.operation);
                                 console.log('Response from get search result detail call: ', responsePkg);
+                                console.log('Approx. no of total calls to api server at :', Date.now(), RUFBehaviors.DataChannel.getCallCounters());
                             }
 
                             if(responsePkg !== undefined){
@@ -129,7 +132,11 @@ Boolean control
                     self.response = self._createErrorResponse(reason);  
                 });
         },
-        _callGetEntities: function(self, model, request, entityIds){
+        _callGetEntities: function(self, model, request, entityIds){           
+            if(request === undefined || request.data === undefined) {
+                return;
+            }
+
             if(self.logInternalDetail){
                     console.log('Request for get entities call...request: ', request, ' entityIds: ', entityIds);
             }
@@ -145,6 +152,47 @@ Boolean control
                 return;
             }
 
+            var contextKeys = self._createContextKeys(request);
+
+            var attrs = request.data.fields.attributes;
+
+            var pathRootKey = "entitiesById";
+            
+            var path1 = [pathRootKey, entityIds, ['id', 'dataObjectInfo', 'systemInfo', 'properties']];
+            var path2 = [pathRootKey, entityIds, "data", "ctxInfo", contextKeys, "attributes", attrs, "values"];
+
+            model.get(path1, path2).then(function(responsePkg) {
+                    if(self.logInternalDetail){
+                        RUFBehaviors.DataChannel.updateCallCounters(self.operation);
+                        console.log('getEntities raw response ', responsePkg);
+                    }
+
+                    self.response = self._createSuccessResponse({'entities': responsePkg.json[pathRootKey]});
+
+                    if(self.logInternalDetail){
+                         //console.log('Response from get entities call: ', JSON.stringify(responsePkg.json[pathRootKey], null, 4));
+                         console.log('Response from get entities call: ', responsePkg.json[pathRootKey]);
+                         console.log('Approx. no of total calls to api server at :', Date.now(), RUFBehaviors.DataChannel.getCallCounters());
+                    }
+                },
+                function(reason){
+                    self.response = self._createErrorResponse(reason);  
+                });
+        },
+        _createSuccessResponse: function(data){
+            var clonedData = JSON.parse(JSON.stringify(data));
+            return {'status':'success', 'content': clonedData};
+        },
+        _createErrorResponse: function(reason){
+            var result = {'status': 'error', reason};
+
+            if(this.logInternalDetail){
+                console.log('Error response for the operation: ', this.operation, result);
+            }
+            
+            return result;
+        },
+        _createContextKeys: function(request){
             var contextKeys = []
             request.data.query.ctx.forEach(function(ctxGroup){
                 request.data.query.valCtx.forEach(function(valCtxGroup){
@@ -153,29 +201,7 @@ Boolean control
                 });
             });
 
-            var attrs = request.data.fields.attributes;
-            model.get(["entitiesById", entityIds, "ctx", contextKeys, "attrs", attrs]).then(function(responsePkg) {
-                    self.response = self._createSuccessResponse({'entities': responsePkg.json.entitiesById});
-
-                    if(self.logInternalDetail){
-                        console.log('Response from get entities call: ', self.response);
-                    }
-                },
-                function(reason){
-                    self.response = self._createErrorResponse(reason);  
-                });
-        },
-        _createSuccessResponse: function(data){
-            return {status:'success', data:data};
-        },
-        _createErrorResponse: function(reason){
-            var result = {status: 'error', reason};
-
-            if(this.logInternalDetail){
-                console.log('Error response for the operation: ', this.operation, result);
-            }
-            
-            return result;
+            return contextKeys;
         }
       });
     })();
