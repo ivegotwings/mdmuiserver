@@ -17,7 +17,7 @@
     <style include="pebble-styles-shared"></style>
     <style include="iron-flex"></style>
     <style is="custom-style">
-      #savedSearch {
+      #savedSearchButton {
         --pebble-button: {
           height: 40px;
           padding: 1em 0em 1em 0.3em;
@@ -102,7 +102,7 @@
 
       #savedSearchPopover {
         margin-top: -3px;
-        width: 500px;
+        width: 550px;
       }
 
       #actionsPopover {
@@ -182,11 +182,12 @@
         min-width: 30%;
       }
     </style>
+    <bedrock-pubsub on-bedrock-event-route-changed="onRouteChange"></bedrock-pubsub>
 <rock-layout>
   <rock-titlebar icon="search" title="Entity Search & Discovery" closable minimizable>
     <div id="dimensionContainer" align="right">
       <iron-ajax auto url="../../data/EntitySearchApp/dimensionData.json" handle-as="json" last-response="{{dimensionData}}"></iron-ajax>
-      <rock-dimension-selector config-data="{{dimensionData}}"></rock-dimension-selector>
+      <rock-dimension-selector id="dimensionSelector" config-data="{{dimensionData}}"></rock-dimension-selector>
       <bedrock-pubsub on-bedrock-event-dimension-selector-catalog="onCatalogChange"></bedrock-pubsub>
       <bedrock-pubsub on-bedrock-event-dimension-selector-source="onSourceChange"></bedrock-pubsub>
       <bedrock-pubsub on-bedrock-event-dimension-selector-locale="onLocaleChange"></bedrock-pubsub>
@@ -202,13 +203,16 @@
         </div>
         <div class="marginTop12">
           <!-- Saved Search button & its popover-->
-          <pebble-button id="savedSearch" icon="pebble-icons:SavedSearch" button-text="Load Saved Search" noink raised elevation="2"
+          <pebble-button id="savedSearchButton" icon="pebble-icons:SavedSearch" button-text="Load Saved Search" noink raised elevation="2"
             dropdown-icon on-tap="_onSavedSearchTap"></pebble-button>
-          <pebble-popover id="savedSearchPopover" for="savedSearch" auto-fit-on-attach no-overlap horizontal-align="right">
+          <pebble-popover id="savedSearchPopover" for="savedSearchButton" auto-fit-on-attach no-overlap horizontal-align="right">
             <div id="rockSavedSearch">
                 <rock-saved-searches></rock-saved-searches>
+                <iron-ajax auto url="../../data/saved-searches.json" handle-as="json" last-response="{{_savedSearches}}"></iron-ajax>
                 <bedrock-pubsub on-bedrock-event-rock-saved-search-click="_loadSavedSearch"></bedrock-pubsub>
                 <bedrock-pubsub on-bedrock-event-saved-search-save="onCreateEditSavedSearch"></bedrock-pubsub>
+                <bedrock-pubsub on-bedrock-event-favourite-saved-search="_markSavedSearchAsFavourite"></bedrock-pubsub>
+                <bedrock-pubsub on-bedrock-event-delete-saved-search="_markSavedSearchAsDelete"></bedrock-pubsub>
             </div>
           </pebble-popover>
         </div>
@@ -281,6 +285,14 @@ attributeModels
             return { action: "getAttributeModels" };
           }
         },
+        savedSearchId: {
+          type: Number,
+          observer: '_savedSeachIdChanged'
+        },
+        _savedSearches: {
+          type: Object,
+          observer: '_savedSearchesChanged'
+        },
 
         request: {
           type: Object,
@@ -346,6 +358,12 @@ attributeModels
         this.$$("#searchBar").searchInput = [];
 
       },
+      onRouteChange: function (e) {
+        var savedSearchId = this._getSavedSearchId();
+        if (savedSearchId && savedSearchId != this.savedSearchId) {
+          this.savedSearchId = savedSearchId;
+        }
+      },
       onCatalogChange: function (e, detail, sender) {
         if (detail != undefined) {
           //alert("event triggered for catalog Changed and current object is: " + JSON.stringify(detail));
@@ -404,13 +422,111 @@ attributeModels
       },
       onCreateEditSavedSearch: function(e, detail,sender) {
           if(detail){
-            alert("data: " + JSON.stringify(detail));
+              // create or edit form info
+              var savedSearchInfo = detail;
+
+              // dimension selectors info
+              var dimensionsInfo = {};
+              var catalogDropdown = this.$$("#dimensionSelector").$$("#catalogDropdown");
+              var sourceDropdown = this.$$("#dimensionSelector").$$("#sourceDropdown");
+              //var timeDropdown = this.$$("#dimensionSelector").$$("#catalogDropdown");
+              var localeDropdown = this.$$("#dimensionSelector").$$("#localeDropdown");
+
+              if(catalogDropdown) {
+                  dimensionsInfo.catalog = catalogDropdown.selectedItem.value;
+               }
+               if(sourceDropdown) {
+                  dimensionsInfo.source = sourceDropdown.selectedItem.value;
+               }
+               if(localeDropdown) {
+                  dimensionsInfo.locale = localeDropdown.selectedItem.value;
+               }
+              
+              // search input info
+              var searchInput = this.$$("#searchBar").query;
+              
+              //search filters
+              var searchFilters = this.$$("#search-filter").filters;
+              var searchTags = this.$$("#search-filter").tags;
+
+              var savedSearchObject = { "savedSearch": savedSearchInfo, "dimensions": dimensionsInfo, "searchInput": searchInput, "searchFilters": searchFilters, "searchTags": searchTags };
+
+            alert("data: " + JSON.stringify(savedSearchObject));
           }
       },
       _loadSavedSearch: function(e, detail, sender){
         if(detail){
           alert("data: " + JSON.stringify(detail));
         }
+      },
+      _markSavedSearchAsFavourite: function(e, detail, sender){
+        if(detail){
+          alert("data: " + JSON.stringify(detail));
+        }
+      },
+      _markSavedSearchAsDelete: function(e, detail, sender){
+        if(detail){
+          alert("data: " + JSON.stringify(detail));
+        }
+      },
+       _getSavedSearchId: function() {
+        var mainApp = document.querySelector('main-app');
+        if (mainApp && mainApp.route && mainApp.route.__queryParams && "id" in mainApp.route.__queryParams) {
+            return mainApp.route.__queryParams['id'];
+        }
+      },
+      _savedSearchesChanged: function(_savedSearches) {
+        var savedSearch = this._getSavedSearches(_savedSearches, this.savedSearchId);
+        this._populateHeaderControls(savedSearch);
+      },
+      _savedSeachIdChanged: function(savedSearchId) {
+        var savedSearch = this._getSavedSearches(this._savedSearches, savedSearchId);
+        this._populateHeaderControls(savedSearch);
+      },
+      _getSavedSearches: function(savedSearches,savedSearchId) {
+        var savedSearch;
+        if(savedSearches) {
+          for(var category in savedSearches) {
+            var categorySavedSearches = savedSearches[category];
+            for(var i=0; i<categorySavedSearches.length; i++) {
+              if(categorySavedSearches[i].id == savedSearchId) {
+                savedSearch = categorySavedSearches[i]; 
+              }
+            }
+          }
+        }
+        return savedSearch;
+      },
+      _populateHeaderControls: function(savedSearch) {
+        if(savedSearch) {
+          this.$$("#searchBar").query = "";
+          this.$$("#searchBar").searchInput = savedSearch.searchInput;
+          var dimensionSelector = this.$$("#dimensionSelector");
+          var searchFilter = this.$$("#search-filter");
+          dimensionSelector.$$("#catalogDropdown").querySelector('paper-listbox').selected = savedSearch.dimensions.catalog;
+          dimensionSelector.$$("#sourceDropdown").querySelector('paper-listbox').selected = savedSearch.dimensions.Source;
+          dimensionSelector.$$("#localeDropdown").querySelector('paper-listbox').selected = savedSearch.dimensions.Locale;
+          searchFilter.filters = savedSearch.searchFilters;
+          searchFilter.tags = savedSearch.searchTags;
+          this.$$("#savedSearchButton").buttonText = savedSearch.name;
+          this._invokeSearch(savedSearch.searchTags,savedSearch.dimensions.catalog,savedSearch.dimensions.Source,savedSearch.dimensions.Locale);
+        }
+      },
+      _invokeSearch: function(searchTags,list,source,locale) {
+        var attrCond = {};
+        if(searchTags && searchTags.length>0) {
+          for(var i=0; i<searchTags.length; i++ ) {
+            var condition = { "eq": searchTags[i].value };
+            attrCond[searchTags[i].name] = condition;
+          }
+          this.push('request.data.query.filters.attributesCriterion', attrCond);
+        }
+        this.request.data.query.ctx[0].list = list;
+        this.request.data.query.valCtx[0].source = source;
+        this.request.data.query.valCtx[0].loclae = locale;
+        var req = this.request;
+        this.request = undefined;
+        this.request = req;
       }
     });
   })();
