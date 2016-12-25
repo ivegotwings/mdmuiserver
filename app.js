@@ -1,5 +1,8 @@
 'use strict';
 
+require("babel-register");
+require("babel-polyfill");
+
 var express = require('express');
 var history = require('connect-history-api-fallback');
 var cors = require('cors');
@@ -15,7 +18,7 @@ app.use(bodyParser.urlencoded({
 app.use(cors());
 
 //Load falcor routes
-var entityRoute = require('./src/server/routes/entity-data/router');
+var entityRoute = require('./src/server/api/EntityManageService/router');
 
 var buildPath = __dirname;
 //console.log(buildPath);
@@ -27,7 +30,7 @@ app.use(express.static(buildPath,{maxAge : "1s"}));
 entityRoute(app);
 
 app.get('*', function(req, res){
-    res.sendFile(buildPath+'/index.html');
+    res.sendFile(buildPath + '/index.html');
 });
 
 app.listen(5005, function () {

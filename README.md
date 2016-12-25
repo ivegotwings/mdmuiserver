@@ -34,8 +34,8 @@ This command would create local folder for the repository. Make sure you are in 
 
 
 ## Install local dependencies
-
-Below steps are needed every time you pull new changes, specially in the initial phase of the project. This should be done within a command window, open at the mdm-ui-solution folder
+Below steps are needed every time you pull new changes, specially in the initial phase of the project. 
+This MUST should be done within a command window opened at the `ui-platform` folder path
 
 1. Install local npm dependencies
     
@@ -52,12 +52,16 @@ npm and bower will not install the components for which the required/latest vers
 This command serves the app at `http://localhost:8080` and provides basic URL
 routing for the app. Internally this command runs `polymer lint & polymer serve & gulp watch`
 
-    npm run dev
+    npm run app
 
-Use below url format to view element's demo and API page:
-
-    http://localhost:8080/src/elements/{component-name}/
-    Example: http://localhost:8080/src/elements/pebble-textbox/
+Use below url format to run main app:
+     
+    http://localhost:5005/
+    
+Use below url formats to view element's demo and API page:
+     
+    http://localhost:5005/src/elements/{component-name}/
+    Example: http://localhost:5005/src/elements/pebble-textbox/
 
 ## Build
 
