@@ -187,7 +187,7 @@ function saveEntities(jsonEnvelope) {
 
         //console.log('entity data', JSON.stringify(entity, null, 4));
 
-        if(entity.dataObjectInfo){
+        if (entity.dataObjectInfo) {
             response.push.apply(response, buildEntityFieldsResponse(entity, entityFields, pathRootKey));
         }
 
