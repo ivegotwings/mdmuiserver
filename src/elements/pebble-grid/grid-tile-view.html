@@ -1,0 +1,449 @@
+<link rel="import" href="../../../bower_components/iron-list/iron-list.html">
+<link rel="import" href="../../../bower_components/iron-scroll-threshold/iron-scroll-threshold.html">
+<link rel="import" href="../../../bower_components/paper-spinner/paper-spinner.html">
+<link rel="import" href="../../../bower_components/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../../../bower_components/iron-flex-layout/iron-flex-layout.html">
+<link rel="import" href="../pebble-image-viewer/pebble-image-viewer.html">
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+
+<!--
+`grid-tile-view`
+Element displaying the items in grid-tile-view.
+
+@demo demo/index.html
+-->
+
+<dom-module id="grid-tile-view">
+    <template>
+        <style include="pebble-styles-shared">
+
+            iron-list {
+                --iron-list-items-container: {
+                    margin: auto;
+                };
+            }
+
+            :host {
+                /*display: block;*/
+                /*@apply(--paper-font-common-base);*/
+            }
+
+            iron-list {
+                /*margin-top: 90px;*/
+                /*padding-bottom: 16px;*/
+                /*margin-left: 0px;*/
+            }
+
+            .loadingIndicator {
+                text-align: center;
+                height: 40px;
+            }
+
+            .loadingIndicator paper-spinner {
+                width: 20px;
+                height: 20px;
+                margin-right: 10px;
+            }
+
+            #scrollingRegion {
+                top: 10vh;
+                /*left: 25vh;*/
+                /*right: 25vh;*/
+                height: 100vh;
+                overflow: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .trim {
+                display: block;
+                width: 100%;
+                text-overflow: ellipsis;
+                overflow: hidden;
+                white-space: nowrap;
+            }
+
+            /*.default {*/
+                /*margin-right: 5%;*/
+                /*width: 95%;*/
+            /*}*/
+
+            .title {
+                font-size: 18px;
+                font-weight: 500;
+            }
+
+            /*.actions {*/
+                /*margin-left: 2%;*/
+                /*!*margin-top: -7px;*!*/
+            /*}*/
+
+            .photoContent {
+                position: relative;
+                width: 300px;
+                height: 340px;
+                margin: 8px;
+                background-color: white;
+            }
+
+            #image-container {
+                width: 280px;
+                height: 200px;
+                background: #ddd;
+                margin: var(--gutter-width) 10px;
+                border-radius: var(--default-border-radius);
+            }
+
+            .text {
+                margin: var(--gutter-width) 10px;
+            }
+
+            .item-container{
+                @apply(--layout-flex);
+                /*display: inline-flex;*/
+                background-color: #ddd;
+            }
+
+            /*@media (max-width: 800px) {*/
+                /*.item-container {*/
+                    /*@apply(--layout-flex);*/
+                    /*!*width: calc(50% - 16px);*!*/
+                    /*!*display: inline-flex;*!*/
+                    /*background-color: #ddd;*/
+                /*}*/
+
+                /*.photoContent {*/
+                    /*!*width: auto;*!*/
+                /*}*/
+            /*}*/
+
+            /*@media (max-width: 400px) {*/
+                /*iron-list {*/
+                    /*!*margin-top: 72px;*!*/
+                /*}*/
+
+                /*.item-container {*/
+                    /*@apply(--layout-flex);*/
+                    /*width: 100%;*/
+                    /*!*display: inline-flex;*!*/
+                    /*background-color: #ddd;*/
+                /*}*/
+
+                /*.photoContent > .detail {*/
+                /*opacity: 1;*/
+                /*}*/
+            /*}*/
+        </style>
+
+        <div id="scrollingRegion">
+            <iron-list id="list" items="{{cachedItems}}" as="item" scroll-target="html" grid selection-enabled>
+                <template>
+                    <div class="item-container">
+                        <div class="photoContent" tabindex$="[[tabIndex]]">
+                            <pebble-image-viewer alt="Product image." id="image-container" sizing="contain"
+                                                 src="{{_computeImage(item,tileItems.image)}}"></pebble-image-viewer>
+                            <div class = "text">
+                                <div class="block-text">
+                                    [[_computeTitle(item,tileItems.title)]]
+                                </div>
+                                <div class="list-content">#[[_computeId(item,tileItems.id)]]</div>
+                                <template is="dom-repeat" items="{{tileItems.fields}}" as="field">
+                                    <div class="list-content"><span class$="{{_computeClass(field.noTrim)}}">{{_getDisplayName(field.label,field.name)}}: <span
+                                            class="block-text">&nbsp[[_computeValue(item,field.name)]]</span></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </iron-list>
+            <template is="dom-if" if="{{loading}}">
+                <div class="loadingIndicator">
+                    <paper-spinner active="{{loading}}"></paper-spinner>
+                </div>
+            </template>
+            <!-- this element will load more data when the user scrolls down and reached the lower threshold -->
+            <iron-scroll-threshold id="scrollThreshold" lower-threshold="500" on-lower-threshold="_loadMoreData"
+                                   scroll-target="scrollingRegion">
+            </iron-scroll-threshold>
+        </div>
+    </template>
+    <script>
+        (function () {
+            'use strict';
+
+            Polymer({
+                is: 'grid-tile-view',
+                properties: {
+                    /**
+                     * This property represents the cached-items in the list view. It grows in size as you scroll in the grid-list-view.
+                     */
+                    cachedItems: {
+                        type: Array,
+                        notify: true,
+                        reflectToAttribute: true,
+                        value: []
+                    },
+                    /**
+                     * This property represents the data of the items to be displayed in grid-list-view.
+                     */
+                    items: {
+                        type: Array,
+                        value: [],
+                        notify: true,
+                        reflectToAttribute: true
+                        //observer : '_dataChanged'
+                    },
+                    /**
+                     * This property represents the current page in grid-list-view.
+                     */
+                    currentPage: {
+                        type: Number,
+                        value: 0,
+                        notify: true,
+                        reflectToAttribute: true
+                    },
+                    /**
+                     * This property represents the page size in grid-list-view.
+                     */
+                    pageSize: {
+                        type: Number,
+                        value: 15,
+                        notify: true,
+                        reflectToAttribute: true
+                    },
+                    /**
+                     * This property is true if element is trying to fetch data. other wise false.
+                     */
+                    loading: {
+                        type: Boolean,
+                        value: false
+                    },
+                    /**
+                     *When true, multiple items may be selected at once (in this case, selected is an array of currently selected items). When false, only one item may be selected at a time.
+                     */
+                    multiSelection: {
+                        type: Boolean,
+                        value: false,
+                        notify: true,
+                        reflectToAttribute: true
+                    },
+                    /**
+                     * When multiSelection is true, this is an array that contains the selected items.
+                     */
+                    selectedItems: {
+                        type: Array,
+                        value: [],
+                        notify: true,
+                        reflectToAttribute: true
+                    },
+                    /**
+                     * When multiSelection is false, this is the currently selected item, or null if no item is selected.
+                     */
+                    selectedItem: {
+                        type: Object,
+                        //value : {},
+                        notify: true,
+                        reflectToAttribute: true
+                    },
+                    /**
+                     * When true, tapping a row will select the item, placing its data model in the set of selected items retrievable via the selection property.
+                     */
+                    selectionEnabled: {
+                        type: Boolean,
+                        value: false,
+                        notify: true,
+                        reflectToAttribute: true
+                    },
+                    /**
+                     * This property represents the config of grid-list-view.
+                     */
+                    tileItems: {
+                        type: Object
+                    }
+                },
+
+                _loadMoreData: function () {
+                    this.loading = true;
+                    if (this.items && this.items.length > 0) {
+                        var newItems = this.items.slice(this.currentPage * this.pageSize, (this.currentPage * this.pageSize) + this.pageSize);
+                        var that = this;
+                        newItems.forEach(function (product) {
+                            that.push('cachedItems', product);
+                        });
+
+                        this.currentPage += 1;
+                    }
+                    this.$.scrollThreshold.clearTriggers();
+                    this.loading = false;
+                    console.log(this.cachedItems);
+                },
+
+                /**
+                 * This is an internal function, used to calculate the display name of an attribute.
+                 */
+                _getDisplayName: function (label, name) {
+                    if (label) {
+                        return label;
+                    }
+                    return name;
+                },
+                /**
+                 * This is an internal function, used to calculate the class to apply trim or not.
+                 */
+                _computeClass: function (noTrim) {
+//                    if(noTrim) {
+//                        return 'default';
+//                    }
+                    return 'default trim';
+                },
+                /**
+                 * This is an internal function, returns true if number of fields to display is greater than 4.
+                 */
+                _areFieldsGreaterThan4: function (fields) {
+                    if (fields && fields.length > 4) {
+                        return true;
+                    }
+                    return false;
+                },
+                /**
+                 * This is an internal function to handle the tap event. It fires event 'deselecting-item' if an item was already selected.
+                 *  It fires event 'selecting-item' if an item was not selected. The data of the event fired is the data of the item.
+                 */
+                _tapEvent: function (e) {
+                    if (this._isSelected(e.model.item, this.selectedItems)) {
+                        this._fireEvent('deselecting-item', e.model.item, this.deselectItem);
+                    } else {
+                        this._fireEvent('selecting-item', e.model.item, this.selectItem);
+                    }
+                },
+                /**
+                 * This is an internal function, used to compute the image url based on the config.
+                 */
+                _computeImage: function (item, image) {
+                    return item[image];
+                },
+                /**
+                 * This is an internal function, used to compute the title based on the config.
+                 */
+                _computeTitle: function (item, title) {
+                    return item[title];
+                },
+                /**
+                 * This is an internal function, used to compute the id based on the config.
+                 */
+                _computeId: function (item, id) {
+                    return item[id];
+                },
+                /**
+                 * This is an internal function, used to compute the value of the attribute to be displayed.
+                 */
+                _computeValue: function (item, field) {
+                    return item[field];
+                },
+                _setSelectedItem: function (item) {
+                    this.set('selectedItem', item);
+                },
+                _setSelectedItems: function (items) {
+                    this.set('selectedItems', items);
+                },
+                /**
+                 * Select the list item at the given index.
+                 *
+                 * @method selectItem
+                 * @param {(Object|number)} item The item object or its index
+                 */
+                selectItem: function (item) {
+                    if (typeof item === 'number' && item >= 0 && this.items && this.items.length > item) {
+                        this._selectItem(this.items[item]);
+                    } else {
+                        this._selectItem(item);
+                    }
+                },
+                _selectItem: function (item) {
+                    this._setSelectedItem(item);
+                    if (this.multiSelection) {
+                        if (this.selectedItems.inverted) {
+                            var index;
+                            if ((index = this.selectedItems.indexOf(item)) > -1) {
+                                this.splice('selectedItems', index, 1);
+                            }
+                        } else {
+                            this.push('selectedItems', item);
+                        }
+                    } else {
+                        this.splice('selectedItems', 0, this.selectedItems.length, item);
+                    }
+                },
+                /**
+                 * Deselects the given item list if it is already selected.
+                 *
+                 * @method deselect
+                 * @param {(Object|number)} item The item object or its index
+                 */
+                deselectItem: function (item) {
+                    if (typeof item === 'number' && item >= 0 && this.items && this.items.length > item) {
+                        this._deselectItem(this.items[item]);
+                    } else {
+                        this._deselectItem(item);
+                    }
+                },
+                _deselectItem: function (item) {
+                    this._setSelectedItem(null);
+                    var index = this.selectedItems.indexOf(item);
+                    if (this.selectedItems.inverted) {
+                        if (index === -1) {
+                            this.push('selectedItems', item);
+                        }
+                    } else {
+                        if (index > -1) {
+                            this.splice('selectedItems', index, 1);
+                        }
+                    }
+                },
+                _isSelected: function (item, selectedItems) {
+                    var selected = selectedItems.indexOf(item) > -1;
+                    return selectedItems.inverted ? !selected : selected;
+                },
+                /*
+                 * Selects all the items in the list.
+                 */
+                selectAll: function () {
+                    var length = this.selectedItems.length;
+                    this.splice('selectedItems', 0, length);
+                    this.set('selectedItems.inverted', true);
+                },
+                /**
+                 * Clears the current selection state.
+                 */
+                clearSelection: function () {
+                    var length = this.selectedItems.length;
+                    this.splice('selectedItems', 0, length);
+                    this.set('selectedItems.inverted', false);
+                    if (this.selectedItem !== undefined) {
+                        this._setSelectedItem(null);
+                    }
+                },
+                _fireEvent: function (eventName, item, defaultAction) {
+                    var e = this.fire(eventName, {item: item}, {cancelable: true});
+                    if (!e.defaultPrevented) {
+                        defaultAction.call(this, item);
+                    }
+                },
+                _toggleSelectAll: function () {
+                    if (this._isSelectAllChecked(this.selectedItems.length, this.selectedItems.inverted, this.cachedItems.length)) {
+                        this._fireEvent("deselecting-all-items", {items: this.selectedItems}, this.clearSelection);
+                    } else {
+                        this._fireEvent("selecting-all-items", {items: this.selectedItems}, this.selectAll);
+                    }
+                },
+                _isSelectAllChecked: function (selectedItemsLength, inverted, size) {
+                    return size > 0 && selectedItemsLength === (inverted ? 0 : size);
+                },
+                _isSelectAllIndeterminate: function (length, size) {
+                    return size > 0 && length > 0 && length < size;
+                }
+
+            });
+        })();
+    </script>
+</dom-module>
