@@ -66,9 +66,7 @@
       
       #dimensionContainer {
         align-self: center;
-        margin-bottom: 20px;
         width: 100%;
-        /*line-height: 20px;*/
       }
       
       pebble-vertical-divider {
@@ -85,8 +83,11 @@
       <rock-layout>
         <rock-titlebar icon="dashboard" title="" sub-title="" closable minimizable>
           <div id="dimensionContainer" align="right">
-          <iron-ajax auto url="../../data/EntitySearchApp/dimensionData.json" handle-as="json" last-response="{{dimensionData}}"></iron-ajax>
-          <rock-dimension-selector config-data="{{dimensionData}}"></rock-dimension-selector>
+            <bedrock-pubsub on-bedrock-event-dimension-selector-locale="onLocaleChangeEvent"></bedrock-pubsub>
+            <bedrock-pubsub on-bedrock-event-dimension-selector-catalog="onCatalogChangeEvent"></bedrock-pubsub>
+            <bedrock-pubsub on-bedrock-event-dimension-selector-source="onSourceChangeEvent"></bedrock-pubsub>
+            <iron-ajax auto url="../../data/EntityManageApp/dimensionData.json" handle-as="json" last-response="{{dimensionData}}"></iron-ajax>
+            <rock-dimension-selector config-data="{{dimensionData}}"></rock-dimension-selector>
         </div>
         <pebble-vertical-divider></pebble-vertical-divider>
         </rock-titlebar>
@@ -104,13 +105,13 @@
               <iron-ajax url="../../data/EntityManageApp/header-config.json" last-response="{{headerConfig}}" auto></iron-ajax>
               <iron-ajax url="../../data/EntityManageApp/toolbar-config.json" last-response="{{toolbarConfig}}" auto></iron-ajax>
               <iron-ajax url="../../data/EntityManageApp/data-quality-info.json" last-response="{{warnings}}" auto></iron-ajax>
-              <rock-entity-header header-config="[[headerConfig]]" buttons="[[toolbarConfig]]" profile="[[warnings]]"></rock-entity-header>
+              <rock-entity-header header-config="[[headerConfig]]" buttons="[[toolbarConfig]]" profile="[[warnings]]" locale="{{locale}}" list="{{list}}" source="{{source}}"></rock-entity-header>
             </div>
             <!--<div class="shrunk-content">
                 <img src="../../images/entity-manage-header-small.png" />
             </div>-->
           </rock-header>
-          <rock-sidebar position="right">
+          <rock-sidebar id="rockSideBar" position="right">
             <div class="divmargin">
               <span class="sidebar-title">Create & Manage Variants</span>
               <iron-ajax auto url="../../data/EntityManageApp/app-entity-manage-stepper-data.json" handle-as="json" last-response="{{_stepItems}}"></iron-ajax>
@@ -160,21 +161,61 @@
             type: Object,
             value: function(){
               return {};
+            },
+            locale: {
+                type: String,
+                notify: true
+            },
+            list: {
+                type: String,
+                notify: true
+            },
+            source: {
+                type: String,
+                notify: true
             }
           }
           
         },
+        onLocaleChangeEvent: function(e, detail, sender) {
+          var originalTabConfig = this._tabConfig;
+          this._tabConfig = null;
+          var locales = [];
+          if(detail.text != "Select All") {
+            var locale = {"locale": detail.text, "language": detail.language};
+            locales.push(locale);
+          }
+          else {
+            locales = [{"locale": "en-US", "language": "English"},
+                       {"locale": "de-DE", "language": "German"},
+                       {"locale": "es-ES", "language": "Spanish"},
+                       {"locale": "fr-FR", "language": "French"}];
+          }
+          this._toggleStepper(locales);
+          var dimensionValue = locales;
+          this.locale = locales[0].locale;
+          this._tabConfig = this._updateTabConfig(originalTabConfig, "locales", dimensionValue, "attributes");          
+        },
+        onCatalogChangeEvent: function(e,detail,sender) {
+          var originalTabConfig = this._tabConfig;
+          this._tabConfig = null;
+          var dimensionValue = detail.value;
+          this.list = dimensionValue;
+          this._tabConfig = this._updateTabConfig(originalTabConfig, "list", dimensionValue, "attributes");
+        },
+        onSourceChangeEvent: function(e,detail,sender) {
+          var originalTabConfig = this._tabConfig;
+          this._tabConfig = null;
+          var dimensionValue = detail.value;
+          this.source = dimensionValue;
+          this._tabConfig = this._updateTabConfig(originalTabConfig, "source", dimensionValue, "attributes");
+        },
         _confirm: function() {
-          //this._restamp(this.$.tabsTemplate);
           var contentView = document.querySelector("main-app").$$("rock-content-view-manager").$$("rock-content-view:not([hidden])");
           this.$.pebbleDialog.close();
           contentView.render();
           
         },
-        //  _restamp: function(template) {
-        //     template._teardownInstance();
-        //     template._ensureInstance();
-        //   },
           _searchEvent: function(e, detail, sender) {
             
           },
@@ -202,6 +243,46 @@
           _cutEvent: function(e, detail, sender) {
               alert("event triggered: " + detail.eventName);                    
           },
+          _updateTabConfig: function(originalConfig, dimensionName, dimensionValue, tabItemName) {
+            if(originalConfig && originalConfig.tabItems && originalConfig.tabItems.length > 0) {
+              for(var i=0; i<originalConfig.tabItems.length; i++) {
+                if(originalConfig.tabItems[i].name == tabItemName) {
+                  var item = originalConfig.tabItems[i];
+                  for(var property in item.component.properties) {
+                    if (item.component.properties.hasOwnProperty(property)) {
+                        if(property == dimensionName) {
+                          var val = dimensionValue;
+                          item.component.properties[property] = val;
+                      }                      
+                    }
+                  }
+                  if(item.menuItems && item.menuItems.length > 0) {
+                    for(var j=0; j<item.menuItems.length; j++) {
+                      var menuItem = item.menuItems[j];
+                      for(var property in menuItem.component.properties) {
+                        if (menuItem.component.properties.hasOwnProperty(property)) {
+                            if(property == dimensionName) {
+                              var val = dimensionValue;
+                              menuItem.component.properties[property] = val;
+                          }                      
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            return originalConfig;
+          },
+
+          _toggleStepper: function(locales) {
+            if(locales && locales.length > 1) {
+              this.$.rockSideBar.style.display = "none";
+            }
+            else{
+              this.$.rockSideBar.style.display = "block";
+            }
+          }
       });
     })();
   </script>

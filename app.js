@@ -19,7 +19,7 @@ app.use(bodyParser.urlencoded({
 app.use(cors());
 
 //Load falcor routes
-var entityRoute = require('./src/server/routes/entity-data/router');
+var entityRoute = require('./src/server/api/EntityManageService/router');
 
 var buildPath = __dirname;
 //console.log(buildPath);
