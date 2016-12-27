@@ -45,13 +45,6 @@ module.exports = function () {
     return new EntityRouter();
 };
 
-module.exports = function (app) {
-    app.use('/entityData.json',
-        falcorExpress.dataSourceRoute(function (req, res) {
-            return new EntityRouter();
-        }));
-};
-
 module.exports = function(app) {
     app.use(fileUpload());
     var dir = './upload';
@@ -80,3 +73,12 @@ module.exports = function(app) {
         }
     );
 };
+
+module.exports = function (app) {
+    app.use('/entityData.json',
+        falcorExpress.dataSourceRoute(function (req, res) {
+            return new EntityRouter();
+        }));
+};
+
+
