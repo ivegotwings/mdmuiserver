@@ -13,22 +13,22 @@ var EntityRouterBase = Router.createClass([
     {
         route: 'searchResults[{keys:requestIds}].entities[{ranges:entityRanges}]',
         get: async (pathSet) => await resolver.getSearchResultDetail(pathSet)
-    },
-    {
-        route: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].values",
-        get: async (pathSet) => await resolver.getEntities(pathSet)
-    },
+    }, 
     {
         route: "entitiesById[{keys:entityIds}][{keys:entityFields}]",
         get: async (pathSet) => await resolver.getEntities(pathSet)
+    }, 
+    {
+        route: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].values",
+        get: async (pathSet) => await resolver.getEntities(pathSet)
+    }, 
+    {
+        route: "entitiesById[{keys:entityIds}][{keys:entityFields}]",
+        set: async (jsonEnvelope) => await resolver.updateEntities(jsonEnvelope)
     },
     {
         route: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].values",
-        set: async (pathSet) => await resolver.saveEntities(pathSet)
-    },
-    {
-        route: "entitiesById[{keys:entityIds}][{keys:entityFields}]",
-        set: async (jsonEnvelope) => await resolver.saveEntities(jsonEnvelope)
+        set: async (jsonEnvelope) => await resolver.updateEntities(jsonEnvelope)
     }
 ]);
 

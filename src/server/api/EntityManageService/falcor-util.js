@@ -7,16 +7,23 @@ var jsonGraph = require('falcor-json-graph'),
     expireTime = -60 * 60 * 1000; // 60 mins
 
 function createPath(pathSet, value) {
-    return { path: pathSet, 'value': value, $expires: expireTime };
+    return {
+        path: pathSet,
+        'value': value,
+        $expires: expireTime
+    };
 }
 
 function unboxEntityData(entity) {
     var unboxedEntity = {};
 
     unboxedEntity.id = entity.id;
-    unboxedEntity.dataObjectInfo = unboxJsonObject(entity.dataObjectInfo);
-    unboxedEntity.systemInfo = unboxJsonObject(entity.systemInfo);
-    unboxedEntity.properties = unboxJsonObject(entity.properties);
+    unboxedEntity.dataObjectInfo = entity.dataObjectInfo === undefined ? {} : unboxJsonObject(entity.dataObjectInfo);
+    unboxedEntity.systemInfo = entity.systemInfo === undefined ? {} : unboxJsonObject(entity.systemInfo);
+    unboxedEntity.properties = entity.properties === undefined ? {} : unboxJsonObject(entity.properties);
+
+    //TODO: AS OF NOW, API is not processing properties so blank it out :)
+    unboxedEntity.properties = {};
 
     if (entity.data && entity.data.ctxInfo) {
         for (var ctxKey in entity.data.ctxInfo) {
@@ -36,8 +43,7 @@ function unboxEntityData(entity) {
 function unboxJsonObject(obj) {
     if (obj && obj.$type) {
         return obj.value;
-    }
-    else {
+    } else {
         return obj;
     }
 }
@@ -49,8 +55,7 @@ function buildEntityFieldsResponse(entity, entityFields, pathRootKey) {
         if (entityField == "id") {
             var entityFieldValue = entity[entityField] !== undefined ? entity[entityField] : {};
             response.push(createPath([pathRootKey, entity.id, entityField], entityFieldValue));
-        }
-        else if (entityField !== "data") {
+        } else if (entityField !== "data") {
             var entityFieldValue = entity[entityField] !== undefined ? entity[entityField] : {};
             response.push(createPath([pathRootKey, entity.id, entityField], $atom(entityFieldValue)));
         }
@@ -91,13 +96,16 @@ function buildEntityAttributesResponse(entity, request, pathRootKey) {
                                 var contextKey = "".concat(enCtxInfo.ctxGroup.list, '#@#', enCtxInfo.ctxGroup.classification, '#@#', reqValCtxGroup.source, '#@#', reqValCtxGroup.locale);
                                 response.push(createPath([pathRootKey, entityId, 'data', 'ctxInfo', contextKey, 'attributes', attrName, "values"], $atom(valCtxSpecifiedValues)));
                             }
-                        }
-                        else {
+                        } else {
                             valFound = false;
                         }
 
                         if (!valFound) {
-                            var val = { source: reqValCtxGroup.source, locale: reqValCtxGroup.locale, value: '' };
+                            var val = {
+                                source: reqValCtxGroup.source,
+                                locale: reqValCtxGroup.locale,
+                                value: ''
+                            };
                             var contextKey2 = "".concat(enCtxInfo.ctxGroup.list, '#@#', enCtxInfo.ctxGroup.classification, '#@#', val.source, '#@#', val.locale);
                             response.push(createPath([pathRootKey, entityId, 'data', 'ctxInfo', contextKey2, 'attributes', attrName, "values"], $atom([val])));
                         }
@@ -109,6 +117,7 @@ function buildEntityAttributesResponse(entity, request, pathRootKey) {
         };
     });
 
+    //console.log('attr response', JSON.stringify(response));
     return response;
 }
 
@@ -119,4 +128,3 @@ module.exports = {
     buildEntityFieldsResponse: buildEntityFieldsResponse,
     buildEntityAttributesResponse: buildEntityAttributesResponse
 };
-
