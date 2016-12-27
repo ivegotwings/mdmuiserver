@@ -7,6 +7,7 @@ var express = require('express');
 var history = require('connect-history-api-fallback');
 var cors = require('cors');
 var bodyParser = require('body-parser');
+var notificationEngine = require("./src/server/notification_engine/Socket");
 
 var app = express();
 
@@ -34,6 +35,7 @@ app.get('*', function(req, res){
 });
 
 app.listen(5005, function () {
+    notificationEngine.initSockets(this);
     console.log("Web server started at port http://localhost:5005/");
 });
 
