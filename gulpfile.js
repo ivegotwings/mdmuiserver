@@ -118,7 +118,7 @@ gulp.task('app', function (cb) {
   var started = false;
   var buildPath = "app.js";
   
-  var mode = (argv.mode === undefined) ? 'dev' : argv.mode;
+  var mode = (argv.mode === undefined) ? 'dev-online' : argv.mode;
 
   if(mode === "build/bundled"){
     buildPath = 'build/bundled/app.js';
@@ -128,7 +128,8 @@ gulp.task('app', function (cb) {
 
   return nodemon({
     script: buildPath,
-    nodeArgs:['--debug']
+    nodeArgs:['--debug'],
+    env: { 'NODE_ENV': mode }
   }).on('start', function () {
     // to avoid nodemon being started multiple times
     if (!started) {

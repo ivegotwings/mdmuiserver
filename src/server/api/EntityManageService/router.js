@@ -5,9 +5,6 @@ var falcorExpress = require('falcor-express'),
 
 var resolver = require('./route-resolver');
 
-var fileUpload = require('express-fileupload'),
-    fs = require('fs');
-
 var EntityRouterBase = Router.createClass([
     {
         route: 'searchResults.create',
@@ -16,22 +13,22 @@ var EntityRouterBase = Router.createClass([
     {
         route: 'searchResults[{keys:requestIds}].entities[{ranges:entityRanges}]',
         get: async (pathSet) => await resolver.getSearchResultDetail(pathSet)
-    },
-    {
-        route: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].values",
-        get: async (pathSet) => await resolver.getEntities(pathSet)
-    },
+    }, 
     {
         route: "entitiesById[{keys:entityIds}][{keys:entityFields}]",
         get: async (pathSet) => await resolver.getEntities(pathSet)
+    }, 
+    {
+        route: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].values",
+        get: async (pathSet) => await resolver.getEntities(pathSet)
+    }, 
+    {
+        route: "entitiesById[{keys:entityIds}][{keys:entityFields}]",
+        set: async (jsonEnvelope) => await resolver.updateEntities(jsonEnvelope)
     },
     {
         route: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].values",
-        set: async (pathSet) => await resolver.saveEntities(pathSet)
-    },
-    {
-        route: "entitiesById[{keys:entityIds}][{keys:entityFields}]",
-        set: async (jsonEnvelope) => await resolver.saveEntities(jsonEnvelope)
+        set: async (jsonEnvelope) => await resolver.updateEntities(jsonEnvelope)
     }
 ]);
 
@@ -45,40 +42,9 @@ module.exports = function () {
     return new EntityRouter();
 };
 
-module.exports = function(app) {
-    app.use(fileUpload());
-    var dir = './upload';
-
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir);
-    }
-
-    app.post('/file-upload', function (req, res) {
-            if (!req.files) {
-                res.send('No files were uploaded.');
-                return;
-            }
-            var file = req.files.file;
-            var fileName = file.name;
-
-
-            file.mv('./upload/' + fileName, function (err) {
-                if (err) {
-                    res.status(500).send(err);
-                }
-                else {
-                    res.status(200).send('{success: true}');
-                }
-            });
-        }
-    );
-};
-
 module.exports = function (app) {
     app.use('/entityData.json',
         falcorExpress.dataSourceRoute(function (req, res) {
             return new EntityRouter();
         }));
 };
-
-
