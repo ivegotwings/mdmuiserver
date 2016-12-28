@@ -20,17 +20,22 @@ app.use(cors());
 
 //Load falcor routes
 var entityRoute = require('./src/server/api/EntityManageService/router');
+var fileUploadRoute = require('./src/server/api/EntityManageService/file-upload-route');
 
 var buildPath = __dirname;
 //console.log(buildPath);
 
 //var oneDay = 86400000;
 
-app.use(express.static(buildPath,{maxAge : "1s"}));
+app.use(express.static(buildPath, {
+    maxAge: "1s"
+}));
 
 entityRoute(app);
 
-app.get('*', function(req, res){
+fileUploadRoute(app);
+
+app.get('*', function (req, res) {
     res.sendFile(buildPath + '/index.html');
 });
 
@@ -38,4 +43,3 @@ app.listen(5005, function () {
     notificationEngine.initSockets(this);
     console.log("Web server started at port http://localhost:5005/");
 });
-
