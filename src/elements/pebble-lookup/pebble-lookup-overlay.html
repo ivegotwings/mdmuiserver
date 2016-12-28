@@ -90,10 +90,10 @@
             <iron-list id="selector" role="listbox" touch-device$="[[touchDevice]]" on-touchend="_preventDefault" multi-selection="[[_multiSelectionBoolean]]"
                 items="[[_items]]" selected-item="{{_selectedItem}}" selected-items="{{_selectedItems}}" selection-enabled scroll-target="[[_getScroller()]]">
                 <template>
-                    <div class="item" on-tap="_onTap" selected$="[[_isItemSelected(item, _selectedItem)]]" role$="[[_getAriaRole(index)]]" aria-selected$="[[_getAriaSelected(_focusedIndex,index)]]"
-                        focused$="[[_isItemFocused(_focusedIndex,index)]]">
+                    <div class="item" on-tap="_onTap" selected$="[[_isItemSelected(item, _selectedItems, _selectedItem)]]" role$="[[_getAriaRole(index)]]"
+                        aria-selected$="[[_getAriaSelected(_focusedIndex,index)]]" focused$="[[_isItemFocused(_focusedIndex, index)]]">
                         <template is="dom-if" if="[[_multiSelectionBoolean]]">
-                            <paper-checkbox>[[getItemLabel(item)]]</paper-checkbox>
+                            <paper-checkbox item="[[item]]" checked$="[[_isItemSelected(item, _selectedItems, _selectedItem)]]">[[getItemLabel(item)]]</paper-checkbox>
                         </template>
                         <template is="dom-if" if="[[!_multiSelectionBoolean]]">
                             [[getItemLabel(item)]]
@@ -246,7 +246,6 @@
             _onTap: function (e) {
                 console.log("pebble-lookup-overlay: _onTap");
 
-                // checkbox selection and de-selection using mouse
                 if (this._multiSelectionBoolean) {
                     var checkBox = e.currentTarget.querySelector("paper-checkbox");
 
@@ -259,16 +258,15 @@
                     }
                 }
 
-                // this.fire('selection-changed', {
-                //   item: e.model.item
-                // });
+                this.fire('selection-changed', {
+                    item: e.model.item
+                });
             },
 
             toggleSelectionForItem: function (index) {
                 // checkbox selection and de-selection using keyboard
                 if (this._multiSelectionBoolean) {
                     this.$.selector.toggleSelectionForItem(index);
-                    this.toggleSelectionForCheckbox();
                 }
             },
 
@@ -369,19 +367,6 @@
                 }
             },
 
-            toggleSelectionForCheckbox: function () {
-                console.log("pebble-lookup-overlay: toggleSelectionForCheckbox");
-                var focusedItem = this.$.selector.querySelector('[focused]');
-                if (focusedItem) {
-                    var checkBox = focusedItem.querySelector('paper-checkbox');
-                    if (!checkBox.checked) {
-                        checkBox.checked = true;
-                    } else {
-                        checkBox.checked = false;
-                    }
-                }
-            },
-
             _toggleSelectionForAllCheckboxes: function (checkedStatus) {
                 console.log("pebble-lookup-overlay: _toggleSelectionForAllCheckboxes");
                 var listItems = this.$.selector.querySelectorAll("paper-checkbox");
@@ -390,7 +375,6 @@
                     for (var i = 0; i < listItems.length; i++) {
                         var listItem = listItems[i];
                         listItem.checked = checkedStatus;
-                        console.log("listItem.checked" + listItem.checked)
                     }
                 }
             },
@@ -446,11 +430,21 @@
 
             _setOverlayItems: function (items) {
                 console.log("pebble-lookup-overlay: _setOverlayItems");
+                var selectedItem = this._selectedItem;
+                var selectedItems = this._selectedItems;
+
                 //TODO: There is something wrong with observers and using set function
                 // see here: https://github.com/Polymer/polymer/issues/3254
                 //As a workaround setting/notifying the observer with the value undefined helps
                 this.notifyPath('_items', undefined);
                 this.set('_items', items);
+
+                this.selectedItem = undefined;
+                this.selectedItem = selectedItem
+
+                // After filter selected items were set to NULL by Iron List
+                this.notifyPath('_selectedItems', undefined);
+                this.set('_selectedItems', selectedItems);
 
                 // this.hidden = !this._hasItems(items);
                 if (this.filteredItems > 0) {
@@ -481,8 +475,15 @@
                 }
             },
 
-            _isItemSelected: function (item, selectedItem) {
-                return item === selectedItem;
+            _isItemSelected: function (item, selectedItems, selectedItem) {
+                if (this._multiSelectionBoolean == false) {
+                    var selectedItemText = selectedItem !== null ? selectedItem.name.toString() : "null";
+                    return item === selectedItem;
+                } else {
+                    if (selectedItems) {
+                        return selectedItems.indexOf(item) >= 0;
+                    }
+                }
             },
 
             _isItemFocused: function (focusedIndex, itemIndex) {
