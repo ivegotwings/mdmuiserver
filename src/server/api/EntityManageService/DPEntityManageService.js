@@ -11,8 +11,16 @@ DPEntityManageService.prototype = {
         var url = '/entityManageService/get';
         return await this.requestJson(url, request);
     },
-    saveEntities: async function (request) {
-        var url = '/entityManageService/set';
+    createEntities: async function (request) {
+        var url = '/entityManageService/create';
+        return await this.requestJson(url, request);
+    },
+    updateEntities: async function (request) {
+        var url = '/entityManageService/update';
+        return await this.requestJson(url, request);
+    },
+    deleteEntities: async function (request) {
+        var url = '/entityManageService/delete';
         return await this.requestJson(url, request);
     }
 };
