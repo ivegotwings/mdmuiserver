@@ -39,7 +39,11 @@ app.get('*', function (req, res) {
     res.sendFile(buildPath + '/index.html');
 });
 
-app.listen(5005, function () {
+
+var server = app.listen(5005, function () {
+    var host = server.address().address === '::' ? 'localhost': server.address().address;
+    var port = server.address().port;
+    
     notificationEngine.initSockets(this);
-    console.log("Web server started at port http://localhost:5005/");
+    console.log('Web app is listening at http://%s:%s/', host, port);
 });
