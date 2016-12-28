@@ -10,55 +10,21 @@ var jsonGraph = require('falcor-json-graph'),
 
 var EntityManageService = require('./EntityManageService');
 
-//var entityManageService = new EntityManageService({ mode: "offline" });
-var entityManageService = new EntityManageService({mode: "online"});
+var mode = process.env.NODE_ENV;
+
+var options = {mode: mode};
+
+var entityManageService = new EntityManageService(options);
 
 //falcor utilty functions' references
 var createPath = futil.createPath,
     unboxEntityData = futil.unboxEntityData,
     unboxJsonObject = futil.unboxJsonObject,
+    transformEntityToExternal = futil.transformEntityToExternal,
     buildEntityFieldsResponse = futil.buildEntityFieldsResponse,
-    buildEntityAttributesResponse = futil.buildEntityAttributesResponse;
-
-function createRequestJson(ctxKeys, attrNames) {
-    var ctxGroups = [];
-    var valCtxGroups = [];
-
-    for (let ctxKey of ctxKeys) {
-        var ctxKeySegments = ctxKey.split('#@#');
-        var ctxGroupObj = { list: ctxKeySegments[0], classification: ctxKeySegments[1] };
-        var valCtxGroupObj = { source: ctxKeySegments[2], locale: ctxKeySegments[3] };
-
-        //TODO:: Right now RDP is not working with below 2 parameters passed..need to fix this soon..
-        //valCtxGroupObj.timeslice = "current";
-        //valCtxGroupObj.governed = "true";
-
-        if (!ctxGroups.find(c => c.list === ctxGroupObj.list
-            && c.categorization === ctxGroupObj.categorization)) {
-            ctxGroups.push(ctxGroupObj);
-        }
-
-        if (!valCtxGroups.find(v => v.source === valCtxGroupObj.source
-            && v.locale === valCtxGroupObj.locale)) {
-            valCtxGroups.push(valCtxGroupObj);
-        }
-    };
-
-    var fields = { ctxTypes: ["properties"], attributes: attrNames, relationships: ["ALL"] };
-    var options = { totalRecords: 1, includeRequest: false };
-
-    //TODO:: This is hard coded as of now as RDP is not working wtihout entity types....need to fix this ASAP
-    var filters = {
-        attributesCriterion: [], relationshipsCriterion: [], typesCriterion: []
-    };
-
-    var query = { ctx: ctxGroups, valCtx: valCtxGroups, id: "", filters: filters };
-
-    var request = { query: query, fields: fields, options: options };
-
-    return request;
-}
-
+    buildEntityAttributesResponse = futil.buildEntityAttributesResponse,
+    createRequestJson = futil.createRequestJson;
+    
 async function getSingleEntity(request, entityId, entityFields, pathRootKey) {
     var response = [];
     //update entity id in request query for current id
@@ -88,7 +54,7 @@ async function getSingleEntity(request, entityId, entityFields, pathRootKey) {
         response.push(createPath([pathRootKey, entityId], $error(entityId + ' is not found')));
     }
 
-    //console.log(JSON.stringify(response, null, 4));
+    //console.log('res', JSON.stringify(response, null, 4));
     return response;
 }
 
@@ -116,12 +82,11 @@ async function initiateSearchRequest(callPath, args) {
             totalRecords = dataObjects.length;
             dataObjects.forEach(function (entity) {
                 if (entity.id !== undefined) {
-                    response.push(createPath(['searchResults', requestId, "entities", index++], $ref({ 'id': entity.id })));
+                    response.push(createPath(['searchResults', requestId, "entities", index++], $ref({'id': entity.id})));
                 }
             });
         }
-    }
-    else {
+    } else {
         response.push(createPath(['searchResult', requestId], $error('data not found in system')));
     }
 
@@ -149,7 +114,7 @@ async function getSearchResultDetail(pathSet) {
 //route1: "entitiesById[{keys:entityIds}][{keys:entityFields}]"
 //route2: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].values"
 async function getEntities(pathSet) {
-    //console.log('entitiesById call:' + pathSet);
+    //console.log('entitiesById call pathset requested:', pathSet);
 
     var entityIds = pathSet.entityIds;
     var entityFields = pathSet.entityFields === undefined ? [] : pathSet.entityFields;
@@ -160,6 +125,7 @@ async function getEntities(pathSet) {
     var response = [];
 
     var request = createRequestJson(ctxKeys, attrNames);
+    //console.log('req', JSON.stringify(request));
 
     for (let entityId of entityIds) {
         var singleEntityResponse = await getSingleEntity(request, entityId, entityFields, pathRootKey);
@@ -172,7 +138,7 @@ async function getEntities(pathSet) {
 
 //route1: "entitiesById[{keys:entityIds}][{keys:entityFields}]"
 //route2: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].values"
-function saveEntities(jsonEnvelope) {
+async function updateEntities(jsonEnvelope) {
     //console.log('saveEntities input data', JSON.stringify(jsonEnvelope, null, 4));
 
     var response = [];
@@ -185,8 +151,20 @@ function saveEntities(jsonEnvelope) {
         entity.id = entityId; // TODO:: this has to be setup as input json does not send id property for now..
         entity = unboxEntityData(entity);
 
+        var transformedEntity = transformEntityToExternal(entity);
+
         //console.log('entity data', JSON.stringify(entity, null, 4));
 
+        var apiReqestObj = {
+            includeRequest: false,
+            dataObject: transformedEntity
+        };
+
+        //console.log('api request data for update entity', JSON.stringify(apiReqestObj));
+
+        var dataOperationResponse = await entityManageService.updateEntities(apiReqestObj);
+        //console.log('entity api UPDATE raw response', JSON.stringify(dataOperationResponse, null, 4));
+        
         if (entity.dataObjectInfo) {
             response.push.apply(response, buildEntityFieldsResponse(entity, entityFields, pathRootKey));
         }
@@ -210,6 +188,5 @@ module.exports = {
     initiateSearchRequest: initiateSearchRequest,
     getSearchResultDetail: getSearchResultDetail,
     getEntities: getEntities,
-    saveEntities: saveEntities
+    updateEntities: updateEntities
 };
-
