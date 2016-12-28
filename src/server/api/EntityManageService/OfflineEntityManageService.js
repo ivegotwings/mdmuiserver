@@ -19,8 +19,7 @@ OfflineEntityManageService.prototype = {
                     return false;
                 }
             });
-        }
-        else {
+        } else {
             for (var i = 0; i < 10; i++) {
                 if (offlineEntityData.dataObjects[i] !== undefined) {
                     entities.push(offlineEntityData.dataObjects[i]);
@@ -28,27 +27,40 @@ OfflineEntityManageService.prototype = {
             }
         }
 
-        var response = { dataObjectOperationResponse: { status: "success", dataObjects: entities } };
-
+        var response = {
+            dataObjectOperationResponse: {
+                status: "success",
+                dataObjects: entities
+            }
+        };
+        
         return response;
     },
-    saveEntities: function (request) {
-
-        var offlineEntityData = require("./offline-data/entityJson_EXTERNAL.json");
-        var entities = [];
-
-        var response = { dataObjectOperationResponse: { status: "success", dataObjects: entities } };
-
+    createEntities: async function (request) {
+        var response = {
+            dataObjectOperationResponse: {
+                status: "success"
+            }
+        };
+        return response;
+    },
+    updateEntities: async function (request) {
+        var response = {
+            dataObjectOperationResponse: {
+                status: "success"
+            }
+        };
+        return response;
+    },
+    deleteEntities: async function (request) {
+        var response = {
+            dataObjectOperationResponse: {
+                status: "success"
+            }
+        };
         return response;
     }
 };
 
 //OfflineEntityManageService.prototype.constructor = 
 module.exports = OfflineEntityManageService;
-
-
-
-
-
-
-
