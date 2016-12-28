@@ -20,72 +20,11 @@ var entityManageService = new EntityManageService(options);
 var createPath = futil.createPath,
     unboxEntityData = futil.unboxEntityData,
     unboxJsonObject = futil.unboxJsonObject,
+    transformEntityToExternal = futil.transformEntityToExternal,
     buildEntityFieldsResponse = futil.buildEntityFieldsResponse,
-    buildEntityAttributesResponse = futil.buildEntityAttributesResponse;
-
-function createRequestJson(ctxKeys, attrNames) {
-    var ctxGroups = [];
-    var valCtxGroups = [];
-
-    for (let ctxKey of ctxKeys) {
-        var ctxKeySegments = ctxKey.split('#@#');
-        var ctxGroupObj = {
-            list: ctxKeySegments[0],
-            classification: ctxKeySegments[1]
-        };
-        var valCtxGroupObj = {
-            source: ctxKeySegments[2],
-            locale: ctxKeySegments[3]
-        };
-
-        //TODO:: Right now RDP is not working with below 2 parameters passed..need to fix this soon..
-        //valCtxGroupObj.timeslice = "current";
-        //valCtxGroupObj.governed = "true";
-
-        if (!ctxGroups.find(c => c.list === ctxGroupObj.list &&
-                c.categorization === ctxGroupObj.categorization)) {
-            ctxGroups.push(ctxGroupObj);
-        }
-
-        if (!valCtxGroups.find(v => v.source === valCtxGroupObj.source &&
-                v.locale === valCtxGroupObj.locale)) {
-            valCtxGroups.push(valCtxGroupObj);
-        }
-    };
-
-    var fields = {
-        ctxTypes: ["properties"],
-        attributes: attrNames,
-        relationships: ["ALL"]
-    };
-    var options = {
-        totalRecords: 1,
-        includeRequest: false
-    };
-
-    //TODO:: This is hard coded as of now as RDP is not working wtihout entity types....need to fix this ASAP
-    var filters = {
-        attributesCriterion: [],
-        relationshipsCriterion: [],
-        typesCriterion: []
-    };
-
-    var query = {
-        ctx: ctxGroups,
-        valCtx: valCtxGroups,
-        id: "",
-        filters: filters
-    };
-
-    var request = {
-        query: query,
-        fields: fields,
-        options: options
-    };
-
-    return request;
-}
-
+    buildEntityAttributesResponse = futil.buildEntityAttributesResponse,
+    createRequestJson = futil.createRequestJson;
+    
 async function getSingleEntity(request, entityId, entityFields, pathRootKey) {
     var response = [];
     //update entity id in request query for current id
@@ -212,19 +151,20 @@ async function updateEntities(jsonEnvelope) {
         entity.id = entityId; // TODO:: this has to be setup as input json does not send id property for now..
         entity = unboxEntityData(entity);
 
+        var transformedEntity = transformEntityToExternal(entity);
+
         //console.log('entity data', JSON.stringify(entity, null, 4));
 
         var apiReqestObj = {
             includeRequest: false,
-            dataObject: entity
+            dataObject: transformedEntity
         };
 
-        //console.log('api request data for update entity', JSON.stringify(apiReqestObj, null, 4));
+        //console.log('api request data for update entity', JSON.stringify(apiReqestObj));
 
-        //TODO: FIX THE CALL..
-        //var dataOperationResponse = await entityManageService.updateEntities(apiReqestObj);
-        //console.log('entity api raw response', JSON.stringify(dataOperationResponse, null, 4));
-
+        var dataOperationResponse = await entityManageService.updateEntities(apiReqestObj);
+        //console.log('entity api UPDATE raw response', JSON.stringify(dataOperationResponse, null, 4));
+        
         if (entity.dataObjectInfo) {
             response.push.apply(response, buildEntityFieldsResponse(entity, entityFields, pathRootKey));
         }
