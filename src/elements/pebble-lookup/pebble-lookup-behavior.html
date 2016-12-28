@@ -154,11 +154,10 @@
         ],
 
         listeners: {
-            'pebble-lookup-dropdown-opened': '_onOpened',
-            'pebble-lookup-dropdown-closed': '_onClosed',
+            'pebble-lookup-dropdown-opened': '_onLookupDropdownOpened',
+            'pebble-lookup-dropdown-closed': '_onLookupDropdownClosed',
             'overlay.keydown': '_onKeyDown',
             'tap': '_onTap',
-            'overlay.input-value-changed': '_inputValueChanged',
             'overlay.overlay-filter-changed': '_filterChanged',
             'overlay.overlay-filtered-items-changed': '_filteredItemsChanged'
         },
@@ -175,7 +174,6 @@
             if (this.value === undefined) {
                 this.value = '';
             }
-            // Do we need focusIndexes array as well
             Polymer.IronA11yAnnouncer.requestAvailability();
         },
 
@@ -201,8 +199,6 @@
                 this._clear();
             } else if (path.indexOf(this._toggleElement) !== -1) {
                 this._toggle();
-            } else if (path.indexOf(this.inputElement) !== -1) {
-                // this._openAsync();
             }
 
             if (!this.$.overlay._multiSelectionBoolean) {
@@ -212,22 +208,6 @@
             }
 
             this._closeOnBlurIsPrevented = false;
-        },
-
-        _openAsync: function () {
-            console.log("pebble-lookup-behavior: _openAsync");
-            // Needed for MS Edge. Otherwise, it does not pop the virtual keyboard up
-            // when tapping the combobox that has non-empty value.
-            this.async(this.open);
-        },
-
-        _toggle: function () {
-            console.log("pebble-lookup-behavior: _toggle");
-            if (this.opened) {
-                this.close();
-            } else {
-                this.open();
-            }
         },
 
         _clear: function () {
@@ -242,6 +222,15 @@
             }
 
             this.close();
+        },
+
+        _toggle: function () {
+            console.log("pebble-lookup-behavior: _toggle");
+            if (this.opened) {
+                this.close();
+            } else {
+                this.open();
+            }
         },
 
         _onKeyDown: function (e) {
@@ -286,7 +275,6 @@
             if (this.opened) {
                 if (this.$.overlay._items) {
                     this._focusedIndex = Math.min(this.$.overlay._items.length - 1, this._focusedIndex + 1);
-                    // this._prefillFocusedItemLabel();
                 }
             } else {
                 this.open();
@@ -303,30 +291,8 @@
                         this._focusedIndex = this.$.overlay._items.length - 1;
                     }
                 }
-
-                // this._prefillFocusedItemLabel();
             } else {
                 this.open();
-            }
-        },
-
-        _prefillFocusedItemLabel: function () {
-            console.log("pebble-lookup-behavior: _prefillFocusedItemLabel");
-            if (this._focusedIndex > -1) {
-                // Reset the input value asyncronously to prevent partial value changes
-                // announce. Makes OSX VoiceOver to announce the complete value instead.
-                this._inputElementValue = '';
-                this.async(function () {
-                    this._inputElementValue = this._getItemLabel(this.$.overlay._focusedItem);
-                    this._setSelectionRange();
-                }, 1); // 1ms delay needed for OSX VoiceOver to realise input value was reset
-            }
-        },
-
-        _setSelectionRange: function () {
-            console.log("pebble-lookup-behavior: _setSelectionRange");
-            if (this.inputElement.setSelectionRange) {
-                this.inputElement.setSelectionRange(0, this._inputElementValue.length);
             }
         },
 
@@ -357,37 +323,18 @@
 
         _revertInputValue: function () {
             console.log("pebble-lookup-behavior: _revertInputValue");
-            if (this.$.overlay.filter !== '') {
-                this.$.overlay._inputElementValue = this.$.overlay.filter;
-            } else {
-                this._resetLabels();
-            }
-
             this._clearSelectionRange();
         },
 
-        /**
-         * Reverts back to original value.
-         */
         _cancel: function () {
             console.log("pebble-lookup-behavior: _cancel");
-            this._resetLabels();
             this.close();
         },
 
-        _resetLabels: function () {
-            console.log("pebble-lookup-behavior: _resetLabels");
-            if (!this.$.overlay._multiSelectionBoolean) {
-                this._inputElementValue = this._getItemLabel(this.selectedItem);
-            } else {
-                this._inputElementValue = this._getItemsLabels(this.selectedItems);
-            }
-        },
-
-        _onOpened: function () {
-            console.log("pebble-lookup-behavior: _onOpened");
+        _onLookupDropdownOpened: function () {
+            console.log("pebble-lookup-behavior: _onLookupDropdownOpened");
             this.$.overlay.$.input.focus();
-            this.$.overlay.hidden = !this.$.overlay._hasItems(this.$.overlay._items) && !this.loading; // Bad Code
+            this.$.overlay.hidden = !this.$.overlay._hasItems(this.$.overlay._items) && !this.loading;
 
             // With iron-list v1.3.9, calling `notifyResize()` no longer renders
             // the items synchonously. It is required to have the items rendered
@@ -398,8 +345,8 @@
             this.$.overlay.adjustScrollPosition();
         },
 
-        _onClosed: function () {
-            console.log("pebble-lookup-behavior: _onClosed");
+        _onLookupDropdownClosed: function () {
+            console.log("pebble-lookup-behavior: _onLookupDropdownClosed");
             if (this._focusedIndex > -1) {
                 if (!this.$.overlay._multiSelectionBoolean) {
                     var focusedItem = this.$.overlay._items[this._focusedIndex];
@@ -414,7 +361,7 @@
             } else if (this._inputElementValue === '') {
                 this._clear();
             } else {
-                if (!this.$.overlay.multiSelection) {
+                if (!this.$.overlay._multiSelectionBoolean) {
                     this._inputElementValue = this._getItemLabel(this.selectedItem);
                 } else {
                     this._inputElementValue = this._getItemsLabels(this.selectedItems);
@@ -461,6 +408,7 @@
             if (e.path === 'items' || e.path === 'items.splices') {
                 this.$.overlay.filteredItems = this.items ? this.items.slice(0) : this.items;
 
+                // Need to see below code how it will impact multi-select
                 var valueIndex = this._indexOfValue(this.value, this.items);
                 this._focusedIndex = valueIndex;
 
@@ -469,13 +417,6 @@
                     this.selectedItem = item;
                 }
             }
-        },
-
-        _inputValueChanged: function (e) {
-            console.log("pebble-lookup-behavior: _inputValueChanged");
-            // if (!this.opened) {
-            //     this.open();
-            // }
         },
 
         _filterChanged: function (e) {
@@ -526,8 +467,6 @@
                 this.hasValue = true;
             }
 
-            this.$.overlay._selectedItem = selectedItem;
-
             this._focusedIndex = this.$.overlay.filteredItems.indexOf(selectedItem);
         },
 
@@ -547,8 +486,6 @@
                 this._inputElementValue = this._getItemsLabels(selectedItems.base);
                 this.hasValue = true;
             }
-
-            // this._focusedIndex = this.filteredItems.indexOf(selectedItem); ??
         },
 
         _valueChanged: function (value) {
@@ -566,11 +503,6 @@
             } else {
                 this.selectedItem = null;
             }
-
-            // Who is listening to this event
-            this.fire('change', undefined, {
-                bubbles: true
-            });
         },
 
         _valuesChanged: function (values) {
@@ -602,17 +534,12 @@
                 console.log("Selected items are cleared");
                 this.selectedItems = [];
             }
-
-            // Who is listening to this event
-            // this.fire('change', undefined, {
-            //     bubbles: true
-            // });
         },
 
         _overlaySelectedItemChanged: function (event) {
             console.log("pebble-lookup-behavior: _overlaySelectedItemChanged");
             this.selectedItem = event.detail.item;
-            
+
             if (!this.$.overlay._multiSelectionBoolean && this.opened) {
                 this.close();
             }
@@ -622,6 +549,7 @@
             console.log("pebble-lookup-behavior: _overlaySelectedItemsChanged");
             var listItem = event.detail.item;
             var listItemIndex = this.selectedItems.indexOf(listItem);
+            
             if (listItemIndex >= 0) {
                 this.splice('selectedItems', listItemIndex, 1);
             } else {
@@ -640,7 +568,7 @@
             }
         },
 
-        _indexOfValue: function (value, items) { // items parameter required or not
+        _indexOfValue: function (value, items) {
             console.log("pebble-lookup-behavior: _indexOfValue");
             if (this._isValidValue(value)) {
                 return this.$.overlay.indexOfValue(value, items);
