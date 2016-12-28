@@ -1,0 +1,181 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../bedrock-datachannel/bedrock-datachannel.html">
+
+<!--
+`liquid-entity-savedata`
+Boolean control
+
+@demo demo/index.html 
+-->
+<dom-module id="liquid-entity-savedata">
+    <template>
+    </template>
+    <script>
+    (function() {
+      'use strict';
+
+      Polymer({
+        is: 'liquid-entity-savedata',
+        behaviors: [RUFBehaviors.DataChannel],
+        attached: function() {
+        },
+        ready: function(){
+        },
+        properties: {
+            auto: {
+                type: Boolean,
+                value: false
+            },
+          operation: {
+            type: String, // 'createentities', 'updateentities', 'deleteentities'
+            value: ''
+          },
+          request: {
+            type: Object,
+            value: function() {
+              return {
+              };
+            },
+            notify: true
+          },
+          response: {
+            type: Object,
+            value: function() {
+              return {};
+            },
+            notify: true
+          },
+          logInternalDetail:{
+            type: Boolean,
+            value: false
+          }
+        },
+        observers: [    
+            '_requestChanged(request)'
+        ],
+        generateRequest: function() {
+            this._makeServiceCall(this.request);
+        },
+        _requestChanged: function(request) {
+            if(this.auto) {
+                this._makeServiceCall(request);
+            }
+        },
+        _makeServiceCall: function(request) {
+            var operation = this.operation, 
+                self = this;
+
+            var log = console.log.bind(console);
+
+            if(request){
+                var model = RUFBehaviors.DataChannel.getModel();
+                
+                if(operation == 'updateentities') {
+                    self._callUpdateEntities(self, model, request);
+                }
+            }
+        },
+        _callUpdateEntities: function(self, model, request){           
+            if(request === undefined || !Object.keys(request.entities).length) {
+                return;
+            }
+
+            var entities = request.entities;
+
+            if(self.logInternalDetail){
+                console.log('Request for save entities call...entities: ', entities);
+            }
+
+            var pathRootKey = "entitiesById";
+            
+            var entitiesJsonEnvelope = {'json': {'entitiesById': {}}};
+            
+            for(let entityId of Object.keys(entities)){
+                var entity = entities[entityId];
+                
+                var ctxKey = Object.keys(entity.data.ctxInfo)[0];
+
+                // if("csapDescriptionOfNart" in entity.data.ctxInfo[ctxKey].attributes){
+                //     entity.data.ctxInfo[ctxKey].attributes.csapDescriptionOfNart.values[0].value = "updated Nart desc 1";
+                // }
+                // entity.systemInfo.tenantId = "t2";   
+                             
+                delete entity.id; //todo: why id field cannot be updated...
+                //delete entity.data;
+                
+                entitiesJsonEnvelope.json.entitiesById[entityId] = self._boxEntityData(entity);
+            }
+
+            //var path1 = [pathRootKey, entityIds, ['id', 'dataObjectInfo', 'systemInfo', 'properties']];
+            //var path2 = [pathRootKey, entityIds, "data", "ctxInfo", contextKeys, "attributes", attrs, "values"];
+            if(self.logInternalDetail){
+                console.log('entities json envelope', entitiesJsonEnvelope);
+                console.log('model cache before save call', model.getCache());
+            }
+
+            model.set(entitiesJsonEnvelope).then(function(responsePkg) {
+                    if(self.logInternalDetail){
+                        RUFBehaviors.DataChannel.updateCallCounters(self.operation);
+                        console.log('saveentities raw internal response ', responsePkg);
+                    }
+
+                    self.response = self._createSuccessResponse({'msg': "entity submitted for save successfully", 'reqTrackingId':100});
+
+                    self.fire('response', self.response, request);
+                    
+                    if(self.logInternalDetail){
+                         console.log('saveentities call response: ', self.response);
+                         console.log('model cache after save call', model.getCache());
+                         console.log('Approx. no of total calls to api server at :', Date.now(), RUFBehaviors.DataChannel.getCallCounters());
+                    }
+                },
+                function(reason){
+                    self.response = self._createErrorResponse(reason);  
+                });
+        },
+        _createSuccessResponse: function(data){
+            var clonedData = JSON.parse(JSON.stringify(data));
+            return {'status':'success', 'content': clonedData};
+        },
+        _createErrorResponse: function(reason){
+            var result = {'status': 'error', reason};
+
+            if(this.logInternalDetail){
+                console.log('Error response for the operation: ', this.operation, result);
+            }
+            
+            return result;
+        },
+        _boxEntityData: function(entity){
+            var boxedEntity = {};
+            //boxedEntity.id = this._boxJsonObject(entity.id);
+            //boxedEntity.systemInfo = this._boxJsonObject(entity.systemInfo);
+            //boxedEntity.dataObjectInfo = this._boxJsonObject(entity.dataObjectInfo);
+            //boxedEntity.properties = this._boxJsonObject(entity.properties);
+
+            for(var ctxKey in entity.data.ctxInfo){
+                var attrs = entity.data.ctxInfo[ctxKey].attributes;
+                for(var attrId in attrs){
+                    var attr = attrs[attrId];
+
+                    for(let val of attr.values) {
+                        if(val.name !== undefined){
+                            delete val.name; // if name is coming as field inside val
+                        }
+                    }
+
+                    attr.values = this._boxJsonObject(attr.values);
+                }
+            }
+            
+            boxedEntity.data = entity.data;
+
+            return boxedEntity;
+        },
+        _boxJsonObject: function(obj){
+            return {'$type': "atom", 'value': obj };
+        }
+      });
+    })();
+  </script>
+</dom-module>
