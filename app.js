@@ -7,6 +7,7 @@ var express = require('express');
 var history = require('connect-history-api-fallback');
 var cors = require('cors');
 var bodyParser = require('body-parser');
+var notificationEngine = require("./src/server/notification_engine/Socket");
 
 var app = express();
 
@@ -38,9 +39,11 @@ app.get('*', function (req, res) {
     res.sendFile(buildPath + '/index.html');
 });
 
+
 var server = app.listen(5005, function () {
     var host = server.address().address === '::' ? 'localhost': server.address().address;
     var port = server.address().port;
     
+    notificationEngine.initSockets(this);
     console.log('Web app is listening at http://%s:%s/', host, port);
 });
