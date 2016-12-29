@@ -6,6 +6,8 @@ var jsonGraph = require('falcor-json-graph'),
     $atom = jsonGraph.atom,
     expireTime = -60 * 60 * 1000; // 60 mins
 
+
+
 function createPath(pathSet, value) {
     return {
         path: pathSet,
@@ -104,14 +106,11 @@ function transformEntityToExternal(entity) {
     var transformedEntity = {};
 
     transformedEntity.id = entity.id;
+    transformedEntity.dataObjectInfo = entity.dataObjectInfo;
+    transformedEntity.systemInfo = entity.systemInfo;
+    transformedEntity.properties = entity.properties;
     
-    //Temporarily..
-    transformedEntity.dataObjectInfo = entity.dataObjectInfo == {} ? {dataObjectDomain: "thing", dataObjectType: "nart"} : unboxJsonObject(entity.dataObjectInfo);
-    transformedEntity.systemInfo = entity.systemInfo == {} ? {"tenantId": "t1"} : unboxJsonObject(entity.systemInfo);
-
     //TODO: AS OF NOW, API is not processing properties so blank it out :)
-    transformedEntity.dataObjectInfo = {dataObjectDomain: "thing", dataObjectType: "nart"};
-    transformedEntity.systemInfo = {"tenantId": "t1"};
     transformedEntity.properties = {};
 
     var ctxInfo = [];
