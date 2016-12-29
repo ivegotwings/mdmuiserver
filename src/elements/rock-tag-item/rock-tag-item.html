@@ -73,13 +73,13 @@
 
         <pebble-dialog id="filterDialog" no-overlap horizontal-align="left" vertical-align="top" no-cancel-on-outside-click no-cancel-on-esc-key style="display: block;">
             <template is="dom-if" if="{{_isTextBox}}">
-                <pebble-textbox  class="input" label="{{longName}}" value="{{temp}}" on-blur="_makeNonEditable" ></pebble-textbox>
+                <pebble-textbox  class="input" label="{{longName}}" value="{{temp}}"  ></pebble-textbox>
             </template>
             <template is="dom-if" if="{{_isCheckBox}}">
-            <pebble-dropdown  class="input" label="{{longName}}" items="Yes,No"  on-blur="_makeNonEditable"  selected-value="{{temp}}"></pebble-dropdown>
+            <pebble-dropdown  class="input" label="{{longName}}" items="Yes,No"  selected-value="{{temp}}"></pebble-dropdown>
             </template>
             <template is="dom-if" if="{{_isTextArea}}">
-            <pebble-textarea  class="input"  placeholder="{{longName}}"  value="{{temp}}" on-blur="_makeNonEditable"></pebble-textarea>
+            <pebble-textarea  class="input"  placeholder="{{longName}}"  value="{{temp}}" ></pebble-textarea>
             </template>
             <template is="dom-if" if="{{_isDateTime}}">
             <paper-radio-group aria-labelledby="{{longName}}" class="dateOptions">
@@ -109,6 +109,20 @@
                 <pebble-button class="date-button"  id="equalPicker" icon="icons:date-range" picker="pickEqualDate" on-tap="_showPicker" ></pebble-button>
             </paper-radio-button>
             </paper-radio-group>
+            </template>
+            <template is="dom-if" if="{{_isNumeric}}">
+                <paper-radio-group aria-labelledby="{{longName}}" class="dateOptions">
+                    <paper-radio-button name="range">
+                      Min
+                        <input   is="iron-input" style="width: 70px;margin: 0 5px 0 5px" type="number" bind-value="{{min}}">
+                      Max
+                        <input   is="iron-input" style="width: 70px;margin: 0 5px 0 5px" type="number" bind-value="{{max}}">
+                    </paper-radio-button>
+                    <paper-radio-button name="equalToDate">
+                        Equal to
+                        <input  is="iron-input" style="width: 100px;margin-left:5px" type="number" bind-value="{{equalNum}}">
+                    </paper-radio-button>
+                </paper-radio-group>
             </template>
             <div>
             <paper-button raised dialog-confirm on-tap="_updateValue">Update</paper-button>
@@ -175,8 +189,7 @@
             value: {
                 type: String,
                 value: '',
-                notify: true,
-                observer: '_valueChanged'
+                notify: true
             },
             /**
             * Indicates the name of the attribute shown in the tag.
@@ -251,13 +264,6 @@
                 notify: true,
                 observer: '_colorChanged'
             },
-            /**
-            * Specifies whether or not the value of the tag is changed.
-            */
-            hasValueChanged: {
-                type: Boolean,
-                value: false
-            },
             displayType:{
                 type:String,
                 observer:"_displayTypeChanged"
@@ -288,14 +294,13 @@
         /**
           * Change the tag from edit  mode to view mode
         */
-        _makeNonEditable: function (e) {
+        _makeNonEditable: function (e,value) {
             this.editMode = false;
             var attribute = {
                 name: this.name,
-                value: this.value
-            }
-            if (this.value != undefined && this.value != null && this.name != undefined && this.name != null && this.hasValueChanged) {
-                this.hasValueChanged = false; // resetting the property
+                value:value
+            };
+            if (this.value != undefined && this.value != null && this.name != undefined && this.name != null) {
                 this.fire('bedrock-event', { name: "tag-value-change", data: attribute });
             }
         },
@@ -315,6 +320,9 @@
                       break;
                   case 'dateTime':
                       this._isDateTime=true;
+                      break;
+                  case 'numeric':
+                      this._isNumeric=true;
                       break;
               }
         },
@@ -365,14 +373,6 @@
             }
             this.updateStyles();
         },
-        /**
-         * Handler for checking if tag value is changed and if changed, update hasValueChanged property to true
-         */
-        _valueChanged: function (newValue, oldValue) {
-            if (oldValue != undefined && newValue != oldValue) {
-                this.hasValueChanged = true;
-            }
-        },
         attached: function () {
             if(this.editMode==undefined){
                 this.editMode=false;
@@ -382,11 +382,8 @@
             this.$[e.target.getAttribute('picker')].show();
         },
         _updateValue: function (e) {
-            if(!this._isDateTime) {
-                this.value = this.temp;
-                this._makeNonEditable(e);
-            } else{
-                var value;
+            var value;
+            if(this._isDateTime) {
                 switch (this.$$('paper-radio-group').selected){
                     case "withInTime":
                        value= {
@@ -413,26 +410,28 @@
                        };
                        break;
                    case "equalToDate":
-                       value=this.equalDate;
+                       value={"eq":this.equalDate};
+                       this.value=this.equalDate;
                        break;
                 }
 
-                this.editMode = false;
-                var attribute = {
-                    name: this.name,
-                    value: value
-                };
-                if (typeof value == 'string' || value instanceof String) {
-                    this.value=value;
-                } else{
+                if (this.$$('paper-radio-group').selected !="equalToDate") {
                     this.value=JSON.stringify(value);
                 }
-                if (this.value != undefined && this.value != null && this.name != undefined && this.name != null && this.hasValueChanged) {
-                    this.hasValueChanged = false; // resetting the property
-                    this.fire('bedrock-event', { name: "tag-value-change", data: attribute });
+            } else if(this._isNumeric){
+                if(this.$$('paper-radio-group').selected=="range"){
+                    value={"min":this.min,"max":this.max};
+                    this.value=JSON.stringify(value);
+                } else{
+                     value={"eq":this.equalNum};
+                    this.value=this.equalNum;
                 }
+            }else{
+                   this.value = this.temp;
+                   value={"eq":this.temp};
             }
 
+            this._makeNonEditable(e,value);
         },
         _dismissDialog: function () {
             this.editMode=false;
