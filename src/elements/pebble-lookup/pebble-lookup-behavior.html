@@ -1,0 +1,683 @@
+<link rel="import" href="/bower_components/iron-form-element-behavior/iron-form-element-behavior.html">
+<link rel="import" href="/bower_components/iron-a11y-announcer/iron-a11y-announcer.html">
+<link rel="import" href="pebble-lookup-dropdown-behavior.html">
+<script>
+    window.RUFBehaviors = window.RUFBehaviors || {};
+    RUFBehaviors.elements = RUFBehaviors.elements || {};
+    RUFBehaviors.elements.pebblelookup = RUFBehaviors.elements.pebblelookup || {};
+
+    /** @polymerBehavior RUFBehaviors.elements.pebblelookup.PebbleLookupBehavior */
+    RUFBehaviors.elements.pebblelookup.PebbleLookupBehaviorImpl = {
+        properties: {
+            /**
+             * A full set of items to filter the visible options from.
+             * The items can be of either `String` or `Object` type.
+             */
+            items: {
+                type: Array
+            },
+
+            /**
+             * The selected item from the `items` array.
+             */
+            selectedItem: {
+                type: Object,
+                value: function () {
+                    return {};
+                },
+                notify: true
+            },
+
+            /**
+             * The selected item(s) from the `items` array.
+             */
+            selectedItems: {
+                type: Array,
+                value: function () {
+                    return [];
+                },
+                notify: true
+            },
+
+            /**
+             * The `String` value for the selected item of the combo box. Provides
+             * the value for `iron-form`.
+             *
+             * When there’s no item selected, the value is an empty string.
+             *
+             * Use `selectedItem` property to get the raw selected item from
+             * the `items` array.
+             */
+            value: {
+                type: String,
+                observer: '_valueChanged',
+                //notify: true already set in IronFormBehavior, setting this to true will make two value-changed events(?)
+                notify: false
+            },
+
+            /**
+             * The `String` values for the selected items of the combo box. Provides
+             * the value for `iron-form`.
+             *
+             * When there are no items selected, the value is an empty array.
+             *
+             * Use `selectedItems` property to get the raw selected item from
+             * the `items` array.
+             */
+            values: {
+                type: Array,
+                value: function () {
+                    return [];
+                },
+                observer: '_valuesChanged',
+                //notify: true already set in IronFormBehavior, setting this to true will make two value-changed events(?)
+                notify: false
+            },
+
+            /**
+             * A read-only property indicating whether this combo box has a value
+             * selected or not. It can be used for example in styling of the component.
+             * Note: Do we require hasValues Property ?
+             */
+            hasValue: {
+                type: Boolean,
+                value: false,
+                readonly: true,
+                reflectToAttribute: true
+            },
+
+            /**
+             * Path for label of the item. If `items` is an array of objects, the
+             * `itemLabelPath` is used to fetch the displayed string label for each
+             * item.
+             *
+             * The item label is also used for matching items when processing user
+             * input, i.e., for filtering and selecting items.
+             */
+            itemLabelPath: {
+                type: String,
+                value: 'label'
+            },
+
+            /**
+             * Path for the value of the item. If `items` is an array of objects, the
+             * `itemValuePath:` is used to fetch the string value for the selected
+             * item.
+             *
+             * The item value is used in the `value` property of the combo box,
+             * to provide the form value.
+             */
+            itemValuePath: {
+                type: String,
+                value: 'value'
+            },
+
+            /**
+             * Returns a reference to the input element.
+             */
+            inputElement: {
+                type: HTMLElement,
+                readOnly: true
+            },
+
+            /*
+             * When set to `true`, a loading spinner is displayed on top of the list of options.
+             */
+            loading: {
+                type: Boolean,
+                value: false
+            },
+
+            _focusedIndex: {
+                type: Number,
+                value: -1
+            },
+
+            _toggleElement: {
+                type: Object
+            },
+
+            _clearElement: {
+                type: Object
+            },
+
+            _closeOnBlurIsPrevented: {
+                type: Boolean
+            }
+        },
+
+        observers: [
+            '_itemsChanged(items.*, itemValuePath, itemLabelPath)',
+            '_selectedItemChanged(selectedItem)',
+            '_selectedItemsChanged(selectedItems.*)',
+            '_loadingChanged(loading)'
+        ],
+
+        listeners: {
+            'pebble-lookup-dropdown-opened': '_onLookupDropdownOpened',
+            'pebble-lookup-dropdown-closed': '_onLookupDropdownClosed',
+            'overlay.keydown': '_onKeyDown',
+            'tap': '_onTap',
+            'overlay.overlay-filter-changed': '_filterChanged',
+            'overlay.overlay-filtered-items-changed': '_filteredItemsChanged'
+        },
+
+        created: function () {
+            console.log("pebble-lookup-behavior: created");
+        },
+
+        ready: function () {
+            console.log("pebble-lookup-behavior: ready");
+
+            // The value property is also defined in IronFormElementBehavior, which
+            // will mix up the default value if set in the property.
+            if (this.value === undefined) {
+                this.value = '';
+            }
+            Polymer.IronA11yAnnouncer.requestAvailability();
+        },
+
+        attached: function () {
+            console.log("pebble-lookup-behavior: attached");
+        },
+
+        detached: function () {
+            console.log("pebble-lookup-behavior: detached");
+            if (!this.$.overlay._multiSelectionBoolean) {
+                this.unlisten(this.$.overlay, 'selection-changed', '_overlaySelectedItemChanged');
+            } else {
+                this.unlisten(this.$.overlay, 'selection-changed', '_overlaySelectedItemsChanged');
+            }
+        },
+
+        _onTap: function (e) {
+            console.log("pebble-lookup-behavior: _onTap");
+            this._closeOnBlurIsPrevented = true;
+
+            var path = Polymer.dom(e).path;
+            if (path.indexOf(this._clearElement) !== -1) {
+                this._clear();
+            } else if (path.indexOf(this._toggleElement) !== -1) {
+                this._toggle();
+            }
+
+            if (!this.$.overlay._multiSelectionBoolean) {
+                this.listen(this.$.overlay, 'selection-changed', '_overlaySelectedItemChanged');
+            } else {
+                this.listen(this.$.overlay, 'selection-changed', '_overlaySelectedItemsChanged');
+            }
+
+            this._closeOnBlurIsPrevented = false;
+        },
+
+        _clear: function () {
+            console.log("pebble-lookup-behavior: _clear");
+            // Do we need to set hasValue to false ?
+            this.$.overlay.clearSelection();
+
+            if (!this.$.overlay._multiSelectionBoolean) {
+                this.selectedItem = null;
+            } else {
+                this.selectedItems = [];
+            }
+
+            this.close();
+        },
+
+        _toggle: function () {
+            console.log("pebble-lookup-behavior: _toggle");
+            if (this.opened) {
+                this.close();
+            } else {
+                this.open();
+            }
+        },
+
+        _onKeyDown: function (e) {
+            console.log("pebble-lookup-behavior: _onKeyDown");
+            if (this._isEventKey(e, 'down')) {
+                this._closeOnBlurIsPrevented = true;
+                this._onArrowDown();
+                this._closeOnBlurIsPrevented = false;
+
+                // prevent caret from moving
+                e.preventDefault();
+            } else if (this._isEventKey(e, 'up')) {
+                this._closeOnBlurIsPrevented = true;
+                this._onArrowUp();
+                this._closeOnBlurIsPrevented = false;
+
+                // prevent caret from moving
+                e.preventDefault();
+            } else if (this._isEventKey(e, 'enter')) {
+                this._onEnter(e);
+            } else if (this._isEventKey(e, 'esc')) {
+                this._onEscape();
+            } else if (this._isEventKey(e, 'space')) {
+                if (this._focusedIndex > -1 && this.$.overlay._multiSelectionBoolean) {
+                    this.$.overlay.toggleSelectionForItem(this._focusedIndex);
+
+                    // make sure input field is updated in case value doesn't change (i.e. FOO -> foo)
+                    this._inputElementValue = this._getItemsLabels(this.selectedItems);
+                }
+                // Do not submit the surrounding form.
+                e.preventDefault();
+            }
+        },
+
+        _isEventKey: function (e, k) {
+            console.log("pebble-lookup-behavior: _isEventKey");
+            return Polymer.IronA11yKeysBehavior.keyboardEventMatchesKeys(e, k.toString());
+        },
+
+        _onArrowDown: function () {
+            console.log("pebble-lookup-behavior: _onArrowDown");
+            if (this.opened) {
+                if (this.$.overlay._items) {
+                    this._focusedIndex = Math.min(this.$.overlay._items.length - 1, this._focusedIndex + 1);
+                }
+            } else {
+                this.open();
+            }
+        },
+
+        _onArrowUp: function () {
+            console.log("pebble-lookup-behavior: _onArrowUp");
+            if (this.opened) {
+                if (this._focusedIndex > -1) {
+                    this._focusedIndex = Math.max(0, this._focusedIndex - 1);
+                } else {
+                    if (this.$.overlay._items) {
+                        this._focusedIndex = this.$.overlay._items.length - 1;
+                    }
+                }
+            } else {
+                this.open();
+            }
+        },
+
+        _onEnter: function (e) {
+            console.log("pebble-lookup-behavior: _onEnter");
+            // should close on enter when custom values are allowed, input field is cleared, or when an existing
+            // item is focused with keyboard.
+            if (this.opened && !this.$.overlay._multiSelectionBoolean && (this._inputElementValue === '' ||
+                    this._focusedIndex > -1)) {
+                this.close();
+
+                // Do not submit the surrounding form.
+                e.preventDefault();
+            }
+        },
+
+        _onEscape: function () {
+            console.log("pebble-lookup-behavior: _onEscape");
+            if (this.opened) {
+                if (this._focusedIndex > -1) {
+                    this._focusedIndex = -1;
+                    this._revertInputValue();
+                } else {
+                    this._cancel();
+                }
+            }
+        },
+
+        _revertInputValue: function () {
+            console.log("pebble-lookup-behavior: _revertInputValue");
+            this._clearSelectionRange();
+        },
+
+        _cancel: function () {
+            console.log("pebble-lookup-behavior: _cancel");
+            this.close();
+        },
+
+        _onLookupDropdownOpened: function () {
+            console.log("pebble-lookup-behavior: _onLookupDropdownOpened");
+            this.$.overlay.filter = '';
+            this.$.overlay.$.input.focus();
+            this.$.overlay.hidden = !this.$.overlay._hasItems(this.$.overlay._items) && !this.loading;
+
+            // With iron-list v1.3.9, calling `notifyResize()` no longer renders
+            // the items synchonously. It is required to have the items rendered
+            // before we update the overlay and the list positions and sizes.
+            this.$.overlay.ensureItemsRendered();
+
+            this.$.overlay.notifyResize();
+            this.$.overlay.adjustScrollPosition();
+        },
+
+        _onLookupDropdownClosed: function () {
+            console.log("pebble-lookup-behavior: _onLookupDropdownClosed");
+            if (this._focusedIndex > -1) {
+                if (!this.$.overlay._multiSelectionBoolean) {
+                    var focusedItem = this.$.overlay._items[this._focusedIndex];
+                    this.selectedItem = focusedItem;
+
+                    // make sure input field is updated in case value doesn't change (i.e. FOO -> foo)
+                    this._inputElementValue = this._getItemLabel(this.selectedItem);
+                } else {
+                    this._focusedIndex = -1;
+                    this._revertInputValue();
+                }
+            } else if (this._inputElementValue === '') {
+                this._clear();
+            } else {
+                if (!this.$.overlay._multiSelectionBoolean) {
+                    this._inputElementValue = this._getItemLabel(this.selectedItem);
+                } else {
+                    this._inputElementValue = this._getItemsLabels(this.selectedItems);
+                }
+            }
+
+            this.$.overlay.clearSearchBox();
+
+            this._clearSelectionRange();
+        },
+
+        _clearSelectionRange: function () {
+            // Note: Not able to understand this ?
+            console.log("pebble-lookup-behavior: _clearSelectionRange");
+            // Setting selection range focuses and/or moves the caret in some browsers,
+            // and there's no need to modify the selection range if the input isn't focused anyway.
+            //
+            // Notice also that document.activeElement doesn't return elements from inside shadow root
+            // and therefore we're using _focusedInput method here.
+            if (this._focusedInput() === this.inputElement && this.inputElement.setSelectionRange) {
+                var caretIndex = this._inputElementValue ? this._inputElementValue.length : 0;
+                this.inputElement.setSelectionRange(caretIndex, caretIndex);
+            }
+        },
+
+        _focusedInput: function () {
+            console.log("pebble-lookup-behavior: _focusedInput");
+            // Use either light DOM input or one from local DOM.
+            return Polymer.dom(this).querySelector('input:focus') || Polymer.dom(this.root).querySelector(
+                'input:focus');
+        },
+
+        _loadingChanged: function (loading) {
+            console.log("pebble-lookup-behavior: _loadingChanged");
+            if (loading) {
+                this._focusedIndex = -1;
+            }
+        },
+
+        _itemsChanged: function (e) {
+            console.log("pebble-lookup-behavior: _itemsChanged");
+            if (e.path === 'items' || e.path === 'items.splices') {
+                this.$.overlay.filteredItems = this.items ? this.items.slice(0) : this.items;
+
+                // Need to see below code how it will impact multi-select
+                var valueIndex = this._indexOfValue(this.value, this.items);
+                this._focusedIndex = valueIndex;
+
+                var item = valueIndex > -1 && this.items[valueIndex];
+                if (item) {
+                    this.selectedItem = item;
+                }
+            }
+        },
+
+        _filterChanged: function (e) {
+            console.log("pebble-lookup-behavior: _filterChanged");
+            var filter = e.detail.filter;
+            if (this.items) {
+                this.$.overlay.filteredItems = this._filterItems(this.items, filter);
+            }
+        },
+
+        _filterItems: function (arr, filter) {
+            console.log("pebble-lookup-behavior: _filterItems");
+            if (!arr) {
+                return arr;
+            }
+
+            return arr.filter((function (item) {
+                filter = filter ? filter.toString().toLowerCase() : '';
+
+                // Check if item contains input value.
+                return this._getItemLabel(item).toString().toLowerCase().indexOf(filter) >
+                    -1;
+            }).bind(this));
+        },
+
+        _filteredItemsChanged: function (e) {
+            console.log("pebble-lookup-behavior: _filteredItemsChanged");
+            var userDefinedFilter = e.detail.userDefinedFilter;
+
+            this._focusedIndex = (this.opened || userDefinedFilter) ?
+                this.$.overlay.indexOfLabel(this.$.overlay.filter) :
+                this.$.overlay.indexOfValue(this.value, this.$.overlay.filteredItems);
+        },
+
+        _selectedItemChanged: function (selectedItem) {
+            console.log("pebble-lookup-behavior: _selectedItemChanged");
+            if (!this.$.overlay.filteredItems) {
+                return;
+            }          
+
+            if (selectedItem === null || selectedItem === undefined || Object.keys(selectedItem).length == 0) {
+                this.value = '';
+                this._inputElementValue = this.value;
+                this.hasValue = this.value !== '';
+            } else {
+                this.value = this._getItemValue(selectedItem);
+                this._inputElementValue = this._getItemLabel(selectedItem);
+                this.hasValue = true;
+            }
+
+            this._focusedIndex = this.$.overlay.filteredItems.indexOf(selectedItem);
+        },
+
+        _selectedItemsChanged: function (selectedItems) {
+            console.log("pebble-lookup-behavior: _selectedItemChanged");
+
+            if (selectedItems.hasOwnProperty('base')) {
+                selectedItems = selectedItems.base    
+            }
+
+            if (!this.$.overlay.filteredItems) {
+                return;
+            }
+
+            if (selectedItems === null || selectedItems === undefined || selectedItems.length <= 0) {
+                this.value = '';
+                this._inputElementValue = this.value;
+                this.hasValue = this.value !== '';
+            } else {
+                this.set('values', this._getItemsValues(selectedItems));
+                this._inputElementValue = this._getItemsLabels(selectedItems);
+                this.hasValue = true;
+            }
+        },
+
+        _valueChanged: function (value) {
+            console.log("pebble-lookup-behavior: _valueChanged");
+            // Temporary Commented
+            // if (this._isValidValue(value)) {
+            //     var valueIndex = this._indexOfValue(value, this.$.overlay.filteredItems);
+            //     var item = valueIndex > -1 && this.$.overlay.filteredItems[valueIndex];
+
+            //     // Why do we need to perform below actions again it is already set in selectedItemChanged ?
+            //     // Third-Party Code
+            //     // This will never fire selected-item-changed event as both the values are going to be same
+            //     // this.selectedItem = item ? item : null;
+
+            //     this.hasValue = this.value !== '';
+            // } else {
+            //     this.selectedItem = null;
+            // }
+        },
+
+        _valuesChanged: function (values) {
+            console.log("pebble-lookup-behavior: _valuesChanged");
+            // Temporary Commented
+            // var validItemValues = true;
+            // for (var i = 0; i < values.length; i++) {
+            //     if (!this._isValidValue(values[i])) {
+            //         validItemValues = false;
+            //         console.log("Invalid item value: " + values[i] + " at index: " + i);
+            //     }
+            // }
+
+            // var selectedFilteredItems = [];
+            // if (validItemValues) {
+            //     if (values.length > 0) {
+            //         for (var i = 0; i < values.length; i++) {
+            //             var valueIndex = this._indexOfValue(values[i], this.$.overlay.filteredItems);
+            //             var item = valueIndex > -1 && this.$.overlay.filteredItems[valueIndex];
+            //             if (item) {
+            //                 selectedFilteredItems.push(item);
+            //             }
+            //         }
+
+            //         // this.selectedItems = selectedFilteredItems;
+            //     }
+
+            //     this.hasValue = values.length > 0;
+            // } else {
+            //     console.log("Selected items are cleared");
+            //     this.selectedItems = [];
+            // }
+        },
+
+        _overlaySelectedItemChanged: function (event) {
+            console.log("pebble-lookup-behavior: _overlaySelectedItemChanged");
+            this.selectedItem = event.detail.item;
+
+            if (!this.$.overlay._multiSelectionBoolean && this.opened) {
+                this.close();
+            }
+        },
+
+        _overlaySelectedItemsChanged: function (event) {
+            console.log("pebble-lookup-behavior: _overlaySelectedItemsChanged");
+            var listItem = event.detail.item;
+            var listItemIndex = this.selectedItems.indexOf(listItem);
+
+            if (listItemIndex >= 0) {
+                this.splice('selectedItems', listItemIndex, 1);
+            } else {
+                this.push('selectedItems', listItem);
+            }
+        },
+
+        _onOverlayDown: function (event) {
+            console.log("pebble-lookup-behavior: _onOverlayDown");
+            if (this.$.overlay.touchDevice && event.target !== this.$.overlay.$.scroller) {
+                // On touch devices, blur the input on touch start inside the overlay, in order to hide
+                // the virtual keyboard. But don't close the overlay on this blur.
+                this._closeOnBlurIsPrevented = true;
+                this.inputElement.blur();
+                this._closeOnBlurIsPrevented = false;
+            }
+        },
+
+        _indexOfValue: function (value, items) {
+            console.log("pebble-lookup-behavior: _indexOfValue");
+            if (this._isValidValue(value)) {
+                return this.$.overlay.indexOfValue(value, items);
+            }
+
+            return -1;
+        },
+
+        _isValidValue: function (value) {
+            console.log("pebble-lookup-behavior: _isValidValue");
+            return value !== NaN && value !== undefined && value !== null;
+        },
+
+        _getValidity: function () {
+            console.log("pebble-lookup-behavior: _getValidity");
+            if (this.inputElement.validate) {
+                return this.inputElement.validate();
+            }
+        },
+
+        _getItemLabel: function (item) {
+            return this.$.overlay.getItemLabel(item);
+        },
+
+        _getItemsLabels: function (items) {
+            if (items) {
+                if (items.length > 0) {
+                    return items.length + ' item(s) selected';
+                } else {
+                    return '';
+                }
+            } else {
+                return ''
+            }
+        },
+
+        _getItemValue: function (item) {
+            return this.$.overlay.getItemValue(item);
+        },
+
+        _getItemsValues: function (items) {
+            var itemsValues = [];
+
+            if (items) {
+                for (var i = 0; i < items.length; i++) {
+                    itemsValues.push(this.$.overlay.getItemValue(items[i]));
+                }
+            }
+
+            return itemsValues;
+        },
+
+        _onBlur: function () {
+            console.log("pebble-lookup-behavior: _onBlur");
+            if (!this._closeOnBlurIsPrevented) {
+                this.close();
+            }
+        },
+
+        _preventDefault: function (e) {
+            console.log("pebble-lookup-behavior: _preventDefault");
+            if (e.path.indexOf(this.$.overlay.$.searchbox) < 1) { // Bad Code
+                e.preventDefault();
+            }
+        },
+
+        _stopPropagation: function (e) {
+            console.log("pebble-lookup-behavior: _stopPropagation");
+            e.stopPropagation();
+        }
+    };
+
+    /** @polymerBehavior RUFBehaviors.elements.pebblelookup.PebbleLookupBehavior */
+    RUFBehaviors.elements.pebblelookup.PebbleLookupBehavior = [
+        Polymer.IronFormElementBehavior,
+        RUFBehaviors.elements.pebblelookup.PebbleLookupDropdownBehavior,
+        RUFBehaviors.elements.pebblelookup.PebbleLookupBehaviorImpl
+    ];
+
+    /**
+     * Fired when the value changes.
+     *
+     * @event value-changed
+     * @param {Object} detail
+     *  @param {String} detail.value the combobox value
+     */
+
+    /**
+     * Fired when selected item changes.
+     *
+     * @event selected-item-changed
+     * @param {Object} detail
+     *  @param {Object|String} detail.value the selected item. Type is the same as the type of `items`.
+     */
+
+    /**
+     * Fired when the user sets a custom value.
+     * @event custom-value-set
+     * @param {String} detail the custom value
+     */
+
+    /**
+     * Fired when value changes.
+     * To comply with https://developer.mozilla.org/en-US/docs/Web/Events/change
+     * @event change
+     */
+</script>
