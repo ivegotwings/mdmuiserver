@@ -9,7 +9,7 @@
 <link rel="import" href="../pebble-badge/pebble-badge.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
-<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/component-helper.html">
 <!--
 `<rock-tabs>` Represents a wrapper on top of `<pebble-tab-group>` element. 
 This element will generate tabs with material design styling based on the configuration provided by the user.
@@ -171,10 +171,6 @@ switch between different views or functional aspects of an app or to browse cate
 
                     _currentTabName: {
                         type: String
-                    },
-                    _hardReload: {
-                        type: Boolean,
-                        value: false
                     }
                 },
                  behaviors: [
@@ -255,7 +251,6 @@ switch between different views or functional aspects of an app or to browse cate
                             if (tabItems != null && tabItems != undefined && tabItems.length > 0) {
                                 for (var tabItemIndex in tabItems) {
                                     if (tabItems[tabItemIndex].selected) {
-                                        //this._hardReload = true;
                                         this.selectedTabIndex = tabItemIndex;
                                     }
                                 }
@@ -329,13 +324,13 @@ switch between different views or functional aspects of an app or to browse cate
                     }
                 },
 
-                _loadContent: function (config, tabName) {
+                _loadContent: function (config, tabName, reload) {
                     if (config) {
                         var viewName = config.name;
                         viewName = tabName ? tabName + '-' + viewName : viewName;
                         var contentElement = this.$$("#content-" + viewName);
 
-                        if (contentElement && contentElement.children.length > 0 && !this._hardReload) {
+                        if (contentElement && contentElement.children.length > 0 && !reload) {
                             this._showView(viewName);
 
                             if (this._currentTabName && this._currentTabName != viewName) {
@@ -344,23 +339,14 @@ switch between different views or functional aspects of an app or to browse cate
                             this._currentTabName = viewName;
                         } else {
                             if (config.component) {
-                                var component = config.component;
-                                this._componentCreating(component);
-                                this.importHref(config.component.path, function (e) {
-                                    //component file import successful
-                                    DataHelper.createComponent(contentElement, component);                                    
+                                    ComponentHelper.loadContent(contentElement, config.component, this);
                                     this._showView(viewName);
                                     if (this._currentTabName && this._currentTabName != viewName) {
                                         this._hideView(this._currentTabName);
                                     }
                                     this._currentTabName = viewName;
-
-                                }, function (e) {
-                                    console.log(e);
-                                });
+                                }
                             }
-                        }
-
                     } else {
                         console.log("Tabconfig not available");
                     }
@@ -400,17 +386,6 @@ switch between different views or functional aspects of an app or to browse cate
                     }
                 },
 
-                _componentCreating: function(component) {
-                    //event to let consumer change component configuration before creating it
-                    var eventName = "tab-component-creating";
-                    var eventData = component;
-                    var eventDetail = {
-                        data: eventData,
-                        name: eventName
-                    }
-                    this.fireBedrockEvent(eventName, eventDetail);
-                },
-
                 reloadCurrentTab: function() {
                     //to reload the current selected tab after any changes to tabItemConfig
                     //no inputs to this method. Find out the current selected tab and call _loadContent()
@@ -419,19 +394,37 @@ switch between different views or functional aspects of an app or to browse cate
                         var currentTabConfig = currentItem.tabConfig;
                         var currentTabMenuConfig = currentItem.menuItemConfig;
                     }
-                    this._hardReload = true;
+                    var reload = true;
                     if(currentTabConfig && currentTabMenuConfig) {
-                        this._loadContent(currentTabMenuConfig, currentTabConfig.name);
+                        this._loadContent(currentTabMenuConfig, currentTabConfig.name, reload);
                     }
                     else {
-                        this._loadContent(currentTabConfig);
+                        this._loadContent(currentTabConfig, null, reload);
                     }
-                    this._hardReload = false;
                 },
 
                 reloadTabs: function() {
-                    //ToDo: reload whole rock-tabs element
-                    
+                    if(this.config && this.config.tabItems && this.config.tabItems.length > 0) {
+                        var tabItems = this.config.tabItems;
+                        for(var i=0; i< tabItems.length; i++) {
+                            var tabItem = tabItems[i];
+                            var tabName = tabItem.name;
+                            var contentElement = this.$$('#content-' + tabName);
+                            if(contentElement && contentElement.firstChild) {
+                                Polymer.dom(contentElement).removeChild(contentElement.firstChild);
+                            }
+                            if(tabItem.menuItems && tabItem.menuItems.length>0) {
+                                for(var j=0; j<tabItem.menuItems.length; j++) {
+                                    var meuItemName = tabItem.menuItems[j].name;
+                                    var menuContentElement = this.$$('#content-' + tabName + '-' + meuItemName);
+                                    if(menuContentElement && menuContentElement.firstChild) {
+                                        Polymer.dom(menuContentElement).removeChild(menuContentElement.firstChild);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    this.reloadCurrentTab();
                 }
             });
         })();
