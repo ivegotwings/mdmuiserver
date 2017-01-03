@@ -76,13 +76,13 @@ Boolean control
             }
         },
         _callUpdateEntities: function(self, model, request){           
-            if(request === undefined || !Object.keys(request.entities).length) {
-                return;
+            if(request === undefined || !Object.keys(request["entities"]).length) {
+                return {};
             }
 
-            var entities = request.entities;
+            var entities = request["entities"];
 
-            if(self.logInternalDetail){
+            if(self.logInternalDetail) {
                 console.log('Request for save entities call...entities: ', entities);
             }
 
@@ -90,18 +90,13 @@ Boolean control
             
             var entitiesJsonEnvelope = {'json': {'entitiesById': {}}};
             
-            for(let entityId of Object.keys(entities)){
-                var entity = entities[entityId];
-                
-                var ctxKey = Object.keys(entity.data.ctxInfo)[0];
+            var entityIds = Object.keys(entities);
 
-                // if("csapDescriptionOfNart" in entity.data.ctxInfo[ctxKey].attributes){
-                //     entity.data.ctxInfo[ctxKey].attributes.csapDescriptionOfNart.values[0].value = "updated Nart desc 1";
-                // }
-                // entity.systemInfo.tenantId = "t2";   
-                             
+            for(var i in entityIds){
+                var entityId = entityIds[i];
+                var entity = entities[entityId];    
+                
                 delete entity.id; //todo: why id field cannot be updated...
-                //delete entity.data;
                 
                 entitiesJsonEnvelope.json.entitiesById[entityId] = self._boxEntityData(entity);
             }
@@ -113,7 +108,13 @@ Boolean control
                 console.log('model cache before save call', model.getCache());
             }
 
-            model.set(entitiesJsonEnvelope).then(function(responsePkg) {
+            if(entityIds.length == 0){
+                var reason = {"msg": "No entities found for save"};
+                self.response = self._createErrorResponse(reason);
+                self.fire('response', self.response, request);
+            }
+
+            model.call([pathRootKey, entityIds, "updateEntities"], [entitiesJsonEnvelope], [], []).then(function(responsePkg) {
                     if(self.logInternalDetail){
                         RUFBehaviors.DataChannel.updateCallCounters(self.operation);
                         console.log('saveentities raw internal response ', responsePkg);
@@ -130,7 +131,8 @@ Boolean control
                     }
                 },
                 function(reason){
-                    self.response = self._createErrorResponse(reason);  
+                    self.response = self._createErrorResponse(reason);
+                    self.fire('response', self.response, request);  
                 });
         },
         _createSuccessResponse: function(data){
@@ -138,7 +140,7 @@ Boolean control
             return {'status':'success', 'content': clonedData};
         },
         _createErrorResponse: function(reason){
-            var result = {'status': 'error', reason};
+            var result = {'status': 'error', 'reason': reason};
 
             if(this.logInternalDetail){
                 console.log('Error response for the operation: ', this.operation, result);
@@ -148,18 +150,20 @@ Boolean control
         },
         _boxEntityData: function(entity){
             var boxedEntity = {};
-            //boxedEntity.id = this._boxJsonObject(entity.id);
-            //boxedEntity.systemInfo = this._boxJsonObject(entity.systemInfo);
-            //boxedEntity.dataObjectInfo = this._boxJsonObject(entity.dataObjectInfo);
-            //boxedEntity.properties = this._boxJsonObject(entity.properties);
+            boxedEntity.id = this._boxJsonObject(entity.id);
+            boxedEntity.systemInfo = this._boxJsonObject(entity.systemInfo);
+            boxedEntity.dataObjectInfo = this._boxJsonObject(entity.dataObjectInfo);
+            boxedEntity.properties = this._boxJsonObject(entity.properties);
 
             for(var ctxKey in entity.data.ctxInfo){
                 var attrs = entity.data.ctxInfo[ctxKey].attributes;
                 for(var attrId in attrs){
                     var attr = attrs[attrId];
 
-                    for(let val of attr.values) {
-                        if(val.name !== undefined){
+                    for(var valIndex in attr.values) {
+                        var val = attr.values[valIndex];
+                        
+                        if(val && val.name !== undefined){
                             delete val.name; // if name is coming as field inside val
                         }
                     }

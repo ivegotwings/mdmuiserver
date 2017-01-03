@@ -21,14 +21,10 @@ var EntityRouterBase = Router.createClass([
     {
         route: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].values",
         get: async (pathSet) => await resolver.getEntities(pathSet)
-    }, 
-    {
-        route: "entitiesById[{keys:entityIds}][{keys:entityFields}]",
-        set: async (jsonEnvelope) => await resolver.updateEntities(jsonEnvelope)
     },
     {
-        route: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].values",
-        set: async (jsonEnvelope) => await resolver.updateEntities(jsonEnvelope)
+        route: "entitiesById[{keys:entityIds}].updateEntities",
+        call: async (callPath, args) => await resolver.updateEntities(callPath, args, "entitiesById[{keys:entityIds}].updateEntities")
     }
 ]);
 
