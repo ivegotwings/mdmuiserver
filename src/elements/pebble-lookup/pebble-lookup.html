@@ -1,0 +1,195 @@
+<link rel="import" href="/bower_components/iron-input/iron-input.html">
+<link rel="import" href="/bower_components/iron-validatable-behavior/iron-validatable-behavior.html">
+<link rel="import" href="/bower_components/iron-a11y-announcer/iron-a11y-announcer.html">
+<link rel="import" href="/bower_components/iron-iconset-svg/iron-iconset-svg.html">
+<link rel="import" href="/bower_components/paper-input/paper-input-container.html">
+<link rel="import" href="/bower_components/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="pebble-lookup-behavior.html">
+<link rel="import" href="pebble-lookup-overlay.html">
+<link rel="import" href="pebble-lookup-shared-styles.html">
+<link rel="import" href="pebble-lookup-icons.html">
+<dom-module id="pebble-lookup">
+    <style include="pebble-lookup-shared-styles">
+         :host {
+            display: block;
+            padding: 8px 0;
+        }
+        
+         :host>#overlay {
+            display: none;
+        }
+        
+        paper-input-container {
+            position: relative;
+            padding: 0;
+        }
+        
+        paper-icon-button.clear-button,
+        paper-icon-button.toggle-button,
+         :host ::content paper-icon-button.clear-button,
+         :host ::content paper-icon-button.toggle-button {
+            position: absolute;
+            bottom: -4px;
+            right: -4px;
+            line-height: 18px !important;
+            width: 32px;
+            height: 32px;
+            padding: 4px;
+            text-align: center;
+            color: rgba(0, 0, 0, .38);
+            cursor: pointer;
+            margin-top: -1px;
+            --paper-icon-button-ink-color: rgba(0, 0, 0, .54);
+        }
+        
+        paper-input-container paper-icon-button.clear-button,
+        paper-input-container ::content paper-icon-button.clear-button {
+            right: 28px;
+        }
+        
+        paper-input-container paper-icon-button:hover,
+        paper-input-container ::content paper-icon-button:hover,
+         :host([opened]) paper-input-container paper-icon-button,
+         :host([opened]) paper-input-container ::content paper-icon-button {
+            color: rgba(0, 0, 0, .54);
+        }
+        
+         :host([opened]) paper-input-container ::content paper-icon-button:hover,
+         :host([opened]) paper-input-container paper-icon-button:hover {
+            color: rgba(0, 0, 0, .86);
+        }
+        
+         :host([opened]) paper-input-container {
+            /* Keep the paper-input-container above the dropdown. */
+            z-index: 20;
+        }
+        
+        #input::-ms-clear {
+            display: none;
+        }
+        
+        #input {
+            box-sizing: border-box;
+            padding-right: 28px;
+        }
+        
+         :host([opened][has-value]) #input {
+            padding-right: 60px;
+            margin-right: -32px;
+        }
+    </style>
+    <template>
+        <paper-input-container id="inputContainer" disabled$="[[disabled]]">
+            <input is="iron-input" id="input" type="text" role="combobox" autocomplete="off" autocapitalize="none" aria-expanded$="[[_getAriaExpanded(opened)]]"
+                aria-autocomplete="list" invalid="{{invalid}}" prevent-invalid-input="[[preventInvalidInput]]" allowed-pattern="[[allowedPattern]]"
+                pattern$="[[pattern]]" autofocus$="[[autofocus]]" required$="[[required]]" readonly$="[[readonly]]" disabled$="[[disabled]]"
+                bind-value="{{_inputElementValue}}" on-blur="_onBlur" on-change="_stopPropagation" key-event-target>
+            <content select=".clear-button">
+                <paper-icon-button id="clearIcon" tabindex="-1" aria-label="Clear" icon="pebble-lookup:clear" on-down="_preventDefault" class="clear-button small">
+                </paper-icon-button>
+            </content>
+            <content select=".toggle-button">
+                <paper-icon-button id="toggleIcon" tabindex="-1" icon="pebble-lookup:arrow-drop-down" aria-label="Toggle" aria-expanded$="[[_getAriaExpanded(opened)]]"
+                    on-down="_preventDefault" class="toggle-button rotate-on-open">
+                </paper-icon-button>
+            </content>
+            <template is="dom-if" if="[[errorMessage]]">
+                <paper-input-error>[[errorMessage]]</paper-input-error>
+            </template>
+        </paper-input-container>
+        <pebble-lookup-overlay id="overlay" opened$=[[opened]] position-target="[[_getPositionTarget()]]" multi-selection="[[multiSelection]]"
+            _focused-index="[[_focusedIndex]]" _item-label-path="[[itemLabelPath]]" on-down="_onOverlayDown" loading="[[loading]]"
+            on-mousedown="_preventDefault" vertical-offset="2" _selected-Item="{{selectedItem}}" _selected-Items="{{selectedItems}}">
+        </pebble-lookup-overlay>
+    </template>
+    <script>
+        Polymer({
+            is: 'pebble-lookup',
+
+            behaviors: [
+                Polymer.IronValidatableBehavior,
+                RUFBehaviors.elements.pebblelookup.PebbleLookupBehavior
+            ],
+
+            properties: {
+                
+                preventInvalidInput: {
+                    type: Boolean
+                },
+
+                allowedPattern: {
+                    type: String
+                },
+              
+                pattern: {
+                    type: String
+                },
+
+                errorMessage: {
+                    type: String
+                },
+
+                inputmode: {
+                    type: String
+                },
+
+                placeholder: {
+                    type: String,
+                },
+
+                size: {
+                    type: Number
+                },
+
+                required: {
+                    type: Boolean,
+                    value: false
+                },
+
+                readonly: {
+                    type: Boolean,
+                    value: false
+                },
+
+                disabled: {
+                    type: Boolean,
+                    value: false
+                },
+
+                autofocus: {
+                    type: Boolean
+                },
+
+                multiSelection: {
+                    type: String,
+                    value: "false"
+                }
+            },
+
+            created: function () {
+                console.log("pebble-lookup: created");
+            },
+
+            ready: function () {
+                console.log("pebble-lookup: ready");
+            },
+
+            attached: function () {
+                console.log("pebble-lookup: attached");
+                this._setInputElement(this.$.input);
+
+                // Use the default toggle/clear or one replaced in light DOM.
+                this._toggleElement = Polymer.dom(this).querySelector('.toggle-button') || this.$.toggleIcon;
+                this._clearElement = Polymer.dom(this).querySelector('.clear-button') || this.$.clearIcon;
+            },
+
+            _getPositionTarget: function () {
+                return this.$.inputContainer;
+            },
+
+            _getAriaExpanded: function (value) {
+                return value.toString();
+            }
+        });
+    </script>
+</dom-module>
