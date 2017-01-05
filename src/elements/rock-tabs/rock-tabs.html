@@ -7,6 +7,9 @@
 <link rel="import" href="../pebble-horizontal-divider/pebble-horizontal-divider.html">
 <link rel="import" href="../pebble-styles-app/pebble-styles-app.html">
 <link rel="import" href="../pebble-badge/pebble-badge.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-helpers/component-helper.html">
 <!--
 `<rock-tabs>` Represents a wrapper on top of `<pebble-tab-group>` element. 
 This element will generate tabs with material design styling based on the configuration provided by the user.
@@ -75,6 +78,11 @@ switch between different views or functional aspects of an app or to browse cate
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
+                font-weight: bold;
+            }
+
+            pebble-tab[class="iron-selected"] .truncate, pebble-tab .truncate:hover {                
+                color: var(--palette-cerulean)
             }
             
             paper-item {
@@ -170,6 +178,9 @@ switch between different views or functional aspects of an app or to browse cate
                         type: String
                     }
                 },
+                 behaviors: [
+                    RUFBehaviors.UIBehavior
+                ],
 
                 /*
                  * Can be used to get the value of a badge for tabname specified by the user.
@@ -242,7 +253,6 @@ switch between different views or functional aspects of an app or to browse cate
                     if (config != null && config != undefined) {
                         if (config && config.tabItems) {
                             var tabItems = config.tabItems;
-                            this.selectedTabIndex = -1;
                             if (tabItems != null && tabItems != undefined && tabItems.length > 0) {
                                 for (var tabItemIndex in tabItems) {
                                     if (tabItems[tabItemIndex].selected) {
@@ -251,7 +261,7 @@ switch between different views or functional aspects of an app or to browse cate
                                 }
                             }
                         }
-
+                        
                         var pebbleTabGroup = this.$$("#" + this.id);
                         if (pebbleTabGroup) {
                             if (config.scrollable) {
@@ -319,13 +329,13 @@ switch between different views or functional aspects of an app or to browse cate
                     }
                 },
 
-                _loadContent: function (config, tabName) {
+                _loadContent: function (config, tabName, reload) {
                     if (config) {
                         var viewName = config.name;
                         viewName = tabName ? tabName + '-' + viewName : viewName;
                         var contentElement = this.$$("#content-" + viewName);
 
-                        if (contentElement && contentElement.children.length > 0 && this._configHasNoChange(contentElement,config)) {
+                        if (contentElement && contentElement.children.length > 0 && !reload) {
                             this._showView(viewName);
 
                             if (this._currentTabName && this._currentTabName != viewName) {
@@ -334,43 +344,14 @@ switch between different views or functional aspects of an app or to browse cate
                             this._currentTabName = viewName;
                         } else {
                             if (config.component) {
-                                this.importHref(config.component.path, function (e) {
-                                    //component file import successful
-                                    var dynamicEl = document.createElement(config.component.name);
-
-                                    for (var property in config.component.properties) {
-                                        if (config.component.properties.hasOwnProperty(property)) {
-
-                                            var val = config.component.properties[property];
-
-                                            if (typeof val == "object") {
-                                                dynamicEl.setAttribute(property, JSON.stringify(
-                                                    val));
-                                            } else {
-                                                dynamicEl.setAttribute(property, val);
-                                            }
-                                        }
-                                    }
-
-                                    dynamicEl.setAttribute("id", "tabComponent");
-                                    dynamicEl.setAttribute("class", dynamicEl.getAttribute(
-                                        "class") + " view-component");
-
-                                    Polymer.dom(contentElement).appendChild(dynamicEl);
-
+                                    ComponentHelper.loadContent(contentElement, config.component, this);
                                     this._showView(viewName);
-
                                     if (this._currentTabName && this._currentTabName != viewName) {
                                         this._hideView(this._currentTabName);
                                     }
                                     this._currentTabName = viewName;
-
-                                }, function (e) {
-                                    console.log(e);
-                                });
+                                }
                             }
-                        }
-
                     } else {
                         console.log("Tabconfig not available");
                     }
@@ -410,18 +391,45 @@ switch between different views or functional aspects of an app or to browse cate
                     }
                 },
 
-                _configHasNoChange: function(contentElement, config) {
-                    if(contentElement.children[0].locales && config.component.properties["locales"]) {
-                        if(contentElement.children[0].locales.length != config.component.properties["locales"].length
-                            || contentElement.children[0].locales[0].locale != config.component.properties["locales"][0].locale
-                            || contentElement.children[0].source != config.component.properties["source"]
-                            || contentElement.children[0].list != config.component.properties["list"]) {
-                                var element = contentElement.children[0];
-                                Polymer.dom(contentElement).removeChild(element);
-                                return false;
+                reloadCurrentTab: function() {
+                    //to reload the current selected tab after any changes to tabItemConfig
+                    //no inputs to this method. Find out the current selected tab and call _loadContent()
+                    var currentItem = this.$$("#" + this.id).selectedItem;
+                    if(currentItem) {
+                        var currentTabConfig = currentItem.tabConfig;
+                        var currentTabMenuConfig = currentItem.menuItemConfig;
+                    }
+                    var reload = true;
+                    if(currentTabConfig && currentTabMenuConfig) {
+                        this._loadContent(currentTabMenuConfig, currentTabConfig.name, reload);
+                    }
+                    else {
+                        this._loadContent(currentTabConfig, null, reload);
+                    }
+                },
+
+                reloadTabs: function() {
+                    if(this.config && this.config.tabItems && this.config.tabItems.length > 0) {
+                        var tabItems = this.config.tabItems;
+                        for(var i=0; i< tabItems.length; i++) {
+                            var tabItem = tabItems[i];
+                            var tabName = tabItem.name;
+                            var contentElement = this.$$('#content-' + tabName);
+                            if(contentElement && contentElement.firstChild) {
+                                Polymer.dom(contentElement).removeChild(contentElement.firstChild);
+                            }
+                            if(tabItem.menuItems && tabItem.menuItems.length>0) {
+                                for(var j=0; j<tabItem.menuItems.length; j++) {
+                                    var meuItemName = tabItem.menuItems[j].name;
+                                    var menuContentElement = this.$$('#content-' + tabName + '-' + meuItemName);
+                                    if(menuContentElement && menuContentElement.firstChild) {
+                                        Polymer.dom(menuContentElement).removeChild(menuContentElement.firstChild);
+                                    }
+                                }
+                            }
                         }
                     }
-                    return true;
+                    this.reloadCurrentTab();
                 }
             });
         })();
