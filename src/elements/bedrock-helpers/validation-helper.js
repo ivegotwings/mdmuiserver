@@ -51,6 +51,9 @@ function fileExtensionValidator(input, allowedFiles) {
 }
 
 function dateRangeValidator(input, format, min, max){
+    if(!min && !max){
+        return true;
+    }
     var inputDate=moment(input,format);
     var minDate=moment(min,format);
     var maxDate=moment(max,format);
@@ -66,4 +69,10 @@ function dateRangeValidator(input, format, min, max){
     } else{
         return false;
     }
+}
+function getDateByFormat(datevalue,dateFormat) {
+        if(typeof datevalue=="string"){
+            return datevalue;
+        }
+        return moment(datevalue).format(dateFormat);
 }
