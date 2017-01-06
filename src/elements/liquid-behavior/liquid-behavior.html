@@ -188,22 +188,6 @@
                 return;
             }
 
-            if (this._executeRequest) {
-                var model = RUFBehaviors.DataChannel.getModel();
-
-                this._executeRequest(model, request)
-                    .then(function (resPkg) {
-                        return self._handleResponse(request, resPkg);
-                    },
-                    function (errPkg) {
-                        return self._handleError(request, errPkg);
-                    });
-            }
-            else {
-                throw "_executeRequest method is not defined";
-                return;
-            }
-
             this.push('activeRequests', request);
             this._setLastRequest(request);
             this._setLoading(true);
@@ -216,22 +200,61 @@
                 request: request
             }, { bubbles: this.bubbles });
 
+            if (this._executeRequest) {
+                var model = RUFBehaviors.DataChannel.getModel();
+                var modelResponse = this._executeRequest(model, request);
+                if(!this._handleModelResponse(request, modelResponse)) //if mode response is not queued ...no need to create active request..
+                    return;
+            }
+            else {
+                throw "_executeRequest method is not defined";
+                return;
+            }
+
             return request;
         },
         _executeRequest: function (model, request) {
-            //do nothing.. as this is abstract method.
+            //abstract method....do nothing...all elements implementing this behavior must implement this method
         },
         _createRequest: function () {
             return {
                 "operation": this.operation,
-                "requestId": this.requestId,
+                "requestId": this.requestId === undefined ? '' : this.requestId,
                 "requestData": this.requestData
             }
+        },
+        _handleModelResponse: function(request, modelResponse){
+            var self = this;
+
+            if(modelResponse && modelResponse.then){
+                modelResponse.then(function (resPkg) {
+                    return self._handleResponse(request, resPkg);
+                },
+                function (errPkg) {
+                    return self._handleError(request, errPkg);
+                });
+
+                return true;
+            }
+            else {
+                if(modelResponse && modelResponse.status && modelResponse.status === "success"){
+                    return self._handleResponse(request, modelResponse);
+                }
+                else if(modelResponse && modelResponse.status && modelResponse.status === "error"){
+                    self._handleError(request, modelResponse);
+                }
+
+                return false;
+            }
+
+            return true;
         },
         _handleResponse: function (request, responsePkg) {
             console.log('_handleResponse called with :', request, responsePkg);
 
-            var response = this._createSuccessResponse(request, responsePkg);
+            var formattedResponse = this._formatResponse(request, responsePkg);
+
+            var response = this._createSuccessResponse(request, formattedResponse);
 
             if (request === this.lastRequest) {
                 this._setLastResponse(response);
@@ -242,6 +265,8 @@
             var eventDetail = { 'request': request, 'response': response };
             this.fire('response', eventDetail, { bubbles: this.bubbles });
             this.fire('liquid-response', eventDetail, { bubbles: this.bubbles });
+
+            this._discardRequest(request);
         },
         _handleError: function (request, errorPkg) {
             console.log('handler error called');
@@ -255,7 +280,6 @@
             if (request === this.lastRequest) {
                 this._setLastError(errResponse);
                 this._setLastResponse(null);
-                this._discardRequest(request);
                 this._setLoading(false);
             }
 
@@ -264,6 +288,12 @@
             // Tests fail if this goes after the normal this.fire('error', ...)
             this.fire('liquid-error', eventDetail, { bubbles: this.bubbles });
             this.fire('error', eventDetail, { bubbles: this.bubbles });
+
+            this._discardRequest(request);
+        },
+        _formatResponse: function(request, rawResponsePkg){
+            return rawResponsePkg;
+            //abstract method....do nothing...all elements implementing this behavior must implement this method
         },
         _createSuccessResponse: function (request, data) {
             var clonedData = JSON.parse(JSON.stringify(data));
@@ -301,16 +331,6 @@
                     this.generateRequest();
                 }
             }, this.debounceDuration);
-        },
-        _getParentElement: function () {
-            if (this.parentElement) {
-                return this.parentElement;
-            }
-            else if (this.parentNode) {
-                return this.parentNode;
-            }
-
-            return null;
         }
     };
 

@@ -1,5 +1,5 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
-<link rel="import" href="../bedrock-datachannel/bedrock-datachannel.html">
+<link rel="import" href="../liquid-behavior/liquid-behavior.html">
 <!--
 `liquid-entity-getdata`
 Boolean control
@@ -15,218 +15,125 @@ Boolean control
 
             Polymer({
                 is: 'liquid-entity-getdata',
-                behaviors: [RUFBehaviors.DataChannel],
-                attached: function () { },
-                ready: function () { },
+                behaviors: [RUFBehaviors.LiquidBehavior],
+                attached: function () {
+                },
+                ready: function () {
+                },
                 properties: {
-                    auto: {
-                        type: Boolean,
-                        value: false
-                    },
-                    operation: {
-                        type: String, // 'initiatesearch', 'getsearchresultdetail', 'getentities'
-                        value: ''
-                    },
-                    request: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        },
-                        notify: true
-                    },
-                    response: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        },
-                        notify: true
-                    },
-                    requestId: {
-                        type: String,
-                        value: '',
-                        notify: true
-                    },
-                    logInternalDetail: {
-                        type: Boolean,
-                        value: false,
-                        notify: true
+                },
+                _executeRequest: function (model, request) {
+                    var op = request.operation,
+                        reqId = request.requestId === undefined ? '' : request.requestId,
+                        reqData = request.requestData;
+
+                    if (op === 'initiatesearch') {
+                        return this._callInitiateSearch(model, reqData);
+                    } else if (op === 'getsearchresultdetail') {
+                        return this._callSearchResultDetail(model, request);
+                    } else if (op === 'getentities') {
+                        return this._callGetEntities(model, reqData);
+                    }
+                    else {
+                        throw 'exception: operation ' + op + ' is not supported in ' + this.is + ' element.';
                     }
                 },
-                observers: [
-                    '_requestChanged(requestId, request)'
-                ],
-                generateRequest: function () {
-                    this._makeServiceCall(this.requestId, this.request);
-                },
-                _requestChanged: function (requestId, request) {
-                    if (this.auto) {
-                        this._makeServiceCall(requestId, request);
+                _formatResponse: function(request, rawResponsePkg){
+                    var op = request.operation;
+
+                    if (op === 'initiatesearch') {
+                        var resSearchResultId = Object.keys(rawResponsePkg.json.searchResults)[0];
+                        return rawResponsePkg.json.searchResults[resSearchResultId];
+                    } else if (op === 'getentities' || op === 'getsearchresultdetail') {
+                        var pathRootKey = "entitiesById";
+                        return { 'entities': rawResponsePkg.json[pathRootKey] };
                     }
                 },
-                _makeServiceCall: function (requestId, request) {
-                    var operation = this.operation,
-                        self = this;
-
-                    if (request) {
-                        var model = RUFBehaviors.DataChannel.getModel();
-
-                        if (operation == 'initiatesearch') {
-                            self._callInitiateSearch(self, model, request);
-                        } else if (requestId != '' && operation == 'getsearchresultdetail') {
-                            self._callSearchResultDetail(self, model, requestId, request);
-                        } else if (operation == 'getentities') {
-                            self._callGetEntities(self, model, request);
-                        }
-                    }
-                },
-                _callInitiateSearch: function (self, model, request) {
-
-                    model.call(["searchResults", "create"], [request], [], []).then(function (
-                        responsePkg) {
-                        var resSearchResultId = Object.keys(responsePkg.json.searchResults)[0];
-                        var resSearchResultObj = responsePkg.json.searchResults[
-                            resSearchResultId];
-                        var responseObj = self._createSuccessResponse(resSearchResultObj);
-
-                        if (self.logInternalDetail) {
-                            RUFBehaviors.DataChannel.updateCallCounters(self.operation);
-                            console.log('Request for initiate search call: ', request);
-                            console.log('Response from initiate search call: ', responseObj);
-                            console.log('Approx. no of total calls to api server at :', Date.now(),
-                                RUFBehaviors.DataChannel.getCallCounters());
-                        }
-
-                        self.set('response', responseObj);
-                    },
-                        function (reason) { //on failure
-                            self.response = self._createErrorResponse(reason);
-                        });
-                },
-                _callSearchResultDetail: function (self, model, requestId, request) {
-                    if (self.logInternalDetail) {
-                        console.log('Request Id for get search result detail: ', requestId);
-                    }
-
-                    model.get(["searchResults", requestId, "totalRecords"]).then(function (
-                        totalRecordsPkg) {
-                        var totalRecords = totalRecordsPkg.json.searchResults[requestId].totalRecords;
-                        var from = 0;
-                        var to = 1000;
-                        var to1 = (to + 1) < totalRecords ? to : totalRecords - 1; // make sure to range is < total records
-
-                        model.get(["searchResults", requestId, "entities", [{
-                            'from': from,
-                            'to': to1
-                        }]]).then(function (responsePkg) {
-                            if (self.logInternalDetail) {
-                                RUFBehaviors.DataChannel.updateCallCounters(self.operation);
-                                console.log(
-                                    'Response from get search result detail call: ',
-                                    responsePkg);
-                                console.log(
-                                    'Approx. no of total calls to api server at :',
-                                    Date.now(), RUFBehaviors.DataChannel.getCallCounters()
-                                );
-                            }
-
-                            if (responsePkg !== undefined) {
-                                var entities = responsePkg.json.searchResults[requestId]
-                                    .entities;
-
-                                var entityIds = [];
-                                for (var e in entities) {
-                                    entityIds.push(entities[e].id);
-                                }
-
-                                if (entityIds.length > 0) {
-                                    self._callGetEntities(self, model, request,
-                                        entityIds);
-                                }
-                            } else {
-                                self._callGetEntities(self, model, request,
-                                    []);
-                            }
-                        },
-                            function (reason) { //on failure of getting search result detail
-                                self.response = self._createErrorResponse(reason);
-                            });
-                    },
-                        function (reason) { //on failure of getting total records
-                            self.response = self._createErrorResponse(reason);
-                        });
-                },
-                _callGetEntities: function (self, model, request, entityIds) {
-                    if (request === undefined || request.data === undefined) {
+                _callGetEntities: function (model, reqData, entityIds) {
+                    if (reqData === undefined || reqData.data === undefined) {
                         return;
                     }
 
-                    if (self.logInternalDetail) {
-                        console.log('Request for get entities call...request: ', request,
-                            ' entityIds: ', entityIds);
+                    if (this.verbose) {
+                        console.log('Request for get entities call...request: ', reqData, ' entityIds: ', entityIds);
                     }
 
-                    if ((!entityIds || entityIds.length == 0) &&
-                        request.data && request.data.query && request.data.query.id) {
+                    if ((!entityIds || entityIds.length == 0) && reqData.data && reqData.data.query && reqData.data.query.id) {
                         entityIds = [];
-                        entityIds.push(request.data.query.id);
+                        entityIds.push(reqData.data.query.id);
                     }
 
                     if (!entityIds || entityIds.length == 0) {
-                        self.response = self._createErrorResponse(
-                            "Cannot find entityIds for get request");
+                        throw "Cannot find entityIds for get request";
                         return;
                     }
 
-                    var contextKeys = self._createContextKeys(request);
+                    var contextKeys = this._createContextKeys(reqData);
 
-                    var attrs = request.data.fields.attributes;
+                    var attrs = reqData.data.fields.attributes;
 
                     var pathRootKey = "entitiesById";
 
                     var path1 = [pathRootKey, entityIds, ['id', 'dataObjectInfo', 'systemInfo', 'properties']];
                     var path2 = [pathRootKey, entityIds, "data", "ctxInfo", contextKeys, "attributes", attrs, "values"];
 
-                    model.get(path1, path2).then(function (responsePkg) {
-                        if (self.logInternalDetail) {
-                            RUFBehaviors.DataChannel.updateCallCounters(self.operation);
-                            console.log('getEntities raw response ', responsePkg);
-                        }
-
-                        self.response = self._createSuccessResponse({ 'entities': responsePkg.json[pathRootKey] });
-
-                        if (self.logInternalDetail) {
-                            //console.log('Response from get entities call: ', JSON.stringify(responsePkg.json[pathRootKey], null, 4));
-                            console.log('Response from get entities call: ', responsePkg.json[pathRootKey]);
-                            console.log('Approx. no of total calls to api server at :', Date.now(), RUFBehaviors.DataChannel.getCallCounters());
-                        }
-                    },
-                        function (reason) {
-                            self.response = self._createErrorResponse(reason);
-                        });
+                    return model.get(path1, path2);
                 },
-                _createSuccessResponse: function (data) {
-                    var clonedData = JSON.parse(JSON.stringify(data));
-                    return {
-                        'status': 'success',
-                        'content': clonedData
-                    };
+                _callInitiateSearch: function (model, reqData) {
+                   return model.call(["searchResults", "create"], [reqData], [], []);
                 },
-                _createErrorResponse: function (reason) {
-                    var result = {
-                        'status': 'error',
-                        'reason': reason
-                    };
+                _callSearchResultDetail: function (model, request) {
+                    var self = this,
+                        reqId = request.requestId === undefined ? '' : request.requestId,
+                        reqData = request.requestData,
+                        totalRecords = 0;
 
-                    if (this.logInternalDetail) {
-                        console.log('Error response for the operation: ', this.operation, result);
+                    if(reqId === ''){
+                        return {}; // this means do nothing..
                     }
 
-                    return result;
+                    if (this.verbose) {
+                        console.log('Request Id for get search result detail: ', reqId);
+                    }
+
+                    var totalRecordsResponse = this._callSearchResultTotalRecordsGet(model, reqId);
+                    totalRecordsResponse.then(function (totalRecordsPkg) {
+                        totalRecords = totalRecordsPkg.json.searchResults[reqId].totalRecords;
+
+                        var from = 0;
+                        var to = 1000;
+                        var to1 = (to + 1) < totalRecords ? to : totalRecords - 1; // make sure to range is < total records
+
+                        var entityIdsGetModelResponse = self._callSearchResultEntityIdsGet(model, reqId, from, to1);
+                        entityIdsGetModelResponse.then(function (responsePkg) {
+                            if (responsePkg !== undefined) {
+                                var entities = responsePkg.json.searchResults[reqId].entities;
+                                var entityIds = [];
+                                for (var e in entities) {
+                                    entityIds.push(entities[e].id);
+                                }
+
+                                if (entityIds.length > 0) {
+                                    var getEntitiesModelResponse = self._callGetEntities(model, reqData, entityIds);
+                                    return self._handleModelResponse(request, getEntitiesModelResponse);
+                                }
+                            } else {
+                                self._callGetEntities(self, model, request,
+                                    []);
+                            }
+                        });
+                    });
                 },
-                _createContextKeys: function (request) {
+                _callSearchResultTotalRecordsGet: function(model, reqId, reqData){
+                    return model.get(["searchResults", reqId, "totalRecords"]);
+                },
+                _callSearchResultEntityIdsGet: function(model, reqId, from, to){
+                    return model.get(["searchResults", reqId, "entities", [{ 'from': from, 'to': to }]]);
+                },
+                _createContextKeys: function (reqData) {
                     var contextKeys = []
-                    request.data.query.ctx.forEach(function (ctxGroup) {
-                        request.data.query.valCtx.forEach(function (valCtxGroup) {
+                    reqData.data.query.ctx.forEach(function (ctxGroup) {
+                        reqData.data.query.valCtx.forEach(function (valCtxGroup) {
                             var contextKey = "".concat(ctxGroup.list, '#@#', ctxGroup.classification,
                                 '#@#', valCtxGroup.source, '#@#', valCtxGroup.locale
                             );
