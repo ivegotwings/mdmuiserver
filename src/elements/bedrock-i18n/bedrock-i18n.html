@@ -1,80 +1,128 @@
-<link rel="import" href="../../../bower_components/app-localize-behavior/app-localize-behavior.html">
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
+<script src="../../../bower_components/intl-messageformat/dist/intl-messageformat.min.js"></script>
+
 <script>
   /***
-   * `RUFBehaviors.Internationalization` wraps the Polymer.AppLocalizeBehavior component and in turn [format.js](http://formatjs.io/) library to
-   * help you internationalize your application. Note that if you are on a browser that
-   * does not natively support the [Intl](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl)
-   * object, you must load the polyfill yourself. An example polyfill can be found [here](https://github.com/andyearnshaw/Intl.js/).
-   *
-   * `RUFBehaviors.Internationalization` supports the same [message-syntax](http://formatjs.io/guides/message-syntax/)
-   * of format.js, in its entirety; use the library docs as reference for the
-   * available message formats and options.
-   *
-   * Sample application loading resources:
-   *
-   *     <dom-module id="x-app">
-   *        <template>
-   *         <div>{{localize('hello', 'name', 'Batman')}}</div>
-   *        </template>
-   *        <script>
-   *           Polymer({
-   *             is: "x-app",
-   *
-   *             behaviors: [
-   *               RUFBehaviors.Internationalization
-   *             ],
-   *
-   *             properties: {
-   *               language: {
-   *                 value: 'en'
-   *               },
-   *             }
-   *             //explicitly loading resources from remote url if bedrock-init is not used
-   *             attached: function() {
-   *               this.loadResources(this.resolveUrl('locales.json'));
-   *             },
-   *           });
-   *        &lt;/script>
-   *     </dom-module>
-   *
-   * Alternatively, you can also inline your resources inside the app itself:
-   *
-   *     <dom-module id="x-app">
-   *        <template>
-   *         <div>{{localize('hello', 'name', 'Batman')}}</div>
-   *        </template>
-   *        <script>
-   *           Polymer({
-   *             is: "x-app",
-   *
-   *             behaviors: [
-   *               RUFBehaviors.Internationalization
-   *             ],
-   *
-   *             properties: {
-   *               language: {
-   *                 value: 'en'
-   *               },
-   *               //overriding resources if bedrock-init is not used
-   *               resources: {
-   *                 value: function() {
-   *                   return {
-   *                     'en': { 'hello': 'My name is {name}.' },
-   *                     'fr': { 'hello': 'Je m\'apelle {name}.' }
-   *                   }
-   *               }
-   *             }
-   *           });
-   *        &lt;/script>
-   *     </dom-module>
-   *
-   * @demo demo/index.html
-   * @polymerBehavior RUFBehaviors.Internationalization
-   */
+  * `RUFBehaviors.Internationalization` wraps the [format.js](http://formatjs.io/) library to
+  * help you internationalize your application. Note that if you are on a browser that
+  * does not natively support the [Intl](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl)
+  * object, you must load the polyfill yourself. An example polyfill can be found [here](https://github.com/andyearnshaw/Intl.js/).
+  *
+  * `RUFBehaviors.Internationalization` supports the same [message-syntax](http://formatjs.io/guides/message-syntax/)
+  * of format.js, in its entirety; use the library docs as reference for the
+  * available message formats and options.
+  *
+  * Sample application loading resources:
+  *
+  *     <dom-module id="x-app">
+  *        <template>
+  *         <div>{{localize('hello', 'name', 'Batman')}}</div>
+  *        </template>
+  *        <script>
+  *           Polymer({
+  *             is: "x-app",
+  *
+  *             behaviors: [
+  *               RUFBehaviors.Internationalization
+  *             ],
+  *
+  *             properties: {
+  *               language: {
+  *                 value: 'en'
+  *               },
+  *             }
+  *             //explicitly loading resources from remote url if bedrock-init is not used
+  *             attached: function() {
+  *               this.loadResources(this.resolveUrl('locales.json'));
+  *             },
+  *           });
+  *        &lt;/script>
+  *     </dom-module>
+  *
+  * Alternatively, you can also inline your resources inside the app itself:
+  *
+  *     <dom-module id="x-app">
+  *        <template>
+  *         <div>{{localize('hello', 'name', 'Batman')}}</div>
+  *        </template>
+  *        <script>
+  *           Polymer({
+  *             is: "x-app",
+  *
+  *             behaviors: [
+  *               RUFBehaviors.Internationalization
+  *             ],
+  *
+  *             properties: {
+  *               language: {
+  *                 value: 'en'
+  *               },
+  *               //overriding resources if bedrock-init is not used
+  *               resources: {
+  *                 value: function() {
+  *                   return {
+  *                     'en': { 'hello': 'My name is {name}.' },
+  *                     'fr': { 'hello': 'Je m\'apelle {name}.' }
+  *                   }
+  *               }
+  *             }
+  *           });
+  *        &lt;/script>
+  *     </dom-module>
+  *
+  * @demo demo/index.html
+  * @polymerBehavior RUFBehaviors.Internationalization
+  */
+
   window.RUFBehaviors = window.RUFBehaviors || {};
   RUFBehaviors.Internationalization = {
 
+    /**
+     * Internal singleton cache. This is the private implementation of the
+     * behaviour; don't interact with it directly.
+     */
+    __localizationCache: {
+      requests: {},  /* One iron-request per unique resources path. */
+      messages: {},  /* Unique localized strings. Invalidated when the language, formats or resources change. */
+      ajax: null     /* Global iron-ajax object used to request resource files. */
+    },
+
+    /**
+     * If the element is using `pathToResources` to load an external resources
+     * file, fired when the file has been loaded.
+     *
+     * @event localize-resources-loaded
+     */
+
+    /**
+     * If the element is using `pathToResources` to load an external resources
+     * file, fired when the file cannot be loaded due to an error.
+     *
+     * @event localize-resources-error
+     */
+
     properties: {
+      /**
+       * The language used for translation.
+       */
+      language: {
+        type: String
+      },
+
+      /**
+       * The dictionary of localized messages, for each of the languages that
+       * are going to be used. See http://formatjs.io/guides/message-syntax/ for
+       * more information on the message syntax.
+       *
+       * For example, a valid dictionary would be:
+       * this.resources = {
+       *  'en': { 'greeting': 'Hello!' }, 'fr' : { 'greeting': 'Bonjour!' }
+       * }
+       */
+      resources: {
+        type: Object
+      },
       /**
        * Indicates key for the translation.If it is set to <b>true</b>, then it uses provided key when
        * the translation does not exist for that key.
@@ -83,6 +131,43 @@
         type: Boolean,
         value: true
       },
+      /**
+       * Optional dictionary of user defined formats, as explained here:
+       * http://formatjs.io/guides/message-syntax/#custom-formats
+       *
+       * For example, a valid dictionary of formats would be:
+       * this.formats = {
+       *    number: { USD: { style: 'currency', currency: 'USD' } }
+       * }
+       */
+      formats: {
+        type: Object,
+        value: function () { return {} }
+      },
+
+      /**
+      * Indicates key for the translation.If it is set to <b>true</b>, then it uses provided key when
+      * the translation does not exist for that key.
+      */
+      useKeyIfMissing: {
+        type: Boolean,
+        value: false
+      },
+
+      /**
+       * Translates a string to the current `language`. Any parameters to the
+       * string should be passed in order, as follows:
+       * `localize(stringKey, param1Name, param1Value, param2Name, param2Value)`
+       */
+      localize: {
+        type: Function,
+        computed: '__computeLocalize(language, resources, formats)'
+      },
+
+      pathToResources: {
+        type: String
+      },
+
       /**
        * Indicates overriden resources, which are specific to rock element or page.
        */
@@ -94,7 +179,7 @@
     ready: function () {
       var _this = this;
       if (this.nodeName == 'BEDROCK-INIT') {
-        this.addEventListener('app-localize-resources-loaded', function () {
+        this.addEventListener('localize-resources-loaded', function () {
           var proto = this.constructor.prototype;
           proto.__localizationCache.loadedResources = this.resources;
           this.fire('resources-loaded', {
@@ -111,12 +196,12 @@
     },
 
     /**
-     * Initializes the internationalization resources.
-     *
-     * @method init
-     * @param {(String)} resourcePath The remote path for resource
-     * @param {(String)} localeLanguage The locale language for resource
-     */
+    * Initializes the internationalization resources.
+    *
+    * @method init
+    * @param {(String)} resourcePath The remote path for resource
+    * @param {(String)} localeLanguage The locale language for resource
+    */
     init: function (resourcePath, localeLanguage) {
 
       if (localeLanguage != undefined && localeLanguage != '') {
@@ -128,19 +213,14 @@
         }
       }
     },
-    /**
-     * Appends the localization resources.
-     *
-     * @method appendResource
-     * @param {(String)} path The remote path for resource
-     * @param {(String)} elementId The consumer component id
-     */
-    appendResource: function (path, elementId) {
+
+    loadResources: function (path) {
       var proto = this.constructor.prototype;
 
       // If the global ajax object has not been initialized, initialize and cache it.
       var ajax = proto.__localizationCache.ajax;
       if (!ajax) {
+        //ToDo: Use liquid element for localization config
         ajax = proto.__localizationCache.ajax = document.createElement('iron-ajax');
       }
 
@@ -150,39 +230,79 @@
         var request = ajax.generateRequest();
 
         request.completes.then(
-          this.__onAppendRequestResponse.bind(this),
-          this.__onAppendRequestError.bind(this));
+          this.__onRequestResponse.bind(this),
+          this.__onRequestError.bind(this));
 
         // Cache the instance so that it can be reused if the same path is loaded.
         proto.__localizationCache.requests[path] = request;
       } else {
         request.completes.then(
-          this.__onAppendRequestResponse.bind(this),
-          this.__onAppendRequestError.bind(this));
+          this.__onRequestResponse.bind(this),
+          this.__onRequestError.bind(this));
       }
     },
 
     /**
-     * Switches the language for resources.
-     *
-     * @method switchLangauge
-     * @param {(String)} newDefaultLangauge The new language for resources
-     */
+    * Switches the language for resources.
+    *
+    * @method switchLangauge
+    * @param {(String)} newDefaultLangauge The new language for resources
+    */
     switchLangauge: function (newDefaultLangauge) {
       if (newDefaultLangauge != undefined) {
         this.language = newDefaultLangauge;
       }
     },
-    __onAppendRequestResponse: function (event) {
-      if (event.response) {
-        //ToDo: prepare context specific key and append resources
-        this.overridenResources = event.response;
-      }
-    },
-    __onAppendRequestError: function (event) {
 
+    /**
+     * Returns a computed `localize` method, based on the current `language`.
+     */
+    __computeLocalize: function (language, resources, formats) {
+        var proto = this.constructor.prototype;
+
+        // Everytime any of the parameters change, invalidate the strings cache.
+        proto.__localizationCache.messages = {};
+
+        return function () {
+          var key = arguments[0];
+          if (!key || !resources || !language || !resources[language])
+            return;
+
+          // Cache the key/value pairs for the same language, so that we don't
+          // do extra work if we're just reusing strings across an application.
+          var translatedValue = resources[language][key];
+
+          if (!translatedValue) {
+            return this.useKeyIfMissing ? key : '';
+          }
+
+          var messageKey = key + translatedValue;
+          var translatedMessage = proto.__localizationCache.messages[messageKey];
+
+          if (!translatedMessage) {
+            translatedMessage = new IntlMessageFormat(translatedValue, language, formats);
+            proto.__localizationCache.messages[messageKey] = translatedMessage;
+          }
+
+          var args = {};
+          for (var i = 1; i < arguments.length; i += 2) {
+            args[arguments[i]] = arguments[i + 1];
+          }
+
+          return translatedMessage.format(args);
+        };
+    },
+
+    __onRequestResponse: function (event) {
+      this.resources = event.response;
+      this.fire('localize-resources-loaded');
+    },
+
+    __onRequestError: function (event) {
+      this.fire('localize-resources-error');
     }
 
   };
-  RUFBehaviors.Internationalization = [Polymer.AppLocalizeBehavior, RUFBehaviors.Internationalization];
+
+
 </script>
