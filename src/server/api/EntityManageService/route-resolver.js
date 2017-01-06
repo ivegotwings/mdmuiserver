@@ -136,21 +136,22 @@ async function getEntities(pathSet) {
     return response;
 }
 
-//route1: "entitiesById[{keys:entityIds}][{keys:entityFields}]"
-//route2: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].values"
-async function updateEntities(jsonEnvelope) {
-    //console.log('saveEntities input data', JSON.stringify(jsonEnvelope, null, 4));
+//route1: "entitiesById[{keys:entityIds}].updateEntities"
+async function updateEntities(callPath, args, callerName) {
 
-    var response = [];
-    var pathRootKey = "entitiesById";
-    var entityFields = ["id", "dataObjectInfo", "systemInfo", "properties"];
+    var entityIds = callPath.entityIds,
+        jsonEnvelope = args[0],
+        entityFields = ["id", "dataObjectInfo", "systemInfo", "properties"],
+        response = [],
+        pathRootKey = "entitiesById";
+        
+    var entities = jsonEnvelope.json.entitiesById;
 
-    for (var entityId in jsonEnvelope[pathRootKey]) {
-        var entity = jsonEnvelope[pathRootKey][entityId];
+    for (var entityId in entities) {
+        var entity = entities[entityId];
 
-        entity.id = entityId; // TODO:: this has to be setup as input json does not send id property for now..
+        entity.id = entityId;
         entity = unboxEntityData(entity);
-
         var transformedEntity = transformEntityToExternal(entity);
 
         //console.log('entity data', JSON.stringify(entity, null, 4));
@@ -164,7 +165,7 @@ async function updateEntities(jsonEnvelope) {
 
         var dataOperationResponse = await entityManageService.updateEntities(apiReqestObj);
         //console.log('entity api UPDATE raw response', JSON.stringify(dataOperationResponse, null, 4));
-        
+                
         if (entity.dataObjectInfo) {
             response.push.apply(response, buildEntityFieldsResponse(entity, entityFields, pathRootKey));
         }
