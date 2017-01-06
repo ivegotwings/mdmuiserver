@@ -126,9 +126,10 @@
     </rock-sidebar>
     <div class="content">
         <template is="dom-if" if="true" id="tabsTemplate">
-            <rock-tabs config="{{_tabConfig}}">
+            <rock-tabs id="rockTabs" config="{{_tabConfig}}">
             </rock-tabs>
-            <iron-ajax auto url="../../data/EntityManageApp/app-entity-manage-tab-config.json" handle-as="json" last-response="{{_tabConfig}}"></iron-ajax>
+            <iron-ajax auto url="../../data/EntityManageApp/app-entity-manage-tab-config.json" handle-as="json" on-response="_handleResponse"></iron-ajax>
+            <bedrock-pubsub event-name="component-creating" handler="onComponentCreating" target-id="rockTabs"></bedrock-pubsub>
         </template>
     </div>
     <pebble-dialog id="pebbleDialog">
@@ -176,14 +177,15 @@
                 source: {
                     type: String,
                     notify: true
+                },
+                locales: {
+                    type: Array
                 }
             },
             behaviors: [
                 RUFBehaviors.UIBehavior
             ],
             onLocaleChangeEvent: function (e, detail, sender) {
-                var originalTabConfig = this._tabConfig;
-                this._tabConfig = null;
                 var locales = [];
                 if (detail.data.text != "All") {
                     var locale = { "locale": detail.data.text, "language": detail.data.language };
@@ -196,23 +198,31 @@
                     { "locale": "fr-FR", "language": "French" }];
                 }
                 this._toggleStepper(locales);
-                var dimensionValue = locales;
                 this.locale = locales[0].locale;
-                this._tabConfig = this._updateTabConfig(originalTabConfig, "locales", dimensionValue, "attributes");
+                this.locales = locales;
+                this.$$('rock-tabs').reloadCurrentTab();
             },
             onCatalogChangeEvent: function (e, detail, sender) {
-                var originalTabConfig = this._tabConfig;
-                this._tabConfig = null;
-                var dimensionValue = detail.data.value;
-                this.list = dimensionValue;
-                this._tabConfig = this._updateTabConfig(originalTabConfig, "list", dimensionValue, "attributes");
+                this.list = detail.data.value;
+                this.$$('rock-tabs').reloadCurrentTab();
             },
             onSourceChangeEvent: function (e, detail, sender) {
-                var originalTabConfig = this._tabConfig;
-                this._tabConfig = null;
-                var dimensionValue = detail.data.value;
-                this.source = dimensionValue;
-                this._tabConfig = this._updateTabConfig(originalTabConfig, "source", dimensionValue, "attributes");
+                this.source = detail.data.value;
+                this.$$('rock-tabs').reloadCurrentTab();
+            },
+            onComponentCreating: function (e, detail, sender) {
+                var component = detail.data;
+                if(component.name.includes("attribute") && component.properties) {
+                    if(component.properties.source) {
+                        component.properties.source = this.source;
+                    }
+                    if(component.properties.list) {
+                        component.properties.list = this.list;
+                    }
+                    if(component.properties.locales) {
+                        component.properties.locales = this.locales;
+                    }
+                }
             },
             _confirm: function () {
                 var contentView = document.querySelector("main-app").$$("rock-content-view-manager").$$("rock-content-view:not([hidden])");
@@ -247,38 +257,6 @@
             _cutEvent: function (e, detail, sender) {
                 alert("event triggered: " + detail.eventName);
             },
-            _updateTabConfig: function (originalConfig, dimensionName, dimensionValue, tabItemName) {
-                if (originalConfig && originalConfig.tabItems && originalConfig.tabItems.length > 0) {
-                    for (var i = 0; i < originalConfig.tabItems.length; i++) {
-                        if (originalConfig.tabItems[i].name == tabItemName) {
-                            var item = originalConfig.tabItems[i];
-                            for (var property in item.component.properties) {
-                                if (item.component.properties.hasOwnProperty(property)) {
-                                    if (property == dimensionName) {
-                                        var val = dimensionValue;
-                                        item.component.properties[property] = val;
-                                    }
-                                }
-                            }
-                            if (item.menuItems && item.menuItems.length > 0) {
-                                for (var j = 0; j < item.menuItems.length; j++) {
-                                    var menuItem = item.menuItems[j];
-                                    for (var property in menuItem.component.properties) {
-                                        if (menuItem.component.properties.hasOwnProperty(property)) {
-                                            if (property == dimensionName) {
-                                                var val = dimensionValue;
-                                                menuItem.component.properties[property] = val;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                return originalConfig;
-            },
-
             _toggleStepper: function (locales) {
                 if (locales && locales.length > 1) {
                     this.$.rockSideBar.style.display = "none";
@@ -286,6 +264,13 @@
                 else {
                     this.$.rockSideBar.style.display = "block";
                 }
+            },
+            _handleResponse: function(e) {
+                this._setTabConfigData(e.currentTarget.lastResponse);
+            },
+            _setTabConfigData: function(data) {
+                //can alter the data before setting it to tabConfig for rock-tabs
+                this.set("_tabConfig", data);
             }
         });
     })();
