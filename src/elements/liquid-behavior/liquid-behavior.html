@@ -1,0 +1,317 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../bedrock-datachannel/bedrock-datachannel.html">
+<script>
+    /*
+    * @demo demo/index.html
+    * @polymerBehavior RUFBehaviors.LiquidBehavior
+    */
+    var RUFBehaviors = RUFBehaviors || {};
+
+    RUFBehaviors.LiquidBehavior = {
+        attached: function () { },
+        ready: function () { },
+        /**
+         * Fired when a request is sent.
+         *
+         * @event request
+         * @event liquid-request
+         */
+
+        /**
+         * Fired when a response is received.
+         *
+         * @event response
+         * @event liquid-response
+         */
+
+        /**
+         * Fired when an error is received.
+         *
+         * @event error
+         * @event liquid-error
+         */
+        properties: {
+            /**
+             * If true, automatically performs an Ajax request when either `url` or
+             * `params` changes.
+             */
+            auto: {
+                type: Boolean,
+                value: false
+            },
+            /**
+             * The most recent request made by this iron-ajax element.
+             */
+            lastRequest: {
+                type: Object,
+                value: function(){
+                    return {};
+                },
+                notify: true,
+                readOnly: true
+            },
+            /**
+             * True while lastRequest is in flight.
+             */
+            loading: {
+                type: Boolean,
+                notify: true,
+                readOnly: true
+            },
+            /**
+             * lastRequest's response.
+             *
+             * Note that lastResponse and lastError are set when lastRequest finishes,
+             * so if loading is true, then lastResponse and lastError will correspond
+             * to the result of the previous request.
+             *
+             * The type of the response is determined by the value of `handleAs` at
+             * the time that the request was generated.
+             *
+             * @type {Object}
+             */
+            lastResponse: {
+                type: Object,
+                value: function(){
+                    return {};
+                },
+                notify: true,
+                readOnly: true
+            },
+            /**
+             * lastRequest's error, if any.
+             *
+             * @type {Object}
+             */
+            lastError: {
+                type: Object,
+                value: function(){
+                    return {};
+                },
+                notify: true,
+                readOnly: true
+            },
+            /**
+             * An Array of all in-flight requests originating from this iron-ajax
+             * element.
+             */
+            activeRequests: {
+                type: Array,
+                value: function () {
+                    return [];
+                },
+                notify: true,
+                readOnly: true,
+            },
+            /**
+             * Length of time in milliseconds to debounce multiple automatically generated requests.
+             */
+            debounceDuration: {
+                type: Number,
+                value: 0,
+                notify: true
+            },
+            /**
+             * By default, liquid-element-*'s events bubble. Setting this attribute will cause its
+             * request and response events as well as its iron-ajax-request, -response,  and -error
+             * events to bubble to the window object. The vanilla error event never bubbles when
+             * using shadow dom even if this.bubbles is true because a scoped flag is not passed with
+             * it (first link) and because the shadow dom spec did not used to allow certain events,
+             * including events named error, to leak outside of shadow trees (second link).
+             * https://www.w3.org/TR/shadow-dom/#scoped-flag
+             * https://www.w3.org/TR/2015/WD-shadow-dom-20151215/#events-that-are-not-leaked-into-ancestor-trees
+             */
+            bubbles: {
+                type: Boolean,
+                value: true
+            },
+            /**
+             * If true, error messages will automatically be logged to the console.
+             */
+            verbose: {
+                type: Boolean,
+                value: false
+            },
+            /**
+             * Set the timeout flag on the request.
+             */
+            timeout: {
+                type: Number,
+                value: 0
+            },
+            operation: {
+                type: String,
+                value: '',
+                notify: true
+            },
+            requestId: {
+                type: String,
+                value: '',
+                notify: true
+            },
+            requestData: {
+                type: Object,
+                value: function () {
+                    return {};
+                },
+                notify: true
+            },
+            /**
+             * Prefix to be stripped from a JSON response before parsing it.
+             *
+             * In order to prevent an attack using CSRF with Array responses
+             * (http://haacked.com/archive/2008/11/20/anatomy-of-a-subtle-json-vulnerability.aspx/)
+             * many backends will mitigate this by prefixing all JSON response bodies
+             * with a string that would be nonsensical to a JavaScript parser.
+             *
+             */
+            _jsonPrefix: {
+                type: String,
+                value: ''
+            }
+        },
+        observers: [
+            '_requestOptionsChanged(operation, requestId, requestData.*, timeout, auto)'
+        ],
+        /**
+         * Performs an AJAX request to the specified URL.
+         *
+         * @return {!IronRequestElement}
+         */
+        generateRequest: function () {
+            var request = this._createRequest();
+
+            var self = this;
+
+            if (request.requestData === null || request.operation === '') {
+                console.log('request operation is blank so NO request operation would be generated..terminating gracefully...');
+                return;
+            }
+
+            if (this._executeRequest) {
+                var model = RUFBehaviors.DataChannel.getModel();
+
+                this._executeRequest(model, request)
+                    .then(function (resPkg) {
+                        return self._handleResponse(request, resPkg);
+                    },
+                    function (errPkg) {
+                        return self._handleError(request, errPkg);
+                    });
+            }
+            else {
+                throw "_executeRequest method is not defined";
+                return;
+            }
+
+            this.push('activeRequests', request);
+            this._setLastRequest(request);
+            this._setLoading(true);
+
+            this.fire('request', {
+                request: request
+            }, { bubbles: this.bubbles });
+
+            this.fire('liquid-request', {
+                request: request
+            }, { bubbles: this.bubbles });
+
+            return request;
+        },
+        _executeRequest: function (model, request) {
+            //do nothing.. as this is abstract method.
+        },
+        _createRequest: function () {
+            return {
+                "operation": this.operation,
+                "requestId": this.requestId,
+                "requestData": this.requestData
+            }
+        },
+        _handleResponse: function (request, responsePkg) {
+            console.log('_handleResponse called with :', request, responsePkg);
+
+            var response = this._createSuccessResponse(request, responsePkg);
+
+            if (request === this.lastRequest) {
+                this._setLastResponse(response);
+                this._setLastError(null);
+                this._setLoading(false);
+            }
+
+            var eventDetail = { 'request': request, 'response': response };
+            this.fire('response', eventDetail, { bubbles: this.bubbles });
+            this.fire('liquid-response', eventDetail, { bubbles: this.bubbles });
+        },
+        _handleError: function (request, errorPkg) {
+            console.log('handler error called');
+
+            if (this.verbose) {
+                Polymer.Base._error(errorPkg);
+            }
+
+            var errResponse = this._createErrorResponse(errorPkg);
+
+            if (request === this.lastRequest) {
+                this._setLastError(errResponse);
+                this._setLastResponse(null);
+                this._discardRequest(request);
+                this._setLoading(false);
+            }
+
+            var eventDetail = { 'request': request, 'response': errResponse };
+
+            // Tests fail if this goes after the normal this.fire('error', ...)
+            this.fire('liquid-error', eventDetail, { bubbles: this.bubbles });
+            this.fire('error', eventDetail, { bubbles: this.bubbles });
+        },
+        _createSuccessResponse: function (request, data) {
+            var clonedData = JSON.parse(JSON.stringify(data));
+            return {
+                'status': 'success',
+                'content': clonedData
+            };
+        },
+        _createErrorResponse: function (request, reason) {
+            var result = {
+                'status': 'error',
+                'reason': reason
+            };
+
+            if (this.verbose) {
+                console.log('Error response for the operation: ', request.operation, result);
+            }
+
+            return result;
+        },
+        _discardRequest: function (request) {
+            var requestIndex = this.activeRequests.indexOf(request);
+
+            if (requestIndex > -1) {
+                this.splice('activeRequests', requestIndex, 1);
+            }
+        },
+        _requestOptionsChanged: function () {
+            this.debounce('generate-falcor-request', function () {
+                if (this.requestData == null || this.operation == '') {
+                    return;
+                }
+
+                if (this.auto) {
+                    this.generateRequest();
+                }
+            }, this.debounceDuration);
+        },
+        _getParentElement: function () {
+            if (this.parentElement) {
+                return this.parentElement;
+            }
+            else if (this.parentNode) {
+                return this.parentNode;
+            }
+
+            return null;
+        }
+    };
+
+</script>
