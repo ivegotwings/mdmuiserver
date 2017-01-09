@@ -6,7 +6,8 @@ var jsonGraph = require('falcor-json-graph'),
     $ref = jsonGraph.ref,
     $error = jsonGraph.error,
     $atom = jsonGraph.atom,
-    expireTime = -60 * 60 * 1000; // 60 mins
+    expireTime = -60 * 60 * 1000,
+    pathRootKey = "entitiesById"; // 60 mins
 
 var EntityManageService = require('./EntityManageService');
 
@@ -25,7 +26,7 @@ var createPath = futil.createPath,
     buildEntityAttributesResponse = futil.buildEntityAttributesResponse,
     createRequestJson = futil.createRequestJson;
     
-async function getSingleEntity(request, entityId, entityFields, pathRootKey) {
+async function getSingleEntity(request, entityId, entityFields) {
     var response = [];
     //update entity id in request query for current id
     request.query.id = entityId;
@@ -51,7 +52,7 @@ async function getSingleEntity(request, entityId, entityFields, pathRootKey) {
     }
 
     if (entity === undefined) {
-        response.push(createPath([pathRootKey, entityId], $error(entityId + ' is not found')));
+        response.push(createPath([pathRootKey, entityId], $error(entityId + ' is not found in system for the requested context'), 0));
     }
 
     //console.log('res', JSON.stringify(response, null, 4));
@@ -87,7 +88,7 @@ async function initiateSearchRequest(callPath, args) {
             });
         }
     } else {
-        response.push(createPath(['searchResult', requestId], $error('data not found in system')));
+        response.push(createPath(['searchResult', requestId], $error('data not found in system'), 0));
     }
 
     response.push(createPath(['searchResults', requestId, "totalRecords"], $atom(totalRecords)));
@@ -121,14 +122,14 @@ async function getEntities(pathSet) {
     var ctxKeys = pathSet.ctxKeys === undefined ? [] : pathSet.ctxKeys;
     var attrNames = pathSet.attrNames === undefined ? ['ALL'] : pathSet.attrNames;
 
-    var pathRootKey = pathSet[0];
     var response = [];
-
+    pathRootKey = pathSet[0];
+    
     var request = createRequestJson(ctxKeys, attrNames);
     //console.log('req', JSON.stringify(request));
 
     for (let entityId of entityIds) {
-        var singleEntityResponse = await getSingleEntity(request, entityId, entityFields, pathRootKey);
+        var singleEntityResponse = await getSingleEntity(request, entityId, entityFields);
         response.push.apply(response, singleEntityResponse);
     }
 
@@ -136,21 +137,14 @@ async function getEntities(pathSet) {
     return response;
 }
 
-//route1: "entitiesById[{keys:entityIds}].updateEntities"
-async function updateEntities(callPath, args, callerName) {
+async function processEntities(entities, entityAction, callerName) {
+    //console.log(entityAction, callerName);
 
-    var entityIds = callPath.entityIds,
-        jsonEnvelope = args[0],
-        entityFields = ["id", "dataObjectInfo", "systemInfo", "properties"],
-        response = [],
-        pathRootKey = "entitiesById";
+    var entityFields = ["id", "dataObjectInfo", "systemInfo", "properties"],
+        response = [];
         
-    var entities = jsonEnvelope.json.entitiesById;
-
     for (var entityId in entities) {
         var entity = entities[entityId];
-
-        entity.id = entityId;
         entity = unboxEntityData(entity);
         var transformedEntity = transformEntityToExternal(entity);
 
@@ -163,7 +157,18 @@ async function updateEntities(callPath, args, callerName) {
 
         //console.log('api request data for update entity', JSON.stringify(apiReqestObj));
 
-        var dataOperationResponse = await entityManageService.updateEntities(apiReqestObj);
+        var dataOperationResponse = {};
+        
+        if(entityAction == "create"){
+            dataOperationResponse = await entityManageService.createEntities(apiReqestObj);
+        }
+        else if(entityAction == "update"){
+            dataOperationResponse = await entityManageService.updateEntities(apiReqestObj);
+        }
+        else if(entityAction == "delete"){
+            dataOperationResponse = await entityManageService.deleteEntities(apiReqestObj);
+        }
+
         //console.log('entity api UPDATE raw response', JSON.stringify(dataOperationResponse, null, 4));
                 
         if (entity.dataObjectInfo) {
@@ -185,9 +190,51 @@ async function updateEntities(callPath, args, callerName) {
     return response;
 }
 
+//route1: "entitiesById.createEntities"
+async function createEntities(callPath, args, callerName)
+{
+    var jsonEnvelope = args[0];
+
+    var entities = jsonEnvelope.json[pathRootKey];
+    var entityIds = Object.keys(entities);
+    //console.log(entities);
+
+    // create new guids for the entities to be created..
+    for(let entityId of entityIds) {
+        var entity = entities[entityId];
+        var newEntityId = uuidV1();
+        //console.log('new entity id', newEntityId);
+        entity.id = newEntityId;
+    }
+
+    return processEntities(entities, "create", callerName);
+}
+
+//route1: "entitiesById[{keys:entityIds}].updateEntities"
+async function updateEntities(callPath, args, callerName)
+{
+    var jsonEnvelope = args[0];
+    
+    var entities = jsonEnvelope.json[pathRootKey];
+
+    return processEntities(entities, "update", callerName);
+}
+
+//route1: "entitiesById[{keys:entityIds}].deleteEntities"
+async function deleteEntities(callPath, args, callerName)
+{
+    var jsonEnvelope = args[0];
+    
+    var entities = jsonEnvelope.json[pathRootKey];
+
+    return processEntities(entities, "delete", callerName);
+}
+
 module.exports = {
     initiateSearchRequest: initiateSearchRequest,
     getSearchResultDetail: getSearchResultDetail,
     getEntities: getEntities,
-    updateEntities: updateEntities
+    createEntities: createEntities,
+    updateEntities: updateEntities,
+    deleteEntities: deleteEntities
 };

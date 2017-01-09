@@ -27,7 +27,10 @@ Boolean control
             var op = request.operation,
                 reqData = request.requestData;
 
-            if (op === 'updateentities') {
+            if (op === 'createentities') {
+                return this._callCreateEntities(model, reqData);
+            }
+            else if (op === 'updateentities') {
                 return this._callUpdateEntities(model, reqData);
             }
             else {
@@ -52,9 +55,58 @@ Boolean control
 
                 return statusResponse;
             }
+            else if (op === "createentities") {
+                var statusResponse = rawResponsePkg;
+                
+                if(!rawResponsePkg.status){
+                    statusResponse = {'msg': "entities submitted for save successfully", 'reqTrackingId':100};
+                }
+
+                if(this.verbose){
+                    console.log('save entity call raw response ', rawResponsePkg);
+                    var model = RUFBehaviors.DataChannel.getModel();
+                    console.log('model cache after save call', model.getCache());
+                }
+
+                return statusResponse;
+            }
             else {
                 return rawResponsePkg;
             }
+        },
+        _callCreateEntities: function(model, reqData){
+            if(reqData === undefined || !Object.keys(reqData["entities"]).length) {
+                return {};
+            }
+
+            var entities = reqData["entities"];
+
+            if(this.verbose) {
+                console.log('Request for save entities call...entities: ', entities);
+            }
+
+            var pathRootKey = "entitiesById";
+            var entitiesJsonEnvelope = {'json': {'entitiesById': {}}};
+            var entityIds = Object.keys(entities);
+            
+            if(entityIds.length == 0){
+                var reason = {'status':'error', 'msg': 'No entities found for save'};
+                return reason;
+            }
+
+            for(var i in entityIds){
+                var entityId = entityIds[i];
+                var entity = entities[entityId];    
+                //delete entity.id; //todo: why id field cannot be updated...
+                entitiesJsonEnvelope.json.entitiesById[entityId] = this._boxEntityData(entity);
+            }
+
+            if(this.verbose){
+                console.log('entities json envelope', entitiesJsonEnvelope);
+                console.log('model cache before save call', model.getCache());
+            }
+
+            return model.call([pathRootKey, "createEntities"], [entitiesJsonEnvelope], [], []);
         },
         _callUpdateEntities: function(model, reqData){
             if(reqData === undefined || !Object.keys(reqData["entities"]).length) {
@@ -79,7 +131,6 @@ Boolean control
             for(var i in entityIds){
                 var entityId = entityIds[i];
                 var entity = entities[entityId];    
-                delete entity.id; //todo: why id field cannot be updated...
                 entitiesJsonEnvelope.json.entitiesById[entityId] = this._boxEntityData(entity);
             }
 
