@@ -46,7 +46,6 @@
                 width: 98%;
                 height:30px;
                 border:1px solid var(--cloudy-blue-color);
-                padding: 0 3px 0 8px;
             }
            
             rock-search-filter::shadow paper-menu-button {
@@ -162,13 +161,14 @@
                 <div class="flex">
                     <!-- search bar-->
                     <rock-search-bar id="searchBar" placeholder="Enter Search text"></rock-search-bar>
+                    <bedrock-pubsub event-name="rock-search" handler="onSearchQueryChange" target-id="searchBar"></bedrock-pubsub>
                 </div>
                 <div class="marginTop12">
                     <!-- Saved Search button & its popover-->
                     <rock-saved-searches id="rockSavedSearch" icon="pebble-icons:SavedSearch" button-text="Load Saved Search"
                     dropdown-icon></rock-saved-searches>
                     <iron-ajax auto url="../../data/saved-searches.json" handle-as="json" last-response="{{_savedSearches}}"></iron-ajax>
-                     <bedrock-pubsub on-bedrock-event-saved-search-save="onCreateEditSavedSearch"></bedrock-pubsub>
+                     <bedrock-pubsub event-name="saved-search-save" handler="onCreateEditSavedSearch" ></bedrock-pubsub>
                     <bedrock-pubsub event-name="actions-parent-button-tap" handler="_loadSavedSearch" target-id=""></bedrock-pubsub>
                     <bedrock-pubsub event-name="favourite-saved-search" handler="_markSavedSearchAsFavourite" target-id=""></bedrock-pubsub>
                     <bedrock-pubsub event-name="delete-saved-search" handler="_markSavedSearchAsDelete" target-id=""></bedrock-pubsub>
@@ -179,7 +179,8 @@
                     <!-- Search Filter Tags -->
                     <iron-ajax auto url="../../data/EntitySearchApp/searchFilters.json" handle-as="json" last-response="{{searchFilters}}"></iron-ajax>
                     <rock-search-filter id="search-filter" icon="pebble-icons:Filter" text="Refine More" filters="{{searchFilters}}" hide-search-trigger></rock-search-filter>
-                    <bedrock-pubsub on-bedrock-event-tag-value-change="onSearchTagValueChange"></bedrock-pubsub>
+                    <bedrock-pubsub event-name="tag-value-change" handler="onSearchTagValueChange"  ></bedrock-pubsub>
+
                 </div>
 
                 <div>
@@ -289,9 +290,16 @@
                 searchResponse: {
                     type: Object,
                     value: undefined,
+                    notify: true,
+                    observer:'_searchResponseChanged'
+                },
+                searchResultResponse: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    },
                     notify: true
                 },
-
                 context: {
                     type: Object,
                     value: function () {
@@ -341,23 +349,43 @@
                 }
                 this.fireBedrockEvent(e.currentTarget.data.eventName, e.currentTarget.data);
             },
-            _onTagItemRemove: function (e) {
-                this.pop('request.data.query.filters.attributesCriterion');
-                var req = this.request;
-                this.request = undefined;
-                this.request = req;
+            _removeFilterWIthName: function (name) {
+                var attributesCriterion=this.request.data.query.filters.attributesCriterion;
+                for(var i=0;i<attributesCriterion.length;i++){
+                    if(attributesCriterion[i][name]){
+                        this.splice('request.data.query.filters.attributesCriterion',i,1);
+                    }
+                }
+            },
+            _onTagItemRemove: function (e,detail) {
+                if(detail !=undefined) {
+                    this._removeFilterWIthName(detail.name);
+                    var req = this.request;
+                    this.request = undefined;
+                    this.request = req;
+                }
             },
             onSearchTagValueChange: function (e, detail, sender) {
                 if (detail != undefined) {
-
-                    var condition = { "eq": detail.value };
                     var attrCond = {};
-                    attrCond[detail.name] = condition;
+                    attrCond[detail.name] = detail.value;
+                    this._removeFilterWIthName(detail.name);
                     this.push('request.data.query.filters.attributesCriterion', attrCond);
                     var req = this.request;
                     this.request = undefined;
                     this.request = req;
 
+                }
+            },
+            onSearchQueryChange: function (e,detail,sender) {
+                if(detail !=undefined){
+                    if(!this.request.data.fields.all) {
+                        this.request.data.fields.all = {};
+                    }
+                    this.request.data.fields.all.exists=detail;
+                    var req = this.request;
+                    this.request = undefined;
+                    this.request = req;
                 }
             },
             onSelectingGridItem: function (e, detail, sender) {
@@ -387,13 +415,13 @@
                     }
 
                     // search input info
-                    var searchInput = this.$$("#searchBar").query;              
+                    var searchQuery = this.$$("#searchBar").query;
 
                     //search filters
                     var searchFilters = this.$$("#search-filter").filters;
                     var searchTags = this.$$("#search-filter").tags;
 
-                    var savedSearchObject = { "savedSearch": savedSearchInfo, "dimensions": dimensionsInfo, "searchInput": searchInput, "searchFilters": searchFilters, "searchTags": searchTags };                    
+                    var savedSearchObject = { "savedSearch": savedSearchInfo, "dimensions": dimensionsInfo, "searchQuery": searchQuery, "searchFilters": searchFilters, "searchTags": searchTags };
                 }
             },
             _loadSavedSearch: function (e, detail, sender) {
@@ -450,8 +478,7 @@
                 if(savedSearch) {            
                     var searchBarElement =  this.$$("#searchBar");
                     if(searchBarElement){
-                        searchBarElement.query = "";
-                        searchBarElement.searchInput = savedSearch.searchInput;  
+                        searchBarElement.query= savedSearch.searchQuery;
                     }   
 
                     var dimensionsObject = this._getDimensions();
@@ -478,23 +505,28 @@
                         rockSavedSearchElement.buttonText = savedSearch.name;
                     }
 
-                this._invokeSearch(savedSearch.searchTags,savedSearch.dimensions.catalog,savedSearch.dimensions.Source,savedSearch.dimensions.Locale);
+                this._invokeSearch(savedSearch);
                 }
             },
-            _invokeSearch: function(searchTags,list,source,locale) {
+            _invokeSearch: function(savedSearch) {
+                var searchTags=savedSearch.searchTags;
                 var attrCond = {};
                 if(searchTags && searchTags.length>0) {
-                for(var i=0; i<searchTags.length; i++ ) {
-                    var condition = { "eq": searchTags[i].value };
-                    attrCond[searchTags[i].name] = condition;
+                    for(var i=0; i<searchTags.length; i++ ) {
+                        var attrCond = {};
+                        attrCond[searchTags[i].name] =searchTags[i].value;
+                        this.push('request.data.query.filters.attributesCriterion', attrCond);
+                    }
                 }
-
-                this.push('request.data.query.filters.attributesCriterion', attrCond);
+                if(savedSearch.searchQuery) {
+                    if (!this.request.data.fields.all) {
+                        this.request.data.fields.all = {};
+                    }
+                    this.request.data.fields.all.exists = savedSearch.searchQuery;
                 }
-
-                this.request.data.query.ctx[0].list = list;
-                this.request.data.query.valCtx[0].source = source;
-                this.request.data.query.valCtx[0].loclae = locale;
+                this.request.data.query.ctx[0].list = savedSearch.dimensions.catalog;
+                this.request.data.query.valCtx[0].source = savedSearch.dimensions.Source;
+                this.request.data.query.valCtx[0].loclae = savedSearch.dimensions.Locale;
                 var req = this.request;
                 this.request = undefined;
                 this.request = req;
@@ -513,6 +545,15 @@
                     dimensionsObject.locale = localeDropdown;  
 
                     return  dimensionsObject;
+            },
+            _searchResponseChanged: function (searchResponse) {
+                if(!searchResponse || !searchResponse.content || searchResponse.content.totalRecords==0)   {
+                    this.searchResultResponse={
+                        "content":{
+                            "entities":{}
+                        }
+                    };
+                }
             }
         });
     })();
