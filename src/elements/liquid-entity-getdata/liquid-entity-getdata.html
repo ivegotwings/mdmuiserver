@@ -46,7 +46,9 @@ Boolean control
                         return rawResponsePkg.json.searchResults[resSearchResultId];
                     } else if (op === 'getentities' || op === 'getsearchresultdetail') {
                         var pathRootKey = "entitiesById";
-                        return { 'entities': rawResponsePkg.json[pathRootKey] };
+                        var entities = rawResponsePkg.json[pathRootKey];
+                        this._formatEntityData(entities);
+                        return {'entities': entities};
                     }
                 },
                 _callGetEntities: function (model, reqData, entityIds) {
@@ -129,16 +131,66 @@ Boolean control
                 },
                 _createContextKeys: function (reqData) {
                     var contextKeys = []
+                    var self = this;
                     reqData.data.query.ctx.forEach(function (ctxGroup) {
                         reqData.data.query.valCtx.forEach(function (valCtxGroup) {
-                            var contextKey = "".concat(ctxGroup.list, '#@#', ctxGroup.classification,
-                                '#@#', valCtxGroup.source, '#@#', valCtxGroup.locale
-                            );
-                            contextKeys.push(contextKey);
+                            var ctxGroupUI = {  'list': ctxGroup.list, 
+                                                'classification': ctxGroup.classification, 
+                                                'source': valCtxGroup.source, 
+                                                'locale': valCtxGroup.locale};
+                            var ctxKey = self.createContextKey(ctxGroupUI);
+                            contextKeys.push(ctxKey);
                         });
                     });
 
                     return contextKeys;
+                },
+                getEntityCtxDataByGroupObj: function(entity, ctxGroup){
+                    var ctxInfoItem = {};
+                    if(ctxGroup && ctxGroup.list){
+                        var ctxKey = this.createContextKey(ctxGroup);
+                        ctxInfoItem = this.getEntityContextInfoByKey(entity, ctxKey);
+                    }
+
+                    return ctxInfoItem;
+                },
+                getEntityCtxDataByKey: function(entity, ctxKey){
+                    var ctxInfoItem = {};
+                 
+                    if(entity && entity.data && entity.data.ctxInfo && entity.data.ctxInfo[ctxKey]){
+                        ctxInfoItem = entity.data.ctxInfo[ctxKey];
+                    }
+
+                    return ctxInfoItem;
+                },
+                createContextKey: function (ctxGroup) {
+                    return "".concat(ctxGroup.list, '#@#', ctxGroup.classification, '#@#', ctxGroup.source, '#@#', ctxGroup.locale);                    
+                },
+                _populateContextGroups: function (entity) {
+                    if (entity.data && entity.data.ctxInfo) {
+                        var ctxKeys = Object.keys(entity.data.ctxInfo);
+                        for (var i in ctxKeys) {
+                            var ctxKey = ctxKeys[i];
+                            var ctxInfoItem = entity.data.ctxInfo[ctxKey];
+                            
+                            var ctxKeySegments = ctxKey.split('#@#');
+
+                            var ctxGroupUI = {
+                                list: ctxKeySegments[0],
+                                classification: ctxKeySegments[1],
+                                source: ctxKeySegments[2],
+                                locale: ctxKeySegments[3]
+                            };
+
+                            ctxInfoItem["ctxGroup"] = ctxGroupUI;
+                        }
+                    }
+                },
+                _formatEntityData: function(entities){
+                    for(var entityId in entities){
+                        var entity = entities[entityId];
+                        this._populateContextGroups(entity);
+                    }
                 }
             });
         })();
