@@ -251,14 +251,14 @@ Based on config relationship grid will get loaded with defined attributes from g
 					<div class="relation-line-box">
 						<pebble-horizontal-divider></pebble-horizontal-divider>
 					</div>
-          <iron-ajax auto url="demo/data.json" handle-as="json" last-response="{{items}}"></iron-ajax>
+          <!--<iron-ajax auto url="demo/data.json" handle-as="json" last-response="{{items}}"></iron-ajax>-->
           <pebble-button icon="pebble-icons:Create" id="[[relationshipType]]" class="icon-text-button" button-text="Add" on-click="onPopoverClick"></pebble-button>
           <pebble-popover for$="[[relationshipType]]" auto-fit-on-attach no-overlap>
-              <pebble-lov id="overlay" items="{{items}}" multi-selection="false" show-image="true" selection-changed="addRelatedEntity()"></pebble-lov>
+              <pebble-lov id="[[relationshipType]]" items="{{items}}" multi-selection="false" show-image="true" on-selection-changed="addRelatedEntity"></pebble-lov>
           </pebble-popover>
 				</div>
         </br>
-				<pebble-grid id="entityRelationshipGrid" config="[[_getRelationshipGridConfig(relationshipType)]]" page-size="5" 
+				<pebble-grid id="[[relationshipType]]" config="[[_getRelationshipGridConfig(relationshipType)]]" page-size="5" 
             attribute-models="{{attributeModels}}" data="[[_getRelationshipGridData(relationshipType)]]"></pebble-grid>					
 			</template>
 			
@@ -271,20 +271,26 @@ Based on config relationship grid will get loaded with defined attributes from g
 						<div class="relation-line-box">
 							<pebble-horizontal-divider></pebble-horizontal-divider>
 						</div>
-            <iron-ajax auto url="demo/data.json" handle-as="json" last-response="{{items}}"></iron-ajax>
+            <!--<iron-ajax auto url="demo/data.json" handle-as="json" last-response="{{items}}"></iron-ajax>-->
             <pebble-button icon="pebble-icons:Create" id="[[relationship]]" class="icon-text-button" button-text="Add" on-click="onPopoverClick"></pebble-button>
             <pebble-popover for$="[[relationship]]" auto-fit-on-attach no-overlap>
-                <pebble-lov id="overlay" items="{{items}}" multi-selection="false" show-image="true" selection-changed="addRelatedEntity()"></pebble-lov>
+                <pebble-lov id="[[relationship]]" items="{{items}}" multi-selection="false" show-image="true" on-selection-changed="addRelatedEntity"></pebble-lov>
             </pebble-popover>
 					</div>
           </br>          
-					<pebble-grid id="entityRelationshipGrid" config="{{_getRelationshipGridConfig(relationship)}}" page-size="5" 
+					<pebble-grid id="[[relationship]]" config="{{_getRelationshipGridConfig(relationship)}}" page-size="5" 
               attribute-models="{{attributeModels}}" data="{{_getRelationshipGridData(relationship)}}"></pebble-grid>
 				</template>
 			</template>
 		</template>
-    <liquid-entity-getdata auto log-internal-detail name="entityGet" operation="getentities" request="{{attributeRequest}}" 
-      response="{{attributeResponse}}"></liquid-entity-getdata>
+    <liquid-entity-getdata auto  verbose id="initiateSearchResult" operation="initiatesearch" 
+        request-data="{{request}}" last-response="{{searchResponse}}"></liquid-entity-getdata>
+    <liquid-entity-getdata auto verbose id="searchResultGetDataService" operation="getsearchresultdetail" 
+        request-data="{{request}}" request-id="[[searchResponse.content.requestId]]" last-response="{{searchResultResponse}}"></liquid-entity-getdata>
+
+    <liquid-entity-getdata auto log-internal-detail id="entityGetData" name="entityGet" operation="getentities" request-data="{{entityGetRequest}}" 
+      last-response="{{entitiesResponse}}"></liquid-entity-getdata>
+
 	</template>
 <script>
 	(function () {
@@ -356,26 +362,103 @@ Based on config relationship grid will get loaded with defined attributes from g
 
         /*
         */
-        attributeRequest: {
+        entityGetRequest: {
             type: Object,
+            notify: true,
             value: function () {
                 return {};
             }
+        },
+
+        request: {
+          type: Object,
+          notify: true,
+          value: function () {
+              return {};
+          }
         }
 			},
 
       observers: [
-          '_entityDataChanged(data)',
-          '_convertIntoEntityList(attributeResponse)'
+          '_convertIntoEntityLovList(searchResultResponse)'
       ],
-
+      _currentSelectedLov: null,
+      _currentLovItems: null,
 			onPopoverClick: function(e) {
           var popover = this.root.querySelector('pebble-popover[for=' + e.currentTarget.id + ']');
+          this._currentSelectedLov = this.root.querySelector('pebble-lov[id=' + e.currentTarget.id + ']');
+
+          var req = {
+              "data": {
+                    "query": {
+                        "ctx": [
+                            {
+                                "list": "productMaster",
+                                "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
+                            }
+                        ],
+                        "valCtx": [
+                            {
+                                "source": "SAP",
+                                "locale": "en-US"
+                            }
+                        ],
+                        "filters": {
+                            "attributesCriterion": [],
+                            "typesCriterion": ["nart"]
+                        }
+                    },
+                    "fields": {
+                        "ctxTypes": [
+                            "properties"
+                        ],
+                        "attributes": [
+                            "cpimProductName",
+                            "csapDescriptionOfNart",
+                            "csapMaterialStatusGlobal",
+                            "cpimSkinType"
+                        ],
+                        "relationships": ["ALL"]
+                    }
+                }
+          };
+
+          this.set("request", req);
+          
           popover.show();
+          this._currentSelectedLov.items = this._currentLovItems;
       },
 
-      addRelatedEntity: function() {
-        alert("added");
+      addRelatedEntity: function(e) {
+          var relGrid = this.root.querySelector('pebble-grid[id='+ e.currentTarget.id +']');
+          var popover = this.root.querySelector('pebble-popover[for=' + e.currentTarget.id + ']');
+          var selectedItem = e.currentTarget.value;
+          
+          // Call of liquid for selected entity based on config
+          
+          if(relGrid) {
+            var relGridData = relGrid.data;
+            var relConfig = relGrid.config;
+
+            if(relConfig && relConfig.tabular)
+            {
+              var columns = relConfig.tabular.columns;
+
+              if(columns && columns.length > 0)
+              {
+                var record = {};
+                columns.forEach(function(column) {
+                  record[column.name] = "abc" + e.currentTarget.id;
+                }, this);
+                relGridData.push(record);
+              }
+            }
+            relGrid.data = relGridData;
+            relGrid.notifyPath("data", relGrid.data.slice());
+            relGrid._onRefresh();
+          }
+
+          popover.hide();
       },
 
       _dataIsNotNull: function(data){
@@ -468,48 +551,20 @@ Based on config relationship grid will get loaded with defined attributes from g
           this.relationshipGridData[relationshipTypeName] = data;
 			},
 
-      _entityDataChanged: function(entity) {
-        if (entity) {
-            var req = {
-                "data": {
-                    "query": {
-                        "ctx": [{
-                            "list": "master",
-                            "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
-                        }],
-                        "valCtx": [{
-                            "source": "PLM",
-                            "locale": "en-US"
-                        }],
-                        "id": entity.id,
-                        "filters": {
-                            "attributesCriterion": [],
-                            "relationshipsCriterion": [],
-                            "typesCriterion": ["nart"]
-                        }
-                    },
-                    "fields": {
-                        "ctxTypes": [
-                            "properties"
-                        ],
-                        "attributes": attributeNames,
-                        "relationships": [
-                            "ALL"
-                        ]
-                    },
-                    "options": {
-                        "totalRecords": 1,
-                        "includeRequest": false
-                    }
-                }
-            };
-            this.set("attributeRequest", req);
+      _convertIntoEntityLovList: function(entitiesResponse) {
+        if(entitiesResponse) {
+          //Entity needs to be converted into lov list
         }
-      },
+        debugger;
+        if(this._currentSelectedLov) {
+          var items = [];
+          items.push({"id":1,"title":"Lamborghini","subtitle":"L1","image":"/src/images/lookup-item.jpg"});
+          items.push({"id":2,"title":"Nissan GTR","subtitle":"N1","image":"/src/images/lookup-item.jpg"});
+          items.push({"id":3,"title":"La Ferrari","subtitle":"F1","image":"/src/images/lookup-item.jpg"});
+          items.push({"id":4,"title":"Buggati","subtitle":"B1","image":"/src/images/lookup-item.jpg"});
 
-      _convertIntoEntityList: function(attributeResponse) {
-        if(attributeResponse) {
-          
+          this._currentSelectedLov.items = items;
+          this._currentLovItems = items;
         }
       }
 		});
