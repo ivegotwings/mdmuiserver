@@ -1,7 +1,8 @@
 'use strict';
 
 var jsonGraph = require('falcor-json-graph'),
-    futil = require('./falcor-util'),
+    futil = require('./entity-falcor-util'),
+    EntityManageService = require('./EntityManageService'),
     uuidV1 = require('uuid/v1'),
     $ref = jsonGraph.ref,
     $error = jsonGraph.error,
@@ -9,12 +10,8 @@ var jsonGraph = require('falcor-json-graph'),
     expireTime = -60 * 60 * 1000,
     pathRootKey = "entitiesById"; // 60 mins
 
-var EntityManageService = require('./EntityManageService');
-
 var mode = process.env.NODE_ENV;
-
 var options = {mode: mode};
-
 var entityManageService = new EntityManageService(options);
 
 //falcor utilty functions' references
