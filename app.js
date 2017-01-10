@@ -8,7 +8,7 @@ var history = require('connect-history-api-fallback');
 var cors = require('cors');
 var bodyParser = require('body-parser');
 var notificationEngine = require("./src/server/notification_engine/Socket");
-
+var buildPath = __dirname;
 var app = express();
 
 // parse application/x-www-form-urlencoded
@@ -16,30 +16,28 @@ app.use(bodyParser.urlencoded({
     extended: true
 }));
 
+// register cors to allow cross domain calls
 app.use(cors());
 
-//Load falcor routes
-var entityRoute = require('./src/server/api/EntityManageService/router');
-var fileUploadRoute = require('./src/server/api/EntityManageService/file-upload-route');
+// register static file content folder path..
+app.use(express.static(buildPath, { maxAge: "1s" }));
 
-var buildPath = __dirname;
-//console.log(buildPath);
-
-//var oneDay = 86400000;
-
-app.use(express.static(buildPath, {
-    maxAge: "1s"
-}));
-
+//Load falcor api routes
+var entityRoute = require('./src/server/api/EntityManageService/entity-router');
 entityRoute(app);
 
+var configRoute = require('./src/server/api/ConfigService/config-router');
+configRoute(app);
+
+var fileUploadRoute = require('./src/server/api/EntityManageService/file-upload-route');
 fileUploadRoute(app);
 
+// register static file root ...index.html..
 app.get('*', function (req, res) {
     res.sendFile(buildPath + '/index.html');
 });
 
-
+// Finally, start the web server...
 var server = app.listen(5005, function () {
     var host = server.address().address === '::' ? 'localhost': server.address().address;
     var port = server.address().port;
