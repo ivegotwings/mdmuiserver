@@ -1,11 +1,11 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
-<link rel="import" href="../bedrock-datachannel/bedrock-datachannel.html">
+<link rel="import" href="../liquid-behavior/liquid-behavior.html">
 
 <!--
 `liquid-entity-savedata`
 Boolean control
 
-@demo demo/index.html 
+@demo demo/index.html
 -->
 <dom-module id="liquid-entity-savedata">
     <template>
@@ -16,137 +16,135 @@ Boolean control
 
       Polymer({
         is: 'liquid-entity-savedata',
-        behaviors: [RUFBehaviors.DataChannel],
+        behaviors: [RUFBehaviors.LiquidBehavior],
         attached: function() {
         },
         ready: function(){
         },
         properties: {
-            auto: {
-                type: Boolean,
-                value: false
-            },
-          operation: {
-            type: String, // 'createentities', 'updateentities', 'deleteentities'
-            value: ''
-          },
-          request: {
-            type: Object,
-            value: function() {
-              return {
-              };
-            },
-            notify: true
-          },
-          response: {
-            type: Object,
-            value: function() {
-              return {};
-            },
-            notify: true
-          },
-          logInternalDetail:{
-            type: Boolean,
-            value: false
-          }
-        },
-        observers: [
-            '_requestChanged(request)'
-        ],
-        generateRequest: function() {
-            this._makeServiceCall(this.request);
-        },
-        _requestChanged: function(request) {
-            if(this.auto) {
-                this._makeServiceCall(request);
+            _dataChannelName: {
+                type: String,
+                value: "entityDataChannel",
+                readonly: true
             }
         },
-        _makeServiceCall: function(request) {
-            var operation = this.operation, 
-                self = this;
+        _executeRequest: function (model, request) {
+            var op = request.operation,
+                reqData = request.requestData;
 
-            var log = console.log.bind(console);
+            if (op === 'createentities') {
+                return this._callCreateEntities(model, reqData);
+            }
+            else if (op === 'updateentities') {
+                return this._callUpdateEntities(model, reqData);
+            }
+            else {
+                throw 'exception: operation ' + op + ' is not supported in ' + this.is + ' element.';
+            }
+        },
+        _formatResponse: function(request, rawResponsePkg){
+            var op = request.operation;
 
-            if(request){
-                var model = RUFBehaviors.DataChannel.getModel();
-                
-                if(operation == 'updateentities') {
-                    self._callUpdateEntities(self, model, request);
+            if (op === 'updateentities') {
+                var statusResponse = rawResponsePkg;
+
+                if(!rawResponsePkg.status){
+                    statusResponse = {'msg': "entity submitted for save successfully", 'reqTrackingId':100};
                 }
+
+                if(this.verbose){
+                    console.log('save entity call raw response ', rawResponsePkg);
+                    var model = RUFBehaviors.DataChannel.getModel(this._dataChannelName);
+                    console.log('model cache after save call', model.getCache());
+                }
+
+                return statusResponse;
+            }
+            else if (op === "createentities") {
+                var statusResponse = rawResponsePkg;
+                
+                if(!rawResponsePkg.status){
+                    statusResponse = {'msg': "entities submitted for save successfully", 'reqTrackingId':100};
+                }
+
+                if(this.verbose){
+                    console.log('save entity call raw response ', rawResponsePkg);
+                    var model = RUFBehaviors.DataChannel.getModel(this._dataChannelName);
+                    console.log('model cache after save call', model.getCache());
+                }
+
+                return statusResponse;
+            }
+            else {
+                return rawResponsePkg;
             }
         },
-        _callUpdateEntities: function(self, model, request){
-            if(request === undefined || !Object.keys(request["entities"]).length) {
+        _callCreateEntities: function(model, reqData){
+            if(reqData === undefined || !Object.keys(reqData["entities"]).length) {
                 return {};
             }
 
-            var entities = request["entities"];
+            var entities = reqData["entities"];
 
-            if(self.logInternalDetail) {
+            if(this.verbose) {
                 console.log('Request for save entities call...entities: ', entities);
             }
 
             var pathRootKey = "entitiesById";
-            
             var entitiesJsonEnvelope = {'json': {'entitiesById': {}}};
-            
             var entityIds = Object.keys(entities);
+            
+            if(entityIds.length == 0){
+                var reason = {'status':'error', 'msg': 'No entities found for save'};
+                return reason;
+            }
 
             for(var i in entityIds){
                 var entityId = entityIds[i];
                 var entity = entities[entityId];    
-                
-                delete entity.id; //todo: why id field cannot be updated...
-                
-                entitiesJsonEnvelope.json.entitiesById[entityId] = self._boxEntityData(entity);
+                //delete entity.id; //todo: why id field cannot be updated...
+                entitiesJsonEnvelope.json.entitiesById[entityId] = this._boxEntityData(entity);
             }
 
-            //var path1 = [pathRootKey, entityIds, ['id', 'dataObjectInfo', 'systemInfo', 'properties']];
-            //var path2 = [pathRootKey, entityIds, "data", "ctxInfo", contextKeys, "attributes", attrs, "values"];
-            if(self.logInternalDetail){
+            if(this.verbose){
                 console.log('entities json envelope', entitiesJsonEnvelope);
                 console.log('model cache before save call', model.getCache());
             }
 
-            if(entityIds.length == 0){
-                var reason = {"msg": "No entities found for save"};
-                self.response = self._createErrorResponse(reason);
-                self.fire('response', self.response, request);
+            return model.call([pathRootKey, "createEntities"], [entitiesJsonEnvelope], [], []);
+        },
+        _callUpdateEntities: function(model, reqData){
+            if(reqData === undefined || !Object.keys(reqData["entities"]).length) {
+                return {};
             }
 
-            model.call([pathRootKey, entityIds, "updateEntities"], [entitiesJsonEnvelope], [], []).then(function(responsePkg) {
-                    if(self.logInternalDetail){
-                        RUFBehaviors.DataChannel.updateCallCounters(self.operation);
-                        console.log('saveentities raw internal response ', responsePkg);
-                    }
+            var entities = reqData["entities"];
 
-                    self.response = self._createSuccessResponse({'msg': "entity submitted for save successfully", 'reqTrackingId':100});
-
-                    self.fire('response', self.response, request);
-                    
-                    if(self.logInternalDetail){
-                         console.log('saveentities call response: ', self.response);
-                         console.log('model cache after save call', model.getCache());
-                         console.log('Approx. no of total calls to api server at :', Date.now(), RUFBehaviors.DataChannel.getCallCounters());
-                    }
-                },
-                function(reason){
-                    self.response = self._createErrorResponse(reason);
-                    self.fire('response', self.response, request);  
-                });
-        },
-        _createSuccessResponse: function(data){
-            var clonedData = JSON.parse(JSON.stringify(data));
-            return {'status':'success', 'content': clonedData};
-        },
-        _createErrorResponse: function(reason){
-            var result = {'status': 'error', 'reason': reason};
-
-            if(this.logInternalDetail){
-                console.log('Error response for the operation: ', this.operation, result);
+            if(this.verbose) {
+                console.log('Request for save entities call...entities: ', entities);
             }
+
+            var pathRootKey = "entitiesById";
+            var entitiesJsonEnvelope = {'json': {'entitiesById': {}}};
+            var entityIds = Object.keys(entities);
             
-            return result;
+            if(entityIds.length == 0){
+                var reason = {'status':'error', 'msg': 'No entities found for save'};
+                return reason;
+            }
+
+            for(var i in entityIds){
+                var entityId = entityIds[i];
+                var entity = entities[entityId];    
+                entitiesJsonEnvelope.json.entitiesById[entityId] = this._boxEntityData(entity);
+            }
+
+            if(this.verbose){
+                console.log('entities json envelope', entitiesJsonEnvelope);
+                console.log('model cache before save call', model.getCache());
+            }
+
+            return model.call([pathRootKey, entityIds, "updateEntities"], [entitiesJsonEnvelope], [], []);
         },
         _boxEntityData: function(entity){
             var boxedEntity = {};
