@@ -1,6 +1,10 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
 <link rel="import" href="../pebble-grid/pebble-grid.html">
+<link rel="import" href="../pebble-lov/pebble-lov.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-popover/pebble-popover.html">
+<link rel="import" href="../liquid-entity-get/liquid-entity-get.html">
 <link rel="import" href="../pebble-horizontal-divider/pebble-horizontal-divider.html">
 
 <!--
@@ -193,7 +197,19 @@ Based on config relationship grid will get loaded with defined attributes from g
 	<template>
 		<style include="pebble-styles-shared"></style>
 		      <style>
-        
+             pebble-button.icon-text-button {
+                --pebble-button: {
+                    height: 30px;
+                    padding: 0.5em 0em 0.5em 0em;
+                    border: 1px solid #036BC3;
+                }
+                --pebble-button-iron-icon: {
+                    height: 18px;
+                    width: 18px;
+                    padding-bottom: 2px;
+                }
+            }
+
             .relation-name {
                 font-weight: 500;
                 font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -224,8 +240,18 @@ Based on config relationship grid will get loaded with defined attributes from g
                 --pebble-horizontal-divider-color: black;
             }
 
+            pebble-lov {
+                  width: 300px !important;
+                  max-height: 350px !important;
+            }
+
+            ::shadow iron-data-table {
+              height: 200px !important;
+            }
+
         </style>
-		<template is="dom-if" if="{{_dataIsNotNull(data)}}">
+
+    <template is="dom-if" if="{{_dataIsNotNull(data)}}">
 			<template is="dom-if" if="{{_isRelationshipType(relationshipType)}}">
 				<div class="relation-name-container">
 					<div class="relation-name-box">
@@ -234,12 +260,18 @@ Based on config relationship grid will get loaded with defined attributes from g
 					<div class="relation-line-box">
 						<pebble-horizontal-divider></pebble-horizontal-divider>
 					</div>
+          <!--<iron-ajax auto url="demo/data.json" handle-as="json" last-response="{{items}}"></iron-ajax>-->
+          <pebble-button icon="pebble-icons:Create" id="[[relationshipType]]" class="icon-text-button" button-text="Add" on-click="onPopoverClick"></pebble-button>
+          <pebble-popover for$="[[relationshipType]]" auto-fit-on-attach no-overlap>
+              <pebble-lov id="[[relationshipType]]" items="{{items}}" multi-selection="false" show-image="true" on-selection-changed="addRelatedEntity"></pebble-lov>
+          </pebble-popover>
 				</div>
         </br>
-				<pebble-grid id="entityRelationshipGrid" config="[[_getRelationshipGridConfig(relationshipType)]]" page-size="5" 
+				<pebble-grid id="[[relationshipType]]" config="[[_getRelationshipGridConfig(relationshipType)]]" page-size="10" 
             attribute-models="{{attributeModels}}" data="[[_getRelationshipGridData(relationshipType)]]"></pebble-grid>					
 			</template>
-			<template is="dom-if" if="{{!_isRelationshipType(relationshipType)}}">
+			
+      <template is="dom-if" if="{{!_isRelationshipType(relationshipType)}}">
 				<template is="dom-repeat" items="{{relationshipTypeList}}" as="relationship" index-as="colIndex">
 					<div class="relation-name-container">
 						<div class="relation-name-box">
@@ -248,15 +280,29 @@ Based on config relationship grid will get loaded with defined attributes from g
 						<div class="relation-line-box">
 							<pebble-horizontal-divider></pebble-horizontal-divider>
 						</div>
+            <!--<iron-ajax auto url="demo/data.json" handle-as="json" last-response="{{items}}"></iron-ajax>-->
+            <pebble-button icon="pebble-icons:Create" id="[[relationship]]" class="icon-text-button" button-text="Add" on-click="onPopoverClick"></pebble-button>
+            <pebble-popover for$="[[relationship]]" auto-fit-on-attach no-overlap>
+                <pebble-lov id="[[relationship]]" items="{{items}}" multi-selection="false" show-image="true" on-selection-changed="addRelatedEntity"></pebble-lov>
+            </pebble-popover>
 					</div>
           </br>          
-					<pebble-grid id="entityRelationshipGrid" config="{{_getRelationshipGridConfig(relationship)}}" page-size="5" 
+					<pebble-grid id="[[relationship]]" config="{{_getRelationshipGridConfig(relationship)}}" page-size="10" 
               attribute-models="{{attributeModels}}" data="{{_getRelationshipGridData(relationship)}}"></pebble-grid>
 				</template>
 			</template>
 		</template>
+    
+    <liquid-entity-getdata auto  verbose id="initiateSearchResult" operation="initiatesearch" 
+        request-data="{{request}}" last-response="{{searchResponse}}"></liquid-entity-getdata>
+    <liquid-entity-getdata auto verbose id="searchResultGetDataService" operation="getsearchresultdetail" 
+        request-data="{{request}}" request-id="[[searchResponse.content.requestId]]" last-response="{{searchResultResponse}}"></liquid-entity-getdata>
+
+    <liquid-entity-getdata auto log-internal-detail id="entityGetData" name="entityGet" operation="getentities" request-data="{{entityGetRequest}}" 
+      last-response="{{entitiesResponse}}"></liquid-entity-getdata>
+
 	</template>
-<script> 
+<script>
 	(function () {
 		'use strict';
 
@@ -286,7 +332,7 @@ Based on config relationship grid will get loaded with defined attributes from g
 				/*
 				*	Indicates transformed relationship grid config for grid.
 				*/
-				relationshipGridConfig : {
+				relationshipGridConfig: {
 					type : Object,
 					notify: true,
 					value : function() {
@@ -316,15 +362,124 @@ Based on config relationship grid will get loaded with defined attributes from g
         /*
         * Indicates list of relationships.
         */
-				relationshipTypeList : {
+				relationshipTypeList: {
 					type : Array,
 					notify : true,
 					value : function() {
 						return [];
 					}
-				}
+				},
+
+        /*
+        */
+        entityGetRequest: {
+            type: Object,
+            notify: true,
+            value: function () {
+                return {};
+            }
+        },
+
+        request: {
+          type: Object,
+          notify: true,
+          value: function () {
+              return {};
+          }
+        }
 			},
-			
+
+      observers: [
+          '_convertIntoEntityLovList(searchResultResponse)'
+      ],
+      _currentSelectedLov: null,
+      _currentLovItems: null,
+			onPopoverClick: function(e) {
+          var popover =  Polymer.dom(this).node.$$("pebble-popover[for=" + e.currentTarget.id + "]");
+          var lov = Polymer.dom(this).node.$$("pebble-lov[id=" + e.currentTarget.id + "]");
+          this._currentSelectedLov =  Polymer.dom(this).node.$$('pebble-lov[id=' + e.currentTarget.id + ']');
+
+          var req = {
+              "data": {
+                    "query": {
+                        "ctx": [
+                            {
+                                "list": "productMaster",
+                                "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
+                            }
+                        ],
+                        "valCtx": [
+                            {
+                                "source": "SAP",
+                                "locale": "en-US"
+                            }
+                        ],
+                        "filters": {
+                            "attributesCriterion": [],
+                            "typesCriterion": ["nart"]
+                        }
+                    },
+                    "fields": {
+                        "ctxTypes": [
+                            "properties"
+                        ],
+                        "attributes": [
+                            "cpimProductName",
+                            "csapDescriptionOfNart",
+                            "csapMaterialStatusGlobal",
+                            "cpimSkinType"
+                        ],
+                        "relationships": ["ALL"]
+                    }
+                }
+          };
+
+          this.set("request", req);
+          
+          popover.show();
+          lov.open();
+          this._currentSelectedLov.items = this._currentLovItems;
+      },
+
+      addRelatedEntity: function(e) {
+          var relGrid =  Polymer.dom(this).node.$$('pebble-grid[id='+ e.currentTarget.id +']');
+          var popover =   Polymer.dom(this).node.$$("pebble-popover[for=" + e.currentTarget.id + "]");
+          var selectedItem = e.currentTarget.selectedItem.id;
+          
+          // Call of liquid for selected entity based on config
+          
+          if(relGrid) {
+            var relGridData = relGrid.data;
+            var relConfig = relGrid.config;
+
+            if(relConfig && relConfig.tabular)
+            {
+              var columns = relConfig.tabular.columns;
+
+              if(columns && columns.length > 0)
+              {
+                var record = {};
+                columns.forEach(function(column) {
+                  if(column.name == "Related Entity")
+                  {
+                       record[column.name] = selectedItem;
+                  }
+                }, this);
+                record.isEditable = true;
+                record.status = 'new';
+                relGridData.push(record);
+              }
+            }
+
+            relGrid.data = relGridData;
+            var oldsize = relGrid.data.length;
+            relGrid._getIronDataTable()._sizeChanged(oldsize+1,oldsize);
+            relGrid.reRenderGrid();
+          }
+
+          popover.hide();
+      },
+
       _dataIsNotNull: function(data){
 				if(data) {
 					return true;
@@ -365,7 +520,7 @@ Based on config relationship grid will get loaded with defined attributes from g
 							}
 							else
 							{
-								this._populateData(this.relationshipType[0].toLowerCase().replace(" ", ""), contextInfo.relationships);
+								this._populateData(this.relationshipType.toLowerCase().replace(" ", ""), contextInfo.relationships);
 							}
 						}
 					}
@@ -382,6 +537,7 @@ Based on config relationship grid will get loaded with defined attributes from g
             relationshipAttributes = this.relationshipCustomGridConfig.attributes;
           }
 
+          // Once object structre is getting change from array ot object needs to change this.
           relatedEntities.forEach(function(relElement){
             var record = {};
 
@@ -413,7 +569,40 @@ Based on config relationship grid will get loaded with defined attributes from g
           }, this);
           
           this.relationshipGridData[relationshipTypeName] = data;
-			}
+			},
+
+      _convertIntoEntityLovList: function(entitiesResponse) {
+        if(entitiesResponse) {
+          var items = [];          
+          if(entitiesResponse.content && entitiesResponse.content.entities) {
+            var entities = entitiesResponse.content.entities;
+
+            Object.keys(entities).forEach(function(item) {
+              var entity = entities[item];
+              if(entity && entity.data && entity.data.ctxInfo) {
+                var ctxInfo = entity.data.ctxInfo;
+                
+                Object.keys(ctxInfo).forEach(function(dataItem) {
+                  var data = ctxInfo[dataItem];
+                  if(data) {
+                    if(data.attributes) {
+                      items.push({
+                        "id":entity.id,
+                        "title": data.attributes["csapDescriptionOfNart"].values[0].value,
+                        "subtitle":data.attributes["cpimProductName"].values[0].value,
+                        "image":"/src/images/lookup-item.jpg"});
+                    }
+                  }
+                }, this);
+              }
+            }, this);
+          }
+          if(this._currentSelectedLov){
+            this._currentSelectedLov.items = items;
+            this._currentLovItems = items;
+          }
+        }
+      }
 		});
 	})();
 </script>
