@@ -3,7 +3,7 @@
 var falcorExpress = require('falcor-express'),
     Router = require('falcor-router');
 
-var resolver = require('./route-resolver');
+var resolver = require('./entity-route-resolver');
 
 var EntityRouterBase = Router.createClass([
     {
@@ -21,6 +21,10 @@ var EntityRouterBase = Router.createClass([
     {
         route: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].values",
         get: async (pathSet) => await resolver.getEntities(pathSet)
+    },
+    {
+        route: "entitiesById.createEntities",
+        call: async (callPath, args) => await resolver.createEntities(callPath, args, "entitiesById.createEntities")
     },
     {
         route: "entitiesById[{keys:entityIds}].updateEntities",
