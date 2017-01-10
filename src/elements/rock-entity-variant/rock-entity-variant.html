@@ -2,6 +2,7 @@
 <link rel="import" href="../pebble-vertical-divider/pebble-vertical-divider.html">
 <link rel="import" href="../pebble-tree/pebble-tree.html">
 <link rel="import" href="../pebble-grid/pebble-grid.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="/bower_components/iron-ajax/iron-ajax.html">
 
 
@@ -30,17 +31,58 @@
                 display: inline-flex;
             }
 
+            .btn-with-border{
+                margin-right:var(--default-margin,10px);
+            }
+
+            pebble-button {
+                vertical-align: -webkit-baseline-middle;
+                vertical-align: -moz-baseline-middle;
+                vertical-align: baseline-middle;
+                --pebble-button: {
+                    height: 30px;
+                    padding: 0.5em 0em 0.5em 0em;
+                    min-width: 2.14em;
+                    margin: 0px;
+                }
+                --pebble-button-iron-icon: {
+                    height: 20px;
+                    width: 20px;
+                    color: #7d8690;
+                }
+            }
+
+            pebble-button.pageRange::shadow paper-button {
+                line-height: var(--border-btn-height,24px);
+                height: var(--border-btn-height,24px);
+                box-shadow: none;
+                font-family: var(--default-font-family);
+            }
+
+            .grid-container {
+                margin : 10px;
+            }
+
+            .action-container {
+                display: inline-flex;
+                float: right;
+            }
+
         </style>
         <div class="container">
             <div class="left">
-                <iron-ajax auto url="./demo/pebbleTreeData.json" handle-as="json" last-response="{{initialNav}}"></iron-ajax>
-                <pebble-tree initial-nav="[[initialNav]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" multi-select enable-search></pebble-tree>
+                <pebble-tree id = "tree" initial-nav="[[initialNav]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" multi-select enable-search></pebble-tree>
             </div>
             <pebble-vertical-divider></pebble-vertical-divider>
             <div class="right">
-                <iron-ajax auto url="./demo/gridConfig.json" handle-as="json" last-response="{{gridConfig}}"></iron-ajax>
-                <iron-ajax auto url="./demo/gridData.json" handle-as="json" last-response="{{gridData}}"></iron-ajax>
-                <pebble-grid id = "pebbleGrid" config="{{gridConfig}}" page-size="10" data="{{gridData}}"></pebble-grid>
+
+                <div class ="grid-container">
+                    <pebble-grid id = "pebbleGrid" config="{{gridConfig}}" page-size="10" data="{{gridData}}"></pebble-grid>
+                </div>
+                <div class="action-container" hidden = [[!isEditMode]]>
+                    <pebble-button class="pageRange btn-with-border" button-text="Cancel" on-tap="cancelAction" noink raised></pebble-button>
+                    <pebble-button class="pageRange btn-with-border" button-text="Save" on-tap="saveAction" noink raised></pebble-button>
+                </div>
             </div>
         </div>
     </template>
@@ -53,6 +95,30 @@
                 is: 'rock-entity-variant',
 
                 properties: {
+
+                    /**
+                     * Indicates initial navigation in the array form.
+                     */
+                    initialNav: {
+                        type: Array,
+                        value: function() {return [];}
+                    },
+
+                    gridConfig: {
+                        type: Object,
+                        notify: true
+                    },
+
+                    gridData: {
+                        type: Object,
+                        notify: true
+                    },
+
+                    initialGridData : {
+                        type: Object,
+                        notify: true
+                    },
+
                     /**
                      * Indicates the currently selected item.
                      */
@@ -69,13 +135,94 @@
                         notify: true,
                         value: function() {return [];},
                         observer : 'selectedItemsChanged'
+                    },
+
+                    isEditMode : {
+                        type : Boolean,
+                        notify : true,
+                        value : false
                     }
                 },
 
+                observers : [
+                    'editModeChanged(gridConfig.mode)'
+                ],
+
                 selectedItemsChanged : function() {
-                    console.log('rerendering grid');
-                    console.log(this.selectedItems);
+                    var foundItems = [];
+                    var that = this;
+                    if(this.selectedItems && this.selectedItems.length > 0) {
+                        if(this.selectedItems.length == 1 && this.selectedItems[0].isNew) {
+                            this.gridData = [];
+                            this.$.pebbleGrid.addNewRows(1);
+                            this.isEditMode = true;
+                        } else {
+                            for (var i = 0, len = that.initialGridData.length; i < len; i++) {
+                                this.selectedItems.forEach(function (item) {
+                                    if (that.isDataMatches(that.initialGridData[i], item.text)) {
+                                        foundItems.push(that.initialGridData[i]);
+                                    }
+                                });
+                            }
+                            this.$.pebbleGrid.data = foundItems;
+                            this.$.pebbleGrid.reRenderGrid();
+                        }
+                    } else if(this.selectedItems && this.selectedItems.length == 0) {
+                        this.$.pebbleGrid.data = this.initialGridData;
+                        this.$.pebbleGrid.reRenderGrid();
+                    }
+                },
+
+                isDataMatches :function (data,text) {
+                    if(data.shortName.toLowerCase().indexOf(text.toLowerCase()) != -1 ||
+                        data.longName.toLowerCase().indexOf(text.toLowerCase()) != -1   ||
+                        data.productType.toLowerCase().indexOf(text.toLowerCase()) != -1 ||
+                        data.description.toLowerCase().indexOf(text.toLowerCase()) != -1
+                    ) {
+                        return true;
+                    }
+                    return false;
+                },
+
+                handleResponse : function (e) {
+                    var data = e.detail.xhr.response;
+//                    console.log(e.detail.xhr.response);
+                    this.gridData = data;
+                    this.initialGridData = data;
+                },
+
+                editModeChanged : function(mode) {
+                    if(mode == 'Edit') {
+                        this.set('isEditMode',true);
+                    } else {
+                        this.set('isEditMode',false);
+                    }
+                },
+
+                saveAction : function(e) {
+                    if(this.selectedItems.length == 1 && this.selectedItems[0].isNew) {
+                        var newData = this.gridData[0];
+                        newData.isEditable = false;
+                        this.push('initialGridData', newData);
+//                        var arr = [];
+//                        arr.push(newData);
+                        this.$.pebbleGrid.data = this.initialGridData;
+                        this.$.pebbleGrid.reRenderGrid();
+                        this.selectedItems[0].isNew = false;
+                        this.$.tree.ClearSelectedItems();
+                    } else {
+                        //TODO
+                        this.initialGridData = this.gridData;
+                        this.$.pebbleGrid.reRenderGrid();
+                    }
+                    this.isEditMode = false;
+                },
+
+                cancelAction : function(e) {
+                    this.$.tree.ClearSelectedItems();
+                    this.$.pebbleGrid.data = this.initialGridData;
                     this.$.pebbleGrid.reRenderGrid();
+                    this.isEditMode = false;
                 }
             });
         })();
