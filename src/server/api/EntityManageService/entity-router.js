@@ -3,7 +3,7 @@
 var falcorExpress = require('falcor-express'),
     Router = require('falcor-router');
 
-var resolver = require('./route-resolver');
+var resolver = require('./entity-route-resolver');
 
 var EntityRouterBase = Router.createClass([
     {

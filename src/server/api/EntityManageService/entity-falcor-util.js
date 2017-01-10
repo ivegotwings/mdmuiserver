@@ -6,8 +6,6 @@ var jsonGraph = require('falcor-json-graph'),
     $atom = jsonGraph.atom,
     expireTime = -60 * 60 * 1000; // 60 mins
 
-
-
 function createPath(pathSet, value, expires) {
     return {
         'path': pathSet,

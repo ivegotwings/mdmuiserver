@@ -6,12 +6,12 @@ require("babel-polyfill");
 var EntityManageService = require('./EntityManageService');
 
 function testOfflineInitialization() {
-    var entityManageService = new EntityManageService({ mode: "offline" });
+    var entityManageService = new EntityManageService({ mode: "dev-offline" });
 }
 
 function testOfflineGetEntitiesForSingleId() {
     console.log('testOfflineGetEntitiesForSingleId started..');
-    var entityManageService = new EntityManageService({ mode: "offline" });
+    var entityManageService = new EntityManageService({ mode: "dev-offline" });
 
     var request = {
         "query": {
