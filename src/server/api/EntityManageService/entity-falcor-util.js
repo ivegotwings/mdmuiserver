@@ -6,13 +6,11 @@ var jsonGraph = require('falcor-json-graph'),
     $atom = jsonGraph.atom,
     expireTime = -60 * 60 * 1000; // 60 mins
 
-
-
-function createPath(pathSet, value) {
+function createPath(pathSet, value, expires) {
     return {
-        path: pathSet,
+        'path': pathSet,
         'value': value,
-        $expires: expireTime
+        '$expires': expires !== undefined ? expires : expireTime
     };
 }
 
@@ -82,7 +80,7 @@ function createRequestJson(ctxKeys, attrNames) {
 function unboxEntityData(entity) {
     var unboxedEntity = {};
 
-    unboxedEntity.id = entity.id;
+    unboxedEntity.id = unboxJsonObject(entity.id);;
     unboxedEntity.dataObjectInfo = entity.dataObjectInfo === undefined ? {} : unboxJsonObject(entity.dataObjectInfo);
     unboxedEntity.systemInfo = entity.systemInfo === undefined ? {} : unboxJsonObject(entity.systemInfo);
     unboxedEntity.properties = entity.properties === undefined ? {} : unboxJsonObject(entity.properties);
@@ -124,16 +122,16 @@ function transformEntityToExternal(entity) {
 
             //Transform ctxInfo to external format understood by API
             var ctxInfoItem = {};
-            var ctxGroupItem = request.query.ctx[0];
+            var ctxGroupItem = request.query.ctx[0]; //TODO:: this is wrong as api wont be able to process requests with multiple contexts...
             var attributes = entity.data.ctxInfo[ctxKey].attributes;
             if(ctxGroupItem !== undefined) {
                 ctxInfoItem = {ctxGroup: ctxGroupItem, attributes: attributes};
                 ctxInfo.push(ctxInfoItem);
             }
         }
-    }
 
-    transformedEntity.data = {ctxInfo: ctxInfo};
+        transformedEntity.data = {ctxInfo: ctxInfo};
+    }
 
     return transformedEntity;
 }
