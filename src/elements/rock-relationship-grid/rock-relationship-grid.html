@@ -240,6 +240,15 @@ Based on config relationship grid will get loaded with defined attributes from g
                 --pebble-horizontal-divider-color: black;
             }
 
+            pebble-lov {
+                  width: 300px !important;
+                  max-height: 350px !important;
+            }
+
+            ::shadow iron-data-table {
+              height: 200px !important;
+            }
+
         </style>
 
     <template is="dom-if" if="{{_dataIsNotNull(data)}}">
@@ -258,7 +267,7 @@ Based on config relationship grid will get loaded with defined attributes from g
           </pebble-popover>
 				</div>
         </br>
-				<pebble-grid id="[[relationshipType]]" config="[[_getRelationshipGridConfig(relationshipType)]]" page-size="5" 
+				<pebble-grid id="[[relationshipType]]" config="[[_getRelationshipGridConfig(relationshipType)]]" page-size="10" 
             attribute-models="{{attributeModels}}" data="[[_getRelationshipGridData(relationshipType)]]"></pebble-grid>					
 			</template>
 			
@@ -278,11 +287,12 @@ Based on config relationship grid will get loaded with defined attributes from g
             </pebble-popover>
 					</div>
           </br>          
-					<pebble-grid id="[[relationship]]" config="{{_getRelationshipGridConfig(relationship)}}" page-size="5" 
+					<pebble-grid id="[[relationship]]" config="{{_getRelationshipGridConfig(relationship)}}" page-size="10" 
               attribute-models="{{attributeModels}}" data="{{_getRelationshipGridData(relationship)}}"></pebble-grid>
 				</template>
 			</template>
 		</template>
+    
     <liquid-entity-getdata auto  verbose id="initiateSearchResult" operation="initiatesearch" 
         request-data="{{request}}" last-response="{{searchResponse}}"></liquid-entity-getdata>
     <liquid-entity-getdata auto verbose id="searchResultGetDataService" operation="getsearchresultdetail" 
@@ -385,8 +395,9 @@ Based on config relationship grid will get loaded with defined attributes from g
       _currentSelectedLov: null,
       _currentLovItems: null,
 			onPopoverClick: function(e) {
-          var popover = this.root.querySelector('pebble-popover[for=' + e.currentTarget.id + ']');
-          this._currentSelectedLov = this.root.querySelector('pebble-lov[id=' + e.currentTarget.id + ']');
+          var popover =  Polymer.dom(this).node.$$("pebble-popover[for=" + e.currentTarget.id + "]");
+          var lov = Polymer.dom(this).node.$$("pebble-lov[id=" + e.currentTarget.id + "]");
+          this._currentSelectedLov =  Polymer.dom(this).node.$$('pebble-lov[id=' + e.currentTarget.id + ']');
 
           var req = {
               "data": {
@@ -426,12 +437,13 @@ Based on config relationship grid will get loaded with defined attributes from g
           this.set("request", req);
           
           popover.show();
+          lov.open();
           this._currentSelectedLov.items = this._currentLovItems;
       },
 
       addRelatedEntity: function(e) {
-          var relGrid = this.root.querySelector('pebble-grid[id='+ e.currentTarget.id +']');
-          var popover = this.root.querySelector('pebble-popover[for=' + e.currentTarget.id + ']');
+          var relGrid =  Polymer.dom(this).node.$$('pebble-grid[id='+ e.currentTarget.id +']');
+          var popover =   Polymer.dom(this).node.$$("pebble-popover[for=" + e.currentTarget.id + "]");
           var selectedItem = e.currentTarget.value;
           
           // Call of liquid for selected entity based on config
@@ -448,14 +460,19 @@ Based on config relationship grid will get loaded with defined attributes from g
               {
                 var record = {};
                 columns.forEach(function(column) {
-                  record[column.name] = "abc" + e.currentTarget.id;
+                  if(column.name == "Related Entity")
+                  {
+                       record[column.name] = selectedItem;
+                  }
                 }, this);
                 relGridData.push(record);
               }
             }
+
             relGrid.data = relGridData;
-            relGrid.notifyPath("data", relGrid.data.slice());
-            relGrid._onRefresh();
+            var oldsize = relGrid.data.length;
+            relGrid._getIronDataTable()._sizeChanged(oldsize+1,oldsize);
+            relGrid.reRenderGrid();
           }
 
           popover.hide();
@@ -518,6 +535,7 @@ Based on config relationship grid will get loaded with defined attributes from g
             relationshipAttributes = this.relationshipCustomGridConfig.attributes;
           }
 
+          // Once object structre is getting change from array ot object needs to change this.
           relatedEntities.forEach(function(relElement){
             var record = {};
 
@@ -553,18 +571,34 @@ Based on config relationship grid will get loaded with defined attributes from g
 
       _convertIntoEntityLovList: function(entitiesResponse) {
         if(entitiesResponse) {
-          //Entity needs to be converted into lov list
-        }
-        debugger;
-        if(this._currentSelectedLov) {
-          var items = [];
-          items.push({"id":1,"title":"Lamborghini","subtitle":"L1","image":"/src/images/lookup-item.jpg"});
-          items.push({"id":2,"title":"Nissan GTR","subtitle":"N1","image":"/src/images/lookup-item.jpg"});
-          items.push({"id":3,"title":"La Ferrari","subtitle":"F1","image":"/src/images/lookup-item.jpg"});
-          items.push({"id":4,"title":"Buggati","subtitle":"B1","image":"/src/images/lookup-item.jpg"});
+          var items = [];          
+          if(entitiesResponse.content && entitiesResponse.content.entities) {
+            var entities = entitiesResponse.content.entities;
 
-          this._currentSelectedLov.items = items;
-          this._currentLovItems = items;
+            Object.keys(entities).forEach(function(item) {
+              var entity = entities[item];
+              if(entity && entity.data && entity.data.ctxInfo) {
+                var ctxInfo = entity.data.ctxInfo;
+                
+                Object.keys(ctxInfo).forEach(function(dataItem) {
+                  var data = ctxInfo[dataItem];
+                  if(data) {
+                    if(data.attributes) {
+                      items.push({
+                        "id":entity.id,
+                        "title": data.attributes["csapDescriptionOfNart"].values[0].value,
+                        "subtitle":data.attributes["cpimProductName"].values[0].value,
+                        "image":"/src/images/lookup-item.jpg"});
+                    }
+                  }
+                }, this);
+              }
+            }, this);
+          }
+          if(this._currentSelectedLov){
+            this._currentSelectedLov.items = items;
+            this._currentLovItems = items;
+          }
         }
       }
 		});
