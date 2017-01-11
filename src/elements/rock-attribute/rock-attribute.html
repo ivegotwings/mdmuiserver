@@ -6,6 +6,9 @@
 <link rel="import" href="../pebble-dropdown/pebble-dropdown.html">
 <link rel="import" href="../pebble-boolean/pebble-boolean.html">
 <link rel="import" href="../pebble-icons/pebble-icons.html">
+<link rel="import" href="../pebble-popover/pebble-popover.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="pebble-error-list.html">
 <!--
 `rock-attribute`
 Represents the attribute component in the framework. It takes parameters to know the details of the attribute and renders appropriate UI elements to manage an attribute value.
@@ -68,6 +71,28 @@ Represents the attribute component in the framework. It takes parameters to know
 			.attribute-edit-changed {
 				background-color: #EDF8FE !important;
 			}
+			.error  {
+				color: var(--error-color, rgba(251, 96, 103, 1));
+				font-size: 12px;
+				font-weight: 400;
+				letter-spacing: 0.011em;
+				line-height: 20px;
+				width: 85%;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				display: inline-block;
+			}
+			.error-circle {
+				height: 18px;
+				width: 18px;
+				line-height:18px;
+				text-align: center;
+				border-radius: 50%;
+				background: var(--error-color);
+				font-size: 9px;
+				float: right;
+			}
 		</style>
 		<div class="attribute" name$="[[attributeModelObject.name]]">
 			<div class="attribute-main">
@@ -83,16 +108,16 @@ Represents the attribute component in the framework. It takes parameters to know
 					<paper-icon-button name="locale" icon="pebble-icons:Language" title="Manage in multiple locales" on-tap="_onLocaleClick"
 						tabindex="-1"></paper-icon-button>
 				</div>
-				<template is="dom-if" if="[[_isEditMode(mode)]]">
-					<div class$="[[_getAttributeEditClass(changed)]]">
+					<div class$="[[_getAttributeEditClass(changed)]]" hidden="[[!_isEditMode(mode)]]">
+						//hidden is used here in place of dom-if because we want the client-side validation errors to show even on read mode which won't happen if we used dom-if
 						<template is="dom-if" if="[[_isTextArea(attributeModelObject.displayType)]]">
-                            <pebble-textarea label="{{attributeModelObject.longName}}" value="{{attributeObject.value}}" required="[[attributeModelObject.required]]"
+                            <pebble-textarea validation-errors="{{validationErrors}}" label="{{attributeModelObject.longName}}" value="{{attributeObject.value}}" required="[[attributeModelObject.required]]"
                                              minlength="[[attributeModelObject.minLength]]" maxlength="[[attributeModelObject.maxLength]]" pattern="[[attributeModelObject.pattern]]" precision="[[attributeModelObject.precision]]"
                                              min="[[attributeModelObject.min]]" max="[[attributeModelObject.max]]"  validation-type="[[attributeModelObject.validationType]]" validation-type-array="[[attributeModelObject.validationTypeArray]]"
                             ></pebble-textarea>
 						</template>
 						<template is="dom-if" if="[[_isDropDown(attributeModelObject.displayType)]]">
-                            <pebble-dropdown label="{{attributeModelObject.longName}}" items="{{attributeModelObject.allowedValues}}" selected-value="{{attributeObject.value}}"
+                            <pebble-dropdown  validation-errors="{{validationErrors}}" label="{{attributeModelObject.longName}}" items="{{attributeModelObject.allowedValues}}" selected-value="{{attributeObject.value}}"
                                              pattern="[[attributeModelObject.pattern]]"  precision="[[attributeModelObject.precision]]" required="[[attributeModelObject.required]]"
                                              min="[[attributeModelObject.min]]" max="[[attributeModelObject.max]]"  validation-type="[[attributeModelObject.validationType]]" validation-type-array="[[attributeModelObject.validationTypeArray]]"></pebble-dropdown>						</template>
 						<template is="dom-if" if="[[_isBoolean(attributeModelObject.displayType)]]">
@@ -100,7 +125,7 @@ Represents the attribute component in the framework. It takes parameters to know
 						</template>
 						<!-- If display type is not supported then textbox is used -->
 						<template is="dom-if" if="[[_isTextBox(attributeModelObject.displayType)]]">
-                            <pebble-textbox
+                            <pebble-textbox validation-errors="{{validationErrors}}"
                                     label="{{attributeModelObject.longName}}" value="{{attributeObject.value}}"
                                     required="[[attributeModelObject.required]]"
                                     minlength="[[attributeModelObject.minLength]]" maxlength="[[attributeModelObject.maxLength]]"
@@ -109,13 +134,16 @@ Represents the attribute component in the framework. It takes parameters to know
                             ></pebble-textbox>
 						</template>
 					</div>
-				</template>
 				<template is="dom-if" if="[[!_isEditMode(mode)]]">
 					<div class="attribute-view">
 						<span class="attribute-view-label">{{attributeModelObject.longName}}:</span><br>
 						<span class="attribute-view-value"> {{attributeObject.value}}</span><br>
 					</div>
 				</template>
+				<div id="error-display" hidden="[[_errorAbsent(errors)]]" on-tap="_errorTapped">
+				<span class="error">[[errorMessage]] </span>
+				<span id="error-circle"  class="error-circle" >[[errorLength]]</span>
+				</div>
 			</div>
 			<div>
 				<template is="dom-if" if="[[_isEditMode(mode)]]">
@@ -123,6 +151,14 @@ Represents the attribute component in the framework. It takes parameters to know
 				</template>
 			</div>
 		</div>
+		<pebble-popover id="errorPopover" for="error-circle" no-overlap horizontal-align="right" >
+			<pebble-error-list errors="[[errors]]"></pebble-error-list>
+			<!--<template is="dom-repeat" items="{{errors}}">-->
+			<!--<div>-->
+			<!--[[item]]-->
+			<!--</div>-->
+			<!--</template>-->
+		</pebble-popover>
 	</template>
 	<script>
         (function () {
@@ -191,7 +227,40 @@ Represents the attribute component in the framework. It takes parameters to know
                     _isInitialized: {
                         type: Boolean,
                         value: false
-                    }
+                    },
+					serverErrors:{
+                        type:Array,
+						value: function () {
+							return [];
+                        },
+						notify:true,
+                        observer:'errorsChanged'
+					},
+					validationErrors:{
+                        type:Array,
+						value: function () {
+							return [];
+                        },
+						notify:true,
+                        reflectToAttribute:true,
+						observer:'errorsChanged'
+					},
+					errors:{
+                        type:Array,
+						notify:true,
+						reflectToAttribute:true,
+						computed:'_getAllErrors(serverErrors,validationErrors)'
+					},
+					errorLength:{
+                        type: Number,
+						notify:true,
+						value:0
+					},
+					errorMessage:{
+                        type:String,
+						notify:true,
+						computed:'_getErrorMessage(errors)'
+					}
                 },
                 observers: [
                     '_attributeObjectChanged(attributeObject.*)'
@@ -251,6 +320,26 @@ Represents the attribute component in the framework. It takes parameters to know
                 },
                 _cloneObject: function (o) {
                     return DataHelper.cloneObject(o);
+                },
+                _getAllErrors: function(serverErrors,validationErrors){
+                    return serverErrors.concat(validationErrors);
+				},
+				_getErrorMessage: function (errors) {
+                    if(errors.length) {
+                        return this.errors[0];
+                    }
+				},
+                errorsChanged:function () {
+                    if(this.serverErrors && this.validationErrors) {
+                        this.errorLength = this.serverErrors.length + this.validationErrors.length;
+                    }
+                },
+                _errorAbsent: function (errors) {
+					return errors.length==0;
+                },
+                _errorTapped: function () {
+                    this.$.errorPopover.positionTarget =this.$$('#error-circle');
+				  this.$.errorPopover.open();
                 }
             });
         })();
