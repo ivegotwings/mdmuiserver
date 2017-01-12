@@ -80,7 +80,7 @@ async function initiateSearchRequest(callPath, args) {
             totalRecords = dataObjects.length;
             dataObjects.forEach(function (entity) {
                 if (entity.id !== undefined) {
-                    response.push(createPath(['searchResults', requestId, "entities", index++], $ref({'id': entity.id})));
+                    response.push(createPath(['searchResults', requestId, "entities", index++], $ref([pathRootKey, entity.id])));
                 }
             });
         }
