@@ -1,4 +1,13 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
+<link rel="import" href="../pebble-actions/pebble-actions.html">
+<link rel="import" href="../bedrock-helpers/component-helper.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-stepper/pebble-stepper.html">
+<link rel="import" href="../pebble-stepper/pebble-step.html">
+
 <!--
 `rock-wizard` Represents an element that displays steps in an order
 based on the configuration that user has provided.
@@ -8,14 +17,108 @@ based on the configuration that user has provided.
 <dom-module id="rock-wizard">
     <template>
         <style include="pebble-styles-shared"></style>
+        <style is="custom-style">
+            #wizard-container {
+                @apply(--layout-horizontal);
+            }
+            #button-container {
+                padding-bottom: 20px;
+            }
+            pebble-actions {
+                --pebble-actions-button: {
+                    height: 30px;
+                    font-size: 15px;
+                    padding-left: 10px !important;
+                    top: 0px !important;
+                    border: 1px solid #036BC3;
+                    color: #036BC3;
+                    background: #fff;
+                }
+                --pebble-actions-button-drop-down-icon: {
+                    padding-left: 10px;
+                    color: #036BC3;
+                }
+                --pebble-actions-popover: {
+                    margin-top: 12px;
+                    border-radius: 4px;
+                }
+            }
+
+            .import-button {
+                --pebble-button: {
+                    height: 30px;
+                    font-size: 15px;
+                    padding-left: 10px !important;
+                    border: 1px solid #036BC3;
+                    color: #036BC3;
+                    background: #fff;
+                }
+                --pebble-button-dropdown-icon: {
+                    height: 20px;
+                    width: 20px;
+                    padding-left: 10px;
+                }
+            }
+            #step-container {
+                @apply(--shadow-elevation-4dp);
+                padding: 30px 0px;
+                border-radius: 5px;
+                display: none;
+            }
+            .stepper-style {
+                --connectorLine-height: 200px;
+                --pebble-connected-badge-width: 40px;
+                --pebble-connected-badge-height: 40px;
+                --pebble-connected-badge-fontSize: 20px;
+                --pebble-step-closed-badge-background: #c1cad4;
+                --pebble-step-outer-badge-background: #c1cad4;
+                --outer-badge-color: #c1cad4;
+                --connectorLine-width: 3px;
+                --connectorLine-color: #c1cad4;
+            }
+            #stepper {
+                width: 10%;
+            }
+            #entity-create {
+                width: 90%;
+            }
+        </style>
         <div id="wizard-container">
             <div id="stepper">
                 <!-- place stepper here -->
+                <iron-ajax auto url="demo/stepper-data.json" handle-as="json" last-response="{{_stepItems}}"></iron-ajax>
+                <pebble-stepper vertical selected-step="0">
+                    <template is="dom-repeat" items="{{_stepItems.items}}" as="item">
+                        <pebble-step class="stepper-style" data="{{item}}"></pebble-step>
+                    </template>
+                </pebble-stepper>
             </div>
-            <div id="step-container">
-                <!-- step component should be loaded here -->
+            <div id="entity-create">
+                <div id="description" align="center">
+                    <!--description about entity creation should be placed here-->
+                    <p>
+                        Select how you would like to create a new product. 
+                        You can create one manually or by importing data in any format you have.
+                    </p>
+                </div>
+                <div id="button-container" align="center">
+                    <!--buttons for manual and import-->
+                    <iron-ajax auto url="actions-config.json" handle-as="json" last-response="{{actionsData}}"></iron-ajax>
+                    <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
+                    <pebble-actions id="manualActions" button-text="Manual" actions-data="[[actionsData]]"></pebble-actions>
+                    <pebble-button class="import-button" button-text="Import" dropdown-icon raised on-tap="_onImportTap"></pebble-button>
+                </div>
+                <div id="step-label">
+                    <h3>[[_stepLabel]]</h3>
+                </div>
+                <div id="step-container">
+                    <!-- step component should be loaded here -->
+                </div>
             </div>
         </div>
+        <bedrock-pubsub event-name="component-creating" handler="_onComponentCreating" target-id=""></bedrock-pubsub>
+        <bedrock-pubsub id="next-event"></bedrock-pubsub>
+        <bedrock-pubsub id="back-event"></bedrock-pubsub>
     </template>
 </dom-module>
 <script>
@@ -43,8 +146,23 @@ based on the configuration that user has provided.
                     value: function () {
                         return {};
                     }
-                }
+                },
+                _stepLabel: {
+                    type: String,
+                    value: function() {
+                        return null;
+                    }
+                },
+                sharedData: {
+                    type: Array,
+                    value: function() {
+                        return [];
+                    }
+                },
             },
+            behaviors: [
+                RUFBehaviors.UIBehavior
+            ],
             goToNext: function () {
                 if(this._currentStepIndex < this.config.steps.length) {
                     this.goToStep(this._currentStepIndex + 1);
@@ -57,6 +175,85 @@ based on the configuration that user has provided.
             },
             goToStep: function (stepIndex) {
                 //load content based on current step config
+                this._currentStepIndex = stepIndex;
+                var stepConfig = this.config.steps[stepIndex];
+                this._getStepLabel(stepConfig);
+                this._renderComponent(stepConfig);
+                this._addEventListeners(stepConfig);
+            },
+            _renderComponent: function(config) {
+                var contentElement = this.$$('#step-container');
+                if(config && config.component && contentElement) {
+                    ComponentHelper.loadContent(contentElement, config.component, this);
+                }
+            },
+            _getStepLabel: function(config) {
+                if(config) {
+                    this._stepLabel = config.label;
+                }
+            },
+            _onActionItemTap: function (e, detail, sender) {
+                this.$$('#step-container').style.display = "block";
+                this.$$('#description').style.display = "none";
+                if(detail && detail.data) {
+                    if(detail.data.name == "createSingleProduct") {
+                        this.goToStep(0);
+                    }
+                }
+            },
+            _onStepSave: function(e, detail, sender) {
+                if(detail && detail.data) {
+                    console.log("shared data", detail.data);
+                    this.sharedData = detail.data;
+                    this.goToNext();
+                }
+            },
+            _onStepCancel: function(e, detail, sender) {
+                if(this._currentStepIndex && this._currentStepIndex != 0) {
+                    this.goToPrevious();
+                }
+            },
+            _onComponentCreating: function(e, detail, sender) {
+                if(detail && detail.data) {
+                    var component = detail.data;
+                    if(component.name == "rock-entity-perspective-manage") {
+                        component.properties.shared = this.sharedData;
+                    }
+                }
+            },
+            _onImportTap: function() {
+                this.$$('#step-container').style.display = "block";
+                this.$$('#description').style.display = "none";
+                this._stepLabel = "Import a file";
+                var config = {
+                    component: {
+                        name: "pebble-file-upload",
+                        path: "/../../src/elements/pebble-file-upload/pebble-file-upload.html",
+                        properties: {
+                            accept: "application/msword, application/vnd.ms-excel, application/vnd.ms-powerpoint,text/plain, application/pdf, image/*",
+                            target: "/file-upload"
+                        }
+                    }
+                };
+                this._renderComponent(config);
+            },
+            _addEventListeners: function(config) {
+                if(config) {
+                    var nextEventName = config.nextEvent;
+                    var backEventName = config.skipEvent;
+                    var nextElement = this.$$('#next-event');
+                    var backElement = this.$$('#back-event');
+                    if(nextElement && nextEventName) {
+                        nextElement.eventName = nextEventName;
+                        nextElement.handler = "_onStepSave";
+                        nextElement.registerEvent();
+                    }
+                    if(backElement && backEventName) {
+                        backElement.eventName = backEventName;
+                        backElement.handler = "_onStepCancel";
+                        backElement.registerEvent();
+                    }
+                }
             }
         });
     })();
