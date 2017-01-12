@@ -17,7 +17,7 @@ switch between different views or functional aspects of an app or to browse cate
 -->
 <dom-module id="pebble-lov">
     <style is="custom-style" include="pebble-styles-shared">
-            :host {
+         :host {
             box-shadow: 0 0px 6px 0px rgba(0, 0, 0, 0.24);
             background: #fff;
             border-radius: 0 0 2px 2px;
@@ -56,7 +56,7 @@ switch between different views or functional aspects of an app or to browse cate
         }
         
         #selector .item[selected] {
-            background-color: var(--accent-color);
+            /*background-color: var(--accent-color);*/
             color: var(--primary-color);
         }
         
@@ -67,7 +67,7 @@ switch between different views or functional aspects of an app or to browse cate
             padding-left: 4px;
         }
         
-            :host([loading]) {
+         :host([loading]) {
             /* roughly the size of a list with one item */
             display: block !important;
             height: 58px;
@@ -181,10 +181,6 @@ switch between different views or functional aspects of an app or to browse cate
         Polymer({
             is: 'pebble-lov',
 
-            // behaviors: [
-            //     RUFBehaviors.elements.pebblelov.PebbleLovBehavior
-            // ],
-
             properties: {
 
                 disabled: {
@@ -209,9 +205,6 @@ switch between different views or functional aspects of an app or to browse cate
                     value: "false"
                 },
 
-                /*
-                    * `true` when new items are being loaded.
-                    */
                 loading: {
                     type: Boolean,
                     value: false,
@@ -329,7 +322,7 @@ switch between different views or functional aspects of an app or to browse cate
             listeners: {
                 'on-mousedown': '_preventDefault',
                 'keydown': '_onKeyDown',
-                'selection-changed': '_selectionChanged'
+                // 'selection-changed': '_selectionChanged'
             },
 
             observers: [
@@ -338,7 +331,10 @@ switch between different views or functional aspects of an app or to browse cate
                 '_filterChanged(_filter)',
                 '_filteredItemsChanged(_filteredItems.*)',
                 '_selectedItemChanged(selectedItem)',
-                '_selectedItemsChanged(selectedItems.*)'
+                '_selectedItemsChanged(selectedItems.*)',
+                '_selectedItemIdChanged(items.*, selectedItemIds.*)',
+                // '_selectedItemIdChanged(selectedItemId)',
+                // '_selectedItemIdsChanged(selectedItemIds.*)',
             ],
 
             created: function () {
@@ -359,13 +355,28 @@ switch between different views or functional aspects of an app or to browse cate
             attached: function () {
                 console.log("pebble-lov: attached");
                 this._handler = this._outsideClickListener.bind(this);
+
+                // if (!this._multiSelectionBoolean) {
+                //     if (this.selectedItemId != null || this.selectedItemId != undefined) {
+                //         this._selectedItemIdChanged(this.selectedItemId);
+                //     }
+                // } else {
+                //     if (this.selectedItemIds != null || this.selectedItemIds != undefined) {
+                //         this._selectedItemIdsChanged(this.selectedItemIds);
+                //     }
+                // }
             },
 
             detached: function () {
                 console.log("pebble-lov: detached");
 
                 // Making sure the overlay is closed and removed from DOM after detaching the dropdown.
-                this.close();
+                this._close();
+            },
+
+            attributeChanged: function (name, type) {
+                console.log(this.localName + '#' + this.id + ' attribute ' + name +
+                    ' was changed to ' + this.getAttribute(name));
             },
 
             /* LifeCycle Callbacks */
@@ -391,7 +402,7 @@ switch between different views or functional aspects of an app or to browse cate
                     return item === selectedItem;
                 } else {
                     if (selectedItems) {
-                        var index = this._functiontofindIndexByKeyValue(selectedItems, "name", item.name);
+                        var index = this._functiontofindIndexByKeyValue(selectedItems, "title", item.title); // Move to helper file
                         if (index != null || index != undefined) {
                             return index >= 0;
                         } else {
@@ -444,14 +455,7 @@ switch between different views or functional aspects of an app or to browse cate
 
                     this._filteredItems = this.items ? this.items.slice(0) : this.items;
 
-                    // Need to see below code how it will impact multi-select
-                    var valueIndex = this.selectedItemId;
-                    this._focusedIndex = valueIndex;
 
-                    var item = valueIndex > -1 && this.items[valueIndex];
-                    if (item) {
-                        this.selectedItem = item;
-                    }
                 }
             },
 
@@ -475,9 +479,7 @@ switch between different views or functional aspects of an app or to browse cate
 
                 this._clearSearchBox();
 
-                this.fire('selection-changed', {
-                    item: e.model.item
-                });
+                this._selectionChanged(e.model.item);
             },
 
 
@@ -524,16 +526,10 @@ switch between different views or functional aspects of an app or to browse cate
                 if (path === '_filteredItems' || path === '_filteredItems.splices') {
                     this._setOverlayItems();
 
-                    this._focusedIndex = (this._userDefinedFilter) ? this._indexOfTitle(this._filter) :
-                        this.selectedItemId
+                    if (this._userDefinedFilter) {
+                        this._focusedIndex = this._indexOfTitle(this._filter);
+                    }
 
-                    // async needed to reposition correctly after filtering
-                    // (especially when aligned on top of input)
-                    // if (this._filteredItems.length > 0) {
-                    //     this.async(function () {
-                    //         this.notifyResize();
-                    //     }, 1);
-                    // }
                 }
             },
 
@@ -665,7 +661,7 @@ switch between different views or functional aspects of an app or to browse cate
                     this.selectedItems = [];
                 }
 
-                this.close();
+                this._close();
             },
 
             _clearSelection: function () {
@@ -724,28 +720,28 @@ switch between different views or functional aspects of an app or to browse cate
                     console.log("pebble-lov: _scrollIntoView");
                 }
 
-                // if (this._visibleItemsCount() === undefined) {
-                //     // Scroller is not visible. Moving is unnecessary.
-                //     return;
-                // }
+                if (this._visibleItemsCount() === undefined) {
+                    // Scroller is not visible. Moving is unnecessary.
+                    return;
+                }
 
-                // var targetIndex = index;
+                var targetIndex = index;
 
-                // if (index > this._lastVisibleIndex()) {
-                //     // Index is below the bottom, scrolling down. Make the item appear at the bottom.
-                //     targetIndex = index - this._visibleItemsCount() + 1;
+                if (index > this._lastVisibleIndex()) {
+                    // Index is below the bottom, scrolling down. Make the item appear at the bottom.
+                    targetIndex = index - this._visibleItemsCount() + 1;
 
-                //     // From iron-list 1.2.4, scrolling to an index guarantees that the item
-                //     // is visible into the viewport, but does not gurarantee that it is at the
-                //     // first position. Jumping first to the item we want to be at the bottom,
-                //     // fixes the problem.
-                //     this.$.selector.scrollToIndex(index);
-                // } else if (index > this.$.selector.firstVisibleIndex) {
-                //     // The item is already visible, scrolling is unnecessary per se. But we need to trigger iron-list to set
-                //     // the correct scrollTop on the scrollTarget. Scrolling to firstVisibleIndex.
-                //     targetIndex = this.$.selector.firstVisibleIndex;
-                // }
-                // this.$.selector.scrollToIndex(Math.max(0, targetIndex));
+                    // From iron-list 1.2.4, scrolling to an index guarantees that the item
+                    // is visible into the viewport, but does not gurarantee that it is at the
+                    // first position. Jumping first to the item we want to be at the bottom,
+                    // fixes the problem.
+                    this.$.selector.scrollToIndex(index);
+                } else if (index > this.$.selector.firstVisibleIndex) {
+                    // The item is already visible, scrolling is unnecessary per se. But we need to trigger iron-list to set
+                    // the correct scrollTop on the scrollTarget. Scrolling to firstVisibleIndex.
+                    targetIndex = this.$.selector.firstVisibleIndex;
+                }
+                this.$.selector.scrollToIndex(Math.max(0, targetIndex));
             },
 
             _updateViewportBoundaries: function () {
@@ -768,9 +764,10 @@ switch between different views or functional aspects of an app or to browse cate
                 }
                 this.$.scroller.style.height = (this.getBoundingClientRect().height - this.$.input.getBoundingClientRect()
                     .height) + "px";
-                // if (this._itemsObject) {
-                //     this._scrollIntoView(this._focusedIndex);
-                // }
+
+                if (this._itemsObject) {
+                    this._scrollIntoView(this._focusedIndex);
+                }
             },
 
             _patchWheelOverScrolling: function () {
@@ -798,21 +795,21 @@ switch between different views or functional aspects of an app or to browse cate
                     console.log("pebble-lov: _viewportTotalPadding");
                 }
 
-                // if (this._cachedViewportTotalPadding === undefined) {
-                //     var itemsStyle = window.getComputedStyle(this._unwrapIfNeeded(this.$.selector.$.items));
-                //     this._cachedViewportTotalPadding = [
-                //         itemsStyle.paddingTop,
-                //         itemsStyle.paddingBottom,
-                //         itemsStyle.borderTopWidth,
-                //         itemsStyle.borderBottomWidth
-                //     ].map(function (v) {
-                //         return parseInt(v, 10);
-                //     }).reduce(function (sum, v) {
-                //         return sum + v;
-                //     });
-                // }
+                if (this._cachedViewportTotalPadding === undefined) {
+                    var itemsStyle = window.getComputedStyle(this._unwrapIfNeeded(this.$.selector.$.items));
+                    this._cachedViewportTotalPadding = [
+                        itemsStyle.paddingTop,
+                        itemsStyle.paddingBottom,
+                        itemsStyle.borderTopWidth,
+                        itemsStyle.borderBottomWidth
+                    ].map(function (v) {
+                        return parseInt(v, 10);
+                    }).reduce(function (sum, v) {
+                        return sum + v;
+                    });
+                }
 
-                // return this._cachedViewportTotalPadding;
+                return this._cachedViewportTotalPadding;
             },
 
             /* Stlyling and Positioning Methods */
@@ -825,15 +822,15 @@ switch between different views or functional aspects of an app or to browse cate
                     // console.log("pebble-lov: _visibleItemsCount");
                 }
 
-                // var firstItemIndex = this.$.selector._physicalStart;
-                // var firstItemHeight = this.$.selector._physicalSizes[firstItemIndex];
+                var firstItemIndex = this.$.selector._physicalStart;
+                var firstItemHeight = this.$.selector._physicalSizes[firstItemIndex];
 
-                // var viewportHeight = this.$.selector._viewportHeight || this.$.selector._viewportSize; //Changed in v1.3.0.
+                var viewportHeight = this.$.selector._viewportHeight || this.$.selector._viewportSize; //Changed in v1.3.0.
 
-                // if (firstItemHeight && viewportHeight) {
-                //     var visibleItems = (viewportHeight - this._viewportTotalPadding) / firstItemHeight;
-                //     return Math.floor(visibleItems);
-                // }
+                if (firstItemHeight && viewportHeight) {
+                    var visibleItems = (viewportHeight - this._viewportTotalPadding) / firstItemHeight;
+                    return Math.floor(visibleItems);
+                }
             },
 
             _lastVisibleIndex: function () {
@@ -841,9 +838,9 @@ switch between different views or functional aspects of an app or to browse cate
                     // console.log("pebble-lov: _lastVisibleIndex");
                 }
 
-                // if (this._visibleItemsCount()) {
-                //     return this.$.selector.firstVisibleIndex + this._visibleItemsCount() - 1;
-                // }
+                if (this._visibleItemsCount()) {
+                    return this.$.selector.firstVisibleIndex + this._visibleItemsCount() - 1;
+                }
             },
 
             _stringToBoolean: function (_str) {
@@ -908,7 +905,7 @@ switch between different views or functional aspects of an app or to browse cate
                 } else if (this._isEventKey(e, 'esc')) {
                     this._onEscape();
                 } else if (this._isEventKey(e, 'space')) {
-                    _onSpace();
+                    this._onSpace();
                     // Do not submit the surrounding form.
                     e.preventDefault();
                 }
@@ -924,12 +921,11 @@ switch between different views or functional aspects of an app or to browse cate
 
             _onArrowDown: function () {
                 if (!this.cssDebugMode) {
-                    // console.log("pebble-lov: _onArrowDown");
+                    console.log("pebble-lov: _onArrowDown");
                 }
 
                 if (this._itemsObject) {
-                    this._focusedIndex = Math.min(this._itemsObject.length - 1, this._focusedIndex +
-                        1);
+                    this._focusedIndex = Math.min(this._itemsObject.length - 1, this._focusedIndex + 1);
                 }
             },
 
@@ -952,9 +948,6 @@ switch between different views or functional aspects of an app or to browse cate
                     // console.log("pebble-lov: _onEnter");
                 }
 
-                // should close on enter when custom values are allowed, input field is cleared, or when an existing
-                // item is focused with keyboard.
-                // this._inputElementValue === '' || 
                 if (!this._multiSelectionBoolean && (this._focusedIndex > -1)) {
                     this._close();
 
@@ -978,14 +971,8 @@ switch between different views or functional aspects of an app or to browse cate
 
             _onSpace: function () {
                 if (this._focusedIndex > -1 && this._multiSelectionBoolean) {
-                    this._toggleSelectionForItem(this._focusedIndex);
-                }
-            },
-
-            _toggleSelectionForItem: function (index) {
-                if (this._multiSelectionBoolean) {
-                    this.$.selector._toggleSelectionForItem(index);
-                    this._selectCheckbox(this.selectedItems);
+                    var focusedItem = this._itemsObject[this._focusedIndex];
+                    this._selectionChanged(focusedItem);
                 }
             },
 
@@ -994,7 +981,7 @@ switch between different views or functional aspects of an app or to browse cate
                     // console.log("pebble-lov: _cancel");
                 }
 
-                this.close();
+                this._close();
             },
 
             /* KeyBoard Methods */
@@ -1002,7 +989,7 @@ switch between different views or functional aspects of an app or to browse cate
 
             /* Dropdown Methods */
 
-            open: function () {
+            activate: function () {
                 if (!this.cssDebugMode) {
                     console.log("pebble-lov: open");
                 }
@@ -1032,6 +1019,9 @@ switch between different views or functional aspects of an app or to browse cate
 
                     // this.notifyResize();
                     this._adjustScrollHeight();
+
+                    this._cachedViewportTotalPadding = undefined;
+                    this.$.selector.updateViewportBoundaries();
                 }, 45);
 
                 this.fire('pebble-lookup-dropdown-opened');
@@ -1046,12 +1036,8 @@ switch between different views or functional aspects of an app or to browse cate
 
                 if (this._focusedIndex > -1) {
                     if (!this._multiSelectionBoolean) {
-                        // make sure input field is updated in case value doesn't change (i.e. FOO -> foo)
                         var focusedItem = this._itemsObject[this._focusedIndex];
-                        this.selectedItem = focusedItem;
-                        this.fire('selection-changed', {
-                            item: focusedItem
-                        });
+                        this._selectionChanged(focusedItem);
                     } else {
                         this._focusedIndex = -1;
                         // this._revertInputValue();
@@ -1078,11 +1064,11 @@ switch between different views or functional aspects of an app or to browse cate
                 if (!this._multiSelectionBoolean) {
                     if (eventPath.indexOf(this) === -1 || (eventPath.indexOf(this) >= 0 && eventPath.indexOf(
                             this.$.searchbox) < 1)) {
-                        this.close();
+                        this._close();
                     }
                 } else {
                     if (eventPath.indexOf(this) === -1) {
-                        this.close();
+                        this._close();
                     }
                 }
             },
@@ -1119,24 +1105,30 @@ switch between different views or functional aspects of an app or to browse cate
 
             /* Dropdown Methods */
 
-            _selectionChanged: function (event) {
+            _selectionChanged: function (selectedItem) {
                 if (!this.cssDebugMode) {
                     console.log("pebble-lov: _selectionChanged");
                 }
 
-                var selectedItem = event.detail.item;
+                // var selectedItem = event.detail.item;
 
-                if (!this.multiSelectionBoolean) {
+                if (!this._multiSelectionBoolean) {
                     this.selectedItem = selectedItem;
                 } else {
-                    var selectedItemIndex = this.selectedItems.indexOf(selectedItem);
+                    if (selectedItem) {
+                        var selectedItemIndex = this.selectedItems.indexOf(selectedItem);
 
-                    if (selectedItemIndex >= 0) {
-                        this.splice('selectedItems', selectedItemIndex, 1);
-                    } else {
-                        this.push('selectedItems', selectedItem);
+                        if (selectedItemIndex >= 0) {
+                            this.splice('selectedItems', selectedItemIndex, 1);
+                        } else {
+                            this.push('selectedItems', selectedItem);
+                        }
                     }
                 }
+
+                this.fire('selection-changed', {
+                    item: selectedItem
+                });
             },
 
             _selectedItemChanged: function (selectedItem) {
@@ -1158,6 +1150,10 @@ switch between different views or functional aspects of an app or to browse cate
             },
 
             _selectedItemsChanged: function (selectedItems) {
+                if (!this.cssDebugMode) {
+                    console.log("pebble-lov: _selectedItemsChanged");
+                }
+
                 if (selectedItems.hasOwnProperty('base')) {
                     selectedItems = selectedItems.base
                 }
@@ -1171,7 +1167,34 @@ switch between different views or functional aspects of an app or to browse cate
                 } else {
                     this.set('selectedItemIds', this._getItemsIds(selectedItems));
                 }
-            }
+
+                this._deSelectCheckBox(); // Will DeSelect All CheckBox
+                this._selectCheckbox(this.selectedItems);
+            },
+
+            _selectedItemIdChanged: function (selectedItemId) {
+                if (this.items) {
+                    var selectedItem = this.items[selectedItemId];
+                    this._selectionChanged(selectedItem);
+                }
+            },
+
+            _selectedItemIdsChanged: function (selectedItemIds) {
+
+                if (selectedItemIds.hasOwnProperty('base')) {
+                    selectedItemIds = selectedItemIds.base
+                }
+
+                for (var i = 0; i < selectedItemIds.length; i++) {
+                    this._selectedItemIdChanged(selectedItemIds[i]);
+                }
+            },
+
+            _unwrapIfNeeded: function (element) {
+                console.log("pebble-lov: _unwrapIfNeeded");
+                var isWrapped = Polymer.Settings.hasShadow && !Polymer.Settings.nativeShadow;
+                return isWrapped ? window.unwrap(element) : element;
+            },
         });
     </script>
 </dom-module>
