@@ -23,6 +23,14 @@ var EntityRouterBase = Router.createClass([
         get: async (pathSet) => await resolver.getEntities(pathSet)
     },
     {
+        route: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}][{keys:relationshipFields}]",
+        get: async (pathSet) => await resolver.getEntities(pathSet)
+    },
+    {
+        route: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}].attributes[{keys:relAttrNames}].values",
+        get: async (pathSet) => await resolver.getEntities(pathSet)
+    },
+    {
         route: "entitiesById.createEntities",
         call: async (callPath, args) => await resolver.createEntities(callPath, args, "entitiesById.createEntities")
     },
