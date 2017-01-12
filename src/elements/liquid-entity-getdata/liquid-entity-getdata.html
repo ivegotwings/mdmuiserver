@@ -49,12 +49,28 @@ Boolean control
                     if (op === 'initiatesearch') {
                         var resSearchResultId = Object.keys(rawResponsePkg.json.searchResults)[0];
                         return rawResponsePkg.json.searchResults[resSearchResultId];
-                    } else if (op === 'getentities' || op === 'getsearchresultdetail') {
+                    }
+                    else if (op === 'getsearchresultdetail') {
+                        var entities = rawResponsePkg.json.searchResults[request.requestId].entities;
+                        var formattedEntities = this._formatEntitySearchResult(entities);
+                        return {'entities': formattedEntities};
+                    }
+                    else if (op === 'getentities') {
                         var pathRootKey = "entitiesById";
                         var entities = rawResponsePkg.json[pathRootKey];
                         this._formatEntityData(entities);
                         return {'entities': entities};
                     }
+                },
+                _validateAutoTriggerChanges: function(requestData, operation, requestId)
+                {
+                    if(operation === "initiatesearch" 
+                        && (requestData.path == "requestData.data.fields" || requestData.path == "requestData.data.options"))
+                    {
+                        return false;
+                    }
+
+                    return true;
                 },
                 _callGetEntities: function (model, reqData, entityIds) {
                     if (reqData === undefined || reqData.data === undefined) {
@@ -86,6 +102,26 @@ Boolean control
 
                     return model.get(path1, path2);
                 },
+                _callGetEntitiesByBasePath: function (model, reqData, reqId, basePath) {
+                    if (basePath === undefined) {
+                        return;
+                    }
+
+                    if (this.verbose) {
+                        console.log('Request for get entities call for given search result...request: ', reqData, ' req id: ', reqId, ' basePath: ', basePath);
+                    }
+
+                    var contextKeys = this._createContextKeys(reqData);
+                    var attrs = reqData.data.fields.attributes;
+
+                    var path1 = basePath.slice(); // herem slice would create dup array copying from base path1
+                    path1.push(['id', 'dataObjectInfo', 'systemInfo', 'properties']);
+                    
+                    var path2 = basePath.slice(); 
+                    path2.push("data", "ctxInfo", contextKeys, "attributes", attrs, "values");
+
+                    return model.get(path1, path2);
+                },
                 _callInitiateSearch: function (model, reqData) {
                    return model.call(["searchResults", "create"], [reqData], [], []);
                 },
@@ -104,28 +140,26 @@ Boolean control
                     }
 
                     var totalRecordsResponse = this._callSearchResultTotalRecordsGet(model, reqId);
+
                     totalRecordsResponse.then(function (totalRecordsPkg) {
                         totalRecords = totalRecordsPkg.json.searchResults[reqId].totalRecords;
 
-                        var from = 0;
-                        var to = 1000;
-                        var to1 = (to + 1) < totalRecords ? to : totalRecords - 1; // make sure to range is < total records
+                        var from = 0, to = totalRecords - 1;
+                        var to1 = to;
 
-                        var entityIdsGetModelResponse = self._callSearchResultEntityIdsGet(model, reqId, from, to1);
-                        entityIdsGetModelResponse.then(function (responsePkg) {
-                            if (responsePkg !== undefined) {
-                                var entities = responsePkg.json.searchResults[reqId].entities;
-                                var entityIds = [];
-                                for (var e in entities) {
-                                    entityIds.push(entities[e].id);
-                                }
-
-                                if (entityIds.length > 0) {
-                                    var getEntitiesModelResponse = self._callGetEntities(model, reqData, entityIds);
-                                    return self._handleModelResponse(request, getEntitiesModelResponse);
-                                }
-                            }
-                        });
+                        if(reqData.data.options && reqData.data.options.from){
+                            from = reqData.data.options.from;
+                        }
+                            
+                        if(reqData.data.options && reqData.data.options.to){
+                            to = reqData.data.options.to;
+                            to1 = (to + 1) < totalRecords ? to : totalRecords - 1;
+                        }
+                            
+                        var searchResultPath = ["searchResults", reqId, "entities", [{ 'from': from, 'to': to1 }]];
+                        var getEntitiesResponse = self._callGetEntitiesByBasePath(model, reqData, reqId, searchResultPath);
+                        
+                        return self._handleModelResponse(request, getEntitiesResponse);
                     });
                 },
                 _callSearchResultTotalRecordsGet: function(model, reqId, reqData){
@@ -196,6 +230,16 @@ Boolean control
                         var entity = entities[entityId];
                         this._populateContextGroups(entity);
                     }
+                },
+                _formatEntitySearchResult: function(entities){
+                    var formattedEntities = {};
+                    for(var i in entities){
+                        var entity = entities[i];
+                        this._populateContextGroups(entity);
+                        formattedEntities[entity.id] = entity;
+                    }
+                    
+                    return formattedEntities;
                 }
             });
         })();
