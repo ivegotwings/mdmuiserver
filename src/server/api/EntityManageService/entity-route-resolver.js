@@ -21,6 +21,7 @@ var createPath = futil.createPath,
     transformEntityToExternal = futil.transformEntityToExternal,
     buildEntityFieldsResponse = futil.buildEntityFieldsResponse,
     buildEntityAttributesResponse = futil.buildEntityAttributesResponse,
+    buildEntityRelationshipsResponse = futil.buildEntityRelationshipsResponse,
     createRequestJson = futil.createRequestJson;
     
 async function getSingleEntity(request, entityId, entityFields) {
@@ -42,7 +43,14 @@ async function getSingleEntity(request, entityId, entityFields) {
 
                 if (entity.id == entityId) {
                     response.push.apply(response, buildEntityFieldsResponse(entity, entityFields, pathRootKey));
-                    response.push.apply(response, buildEntityAttributesResponse(entity, request, pathRootKey));
+                    
+                    if(request.fields.attributes){
+                        response.push.apply(response, buildEntityAttributesResponse(entity, request, pathRootKey));
+                    }
+                    
+                    // if(request.fields.relationships){
+                    //     response.push.apply(response, buildEntityRelationshipsResponse(entity, request, pathRootKey));
+                    // }
                 }
             }
         }
@@ -78,11 +86,11 @@ async function initiateSearchRequest(callPath, args) {
 
         if (dataObjects !== undefined) {
             totalRecords = dataObjects.length;
-            dataObjects.forEach(function (entity) {
+            for (let entity of dataObjects) {
                 if (entity.id !== undefined) {
                     response.push(createPath(['searchResults', requestId, "entities", index++], $ref([pathRootKey, entity.id])));
                 }
-            });
+            }
         }
     } else {
         response.push(createPath(['searchResult', requestId], $error('data not found in system'), 0));
@@ -111,18 +119,20 @@ async function getSearchResultDetail(pathSet) {
 
 //route1: "entitiesById[{keys:entityIds}][{keys:entityFields}]"
 //route2: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].values"
+//route3: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}]"
 async function getEntities(pathSet) {
     //console.log('entitiesById call pathset requested:', pathSet);
 
     var entityIds = pathSet.entityIds;
     var entityFields = pathSet.entityFields === undefined ? [] : pathSet.entityFields;
     var ctxKeys = pathSet.ctxKeys === undefined ? [] : pathSet.ctxKeys;
-    var attrNames = pathSet.attrNames === undefined ? ['ALL'] : pathSet.attrNames;
+    var attrNames = pathSet.attrNames === undefined ? [] : pathSet.attrNames;
+    var relTypes = pathSet.relTypes === undefined ? [] : pathSet.relTypes;
 
     var response = [];
     pathRootKey = pathSet[0];
     
-    var request = createRequestJson(ctxKeys, attrNames);
+    var request = createRequestJson(ctxKeys, attrNames, relTypes);
     //console.log('req', JSON.stringify(request));
 
     for (let entityId of entityIds) {
