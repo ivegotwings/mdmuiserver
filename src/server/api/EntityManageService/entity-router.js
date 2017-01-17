@@ -16,19 +16,23 @@ var EntityRouterBase = Router.createClass([
     }, 
     {
         route: "entitiesById[{keys:entityIds}][{keys:entityFields}]",
-        get: async (pathSet) => await resolver.getEntities(pathSet)
-    }, 
+        get: async (pathSet) => await resolver.getEntities(pathSet, "getEntityFields")
+    },
     {
         route: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].values",
-        get: async (pathSet) => await resolver.getEntities(pathSet)
+        get: async (pathSet) => await resolver.getEntities(pathSet, "getEntityAttrs")
     },
     {
-        route: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}][{keys:relationshipFields}]",
-        get: async (pathSet) => await resolver.getEntities(pathSet)
+        route: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}].relIds",
+        get: async (pathSet) => await resolver.getEntities(pathSet, "getRelIdOnly")
     },
     {
-        route: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}].attributes[{keys:relAttrNames}].values",
-        get: async (pathSet) => await resolver.getEntities(pathSet)
+        route: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}].rels[{keys:relIds}][{keys:relationshipFields}]",
+        get: async (pathSet) => await resolver.getEntities(pathSet, "getRelFieldsByActual")
+    },
+    {
+        route: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}].rels[{keys:relIds}].attributes[{keys:relAttrNames}].values",
+        get: async (pathSet) => await resolver.getEntities(pathSet, "getRelAttrsByActual")
     },
     {
         route: "entitiesById.createEntities",
