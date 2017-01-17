@@ -1,10 +1,15 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
 <link rel="import" href="../pebble-grid/pebble-grid.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-tree/pebble-tree.html">
 <link rel="import" href="../pebble-lov/pebble-lov.html">
+<link rel="import" href="../rock-layout/rock-layout.html">
+<link rel="import" href="../rock-layout/rock-titlebar/rock-titlebar.html">
 <link rel="import" href="../paper-accordion-element/paper-accordion-element.html">
 <link rel="import" href="../pebble-horizontal-divider/pebble-horizontal-divider.html">
+<link rel="import" href="../liquid-entity-getdata/liquid-entity-getdata.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 
 <!--
 
@@ -16,52 +21,283 @@
 		<style include="pebble-styles-shared">
       #dimensionGridContainer {
         display: flex;
-        width: 100%;
+        width: 1200px;
+        padding-top: 10px;
       }
 
       #dimensionFilters {
         width: 25%;
         flex-direction: column;
+        padding-left: 10px;
       }
 
       #dimensionGrid {
         width: 75%;
+        padding-left: 15px;
+        padding-right: 10px;
         flex-direction: column;
+        display: flex;
+      }
+
+      pebble-button {
+        float: right;
       }
 
       pebble-lov {
-        height: 200px;
         width: 100%;
+        position: static !important;
+      }
+
+      ::shadow #scroller {
+        height: 100px;
       }
 
       .paper-accordion-element {
         height: 200px;
         width: 100%;
       }
+
+       .action-container {
+            display: inline-flex;
+            float: right;
+        }
+
+        pebble-button {
+          vertical-align: -webkit-baseline-middle;
+          vertical-align: -moz-baseline-middle;
+          vertical-align: baseline-middle;
+          --pebble-button: {
+              height: 30px;
+              padding: 0.5em 0em 0.5em 0em;
+              min-width: 2.14em;
+              margin: 0px;
+          }
+          --pebble-button-iron-icon: {
+              height: 20px;
+              width: 20px;
+              color: #7d8690;
+          }
+      }
+
+      pebble-button.pageRange::shadow paper-button {
+          line-height: var(--border-btn-height,24px);
+          height: var(--border-btn-height,24px);
+          box-shadow: none;
+          font-family: var(--default-font-family);
+      }
+
+
     </style>
-    <iron-ajax auto url="demo/locale.json" handle-as="json" last-response="{{localeItems}}"></iron-ajax>
+    <iron-ajax auto url="demo/dimension-grid-config.json" handle-as="json" last-response="{{gridConfig}}"></iron-ajax>
     <div id="dimensionGridContainer">
         <div id="dimensionFilters">
               <paper-accordion-element header-text="Locale" default-icon="expand-less" open-icon="expand-more">
-                <pebble-lov id="Locale" items="{{localeItems}}" multi-selection="false" show-image="true"></pebble-lov>
+                <pebble-lov id="locale" items="{{locales}}" multi-selection="false" show-image="true"></pebble-lov>
               </paper-accordion-element>
               <paper-accordion-element header-text="Context" default-icon="expand-less" open-icon="expand-more">
-                <pebble-lov id="Context" items="{{contextItems}}" multi-selection="false" show-image="true"></pebble-lov>                
+                <pebble-lov id="context" items="{{contexts}}" multi-selection="false" show-image="true"></pebble-lov>                
+              </paper-accordion-element>
+              <paper-accordion-element header-text="Source" default-icon="expand-less" open-icon="expand-more">
+                <pebble-lov id="source" items="{{sources}}" multi-selection="false" show-image="true"></pebble-lov>                
+              </paper-accordion-element>
+              <paper-accordion-element header-text="Time" default-icon="expand-less" open-icon="expand-more">
+                <!--<pebble-lov id="Context" items="{{timeItems}}" multi-selection="false" show-image="true"></pebble-lov>-->
               </paper-accordion-element>
         </div>
         <div id="dimensionGrid">
-          <pebble-grid>
-            
-          </pebble-grid>
+          <div>
+          <pebble-button icon="pebble-icons:Create" class="icon-text-button" button-text="Action" on-click=""></pebble-button>
+          </div>
+          <pebble-grid config="{{gridConfig}}" page-size="10" data="{{gridData}}"></pebble-grid>
+           <div class="action-container" hidden = [[!isEditMode]]>
+              <pebble-button class="pageRange btn-with-border" button-text="Cancel" on-tap="cancelAction" noink raised></pebble-button>
+              <pebble-button class="pageRange btn-with-border" button-text="Save" on-tap="saveAction" noink raised></pebble-button>
+          </div>
         </div>
     </div>
+    <liquid-entity-getdata auto verbose name="attributeGetDataService" operation="getentities" 
+            request-data="{{request}}" last-response="{{response}}"></liquid-entity-getdata>
+		<!--<liquid-entity-savedata verbose name="attributeSaveDataService" operation="updateentities" 
+            request-data="{{saveRequest}}" last-response="{{saveResponse}}" on-response="onSaveResponse"></liquid-entity-savedata>-->
 	</template>
 <script> 
 	(function () {
 		'use strict';
 
 		Polymer({
-			is: 'rock-dimension-grid'
+			is: 'rock-dimension-grid',
+      properties: {
+        locales: {
+          type: Array,
+          value: function() {
+            return [];
+          }
+        },
+
+        contexts: {
+          type: Array,
+          value: function() {
+            return [];
+          }
+        },
+
+        sources: {
+          type: Array,
+          value: function() {
+            return [];
+          }
+        },
+
+        attributeObject: {
+          type: Object,
+          value: function() {
+            return {};
+          }
+        },
+
+        _selectedLocales: {
+          type: Array,
+          value: function() {
+            return [];
+          }
+        },
+
+        _selectedContexts: {
+          type: Array,
+          value: function() {
+            return [];
+          }
+        },
+
+        _selectedSources: {
+          type: Array,
+          value: function() {
+            return [];
+          }
+        },
+
+        request: {
+          type: Object,
+          value: function() {
+            return {};
+          }
+        }
+      },
+      observers: [
+        '_onSelctionChange(_selectedLocales, _selectedContexts, _selectedSources)',
+        '_entityGet(response)',
+        '_initGrid(dataContext)'
+      ],
+      behaviors: [
+        RUFBehaviors.UIBehavior
+      ],
+      attached: function() {
+        // if(this.locales.length > 0) {
+        //   Polymer.dom(this).node.$$("paper-accordion-element[header-text='Locale']").$.open_link.click();
+        // }
+        // if(this.sources.length > 0) {
+        //   Polymer.dom(this).node.$$("paper-accordion-element[header-text='Source']").$.open_link.click();          
+        // }
+        // if(this.contexts.length > 0) {
+        //   Polymer.dom(this).node.$$("paper-accordion-element[header-text='Context']").$.open_link.click();          
+        // }
+      },
+      _getEntityId: function () {
+          var mainApp = document.querySelector('main-app');
+          if (mainApp && mainApp.route && mainApp.route.__queryParams && "id" in mainApp.route
+              .__queryParams) {
+              return mainApp.route.__queryParams['id'];
+          }
+      },
+      _onSelctionChange: function() {
+        var entityId = this._getEntityId();
+        var attributeNames = [];
+        attributeNames.push(this.attributeObject.name);
+
+        var valCtx = [];
+
+        debugger;
+        if(this._selectedLocales && this._selectedSources)
+        {
+          this._selectedSources.forEach(function(sourceItem) {
+            this._selectedLocales.forEach(function(localeItem) {
+              valCtx.push({
+                "source": sourceItem,
+                "locale": localeItem
+              });
+            }, this);
+          }, this);
+        }
+
+        var req = {
+          "data": {
+            "query": {
+              "ctx": [{
+                "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry",
+                "list" : "productMaster"
+              }],
+              "valCtx": valCtx,
+              "id": entityId
+            },
+            "fields": {
+              "ctxTypes": [
+                "properties"
+              ],
+              "attributes": attributeNames
+            }
+          } 
+        };
+
+        this.set("request", req);
+      },
+      saveAction : function(e) {
+        
+      },
+
+      cancelAction : function(e) {
+        Polymer.dom(this).node.parentElement.close();
+        Polymer.dom(this).node.parentElement.removeChild(this);
+      },
+
+      _entityGet: function() {
+        var dimGrid =  Polymer.dom(this).node.$$('pebble-grid');
+
+        if(this.response && this.response.content) {
+          var entity = this.response.content.entities[this._getEntityId()];
+          var ctxInfo = entity.data.ctxInfo;
+          var containerInfoKeys = Object.keys(ctxInfo);
+
+          containerInfoKeys.forEach(function(item){
+            var data = [];
+            var attributes = ctxInfo[item].attributes;
+            if(attributes) {
+              var values = attributes[this.attributeObject.name].values;
+              if(values) {
+                values.forEach(function(valueItem){
+                  var record = {};
+                  record.Value = valueItem.value;
+                  record.Locale = valueItem.locale;
+                  record.Source = valueItem.source;
+                  data.push(record);
+                }, this);
+              }
+            }
+            if(data.length > 0)
+            {
+              this.gridData = data;
+            }
+          }, this);
+        }
+      },
+
+      _initGrid: function() {
+        if(this.dataContext) 
+        {
+          this._selectedLocales = this.dataContext.selectedLocales;
+          this._selectedContexts = this.dataContext.selectedContexts;
+          this._selectedSources = this.dataContext.selectedSources;
+        }
+      }
 		});
 	})();
 </script>
