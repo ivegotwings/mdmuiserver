@@ -6,7 +6,6 @@
     * @polymerBehavior RUFBehaviors.LiquidBehavior
     */
     var RUFBehaviors = RUFBehaviors || {};
-
     RUFBehaviors.LiquidBehavior = {
         attached: function () { },
         ready: function () { },
@@ -16,14 +15,12 @@
          * @event request
          * @event liquid-request
          */
-
         /**
          * Fired when a response is received.
          *
          * @event response
          * @event liquid-response
          */
-
         /**
          * Fired when an error is received.
          *
@@ -176,7 +173,7 @@
             }
         },
         observers: [
-            '_requestOptionsChanged(operation, requestId, requestData.*, timeout, auto)'
+            '_requestOptionsChanged(requestData.*, operation, requestId, timeout, auto)'
         ],
         /**
          * Performs an request to the specified URL.
@@ -184,30 +181,22 @@
          */
         generateRequest: function () {
             var request = this._createRequest();
-
             var self = this;
-
             if (request.requestData === null || request.operation === '') {
-
                 if(this.verbose){
                     console.log('request operation is blank so NO request operation would be generated..terminating gracefully...');
                 }
-
                 return;
             }
-
             this.push('activeRequests', request);
             this._setLastRequest(request);
             this._setLoading(true);
-
             this.fire('request', {
                 request: request
             }, { bubbles: this.bubbles });
-
             this.fire('liquid-request', {
                 request: request
             }, { bubbles: this.bubbles });
-
             if (this._executeRequest) {
                 var model = RUFBehaviors.DataChannel.getModel(this._dataChannelName);
                 var modelResponse = this._executeRequest(model, request);
@@ -218,10 +207,17 @@
                 throw "_executeRequest method is not defined";
                 return;
             }
-
             return request;
         },
         _executeRequest: function (model, request) {
+            //abstract method....do nothing...all elements implementing this behavior must implement this method
+        },
+        _formatResponse: function(request, rawResponsePkg){
+            return rawResponsePkg;
+            //abstract method....do nothing...all elements implementing this behavior must implement this method
+        },
+        _validateAutoTriggerChanges: function(requestData, operation, requestId){
+            return true;
             //abstract method....do nothing...all elements implementing this behavior must implement this method
         },
         _createRequest: function () {
@@ -233,7 +229,6 @@
         },
         _handleModelResponse: function(request, modelResponse){
             var self = this;
-
             if(modelResponse && modelResponse.then){
                 modelResponse.then(function (resPkg) {
                     return self._handleResponse(request, resPkg);
@@ -241,7 +236,6 @@
                 function (errPkg) {
                     return self._handleError(request, errPkg);
                 });
-
                 return true;
             }
             else {
@@ -251,69 +245,57 @@
                 else if(modelResponse && modelResponse.status && modelResponse.status === "error"){
                     self._handleError(request, modelResponse);
                 }
-
                 return false;
             }
-
             return true;
         },
         _handleResponse: function (request, responsePkg) {
             if(this.verbose){
                 console.log('_handleResponse called with :', request, responsePkg);
             }
-
             var formattedResponse = this._formatResponse(request, responsePkg);
-
             var response = this._createSuccessResponse(request, formattedResponse);
-
             if (request === this.lastRequest) {
                 this._setLastResponse(response);
                 this._setLastError(null);
                 this._setLoading(false);
             }
-
             var eventDetail = { 'request': request, 'response': response };
-
             if(this.verbose){
                 console.log('firing liquid-response event with event detail ', eventDetail);
             }
-
             this.fire('response', eventDetail, { bubbles: this.bubbles });
             this.fire('liquid-response', eventDetail, { bubbles: this.bubbles });
-
             this._discardRequest(request);
         },
         _handleError: function (request, errorPkg) {
             if (this.verbose) {
                 Polymer.Base._error('Error occured for the request ', request, '. Error response package is ', errorPkg);
             }
-
             var errResponse = this._createErrorResponse(errorPkg);
-
             if (request === this.lastRequest) {
                 this._setLastError(errResponse);
                 this._setLastResponse(null);
                 this._setLoading(false);
             }
-
             var eventDetail = { 'request': request, 'response': errResponse };
-
             if(this.verbose){
                 console.log('firing liquid-error event with event detail ', eventDetail);
             }
-
             // Tests fail if this goes after the normal this.fire('error', ...)
             this.fire('liquid-error', eventDetail, { bubbles: this.bubbles });
             this.fire('error', eventDetail, { bubbles: this.bubbles });
-
             this._discardRequest(request);
         },
-        _formatResponse: function(request, rawResponsePkg){
-            return rawResponsePkg;
-            //abstract method....do nothing...all elements implementing this behavior must implement this method
-        },
         _createSuccessResponse: function (request, data) {
-            var clonedData = JSON.parse(JSON.stringify(data));
+            var clonedData;
+            
+            if(data === undefined){
+                clonedData = {};
+            }
+            else {
+             clonedData = JSON.parse(JSON.stringify(data));
+            }
             return {
                 'status': 'success',
                 'content': clonedData
@@ -324,31 +306,28 @@
                 'status': 'error',
                 'reason': reason
             };
-
             if (this.verbose) {
                 console.log('Error response for the operation: ', request.operation, result);
             }
-
             return result;
         },
         _discardRequest: function (request) {
             var requestIndex = this.activeRequests.indexOf(request);
-
             if (requestIndex > -1) {
                 this.splice('activeRequests', requestIndex, 1);
             }
         },
-        _requestOptionsChanged: function () {
+        _requestOptionsChanged: function (reqData, operation, requestId) {
             this.debounce('generate-falcor-request', function () {
-                if (this.requestData == null || this.operation == '') {
+                if (reqData == null || operation == '') {
                     return;
                 }
-
                 if (this.auto) {
-                    this.generateRequest();
+                    if(this._validateAutoTriggerChanges(reqData, operation, requestId)){
+                        this.generateRequest();
+                    }
                 }
             }, this.debounceDuration);
         }
     };
-
 </script>

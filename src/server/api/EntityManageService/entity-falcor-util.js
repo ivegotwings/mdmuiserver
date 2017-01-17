@@ -14,7 +14,26 @@ function createPath(pathSet, value, expires) {
     };
 }
 
-function createRequestJson(ctxKeys, attrNames) {
+function isEmpty(obj) {
+   for (var x in obj) { return false; }
+   return true;
+}
+
+Array.prototype.clone = function() {
+	return this.slice(0);
+};
+
+function mergePathSets(pathSet1, pathSet2)
+{
+    return pathSet1.concat(pathSet2);    
+}
+
+function mergeAndCreatePath(basePath, pathSet, value, expires) {
+    var mergedPathSet = mergePathSets(basePath, pathSet);
+    return createPath(mergedPathSet, value, expires);
+}
+
+function createRequestJson(ctxKeys, attrNames, relTypes) {
     var ctxGroups = [];
     var valCtxGroups = [];
 
@@ -45,16 +64,23 @@ function createRequestJson(ctxKeys, attrNames) {
     };
 
     var fields = {
-        ctxTypes: ["properties"],
-        attributes: attrNames,
-        relationships: ["ALL"]
+        ctxTypes: ["properties"]
     };
+    
+    if(attrNames !== undefined && attrNames.length > 0){
+        fields.attributes = attrNames;
+    }
+    
+    if(relTypes !== undefined && relTypes.length > 0){
+        fields.relationships = relTypes;
+    }
+
     var options = {
         totalRecords: 1,
         includeRequest: false
     };
 
-    //TODO:: This is hard coded as of now as RDP is not working wtihout entity types....need to fix this ASAP
+    //TODO:: This is hard coded as of now as for get API entity request json creation..
     var filters = {
         attributesCriterion: [],
         relationshipsCriterion: [],
@@ -144,6 +170,69 @@ function unboxJsonObject(obj) {
     }
 }
 
+function buildAttributesResponse(reqCtxGroup, reqValCtxGroup, reqAttrNames, enCtxGroup, enAttributes, basePath){
+    var response = [];
+
+    if(isEmpty(enAttributes)){
+        return response;
+    }
+
+    //console.log('buildAttributesResponse...basePath: ', basePath, 'enAttributes ', JSON.stringify(enAttributes));
+
+    // if request is for all attrs then return every thing came back from api..
+    if(reqAttrNames.length == 1 && reqAttrNames[0] == "ALL"){
+        reqAttrNames = Object.keys(enAttributes);
+    }
+
+    for(let reqAttrName of reqAttrNames) {
+        var attr = enAttributes[reqAttrName];
+      
+        var valFound = false;
+        if (attr !== undefined) {
+            var valCtxSpecifiedValues = [];
+
+            for (let val of attr.values) {
+                //TODO: Fill in missing source and locale values...
+                if(val.source === undefined){
+                    val.source = reqValCtxGroup.source;
+                }
+
+                if(val.locale === undefined){
+                    val.locale = reqValCtxGroup.locale;
+                }
+
+                //TODO: Temporarily to make productName attribute value as entity.id
+                // if(reqAttrName == "cpimProductName"){
+                //     val.value = entity.id;
+                // }
+
+                if (val.source == reqValCtxGroup.source && val.locale == reqValCtxGroup.locale) {
+                    valCtxSpecifiedValues.push(val);
+                    valFound = true;
+                }
+            }
+
+            if (valCtxSpecifiedValues.length > 0) {
+                response.push(mergeAndCreatePath(basePath, [reqAttrName, "values"], $atom(valCtxSpecifiedValues)));
+            }
+        } else {
+            valFound = false;
+        }
+
+        if (!valFound) {
+            var val = {
+                source: reqValCtxGroup.source,
+                locale: reqValCtxGroup.locale,
+                value: ''
+            };
+
+            response.push(mergeAndCreatePath(basePath, [reqAttrName, "values"], $atom([val])));
+        }
+    }
+
+    return response;
+}
+
 function buildEntityFieldsResponse(entity, entityFields, pathRootKey) {
     var response = [];
 
@@ -164,7 +253,11 @@ function buildEntityAttributesResponse(entity, request, pathRootKey) {
     var response = [];
     var entityId = entity.id;
 
-    request.query.ctx.forEach(function (reqCtxGroup) {
+    var reqCtx = request.query.ctx;
+    var reqValCtx = request.query.valCtx;
+    var reqAttrNames = request.fields.attributes;
+
+    for(let reqCtxGroup of reqCtx) {
         for (var x in entity.data.ctxInfo) {
             var enCtxInfo = entity.data.ctxInfo[x];
 
@@ -173,60 +266,95 @@ function buildEntityAttributesResponse(entity, request, pathRootKey) {
             }
 
             if (enCtxInfo.ctxGroup.list === reqCtxGroup.list && enCtxInfo.ctxGroup.classification === reqCtxGroup.classification) {
-                request.fields.attributes.forEach(function (attrName) {
-                    var attr = enCtxInfo.attributes[attrName];
-
-                    request.query.valCtx.forEach(function (reqValCtxGroup) {
-                        var valFound = false;
-                        if (attr !== undefined) {
-                            var valCtxSpecifiedValues = [];
-                            for (var valKey in attr.values) {
-                                var val = attr.values[valKey];
-
-                                //TODO: Fill in missing source and locale values...
-                                if(val.source === undefined){
-                                    val.source = reqValCtxGroup.source;
-                                }
-
-                                if(val.locale === undefined){
-                                    val.locale = reqValCtxGroup.locale;
-                                }
-
-                                //TODO: Temporarily to make productName attribute value as entity.id
-                                if(attrName == "cpimProductName"){
-                                    val.value = entity.id;
-                                }
-
-                                if (val.source == reqValCtxGroup.source && val.locale == reqValCtxGroup.locale) {
-                                    valCtxSpecifiedValues.push(val);
-                                    valFound = true;
-                                }
-                            };
-
-                            if (valCtxSpecifiedValues.length > 0) {
-                                var contextKey = "".concat(enCtxInfo.ctxGroup.list, '#@#', enCtxInfo.ctxGroup.classification, '#@#', reqValCtxGroup.source, '#@#', reqValCtxGroup.locale);
-                                response.push(createPath([pathRootKey, entityId, 'data', 'ctxInfo', contextKey, 'attributes', attrName, "values"], $atom(valCtxSpecifiedValues)));
-                            }
-                        } else {
-                            valFound = false;
-                        }
-
-                        if (!valFound) {
-                            var val = {
-                                source: reqValCtxGroup.source,
-                                locale: reqValCtxGroup.locale,
-                                value: ''
-                            };
-                            var contextKey2 = "".concat(enCtxInfo.ctxGroup.list, '#@#', enCtxInfo.ctxGroup.classification, '#@#', val.source, '#@#', val.locale);
-                            response.push(createPath([pathRootKey, entityId, 'data', 'ctxInfo', contextKey2, 'attributes', attrName, "values"], $atom([val])));
-                        }
-                    });
-                });
-
-                return false;
+                
+                for(let reqValCtxGroup of reqValCtx){
+                    var contextKey = "".concat(enCtxInfo.ctxGroup.list, '#@#', enCtxInfo.ctxGroup.classification, '#@#', reqValCtxGroup.source, '#@#', reqValCtxGroup.locale);
+                    var ctxBasePath = [pathRootKey, entity.id, 'data', 'ctxInfo', contextKey, 'attributes'];
+                    var attrs = enCtxInfo.attributes;
+                    
+                    response.push.apply(response, buildAttributesResponse(reqCtxGroup, reqValCtxGroup, reqAttrNames, enCtxInfo, attrs, ctxBasePath));
+                }
             }
-        };
-    });
+        }
+    }
+
+    //console.log('attr response', JSON.stringify(response));
+    return response;
+}
+
+function buildEntityRelationshipDetailsResponse(reqCtxGroup, reqValCtxGroup, reqAttrNames, enCtxInfo, enRel, basePath){
+    var response = [];
+
+    var relBasePath = mergePathSets(basePath, [enRel.id]);
+    
+    for(var relFieldKey in Object.keys(enRel)){
+        
+        if(relFieldKey === "attributes"){
+            var relAttributesBasePath = mergePathSets(relBasePath, ["attributes"]);
+            response.apply.push(response, buildAttributesResponse(reqCtxGroup, reqValCtxGroup, reqAttrNames, enCtxInfo, enRel[relFieldKey], relAttributesBasePath));
+        }
+        if(relFieldKey == "relToObject"){
+            response.push(mergeAndCreatePath(relBasePath, relFieldKey, $atom(enRel[relFieldKey])));    // this would become paths sooner..
+        }
+        else {
+            response.push(mergeAndCreatePath(relBasePath, relFieldKey, $atom(enRel[relFieldKey])));    
+        }
+    }
+
+    return response;
+}
+
+function buildEntityRelationshipsResponse(entity, request, pathRootKey) {
+    var response = [];
+    var entityId = entity.id;
+
+    var reqRelTypes = request.fields.relationships;
+    var reqCtx = request.query.ctx;
+    var reqValCtx = request.query.valCtx;
+    var reqRelAttrNames = request.fields.relationshipAttributes;
+    
+    if(reqRelTypes === undefined){
+        return response;
+    }
+
+    var basePath = [];
+
+    for(let reqCtxGroup of reqCtx) {
+        for (let x in entity.data.ctxInfo) {
+            var enCtxInfo = entity.data.ctxInfo[x];
+
+            if (!enCtxInfo.ctxGroup) {
+                enCtxInfo.ctxGroup = reqCtxGroup; //TODO: For now, save call is not sending ctxGroup object so has beed assign with request object's ctxGroup..
+            }
+
+            if (enCtxInfo.ctxGroup.list === reqCtxGroup.list && enCtxInfo.ctxGroup.classification === reqCtxGroup.classification) {
+                
+                for(let reqValCtxGroup in reqValCtx){
+                    
+                    var contextKey = "".concat(enCtxInfo.ctxGroup.list, '#@#', enCtxInfo.ctxGroup.classification, '#@#', reqValCtxGroup.source, '#@#', reqValCtxGroup.locale);
+                    var ctxBasePath = [pathRootKey, entity.id, 'data', 'ctxInfo', contextKey, 'relationships'];
+
+                    // if request is for all rel types then return every thing came back from api..
+                    if(reqRelTypes.length === 1 && reqRelTypes[0] == "ALL"){
+                        reqRelTypes = Object.keys(enCtxInfo.relationships);
+                    }
+
+                    for(let relType of reqRelTypes){
+                        var rels = enCtxInfo.relationships[relType];
+
+                        var relBasePath = mergePathSets(ctxBasePath, [relType]);
+
+                        if(rels.length > 0){
+                            for(var i in rels){
+                                var rel = rels[i];
+                                response.apply.push(response, buildEntityRelationshipDetailsResponse(reqCtx, reqValCtx, reqRelAttrNames, enCtxInfo, rel, relBasePath));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     //console.log('attr response', JSON.stringify(response));
     return response;
@@ -239,5 +367,6 @@ module.exports = {
     unboxJsonObject: unboxJsonObject,
     transformEntityToExternal: transformEntityToExternal,
     buildEntityFieldsResponse: buildEntityFieldsResponse,
-    buildEntityAttributesResponse: buildEntityAttributesResponse
+    buildEntityAttributesResponse: buildEntityAttributesResponse,
+    buildEntityRelationshipsResponse : buildEntityRelationshipsResponse
 };
