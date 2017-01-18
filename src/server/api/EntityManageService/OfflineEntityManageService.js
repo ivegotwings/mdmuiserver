@@ -12,25 +12,25 @@ OfflineEntityManageService.prototype = {
 
         var entities = [];
 
-        if (request.query.id !== undefined) {
-            offlineEntityData.dataObjects.forEach(function (dataObject) {
-                if (dataObject.id == request.query.id) {
-                    entities.push(dataObject);
+        if (request.params.query.id !== undefined) {
+            offlineEntityData.entities.forEach(function (entity) {
+                if (entity.id == request.params.query.id) {
+                    entities.push(entity);
                     return false;
                 }
             });
         } else {
             for (var i = 0; i < 10; i++) {
-                if (offlineEntityData.dataObjects[i] !== undefined) {
-                    entities.push(offlineEntityData.dataObjects[i]);
+                if (offlineEntityData.entities[i] !== undefined) {
+                    entities.push(offlineEntityData.entities[i]);
                 }
             }
         }
 
         var response = {
-            dataObjectOperationResponse: {
+            entityOperationResponse: {
                 status: "success",
-                dataObjects: entities
+                entities: entities
             }
         };
         
@@ -38,7 +38,7 @@ OfflineEntityManageService.prototype = {
     },
     createEntities: async function (request) {
         var response = {
-            dataObjectOperationResponse: {
+            entityOperationResponse: {
                 status: "success"
             }
         };
@@ -46,7 +46,7 @@ OfflineEntityManageService.prototype = {
     },
     updateEntities: async function (request) {
         var response = {
-            dataObjectOperationResponse: {
+            entityOperationResponse: {
                 status: "success"
             }
         };
@@ -54,7 +54,7 @@ OfflineEntityManageService.prototype = {
     },
     deleteEntities: async function (request) {
         var response = {
-            dataObjectOperationResponse: {
+            entityOperationResponse: {
                 status: "success"
             }
         };
