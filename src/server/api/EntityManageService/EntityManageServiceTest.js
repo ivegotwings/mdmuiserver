@@ -14,29 +14,31 @@ function testOfflineGetEntitiesForSingleId() {
     var entityManageService = new EntityManageService({ mode: "dev-offline" });
 
     var request = {
-        "query": {
-            "ctx": [
-                {
-                    "list": "productMaster",
-                    "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
+        "params": {
+            "query": {
+                "ctx": [
+                    {
+                        "list": "productMaster",
+                        "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
+                    }
+                ],
+                "valCtx": [
+                    {
+                        "source": "SAP",
+                        "locale": "en-US"
+                    }
+                ],
+                "id": "e1",
+                "filters": {
+                    "attributesCriterion": [],
+                    "typesCriterion": ["nart"]
                 }
-            ],
-            "valCtx": [
-                {
-                    "source": "SAP",
-                    "locale": "en-US"
-                }
-            ],
-            "id": "e1",
-            "filters": {
-                "attributesCriterion": [],
-                "typesCriterion": ["nart"]
+            },
+            "fields": {
+                "ctxTypes": ["properties"],
+                "attributes": ["cpimProductName", "csapDescriptionOfNart"],
+                "relationships": ["ALL"]
             }
-        },
-        "fields": {
-            "ctxTypes": ["properties"],
-            "attributes": ["cpimProductName", "csapDescriptionOfNart"],
-            "relationships": ["ALL"]
         }
     };
 
@@ -53,28 +55,30 @@ function testOfflineGetEntitiesForRandomSearchResult() {
     var entityManageService = new EntityManageService({ mode: "offline" });
 
     var request = {
-        "query": {
-            "ctx": [
-                {
-                    "list": "productMaster",
-                    "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
+        "params": {
+            "query": {
+                "ctx": [
+                    {
+                        "list": "productMaster",
+                        "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
+                    }
+                ],
+                "valCtx": [
+                    {
+                        "source": "SAP",
+                        "locale": "en-US"
+                    }
+                ],
+                "filters": {
+                    "attributesCriterion": [],
+                    "typesCriterion": ["nart"]
                 }
-            ],
-            "valCtx": [
-                {
-                    "source": "SAP",
-                    "locale": "en-US"
-                }
-            ],
-            "filters": {
-                "attributesCriterion": [],
-                "typesCriterion": ["nart"]
+            },
+            "fields": {
+                "ctxTypes": ["properties"],
+                "attributes": ["cpimProductName", "csapDescriptionOfNart"],
+                "relationships": ["ALL"]
             }
-        },
-        "fields": {
-            "ctxTypes": ["properties"],
-            "attributes": ["cpimProductName", "csapDescriptionOfNart"],
-            "relationships": ["ALL"]
         }
     };
 
@@ -91,29 +95,31 @@ function testDPGetEntitiesForSingleId() {
     var entityManageService = new EntityManageService({ mode: "online" });
 
     var request = {
-        "query": {
-            "ctx": [
-                {
-                    "list": "productMaster",
-                    "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
+        "params": {
+            "query": {
+                "ctx": [
+                    {
+                        "list": "productMaster",
+                        "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
+                    }
+                ],
+                "valCtx": [
+                    {
+                        "source": "SAP",
+                        "locale": "en-US"
+                    }
+                ],
+                "id": "e1",
+                "filters": {
+                    "attributesCriterion": [],
+                    "typesCriterion": ["nart"]
                 }
-            ],
-            "valCtx": [
-                {
-                    "source": "SAP",
-                    "locale": "en-US"
-                }
-            ],
-            "id": "e1",
-            "filters": {
-                "attributesCriterion": [],
-                "typesCriterion": ["nart"]
+            },
+            "fields": {
+                "ctxTypes": ["properties"],
+                "attributes": ["cpimProductName", "csapDescriptionOfNart"],
+                "relationships": ["ALL"]
             }
-        },
-        "fields": {
-            "ctxTypes": ["properties"],
-            "attributes": ["cpimProductName", "csapDescriptionOfNart"],
-            "relationships": ["ALL"]
         }
     };
 

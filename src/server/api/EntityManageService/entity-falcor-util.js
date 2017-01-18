@@ -41,8 +41,8 @@ function createRequestJson(ctxKeys, attrNames, relTypes, relAttrNames, relIds) {
             classification: ctxKeySegments[1]
         };
         var valCtxGroupObj = {
-            source: ctxKeySegments[2],
-            locale: ctxKeySegments[3]
+            source: ctxKeySegments[2].toLowerCase(),
+            locale: ctxKeySegments[3].toLowerCase()
         };
 
         //TODO:: Right now RDP is not working with below 2 parameters passed..need to fix this soon..
@@ -50,7 +50,7 @@ function createRequestJson(ctxKeys, attrNames, relTypes, relAttrNames, relIds) {
         //valCtxGroupObj.governed = "true";
 
         if (!ctxGroups.find(c => c.list === ctxGroupObj.list &&
-                c.categorization === ctxGroupObj.categorization)) {
+                c.classification === ctxGroupObj.classification)) {
             ctxGroups.push(ctxGroupObj);
         }
 
@@ -99,11 +99,14 @@ function createRequestJson(ctxKeys, attrNames, relTypes, relAttrNames, relIds) {
         filters: filters
     };
 
-    var request = {
+    var params = {
         query: query,
         fields: fields,
         options: options
     };
+
+    var request = { 
+        params: params };
 
     return request;
 }
@@ -112,7 +115,7 @@ function unboxEntityData(entity) {
     var unboxedEntity = {};
 
     unboxedEntity.id = unboxJsonObject(entity.id);;
-    unboxedEntity.dataObjectInfo = entity.dataObjectInfo === undefined ? {} : unboxJsonObject(entity.dataObjectInfo);
+    unboxedEntity.entityInfo = entity.entityInfo === undefined ? {} : unboxJsonObject(entity.entityInfo);
     unboxedEntity.systemInfo = entity.systemInfo === undefined ? {} : unboxJsonObject(entity.systemInfo);
     unboxedEntity.properties = entity.properties === undefined ? {} : unboxJsonObject(entity.properties);
 
@@ -135,7 +138,7 @@ function transformEntityToExternal(entity) {
     var transformedEntity = {};
 
     transformedEntity.id = entity.id;
-    transformedEntity.dataObjectInfo = entity.dataObjectInfo;
+    transformedEntity.entityInfo = entity.entityInfo;
     transformedEntity.systemInfo = entity.systemInfo;
     transformedEntity.properties = entity.properties;
     
@@ -153,7 +156,7 @@ function transformEntityToExternal(entity) {
 
             //Transform ctxInfo to external format understood by API
             var ctxInfoItem = {};
-            var ctxGroupItem = request.query.ctx[0]; //TODO:: this is wrong as api wont be able to process requests with multiple contexts...
+            var ctxGroupItem = request.params.query.ctx[0]; //TODO:: this is wrong as api wont be able to process requests with multiple contexts...
             var attributes = entity.data.ctxInfo[ctxKey].attributes;
             if(ctxGroupItem !== undefined) {
                 ctxInfoItem = {ctxGroup: ctxGroupItem, attributes: attributes};
@@ -206,13 +209,21 @@ function buildAttributesResponse(reqCtxGroup, reqValCtxGroup, reqAttrNames, enCt
                     val.locale = reqValCtxGroup.locale;
                 }
 
-                //TODO: Temporarily to make productName attribute value as entity.id
-                // if(reqAttrName == "cpimProductName"){
-                //     val.value = entity.id;
-                // }
+                val.source = val.source.toLowerCase();
+                val.locale = val.locale.toLowerCase();
 
-                if (val.source == reqValCtxGroup.source && val.locale == reqValCtxGroup.locale) {
-                    valCtxSpecifiedValues.push(val);
+                if (val.source === reqValCtxGroup.source && val.locale === reqValCtxGroup.locale) {
+
+                    //TODO: Temporarily  we need to take only LAST value of the same source + locale as timeslice is not yet implemented in RDP>>>
+                    var valIndexToReplace = valCtxSpecifiedValues.findIndex(findValue, val); 
+                    
+                    if(valIndexToReplace > -1) {
+                        valCtxSpecifiedValues[valIndexToReplace] = val;
+                    }
+                    else {
+                        valCtxSpecifiedValues.push(val);
+                    }
+
                     valFound = true;
                 }
             }
@@ -238,6 +249,10 @@ function buildAttributesResponse(reqCtxGroup, reqValCtxGroup, reqAttrNames, enCt
     return response;
 }
 
+function findValue(element, index, array) {
+    return element.source === this.source && element.locale === this.locale;
+}
+
 function buildEntityFieldsResponse(entity, entityFields, pathRootKey) {
     var response = [];
 
@@ -258,9 +273,9 @@ function buildEntityAttributesResponse(entity, request, pathRootKey) {
     var response = [];
     var entityId = entity.id;
 
-    var reqCtx = request.query.ctx;
-    var reqValCtx = request.query.valCtx;
-    var reqAttrNames = request.fields.attributes;
+    var reqCtx = request.params.query.ctx;
+    var reqValCtx = request.params.query.valCtx;
+    var reqAttrNames = request.params.fields.attributes;
 
     for(let reqCtxGroup of reqCtx) {
         for (var x in entity.data.ctxInfo) {
@@ -313,11 +328,11 @@ function buildEntityRelationshipsResponse(entity, request, pathRootKey, caller) 
     var response = [];
     var entityId = entity.id;
 
-    var reqRelTypes = request.fields.relationships;
-    var reqCtx = request.query.ctx;
-    var reqValCtx = request.query.valCtx;
-    var reqRelAttrNames = request.fields.relationshipAttributes;
-    var reqRelIds = request.fields.relIds === undefined ? [] : request.fields.relIds;
+    var reqRelTypes = request.params.fields.relationships;
+    var reqCtx = request.params.query.ctx;
+    var reqValCtx = request.params.query.valCtx;
+    var reqRelAttrNames = request.params.fields.relationshipAttributes;
+    var reqRelIds = request.params.fields.relIds === undefined ? [] : request.params.fields.relIds;
 
     if(reqRelTypes === undefined){
         return response;
