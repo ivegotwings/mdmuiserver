@@ -24,7 +24,7 @@ var createPath = futil.createPath,
     buildEntityRelationshipsResponse = futil.buildEntityRelationshipsResponse,
     createRequestJson = futil.createRequestJson;
     
-async function getSingleEntity(request, entityId, entityFields) {
+async function getSingleEntity(request, entityId, entityFields, caller) {
     var response = [];
     //update entity id in request query for current id
     request.query.id = entityId;
@@ -48,9 +48,9 @@ async function getSingleEntity(request, entityId, entityFields) {
                         response.push.apply(response, buildEntityAttributesResponse(entity, request, pathRootKey));
                     }
                     
-                    // if(request.fields.relationships){
-                    //     response.push.apply(response, buildEntityRelationshipsResponse(entity, request, pathRootKey));
-                    // }
+                    if(request.fields.relationships){
+                        response.push.apply(response, buildEntityRelationshipsResponse(entity, request, pathRootKey, caller));
+                    }
                 }
             }
         }
@@ -120,27 +120,29 @@ async function getSearchResultDetail(pathSet) {
 //route1: "entitiesById[{keys:entityIds}][{keys:entityFields}]"
 //route2: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].values"
 //route3: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}]"
-async function getEntities(pathSet) {
-    //console.log('entitiesById call pathset requested:', pathSet);
+async function getEntities(pathSet, caller) {
+    //console.log('---------------------' , caller, ' entitiesById call pathset requested:', pathSet, ' caller:', caller);
 
     var entityIds = pathSet.entityIds;
     var entityFields = pathSet.entityFields === undefined ? [] : pathSet.entityFields;
     var ctxKeys = pathSet.ctxKeys === undefined ? [] : pathSet.ctxKeys;
     var attrNames = pathSet.attrNames === undefined ? [] : pathSet.attrNames;
     var relTypes = pathSet.relTypes === undefined ? [] : pathSet.relTypes;
+    var relAttrNames = pathSet.relAttrNames === undefined ? [] : pathSet.relAttrNames;
+    var relIds = pathSet.relIds === undefined ? [] : pathSet.relIds;
 
     var response = [];
     pathRootKey = pathSet[0];
     
-    var request = createRequestJson(ctxKeys, attrNames, relTypes);
+    var request = createRequestJson(ctxKeys, attrNames, relTypes, relAttrNames, relIds);
     //console.log('req', JSON.stringify(request));
 
     for (let entityId of entityIds) {
-        var singleEntityResponse = await getSingleEntity(request, entityId, entityFields);
+        var singleEntityResponse = await getSingleEntity(request, entityId, entityFields, caller);
         response.push.apply(response, singleEntityResponse);
     }
 
-    //console.log(JSON.stringify(response, null, 4));
+    //console.log('getEntities response :', JSON.stringify(response, null, 4));
     return response;
 }
 

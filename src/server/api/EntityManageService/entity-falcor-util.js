@@ -6,6 +6,8 @@ var jsonGraph = require('falcor-json-graph'),
     $atom = jsonGraph.atom,
     expireTime = -60 * 60 * 1000; // 60 mins
 
+var arrayContains = require('../Utils/array-contains');
+
 function createPath(pathSet, value, expires) {
     return {
         'path': pathSet,
@@ -19,13 +21,8 @@ function isEmpty(obj) {
    return true;
 }
 
-Array.prototype.clone = function() {
-	return this.slice(0);
-};
-
-function mergePathSets(pathSet1, pathSet2)
-{
-    return pathSet1.concat(pathSet2);    
+function mergePathSets(pathSet1, pathSet2){
+    return pathSet1.concat(pathSet2);
 }
 
 function mergeAndCreatePath(basePath, pathSet, value, expires) {
@@ -33,7 +30,7 @@ function mergeAndCreatePath(basePath, pathSet, value, expires) {
     return createPath(mergedPathSet, value, expires);
 }
 
-function createRequestJson(ctxKeys, attrNames, relTypes) {
+function createRequestJson(ctxKeys, attrNames, relTypes, relAttrNames, relIds) {
     var ctxGroups = [];
     var valCtxGroups = [];
 
@@ -73,6 +70,14 @@ function createRequestJson(ctxKeys, attrNames, relTypes) {
     
     if(relTypes !== undefined && relTypes.length > 0){
         fields.relationships = relTypes;
+    }
+
+    if(relIds !== undefined && relIds.length > 0){
+        fields.relIds = relIds;
+    }
+
+    if(relAttrNames !== undefined && relAttrNames.length > 0){
+        fields.relationshipAttributes = relAttrNames;
     }
 
     var options = {
@@ -173,11 +178,11 @@ function unboxJsonObject(obj) {
 function buildAttributesResponse(reqCtxGroup, reqValCtxGroup, reqAttrNames, enCtxGroup, enAttributes, basePath){
     var response = [];
 
-    if(isEmpty(enAttributes)){
+    if(isEmpty(reqAttrNames) || isEmpty(enAttributes)){
         return response;
     }
 
-    //console.log('buildAttributesResponse...basePath: ', basePath, 'enAttributes ', JSON.stringify(enAttributes));
+    //console.log('buildAttributesResponse...basePath: ', basePath, 'reqValCtxGroup: ',JSON.stringify(reqValCtxGroup), ' enAttributes: ', JSON.stringify(enAttributes));
 
     // if request is for all attrs then return every thing came back from api..
     if(reqAttrNames.length == 1 && reqAttrNames[0] == "ALL"){
@@ -285,16 +290,16 @@ function buildEntityAttributesResponse(entity, request, pathRootKey) {
 function buildEntityRelationshipDetailsResponse(reqCtxGroup, reqValCtxGroup, reqAttrNames, enCtxInfo, enRel, basePath){
     var response = [];
 
-    var relBasePath = mergePathSets(basePath, [enRel.id]);
+    var relBasePath = mergePathSets(basePath, ["rels", enRel.id]);
     
-    for(var relFieldKey in Object.keys(enRel)){
+    for(let relFieldKey of Object.keys(enRel)){
         
-        if(relFieldKey === "attributes"){
+        if(relFieldKey == "attributes"){
             var relAttributesBasePath = mergePathSets(relBasePath, ["attributes"]);
-            response.apply.push(response, buildAttributesResponse(reqCtxGroup, reqValCtxGroup, reqAttrNames, enCtxInfo, enRel[relFieldKey], relAttributesBasePath));
+           response.push.apply(response, buildAttributesResponse(reqCtxGroup, reqValCtxGroup, reqAttrNames, enCtxInfo, enRel[relFieldKey], relAttributesBasePath));
         }
-        if(relFieldKey == "relToObject"){
-            response.push(mergeAndCreatePath(relBasePath, relFieldKey, $atom(enRel[relFieldKey])));    // this would become paths sooner..
+        else if(relFieldKey == "relToObject"){
+            response.push(mergeAndCreatePath(relBasePath, relFieldKey, $ref(["entitiesById", enRel[relFieldKey].id])));
         }
         else {
             response.push(mergeAndCreatePath(relBasePath, relFieldKey, $atom(enRel[relFieldKey])));    
@@ -304,7 +309,7 @@ function buildEntityRelationshipDetailsResponse(reqCtxGroup, reqValCtxGroup, req
     return response;
 }
 
-function buildEntityRelationshipsResponse(entity, request, pathRootKey) {
+function buildEntityRelationshipsResponse(entity, request, pathRootKey, caller) {
     var response = [];
     var entityId = entity.id;
 
@@ -312,7 +317,8 @@ function buildEntityRelationshipsResponse(entity, request, pathRootKey) {
     var reqCtx = request.query.ctx;
     var reqValCtx = request.query.valCtx;
     var reqRelAttrNames = request.fields.relationshipAttributes;
-    
+    var reqRelIds = request.fields.relIds === undefined ? [] : request.fields.relIds;
+
     if(reqRelTypes === undefined){
         return response;
     }
@@ -328,26 +334,49 @@ function buildEntityRelationshipsResponse(entity, request, pathRootKey) {
             }
 
             if (enCtxInfo.ctxGroup.list === reqCtxGroup.list && enCtxInfo.ctxGroup.classification === reqCtxGroup.classification) {
-                
-                for(let reqValCtxGroup in reqValCtx){
+                if(isEmpty(enCtxInfo.relationships)){
+                    continue;
+                }
+
+                for(let reqValCtxGroup of reqValCtx){
                     
                     var contextKey = "".concat(enCtxInfo.ctxGroup.list, '#@#', enCtxInfo.ctxGroup.classification, '#@#', reqValCtxGroup.source, '#@#', reqValCtxGroup.locale);
                     var ctxBasePath = [pathRootKey, entity.id, 'data', 'ctxInfo', contextKey, 'relationships'];
+                    var relTypes = [];
 
                     // if request is for all rel types then return every thing came back from api..
                     if(reqRelTypes.length === 1 && reqRelTypes[0] == "ALL"){
-                        reqRelTypes = Object.keys(enCtxInfo.relationships);
+                        relTypes = Object.keys(enCtxInfo.relationships);
+                    }
+                    else
+                    {
+                        relTypes = reqRelTypes;
                     }
 
-                    for(let relType of reqRelTypes){
+                    for(let relType of relTypes){
                         var rels = enCtxInfo.relationships[relType];
-
                         var relBasePath = mergePathSets(ctxBasePath, [relType]);
-
                         if(rels.length > 0){
+                            var relIds = [];
+
                             for(var i in rels){
                                 var rel = rels[i];
-                                response.apply.push(response, buildEntityRelationshipDetailsResponse(reqCtx, reqValCtx, reqRelAttrNames, enCtxInfo, rel, relBasePath));
+                                rel.id = createRelUniqueId(rel);
+
+                                if(reqRelIds.length > 0 && !arrayContains(reqRelIds, rel.id))
+                                {
+                                    continue;
+                                }
+
+                                relIds.push(rel.id);
+
+                                if(caller !== "getRelIdOnly") {
+                                    response.push.apply(response, buildEntityRelationshipDetailsResponse(reqCtxGroup, reqValCtxGroup, reqRelAttrNames, enCtxInfo, rel, relBasePath));
+                                }
+                            }
+
+                            if(caller === "getRelIdOnly") {
+                                response.push(mergeAndCreatePath(relBasePath, ["relIds"], $atom(relIds), 0));
                             }
                         }
                     }
@@ -356,8 +385,18 @@ function buildEntityRelationshipsResponse(entity, request, pathRootKey) {
         }
     }
 
-    //console.log('attr response', JSON.stringify(response));
+    //console.log('rels response', JSON.stringify(response));
     return response;
+}
+
+function createRelUniqueId(rel){
+    if(rel){
+        var relEntityId = rel.relToObject.id !== undefined && rel.relToObject.id !== "" ? rel.relToObject.id : "-1";
+        var source = rel.source !== undefined && rel.source !== "" ? rel.source : "ANY";
+        return relEntityId.concat("#@#", source);
+    }
+
+    return "";
 }
 
 module.exports = {
