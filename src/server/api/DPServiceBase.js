@@ -21,6 +21,8 @@ var DPServiceBase = function (options) {
             json: true
         };
 
+        //console.log('RDP call: ', JSON.stringify(options, null, 4));
+
         return await this._restRequest(options);
     };
     console.log('Data platform service instance initiated with ', JSON.stringify({options: options, baseUrl: this.baseUrl}, null, 4));
