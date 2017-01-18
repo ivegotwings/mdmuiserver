@@ -37,7 +37,7 @@ Boolean control
                     } else if (op === 'getsearchresultdetail') {
                         return this._callSearchResultDetail(model, request);
                     } else if (op === 'getentities') {
-                        return this._callGetEntities(model, reqData);
+                        return this._callGetEntities(model, request);
                     }
                     else {
                         throw 'exception: operation ' + op + ' is not supported in ' + this.is + ' element.';
@@ -62,18 +62,20 @@ Boolean control
                         return {'entities': entities};
                     }
                 },
-                _validateAutoTriggerChanges: function(requestData, operation, requestId)
-                {
+                _validateAutoTriggerChanges: function(requestData, operation, requestId){
                     if(operation === "initiatesearch" 
-                        && (requestData.path == "requestData.data.fields" || requestData.path == "requestData.data.options"))
+                        && (requestData.path == "requestData.params.fields" || requestData.path == "requestData.params.options"))
                     {
                         return false;
                     }
 
                     return true;
                 },
-                _callGetEntities: function (model, reqData, entityIds) {
-                    if (reqData === undefined || reqData.data === undefined) {
+                _callGetEntities: function (model, request) {
+                    var reqData = request.requestData,
+                        entityIds = [];
+
+                    if (reqData === undefined || reqData.params === undefined) {
                         return;
                     }
 
@@ -81,9 +83,9 @@ Boolean control
                         console.log('Request for get entities call...request: ', reqData, ' entityIds: ', entityIds);
                     }
 
-                    if ((!entityIds || entityIds.length == 0) && reqData.data && reqData.data.query && reqData.data.query.id) {
+                    if ((!entityIds || entityIds.length == 0) && reqData.params && reqData.params.query && reqData.params.query.id) {
                         entityIds = [];
-                        entityIds.push(reqData.data.query.id);
+                        entityIds.push(reqData.params.query.id);
                     }
 
                     if (!entityIds || entityIds.length == 0) {
@@ -91,16 +93,109 @@ Boolean control
                         return;
                     }
 
+                    var pathRootKey = "entitiesById";
+                    var paths = [];
+                    
+                    var entityFieldsPath = [pathRootKey, entityIds, ['id', 'entityInfo', 'systemInfo', 'properties']];
+                    paths.push(entityFieldsPath);
+                    
                     var contextKeys = this._createContextKeys(reqData);
 
-                    var attrs = reqData.data.fields.attributes;
+                    if(reqData.params.fields.attributes !== undefined && reqData.params.fields.attributes.length > 0)
+                    {
+                        var attrs = reqData.params.fields.attributes;
+                        this._arrayRemove(attrs, "ALL"); //TODO: Fix this once we have logic to resolve ALL...
+                        var path2 = [pathRootKey, entityIds, "data", "ctxInfo", contextKeys, "attributes", attrs, "values"];
+                        paths.push(path2);
+                    }
+                
+                    var relTypes = reqData.params.fields.relationships === undefined ? [] : reqData.params.fields.relationships;
+                    this._arrayRemove(relTypes, "ALL"); //TODO: Fix this once we have logic to resolve ALL...
 
-                    var pathRootKey = "entitiesById";
+                    if(relTypes.length > 0)
+                    {
+                        var relAttrNames = reqData.params.fields.relationshipAttributes === undefined ? [] : reqData.params.fields.relationshipAttributes;
+                        this._arrayRemove(relAttrNames, "ALL"); //TODO: Fix this once we have logic to resolve ALL...
 
-                    var path1 = [pathRootKey, entityIds, ['id', 'dataObjectInfo', 'systemInfo', 'properties']];
-                    var path2 = [pathRootKey, entityIds, "data", "ctxInfo", contextKeys, "attributes", attrs, "values"];
+                        var relatedEntityAttrs = reqData.params.fields.relatedEntityAttributes === undefined ? [] : reqData.params.fields.relatedEntityAttributes;
+                        this._arrayRemove(relatedEntityAttrs, "ALL"); //TODO: Fix this once we have logic to resolve ALL...
 
-                    return model.get(path1, path2);
+                        var relIdCreatePath = [pathRootKey, entityIds, "data", "ctxInfo", contextKeys, "relationships", relTypes, "relIds"];
+
+                        var relAttrsPath = [];
+                        if(relAttrNames.length > 0){
+                            var relAttrsPath = ['attributes', relAttrNames, 'values'];
+                        }
+                        
+                        var relToObjectPath_Fields = ['relToObject', ['id', 'entityInfo', 'systemInfo', 'properties']];
+                        
+                        var relToObjectPath_Attrs = [];
+                        if(relatedEntityAttrs.length > 0)
+                            relToObjectPath_Attrs = ['relToObject', "data", "ctxInfo", contextKeys, "attributes", relatedEntityAttrs, "values"];
+                        
+                        var relFieldsPath = [['id', 'direction', 'operation', 'source', 'alias']];
+                        
+                        var self = this;
+                        model.get(relIdCreatePath).then(function(responsePkg){
+                            //console.log('rel get call res ', JSON.stringify(responsePkg, null, 4));
+
+                            var relDetailGetPaths = [];
+
+                            for(var entityIdIdx in entityIds) {
+                                var entityId = entityIds[entityIdIdx];
+                                for(var ctxKeyIdx in contextKeys) {
+                                    var ctxKey = contextKeys[ctxKeyIdx];
+                                    for(var relTypeIdx in relTypes) {
+                                        var relType = relTypes[relTypeIdx];
+                                        var relIds = responsePkg.json[pathRootKey][entityId]["data"]["ctxInfo"][ctxKey]["relationships"][relType]["relIds"];
+
+                                        var from = reqData.params.options.from !== undefined ? reqData.params.options.from : 0;
+                                        var to = reqData.params.options.to !== undefined ? reqData.params.options.to : relIds.length - 1;
+
+                                        if(from >= relIds.length) {
+                                            from = -1;
+                                        }
+
+                                        if(to >= relIds.length){
+                                            to = relIds.length - 1;
+                                        }
+
+                                        if(from != -1){
+                                            var filteredRelIds = relIds.slice(from, to + 1);
+                                            var relBasePath = [pathRootKey, entityId, "data", "ctxInfo", ctxKey, "relationships", relType, "rels", filteredRelIds];
+                                            
+                                            //must have paths for eachrel..rel fields and relToObject with only fields..
+                                            relDetailGetPaths.push(self._mergePathSets(relBasePath, relFieldsPath));                                            
+                                            relDetailGetPaths.push(self._mergePathSets(relBasePath, relToObjectPath_Fields));
+
+                                            //rel attrs..only if requested...
+                                            if(relAttrsPath.length > 0) {
+                                                relDetailGetPaths.push(self._mergePathSets(relBasePath, relAttrsPath));
+                                            }
+                                            
+                                            //related entity attrs..only if requested...
+                                            if(relToObjectPath_Attrs.length > 0) {
+                                                relDetailGetPaths.push(self._mergePathSets(relBasePath, relToObjectPath_Attrs));
+                                            }
+                                        }
+                                        else {
+                                            throw "requested range is not available for relationships";
+                                        }
+                                    }
+                                }
+                            }
+
+                            if(relDetailGetPaths.length > 0){
+                                paths.push.apply(paths, relDetailGetPaths);
+                                //console.log('paths requested', JSON.stringify(paths, null, 4));
+                                var getEntitiesWithRelResponsePromise = self._makeFalcorGetCall(model, paths);
+                                return self._handleModelResponse(request, getEntitiesWithRelResponsePromise);
+                            }
+                        });
+                    }
+                    else {
+                        return this._makeFalcorGetCall(model, paths);
+                    }
                 },
                 _callGetEntitiesByBasePath: function (model, reqData, reqId, basePath) {
                     if (basePath === undefined) {
@@ -112,10 +207,10 @@ Boolean control
                     }
 
                     var contextKeys = this._createContextKeys(reqData);
-                    var attrs = reqData.data.fields.attributes;
+                    var attrs = reqData.params.fields.attributes;
 
                     var path1 = basePath.slice(); // herem slice would create dup array copying from base path1
-                    path1.push(['id', 'dataObjectInfo', 'systemInfo', 'properties']);
+                    path1.push(['id', 'entityInfo', 'systemInfo', 'properties']);
                     
                     var path2 = basePath.slice(); 
                     path2.push("data", "ctxInfo", contextKeys, "attributes", attrs, "values");
@@ -123,7 +218,7 @@ Boolean control
                     return model.get(path1, path2);
                 },
                 _callInitiateSearch: function (model, reqData) {
-                   return model.call(["searchResults", "create"], [reqData], [], []);
+                    return model.call(["searchResults", "create"], [reqData], [], []);
                 },
                 _callSearchResultDetail: function (model, request) {
                     var self = this,
@@ -147,12 +242,12 @@ Boolean control
                         var from = 0, to = totalRecords - 1;
                         var to1 = to;
 
-                        if(reqData.data.options && reqData.data.options.from){
-                            from = reqData.data.options.from;
+                        if(reqData.params.options && reqData.params.options.from){
+                            from = reqData.params.options.from;
                         }
                             
-                        if(reqData.data.options && reqData.data.options.to){
-                            to = reqData.data.options.to;
+                        if(reqData.params.options && reqData.params.options.to){
+                            to = reqData.params.options.to;
                             to1 = (to + 1) < totalRecords ? to : totalRecords - 1;
                         }
                             
@@ -171,12 +266,12 @@ Boolean control
                 _createContextKeys: function (reqData) {
                     var contextKeys = []
                     var self = this;
-                    reqData.data.query.ctx.forEach(function (ctxGroup) {
-                        reqData.data.query.valCtx.forEach(function (valCtxGroup) {
-                            var ctxGroupUI = {  'list': ctxGroup.list, 
+                    reqData.params.query.ctx.forEach(function (ctxGroup) {
+                        reqData.params.query.valCtx.forEach(function (valCtxGroup) {
+                            var ctxGroupUI = {  'list': ctxGroup.list,
                                                 'classification': ctxGroup.classification, 
-                                                'source': valCtxGroup.source, 
-                                                'locale': valCtxGroup.locale};
+                                                'source': valCtxGroup.source.toLowerCase(), 
+                                                'locale': valCtxGroup.locale.toLowerCase()};
                             var ctxKey = self.createContextKey(ctxGroupUI);
                             contextKeys.push(ctxKey);
                         });
@@ -240,6 +335,45 @@ Boolean control
                     }
                     
                     return formattedEntities;
+                },
+                _mergePathSets: function (pathSet1, pathSet2){
+                    return pathSet1.concat(pathSet2);
+                },
+                _makeFalcorGetCall: function(model, paths){
+                    if(paths.length == 1){
+                        return model.get(path[0]);
+                    }
+                    else if(paths.length == 2) {
+                        return model.get(paths[0], paths[1]);
+                    }
+                    else if(paths.length == 3) {
+                        return model.get(paths[0], paths[1], paths[2]);
+                    }
+                    else if(paths.length == 4) {
+                        return model.get(paths[0], paths[1], paths[2], paths[3]);
+                    }
+                    else if(paths.length == 5) {
+                        return model.get(paths[0], paths[1], paths[2], paths[3], paths[4]);
+                    }
+                    else if(paths.length == 6) {
+                        return model.get(paths[0], paths[1], paths[2], paths[3], paths[4], paths[5]);
+                    }
+                    else if(paths.length == 7) {
+                        return model.get(paths[0], paths[1], paths[2], paths[3], paths[4], paths[5], paths[6]);
+                    }
+                    else if(paths.length == 8) {
+                        return model.get(paths[0], paths[1], paths[2], paths[3], paths[4], paths[5], paths[6], paths[7]);
+                    }
+                },
+                _arrayRemove: function(arr, val) {
+                    var index = -1;
+                    
+                    index = arr.indexOf(val);
+
+                    while(index >= 0) {
+                        arr.splice(index, 1);
+                        index = arr.indexOf(val);
+                    }
                 }
             });
         })();
