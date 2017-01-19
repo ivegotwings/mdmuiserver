@@ -27,7 +27,7 @@ var createPath = futil.createPath,
 async function getSingleEntity(request, entityId, entityFields, caller) {
     var response = [];
     //update entity id in request query for current id
-    request.query.id = entityId;
+    request.params.query.id = entityId;
 
     //console.log('req to api ', JSON.stringify(request));
     var res = await entityManageService.getEntities(request);
@@ -35,20 +35,22 @@ async function getSingleEntity(request, entityId, entityFields, caller) {
 
     var entity;
 
-    if (res !== undefined && res.dataObjectOperationResponse !== undefined && res.dataObjectOperationResponse.status == "success") {
+    var eoResponse = res ? res.entityOperationResponse : undefined;
+
+    if (eoResponse && eoResponse.status == "success") {
         //console.log('response from api', JSON.stringify(res));
-        if (res.dataObjectOperationResponse.dataObjects !== undefined) {
-            for (let en of res.dataObjectOperationResponse.dataObjects) {
+        if (eoResponse.entities !== undefined) {
+            for (let en of eoResponse.entities) {
                 entity = en;
 
                 if (entity.id == entityId) {
                     response.push.apply(response, buildEntityFieldsResponse(entity, entityFields, pathRootKey));
                     
-                    if(request.fields.attributes){
+                    if(request.params.fields.attributes){
                         response.push.apply(response, buildEntityAttributesResponse(entity, request, pathRootKey));
                     }
                     
-                    if(request.fields.relationships){
+                    if(request.params.fields.relationships){
                         response.push.apply(response, buildEntityRelationshipsResponse(entity, request, pathRootKey, caller));
                     }
                 }
@@ -72,21 +74,22 @@ async function initiateSearchRequest(callPath, args) {
     var requestId = uuidV1(),
         request = args[0];
 
-    var requestForApi = request.data;
-    //console.log('request str', JSON.stringify(requestForApi, null, 4));
+    //console.log('request str', JSON.stringify(request, null, 4));
 
-    var res = await entityManageService.getEntities(requestForApi);
+    var res = await entityManageService.getEntities(request);
     //console.log('response raw str', JSON.stringify(res.data, null, 4));
 
     var totalRecords = 0;
 
-    if (res !== undefined && res.dataObjectOperationResponse !== undefined && res.dataObjectOperationResponse.status == "success") {
-        var index = 0;
-        var dataObjects = res.dataObjectOperationResponse.dataObjects;
+    var eoResponse = res ? res.entityOperationResponse : undefined;
 
-        if (dataObjects !== undefined) {
-            totalRecords = dataObjects.length;
-            for (let entity of dataObjects) {
+    if (eoResponse && eoResponse.status == "success") {
+        var index = 0;
+        var entities = eoResponse.entities;
+
+        if (entities !== undefined) {
+            totalRecords = entities.length;
+            for (let entity of entities) {
                 if (entity.id !== undefined) {
                     response.push(createPath(['searchResults', requestId, "entities", index++], $ref([pathRootKey, entity.id])));
                 }
@@ -149,7 +152,7 @@ async function getEntities(pathSet, caller) {
 async function processEntities(entities, entityAction, callerName) {
     //console.log(entityAction, callerName);
 
-    var entityFields = ["id", "dataObjectInfo", "systemInfo", "properties"],
+    var entityFields = ["id", "entityInfo", "systemInfo", "properties"],
         response = [];
         
     for (var entityId in entities) {
@@ -161,7 +164,7 @@ async function processEntities(entities, entityAction, callerName) {
 
         var apiReqestObj = {
             includeRequest: false,
-            dataObject: transformedEntity
+            entities: [transformedEntity]
         };
 
         //console.log('api request data for update entity', JSON.stringify(apiReqestObj));
@@ -180,7 +183,7 @@ async function processEntities(entities, entityAction, callerName) {
 
         //console.log('entity api UPDATE raw response', JSON.stringify(dataOperationResponse, null, 4));
                 
-        if (entity.dataObjectInfo) {
+        if (entity.entityInfo) {
             response.push.apply(response, buildEntityFieldsResponse(entity, entityFields, pathRootKey));
         }
 
