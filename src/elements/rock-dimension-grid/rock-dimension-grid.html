@@ -9,8 +9,10 @@
 <link rel="import" href="../pebble-accordion/pebble-accordion.html">
 <link rel="import" href="../pebble-horizontal-divider/pebble-horizontal-divider.html">
 <link rel="import" href="../liquid-entity-getdata/liquid-entity-getdata.html">
+<link rel="import" href="../liquid-entity-savedata/liquid-entity-savedata.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
 
 <!--
 `rock-dimension-grid` component is used for veiw dimension value of given attribute as well update or add current and future value for that attribute.
@@ -57,37 +59,31 @@ User can see past data but can not modify it, only current and future value can 
         position: static !important;
       }
 
-       .action-container {
-            display: inline-flex;
-            float: right;
-        }
-
-        pebble-button {
-          vertical-align: -webkit-baseline-middle;
-          vertical-align: -moz-baseline-middle;
-          vertical-align: baseline-middle;
+      .action-container {
+          display: inline-flex;
+          float: right;
+      }
+      .button {
           --pebble-button: {
               height: 30px;
-              padding: 0.5em 0em 0.5em 0em;
-              min-width: 2.14em;
-              margin: 0px;
-          }
-          --pebble-button-iron-icon: {
-              height: 20px;
-              width: 20px;
-              color: #7d8690;
+              width: 100px;
+              border: 1px solid #bbc1d2;
+              font-size: 15px;
           }
       }
-
-      pebble-button.pageRange::shadow paper-button {
-          line-height: var(--border-btn-height,24px);
-          height: var(--border-btn-height,24px);
-          box-shadow: none;
-          font-family: var(--default-font-family);
+      
+      .focus {
+          --pebble-button: {
+              height: 30px;
+              width: 100px;
+              font-size: 15px;
+              background: #09c021;
+              color: white;
+          }
       }
 
       pebble-lov {
-        --pebble-lov-height: 100px;
+        --pebble-lov-height: 125px;
       }
 
       pebble-accordion {
@@ -101,13 +97,13 @@ User can see past data but can not modify it, only current and future value can 
     <div id="dimensionGridContainer">
         <div id="dimensionFilters">
               <pebble-accordion header-text="Locale" default-icon="expand-less" open-icon="expand-more">
-                <pebble-lov id="locale" items="{{locales}}" multi-selection="true" show-image="true" on-selection-changed="onDimensionChage"></pebble-lov>
+                <pebble-lov id="locale" items="{{locales}}" multi-select show-image on-selection-changed="onLocaleDimensionChage"></pebble-lov>
               </pebble-accordion>
               <pebble-accordion header-text="Context" default-icon="expand-less" open-icon="expand-more">
-                <pebble-lov id="context" items="{{contexts}}" multi-selection="true" show-image="true" on-selection-changed="onDimensionChage"></pebble-lov>                
+                <pebble-lov id="context" items="{{contexts}}" multi-select show-image on-selection-changed="onContextDimensionChage"></pebble-lov>                
               </pebble-accordion>
               <pebble-accordion header-text="Source" default-icon="expand-less" open-icon="expand-more">
-                <pebble-lov id="source" items="{{sources}}" multi-selection="true" show-image="true" on-selection-changed="onDimensionChage"></pebble-lov>                
+                <pebble-lov id="source" items="{{sources}}" multi-select show-image on-selection-changed="onSourceDimensionChage"></pebble-lov>                
               </pebble-accordion>
               <pebble-accordion header-text="Time" default-icon="expand-less" open-icon="expand-more">
               </pebble-accordion>
@@ -116,17 +112,17 @@ User can see past data but can not modify it, only current and future value can 
           <div>
           <pebble-button icon="pebble-icons:Create" class="icon-text-button" button-text="Action" on-click=""></pebble-button>
           </div>
-          <pebble-grid config="{{gridConfig}}" page-size="10" data="{{gridData}}"></pebble-grid>
-           <div class="action-container" hidden = [[!isEditMode]]>
-              <pebble-button class="pageRange btn-with-border" button-text="Cancel" on-tap="cancelAction" noink raised></pebble-button>
-              <pebble-button class="pageRange btn-with-border" button-text="Save" on-tap="saveAction" noink raised></pebble-button>
+          <pebble-grid config="{{gridConfig}}" page-size="10" data="{{gridData}}" attribute-models="{{gridAttributeModel}}"></pebble-grid>
+           <div class="action-container">
+              <pebble-button class="pageRange btn-with-border" class="button" button-text="Cancel" on-tap="cancelAction" noink raised></pebble-button>
+              <pebble-button class="pageRange btn-with-border" class="focus" button-text="Save" on-tap="saveAction" noink raised></pebble-button>
           </div>
         </div>
     </div>
     <liquid-entity-getdata auto verbose name="attributeGetDataService" operation="getentities" 
             request-data="{{_request}}" last-response="{{response}}"></liquid-entity-getdata>
-		<!--<liquid-entity-savedata verbose name="attributeSaveDataService" operation="updateentities" 
-            request-data="{{saveRequest}}" last-response="{{saveResponse}}" on-response="onSaveResponse"></liquid-entity-savedata>-->
+		<liquid-entity-savedata verbose name="attributeSaveDataService" operation="updateentities" 
+            request-data="{{_saveRequest}}" last-response="{{saveResponse}}" on-response="onSaveResponse"></liquid-entity-savedata>
 	</template>
 <script> 
 	(function () {
@@ -174,9 +170,9 @@ User can see past data but can not modify it, only current and future value can 
         },
 
         /*
-        * Indicates attribute name of given entity identification for what dimension values needs to be rendered.
+        * Indicates attribute model object of given entity identification for what dimension values needs to be rendered.
         */
-        attributeName: {
+        attributeModelObject: {
           type: String,
           value: function() {
             return {};
@@ -221,6 +217,16 @@ User can see past data but can not modify it, only current and future value can 
           value: function() {
             return {};
           }
+        },
+
+        /*
+        * Indicates save request object based on current selected dimension objects.
+        */
+        _saveRequest: {
+          type: Object,
+          value: function() {
+            return {};
+          }
         }
       },
 
@@ -234,32 +240,48 @@ User can see past data but can not modify it, only current and future value can 
         RUFBehaviors.UIBehavior
       ],
 
-      onDimensionChage: function(e) {
-        if(e.currentTarget.selectedItem){
-          var selectedItemId = e.currentTarget.selectedItem.id;
-          if(lovElement) {
-            if(e.currenttarget.id == "locale") {
-              this.locales.forEach(function(item) {
-                if(item.id == selectedItemId){
-                  this._selectedLocales.push(item.title);
-                }
-              }, this);
+      onLocaleDimensionChage: function(e) {
+        if(e.currentTarget.selectedItemIds){
+          var selectedItemIds = e.currentTarget.selectedItemIds;
+          var selectedLocales = [];
+          this.locales.forEach(function(item) {
+            if(selectedItemIds.indexOf(item.id) >= 0){
+              selectedLocales.push(item.title);
             }
-            else if(e.currenttarget.id == "source") {
-              this.sources.forEach(function(item) {
-                if(item.id == selectedItemId){
-                  this._selectedSources.push(item.title);
-                }
-              }, this);
-            } 
-            else if(e.currenttarget.id == "context") {
-              this.contexts.forEach(function(item) {
-                if(item.id == selectedItemId){
-                  this._selectedContexts.push(item.title);
-                }
-              }, this);
+          }, this);
+
+          this._selectedLocales = undefined;
+          this._selectedLocales = selectedLocales;
+        }
+      },
+
+      onContextDimensionChage: function(e) {
+        if(e.currentTarget.selectedItemIds){
+          var selectedItemIds = e.currentTarget.selectedItemIds;
+          var selectedContexts = [];
+          this.contexts.forEach(function(item) {
+            if(selectedItemIds.indexOf(item.id) >= 0){
+              selectedContexts.push(item.title);
             }
-          }
+          }, this);
+
+          this._selectedContexts = undefined;
+          this._selectedContexts = selectedContexts;
+        }
+      },
+
+      onSourceDimensionChage: function(e) {
+        if(e.currentTarget.selectedItemIds){
+          var selectedItemIds = e.currentTarget.selectedItemIds;
+          var selectedSources = [];
+          this.sources.forEach(function(item) {
+            if(selectedItemIds.indexOf(item.id) >= 0){
+              selectedSources.push(item.title);
+            }
+          }, this);
+
+          this._selectedSources = undefined;
+          this._selectedSources = selectedSources;
         }
       },
 
@@ -267,8 +289,9 @@ User can see past data but can not modify it, only current and future value can 
         if(this.dataId) {
           var attributeNames = [];
           var valCtx = [];
+          var ctx = [];
 
-          attributeNames.push(this.attributeName);        
+          attributeNames.push(this.attributeModelObject.name);        
           if(this._selectedLocales && this._selectedSources)
           {
             this._selectedSources.forEach(function(sourceItem) {
@@ -281,13 +304,19 @@ User can see past data but can not modify it, only current and future value can 
             }, this);
           }
 
+          if(this._selectedContexts) {
+            this._selectedContexts.forEach(function(contextItem) {
+              ctx.push({
+                "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry",
+                "list": contextItem
+              });
+            }, this);
+          }
+
           var req = {
-            "data": {
+            "params": {
               "query": {
-                "ctx": [{
-                  "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry",
-                  "list" : "productMaster"
-                }],
+                "ctx":ctx,
                 "valCtx": valCtx,
                 "id": this.dataId
               },
@@ -305,7 +334,54 @@ User can see past data but can not modify it, only current and future value can 
       },
 
       saveAction : function(e) {
-        //TO-DO: Needs to be done as Date Time picker integration.
+          var attributesJSON = {};
+          var grid = Polymer.dom(this).node.$$('pebble-grid');
+          if(grid) {
+            var data = grid.data;
+
+            var entityData = {};
+            if (this.response && this.response.content && this.response.content.entities) {
+                entityData = DataHelper.cloneObject(this.response.content.entities);
+            }
+
+            if(entityData) {
+
+              data.forEach(function(item) {
+                
+                if(attributesJSON[item.Context] == undefined) {
+                  attributesJSON[item.Context] = {};
+                  attributesJSON[item.Context][this.attributeModelObject.name] = {};
+                  attributesJSON[item.Context][this.attributeModelObject.name].values = [];
+                }
+
+                if(attributesJSON[item.Context][this.attributeModelObject.name]) {
+                  attributesJSON[item.Context][this.attributeModelObject.name].values.push({
+                    "value": item.Value,
+                    "source": item.Source,
+                    "locale": item.Locale
+                  })
+                }
+              }, this);
+              
+              if (this.dataId in entityData) {
+                  var contextKeys = Object.keys(entityData[this.dataId].data.ctxInfo);
+                  contextKeys.forEach(function(key){
+                    if(attributesJSON[key.split("#@#")[0]]){
+                      entityData[this.dataId].data.ctxInfo[key].attributes = attributesJSON[key.split("#@#")[0]];
+                    }
+                  }, this);
+              }
+              //set requestObject for save liquid
+              this._saveRequest = {
+                  "entities": entityData
+              };
+
+              var liquidSave = this.$$("[name=attributeSaveDataService]");
+              if (liquidSave) {
+                  liquidSave.generateRequest();
+              }
+            }
+          }
       },
 
       cancelAction : function(e) {
@@ -314,6 +390,7 @@ User can see past data but can not modify it, only current and future value can 
       },
 
       _entityGet: function() {
+        debugger;
         var dimGrid =  Polymer.dom(this).node.$$('pebble-grid');
 
         if(this.response && this.response.content) {
@@ -321,26 +398,34 @@ User can see past data but can not modify it, only current and future value can 
           var ctxInfo = entity.data.ctxInfo;
           var containerInfoKeys = Object.keys(ctxInfo);
 
+          var data = [];
+          debugger;
           containerInfoKeys.forEach(function(item){
-            var data = [];
             var attributes = ctxInfo[item].attributes;
             if(attributes) {
-              var values = attributes[this.attributeName].values;
+              var values = attributes[this.attributeModelObject.name].values;
               if(values) {
                 values.forEach(function(valueItem){
                   var record = {};
                   record.Value = valueItem.value;
                   record.Locale = valueItem.locale;
                   record.Source = valueItem.source;
+                  record.Context = item.split("#@#")[0];
                   data.push(record);
                 }, this);
               }
             }
-            if(data.length > 0)
-            {
-              this.gridData = data;
-            }
           }, this);
+
+          if(data.length > 0)
+          {
+            var grid = Polymer.dom(this).node.$$('pebble-grid');
+            grid.data = data;
+            if( grid._getIronDataTable()){
+              grid._getIronDataTable()._sizeChanged(data.length, 0);
+              grid.reRenderGrid();
+            }
+          }
         }
       },
 
