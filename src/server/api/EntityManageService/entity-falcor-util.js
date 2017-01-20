@@ -111,28 +111,6 @@ function createRequestJson(ctxKeys, attrNames, relTypes, relAttrNames, relIds) {
     return request;
 }
 
-function unboxEntityData(entity) {
-    var unboxedEntity = {};
-
-    unboxedEntity.id = unboxJsonObject(entity.id);;
-    unboxedEntity.entityInfo = entity.entityInfo === undefined ? {} : unboxJsonObject(entity.entityInfo);
-    unboxedEntity.systemInfo = entity.systemInfo === undefined ? {} : unboxJsonObject(entity.systemInfo);
-    unboxedEntity.properties = entity.properties === undefined ? {} : unboxJsonObject(entity.properties);
-
-    if (entity.data && entity.data.ctxInfo) {
-        for (var ctxKey in entity.data.ctxInfo) {
-            var attrs = entity.data.ctxInfo[ctxKey].attributes;
-            for (var attrId in attrs) {
-                var attr = attrs[attrId];
-                attr.values = unboxJsonObject(attr.values);
-            }
-        }
-    }
-
-    unboxedEntity.data = entity.data;
-
-    return unboxedEntity;
-}
 
 function transformEntityToExternal(entity) {
     var transformedEntity = {};
@@ -151,15 +129,34 @@ function transformEntityToExternal(entity) {
         var ctxKeys = Object.keys(entity.data.ctxInfo);
 
         for (var ctxKey in entity.data.ctxInfo) {
-            var attrNames = Object.keys(entity.data.ctxInfo[ctxKey].attributes);
+            var enCtxInfo =  entity.data.ctxInfo[ctxKey];
+
+            var attrNames = Object.keys(enCtxInfo.attributes);
             var request = createRequestJson([ctxKey], attrNames);
 
             //Transform ctxInfo to external format understood by API
             var ctxInfoItem = {};
-            var ctxGroupItem = request.params.query.ctx[0]; //TODO:: this is wrong as api wont be able to process requests with multiple contexts...
-            var attributes = entity.data.ctxInfo[ctxKey].attributes;
-            if(ctxGroupItem !== undefined) {
-                ctxInfoItem = {ctxGroup: ctxGroupItem, attributes: attributes};
+            var reqCtxGroupItem = request.params.query.ctx[0]; //TODO:: this is wrong as api wont be able to process requests with multiple contexts...
+            var attributes = enCtxInfo.attributes;
+            var transformedRelationships = {};
+
+            var relationships = enCtxInfo.relationships !== undefined ? enCtxInfo.relationships : [];
+
+            for(var relTypeIdx in relationships) {
+                var relTypeObj = relationships[relTypeIdx];
+                var relsArray = [];
+                
+                for(var relObjKey in relTypeObj.rels) {
+                    var rel = relTypeObj.rels[relObjKey];
+                    delete rel['relToObject'].data; // no need to send related entity data to server..
+                    relsArray.push(rel);
+                }
+
+                transformedRelationships[relTypeIdx] = relsArray;   
+            }
+
+            if(reqCtxGroupItem !== undefined) {
+                ctxInfoItem = {ctxGroup: reqCtxGroupItem, attributes: attributes, relationships: transformedRelationships};
                 ctxInfo.push(ctxInfoItem);
             }
         }
@@ -168,14 +165,6 @@ function transformEntityToExternal(entity) {
     }
 
     return transformedEntity;
-}
-
-function unboxJsonObject(obj) {
-    if (obj && obj.$type) {
-        return obj.value;
-    } else {
-        return obj;
-    }
 }
 
 function buildAttributesResponse(reqCtxGroup, reqValCtxGroup, reqAttrNames, enCtxGroup, enAttributes, basePath){
@@ -354,7 +343,6 @@ function buildEntityRelationshipsResponse(entity, request, pathRootKey, caller) 
                 }
 
                 for(let reqValCtxGroup of reqValCtx){
-                    
                     var contextKey = "".concat(enCtxInfo.ctxGroup.list, '#@#', enCtxInfo.ctxGroup.classification, '#@#', reqValCtxGroup.source, '#@#', reqValCtxGroup.locale);
                     var ctxBasePath = [pathRootKey, entity.id, 'data', 'ctxInfo', contextKey, 'relationships'];
                     var relTypes = [];
@@ -369,17 +357,26 @@ function buildEntityRelationshipsResponse(entity, request, pathRootKey, caller) 
                     }
 
                     for(let relType of relTypes){
-                        var rels = enCtxInfo.relationships[relType];
+                        var rels = [];
+                        
+                        if(caller === "createEntities" || caller === "updateEntities") {
+                            rels = enCtxInfo.relationships[relType].rels;
+                        }
+                        else {
+                            rels = enCtxInfo.relationships[relType];
+                        }
+
                         var relBasePath = mergePathSets(ctxBasePath, [relType]);
-                        if(rels.length > 0){
+
+                        if(!isEmpty(rels)) {
                             var relIds = [];
 
                             for(var i in rels){
                                 var rel = rels[i];
+
                                 rel.id = createRelUniqueId(rel);
 
-                                if(reqRelIds.length > 0 && !arrayContains(reqRelIds, rel.id))
-                                {
+                                if(reqRelIds.length > 0 && !arrayContains(reqRelIds, rel.id)) {
                                     continue;
                                 }
 
@@ -417,8 +414,6 @@ function createRelUniqueId(rel){
 module.exports = {
     createPath: createPath,
     createRequestJson: createRequestJson,
-    unboxEntityData: unboxEntityData,
-    unboxJsonObject: unboxJsonObject,
     transformEntityToExternal: transformEntityToExternal,
     buildEntityFieldsResponse: buildEntityFieldsResponse,
     buildEntityAttributesResponse: buildEntityAttributesResponse,
