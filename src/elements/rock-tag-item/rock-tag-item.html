@@ -134,7 +134,7 @@
         <pebble-popover id="filterPopover" for="rock-tag" no-overlap auto-fit-on-attach >
             <template is="dom-if" if="{{_isTextBox}}">
                 <!--TODO to be replaced by LOV-->
-                <pebble-lov id="lov" items="{{options}}" multi-selection="false" show-image="true" on-selection-changed="lovSelectionChanged" show-sub-title>
+                <pebble-lov id="lov" items="{{options}}" multi-select show-image on-selection-changed="_lovSelectionChanged" show-sub-title>
                 </pebble-lov>
                 <!--<pebble-textbox  class="input" label="{{longName}}" value="{{temp}}"  ></pebble-textbox>-->
             </template>
@@ -143,22 +143,6 @@
                 <div class="PebbleButtonPadding">
                     <pebble-button  button-text="Update"  raised elevation="1" on-tap="_updateValue"></pebble-button>
                     <pebble-button  on-tap="_dismissDialog" raised elevation="1"  button-text="Close"></pebble-button>
-                </div>
-            </template>
-            <template is="dom-if" if="{{_isDateTime}}">
-                <!--TODO to be replaced by new Range date picker-->
-                <paper-button-group aria-labelledby="dateFilter" selected="{{temp}}">
-                <paper-button class="datebuttons"  name="Today" on-tap="_selectDateItem">Today</paper-button>
-                <paper-button class="datebuttons"  name="Yesterday" on-tap="_selectDateItem">Yesterday</paper-button>
-                <paper-button class="datebuttons"  name="Last 7 days" on-tap="_selectDateItem">Last 7 days</paper-button>
-                <paper-button class="datebuttons"  name="Last 30 days" on-tap="_selectDateItem">Last 30 days</paper-button>
-                <paper-button class="datebuttons"  name="This Month" on-tap="_selectDateItem">This Month</paper-button>
-                <paper-button class="datebuttons"  name="Last Month" on-tap="_selectDateItem">Last Month</paper-button>
-                <paper-button class="datebuttons"  name="Custom" on-tap="_selectDateItem">Custom</paper-button>
-                </paper-button-group>
-                <div class="PebbleButtonPadding">
-                    <pebble-button  button-text="Update"  raised elevation="1" on-tap="_updateValue"></pebble-button>
-                    <pebble-button  on-tap="_dismissDialog"  button-text="Close"></pebble-button>
                 </div>
             </template>
             <template is="dom-if" if="{{_isNumeric}}">
@@ -180,6 +164,15 @@
                 </div>
             </template>
         </pebble-popover>
+        <template is="dom-if" if="{{_isDateTime}}">
+        <pebble-datetime-picker id="rangepicker"
+                                for="rock-tag"
+                                picker-type="daterange"
+                                show-ranges
+                                heading-format="ddd, MMM DD YYYY"
+                                start-date-value="{{gte}}"
+                                end-date-value="{{lte}}" on-date-range-selected="_updateValue"></pebble-datetime-picker>
+        </template>
 
     </template>
 <script>
@@ -258,14 +251,6 @@
                 notify: true
             },
             /**
-             * Specifies whether or not the tag is in view or edit mode.
-             */
-            editMode: {
-                type: Boolean,
-                value: false,
-                notify:true
-            },
-            /**
              * Boolean flag which will become true when user passes icon( name of icon present in icons set) or src(image path).
             */
             _isIconEnabled: {
@@ -340,27 +325,27 @@
           * Change the tag from view  mode to edit mode
         */
         _makeEditable: function (e) {
-            this.editMode = true;
-            
-            this.$.filterPopover.positionTarget =this.$$('.tag-value');
-            this.$.filterPopover.open();
-            if(this.$$('#lov')) {
-                this.$$('#lov').activate();
-            }
-            
-            //need to give some time to polymer to reflect the property change, thus async
-            this.async(function () {
-                var input= this.$.filterPopover.querySelector(".input");
-                if(input) {
-                    input.focus();
+            if(this._isDateTime){
+                this.$$('#rangepicker').open();
+            }else {
+                this.$.filterPopover.positionTarget = this.$$('.tag-value');
+                this.$.filterPopover.open();
+                if (this.$$('#lov')) {
+                    this.$$('#lov').activate();
                 }
-            },2);
+                //need to give some time to polymer to reflect the property change, thus async
+                this.async(function () {
+                    var input = this.$.filterPopover.querySelector(".input");
+                    if (input) {
+                        input.focus();
+                    }
+                }, 2);
+            }
         },
         /**
           * Change the tag from edit  mode to view mode
         */
-        _makeNonEditable: function () {
-            this.editMode = false;
+        _fireChangeEvent: function () {
             var attribute = {
                 name: this.name,
                 value:this.value
@@ -446,9 +431,6 @@
             this.updateStyles();
         },
         attached: function () {
-            if(this.editMode==undefined){
-                this.editMode=false;
-            }
             if(!this.longName && this.name){
                 this.longName=this.name;
             }
@@ -456,18 +438,12 @@
                 this.displayType="textArea";
             }
         },
-        _showPicker: function (e) {
-            this.$[e.target.getAttribute('picker')].show();
-        },
         _updateValue: function (e) {
             if(this._isDateTime) {
-                if(this.temp =="Custom"){
-                    this.value={
-                           "from": this.from,
-                           "to":this.to
-                       };
-                }else{
-                    this.value={"eq":this.temp};
+                if(this.gte==this.lte){
+                    this.value={"eq":this.gte};
+                } else{
+                    this.value={"gte":this.gte,"lte":this.lte};
                 }
             } else if(this._isNumeric){
                 if(this.$$('paper-radio-group').selected=="range"){
@@ -480,11 +456,10 @@
             }
             this.setValueString(this.value);
             this.$.filterPopover.hide();
-            this._makeNonEditable();
+            this._fireChangeEvent();
         },
         _dismissDialog: function () {
             this.$.filterPopover.hide();
-            this.editMode=false;
         },
         setValueString: function (value) {
             if(value.gte && value.lte) {
@@ -508,11 +483,15 @@
                 this.valueString="";
             }
         },
-        lovSelectionChanged: function () {
-                this.value = {"eq": event.detail.item.title};
+        _lovSelectionChanged: function () {
+            var lov=this.$$("#lov");
+            var selectedItems=[];
+                for (var i = 0; i < lov.selectedItems.length; i++) {
+                        selectedItems.push(lov.selectedItems[i].title);
+                }
+                this.value = {"eq":selectedItems};
                 this.setValueString(this.value);
-                this.$.filterPopover.hide();
-                this._makeNonEditable();
+                this._fireChangeEvent();
         }
     });
 
