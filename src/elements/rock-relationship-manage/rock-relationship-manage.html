@@ -3,20 +3,49 @@
 <link rel="import" href="../../../bower_components/iron-demo-helpers/demo-pages-shared-styles.html">
 <link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
 <link rel="import" href="../rock-relationship-grid/rock-relationship-grid.html">
-<link rel="import" href="../liquid-entity-get/liquid-entity-get.html">
 <link rel="import" href="../liquid-entity-getdata/liquid-entity-getdata.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="improt" href="../bedrock-helpers/data-helper.html">
 <!--
 `rock-relationship-manage` Represents relationship component in the framework.
 It renders the list of attributes based on the specified relationship type.
 
 @group rock Elements
-@element rock-relationship-manage
+@element rock-relationship-manag4e
 @demo demo/index.html
 -->
 
 <dom-module id="rock-relationship-manage">
     <template>
+        <style include="pebble-shared-styles">
+             .button {
+                    --pebble-button: {
+                        height: 30px;
+                        width: 100px;
+                        border: 1px solid #bbc1d2;
+                        font-size: 15px;
+                    }
+                }
+                
+                .focus {
+                    --pebble-button: {
+                        height: 30px;
+                        width: 100px;
+                        font-size: 15px;
+                        background: #09c021;
+                        color: white;
+                    }
+                }
+                
+                #buttonContainer {
+                    height: 50px;
+                    background: #fff;
+                    position: fixed;
+                    bottom: 0px;
+                    width: 75%;
+                }
+        </style>
 
 <!--<iron-ajax auto url="../../data/EntityManageApp/relationshipGridConfig.json" handle-as="json" last-response="{{gridConfig}}"></iron-ajax>
     <liquid-entity-get name="attributeModelGetService" request="{{attributeModelRequest}}" response="{{attributeModelResponse}}"></liquid-entity-get>
@@ -25,15 +54,22 @@ It renders the list of attributes based on the specified relationship type.
         request-id="[[searchResponse.data.requestId]]" response="{{searchResultResponse}}"></liquid-entity-getdata>-->
 
 
-    <iron-ajax auto url="../../data/EntityManageApp/relationship-grid-config.json" handle-as="json" last-response="{{relationshipGridConfigs}}"></iron-ajax>    
-    <iron-ajax auto url="demo/entity.json" handle-as="json" last-response="{{entityData}}"></iron-ajax>
+    <iron-ajax auto url="../../data/EntityManageApp/relationship-grid-config.json" handle-as="json" last-response="{{relationshipGridConfigs}}"></iron-ajax>   
+    <liquid-entity-getdata id="getEntity" operation="getentities" request-data={{_requestRel}} last-response={{entityData}}></liquid-entity-getdata>
     
     <rock-relationship-grid id="entityRelationshipGrid" relationship-type="[[context.relationshipTypeName]]"
         relationship-grid-config="{{relationshipGridConfigs}}" page-size="100" data="{{entityData}}"></rock-relationship-grid>
     <bedrock-pubsub event-name="grid-selecting-item" handler="onSelectingGridItem" target-id="entityRelationshipGrid"></bedrock-pubsub>
 
+    <div id="buttonContainer" align="center">
+        <pebble-button id="cancel" class="button" button-text="Cancel" on-tap="_revertAll" elevation=1 raised></pebble-button>
+        <pebble-button id="save" class="focus" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
+    </div>
+
 </template>
 <script>
+(function () {
+            'use strict';
     Polymer({
         is: "rock-relationship-manage",
 
@@ -44,71 +80,103 @@ It renders the list of attributes based on the specified relationship type.
                     return {};
                 }
             },
-            attributeModelRequest: {
+            _attributeModelRequest: {
                 type: Object,
                 value: function () {
                     return { action: "getAttributeModels" };
                 }
             },
-            request: {
+            _requestRel: {
                 type: Object,
                 value: function () {
-                    return {
-                        "params": {
-                            "query": {
-                                "ctx": [
-                                    {
-                                        "list": "fall2016",
-                                        "classification": "shoes"
-                                    },
-                                    {
-                                        "list": "master",
-                                        "classification": "shirts"
-                                    }
-                                ],
-                                "valCtx": [
-                                    {
-                                        "source": "cnet",
-                                        "locale": "en-US"
-                                    },
-                                    {
-                                        "source": "indix",
-                                        "locale": "en-US"
-                                    }
-                                ],
-                                "filters": {
-                                    "attributesCriterion": [],
-                                    "relationshipsCriterion": [],
-                                    "typesCriterion": ["sku", "style"]
-                                }
-                            },
-                            "fields": {
-                                "ctxTypes": [
-                                    "properties"
-                                ],
-                                "attributes": [
-                                    "launchDate",
-                                    "msrp"
-                                ],
-                                "relationships": ["ALL"]
-                            },
-                            "options": {
-                                "totalRecords": 100,
-                                "includeRequest": false
-                            }
-                        }
-                    };
-                }
-            },
-            /**
-             * Indicates the response object that is received from liquid element.
-             */
-            searchResponse: {
-                type: Object,
-                value: undefined,
+                    return {};
+                },
                 notify: true
+            },
+            _relationships:{
+                type: Array,
+                value: function() {
+                    return [];
+                }
+            }
+        },
+
+        observers:[
+            '_generateRequest(relationshipGridConfigs)'
+        ],
+
+        _generateRequest: function() {
+            var relationshipAttributes  = [];
+            var relatedEntityAttributes = [];
+            if(this.relationshipGridConfigs){
+                this._relationships = Object.keys(this.relationshipGridConfigs);
+            
+                if(this._relationships) {
+                    this._relationships.forEach(function(item){
+                        var columns = this.relationshipGridConfigs[item].tabular.columns;
+                        if(columns) {
+                            columns.forEach(function(col) {
+                                if(col.isRelatedEntityAttribute) {
+                                    relatedEntityAttributes.push(col.name);
+                                }
+                                else
+                                {
+                                    relationshipAttributes.push(col.name);
+                                }
+                            }, this);
+                        }
+                    }, this);
+                }
+
+                var entityId = DataHelper._getEntityId();
+
+                var req = {
+                "params": {
+                        "query": {
+                            "ctx": [
+                                {
+                                    "list": "productMaster",
+                                    "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
+                                }
+                            ],
+                            "valCtx": [
+                                {
+                                    "source": "SAP",
+                                    "locale": "en-US"
+                                }
+                            ],
+                            "id": entityId,
+                            "filters": {
+                                "attributesCriterion": [],
+                                "typesCriterion": [
+                                    "nart"
+                                ]
+                            }
+                        },
+                        "fields": {
+                            "ctxTypes": [
+                                "properties"
+                            ],
+                            "relationships": this._relationships,
+                            "relationshipAttributes": relationshipAttributes,
+                            "relatedEntityAttributes": relatedEntityAttributes
+                        },
+                        "options":{
+                            "from": 0,
+                            "to": 0
+                        }
+                    }
+                };
+
+                this.set('_requestRel', req);
+
+                var getLiquid = Polymer.dom(this).node.$$('liquid-entity-getdata');
+                if(getLiquid){
+                    getLiquid.generateRequest();
+                }
             }
         }
     });
+    })();
 </script>
 </dom-module>
