@@ -87,7 +87,7 @@ EntityFalcorUtil.boxRelationshipsData = function(relationships, boxOp) {
     return modRelationships;
 };
 
-EntityFalcorUtil.boxJsonObject = function(obj){
+EntityFalcorUtil.boxJsonObject = function(obj) {
     return {'$type': "atom", 'value': obj };
 };
 
