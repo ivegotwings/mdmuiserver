@@ -9,6 +9,10 @@ var jsonGraph = require('falcor-json-graph'),
     $atom = jsonGraph.atom,
     expireTime = -60 * 60 * 1000,
     pathRootKey = "entitiesById"; // 60 mins
+    
+var sharedEntityFalcorUtil = require('../../../shared/entity-falcor-util');
+
+var arrayUnion = require('../Utils/array-union');
 
 var mode = process.env.NODE_ENV;
 var options = {mode: mode};
@@ -16,13 +20,11 @@ var entityManageService = new EntityManageService(options);
 
 //falcor utilty functions' references
 var createPath = futil.createPath,
-    unboxEntityData = futil.unboxEntityData,
-    unboxJsonObject = futil.unboxJsonObject,
+    createRequestJson = futil.createRequestJson,
     transformEntityToExternal = futil.transformEntityToExternal,
     buildEntityFieldsResponse = futil.buildEntityFieldsResponse,
     buildEntityAttributesResponse = futil.buildEntityAttributesResponse,
-    buildEntityRelationshipsResponse = futil.buildEntityRelationshipsResponse,
-    createRequestJson = futil.createRequestJson;
+    buildEntityRelationshipsResponse = futil.buildEntityRelationshipsResponse;
     
 async function getSingleEntity(request, entityId, entityFields, caller) {
     var response = [];
@@ -149,15 +151,16 @@ async function getEntities(pathSet, caller) {
     return response;
 }
 
-async function processEntities(entities, entityAction, callerName) {
-    //console.log(entityAction, callerName);
+async function processEntities(entities, entityAction, caller) {
+    //console.log(entityAction, caller);
 
     var entityFields = ["id", "entityInfo", "systemInfo", "properties"],
         response = [];
         
     for (var entityId in entities) {
         var entity = entities[entityId];
-        entity = unboxEntityData(entity);
+       
+        entity = sharedEntityFalcorUtil.boxEntityData(entity, sharedEntityFalcorUtil.unboxJsonObject);
         var transformedEntity = transformEntityToExternal(entity);
 
         //console.log('entity data', JSON.stringify(entity, null, 4));
@@ -167,7 +170,7 @@ async function processEntities(entities, entityAction, callerName) {
             entities: [transformedEntity]
         };
 
-        //console.log('api request data for update entity', JSON.stringify(apiReqestObj));
+        //console.log('api request data for process entities', JSON.stringify(apiReqestObj));
 
         var dataOperationResponse = {};
         
@@ -191,9 +194,30 @@ async function processEntities(entities, entityAction, callerName) {
             var ctxKeys = Object.keys(entity.data.ctxInfo);
 
             for (var ctxKey in entity.data.ctxInfo) {
-                var attrNames = Object.keys(entity.data.ctxInfo[ctxKey].attributes);
-                var request = createRequestJson([ctxKey], attrNames);
-                response.push.apply(response, buildEntityAttributesResponse(entity, request, pathRootKey));
+                var ctxGroup = entity.data.ctxInfo[ctxKey];
+                var attrNames = Object.keys(ctxGroup.attributes);
+                var relTypes = [];
+                var relAttrNames = [];
+                
+                for(var relType in ctxGroup.relationships){
+                    for(var relKey in ctxGroup.relationships[relType].rels){
+                        var rel = ctxGroup.relationships[relType].rels[relKey];
+                        relAttrNames = arrayUnion(relAttrNames, Object.keys(rel.attributes))        
+                    }
+                    relTypes.push(relType);
+                }
+
+                var request = createRequestJson([ctxKey], attrNames, relTypes, relAttrNames);
+                
+                //console.log('req during processEntities ', JSON.stringify(request, null, 4));
+
+                if(request.params.fields.attributes){
+                    response.push.apply(response, buildEntityAttributesResponse(entity, request, pathRootKey));
+                }
+                
+                if(request.params.fields.relationships){
+                    response.push.apply(response, buildEntityRelationshipsResponse(entity, request, pathRootKey, caller));
+                }
             }
         }
     }
@@ -203,7 +227,7 @@ async function processEntities(entities, entityAction, callerName) {
 }
 
 //route1: "entitiesById.createEntities"
-async function createEntities(callPath, args, callerName)
+async function createEntities(callPath, args, caller)
 {
     var jsonEnvelope = args[0];
 
@@ -219,27 +243,27 @@ async function createEntities(callPath, args, callerName)
         entity.id = newEntityId;
     }
 
-    return processEntities(entities, "create", callerName);
+    return processEntities(entities, "create", caller);
 }
 
 //route1: "entitiesById[{keys:entityIds}].updateEntities"
-async function updateEntities(callPath, args, callerName)
+async function updateEntities(callPath, args, caller)
 {
     var jsonEnvelope = args[0];
     
     var entities = jsonEnvelope.json[pathRootKey];
 
-    return processEntities(entities, "update", callerName);
+    return processEntities(entities, "update", caller);
 }
 
 //route1: "entitiesById[{keys:entityIds}].deleteEntities"
-async function deleteEntities(callPath, args, callerName)
+async function deleteEntities(callPath, args, caller)
 {
     var jsonEnvelope = args[0];
     
     var entities = jsonEnvelope.json[pathRootKey];
 
-    return processEntities(entities, "delete", callerName);
+    return processEntities(entities, "delete", caller);
 }
 
 module.exports = {
