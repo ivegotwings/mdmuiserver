@@ -3,6 +3,7 @@
 <link rel="import" href="../../../bower_components/iron-list/iron-list.html">
 <link rel="import" href="../pebble-image-viewer/pebble-image-viewer.html">
 <link rel="import" href="../pebble-icon/pebble-icon.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../bedrock-helpers/element-helper.html">
 <link rel="import" href="pebble-lov-spinner.html">
 <!--
@@ -13,7 +14,7 @@ The following code renders a list of values control which contains item with tit
 to select single value.
 
 ### Example
-    <pebble-lov items={{items}} show-image show-sub-title></pebble-lov>
+    <pebble-lov items={{items}} show-image no-sub-title></pebble-lov>
 
 The following code renders a list of values control which contains item with title subtitle and image and allows user 
 to select multiple values.
@@ -32,7 +33,7 @@ to select multiple values.
             overflow: hidden;
             padding-bottom: 8px;
             display: block;
-            height: var(--pebble-lov-height, 235px);
+            height: var(--pebble-lov-height, 250px);
             padding: 5px;
         }
         
@@ -146,6 +147,40 @@ to select multiple values.
             font-size: 14px;
             color: #1a2028;
         }
+        
+        .buttons {
+            margin-top: 10px;
+            text-align: center;
+        }
+        
+        .apply {
+            --pebble-button: {
+                height: 40px;
+                background: #0ABF21;
+                color: #FFFFFF;
+                border: 1px solid #0ABF21;
+                font-size: 14px;
+            }
+        }
+        
+        .cancel {
+            --pebble-button: {
+                height: 40px;
+                color: #7D8690;
+                border: 1px solid #C1CAD4;
+                font-size: 14px;
+            }
+        }
+        
+        pebble-button::shadow paper-button iron-icon {
+            height: 16px !important;
+            width: 16px !important;
+            color: #036BC3 !important;
+        }
+        
+        .paper-icon-button-margin {
+            padding-right: 15%;
+        }
     </style>
     <template>
         <pebble-lov-spinner active="[[_loading]]"></pebble-lov-spinner>
@@ -173,19 +208,24 @@ to select multiple values.
                             </div>
                         </template>
                         <div class="item-wrapper">
-                            <template is="dom-if" if="[[showSubTitle]]">
+                            <div class="title">
+                                [[_getItemTitle(item)]]
+                            </div>
+                            <template is="dom-if" if="[[!noSubTitle]]">
                                 <div class="sub-title">
-                                    [[_getItemTitle(item)]]
+                                    [[_getItemSubTitle(item)]]
                                 </div>
                             </template>
-                            <div class="title">
-                                [[_getItemSubTitle(item)]]
-                            </div>
                         </div>
+                </template>
+            </iron-list>
         </div>
+        <template is="dom-if" if="[[showActionButtons]]">
+            <div id="actionButtons" class="buttons">
+                <pebble-button class="apply" button-text="Apply" noink raised elevation="2" on-tap="_onConfirm"></pebble-button>
+                <pebble-button class="cancel" button-text="Cancel" noink raised elevation="2" on-tap="_onCancel"></pebble-button>
+            </div>
         </template>
-        </iron-list>
-        </div>
     </template>
     <script>
         Polymer({
@@ -232,9 +272,14 @@ to select multiple values.
                 /* 
                  * Represents whether to show subtitle or not
                  */
-                showSubTitle: {
+                noSubTitle: {
                     type: Boolean,
                     value: false
+                },
+
+                showActionButtons: {
+                    type: Boolean,
+                    value: false,
                 },
 
                 /*
@@ -368,7 +413,7 @@ to select multiple values.
                 '_filterChanged(_filter)',
                 '_filteredItemsChanged(_filteredItems.*)',
                 '_selectedItemChanged(selectedItem)',
-                '_selectedItemsChanged(selectedItems.*)',
+                '_selectedItemsChanged(selectedItems.*)'
             ],
 
             created: function () {
@@ -414,7 +459,7 @@ to select multiple values.
                     return item === selectedItem;
                 } else {
                     if (selectedItems) {
-                        var index = this._functiontofindIndexByKeyValue(selectedItems, "title", item.title); // Move to helper file
+                        var index = this._functiontofindIndexByKeyValue(selectedItems, "id", item.id); // Move to helper file
                         if (index != null || index != undefined) {
                             return index >= 0;
                         } else {
@@ -456,17 +501,6 @@ to select multiple values.
             _itemsChanged: function (e) {
                 var path = ElementHelper.getElementPath(e);
                 if (path === 'items' || path === 'items.splices') {
-
-                    if (!this.multiSelect) {
-                        if (this.selectedItemId != null || this.selectedItemId != undefined) {
-                            this._selectedItemIdChanged(this.selectedItemId);
-                        }
-                    } else {
-                        if (this.selectedItemIds != null || this.selectedItemIds != undefined) {
-                            this._selectedItemIdsChanged(this.selectedItemIds);
-                        }
-                    }
-
                     this._filteredItems = this.items ? this.items.slice(0) : this.items;
                 }
             },
@@ -633,7 +667,7 @@ to select multiple values.
                     if (!this.multiSelect) {
                         this.selectedItem = null;
                     } else {
-                        this.selectedItems = [];
+                        this.set("selectedItems", []);
                     }
 
                     this._close();
@@ -643,6 +677,9 @@ to select multiple values.
             _clearSelection: function () {
                 if (!this.multiSelect) {
                     this._clearFilter();
+                    this.showActionButtons = false;
+                } else {
+                    this.showActionButtons = true;
                 }
 
                 this._deSelectCheckBox();
@@ -727,8 +764,17 @@ to select multiple values.
             },
 
             _adjustScrollHeight: function () {
-                this.$.scroller.style.height = (this.getBoundingClientRect().height - this.$.input.getBoundingClientRect()
-                    .height) + "px";
+                var lovHeight = this.getBoundingClientRect().height;
+                var searchBoxHeight = this.$.input.getBoundingClientRect().height;
+                var actionButtonsHeight = this.$$("#actionButtons") ? this.$$("#actionButtons").getBoundingClientRect().height : 0;
+
+                var otherControlsHeight = searchBoxHeight + actionButtonsHeight * 2
+                
+                if (actionButtonsHeight == 0) {
+                    otherControlsHeight = otherControlsHeight * 2;
+                }
+               
+                this.$.scroller.style.height = (lovHeight - otherControlsHeight) + "px";
 
                 if (this._itemsObject) {
                     this._scrollIntoView(this._focusedIndex);
@@ -823,7 +869,6 @@ to select multiple values.
             /* KeyBoard Methods */
 
             _onKeyDown: function (e) {
-
                 if (this._isEventKey(e, 'down')) {
                     this._closeOnBlurIsPrevented = true;
                     this._onArrowDown();
@@ -914,7 +959,6 @@ to select multiple values.
             },
 
             _open: function () {
-
                 this._addOutsideClickListener();
 
                 // this.hidden = !this._hasItems(this._itemsObject) && !this._loading;
@@ -928,14 +972,12 @@ to select multiple values.
                     // before we update the overlay and the list positions and sizes.
                     this._ensureItemsRendered();
 
-                    // this.notifyResize();
                     this._adjustScrollHeight();
 
                     this._cachedViewportTotalPadding = undefined;
+                    
                     this.$.selector.updateViewportBoundaries();
                 }, 45);
-
-                this.fire('pebble-lookup-dropdown-opened');
             },
 
             _close: function () {
@@ -954,16 +996,12 @@ to select multiple values.
                 }
 
                 this._clearFilter();
-
-                this.fire('pebble-lookup-dropdown-closed');
             },
-
 
             // We need to listen on 'click' / 'tap' event and capture it and close the overlay before
             // propagating the event to the listener in the button. Otherwise, if the clicked button would call
             // open(), this would happen: https://www.youtube.com/watch?v=Z86V_ICUCD4
             _outsideClickListener: function (event) {
-
                 var eventPath = Polymer.dom(event).path;
                 if (!this.multiSelect) {
                     if (eventPath.indexOf(this) === -1 || (eventPath.indexOf(this) >= 0 && eventPath.indexOf(
@@ -978,7 +1016,6 @@ to select multiple values.
             },
 
             _addOutsideClickListener: function () {
-
                 // With desktop mouse, 'click' will make Polymer to fire 'tap' event.
                 // With touch devices, 'touchend' will make Polymer to fire 'tap' event, but browser will also fire 'click'.
                 // So, 'click' and 'tap' can come in any order and we need to make sure that the first one fired will close the overlay.
@@ -1004,7 +1041,6 @@ to select multiple values.
             /* Dropdown Methods */
 
             _selectionChanged: function (selectedItem) {
-
                 if (!this.multiSelect) {
                     this.selectedItem = selectedItem;
                 } else {
@@ -1025,8 +1061,7 @@ to select multiple values.
             },
 
             _selectedItemChanged: function (selectedItem) {
-
-                if (!this._filteredItems) {
+                if (!this._filteredItems || this._filteredItems.length < 1) {
                     return;
                 }
 
@@ -1036,16 +1071,20 @@ to select multiple values.
                     this.selectedItemId = this._getItemId(selectedItem);
                 }
 
-                this._focusedIndex = this._filteredItems.indexOf(selectedItem);
+                if (selectedItem) {
+                    this._focusedIndex = this._functiontofindIndexByKeyValue(this._filteredItems, 'id',
+                        selectedItem.id);
+                } else {
+                    this._focusedIndex = -1;
+                }
             },
 
             _selectedItemsChanged: function (selectedItems) {
-
                 if (selectedItems.hasOwnProperty('base')) {
                     selectedItems = selectedItems.base
                 }
 
-                if (!this._filteredItems) {
+                if (!this._filteredItems || this._filteredItems.length < 1) {
                     return;
                 }
 
@@ -1059,21 +1098,12 @@ to select multiple values.
                 this._selectCheckbox(this.selectedItems);
             },
 
-            _selectedItemIdChanged: function (selectedItemId) {
-                if (this.items) {
-                    var selectedItem = this.items[selectedItemId];
-                    this._selectionChanged(selectedItem);
-                }
+            _onConfirm: function(event) {
+                this.fire("on-confirm", event);
             },
 
-            _selectedItemIdsChanged: function (selectedItemIds) {
-                if (selectedItemIds.hasOwnProperty('base')) {
-                    selectedItemIds = selectedItemIds.base
-                }
-
-                for (var i = 0; i < selectedItemIds.length; i++) {
-                    this._selectedItemIdChanged(selectedItemIds[i]);
-                }
+            _onCancel: function() {
+                this.fire("on-cancel", event);
             },
 
             _unwrapIfNeeded: function (element) {
