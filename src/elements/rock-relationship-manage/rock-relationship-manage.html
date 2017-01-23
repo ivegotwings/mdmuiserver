@@ -4,6 +4,7 @@
 <link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
 <link rel="import" href="../rock-relationship-grid/rock-relationship-grid.html">
 <link rel="import" href="../liquid-entity-getdata/liquid-entity-getdata.html">
+<link rel="import" href="../liquid-entity-savedata/liquid-entity-savedata.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="improt" href="../bedrock-helpers/data-helper.html">
@@ -62,11 +63,13 @@ It renders the list of attributes based on the specified relationship type.
         relationship-grid-config="{{relationshipGridConfigs}}" attribute-models="[[_attributeModelResponse]]" page-size="100" data="{{entityData}}"></rock-relationship-grid>
     <bedrock-pubsub event-name="grid-selecting-item" handler="onSelectingGridItem" target-id="entityRelationshipGrid"></bedrock-pubsub>
 
-    <div id="buttonContainer" align="center">
+    <div id="buttonContainer" align="center" hidden$="[[_isEditMode]]">
         <pebble-button id="cancel" class="button" button-text="Cancel" on-tap="_revertAll" elevation=1 raised></pebble-button>
         <pebble-button id="save" class="focus" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
     </div>
 
+    <liquid-entity-savedata name="attributeSaveDataService" operation="updateentities" 
+            request-data="{{_saveRequest}}" last-response="{{saveResponse}}" on-response="_onSaveResponse"></liquid-entity-savedata>
 </template>
 <script>
 (function () {
@@ -99,12 +102,40 @@ It renders the list of attributes based on the specified relationship type.
                 value: function() {
                     return [];
                 }
+            },
+            _saveRequest:{
+                type: Object,
+                value:function() {
+                    return {};
+                }
+            },
+
+            _isEditMode:{
+                type: Boolean,
+                value: true
             }
         },
+
+        listeners: {
+		    'editMode': '_onEditMode'
+		},
 
         observers:[
             '_generateRequest(relationshipGridConfigs)'
         ],
+
+        _onEditMode:function(){
+            this._isEditMode = false;
+        },
+
+        _revertAll: function() {
+            this._isEditMode = true;
+            var dimensionGrid = Polymer.dom(this).node.$$("rock-relationship-grid");
+            
+            if(dimensionGrid) {
+                Polymer.dom(dimensionGrid).node.$$("pebble-grid").set('config.mode', "read");
+            }
+        },
 
         _generateRequest: function() {
             var relationshipAttributes  = [];
@@ -175,12 +206,76 @@ It renders the list of attributes based on the specified relationship type.
                 if(getLiquid) {
                     getLiquid.generateRequest();
                 }
-
-                // var attributeModelGetLiquid = Polymer.dom(this).node.$$('liquid-entity-get');
-                // if(attributeModelGetLiquid) {
-                //     attributeModelGetLiquid.generateRequest();
-                // }
             }
+        },
+
+        _save: function() {
+            var relationshipGridData = Polymer.dom(this).node.$$("rock-relationship-grid");
+            var entityId = DataHelper._getEntityId();
+
+            if(relationshipGridData) {
+                var gridData = relationshipGridData.relationshipGridData;
+                var entities = DataHelper.cloneObject(this.entityData.content.entities);
+
+                var entity = entities[entityId];
+
+                if(entity) {
+                    var ctxInfo = entity.data.ctxInfo;
+                    if(ctxInfo) {
+                        Object.keys(ctxInfo).forEach(function(item) {
+                            var ctx = ctxInfo[item];
+                            ctx.attributes = {};
+
+                            if(ctx && ctx.relationships) {
+                                Object.keys(ctx.relationships).forEach(function(relItem){
+                                    var relationship = ctx.relationships[relItem].rels;
+
+                                    var modifiedRelData = gridData[relItem];
+                                    
+                                    if(relationship && modifiedRelData) {
+                                        Object.keys(relationship).forEach(function(data) {
+                                            var relObject = relationship[data];
+
+                                            if(relObject) {
+                                                delete relObject.attributes["Related Entity"]
+                                                var relAttributes = relObject.attributes;
+                                                var modifiedRelAttribute;
+                                                modifiedRelData.forEach(function(modData){
+                                                    if(relObject["id"].indexOf(modData["Related Entity"]) >= 0) {
+                                                        modifiedRelAttribute = modData;
+                                                    }
+                                                }, this);
+                                                
+                                                Object.keys(relAttributes).forEach(function(relAttr) {
+                                                    var relAttribute = relAttributes[relAttr];
+                                                    if(relAttribute && modifiedRelAttribute) {
+                                                        relAttribute.values[0].value = modifiedRelAttribute[relAttr];
+                                                    }
+
+                                                }, this);
+                                            }
+                                        }, this);
+                                    }
+
+                                }, this);
+                                
+                            }
+
+                        }, this);
+                    }
+                }
+
+                this._saveRequest = {
+                    "entities": entities
+                };
+                var liquidSave = this.$$("[name=attributeSaveDataService]");
+                if (liquidSave) {
+                    liquidSave.generateRequest();
+                }
+            }
+        },
+        _onSaveResponse: function() {
+            alert(this.saveResponse.content.msg);
         }
     });
     })();

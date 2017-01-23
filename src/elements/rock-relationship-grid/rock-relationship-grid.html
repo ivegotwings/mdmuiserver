@@ -276,8 +276,12 @@ Based on config relationship grid will get loaded with defined attributes from g
     <liquid-entity-getdata auto id="searchResultGetDataService" operation="getsearchresultdetail" 
         request-data="{{_requestRelLOV}}" request-id="[[searchResponse.content.requestId]]" last-response="{{searchResultResponse}}"></liquid-entity-getdata>
 
-    <liquid-entity-getdata id="entityGetData" name="entityGet" operation="getentities" request-data="{{entityGetRequest}}" 
+    <liquid-entity-getdata id="entityGetData" name="entityGet" operation="getentities" request-data="{{_entityGetRequest}}" 
       last-response="{{entitiesResponse}}"></liquid-entity-getdata>
+    
+    <liquid-entity-getdata id="entityGetAddData" name="entityGet" operation="getentities" request-data="{{_entityGetAddRequest}}" 
+      last-response="{{relEntitiesResponse}}"></liquid-entity-getdata>
+
 
 	</template>
 <script>
@@ -350,7 +354,7 @@ Based on config relationship grid will get loaded with defined attributes from g
 
         /*
         */
-        entityGetRequest: {
+        _entityGetRequest: {
             type: Object,
             notify: true,
             value: function () {
@@ -364,12 +368,22 @@ Based on config relationship grid will get loaded with defined attributes from g
           value: function () {
               return {};
           }
+        },
+
+        _entityGetAddRequest: {
+          type:Object,
+          notify: true,
+          value: function() {
+            return {};
+          }
         }
 			},
 
       observers: [
-          '_convertIntoEntityLovList(searchResultResponse)'
+          '_convertIntoEntityLovList(searchResultResponse)',
+          '_addRelationship(relEntitiesResponse)'
       ],
+
       _currentSelectedLov: null,
       _currentLovItems: null,
 			onPopoverClick: function(e) {
@@ -425,38 +439,112 @@ Based on config relationship grid will get loaded with defined attributes from g
           var popover =   Polymer.dom(this).node.$$("pebble-popover[for=" + e.currentTarget.id + "]");
           var selectedItem = e.currentTarget.selectedItem.id;
           
-          // Call of liquid for selected entity based on config
+          var relationshipAttributes  = [];
+          var relatedEntityAttributes = [];
+          if(this.relationshipGridConfig){
+              this._relationships = Object.keys(this.relationshipGridConfig);
           
-          if(relGrid) {
-            var relGridData = relGrid.data;
-            var relConfig = relGrid.config;
-
-            if(relConfig && relConfig.tabular)
-            {
-              var columns = relConfig.tabular.columns;
-
-              if(columns && columns.length > 0)
-              {
-                var record = {};
-                columns.forEach(function(column) {
-                  if(column.name == "Related Entity")
-                  {
-                       record[column.name] = selectedItem;
-                  }
-                }, this);
-                record.isEditable = true;
-                record.status = 'new';
-                relGridData.push(record);
+              if(this._relationships) {
+                  this._relationships.forEach(function(item){
+                      var columns = this.relationshipGridConfig[item].tabular.columns;
+                      if(columns) {
+                          columns.forEach(function(col) {
+                              if(col.isRelatedEntityAttribute) {
+                                  relatedEntityAttributes.push(col.name);
+                              }
+                              else
+                              {
+                                  relationshipAttributes.push(col.name);
+                              }
+                          }, this);
+                      }
+                  }, this);
               }
-            }
 
-            relGrid.data = relGridData;
-            var oldsize = relGrid.data.length;
-            relGrid._getIronDataTable()._sizeChanged(oldsize+1,oldsize);
-            relGrid.reRenderGrid();
+              var req = {
+              "params": {
+                      "query": {
+                          "ctx": [
+                              {
+                                  "list": "productMaster",
+                                  "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
+                              }
+                          ],
+                          "valCtx": [
+                              {
+                                  "source": "SAP",
+                                  "locale": "en-US"
+                              }
+                          ],
+                          "id": selectedItem,
+                          "filters": {
+                              "attributesCriterion": [],
+                              "typesCriterion": [
+                                  "nart"
+                              ]
+                          }
+                      },
+                      "fields": {
+                          "ctxTypes": [
+                              "properties"
+                          ],
+                          "relationships": this._relationships,
+                          "relationshipAttributes": relationshipAttributes,
+                          "relatedEntityAttributes": relatedEntityAttributes
+                      },
+                      "options":{
+                          "from": 0,
+                          "to": 0
+                      }
+                  }
+              };
+
+              this.set('_entityGetAddRequest', req);
+
+              var relAddLiquid = Polymer.dom(this).node.$$('liquid-entity-getdata[id="entityGetAddData"]');
+              if(relAddLiquid) {
+                relAddLiquid.generateRequest();
+              }
           }
 
           popover.hide();
+        }
+      },
+
+      _addRelationship: function() {
+        if(this.relEntitiesResponse) {
+          if(this.relEntitiesResponse.content && this.relEntitiesResponse.content.entities)
+					{
+            var entities = this.data.content.entities;
+            Object.keys(entities).forEach(function(relitem) {
+              var entity = entities[relitem];
+              if(entity && entity.data && entity.data.ctxInfo){
+                  Object.keys(entity.data.ctxInfo).forEach(function(item) {
+                    if(entity.data.ctxInfo[item]) {
+                      var relationships = entity.data.ctxInfo[item].relationships;
+                      var relationshipTyleList = [];
+
+                      if(relationships) {
+                        if(this.relationshipType == undefined || this.relationshipType == '' || this.relationshipType == "Relationships")
+                        {
+                          Object.keys(relationships).forEach(function(element){
+                            this._populateData(element, relationships);
+                            relationshipTyleList.push(element);
+                          }, this);
+                        }
+                        else
+                        {
+                          this._populateData(this.relationshipType, relationships);
+                        }
+
+                        this.relationshipTypeList = undefined;
+                        this.relationshipTypeList = relationshipTyleList;
+                      }
+                    }
+                  }, this);
+              }
+            }, this);
+					}
         }
       },
 
@@ -484,7 +572,6 @@ Based on config relationship grid will get loaded with defined attributes from g
 			},
 			
       _prepareRelationshipGridData: function() {
-        debugger;
 				if(this.data) 
 				{
 					if(this.data.content && this.data.content.entities)
@@ -501,7 +588,6 @@ Based on config relationship grid will get loaded with defined attributes from g
                       var relationshipTyleList = [];
 
                       if(relationships) {
-                        debugger;
                         if(this.relationshipType == undefined || this.relationshipType == '' || this.relationshipType == "Relationships")
                         {
                           Object.keys(relationships).forEach(function(element){
@@ -533,6 +619,10 @@ Based on config relationship grid will get loaded with defined attributes from g
           if(this.relationshipCustomGridConfig && this.relationshipCustomGridConfig.attributes)
           {
             relationshipAttributes = this.relationshipCustomGridConfig.attributes;
+          }
+
+          if(this.relationshipGridData[relationshipTypeName] && this.relationshipGridData[relationshipTypeName].length > 0) {
+            data = this.relationshipGridData[relationshipTypeName];
           }
 
           Object.keys(relatedEntities.rels).forEach(function(relItem){
