@@ -5,6 +5,7 @@ require('./array-contains');
 require('./array-flat-map');
 require('./array-map');
 require('./array-slice');
+require('./array-union');
 require('./getExpires');
 require('./getSize');
 require('./getTimestamp');
