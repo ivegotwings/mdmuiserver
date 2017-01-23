@@ -36,11 +36,11 @@ var EntityRouterBase = Router.createClass([
     },
     {
         route: "entitiesById.createEntities",
-        call: async (callPath, args) => await resolver.createEntities(callPath, args, "entitiesById.createEntities")
+        call: async (callPath, args) => await resolver.createEntities(callPath, args, "createEntities")
     },
     {
         route: "entitiesById[{keys:entityIds}].updateEntities",
-        call: async (callPath, args) => await resolver.updateEntities(callPath, args, "entitiesById[{keys:entityIds}].updateEntities")
+        call: async (callPath, args) => await resolver.updateEntities(callPath, args, "updateEntities")
     }
 ]);
 
