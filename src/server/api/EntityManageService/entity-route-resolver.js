@@ -14,8 +14,13 @@ var sharedEntityFalcorUtil = require('../../../shared/entity-falcor-util');
 
 var arrayUnion = require('../Utils/array-union');
 
-var mode = process.env.NODE_ENV;
-var options = {mode: mode};
+var options = {};
+var runOffline = process.env.RUN_OFFLINE;
+
+if(runOffline) {
+    options.runOffline = runOffline;
+}
+
 var entityManageService = new EntityManageService(options);
 
 //falcor utilty functions' references
@@ -98,7 +103,7 @@ async function initiateSearchRequest(callPath, args) {
             }
         }
     } else {
-        response.push(createPath(['searchResult', requestId], $error('data not found in system'), 0));
+        response.push(createPath(['searchResults', requestId], $error('data not found in system'), 0));
     }
 
     response.push(createPath(['searchResults', requestId, "totalRecords"], $atom(totalRecords)));
