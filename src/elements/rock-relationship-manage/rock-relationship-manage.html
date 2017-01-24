@@ -5,18 +5,49 @@
 <link rel="import" href="../rock-relationship-grid/rock-relationship-grid.html">
 <link rel="import" href="../liquid-entity-get/liquid-entity-get.html">
 <link rel="import" href="../liquid-entity-getdata/liquid-entity-getdata.html">
+<link rel="import" href="../liquid-entity-savedata/liquid-entity-savedata.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="improt" href="../bedrock-helpers/data-helper.html">
 <!--
 `rock-relationship-manage` Represents relationship component in the framework.
 It renders the list of attributes based on the specified relationship type.
 
 @group rock Elements
-@element rock-relationship-manage
+@element rock-relationship-manag4e
 @demo demo/index.html
 -->
 
 <dom-module id="rock-relationship-manage">
     <template>
+        <style include="pebble-shared-styles">
+             .button {
+                    --pebble-button: {
+                        height: 30px;
+                        width: 100px;
+                        border: 1px solid #bbc1d2;
+                        font-size: 15px;
+                    }
+                }
+                
+                .focus {
+                    --pebble-button: {
+                        height: 30px;
+                        width: 100px;
+                        font-size: 15px;
+                        background: #09c021;
+                        color: white;
+                    }
+                }
+                
+                #buttonContainer {
+                    height: 50px;
+                    background: #fff;
+                    position: fixed;
+                    bottom: 0px;
+                    width: 75%;
+                }
+        </style>
 
 <!--<iron-ajax auto url="../../data/EntityManageApp/relationshipGridConfig.json" handle-as="json" last-response="{{gridConfig}}"></iron-ajax>
     <liquid-entity-get name="attributeModelGetService" request="{{attributeModelRequest}}" response="{{attributeModelResponse}}"></liquid-entity-get>
@@ -25,15 +56,25 @@ It renders the list of attributes based on the specified relationship type.
         request-id="[[searchResponse.data.requestId]]" response="{{searchResultResponse}}"></liquid-entity-getdata>-->
 
 
-    <iron-ajax auto url="../../data/EntityManageApp/relationship-grid-config.json" handle-as="json" last-response="{{relationshipGridConfigs}}"></iron-ajax>    
-    <iron-ajax auto url="demo/entity.json" handle-as="json" last-response="{{entityData}}"></iron-ajax>
+    <iron-ajax auto url="../../data/EntityManageApp/relationship-grid-config.json" handle-as="json" last-response="{{relationshipGridConfigs}}"></iron-ajax>
+    <liquid-entity-get name="attributeModelGetService" request="{{_attributeModelRequest}}" response="{{_attributeModelResponse}}"></liquid-entity-get>
+    <liquid-entity-getdata id="getEntity" operation="getentities" request-data={{_requestRel}} last-response={{entityData}}></liquid-entity-getdata>
     
     <rock-relationship-grid id="entityRelationshipGrid" relationship-type="[[context.relationshipTypeName]]"
-        relationship-grid-config="{{relationshipGridConfigs}}" page-size="100" data="{{entityData}}"></rock-relationship-grid>
+        relationship-grid-config="{{relationshipGridConfigs}}" attribute-models="[[_attributeModelResponse]]" page-size="100" data="{{entityData}}"></rock-relationship-grid>
     <bedrock-pubsub event-name="grid-selecting-item" handler="onSelectingGridItem" target-id="entityRelationshipGrid"></bedrock-pubsub>
 
+    <div id="buttonContainer" align="center" hidden$="[[_isEditMode]]">
+        <pebble-button id="cancel" class="button" button-text="Cancel" on-tap="_revertAll" elevation=1 raised></pebble-button>
+        <pebble-button id="save" class="focus" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
+    </div>
+
+    <liquid-entity-savedata name="attributeSaveDataService" operation="updateentities" 
+            request-data="{{_saveRequest}}" last-response="{{saveResponse}}" on-response="_onSaveResponse"></liquid-entity-savedata>
 </template>
 <script>
+(function () {
+            'use strict';
     Polymer({
         is: "rock-relationship-manage",
 
@@ -44,74 +85,285 @@ It renders the list of attributes based on the specified relationship type.
                     return {};
                 }
             },
-            attributeModelRequest: {
+            _attributeModelRequest: {
                 type: Object,
                 value: function () {
                     return { action: "getAttributeModels" };
                 }
             },
-            request: {
+            _requestRel: {
                 type: Object,
                 value: function () {
-                    return {
-                        "params": {
-                            "query": {
-                                "ctx": [
-                                    {
-                                        "list": "fall2016",
-                                        "classification": "shoes"
-                                    },
-                                    {
-                                        "list": "master",
-                                        "classification": "shirts"
-                                    }
-                                ],
-                                "valCtx": [
-                                    {
-                                        "source": "cnet",
-                                        "locale": "en-US"
-                                    },
-                                    {
-                                        "source": "indix",
-                                        "locale": "en-US"
-                                    }
-                                ],
-                                "filters": {
-                                    "attributesCriterion": [],
-                                    "relationshipsCriterion": [],
-                                    "typesCriterion": ["sku", "style"]
-                                }
-                            },
-                            "fields": {
-                                "ctxTypes": [
-                                    "properties"
-                                ],
-                                "attributes": [
-                                    "launchDate",
-                                    "msrp"
-                                ],
-                                "relationships": ["ALL"]
-                            },
-                            "options": {
-                                "totalRecords": 100,
-                                "includeRequest": false
-                            }
-                        }
-                    };
+                    return {};
+                },
+                notify: true
+            },
+            _relationships:{
+                type: Array,
+                value: function() {
+                    return [];
                 }
             },
-            /**
-             * Indicates the response object that is received from liquid element.
-             */
-            searchResponse: {
+            _saveRequest:{
                 type: Object,
-                value: undefined,
-                notify: true
+                value:function() {
+                    return {};
+                }
+            },
+
+            _isEditMode:{
+                type: Boolean,
+                value: true
+            },
+
+            _selectedDimensions: {
+                type: Object,
+                value: function() {
+                    return {};
+                }
+            }
+        },
+
+        listeners: {
+		    'editMode': '_onEditMode'
+		},
+
+        observers:[
+            '_generateRequest(relationshipGridConfigs)'
+        ],
+        _relationshipAttributes: null,
+        _onEditMode:function(){
+            this._isEditMode = false;
+        },
+
+        _revertAll: function() {
+            this._isEditMode = true;
+            var dimensionGrid = Polymer.dom(this).node.$$("rock-relationship-grid");
+            
+            if(dimensionGrid) {
+                Polymer.dom(dimensionGrid).node.$$("pebble-grid").set('config.mode', "read");
+            }
+        },
+
+        _generateRequest: function() {
+            var relationshipAttributes  = [];
+            var relatedEntityAttributes = [];
+            if(this.relationshipGridConfigs){
+                this._relationships = Object.keys(this.relationshipGridConfigs);
+            
+                if(this._relationships) {
+                    this._relationships.forEach(function(item){
+                        var columns = this.relationshipGridConfigs[item].tabular.columns;
+                        if(columns) {
+                            columns.forEach(function(col) {
+                                if(col.name != "Related Entity") {
+                                    if(col.isRelatedEntityAttribute) {
+                                        relatedEntityAttributes.push(col.name);
+                                    }
+                                    else
+                                    {
+                                        relationshipAttributes.push(col.name);
+                                    }
+                                }
+                            }, this);
+                        }
+                    }, this);
+                }
+
+                var valCtx = [];
+                var ctx = [];
+                var selectedLocales; 
+                var selectedSources; 
+                var selectedContexts;
+
+                this._setSelectedDimensions();
+                if(this._selectedDimensions)
+                {
+                    selectedLocales = this._selectedDimensions.selectedLocales;
+                    selectedSources = this._selectedDimensions.selectedSources;
+                    selectedContexts = this._selectedDimensions.selectedContexts;
+                }
+
+                if(selectedLocales && selectedSources)
+                {
+                    selectedSources.forEach(function(sourceItem) {
+                        selectedLocales.forEach(function(localeItem) {
+                            valCtx.push({
+                                "source": sourceItem,
+                                "locale": localeItem
+                            });
+                        }, this);
+                    }, this);
+                }
+
+                if(selectedContexts) {
+                    selectedContexts.forEach(function(contextItem) {
+                        ctx.push({
+                            "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry",
+                            "list": contextItem
+                        });
+                    }, this);
+                }
+
+                var entityId = DataHelper._getEntityId();
+                this._relationshipAttributes = relationshipAttributes;
+
+                var req = {
+                "params": {
+                        "query": {
+                            "ctx": ctx,
+                            "valCtx": valCtx,
+                            "id": entityId,
+                            "filters": {
+                                "attributesCriterion": [],
+                                "typesCriterion": [
+                                    "nart"
+                                ]
+                            }
+                        },
+                        "fields": {
+                            "ctxTypes": [
+                                "properties"
+                            ],
+                            "relationships": this._relationships,
+                            "relationshipAttributes": relationshipAttributes,
+                            "relatedEntityAttributes": relatedEntityAttributes
+                        },
+                        "options":{
+                            "from": 0,
+                            "to": 0
+                        }
+                    }
+                };
+
+                this.set('_requestRel', req);
+
+                var getLiquid = Polymer.dom(this).node.$$('liquid-entity-getdata');
+                if(getLiquid) {
+                    getLiquid.generateRequest();
+                }
+            }
+        },
+
+        _save: function() {
+            var relationshipGridData = Polymer.dom(this).node.$$("rock-relationship-grid");
+            var entityId = DataHelper._getEntityId();
+
+            if(relationshipGridData) {
+                var gridData = relationshipGridData.relationshipGridData;
+                var entities = DataHelper.cloneObject(this.entityData.content.entities);
+
+                var entity = entities[entityId];
+
+                if(entity) {
+                    var ctxInfo = entity.data.ctxInfo;
+                    if(ctxInfo) {
+                        Object.keys(ctxInfo).forEach(function(item) {
+                            var ctx = ctxInfo[item];
+                            ctx.attributes = {};
+
+                            if(ctx && ctx.relationships) {
+                                Object.keys(ctx.relationships).forEach(function(relItem){
+                                    var relationship = ctx.relationships[relItem].rels;
+                                    var relatedEntityIds = Object.keys(relationship);
+                                    var modifiedRelData = gridData[relItem];
+
+                                    if(modifiedRelData) {
+                                        modifiedRelData.forEach(function(modItem) {
+                                            var key = "";
+                                            relatedEntityIds.forEach(function(relId){
+                                                if(relId.indexOf(modItem["Related Entity"]) >= 0) {
+                                                    key = relId;
+                                                }
+                                            }, this);
+
+                                            var relObject = relationship[key];
+
+                                            if(relObject) {
+                                                delete relObject.attributes["Related Entity"]
+                                                var relAttributes = relObject.attributes;
+
+                                                Object.keys(relAttributes).forEach(function(relAttr) {
+                                                    var relAttribute = relAttributes[relAttr];
+                                                    if(relAttribute ) {
+                                                        relAttribute.values[0].value = modItem[relAttr];
+                                                    }
+
+                                                }, this);
+                                            }
+                                            else {
+                                                var relId = modItem["Related Entity"];
+                                                relationship[relId] = {};
+                                                relationship[relId].id = relId;
+                                                relationship[relId].direction = "both";
+                                                relationship[relId].operation = "association";
+                                                relationship[relId].alias = modItem["relationshipType"];
+
+                                                relationship[relId].attributes = {};
+
+                                                this._relationshipAttributes.forEach(function(relAttr){
+                                                    relationship[relId].attributes[relAttr] = {};
+                                                    relationship[relId].attributes[relAttr].values = [
+                                                        {
+                                                            "value": modItem[relAttr],
+                                                            "source": "SAP",
+                                                            "locale": "en-US"
+                                                        }
+                                                    ];
+                                                }, this);
+
+                                                relationship[relId].relToObject = {};
+                                                relationship[relId].relToObject.id = relId;
+                                                relationship[relId].relToObject.entityInfo = modItem['entityInfo'];
+                                                relationship[relId].relToObject.systemInfo = modItem['systemInfo'];
+                                                relationship[relId].relToObject.properties = modItem['properties'];
+
+                                            }
+                                        }, this);
+                                    }
+                                }, this);
+                                
+                            }
+
+                        }, this);
+                    }
+                }
+
+                this._saveRequest = {
+                    "entities": entities
+                };
+                var liquidSave = this.$$("[name=attributeSaveDataService]");
+                if (liquidSave) {
+                    liquidSave.generateRequest();
+                }
+            }
+        },
+        _onSaveResponse: function() {
+            alert(this.saveResponse.content.msg);
+        },
+        _setSelectedDimensions: function() {
+            var mainApp = document.querySelector("main-app");
+            if (mainApp) {
+                var contentViewMgr = mainApp.$$("rock-content-view-manager");
+                if (contentViewMgr) {
+                    var activeContentView = contentViewMgr.$.contentViewManager.querySelector(
+                        "rock-content-view:not([hidden])");
+                    if (activeContentView) {
+                        var appEntityManage = activeContentView.$.content.querySelector('app-entity-manage');
+                        if (appEntityManage) {
+                            var dimensionSelector = appEntityManage.$.dimensionSelector;
+                            if (dimensionSelector) {
+                                this._selectedDimensions = dimensionSelector.getSelectedDimensions();
+                            }
+                        }
+                    }
+                }
             }
         },
         getIsDirty: function() {
           return false;
         }
     });
+    })();
 </script>
 </dom-module>
