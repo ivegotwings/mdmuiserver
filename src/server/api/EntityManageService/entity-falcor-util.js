@@ -156,7 +156,16 @@ function transformEntityToExternal(entity) {
             }
 
             if(reqCtxGroupItem !== undefined) {
-                ctxInfoItem = {ctxGroup: reqCtxGroupItem, attributes: attributes, relationships: transformedRelationships};
+                ctxInfoItem = {ctxGroup: reqCtxGroupItem};
+                
+                if(!isEmpty(attributes)) { 
+                    ctxInfoItem.attributes = attributes;    
+                }
+
+                if(!isEmpty(relationships)) { 
+                    ctxInfoItem.relationships = relationships;    
+                }
+
                 ctxInfo.push(ctxInfoItem);
             }
         }

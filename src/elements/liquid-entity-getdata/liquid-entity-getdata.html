@@ -73,6 +73,8 @@ Boolean control
                     return true;
                 },
                 _callGetEntities: function (model, request) {
+                    //this._testBabel();
+
                     var reqData = request.requestData,
                         entityIds = [];
 
@@ -140,52 +142,57 @@ Boolean control
 
                             var relDetailGetPaths = [];
 
-                            for(var entityIdIdx in entityIds) {
-                                var entityId = entityIds[entityIdIdx];
-                                for(var ctxKeyIdx in contextKeys) {
-                                    var ctxKey = contextKeys[ctxKeyIdx];
-                                    for(var relTypeIdx in relTypes) {
-                                        var relType = relTypes[relTypeIdx];
-                                        var relIds = responsePkg.json[pathRootKey][entityId]["data"]["ctxInfo"][ctxKey]["relationships"][relType]["relIds"];
+                            if(responsePkg !== undefined) {
+                                for(var entityIdIdx in entityIds) {
+                                    var entityId = entityIds[entityIdIdx];
+                                    for(var ctxKeyIdx in contextKeys) {
+                                        var ctxKey = contextKeys[ctxKeyIdx];
+                                        for(var relTypeIdx in relTypes) {
+                                            var relType = relTypes[relTypeIdx];
+                                            var relIds = responsePkg.json[pathRootKey][entityId]["data"]["ctxInfo"][ctxKey]["relationships"][relType]["relIds"];
 
-                                        var from = reqData.params.options && reqData.params.options.from !== undefined ? reqData.params.options.from : 0;
-                                        var to = reqData.params.options && reqData.params.options.to !== undefined ? reqData.params.options.to : relIds.length - 1;
+                                            var from = reqData.params.options && reqData.params.options.from !== undefined ? reqData.params.options.from : 0;
+                                            var to = reqData.params.options && reqData.params.options.to !== undefined ? reqData.params.options.to : relIds.length - 1;
 
-                                        if(from >= relIds.length) {
-                                            from = -1;
-                                        }
-
-                                        if(to >= relIds.length){
-                                            to = relIds.length - 1;
-                                        }
-
-                                        if(from != -1){
-                                            var filteredRelIds = relIds.slice(from, to + 1);
-                                            var relBasePath = [pathRootKey, entityId, "data", "ctxInfo", ctxKey, "relationships", relType, "rels", filteredRelIds];
-                                            
-                                            //must have paths for eachrel..rel fields and relToObject with only fields..
-                                            relDetailGetPaths.push(self._mergePathSets(relBasePath, relFieldsPath));                                            
-                                            relDetailGetPaths.push(self._mergePathSets(relBasePath, relToObjectPath_Fields));
-
-                                            //rel attrs..only if requested...
-                                            if(relAttrsPath.length > 0) {
-                                                relDetailGetPaths.push(self._mergePathSets(relBasePath, relAttrsPath));
+                                            if(from >= relIds.length) {
+                                                from = -1;
                                             }
-                                            
-                                            //related entity attrs..only if requested...
-                                            if(relToObjectPath_Attrs.length > 0) {
-                                                relDetailGetPaths.push(self._mergePathSets(relBasePath, relToObjectPath_Attrs));
+
+                                            if(to >= relIds.length){
+                                                to = relIds.length - 1;
                                             }
-                                        }
-                                        else {
-                                            throw "requested range is not available for relationships";
+
+                                            if(from != -1) {
+                                                var filteredRelIds = relIds.slice(from, to + 1);
+                                                var relBasePath = [pathRootKey, entityId, "data", "ctxInfo", ctxKey, "relationships", relType, "rels", filteredRelIds];
+                                                
+                                                //must have paths for eachrel..rel fields and relToObject with only fields..
+                                                relDetailGetPaths.push(self._mergePathSets(relBasePath, relFieldsPath));                                            
+                                                relDetailGetPaths.push(self._mergePathSets(relBasePath, relToObjectPath_Fields));
+
+                                                //rel attrs..only if requested...
+                                                if(relAttrsPath.length > 0) {
+                                                    relDetailGetPaths.push(self._mergePathSets(relBasePath, relAttrsPath));
+                                                }
+                                                
+                                                //related entity attrs..only if requested...
+                                                if(relToObjectPath_Attrs.length > 0) {
+                                                    relDetailGetPaths.push(self._mergePathSets(relBasePath, relToObjectPath_Attrs));
+                                                }
+                                            }
+                                            else {
+                                                throw "requested range is not available for relationships";
+                                            }
                                         }
                                     }
                                 }
                             }
+                            
+                            if(relDetailGetPaths.length > 0) {
+                                paths.push.apply(paths, relDetailGetPaths); 
+                            }
 
-                            if(relDetailGetPaths.length > 0){
-                                paths.push.apply(paths, relDetailGetPaths);
+                            if(paths.length > 0) {
                                 //console.log('paths requested', JSON.stringify(paths, null, 4));
                                 var getEntitiesWithRelResponsePromise = self._makeFalcorGetCall(model, paths);
                                 return self._handleModelResponse(request, getEntitiesWithRelResponsePromise);
@@ -238,22 +245,25 @@ Boolean control
                     totalRecordsResponse.then(function (totalRecordsPkg) {
                         totalRecords = totalRecordsPkg.json.searchResults[reqId].totalRecords;
 
-                        var from = 0, to = totalRecords - 1;
-                        var to1 = to;
+                        var from = reqData.params.options && reqData.params.options.from !== undefined ? reqData.params.options.from : 0;
+                        var to = reqData.params.options && reqData.params.options.to !== undefined ? reqData.params.options.to : totalRecords - 1;
 
-                        if(reqData.params.options && reqData.params.options.from) {
-                            from = reqData.params.options.from;
+                        if(from >= totalRecords) {
+                            from = -1;
                         }
-                            
-                        if(reqData.params.options && reqData.params.options.to) {
-                            to = reqData.params.options.to;
-                            to1 = (to + 1) < totalRecords ? to : totalRecords - 1;
+
+                        var to1 = (to + 1) < totalRecords ? to : totalRecords - 1;
+
+                        if(from != -1) {
+                            var searchResultPath = ["searchResults", reqId, "entities", [{ 'from': from, 'to': to1 }]];
+                            var getEntitiesResponse = self._callGetEntitiesByBasePath(model, reqData, reqId, searchResultPath);
+                            return self._handleModelResponse(request, getEntitiesResponse);
                         }
-                            
-                        var searchResultPath = ["searchResults", reqId, "entities", [{ 'from': from, 'to': to1 }]];
-                        var getEntitiesResponse = self._callGetEntitiesByBasePath(model, reqData, reqId, searchResultPath);
-                        
-                        return self._handleModelResponse(request, getEntitiesResponse);
+                        else {
+                            if(self.verbose) {
+                                console.log('no search results found for search request id ', reqId);
+                            }
+                        }
                     });
                 },
                 _callSearchResultTotalRecordsGet: function(model, reqId, reqData) {
@@ -327,7 +337,7 @@ Boolean control
                 },
                 _formatEntitySearchResult: function(entities) {
                     var formattedEntities = {};
-                    for(var i in entities){
+                    for(var i in entities) {
                         var entity = entities[i];
                         this._populateContextGroups(entity);
                         formattedEntities[entity.id] = entity;
@@ -339,30 +349,7 @@ Boolean control
                     return pathSet1.concat(pathSet2);
                 },
                 _makeFalcorGetCall: function(model, paths) {
-                    if(paths.length == 1){
-                        return model.get(path[0]);
-                    }
-                    else if(paths.length == 2) {
-                        return model.get(paths[0], paths[1]);
-                    }
-                    else if(paths.length == 3) {
-                        return model.get(paths[0], paths[1], paths[2]);
-                    }
-                    else if(paths.length == 4) {
-                        return model.get(paths[0], paths[1], paths[2], paths[3]);
-                    }
-                    else if(paths.length == 5) {
-                        return model.get(paths[0], paths[1], paths[2], paths[3], paths[4]);
-                    }
-                    else if(paths.length == 6) {
-                        return model.get(paths[0], paths[1], paths[2], paths[3], paths[4], paths[5]);
-                    }
-                    else if(paths.length == 7) {
-                        return model.get(paths[0], paths[1], paths[2], paths[3], paths[4], paths[5], paths[6]);
-                    }
-                    else if(paths.length == 8) {
-                        return model.get(paths[0], paths[1], paths[2], paths[3], paths[4], paths[5], paths[6], paths[7]);
-                    }
+                    return model.get.apply(model, paths);
                 },
                 _arrayRemove: function(arr, val) {
                     var index = -1;
@@ -374,6 +361,14 @@ Boolean control
                         index = arr.indexOf(val);
                     }
                 }
+                // ,
+                // _testBabel: function() {
+                //     var evens = [2, 4, 6, 8];
+                //     var odds = evens.map(v => v + 1);
+                //     var nums = evens.map((v, i) => v + i);
+                //     console.log('odds', odds);
+                //     console.log('nums', nums);
+                // }
             });
         })();
     </script>
