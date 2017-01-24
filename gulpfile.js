@@ -16,10 +16,15 @@ const gulpif = require('gulp-if');
 const debug = require('gulp-debug');
 const browserSync = require('browser-sync');
 const reload = browserSync.reload;
-
 const nodemon = require('gulp-nodemon');
 
+const babel = require("gulp-babel");
+const uglify = require('gulp-uglify');
+const htmlmin = require('gulp-htmlmin');
+const cleanCSS = require('gulp-clean-css');
+
 var argv = require('yargs').argv;
+
 // Got problems? Try logging 'em
 // const logging = require('plylog');
 // logging.setVerbose();
@@ -68,6 +73,15 @@ function source() {
   return project.splitSource()
     // Add your own build tasks here!
     //.pipe(gulpif('**/*.{png,gif,jpg,svg}', images.minify()))
+    //.pipe(gulpif('**/*.css', cleanCSS()))
+    // .pipe(gulpif('**/*.html', htmlmin({
+    //   collapseWhitespace: true,
+    //   removeComments: true,
+    //   minifyCSS: true,
+    //   uglifyJS: true
+    // })))
+    //.pipe(gulpif('**/*.js', babel()))
+    //.pipe(gulpif('**/*.js', uglify()))
     .pipe(project.rejoin()); // Call rejoin when you're finished
 }
 
@@ -77,6 +91,15 @@ function source() {
 // case you need it :)
 function dependencies() {
   return project.splitDependencies()
+    //.pipe(gulpif('**/*.css', cleanCSS()))
+    // .pipe(gulpif('**/*.html', htmlmin({
+    //   collapseWhitespace: true,
+    //   removeComments: true,
+    //   minifyCSS: true,
+    //   uglifyJS: true
+    // })))
+    //.pipe(gulpif('**/*.js', babel()))
+    //.pipe(gulpif('**/*.js', uglify()))
     .pipe(project.rejoin());
 }
 
@@ -116,20 +139,23 @@ gulp.task("copyX", gulp.series([project.copyReusableComponents]));
 //env: { 'NODE_ENV': 'development', 'DEBUG':'express:*' }
 gulp.task('app', function (cb) {
   var started = false;
-  var buildPath = "app.js";
+  var appPath = "app.js";
   
-  var mode = (argv.mode === undefined) ? 'dev-online' : argv.mode;
+  var appPath = (argv.appPath !== undefined) ? argv.appPath : appPath;
+  var runOffline = (argv.runOffline !== undefined) ? argv.runOffline : 'false';
 
-  if(mode === "build/bundled"){
-    buildPath = 'build/bundled/app.js';
-  }else if(mode === "build/unbundled"){
-    buildPath = 'build/unbundled/app.js';
+  console.log(appPath, runOffline);
+
+  if(appPath === "build/bundled") {
+    appPath = 'build/bundled/app.js';
+  } else if(appPath === "build/unbundled") {
+    appPath = 'build/unbundled/app.js';
   }
 
   return nodemon({
-    script: buildPath,
+    script: appPath,
     nodeArgs:['--debug'],
-    env: { 'NODE_ENV': mode }
+    env: { 'RUN_OFFLINE': runOffline }
   }).on('start', function () {
     // to avoid nodemon being started multiple times
     if (!started) {
