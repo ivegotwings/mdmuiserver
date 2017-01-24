@@ -1,0 +1,323 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
+<link rel="import" href="../liquid-entity-get/liquid-entity-get.html">
+<link rel="import" href="../liquid-entity-savedata/liquid-entity-savedata.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../rock-attribute-list/rock-attribute-list.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../pebble-actions/pebble-actions.html">
+<link rel="import" href="../pebble-file-upload/pebble-file-upload.html">
+
+<dom-module id="rock-entity-create">
+    <template>
+        <style include="pebble-styles-shared">
+            .attribute-box {
+				display: inline-block;
+                width: 33%;
+			}
+
+            #content-actions {
+                padding-top: 30px;
+            }
+
+            #content-buttons {
+                padding-bottom: 20px;
+            }
+            pebble-actions {
+                --pebble-actions-button: {
+                    height: 30px;
+                    font-size: 15px !important;
+                    padding-left: 10px !important;
+                    top: 0px !important;
+                    border: 1px solid #036BC3;
+                    color: #036BC3;
+                    background: #fff;
+                }
+                --pebble-actions-button-drop-down-icon: {
+                    height: 30px;
+                    width: 30px;
+                    padding-left: 10px;
+                    color: #036BC3;
+                }
+                --pebble-actions-popover: {
+                    margin-top: 12px;
+                    border-radius: 4px;
+                }
+            }
+
+            .import-button {
+                --pebble-button: {
+                    height: 30px;
+                    font-size: 15px !important;
+                    padding-left: 10px !important;
+                    border: 1px solid #036BC3;
+                    color: #036BC3;
+                    background: #fff;
+                }
+                --pebble-button-dropdown-icon: {
+                    height: 30px;
+                    width: 30px;
+                    padding-left: 10px;
+                }
+            }
+
+            .action-button {
+                --pebble-button: {
+                    height: 30px;
+                    font-size: 15px !important;
+                    border: 1px solid #036BC3;
+                    color: #036BC3;
+                    background: #fff;
+                    padding: 0px 30px !important;
+                }
+            }
+        </style>
+        <div id="content-description" align="center" hidden>
+            <!-- description message here -->
+            <p>
+                Select how you would like to create a new product. 
+                You can create one manually or by importing data in any format you have.
+            </p>
+        </div>
+        <div id="content-buttons" align="center" hidden>
+            <!-- manual and import buttons here -->
+            <iron-ajax auto url="actions-config.json" handle-as="json" last-response="{{actionsData}}"></iron-ajax>
+            <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
+            <pebble-actions id="manualActions" button-text="Manual" actions-data="[[actionsData]]"></pebble-actions>
+            <pebble-button class="import-button" button-text="Import" dropdown-icon raised on-tap="_onImportTap"></pebble-button>
+        </div>
+        <div id="step-label">
+            <!-- label of the current step here -->
+        </div>
+        <div id="content-single-entity" hidden>
+            <rock-attribute-list attribute-values="[[_attributeValues]]" attribute-models="[[attributeModelResponse.returnValue.attributeModels]]"
+            no-of-columns="3" mode="{{mode}}"></rock-attribute-list>
+        </div>
+        <div id="content-multiple-entity" hidden>
+            <!-- screen for multi entity create function- probably grid -->
+        </div>
+        <div id="content-entity-import" hidden>
+            <!-- screen for import -->
+            <pebble-file-upload accept="application/msword, application/vnd.ms-excel, application/vnd.ms-powerpoint,
+                text/plain, application/pdf, image/*" target="/file-upload"></pebble-file-upload>
+        </div>
+        <liquid-entity-get name="attributeModelGetService" request="{{attributeModelRequest}}" response="{{attributeModelResponse}}"></liquid-entity-get>
+        <liquid-entity-savedata verbose name="attributeSaveDataService" operation="createentities" request-data="{{_saveRequest}}"
+                    last-response="{{_saveResponse}}" on-response="_onSaveResponse"></liquid-entity-savedata>
+        <div id="content-actions" align="center" hidden>
+            <pebble-button class="action-button" id="skip" button-text="Cancel" raised on-tap="_onSkipTap"></pebble-button>
+            <pebble-button class="action-button" id="next" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
+        </div>
+    </template>
+    <script>
+        (function() {
+            'use strict';
+
+            Polymer({
+                is: "rock-entity-create",
+
+                properties: {
+                   importProfileName: {
+                       type: String,
+                       value: function() { return null; }
+                   },
+                   attributeNames: {
+                       type: Array,
+                       value: function() { return []; }
+                   },
+                   mode: {
+                        type: String,
+                        value: "edit",
+                        notify: true
+                    },
+                   attributeModelRequest: {
+                        type: Object,
+                        value: function () {
+                            return {
+                                action: "getAttributeModels"
+                            };
+                        }
+                    },
+                    attributeModelResponse: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _attributeValues: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _saveRequest: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _saveResponse: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _currentViewName: {
+                        type: String
+                    }
+                },
+                behaviors: [
+                    RUFBehaviors.UIBehavior
+                ],
+                observers: [
+                    '_attributeModelResponseChanged(attributeModelResponse)',
+                    '_attributesChanged(attributeNames)'
+                ],
+                ready: function() {
+                    this._showView("description");
+                    this._showView("buttons");
+                },
+                _attributesChanged: function(attributeNames) {
+                    var t = {
+                            action: "getAttributeModels",
+                            "attributeNames": attributeNames
+                        };
+                    this.set("attributeModelRequest", t);
+                },
+                _attributeModelResponseChanged: function(attributeModelResponse) {
+                    var values = [];
+                     var locale = "en-US", 
+                            time = 'now', 
+                            source = "SAP";
+                    if(attributeModelResponse && attributeModelResponse.returnValue 
+                    && attributeModelResponse.returnValue.attributeModels && this.attributeNames) {
+                        values = DataHelper.transformAttributeToUIFormat(this.attributeNames, attributeModelResponse
+                            .returnValue
+                            .attributeModels, locale, time, source);
+                    }
+                    this._attributeValues = values;
+                },
+                _onSaveTap: function(e) {
+                    //raise event with name given for onNextAction in configuration
+                    var attributeList = Polymer.dom(this).node.root.querySelector('rock-attribute-list');
+                    var changedAttributeElements = attributeList.getChangedAttributeElements();
+                    if (changedAttributeElements == undefined || changedAttributeElements.length == 0) {
+                        // document.querySelector('#app').toastText = "No changes to save";
+                        // document.querySelector('#app').$.pebbleAppToast.show();
+                        return {
+                            "message": "No changes to save"
+                        };
+                    }
+                    var attributesJSON = [];
+                    for (var i = 0; i < changedAttributeElements.length; i++) {
+                        var attributeElement = changedAttributeElements[i];
+                        var attributeJSON = attributeElement.attributeObject;
+                        attributesJSON.push(attributeJSON);
+                    }
+                    var changedAttributes = DataHelper.transformAttributeFromUIFormat(attributesJSON);
+                    var entityData = {};
+                    entityData = this._getEntityData(changedAttributes);
+                    this._saveRequest = {
+                        "entities": entityData
+                    };
+                    var liquidSave = this.$$("[name=attributeSaveDataService]");
+                    if (liquidSave) {
+                        liquidSave.generateRequest();
+                    }
+                },
+                _onSaveResponse: function (e) {
+                    console.log('save response ', e.detail);
+                    var eventName = "onSave";
+                    var eventDetail = {
+                        name: eventName
+                    }
+                    this.fireBedrockEvent(eventName, eventDetail,{ ignoreId: true });
+                },
+                _onSkipTap: function(e) {
+                    //raise event with name given for onbackAction in configuration
+                    var data;
+                    var eventName = "onCancel";
+                    var eventDetail = {
+                        name: eventName,
+                        data: data
+                    }
+                    this.fireBedrockEvent(eventName, eventDetail,{ ignoreId: true });
+                },
+                 _onActionItemTap: function (e, detail, sender) {
+                    if(detail && detail.data) {
+                        if(detail.data.name == "createSingleProduct") {
+                            // show div manual-single
+                            this._hideView("description");
+                            this._hideView(this._currentViewName);
+                            this._showView("single-entity");
+                            this._showView("actions");
+                            this._currentViewName = "single-entity";
+                        }
+                        if(detail.data.name == "createMultiProduct") {
+                            // show div manual-multi
+                            this._hideView("description");
+                            this._hideView(this._currentViewName);
+                            this._showView("multiple-entity");
+                            this._currentViewName = "multiple-entity";
+                        }
+                    }
+                },
+                _onImportTap: function() {
+                    // show div content-import
+                    this._hideView("description");
+                    this._hideView("actions");                    
+                    this._hideView(this._currentViewName);
+                    this._showView("entity-import");
+                    this._currentViewName = "entity-import";
+                },
+                _showView: function (viewName) {
+                    if (viewName) {
+                        var contentView = this.$$("#content-" + viewName);
+                        if (contentView) {
+                            contentView.removeAttribute("hidden");
+                        }
+                    }
+                },
+
+                _hideView: function (viewName) {
+                    if (viewName) {
+                        var contentView = this.$$("#content-" + viewName);
+                        if (contentView) {
+                            contentView.setAttribute("hidden", "");
+                        }
+                    }
+                },
+                _getRandomString : function() {
+                    var x = 2147483648;
+                    return Math.floor(Math.random() * x).toString(36) +
+                        Math.abs(Math.floor(Math.random() * x) ^ new Date().getTime()).toString(36);
+                },
+                _getEntityData: function(attributes) {
+                    var entityId = "e" + this._getRandomString();
+                    var data = {};
+                    data[entityId] = {
+                                        id: entityId,
+                                        entityInfo: {
+                                            "entityType": "nart"
+                                        },
+                                        systemInfo: {
+                                            "tenantId": "t1"
+                                        },
+                                        properties: {
+                                            "createdBy": "John Doe"
+                                        },
+                                        data: {
+                                            ctxInfo: {
+                                                "productMaster#@#nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry#@#SAP#@#en-US": {
+                                                    "attributes" : attributes
+                                                }
+                                            }
+                                        }
+                                    }
+                    return data;
+                }
+            });
+        })();
+    </script>
+</dom-module>

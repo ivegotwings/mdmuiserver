@@ -10,9 +10,12 @@ var jsonGraph = require('falcor-json-graph'),
     expireTime = -60 * 60 * 1000,
     pathRootKey = "entitiesById"; // 60 mins
 
-var mode = process.env.NODE_ENV;
+var options = {};
+var runOffline = process.env.RUN_OFFLINE;
 
-var options = {'mode': 'dev-offline'};
+if(runOffline) {
+    options.runOffline = runOffline;
+}
 
 var configService = new ConfigService(options);
 

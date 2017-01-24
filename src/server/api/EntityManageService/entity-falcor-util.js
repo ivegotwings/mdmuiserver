@@ -64,19 +64,19 @@ function createRequestJson(ctxKeys, attrNames, relTypes, relAttrNames, relIds) {
         ctxTypes: ["properties"]
     };
     
-    if(attrNames !== undefined && attrNames.length > 0){
+    if(attrNames !== undefined && attrNames.length > 0) {
         fields.attributes = attrNames;
     }
     
-    if(relTypes !== undefined && relTypes.length > 0){
+    if(relTypes !== undefined && relTypes.length > 0) {
         fields.relationships = relTypes;
     }
 
-    if(relIds !== undefined && relIds.length > 0){
+    if(relIds !== undefined && relIds.length > 0) {
         fields.relIds = relIds;
     }
 
-    if(relAttrNames !== undefined && relAttrNames.length > 0){
+    if(relAttrNames !== undefined && relAttrNames.length > 0) {
         fields.relationshipAttributes = relAttrNames;
     }
 
@@ -106,11 +106,11 @@ function createRequestJson(ctxKeys, attrNames, relTypes, relAttrNames, relIds) {
     };
 
     var request = { 
-        params: params };
+        params: params 
+    };
 
     return request;
 }
-
 
 function transformEntityToExternal(entity) {
     var transformedEntity = {};
@@ -156,7 +156,16 @@ function transformEntityToExternal(entity) {
             }
 
             if(reqCtxGroupItem !== undefined) {
-                ctxInfoItem = {ctxGroup: reqCtxGroupItem, attributes: attributes, relationships: transformedRelationships};
+                ctxInfoItem = {ctxGroup: reqCtxGroupItem};
+                
+                if(!isEmpty(attributes)) { 
+                    ctxInfoItem.attributes = attributes;    
+                }
+
+                if(!isEmpty(relationships)) { 
+                    ctxInfoItem.relationships = relationships;    
+                }
+
                 ctxInfo.push(ctxInfoItem);
             }
         }
@@ -401,8 +410,8 @@ function buildEntityRelationshipsResponse(entity, request, pathRootKey, caller) 
     return response;
 }
 
-function createRelUniqueId(rel){
-    if(rel){
+function createRelUniqueId(rel) {
+    if(rel) {
         var relEntityId = rel.relToObject.id !== undefined && rel.relToObject.id !== "" ? rel.relToObject.id : "-1";
         var source = rel.source !== undefined && rel.source !== "" ? rel.source : "ANY";
         return relEntityId.concat("#@#", source);
