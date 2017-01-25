@@ -1,4 +1,11 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
+<link rel="import" href="../bedrock-helpers/component-helper.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../pebble-stepper/pebble-stepper.html">
+<link rel="import" href="../pebble-stepper/pebble-step.html">
+
 <!--
 `rock-wizard` Represents an element that displays steps in an order
 based on the configuration that user has provided.
@@ -8,14 +15,47 @@ based on the configuration that user has provided.
 <dom-module id="rock-wizard">
     <template>
         <style include="pebble-styles-shared"></style>
+        <style is="custom-style">
+            #wizard-container {
+                @apply(--layout-horizontal);
+            }
+            #step-container {
+                @apply(--shadow-elevation-4dp);
+                width: 90%;
+                padding: 30px;
+                border-radius: 5px;
+            }
+            .stepper-style {
+                --connectorLine-height: 200px;
+                --pebble-connected-badge-width: 40px;
+                --pebble-connected-badge-height: 40px;
+                --pebble-connected-badge-fontSize: 20px;
+                --pebble-step-closed-badge-background: #c1cad4;
+                --pebble-step-outer-badge-background: #c1cad4;
+                --outer-badge-color: #c1cad4;
+                --connectorLine-width: 3px;
+                --connectorLine-color: #c1cad4;
+            }
+            #stepper {
+                width: 10%;
+            }
+        </style>
         <div id="wizard-container">
             <div id="stepper">
                 <!-- place stepper here -->
+                <pebble-stepper vertical selected-step="0">
+                    <template is="dom-repeat" items="{{config.stepperConfig}}" as="item">
+                        <pebble-step class="stepper-style" data="{{item}}"></pebble-step>
+                    </template>
+                </pebble-stepper>
             </div>
             <div id="step-container">
                 <!-- step component should be loaded here -->
             </div>
         </div>
+        <bedrock-pubsub event-name="component-creating" handler="_onComponentCreating" target-id=""></bedrock-pubsub>
+        <bedrock-pubsub id="next-event" handler="_onNext"></bedrock-pubsub>
+        <bedrock-pubsub id="back-event" handler="_onBack"></bedrock-pubsub>
     </template>
 </dom-module>
 <script>
@@ -30,6 +70,7 @@ based on the configuration that user has provided.
                  */
                 config: {
                     type: Object,
+                    observer: '_configChanged',
                     value: function () {
                         return {};
                     }
@@ -43,8 +84,17 @@ based on the configuration that user has provided.
                     value: function () {
                         return {};
                     }
-                }
+                },
+                sharedData: {
+                    type: Array,
+                    value: function() {
+                        return [];
+                    }
+                },
             },
+            behaviors: [
+                RUFBehaviors.UIBehavior
+            ],
             goToNext: function () {
                 if(this._currentStepIndex < this.config.steps.length) {
                     this.goToStep(this._currentStepIndex + 1);
@@ -57,6 +107,57 @@ based on the configuration that user has provided.
             },
             goToStep: function (stepIndex) {
                 //load content based on current step config
+                if(stepIndex >= 0 && stepIndex < this.config.steps.length) {
+                    this._currentStepIndex = stepIndex;
+                    var stepConfig = this.config.steps[stepIndex];
+                    this._renderComponent(stepConfig);
+                    this._addEventListeners(stepConfig);
+                    this._updateStepperSelectedStep(stepIndex);
+                }
+            },
+            _updateStepperSelectedStep: function(stepIndex){
+                this.$.stepper.selectedItem = stepIndex;
+            },
+            _configChanged: function(config) {
+                if(config && config.steps && config.steps.length > 0) {
+                    this.goToStep(0);
+                } 
+            },
+            _renderComponent: function(config) {
+                var contentElement = this.$$('#step-container');
+                if(config && config.component && contentElement) {
+                    ComponentHelper.loadContent(contentElement, config.component, this);
+                }
+            },
+           
+            _onNext: function(e, detail, sender) {
+                this.goToNext();
+            },
+            _onBack: function(e, detail, sender) {
+                if(this._currentStepIndex && this._currentStepIndex != 0) {
+                    this.goToPrevious();
+                }
+            },
+            _onComponentCreating: function(e, detail, sender) {
+                if(detail && detail.data) {
+                    // changes to be done to component properties, if required
+                }
+            },
+            _addEventListeners: function(config) {
+                if(config) {
+                    var nextEventName = config.nextEvent;
+                    var backEventName = config.skipEvent;
+                    var nextElement = this.$$('#next-event');
+                    var backElement = this.$$('#back-event');
+                    if(nextElement && nextEventName) {
+                        nextElement.eventName = nextEventName;
+                        nextElement.registerEvent();
+                    }
+                    if(backElement && backEventName) {
+                        backElement.eventName = backEventName;
+                        backElement.registerEvent();
+                    }
+                }
             }
         });
     })();

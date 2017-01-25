@@ -4,10 +4,10 @@ var DPConfigService = require('./DPConfigService');
 var OfflineConfigService = require('./OfflineConfigService');
 
 var ConfigService = function(options) {
-    if(options !== undefined && options.mode == "dev-offline"){
+    if(options !== undefined && options.runOffline && options.runOffline === "true") {
         return new OfflineConfigService(options);
     }
-    else{
+    else {
         return new DPConfigService(options);
     }
 };
