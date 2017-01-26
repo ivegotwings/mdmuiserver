@@ -98,7 +98,7 @@
                 <div id="dimensionContainer" align="right">
                     <iron-ajax auto url="../../data/EntityManageApp/dimensionData.json" handle-as="json" last-response="{{dimensionData}}"></iron-ajax>
                     <rock-dimension-selector id="dimensionSelector" config-data="{{dimensionData}}"></rock-dimension-selector>
-                    <bedrock-pubsub event-name="dimension-selector-catalog" handler="onCatalogChangeEvent" target-id="dimensionSelector"></bedrock-pubsub>
+                    <bedrock-pubsub event-name="dimension-selector-list" handler="onCatalogChangeEvent" target-id="dimensionSelector"></bedrock-pubsub>
                     <bedrock-pubsub event-name="dimension-selector-source" handler="onSourceChangeEvent" target-id="dimensionSelector"></bedrock-pubsub>
                     <bedrock-pubsub event-name="dimension-selector-locale" handler="onLocaleChangeEvent" target-id="dimensionSelector"></bedrock-pubsub>
                 </div>
@@ -223,12 +223,31 @@
                     RUFBehaviors.UIBehavior
                 ],
 
+                listeners: {
+                    'dimension-selector-initialized': '_onDimensionSelectorInitialized'
+                },
+
+                _onDimensionSelectorInitialized: function () {
+                    this.list = this._convertListsForSplitScreen(this.$.dimensionSelector.listSelector.selectedItem);
+                    this.lists = this._convertListsForSplitScreen(this.$.dimensionSelector.listSelector.selectedItems);
+
+                    this.source = this._convertSourcesForSplitScreen(this.$.dimensionSelector.sourceSelector.selectedItem);
+                    this.sources = this._convertSourcesForSplitScreen(this.$.dimensionSelector.sourceSelector.selectedItems);
+
+                    this.locale = this._convertLocalesForSplitScreen(this.$.dimensionSelector.localeSelector
+                        .selectedItem);
+                    this.locales = this._convertLocalesForSplitScreen(this.$.dimensionSelector.localeSelector
+                        .selectedItems);
+                },
+
                 onCatalogChangeEvent: function (event) {
                     if (!event.detail.multiSelect) {
                         this.list = event.detail.selectedItem;
                     } else {
                         this.lists = event.detail.selectedItems;
                     }
+
+                    this._toggleStepper(this.lists);
                     this.$$('rock-tabs').reloadCurrentTab();
                 },
 
@@ -238,6 +257,8 @@
                     } else {
                         this.sources = event.detail.selectedItems;
                     }
+                    
+                    this._toggleStepper(this.sources);
                     this.$$('rock-tabs').reloadCurrentTab();
                 },
 
@@ -252,33 +273,12 @@
                     this.$$('rock-tabs').reloadCurrentTab();
                 },
 
-                _convertLocalesForSplitScreen: function (data) {
-                    if (data instanceof Array) {
-                        var locales = [];
-
-                        for (var i = 0; i < data.length; i++) {
-                            var objLocale = new Object();
-                            objLocale.locale = data[i].title;
-                            objLocale.language = data[i].language;
-
-                            locales.push(objLocale);
-                        }
-
-                        return locales;
-                    } else {
-                        var objLocale = new Object();
-                        objLocale.locale = data.title;
-                        objLocale.language = data.language;
-
-                        return objLocale;
-                    }
-                },
-
                 onComponentCreating: function (e, detail, sender) {
                     var component = detail.data;
 
                     if (component.name.indexOf("attribute") != -1 && component.properties) {
                         if (this.list || (this.lists && this.lists.length > 0)) {
+                            // Here it is assumed user will always provide selected items by default
                             component.properties.list = this.list;
                             component.properties.lists = this.lists;
                         }
@@ -294,6 +294,60 @@
                         }
                     } else if (component.name == 'rock-entity-summary') {
                         component.properties.config = this.summaryConfig;
+                    }
+                },
+
+                _convertListsForSplitScreen: function (data) {
+                    if (data instanceof Array) {
+                        var lists = [];
+
+                        for (var i = 0; i < data.length; i++) {
+                            var objList = new Object();
+                            objList.title = data[i].title;
+                            objList.value = data[i].value
+                            
+                            lists.push(objList);
+                        }
+
+                        return lists;
+                    } else {
+                        return data.value;
+                    }
+                },
+
+                _convertSourcesForSplitScreen: function (data) {
+                    if (data instanceof Array) {
+                        var sources = [];
+
+                        for (var i = 0; i < data.length; i++) {
+                            var objSource = new Object();
+                            objSource.title = data[i].title;
+                            objSource.value = data[i].value
+
+                            sources.push(objSource);
+                        }
+
+                        return sources;
+                    } else {
+                        return data.value;
+                    }
+                },
+
+                _convertLocalesForSplitScreen: function (data) {
+                    if (data instanceof Array) {
+                        var locales = [];
+
+                        for (var i = 0; i < data.length; i++) {
+                            var objLocale = new Object();
+                            objLocale.title = data[i].title;
+                            objLocale.value = data[i].value;
+
+                            locales.push(objLocale);
+                        }
+
+                        return locales;
+                    } else {
+                        return data.value;
                     }
                 },
 
@@ -347,21 +401,17 @@
                     //can alter the data before setting it to tabConfig for rock-tabs
                     this.set("_tabConfig", data);
                 },
-                
                 summaryTodoTap: function (e, detail, sender) {
                     alert("event triggered: " + detail.eventName + ' >> ' + detail.label);
                 },
-                
                 summaryTofixTap: function (e, detail, sender) {
                     alert("event triggered: " + detail.type + ' >> ' + detail.eventName + ' >> ' +
                         detail.label);
                 },
-
                 refreshDataContext: function () {
                     this.dataContext = Polymer.dom(this).node.$$(
                         'rock-dimension-selector[id="dimensionSelector"]')._getSelectedDimensions();
                 },
-
                 onDimensionGridOpen: function (e, detail, sender) {
                     this.$.dimensionGridDialog.dialogTitle = "Detailed Dimensional Edit for : " +
                         detail.data.longName;
@@ -381,7 +431,6 @@
 
                     this.$.dimensionGridDialog.open();
                 },
-
                 _getEntityId: function () {
                     var mainApp = document.querySelector('main-app');
                     if (mainApp && mainApp.route && mainApp.route.__queryParams && "id" in mainApp.route
