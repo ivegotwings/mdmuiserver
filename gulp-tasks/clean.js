@@ -11,12 +11,22 @@
 'use strict';
 
 const del = require('del');
+const path = require('path');
 
 // Returns a Promise to delete a directory
 function clean() {
-  return del(global.config.build.rootDirectory);
+  var bundledBuild = path.join(global.config.build.rootDirectory, global.config.build.bundledDirectory);
+  var unbundledBuild = path.join(global.config.build.rootDirectory, global.config.build.unbundledDirectory);
+  return del([bundledBuild, unbundledBuild]);
+}
+
+// Returns a Promise to delete a directory
+function cleanDev() {
+  var devPath = path.join(global.config.build.rootDirectory, global.config.build.devDirectory);
+  return del([devPath]);
 }
 
 module.exports = {
-  build: clean
+  build: clean,
+  devBuild: cleanDev
 };

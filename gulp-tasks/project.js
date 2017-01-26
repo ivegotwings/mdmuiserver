@@ -19,6 +19,7 @@ const plugins = require('gulp-load-plugins');
 
 const polymerJSON = require(global.config.polymerJsonPath);
 const project = new polymer.PolymerProject(polymerJSON);
+const devPath = path.join(global.config.build.rootDirectory, global.config.build.devDirectory);
 const bundledPath = path.join(global.config.build.rootDirectory, global.config.build.bundledDirectory);
 const unbundledPath = path.join(global.config.build.rootDirectory, global.config.build.unbundledDirectory);
 
@@ -49,6 +50,11 @@ function rejoin() {
   return project.rejoinHtml();
 }
 
+//
+function splitChangedSource(changedFiles) {
+  return gulp.src(changedFiles).pipe(project.splitHtml());
+}
+
 // Returns a function which accepts refernces to functions that generate
 // ReadableStreams. These ReadableStreams will then be merged, and used to
 // generate the bundled and unbundled versions of the site.
@@ -74,6 +80,21 @@ function merge(source, dependencies) {
   };
 }
 
+// Returns a function which accepts refernces to functions that generate
+// ReadableStreams. These ReadableStreams will then be merged, and used to
+// generate the bundled and unbundled versions of the site.
+// Takes an argument for the user to specify the kind of output they want
+// either bundled or unbundled. If this argument is omitted it will output both
+function devMerge(devSource, devDependencies) {
+  return function output() {
+    const mergedFiles = mergeStream(devSource(), devDependencies())
+        .pipe(project.analyzer);
+    let outputs = [];
+    outputs.push(writeDevOutput(mergedFiles));
+    return Promise.all(outputs);
+  };
+}
+
 // Run the files through a bundling step which will vulcanize/shard them
 // then output to the dest dir
 function writeBundledOutput(stream) {
@@ -91,6 +112,15 @@ function writeUnbundledOutput(stream) {
   //stream.pipe(gulp.dest(unbundledPath));
   return new Promise(resolve => {
     stream.pipe(gulp.dest(unbundledPath))
+      .on('end', resolve);
+  });
+}
+
+// Just output files to the dev dest dir without bundling. This is for projects that
+// use HTTP/2 server push
+function writeDevOutput(stream) {
+  return new Promise(resolve => {
+    stream.pipe(gulp.dest(devPath))
       .on('end', resolve);
   });
 }
@@ -138,7 +168,6 @@ function writeUnbundledServiceWorker() {
 function copyReusableComponents()
 {
     var elements = gulp.src(global.config.elementsSourcePath).pipe(gulp.dest('bower_components/'));
-    
     return mergeStream(elements);
 }
 
@@ -147,6 +176,12 @@ module.exports = {
   splitDependencies: splitDependencies,
   rejoin: rejoin,
   merge: merge,
+  devMerge: devMerge,
   serviceWorker: serviceWorker,
-  copyReusableComponents: copyReusableComponents
+  copyReusableComponents: copyReusableComponents,
+  writeUnbundledOutput: writeUnbundledOutput,
+  devPath: devPath,
+  bundledPath: bundledPath,
+  unbundledPath: unbundledPath,
+  splitChangedSource: splitChangedSource
 };
