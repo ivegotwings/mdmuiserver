@@ -52,7 +52,7 @@ function rejoin() {
 
 //
 function splitChangedSource(changedFiles) {
-  return gulp.src(changedFiles).pipe(project.splitHtml());
+  return gulp.src(changedFiles, {base:'.'}).pipe(project.splitHtml());
 }
 
 // Returns a function which accepts refernces to functions that generate
@@ -167,7 +167,7 @@ function writeUnbundledServiceWorker() {
 
 function copyReusableComponents()
 {
-    var elements = gulp.src(global.config.elementsSourcePath).pipe(gulp.dest('bower_components/'));
+    var elements = gulp.src(global.config.elementsSourcePath, {base: '.'}).pipe(gulp.dest('bower_components/'));
     return mergeStream(elements);
 }
 

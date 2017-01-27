@@ -251,20 +251,18 @@ gulp.task('app-nodemon', function (cb) {
 
 gulp.task('watch-element-changes', function () {  
   gulp.watch(global.config.build.clientFilePaths).on('change', function (fpath) {
-    var changedFilePath = path.join(process.cwd(), fpath);
-    console.log('file changed...', JSON.stringify(changedFilePath));
-    compileChangedDevFiles(changedFilePath);
-    stackLiveReload(changedFilePath);    
+    console.log('file changed...', JSON.stringify(fpath));
+    compileChangedDevFiles(fpath);
+    stackLiveReload(fpath);    
   });
 });
 
-gulp.task('app2', gulp.series(['dev',gulp.parallel(['app-nodemon', 'watch-element-changes'])]));
+gulp.task('app', gulp.series(['dev',gulp.parallel(['app-nodemon', 'watch-element-changes'])]));
 gulp.task('app-monitor', gulp.series([gulp.parallel(['app-nodemon', 'watch-element-changes'])]));
-
 gulp.task('app-prod', gulp.series(['app-nodemon']));
 
-//temp fix till actually app2 starts working
-gulp.task('app', function (cb) {
+//This should not be used almost all the time..kept it just for fall back in case when compiled dev does not work for whatever reason..
+gulp.task('app-nocompile', function (cb) {
   var started = false;
   var appPath = "app.js";
   
