@@ -122,8 +122,8 @@ function dependencies() {
 // You probably don't need to do anything to your dependencies but it's here in
 // case you need it :)
 function devDependencies() {
-  var depsPath = path.join(project.devPath, 'bower_components');
-  gulp.src('bower_components/**/*').pipe(gulp.dest(depsPath));
+  //var depsPath = path.join(project.devPath, 'bower_components');
+  //gulp.src('bower_components/**/*').pipe(gulp.dest(depsPath));
 
   return project.splitDependencies()
     //.pipe(gulpif('**/*.js', babel()))
@@ -258,7 +258,36 @@ gulp.task('watch-element-changes', function () {
   });
 });
 
-gulp.task('app', gulp.series(['dev',gulp.parallel(['app-nodemon', 'watch-element-changes'])]));
+gulp.task('app2', gulp.series(['dev',gulp.parallel(['app-nodemon', 'watch-element-changes'])]));
 gulp.task('app-monitor', gulp.series([gulp.parallel(['app-nodemon', 'watch-element-changes'])]));
 
 gulp.task('app-prod', gulp.series(['app-nodemon']));
+
+//temp fix till actually app2 starts working
+gulp.task('app', function (cb) {
+  var started = false;
+  var appPath = "app.js";
+  
+  var appPath = (argv.appPath !== undefined) ? argv.appPath : appPath;
+  var runOffline = (argv.runOffline !== undefined) ? argv.runOffline : 'false';
+
+  //console.log(appPath, runOffline);
+
+  if(appPath === "build/bundled") {
+    appPath = 'build/bundled/app.js';
+  } else if(appPath === "build/unbundled") {
+    appPath = 'build/unbundled/app.js';
+  }
+
+  return nodemon({
+    script: appPath,
+    nodeArgs:['--debug'],
+    env: { 'RUN_OFFLINE': runOffline }
+  }).on('start', function () {
+    // to avoid nodemon being started multiple times
+    if (!started) {
+      cb();
+      started = true;
+    }
+  });
+});
