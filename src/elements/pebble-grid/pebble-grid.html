@@ -357,7 +357,7 @@ The following JSON object is a sample of data which can be used to bind the grid
 		</style>
 <template is="dom-if" if="{{_dataIsNotNull(data, config, attributeModels)}}">
 	<div id="gridHeader" align="right" class="row layout-middle layout-between">
-		<span class = "trim">[[title]] </span>
+		<span class="trim">[[title]] </span>
 		<div class="grid-actions row layout-middle">
 			<pebble-button class="pageRange m-r-5 m-l-5" button-text="{{_pageRange}}" noink></pebble-button>
 			<pebble-vertical-divider class="m-l-5 m-r-5"></pebble-vertical-divider>
@@ -382,14 +382,23 @@ The following JSON object is a sample of data which can be used to bind the grid
 	</div>
 	<div id="pebbleGridContainer" class="m-l-10 m-r-10">
 		<template is="dom-if" if="{{_isTabularMode(config.viewMode)}}">
-				<iron-data-table page-size="{{pageSize}}" size="{{_getRecordSize()}}" selection-enabled multi-selection="{{config.tabular.settings.isMultiSelect}}"
-					data-source="{{dataSource}}" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" sort-order="{{sortOrder}}">
-					<data-table-column name="Actions" hidden$="[[!_hasActions()]]">
+			<iron-data-table page-size="{{pageSize}}" size="{{_currentPageDataSize}}" selection-enabled multi-selection="{{config.tabular.settings.isMultiSelect}}"
+				data-source="{{dataSource}}" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" sort-order="{{sortOrder}}">
+				<data-table-column name="Actions" hidden$="[[!_hasActions()]]">
+					<template>
+						<template is="dom-repeat" items="[[_actions()]]" as="col" index-as="colIndex">
+							<pebble-button class="actionButton" icon="[[_actionValue(colIndex)]]" on-tap="_fireActionEvent" item="[[item]]" index="[[colIndex]]"></pebble-button>
+						</template>
+						<span id="error-circle[[item.id]]" class="error-circle" hidden item="[[item]]" on-tap="_openPopover" on-mouseenter="_openPopover"> </span>
+					</template>
+				</data-table-column>
+				<template is="dom-repeat" items="[[config.tabular.columns]]" as="col" index-as="colIndex">
+					<data-table-column name="[[col.header]]" column-index="{{colIndex}}" filter-by$="[[_isFilterEnabled(col)]]" sort-by$="[[_isSortable(col)]]"
+						icon="pebble-icons:Edit" model-object="{{_getAttributeModelObject(col)}}">
 						<template>
-							<template is="dom-repeat" items="[[_actions()]]" as="col" index-as="colIndex">
-								<pebble-button class="actionButton" icon="[[_actionValue(colIndex)]]" on-tap="_fireActionEvent" item="[[item]]" index="[[colIndex]]"></pebble-button>
-							</template>
-							<span id="error-circle[[item.id]]" class="error-circle" hidden item="[[item]]" on-tap="_openPopover" on-mouseenter="_openPopover"> </span>
+							<rock-attribute functional-mode="grid" id="row[[item.id]]col[[column.columnIndex]]" class="attribute" mode="{{_getViewMode(_mode,item)}}"
+								attribute-model-object="{{column.modelObject}}" attribute-object="{{_getAttributeObject(item, column.columnIndex)}}"
+								on-attribute-value-changed="_updateValue"></rock-attribute>
 						</template>
 					</data-table-column>
 					<template is="dom-repeat" items="[[config.tabular.columns]]" as="col" index-as="colIndex">
@@ -402,22 +411,20 @@ The following JSON object is a sample of data which can be used to bind the grid
 								></rock-attribute>
 							</template>
 						</data-table-column>
-					</template>
-				</iron-data-table>
-			<pebble-popover id="errorPopover" no-overlap  >
-				<pebble-error-list ></pebble-error-list>
+				</template>
+			</iron-data-table>
+			<pebble-popover id="errorPopover" no-overlap>
+				<pebble-error-list></pebble-error-list>
 			</pebble-popover>
 		</template>
-	<template is="dom-if" if="{{_isTileMode(config.viewMode)}}">
-		<grid-tile-view items = "{{data}}" multi-selection = "{{config.tile.settings.isMultiSelect}}"
-						selected-item = "{{selectedItem}}" selected-items = "{{selectedItems}}" tile-items= "{{config.tile.tileItems}}"  actions = "{{config.tile.settings.actions}}"
-		></grid-tile-view>
-	</template>
-	<template is="dom-if" if="{{_isListMode(config.viewMode)}}">
-		<grid-list-view id = "gridListView" items = "{{data}}" multi-selection = "{{config.list.settings.isMultiSelect}}"
-						selected-item = "{{selectedItem}}" selected-items = "{{selectedItems}}" list-items= "{{config.list.listItems}}" actions = "{{config.list.settings.actions}}"
-		></grid-list-view>
-	</template>
+		<template is="dom-if" if="{{_isTileMode(config.viewMode)}}">
+			<grid-tile-view items="{{data}}" multi-selection="{{config.tile.settings.isMultiSelect}}" selected-item="{{selectedItem}}"
+				selected-items="{{selectedItems}}" tile-items="{{config.tile.tileItems}}" actions="{{config.tile.settings.actions}}"></grid-tile-view>
+		</template>
+		<template is="dom-if" if="{{_isListMode(config.viewMode)}}">
+			<grid-list-view id="gridListView" items="{{data}}" multi-selection="{{config.list.settings.isMultiSelect}}" selected-item="{{selectedItem}}"
+				selected-items="{{selectedItems}}" list-items="{{config.list.listItems}}" actions="{{config.list.settings.actions}}"></grid-list-view>
+		</template>
 	</div>
 </template>
 </template>
@@ -481,7 +488,10 @@ The following JSON object is a sample of data which can be used to bind the grid
 				 */
 				data: {
 					type: Object,
-					notify: true
+					notify: true,
+					value: function () {
+						return {};
+					}
 				},
 
 				/**
@@ -498,9 +508,10 @@ The following JSON object is a sample of data which can be used to bind the grid
 				/**
 				 * Indicates the total size of the data-source.
 				 */
-				size: {
+				recordSize: {
 					notify: true,
-					type: Number
+					type: Number,
+					value: 0
 				},
 
 				/**
@@ -509,7 +520,7 @@ The following JSON object is a sample of data which can be used to bind the grid
 				pageSize: {
 					type: Number,
 					notify: true,
-					value: 15
+					value: 0
 				},
 
 				/**
@@ -532,17 +543,9 @@ The following JSON object is a sample of data which can be used to bind the grid
 					}
 				},
 
-				_currentPage: {
+				currentPage: {
 					notify: true,
 					value: 0
-				},
-
-				_pageRange: {
-					value: ""
-				},
-
-				_attributeModelMap: {
-					type: Object
 				},
 
 				/**
@@ -579,23 +582,34 @@ The following JSON object is a sample of data which can be used to bind the grid
 				/**
 				  * Indicates the title for the grid.
 				  */
-				title : {
-				    type : String,
-                    notify: true
+				title: {
+					type: String,
+					notify: true
 				},
 
                 /**
                  * Indicates an array with a path and a sort order. <b>`asc`</b> or <b>`desc</b>` pairs 
 				 * are used to sort the items.
                  */
-                sortOrder: {
-                    type: Array,
-                    notify: true
-                },
-				_mode:{
-                    type:String,
-					computed:'_getMode(config.mode)',
-					notify:true
+				sortOrder: {
+					type: Array,
+					notify: true
+				},
+				_mode: {
+					type: String,
+					computed: '_getMode(config.mode)',
+					notify: true
+				},
+				_pageRange: {
+					value: ""
+				},
+
+				_attributeModelMap: {
+					type: Object
+				},
+				_currentPageDataSize: {
+					notify: true,
+					value: 10
 				}
 
 			},
@@ -604,8 +618,8 @@ The following JSON object is a sample of data which can be used to bind the grid
 			],
 
 			observers: [
-				'_calculatePageRange(_currentPage, pageSize, data)',
-                '_computeTitle(config,data,size,sortOrder,sortOrder.*)'
+				'_calculatePageRange(currentPage, pageSize, recordSize)',
+				'_computeTitle(config, data, recordSize, sortOrder, sortOrder.*)'
 			],
 
 			listeners: {
@@ -617,58 +631,58 @@ The following JSON object is a sample of data which can be used to bind the grid
 				'collapsing-item': '_onCollapsingItem'
 			},
 
-            _addNewRow : function() {
-			    var newItem = {};
-                newItem.isEditable = true;
-                newItem.status = 'new';
-                newItem.errors=[];
-                var oldsize=this.data.length;
-                this.data.unshift(newItem);
-                this._getIronDataTable()._sizeChanged(oldsize+1,oldsize);
-                this._getIronDataTable()._resetData(this.dataSource);
-            },
+			_addNewRow: function () {
+				var newItem = {};
+				newItem.isEditable = true;
+				newItem.status = 'new';
+				newItem.errors = [];
+				var oldsize = this.data.length;
+				this.data.unshift(newItem);
+				this._getIronDataTable()._sizeChanged(oldsize + 1, oldsize);
+				this._getIronDataTable()._resetData(this.dataSource);
+			},
 
 			/**
 			  * Can be used to add the new rows to the grid.
 			  */
-			addNewRows : function(noOfRows) {
-			  for(var i = 0; i < noOfRows; i++) {
-                  var newItem = {};
-                  newItem.isEditable = true;
-                  newItem.status = 'new';
-                  this.data.unshift(newItem);
-			  }
-                var oldsize=this.data.length;
-                this._getIronDataTable()._sizeChanged(oldsize+noOfRows,oldsize);
-                this._getIronDataTable()._resetData(this.dataSource);
+			addNewRows: function (noOfRows) {
+				for (var i = 0; i < noOfRows; i++) {
+					var newItem = {};
+					newItem.isEditable = true;
+					newItem.status = 'new';
+					this.data.unshift(newItem);
+				}
+				var oldsize = this.data.length;
+				this._getIronDataTable()._sizeChanged(oldsize + noOfRows, oldsize);
+				this._getIronDataTable()._resetData(this.dataSource);
 			},
 			/* 
 			 * Can be used to re-render the grid.
 			 */
-			reRenderGrid : function () {
-			    if(this._getIronDataTable()) {
-                    this._getIronDataTable()._resetData(this.dataSource);
-                }
-            },
-            _computeTitle : function (config,data,size,sortOrder) {
-                if(config && config.header && config.header.displayTitle) {
-                    if(config.title) {
-						this.set('title',config.title);
+			reRenderGrid: function () {
+				if (this._getIronDataTable()) {
+					this._getIronDataTable()._resetData(this.dataSource);
+				}
+			},
+			_computeTitle: function (config, data, size, sortOrder) {
+				if (config && config.header && config.header.displayTitle) {
+					if (config.title) {
+						this.set('title', config.title);
 					}
-                    this.set('title',config.header.defaultValue);
-				} else if(data && size){
-                    var status = size + ' items.';
-                    if(sortOrder && sortOrder.length > 0) {
-                        status += ' Sorted by ';
-                        for(var i=0;i<sortOrder.length;i++) {
-                            var sort = sortOrder[i];
-                            status += sort.path + ' ' + sort.direction;
-                            if(i < sortOrder.length-1) {
-                                status += ', ';
+					this.set('title', config.header.defaultValue);
+				} else if (data && size) {
+					var status = size + ' items.';
+					if (sortOrder && sortOrder.length > 0) {
+						status += ' Sorted by ';
+						for (var i = 0; i < sortOrder.length; i++) {
+							var sort = sortOrder[i];
+							status += sort.path + ' ' + sort.direction;
+							if (i < sortOrder.length - 1) {
+								status += ', ';
 							}
 						}
 					}
-                    this.set('title',status);
+					this.set('title', status);
 				}
 			},
 
@@ -766,39 +780,64 @@ The following JSON object is a sample of data which can be used to bind the grid
 			},
 
 			//_computeCachedItems : function() {
-			//	return this.data.slice(0, (this._currentPage * this.pageSize) + this.pageSize);
+			//	return this.data.slice(0, (this.currentPage * this.pageSize) + this.pageSize);
 			//},
 
 			_dataSource: function (opts, cb) {
-				this._currentPage = opts.page;
+				this.currentPage = opts.page;
 				if (this.config.schemaType == undefined || this.config.schemaType == "Simple") {
 					var pagedData = this.data.slice(opts.page * opts.pageSize, (opts.page * opts.pageSize) + opts.pageSize)
+					// if last page is reached, increment the size.
+					if (this._currentPageDataSize / opts.pageSize >= opts.page) {
+						this._currentPageDataSize += opts.pageSize;
+					}
 					cb(pagedData);
+
 				}
 				else {
-					var data = this.data;
-					var dataArray = Object.keys(data).map(function (key) {
-						if (data.hasOwnProperty(key)) {
-							return data[key];
+					this.dataChangedHandler = function (e) {
+						if (this.data) {
+							
+							var pagedData = this._getAttributeFormattedData(this.data, opts);
+							if(!pagedData){
+								pagedData = [];
+							}
+							// if last page is reached, increment the size.
+							if (pagedData.length > 0 && this._currentPageDataSize / opts.pageSize >= opts.page) {
+								this._currentPageDataSize += opts.pageSize;
+							}
+							cb(pagedData);
+							//this.removeEventListener("data-changed", this.dataChangedHandler);
 						}
-					});
 
-					var pagedData = dataArray.slice(opts.page * opts.pageSize, (opts.page * opts.pageSize) + opts.pageSize)
-					DataHelper.transformEntitySchemaForGrid(pagedData, this.attributeModels);
-					cb(pagedData);
+					};
+					if (opts.page == 0) {
+						
+						var pagedData = [];
+						if (this.data) {
+							pagedData = this._getAttributeFormattedData(this.data, opts);
+						}
+						cb(pagedData);
+
+					}
+					else {
+
+						this.addEventListener("data-changed", this.dataChangedHandler);
+					}
+
 				}
 			},
 
-			_calculatePageRange: function (currentPage, pageSize, data) {
-				var totalSize = pageSize + currentPage * pageSize;
-				if (totalSize > this._getRecordSize()) {
-					totalSize = this._getRecordSize();
+			_calculatePageRange: function (currentPage, pageSize, recordSize) {
+				var currentSize = currentPage == 0 ? pageSize * 2 : (currentPage + 1) * pageSize;
+				if(currentSize > recordSize){
+					currentSize = recordSize;
 				}
-				this._pageRange = "1 - " + totalSize + " / " + this._getRecordSize();
+				this._pageRange = "1 - " + currentSize + " / " + recordSize;
 				//It is temporary heck, need to remove it
-				if (this) {
-					this.refreshPage(currentPage);
-				}
+				// if (this) {
+				// 	this.refreshPage(currentPage);
+				// }
 			},
 
 			_columnValue: function (gridData, index) {
@@ -818,10 +857,10 @@ The following JSON object is a sample of data which can be used to bind the grid
 				if (cellData != undefined) {
 					index++;
 				}
-                if(typeof(cellData) === "boolean"){
-                    return cellData.toString();
-                    //Had to manually convert to string because pebble-boolean is not working when you pass boolean.
-                }
+				if (typeof (cellData) === "boolean") {
+					return cellData.toString();
+					//Had to manually convert to string because pebble-boolean is not working when you pass boolean.
+				}
 				return cellData;
 			},
 			_isTabularMode: function (viewMode) {
@@ -833,27 +872,27 @@ The following JSON object is a sample of data which can be used to bind the grid
 			_isListMode: function (viewMode) {
 				return viewMode == 'List';
 			},
-            _getAttributeModelObject: function(col){
-			    var displayType="";
-                if (this.config.schemaType == undefined || this.config.schemaType == "simple") {
-                    if(!col.displayType) {
-                        col.displayType = col.editType;
-                    }
-                    return col;
-                }
-                else if (this.config.schemaType == "attribute") {
-                     return this._getAttributeModelMap(col.name);
-                }
-			},
-            _getAttributeObject:function(item, columnIndex){
-                var value= {"value":this._columnValue(item, columnIndex)};
-                if(this.config.tabular.columns.length==columnIndex+1){
-                    this.async(function () {
-                        this._updateError(item);
-                    })
+			_getAttributeModelObject: function (col) {
+				var displayType = "";
+				if (this.config.schemaType == undefined || this.config.schemaType == "simple") {
+					if (!col.displayType) {
+						col.displayType = col.editType;
+					}
+					return col;
 				}
-                return value;
-            },
+				else if (this.config.schemaType == "attribute") {
+					return this._getAttributeModelMap(col.name);
+				}
+			},
+			_getAttributeObject: function (item, columnIndex) {
+				var value = { "value": this._columnValue(item, columnIndex) };
+				if (this.config.tabular.columns.length == columnIndex + 1) {
+					this.async(function () {
+						this._updateError(item);
+					})
+				}
+				return value;
+			},
 			_isFilterEnabled: function (col) {
 				return col.filterable ? col.name : undefined;
 			},
@@ -927,8 +966,8 @@ The following JSON object is a sample of data which can be used to bind the grid
 			},
 
 			_getRecordSize: function () {
-				if (this.size > 0) {
-					return this.size;
+				if (this.recordSize > 0) {
+					return this.recordSize;
 				}
 				if (this.data) {
 					if (this.config && this.config.schemaType == "attribute") {
@@ -940,10 +979,12 @@ The following JSON object is a sample of data which can be used to bind the grid
 				}
 				return 0;
 			},
+
 			_changeToEditMode: function () {
 				this.set('config.mode', "edit");
 				this.fire('editMode');
 			},
+
 			_actionValue: function (index) {
 				var action = this.config.tabular.settings.actions[index];
 				var icon = action.icon;
@@ -959,12 +1000,12 @@ The following JSON object is a sample of data which can be used to bind the grid
 				return icon;
 			},
 
-            _updateValue : function(e) {
+			_updateValue: function (e) {
 				var columnIndex = typeof e.target.column === 'undefined' ? e.srcElement.dataHost.column.columnIndex : e.target.column.columnIndex;
 				var item = typeof e.target.item === 'undefined' ? e.srcElement.dataHost.item : e.target.item;
-                var value=e.detail;
-                var columnName = this.config.tabular.columns[columnIndex].name;
-                item[columnName] = value;
+				var value = e.detail;
+				var columnName = this.config.tabular.columns[columnIndex].name;
+				item[columnName] = value;
 			},
 			_fireActionEvent: function (e) {
 				var action = this.config.tabular.settings.actions[e.currentTarget.index];
@@ -978,11 +1019,11 @@ The following JSON object is a sample of data which can be used to bind the grid
 						return;
 					}
 				}
-				if(action.name=="edit"){
-                    this.editInline(e.currentTarget.item);
-                    return;
+				if (action.name == "edit") {
+					this.editInline(e.currentTarget.item);
+					return;
 				}
-//				alert("fired " + eventName);
+				//				alert("fired " + eventName);
 				this.fire('bedrock-event', { name: eventName, data: e.currentTarget.item });
 			},
 			_hasActions: function () {
@@ -996,71 +1037,82 @@ The following JSON object is a sample of data which can be used to bind the grid
 			},
 			_getMode: function (mode) {
 				return mode;
-            },
-            _getViewMode: function (mode,item) {
-				if(item.isEditable){
-				    return "edit";
+			},
+			_getViewMode: function (mode, item) {
+				if (item.isEditable) {
+					return "edit";
 				}
 				return mode;
-            },
-            _updateError:function(item){
-                var errors=[];
-                for(var i=0;i<this.config.tabular.columns.length;i++){
-                    var attr=this.$$("#row"+item.id+"col"+i);
-                    if(attr && attr.errors.length>0) {
-                        var error = {};
-                        error.name=this.config.tabular.columns[i].name;
-                        error.error=attr.errors;
-                        errors.push(error);
-                    }
-				}
-				item.errors=errors;
-				var errorLength=errors.length;
-				var sp;
-				if(item.id){
-                    sp=this.$$("#error-circle"+item.id);
-				} else{
-                    sp=this.$$("#error-circle");
-				}
-				if(sp) {
-				    if(errorLength) {
-                        sp.hidden = false;
-                        sp.textContent = errorLength;
-                    }else{
-				        sp.hidden=true;
+			},
+			_updateError: function (item) {
+				var errors = [];
+				for (var i = 0; i < this.config.tabular.columns.length; i++) {
+					var attr = this.$$("#row" + item.id + "col" + i);
+					if (attr && attr.errors.length > 0) {
+						var error = {};
+						error.name = this.config.tabular.columns[i].name;
+						error.error = attr.errors;
+						errors.push(error);
 					}
-                }
+				}
+				item.errors = errors;
+				var errorLength = errors.length;
+				var sp;
+				if (item.id) {
+					sp = this.$$("#error-circle" + item.id);
+				} else {
+					sp = this.$$("#error-circle");
+				}
+				if (sp) {
+					if (errorLength) {
+						sp.hidden = false;
+						sp.textContent = errorLength;
+					} else {
+						sp.hidden = true;
+					}
+				}
 
 			},
 			_openPopover: function (e) {
-                var sp=e.currentTarget;
-                var item=e.currentTarget.item;
-                var popover=this.$$("#errorPopover");
-                popover.positionTarget =sp;
-                popover.setAttribute("for","error-circle"+item.id);
-                popover.querySelector("pebble-error-list").errors=item.errors;
-                popover.show();
-            },
+				var sp = e.currentTarget;
+				var item = e.currentTarget.item;
+				var popover = this.$$("#errorPopover");
+				popover.positionTarget = sp;
+				popover.setAttribute("for", "error-circle" + item.id);
+				popover.querySelector("pebble-error-list").errors = item.errors;
+				popover.show();
+			},
 			// Can be used to change a row's mode to the edit mode.
 			editInline: function (item) {
-				item.isEditable=true;
-                for(var i=0;i<this.config.tabular.columns.length;i++){
-                    var attr=this.$$("#row"+item.id+"col"+i);
-                    if(attr ) {
-                        attr.mode='edit';
-                    }
-                }
-            },
-            // Can be used to change a row's mode to the read mode.
-            changeRowToViewMode: function (item) {
-                item.isEditable=false;
-                for(var i=0;i<this.config.tabular.columns.length;i++){
-                    var attr=this.$$("#row"+item.id+"col"+i);
-                    if(attr ) {
-                        attr.mode='read';
-                    }
-                }
-            }
+				item.isEditable = true;
+				for (var i = 0; i < this.config.tabular.columns.length; i++) {
+					var attr = this.$$("#row" + item.id + "col" + i);
+					if (attr) {
+						attr.mode = 'edit';
+					}
+				}
+			},
+			// Can be used to change a row's mode to the read mode.
+			changeRowToViewMode: function (item) {
+				item.isEditable = false;
+				for (var i = 0; i < this.config.tabular.columns.length; i++) {
+					var attr = this.$$("#row" + item.id + "col" + i);
+					if (attr) {
+						attr.mode = 'read';
+					}
+				}
+			},
+			_getAttributeFormattedData: function (data, opts) {
+				var dataArray = Object.keys(data).map(function (key) {
+					if (data.hasOwnProperty(key)) {
+						return data[key];
+					}
+				});
+
+				//var pagedData = dataArray.slice(opts.page * opts.pageSize, (opts.page * opts.pageSize) + opts.pageSize)
+				DataHelper.transformEntitySchemaForGrid(dataArray, this.attributeModels);
+				return dataArray;
+			}
 
 		});
 	})();
