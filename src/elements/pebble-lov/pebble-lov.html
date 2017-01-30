@@ -170,7 +170,7 @@ to select multiple values.
             }
         }
         
-        .cancel {
+        .close {
             --pebble-button: {
                 height: 30px;
                 color: #7D8690;
@@ -236,7 +236,7 @@ to select multiple values.
         <template is="dom-if" if="[[showActionButtons]]">
             <div id="actionButtons" class="buttons">
                 <pebble-button class="apply success-btn m-r-7" button-text="Apply" noink raised elevation="2" on-tap="_onConfirm"></pebble-button>
-                <pebble-button class="cancel default-btn" button-text="Cancel" noink raised elevation="2" on-tap="_onCancel"></pebble-button>
+                <pebble-button class="close default-btn" button-text="Close" noink raised elevation="2" on-tap="_onClose"></pebble-button>
             </div>
         </template>
     </template>
@@ -253,13 +253,13 @@ to select multiple values.
                 /**
                  * Fired when user clicks on confirm button
                  *
-                 * @event on-confirm (pub-sub event)
+                 * @event lov-confirm-button-tap (pub-sub event)
                  * @param {Object} event
                  */
                 /**
-                 * Fired when user clicks on cancel button
+                 * Fired when user clicks on close button
                  *
-                 * @event on-cancel (pub-sub event)
+                 * @event lov-close-button-tap (pub-sub event)
                  * @param {Object} event
                  */
                 /*
@@ -348,16 +348,16 @@ to select multiple values.
                     },
                     notify: true
                 },
-                /*
-                 * Represents the id of a selected Item
-                 */
-                selectedItemId: {
+                _selectedItemId: {
                     type: Number
                 },
-                /*
-                 * Indicates the identification of the selected items.
-                 */
-                selectedItemIds: {
+                _selectedItemIds: {
+                    type: Array,
+                    value: function () {
+                        return [];
+                    }
+                },
+                _oldSelectedItemIds: {
                     type: Array,
                     value: function () {
                         return [];
@@ -433,11 +433,7 @@ to select multiple values.
                 '_selectedItemChanged(selectedItem)',
                 '_selectedItemsChanged(selectedItems.*)'
             ],
-            created: function () {
-                console.log("pebble-lov: created");
-            },
             ready: function () {
-                console.log("pebble-lov: ready");
                 this._patchWheelOverScrolling();
                 // Fix for #182. Only relevant for iron-list 1.0.X and 1.1.X.
                 // 1.2.X works fine without this.
@@ -446,11 +442,7 @@ to select multiple values.
                 }
             },
             attached: function () {
-                console.log("pebble-lov: attached");
                 this._handler = this._outsideClickListener.bind(this);
-            },
-            detached: function () {
-                console.log("pebble-lov: detached");
             },
             /* LifeCycle Callbacks */
             /* Template Methods */
@@ -879,6 +871,8 @@ to select multiple values.
                 }
             },
             _open: function () {
+                this._oldSelectedItemIds = this._selectedItemIds;
+
                 this._addOutsideClickListener();
                 // this.hidden = !this._hasItems(this._itemsObject) && !this._loading;
                 this._filter = '';
@@ -979,9 +973,9 @@ to select multiple values.
                     return;
                 }
                 if (selectedItem === null || selectedItem === undefined) {
-                    this.selectedItemId = -1;
+                    this._selectedItemId = -1;
                 } else {
-                    this.selectedItemId = this._getItemId(selectedItem);
+                    this._selectedItemId = this._getItemId(selectedItem);
                 }
                 if (selectedItem) {
                     this._focusedIndex = this._functiontofindIndexByKeyValue(this._filteredItems, 'id',
@@ -998,17 +992,32 @@ to select multiple values.
                     return;
                 }
                 if (selectedItems === null || selectedItems === undefined || selectedItems.length <= 0) {
-                    this.selectedItemIds = [];
+                    this._selectedItemIds = [];
                 } else {
-                    this.set('selectedItemIds', this._getItemsIds(selectedItems));
+                    this.set('_selectedItemIds', this._getItemsIds(selectedItems));
                 }
-
             },
             _onConfirm: function (event) {
-                this.fire("on-confirm", event);
+                if (!this._arrayEquals(this._oldSelectedItemIds, this._selectedItemIds)) {
+                    if (this._selectedItemIds.length > 0) {
+                        this._oldSelectedItemIds = this._selectedItemIds;
+                        this.fire("lov-confirm-button-tap", event);
+                    }
+                }
             },
-            _onCancel: function (event) {
-                this.fire("on-cancel", event);
+            _onClose: function (event) {
+                if (!this._arrayEquals(this._oldSelectedItemIds, this._selectedItemIds)) {
+                    var selectedItems = [];
+
+                    for(var i = 0; i < this._oldSelectedItemIds.length; i++) {
+                        selectedItems.push(this._getItemById(this._oldSelectedItemIds[i]));
+                    }
+
+                    // Need to find some better solution
+                    this.selectedItems = selectedItems;
+                }
+
+                this.fire("lov-close-button-tap", event);
             },
             _unwrapIfNeeded: function (element) {
                 var isWrapped = Polymer.Settings.hasShadow && !Polymer.Settings.nativeShadow;
@@ -1019,6 +1028,21 @@ to select multiple values.
                     var selectedItem = this.selectedItems[i];
                     if (DataHelper.compareObjects(selectedItem, selectedItemToCompare)) {
                         return i;
+                    }
+                }
+            },
+            _arrayEquals: function (a, b) {
+                var i = a.length;
+                if (i != b.length) return false;
+                while (i--) {
+                    if (a[i] !== b[i]) return false;
+                }
+                return true;
+            },
+            _getItemById: function(itemId) {
+                for(var i = 0; i < this.items.length; i++) {
+                    if(this.items[i].id == itemId) {
+                        return this.items[i];
                     }
                 }
             }
