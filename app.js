@@ -11,10 +11,12 @@ var notificationEngine = require("./src/server/notification_engine/Socket");
 var buildPath = __dirname;
 var app = express();
 
+console.log('buildPath:', buildPath);
+
 // parse application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({
     extended: true
-}));
+})); 
 
 // register cors to allow cross domain calls
 app.use(cors());
