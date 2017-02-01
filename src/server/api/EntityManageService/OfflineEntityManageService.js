@@ -8,7 +8,18 @@ var OfflineEntityManageService = function (options) {
 
 OfflineEntityManageService.prototype = {
     getEntities: function (request) {
-        var offlineEntityData = require("./offline-data/entityJson_EXTERNAL.json");
+        var offlineEntityData;
+        //console.log('request: ', JSON.stringify(request));
+        
+        if (request && request.params && request.params.query && request.params.query.id &&
+        request.params.query.id.toLowerCase().indexOf('workflow') > -1 ) {
+            offlineEntityData = require("./offline-data/workflow_definition_external.json");
+        }
+        else {
+            offlineEntityData = require("./offline-data/entityJson_EXTERNAL.json");
+        }
+
+        //console.log('offlineEntityData file: ', offlineEntityData);
 
         var entities = [];
 
@@ -33,7 +44,7 @@ OfflineEntityManageService.prototype = {
                 entities: entities
             }
         };
-        
+        //console.log('offline response ', JSON.stringify(response));
         return response;
     },
     createEntities: async function (request) {
