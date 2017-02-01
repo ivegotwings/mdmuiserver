@@ -228,7 +228,7 @@ gulp.task('app-nodemon', function (cb) {
                   env: { 'RUN_OFFLINE': runOffline }, // set env variables
                   //nodeArgs:['--debug'], // set node args
                   watch: global.config.build.serverFilePaths, // watch ES2015 code
-                  ext: 'js html',
+                  ext: 'js html css json jpg jpeg png gif',
                   tasks: function (changedFiles) { // compile synchronously onChange
                     var tasks = [];
                     if (!changedFiles || !lrEnabled) 
