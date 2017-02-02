@@ -451,11 +451,41 @@ function createRelUniqueId(rel) {
     return "";
 }
 
+function getDomainByRequest(request) {
+    //TODO: Fix this logic
+    if (request && request.params && request.params.query && request.params.query.id) {
+        if (request.params.query.id.toLowerCase().indexOf('workflow_runtime') > -1 ) {
+            return 'workflow_runtime';
+        }
+        else if (request.params.query.id.toLowerCase().indexOf('workflow') > -1 ) {
+            return 'workflow';
+        }
+    }
+    
+    return 'entity';
+}
+
+function getDomainByPathset(pathSet) {
+    //TODO: Fix this logic
+    if (pathSet && pathSet.length > 1 && pathSet[1].length > 0 && pathSet[1][0]) {
+        if (pathSet[1][0].toLowerCase().indexOf('workflow_runtime') > -1 ) {
+            return 'workflow_runtime';
+        }
+        else if (pathSet[1][0].toLowerCase().indexOf('workflow') > -1 ) {
+            return 'workflow';
+        }
+    }
+    
+    return 'entity';
+}
+
 module.exports = {
     createPath: createPath,
     createRequestJson: createRequestJson,
     transformEntityToExternal: transformEntityToExternal,
     buildEntityFieldsResponse: buildEntityFieldsResponse,
     buildEntityAttributesResponse: buildEntityAttributesResponse,
-    buildEntityRelationshipsResponse : buildEntityRelationshipsResponse
+    buildEntityRelationshipsResponse : buildEntityRelationshipsResponse,
+    getDomainByRequest: getDomainByRequest,
+    getDomainByPathset: getDomainByPathset
 };
