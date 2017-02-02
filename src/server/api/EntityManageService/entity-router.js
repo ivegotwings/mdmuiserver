@@ -19,7 +19,7 @@ var EntityRouterBase = Router.createClass([
         get: async (pathSet) => await resolver.getEntities(pathSet, "getEntityFields")
     },
     {
-        route: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].values",
+        route: "entitiesById[{keys:entityIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].['values','groups']",
         get: async (pathSet) => await resolver.getEntities(pathSet, "getEntityAttrs")
     },
     {
