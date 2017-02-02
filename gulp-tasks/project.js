@@ -165,6 +165,12 @@ function writeUnbundledServiceWorker() {
   });
 }
 
+function copyunbundledNodeModules() {
+  const bundleType = global.config.build.bundleType;
+  const nodeModulesPath = '/node_modules/**/*.*';
+  return gulp.src(nodeModulesPath, {base: '.'}).pipe(gulp.dest(unbundledPath));
+}
+
 function copyReusableComponents()
 {
     var elements = gulp.src(global.config.elementsSourcePath, {base: '.'}).pipe(gulp.dest('bower_components/'));
@@ -183,5 +189,6 @@ module.exports = {
   devPath: devPath,
   bundledPath: bundledPath,
   unbundledPath: unbundledPath,
-  splitChangedSource: splitChangedSource
+  splitChangedSource: splitChangedSource,
+  copyunbundledNodeModules: copyunbundledNodeModules
 };
