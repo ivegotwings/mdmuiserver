@@ -9,10 +9,10 @@ var jsonGraph = require('falcor-json-graph'),
 var arrayContains = require('../Utils/array-contains');
 
 function createPath(pathSet, value, expires) {
+   
     return {
         'path': pathSet,
-        'value': value,
-        '$expires': expires !== undefined ? expires : expireTime
+        'value': value
     };
 }
 
@@ -177,6 +177,7 @@ function transformEntityToExternal(entity) {
 }
 
 function buildAttributesResponse(reqCtxGroup, reqValCtxGroup, reqAttrNames, enCtxGroup, enAttributes, basePath){
+    //console.log('reqAttrNames ', reqAttrNames);
     var response = [];
 
     if(isEmpty(reqAttrNames) || isEmpty(enAttributes)){
@@ -193,47 +194,53 @@ function buildAttributesResponse(reqCtxGroup, reqValCtxGroup, reqAttrNames, enCt
     for(let reqAttrName of reqAttrNames) {
         var attr = enAttributes[reqAttrName];
       
-        var valFound = false;
+        var valOrGroupFound = false;
         if (attr !== undefined) {
             var valCtxSpecifiedValues = [];
-
-            for (let val of attr.values) {
-                //TODO: Fill in missing source and locale values...
-                if(val.source === undefined){
-                    val.source = reqValCtxGroup.source;
-                }
-
-                if(val.locale === undefined){
-                    val.locale = reqValCtxGroup.locale;
-                }
-
-                val.source = val.source.toLowerCase();
-                val.locale = val.locale.toLowerCase();
-
-                if (val.source === reqValCtxGroup.source && val.locale === reqValCtxGroup.locale) {
-
-                    //TODO: Temporarily  we need to take only LAST value of the same source + locale as timeslice is not yet implemented in RDP>>>
-                    var valIndexToReplace = valCtxSpecifiedValues.findIndex(findValue, val); 
-                    
-                    if(valIndexToReplace > -1) {
-                        valCtxSpecifiedValues[valIndexToReplace] = val;
-                    }
-                    else {
-                        valCtxSpecifiedValues.push(val);
+            
+            if(attr.values) {
+                for (let val of attr.values) {
+                    //TODO: Fill in missing source and locale values...
+                    if(val.source === undefined){
+                        val.source = reqValCtxGroup.source;
                     }
 
-                    valFound = true;
+                    if(val.locale === undefined){
+                        val.locale = reqValCtxGroup.locale;
+                    }
+
+                    val.source = val.source.toLowerCase();
+                    val.locale = val.locale.toLowerCase();
+
+                    if (val.source === reqValCtxGroup.source && val.locale === reqValCtxGroup.locale) {
+
+                        //TODO: Temporarily  we need to take only LAST value of the same source + locale as timeslice is not yet implemented in RDP>>>
+                        var valIndexToReplace = valCtxSpecifiedValues.findIndex(findValue, val); 
+                        
+                        if(valIndexToReplace > -1) {
+                            valCtxSpecifiedValues[valIndexToReplace] = val;
+                        }
+                        else {
+                            valCtxSpecifiedValues.push(val);
+                        }
+
+                        valOrGroupFound = true;
+                    }
+                }
+
+                if (valCtxSpecifiedValues.length > 0) {
+                    response.push(mergeAndCreatePath(basePath, [reqAttrName, "values"], $atom(valCtxSpecifiedValues)));
                 }
             }
-
-            if (valCtxSpecifiedValues.length > 0) {
-                response.push(mergeAndCreatePath(basePath, [reqAttrName, "values"], $atom(valCtxSpecifiedValues)));
+            else if(attr.groups) {
+                 response.push(mergeAndCreatePath(basePath, [reqAttrName, "groups"], $atom(attr.groups)));
+                 valOrGroupFound = true;
             }
         } else {
-            valFound = false;
+            valOrGroupFound = false;
         }
 
-        if (!valFound) {
+        if (!valOrGroupFound) {
             var val = {
                 source: reqValCtxGroup.source,
                 locale: reqValCtxGroup.locale,
@@ -243,7 +250,7 @@ function buildAttributesResponse(reqCtxGroup, reqValCtxGroup, reqAttrNames, enCt
             response.push(mergeAndCreatePath(basePath, [reqAttrName, "values"], $atom([val])));
         }
     }
-
+    //console.log('attr response: ', JSON.stringify(response));
     return response;
 }
 
@@ -254,7 +261,10 @@ function findValue(element, index, array) {
 function buildEntityFieldsResponse(entity, entityFields, pathRootKey) {
     var response = [];
 
+    //console.log('buildEntityFieldsResponse ', entityFields);
+
     entityFields.forEach(function (entityField) {
+        //console.log('entityFields.forEach ', entityField);
         if (entityField == "id") {
             var entityFieldValue = entity[entityField] !== undefined ? entity[entityField] : {};
             response.push(createPath([pathRootKey, entity.id, entityField], entityFieldValue));
@@ -283,10 +293,10 @@ function buildEntityAttributesResponse(entity, request, pathRootKey) {
                 enCtxInfo.ctxGroup = reqCtxGroup; //TODO: For now, save call is not sending ctxGroup object so has beed assign with request object's ctxGroup..
             }
 
-            if (enCtxInfo.ctxGroup.list === reqCtxGroup.list && enCtxInfo.ctxGroup.classification === reqCtxGroup.classification) {
+            if (enCtxInfo.ctxGroup.list === reqCtxGroup.list && compareClassification(enCtxInfo.ctxGroup.classification, reqCtxGroup.classification)) {
                 
                 for(let reqValCtxGroup of reqValCtx){
-                    var contextKey = "".concat(enCtxInfo.ctxGroup.list, '#@#', enCtxInfo.ctxGroup.classification, '#@#', reqValCtxGroup.source, '#@#', reqValCtxGroup.locale);
+                    var contextKey = createContextKey(enCtxInfo.ctxGroup, reqValCtxGroup);
                     var ctxBasePath = [pathRootKey, entity.id, 'data', 'ctxInfo', contextKey, 'attributes'];
                     var attrs = enCtxInfo.attributes;
                     
@@ -346,13 +356,13 @@ function buildEntityRelationshipsResponse(entity, request, pathRootKey, caller) 
                 enCtxInfo.ctxGroup = reqCtxGroup; //TODO: For now, save call is not sending ctxGroup object so has beed assign with request object's ctxGroup..
             }
 
-            if (enCtxInfo.ctxGroup.list === reqCtxGroup.list && enCtxInfo.ctxGroup.classification === reqCtxGroup.classification) {
+            if (enCtxInfo.ctxGroup.list === reqCtxGroup.list && compareClassification(enCtxInfo.ctxGroup.classification, reqCtxGroup.classification)) {
                 if(isEmpty(enCtxInfo.relationships)){
                     continue;
                 }
 
                 for(let reqValCtxGroup of reqValCtx){
-                    var contextKey = "".concat(enCtxInfo.ctxGroup.list, '#@#', enCtxInfo.ctxGroup.classification, '#@#', reqValCtxGroup.source, '#@#', reqValCtxGroup.locale);
+                    var contextKey = createContextKey(enCtxInfo.ctxGroup, reqValCtxGroup);
                     var ctxBasePath = [pathRootKey, entity.id, 'data', 'ctxInfo', contextKey, 'relationships'];
                     var relTypes = [];
 
@@ -408,6 +418,27 @@ function buildEntityRelationshipsResponse(entity, request, pathRootKey, caller) 
 
     //console.log('rels response', JSON.stringify(response));
     return response;
+}
+
+function createContextKey(entityContext, valueContext) {
+    var classification = entityContext.classification ? entityContext.classification : '';
+    var contextKey = "".concat(entityContext.list, '#@#', classification, '#@#', valueContext.source, '#@#', valueContext.locale);
+    return contextKey;
+}
+
+function compareClassification(c1, c2) {
+    //console.log('c1: ', c1, 'c2: ', c2);
+
+    if(!c1) {
+        c1 = '';
+    }
+    if(!c2) {
+        c2 = '';
+    }
+    if(c1 == c2) {
+        return true;
+    }
+    return false;
 }
 
 function createRelUniqueId(rel) {
