@@ -274,9 +274,9 @@ gulp.task('app-nocompile', function (cb) {
   //console.log(appPath, runOffline);
 
   if(appPath === "build/bundled") {
-    appPath = 'build/bundled/app.js';
+    appPath = 'build/bundled/ui-platform/app.js';
   } else if(appPath === "build/unbundled") {
-    appPath = 'build/unbundled/app.js';
+    appPath = 'build/unbundled/ui-platform/app.js';
   }
 
   return nodemon({
