@@ -7,9 +7,14 @@ var jsonGraph = require('falcor-json-graph'),
     expireTime = -60 * 60 * 1000; // 60 mins
 
 var arrayContains = require('../Utils/array-contains');
+var isObject = require('../Utils/isObject');
 
-function createPath(pathSet, value, expires) {
-   
+function createPath(pathSet, value, expires) {    
+    if(isObject(value)) {
+        value.$timestamp = (Date.now() / 1000 | 0);
+        value.$expires = expires !== undefined ? expires : expireTime;
+    }
+    
     return {
         'path': pathSet,
         'value': value
@@ -260,15 +265,10 @@ function findValue(element, index, array) {
 
 function buildEntityFieldsResponse(entity, entityFields, pathRootKey) {
     var response = [];
-
     //console.log('buildEntityFieldsResponse ', entityFields);
 
     entityFields.forEach(function (entityField) {
-        //console.log('entityFields.forEach ', entityField);
-        if (entityField == "id") {
-            var entityFieldValue = entity[entityField] !== undefined ? entity[entityField] : {};
-            response.push(createPath([pathRootKey, entity.id, entityField], entityFieldValue));
-        } else if (entityField !== "data") {
+        if (entityField !== "data") {
             var entityFieldValue = entity[entityField] !== undefined ? entity[entityField] : {};
             response.push(createPath([pathRootKey, entity.id, entityField], $atom(entityFieldValue)));
         }
@@ -407,7 +407,7 @@ function buildEntityRelationshipsResponse(entity, request, pathRootKey, caller) 
                             }
 
                             if(caller === "getRelIdOnly") {
-                                response.push(mergeAndCreatePath(relBasePath, ["relIds"], $atom(relIds), 0));
+                                response.push(mergeAndCreatePath(relBasePath, ["relIds"], $atom(relIds)));
                             }
                         }
                     }
