@@ -7,9 +7,14 @@ var jsonGraph = require('falcor-json-graph'),
     expireTime = -60 * 60 * 1000; // 60 mins
 
 var arrayContains = require('../Utils/array-contains');
+var isObject = require('../Utils/isObject');
 
-function createPath(pathSet, value, expires) {
-   
+function createPath(pathSet, value, expires) {    
+    if(isObject(value)) {
+        value.$timestamp = (Date.now() / 1000 | 0);
+        value.$expires = expires !== undefined ? expires : expireTime;
+    }
+    
     return {
         'path': pathSet,
         'value': value
@@ -260,15 +265,10 @@ function findValue(element, index, array) {
 
 function buildEntityFieldsResponse(entity, entityFields, pathRootKey) {
     var response = [];
-
     //console.log('buildEntityFieldsResponse ', entityFields);
 
     entityFields.forEach(function (entityField) {
-        //console.log('entityFields.forEach ', entityField);
-        if (entityField == "id") {
-            var entityFieldValue = entity[entityField] !== undefined ? entity[entityField] : {};
-            response.push(createPath([pathRootKey, entity.id, entityField], entityFieldValue));
-        } else if (entityField !== "data") {
+        if (entityField !== "data") {
             var entityFieldValue = entity[entityField] !== undefined ? entity[entityField] : {};
             response.push(createPath([pathRootKey, entity.id, entityField], $atom(entityFieldValue)));
         }
@@ -407,7 +407,7 @@ function buildEntityRelationshipsResponse(entity, request, pathRootKey, caller) 
                             }
 
                             if(caller === "getRelIdOnly") {
-                                response.push(mergeAndCreatePath(relBasePath, ["relIds"], $atom(relIds), 0));
+                                response.push(mergeAndCreatePath(relBasePath, ["relIds"], $atom(relIds)));
                             }
                         }
                     }
@@ -451,11 +451,41 @@ function createRelUniqueId(rel) {
     return "";
 }
 
+function getDomainByRequest(request) {
+    //TODO: Fix this logic
+    if (request && request.params && request.params.query && request.params.query.id) {
+        if (request.params.query.id.toLowerCase().indexOf('workflow_runtime') > -1 ) {
+            return 'workflow_runtime';
+        }
+        else if (request.params.query.id.toLowerCase().indexOf('workflow') > -1 ) {
+            return 'workflow';
+        }
+    }
+    
+    return 'entity';
+}
+
+function getDomainByPathset(pathSet) {
+    //TODO: Fix this logic
+    if (pathSet && pathSet.length > 1 && pathSet[1].length > 0 && pathSet[1][0]) {
+        if (pathSet[1][0].toLowerCase().indexOf('workflow_runtime') > -1 ) {
+            return 'workflow_runtime';
+        }
+        else if (pathSet[1][0].toLowerCase().indexOf('workflow') > -1 ) {
+            return 'workflow';
+        }
+    }
+    
+    return 'entity';
+}
+
 module.exports = {
     createPath: createPath,
     createRequestJson: createRequestJson,
     transformEntityToExternal: transformEntityToExternal,
     buildEntityFieldsResponse: buildEntityFieldsResponse,
     buildEntityAttributesResponse: buildEntityAttributesResponse,
-    buildEntityRelationshipsResponse : buildEntityRelationshipsResponse
+    buildEntityRelationshipsResponse : buildEntityRelationshipsResponse,
+    getDomainByRequest: getDomainByRequest,
+    getDomainByPathset: getDomainByPathset
 };
