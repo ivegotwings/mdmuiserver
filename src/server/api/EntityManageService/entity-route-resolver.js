@@ -102,7 +102,7 @@ async function initiateSearchRequest(callPath, args) {
                 }
             }
         }
-    } 
+    }
     else {
         //response.push(createPath(['searchResults', requestId], $error('data not found in system'), 0));
     }
