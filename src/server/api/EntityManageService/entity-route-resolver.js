@@ -66,7 +66,7 @@ async function getSingleEntity(request, entityId, entityFields, caller) {
     }
 
     if (entity === undefined) {
-        response.push(createPath([pathRootKey, entityId], $error(entityId + ' is not found in system for the requested context'), 0));
+        //response.push(createPath([pathRootKey, entityId], $error(entityId + ' is not found in system for the requested context'), 0));
     }
 
     //console.log('res', JSON.stringify(response, null, 4));
@@ -103,7 +103,7 @@ async function initiateSearchRequest(callPath, args) {
             }
         }
     } else {
-        response.push(createPath(['searchResults', requestId], $error('data not found in system'), 0));
+        //response.push(createPath(['searchResults', requestId], $error('data not found in system'), 0));
     }
 
     response.push(createPath(['searchResults', requestId, "totalRecords"], $atom(totalRecords)));

@@ -1,6 +1,7 @@
 'use strict';
 
 var OfflineServiceBase = require('../OfflineServiceBase');
+var Util = require('./entity-falcor-util');
 
 var OfflineEntityManageService = function (options) {
     OfflineServiceBase.call(this, options);
@@ -8,7 +9,21 @@ var OfflineEntityManageService = function (options) {
 
 OfflineEntityManageService.prototype = {
     getEntities: function (request) {
-        var offlineEntityData = require("./offline-data/entityJson_EXTERNAL.json");
+        var offlineEntityData;
+        //console.log('request: ', JSON.stringify(request));
+        var domain = Util.getDomainByRequest(request);
+        //console.log('domain in OfflineEntityManageService.getEntities: '+ domain);
+        if (domain == 'workflow_runtime') {
+            offlineEntityData = require("./offline-data/workflow_runtime_instance_external.json");
+        }
+        else if (domain == 'workflow') {
+            offlineEntityData = require("./offline-data/workflow_definition_external.json");
+        }
+        else {
+            offlineEntityData = require("./offline-data/entityJson_EXTERNAL.json");
+        }
+
+        //console.log('offlineEntityData file: ', offlineEntityData);
 
         var entities = [];
 
@@ -33,7 +48,7 @@ OfflineEntityManageService.prototype = {
                 entities: entities
             }
         };
-        
+        //console.log('offline response ', JSON.stringify(response));
         return response;
     },
     createEntities: async function (request) {
