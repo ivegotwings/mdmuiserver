@@ -1,10 +1,12 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="../pebble-stepper/pebble-stepper.html">
 <link rel="import" href="../pebble-stepper/pebble-step.html">
-<link rel="import" href="../liquid-entity-getdata/liquid-entity-getdata.html">
+<link rel="import" href="../liquid-governance-workflow-definition-get/liquid-governance-workflow-definition-get.html">
+<link rel="import" href="../liquid-governance-workflow-runtimeinstance-get/liquid-governance-workflow-runtimeinstance-get.html">
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
 
 <dom-module id="rock-workflow-panel">
     <template>
@@ -32,22 +34,22 @@
                 --pebble-connected-badge-fontSize: 16px;
             }
         </style>
-        <liquid-entity-getdata id="entityGetWorkflowDefinition" auto verbose operation="getentities" request-id="req1" request-data={{workflowDefinitionRequest}} 
-                last-response={{entities}} on-response="_onDefinitionReceived" on-error="_onDefinitionGetFailed"></liquid-entity-getdata>
-        <liquid-entity-getdata id="entityGetRunningInstance" verbose operation="getentities" request-id="req2" request-data={{runningInstanceRequest}} 
-                last-response={{entities}} on-response="_onRunningInstanceReceived" on-error="_onRunningInstanceGetFailed"></liquid-entity-getdata>
+        <liquid-governance-workflow-definition-get id="entityGetWorkflowDefinition" auto verbose operation="getbyids" request-id="req1" request-data={{workflowDefinitionRequest}} 
+                last-response={{workflowDefinitions}} on-response="_onDefinitionReceived" on-error="_onDefinitionGetFailed"></liquid-governance-workflow-definition-get>
+        <liquid-governance-workflow-runtimeinstance-get id="entityGetRunningInstance" verbose operation="getbyids" request-id="req2" request-data={{runningInstanceRequest}} 
+                last-response={{workflowRuntimeInstances}} on-response="_onRunningInstanceReceived" on-error="_onRunningInstanceGetFailed"></liquid-governance-workflow-runtimeinstance-get>
         <pebble-button id="workflowButton" raised class="workflowButton" icon="chevron-right" 
-            button-text="[[_workflowConfig.workflowName]]" on-tap="_onWorkFlowTap"></pebble-button>
+            button-text="[[_workflowstepperData.workflowName]]" on-tap="_onWorkFlowTap"></pebble-button>
         <iron-collapse id="collapse">
             <div id="workflow-description">
                 <!-- work flow description here-->
-                <span>[[_getWorkFlowDescription(_workflowConfig)]]</span>
+                <span>[[_getWorkFlowDescription(_workflowstepperData)]]</span>
             </div>
             <div id="workflow-stepper">
                 <!-- place stepper here-->
                 <bedrock-pubsub event-name="pebble-step-action-click" handler="_onStepActionTap" target-id=""></bedrock-pubsub>
-                <pebble-stepper id="workflowStepper" selected = "{{_getSelectedStep(_workflowConfig)}}">
-                    <template is="dom-repeat" items="{{_workflowConfig.items}}" as="item">
+                <pebble-stepper id="workflowStepper" stepper-config="[[_workflowstepperData]]">
+                    <template is="dom-repeat" items="[[_workflowstepperData.items]]" as="item">
                         <pebble-step class="workflow-stepper" data="{{item}}"></pebble-step>
                     </template>
                 </pebble-stepper>
@@ -61,14 +63,23 @@
             Polymer({
                 is: "rock-workflow-panel",
                 properties: {
+                    /**
+                     * Indicates the context parameters for which the workflow has to be loaded.
+                     * JSON sample to be added here.
+                     */
+                    context: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
                     /*
                     * Indicates the Id of the workflow.
                     */
-                    workflowId: {
-                        type: String,
-                        notify: true
+                    _workflowId: {
+                        type: String
                     },
-                    _workflowConfig: {
+                    _workflowstepperData: {
                         type: Object,
                         value: function() { return {}; }
                     },
@@ -92,7 +103,7 @@
                                                 "locale": "en-US"
                                             }
                                         ],
-                                        "id": "",
+                                        "id": "productCreationWorkflow_id",
                                         "filters": {
                                             "attributesCriterion": [],
                                             "typesCriterion": [
@@ -116,8 +127,7 @@
                                     }
                                 }
                             };
-                        },
-                        notify: true
+                        }
                     },
                     /*
                     * Indicates the request object to fetch current running workflow instances information.
@@ -164,8 +174,7 @@
                                     }
                                 }
                             };
-                        },
-                        notify: true
+                        }
                     },
                     _workflowDefinitionRespose: {
                         type: Object,
@@ -180,11 +189,13 @@
                     RUFBehaviors.UIBehavior
                 ],
                 observers: [
-                    '_workflowIdChanged(workflowId)'
+                    '_contextChanged(context)'
                 ],
-                _workflowIdChanged: function(workflowId) {
-                    if(workflowId) {
-                        this.workflowDefinitionRequest.params.query.id = workflowId;
+                _contextChanged: function(context) {
+                    if(context) {
+                        // context object will have entityid. Need to get workflow the given entity is part of
+                        // and give it here. Will be replaced once logic in place.
+                        this._workflowId = "productCreationWorkflow_id";
                     }
                 },
                 _generateRequest: function() {
@@ -202,21 +213,20 @@
                 _onRunningInstanceReceived: function(e) {
                     var runningInstanceResponse = e.detail.response;
                     this.set("_runningInstanceResponse", runningInstanceResponse);
-                    var entityWorkflowData = this._formEntityWorkflowData(this._workflowDefinitionRespose, this._runningInstanceResponse);
-                    var workflowConfig = this._transformEntityResponseToStepperJson(entityWorkflowData);
-                    console.log('workflowConfig', workflowConfig);
-                    this.set("_workflowConfig", workflowConfig);
+                    var workflowstepperData = this._transformEntityResponseToStepperJson(this._workflowDefinitionRespose, this._runningInstanceResponse);
+                    this.set("_workflowstepperData", workflowstepperData);
                 },
                 _onRunningInstanceGetFailed: function(e) {
                     Polymer.Base._error('running instance get failed with error ', e.detail);
                 },
-                _formEntityWorkflowData: function(workflowDefinition, runningInstance) {
-                    if(workflowDefinition && workflowDefinition.content && workflowDefinition.content.entities
-                        && runningInstance && runningInstance.content && runningInstance.content.entities) {
-                            var riContextKey = Object.keys(runningInstance.content.entities["e1_workflow_runtimeinstance"].data.ctxInfo)[0];
-                            var riAttributes = runningInstance.content.entities["e1_workflow_runtimeinstance"].data.ctxInfo[riContextKey].attributes;
-                            var wfContextKey = Object.keys(workflowDefinition.content.entities[this.workflowId].data.ctxInfo)[0];
-                            var wfattributes = workflowDefinition.content.entities[this.workflowId].
+                _transformEntityResponseToStepperJson: function(workflowDefinition, runningInstance) {
+                    var runtimeInstanceId = "e1_workflow_runtimeinstance";
+                    if(workflowDefinition && workflowDefinition.content && workflowDefinition.content.entities && this._workflowId in workflowDefinition.content.entities
+                        && runningInstance && runningInstance.content && runningInstance.content.entities && runtimeInstanceId in runningInstance.content.entities) {
+                            var riContextKey = Object.keys(runningInstance.content.entities[runtimeInstanceId].data.ctxInfo)[0];
+                            var riAttributes = runningInstance.content.entities[runtimeInstanceId].data.ctxInfo[riContextKey].attributes;
+                            var wfContextKey = Object.keys(workflowDefinition.content.entities[this._workflowId].data.ctxInfo)[0];
+                            var wfattributes = workflowDefinition.content.entities[this._workflowId].
                             data.ctxInfo[wfContextKey].attributes;
                             var riActivities = riAttributes.activities;
                             var wfActivities = wfattributes.activities;
@@ -231,11 +241,11 @@
                             var activitiesJson = wfActivities;
                             for(var i=0; i<activitiesJson.groups.length; i++) {
                                 var wfActivity = activitiesJson.groups[i];
-                                var wfActivityGuid = this._getAttributeValue(wfActivity.activityGuid);
+                                var wfActivityGuid = DataHelper.getFirstAttributeValue(wfActivity.activityGuid);
                                 for(var j=0; j<riActivities.groups.length; j++) {
                                     var riActivity = riActivities.groups[j];
-                                    var riActivityGuid = this._getAttributeValue(riActivity.activityGuid);
-                                    var riActivityStatus = this._getAttributeValue(riActivity.status);
+                                    var riActivityGuid = DataHelper.getFirstAttributeValue(riActivity.activityGuid);
+                                    var riActivityStatus = DataHelper.getFirstAttributeValue(riActivity.status);
                                     if(riActivityGuid == wfActivityGuid) {
                                         riActivity["sequence"] = wfActivity["sequence"];
                                         riActivity["activityName"] = wfActivity["activityName"];
@@ -248,60 +258,45 @@
                                 }
                             }
                             attributes["activities"] = activitiesJson;
-                            
-                            return attributes;
-                        }
-                },
-                _transformEntityResponseToStepperJson: function(attributes) {
-                    if(attributes) {
-                        console.log("attributes", attributes);
-                        var config = {
-                            "workflowName": this._getAttributeValue(attributes.workflowName),
-                            "startDateTime": this._getAttributeValue(attributes.startDateTime),
-                            "endDateTime": this._getAttributeValue(attributes.endDateTime),
-                            "status": this._getAttributeValue(attributes.status),
-                            "items": []
-                        };
-                        var activities = attributes.activities;
-                        var items = [];
-                        for(var i=0; i<activities.groups.length; i++) {
-                            var group = activities.groups[i];
-                            var actions = [];
-                            if(group && group.actions && group.actions.groups && group.actions.groups.length) {
-                                for(var j=0; j<group.actions.groups.length; j++) {
-                                    var actionsGroup = group.actions.groups[j];
-                                    var action = {
-                                        "action": this._getAttributeValue(actionsGroup.actionText),
-                                        "event": this._getAttributeValue(actionsGroup.actionName)
+                            if(attributes) {
+                                var config = {
+                                    "workflowName": DataHelper.getFirstAttributeValue(attributes.workflowName),
+                                    "startDateTime": DataHelper.getFirstAttributeValue(attributes.startDateTime),
+                                    "endDateTime": DataHelper.getFirstAttributeValue(attributes.endDateTime),
+                                    "status": DataHelper.getFirstAttributeValue(attributes.status),
+                                    "items": []
+                                };
+                                var activities = attributes.activities;
+                                var items = [];
+                                for(var i=0; i<activities.groups.length; i++) {
+                                    var group = activities.groups[i];
+                                    var actions = [];
+                                    if(group && group.actions && group.actions.groups && group.actions.groups.length) {
+                                        for(var j=0; j<group.actions.groups.length; j++) {
+                                            var actionsGroup = group.actions.groups[j];
+                                            var action = {
+                                                "action": DataHelper.getFirstAttributeValue(actionsGroup.actionText),
+                                                "event": DataHelper.getFirstAttributeValue(actionsGroup.actionName)
+                                            };
+                                            actions.push(action);
+                                        }
+                                    }
+                                    var item = {
+                                        "index": DataHelper.getFirstAttributeValue(group.sequence),
+                                        "title": DataHelper.getFirstAttributeValue(group.activityName),
+                                        "subtitle": this._getItemSubtitle(group.action, group.endDateTime),
+                                        "description": DataHelper.getFirstAttributeValue(group.activityDescription),
+                                        "itemDetail": this._getItemDetail(group),
+                                        "status": this._getItemStatus(group.status),
+                                        "selected": this._getSelected(group.status),
+                                        "actions": actions
                                     };
-                                    actions.push(action);
+                                    items.push(item);
                                 }
+                                config.items = items;
+                                return config;
                             }
-                            var item = {
-                                "index": this._getAttributeValue(group.sequence),
-                                "label": this._getAttributeValue(group.activityName),
-                                "subtitle": this._getItemSubtitle(group.action, group.endDateTime),
-                                "description": this._getAttributeValue(group.activityDescription),
-                                "itemDetail": this._getItemDetail(group),
-                                "assignedUser": this._getAttributeValue(group.assignedUser),
-                                "startDateTime": this._getAttributeValue(group.startDateTime),
-                                "endDateTime": this._getAttributeValue(group.endDateTime),
-                                "status": this._getAttributeValue(group.status),
-                                "lastAction": this._getAttributeValue(group.action),
-                                "comments": this._getAttributeValue(group.comments),
-                                "actions": actions
-                            };
-                            items.push(item);
                         }
-                        config.items = items;
-                        return config;
-                    }
-                },
-                _getAttributeValue: function(attribute) {
-                    if(attribute && attribute.values && attribute.values.length > 0) {
-                        return attribute.values[0].value;
-                    }
-                    return null;
                 },
                  _onWorkFlowTap: function(e) {
                     var collapse = this.$$('#collapse');
@@ -319,11 +314,13 @@
                 },
                 _getWorkFlowDescription: function(config) {
                     var description = "";
-                    if(config.endDateTime) {
-                        description = "The workflow started on " + config.startDateTime + " and completed by " + config.endDateTime; 
-                    }
-                    else {
-                        description = "The workflow started on " + config.startDateTime + " and should complete by " + this._getSLADate(config.startDateTime, 21) + " to complete SLA of 21 days."; 
+                    if(config) {
+                        if(config.startDateTime && config.endDateTime) {
+                            description = "The workflow started on " + config.startDateTime + " and completed by " + config.endDateTime; 
+                        }
+                        else if(config.startDateTime) {
+                            description = "The workflow started on " + config.startDateTime + " and should complete by " + this._getSLADate(config.startDateTime, 21) + " to complete SLA of 21 days."; 
+                        }
                     }
                     return description;
                 },
@@ -333,44 +330,55 @@
                     return result;
                 },
                 _getItemSubtitle: function(action, endDateTime) {
-                    var lastAction = this._getAttributeValue(action);
-                    var endDate = this._getAttributeValue(endDateTime);
+                    var lastAction = DataHelper.getFirstAttributeValue(action);
+                    var endDate = DataHelper.getFirstAttributeValue(endDateTime);
                     if(lastAction && endDate) {
                         return '"' + lastAction + '"' + " on " + endDate;
                     }
                     return null;
                 },
                 _getItemDetail: function(group) {
-                    var status = this._getAttributeValue(group.status);
-                    var user = this._getAttributeValue(group.assignedUser);
-                    var startDate = this._getAttributeValue(group.startDateTime);
-                    var endDate = this._getAttributeValue(group.endDateTime);
-                    var lastAction = this._getAttributeValue(group.action);
-                    var comments = this._getAttributeValue(group.comments);
+                    var status = DataHelper.getFirstAttributeValue(group.status);
+                    var user = DataHelper.getFirstAttributeValue(group.assignedUser);
+                    var startDate = DataHelper.getFirstAttributeValue(group.startDateTime);
+                    var endDate = DataHelper.getFirstAttributeValue(group.endDateTime);
+                    var lastAction = DataHelper.getFirstAttributeValue(group.action);
+                    var comments = DataHelper.getFirstAttributeValue(group.comments);
                     var itemDetail = "";
                     if(status == "Executing") {
-                        itemDetail = "  was assigned task on " + startDate + " and should complete by " + this._getSLADate(startDate,21) + "to follow SLA of 21 Days.";
+                        itemDetail = user + "  was assigned task on " + startDate + " and should complete by " + this._getSLADate(startDate,21) + "to follow SLA of 21 Days.";
                     }
                     if(status == "Completed") {
-                        itemDetail = "  " + '"' + lastAction + '"' + " on " + endDate + " met SLA of 3 days with comment. " + comments;
+                        itemDetail = user + "  " + '"' + lastAction + '"' + " on " + endDate + " met SLA of 3 days with comment. " + comments;
                     }
                     return itemDetail;
-                },
-                _getSelectedStep: function(config) {
-                    if(config && config.items && config.items.length>0) {
-                        for(var i=0; i<config.items.length; i++) {
-                            var item = config.items[i];
-                            if(item.status == "Executing") {
-                                return config.items.indexOf(item);
-                            }
-                        }
-                    }
                 },
                 _onStepActionTap: function(e, detail, sender) {
                     if(detail && detail.data) {
                         alert("clicked on: " + detail.data);
                     }
-                }
+                },
+                _getItemStatus: function(stepStatus) {
+                    var status = DataHelper.getFirstAttributeValue(stepStatus);
+                    if(status) {
+                        if(status == "Completed") {
+                            return "completed";
+                        }
+                        else if(status == "Executing") {
+                            return "inprogress";
+                        }
+                    }
+                    else {
+                        return "pending";
+                    }
+                },
+                _getSelected: function(stepStatus) {
+                    var status = DataHelper.getFirstAttributeValue(stepStatus);
+                    if(status && status == "Executing") {
+                        return true;
+                    }
+                    return false;
+                }                
             });
         })();
     </script>
