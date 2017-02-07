@@ -37,9 +37,9 @@ global.config = {
   polymerJsonPath: path.join(process.cwd(), 'polymer.json'),
   build: {
     rootDirectory: 'build',
-    bundledDirectory: 'bundled',
-    unbundledDirectory: 'unbundled',
-    devDirectory: 'dev',
+    bundledDirectory: 'bundled/ui-platform',
+    unbundledDirectory: 'unbundled/ui-platform',
+    devDirectory: 'dev/ui-platform',
     // Accepts either 'bundled', 'unbundled', or 'both'
     // A bundled version will be vulcanized and sharded. An unbundled version
     // will not have its files combined (this is for projects using HTTP/2
@@ -148,6 +148,7 @@ gulp.task('default', gulp.series([
   clean.build,
   project.merge(source, dependencies),
   project.serviceWorker,
+  project.copyunbundledNodeModules
 ]));
 
 // Clean the dev build directory, split all source and dependency files into streams
@@ -257,6 +258,7 @@ gulp.task('watch-element-changes', function () {
   });
 });
 
+gulp.task('nodemodules', project.copyunbundledNodeModules);
 gulp.task('app', gulp.series(['dev',gulp.parallel(['app-nodemon', 'watch-element-changes'])]));
 gulp.task('app-monitor', gulp.series([gulp.parallel(['app-nodemon', 'watch-element-changes'])]));
 gulp.task('app-prod', gulp.series(['app-nodemon']));
@@ -272,9 +274,9 @@ gulp.task('app-nocompile', function (cb) {
   //console.log(appPath, runOffline);
 
   if(appPath === "build/bundled") {
-    appPath = 'build/bundled/app.js';
+    appPath = 'build/bundled/ui-platform/app.js';
   } else if(appPath === "build/unbundled") {
-    appPath = 'build/unbundled/app.js';
+    appPath = 'build/unbundled/ui-platform/app.js';
   }
 
   return nodemon({
