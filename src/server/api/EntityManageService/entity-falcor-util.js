@@ -7,12 +7,17 @@ var jsonGraph = require('falcor-json-graph'),
     expireTime = -60 * 60 * 1000; // 60 mins
 
 var arrayContains = require('../Utils/array-contains');
+var isObject = require('../Utils/isObject');
 
-function createPath(pathSet, value, expires) {
+function createPath(pathSet, value, expires) {    
+    if(isObject(value)) {
+        value.$timestamp = (Date.now() / 1000 | 0);
+        value.$expires = expires !== undefined ? expires : expireTime;
+    }
+    
     return {
         'path': pathSet,
-        'value': value,
-        '$expires': expires !== undefined ? expires : expireTime
+        'value': value
     };
 }
 
@@ -177,6 +182,7 @@ function transformEntityToExternal(entity) {
 }
 
 function buildAttributesResponse(reqCtxGroup, reqValCtxGroup, reqAttrNames, enCtxGroup, enAttributes, basePath){
+    //console.log('reqAttrNames ', reqAttrNames);
     var response = [];
 
     if(isEmpty(reqAttrNames) || isEmpty(enAttributes)){
@@ -193,47 +199,53 @@ function buildAttributesResponse(reqCtxGroup, reqValCtxGroup, reqAttrNames, enCt
     for(let reqAttrName of reqAttrNames) {
         var attr = enAttributes[reqAttrName];
       
-        var valFound = false;
+        var valOrGroupFound = false;
         if (attr !== undefined) {
             var valCtxSpecifiedValues = [];
-
-            for (let val of attr.values) {
-                //TODO: Fill in missing source and locale values...
-                if(val.source === undefined){
-                    val.source = reqValCtxGroup.source;
-                }
-
-                if(val.locale === undefined){
-                    val.locale = reqValCtxGroup.locale;
-                }
-
-                val.source = val.source.toLowerCase();
-                val.locale = val.locale.toLowerCase();
-
-                if (val.source === reqValCtxGroup.source && val.locale === reqValCtxGroup.locale) {
-
-                    //TODO: Temporarily  we need to take only LAST value of the same source + locale as timeslice is not yet implemented in RDP>>>
-                    var valIndexToReplace = valCtxSpecifiedValues.findIndex(findValue, val); 
-                    
-                    if(valIndexToReplace > -1) {
-                        valCtxSpecifiedValues[valIndexToReplace] = val;
-                    }
-                    else {
-                        valCtxSpecifiedValues.push(val);
+            
+            if(attr.values) {
+                for (let val of attr.values) {
+                    //TODO: Fill in missing source and locale values...
+                    if(val.source === undefined){
+                        val.source = reqValCtxGroup.source;
                     }
 
-                    valFound = true;
+                    if(val.locale === undefined){
+                        val.locale = reqValCtxGroup.locale;
+                    }
+
+                    val.source = val.source.toLowerCase();
+                    val.locale = val.locale.toLowerCase();
+
+                    if (val.source === reqValCtxGroup.source && val.locale === reqValCtxGroup.locale) {
+
+                        //TODO: Temporarily  we need to take only LAST value of the same source + locale as timeslice is not yet implemented in RDP>>>
+                        var valIndexToReplace = valCtxSpecifiedValues.findIndex(findValue, val); 
+                        
+                        if(valIndexToReplace > -1) {
+                            valCtxSpecifiedValues[valIndexToReplace] = val;
+                        }
+                        else {
+                            valCtxSpecifiedValues.push(val);
+                        }
+
+                        valOrGroupFound = true;
+                    }
+                }
+
+                if (valCtxSpecifiedValues.length > 0) {
+                    response.push(mergeAndCreatePath(basePath, [reqAttrName, "values"], $atom(valCtxSpecifiedValues)));
                 }
             }
-
-            if (valCtxSpecifiedValues.length > 0) {
-                response.push(mergeAndCreatePath(basePath, [reqAttrName, "values"], $atom(valCtxSpecifiedValues)));
+            else if(attr.groups) {
+                 response.push(mergeAndCreatePath(basePath, [reqAttrName, "groups"], $atom(attr.groups)));
+                 valOrGroupFound = true;
             }
         } else {
-            valFound = false;
+            valOrGroupFound = false;
         }
 
-        if (!valFound) {
+        if (!valOrGroupFound) {
             var val = {
                 source: reqValCtxGroup.source,
                 locale: reqValCtxGroup.locale,
@@ -243,7 +255,7 @@ function buildAttributesResponse(reqCtxGroup, reqValCtxGroup, reqAttrNames, enCt
             response.push(mergeAndCreatePath(basePath, [reqAttrName, "values"], $atom([val])));
         }
     }
-
+    //console.log('attr response: ', JSON.stringify(response));
     return response;
 }
 
@@ -253,12 +265,10 @@ function findValue(element, index, array) {
 
 function buildEntityFieldsResponse(entity, entityFields, pathRootKey) {
     var response = [];
+    //console.log('buildEntityFieldsResponse ', entityFields);
 
     entityFields.forEach(function (entityField) {
-        if (entityField == "id") {
-            var entityFieldValue = entity[entityField] !== undefined ? entity[entityField] : {};
-            response.push(createPath([pathRootKey, entity.id, entityField], entityFieldValue));
-        } else if (entityField !== "data") {
+        if (entityField !== "data") {
             var entityFieldValue = entity[entityField] !== undefined ? entity[entityField] : {};
             response.push(createPath([pathRootKey, entity.id, entityField], $atom(entityFieldValue)));
         }
@@ -283,10 +293,10 @@ function buildEntityAttributesResponse(entity, request, pathRootKey) {
                 enCtxInfo.ctxGroup = reqCtxGroup; //TODO: For now, save call is not sending ctxGroup object so has beed assign with request object's ctxGroup..
             }
 
-            if (enCtxInfo.ctxGroup.list === reqCtxGroup.list && enCtxInfo.ctxGroup.classification === reqCtxGroup.classification) {
+            if (enCtxInfo.ctxGroup.list === reqCtxGroup.list && compareClassification(enCtxInfo.ctxGroup.classification, reqCtxGroup.classification)) {
                 
                 for(let reqValCtxGroup of reqValCtx){
-                    var contextKey = "".concat(enCtxInfo.ctxGroup.list, '#@#', enCtxInfo.ctxGroup.classification, '#@#', reqValCtxGroup.source, '#@#', reqValCtxGroup.locale);
+                    var contextKey = createContextKey(enCtxInfo.ctxGroup, reqValCtxGroup);
                     var ctxBasePath = [pathRootKey, entity.id, 'data', 'ctxInfo', contextKey, 'attributes'];
                     var attrs = enCtxInfo.attributes;
                     
@@ -346,13 +356,13 @@ function buildEntityRelationshipsResponse(entity, request, pathRootKey, caller) 
                 enCtxInfo.ctxGroup = reqCtxGroup; //TODO: For now, save call is not sending ctxGroup object so has beed assign with request object's ctxGroup..
             }
 
-            if (enCtxInfo.ctxGroup.list === reqCtxGroup.list && enCtxInfo.ctxGroup.classification === reqCtxGroup.classification) {
+            if (enCtxInfo.ctxGroup.list === reqCtxGroup.list && compareClassification(enCtxInfo.ctxGroup.classification, reqCtxGroup.classification)) {
                 if(isEmpty(enCtxInfo.relationships)){
                     continue;
                 }
 
                 for(let reqValCtxGroup of reqValCtx){
-                    var contextKey = "".concat(enCtxInfo.ctxGroup.list, '#@#', enCtxInfo.ctxGroup.classification, '#@#', reqValCtxGroup.source, '#@#', reqValCtxGroup.locale);
+                    var contextKey = createContextKey(enCtxInfo.ctxGroup, reqValCtxGroup);
                     var ctxBasePath = [pathRootKey, entity.id, 'data', 'ctxInfo', contextKey, 'relationships'];
                     var relTypes = [];
 
@@ -397,7 +407,7 @@ function buildEntityRelationshipsResponse(entity, request, pathRootKey, caller) 
                             }
 
                             if(caller === "getRelIdOnly") {
-                                response.push(mergeAndCreatePath(relBasePath, ["relIds"], $atom(relIds), 0));
+                                response.push(mergeAndCreatePath(relBasePath, ["relIds"], $atom(relIds)));
                             }
                         }
                     }
@@ -410,6 +420,27 @@ function buildEntityRelationshipsResponse(entity, request, pathRootKey, caller) 
     return response;
 }
 
+function createContextKey(entityContext, valueContext) {
+    var classification = entityContext.classification ? entityContext.classification : '';
+    var contextKey = "".concat(entityContext.list, '#@#', classification, '#@#', valueContext.source, '#@#', valueContext.locale);
+    return contextKey;
+}
+
+function compareClassification(c1, c2) {
+    //console.log('c1: ', c1, 'c2: ', c2);
+
+    if(!c1) {
+        c1 = '';
+    }
+    if(!c2) {
+        c2 = '';
+    }
+    if(c1 == c2) {
+        return true;
+    }
+    return false;
+}
+
 function createRelUniqueId(rel) {
     if(rel) {
         var relEntityId = rel.relToObject.id !== undefined && rel.relToObject.id !== "" ? rel.relToObject.id : "-1";
@@ -420,11 +451,41 @@ function createRelUniqueId(rel) {
     return "";
 }
 
+function getDomainByRequest(request) {
+    //TODO: Fix this logic
+    if (request && request.params && request.params.query && request.params.query.id) {
+        if (request.params.query.id.toLowerCase().indexOf('workflow_runtime') > -1 ) {
+            return 'workflow_runtime';
+        }
+        else if (request.params.query.id.toLowerCase().indexOf('workflow') > -1 ) {
+            return 'workflow';
+        }
+    }
+    
+    return 'entity';
+}
+
+function getDomainByPathset(pathSet) {
+    //TODO: Fix this logic
+    if (pathSet && pathSet.length > 1 && pathSet[1].length > 0 && pathSet[1][0]) {
+        if (pathSet[1][0].toLowerCase().indexOf('workflow_runtime') > -1 ) {
+            return 'workflow_runtime';
+        }
+        else if (pathSet[1][0].toLowerCase().indexOf('workflow') > -1 ) {
+            return 'workflow';
+        }
+    }
+    
+    return 'entity';
+}
+
 module.exports = {
     createPath: createPath,
     createRequestJson: createRequestJson,
     transformEntityToExternal: transformEntityToExternal,
     buildEntityFieldsResponse: buildEntityFieldsResponse,
     buildEntityAttributesResponse: buildEntityAttributesResponse,
-    buildEntityRelationshipsResponse : buildEntityRelationshipsResponse
+    buildEntityRelationshipsResponse : buildEntityRelationshipsResponse,
+    getDomainByRequest: getDomainByRequest,
+    getDomainByPathset: getDomainByPathset
 };
