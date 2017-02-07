@@ -25,8 +25,8 @@ app.use(cors());
 app.use(express.static(buildPath, { maxAge: "1s" }));
 
 //Load falcor api routes
-var entityRoute = require('./src/server/api/EntityManageService/entity-router');
-entityRoute(app);
+var dataobjectRoute = require('./src/server/api/DataObjectRoutes/dataobject-router');
+dataobjectRoute(app);
 
 var configRoute = require('./src/server/api/ConfigService/config-router');
 configRoute(app);
