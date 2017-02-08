@@ -206,18 +206,17 @@ function createRequestJson(objType, ctxKeys, attrNames, relTypes, relAttrNames, 
         includeRequest: false
     };
 
-    //TODO:: This is hard coded as of now as for get API dataObject request json creation..
-    var filters = {
-        attributesCriterion: [],
-        relationshipsCriterion: [],
-        typesCriterion: []
-    };
+    // //TODO:: This is hard coded as of now as for get API dataObject request json creation..
+    // var filters = {
+    //     attributesCriterion: [],
+    //     relationshipsCriterion: [],
+    //     typesCriterion: []
+    // };
 
     var query = {
         ctx: ctxGroups,
         valCtx: valCtxGroups,
-        id: "",
-        filters: filters
+        id: ""
     };
 
     var params = {
