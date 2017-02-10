@@ -43,15 +43,16 @@ async function initiateSearch(callPath, args) {
         objectType = callPath[1],
         basePath = [pathKeys.root, objectType, pathKeys.searchResults, requestId];
     
-    var dataObjectsByIdPath = [pathKeys.root, objectType, pathKeys.masterListById];
-
     //console.log('request str', JSON.stringify(request, null, 4));
 
+    delete request.params.fields; // while initiating search, we dont want any of the fields to be returned..all we want is resulted ids..
+
     var res = await dataObjectManageService.get(request);
-    //console.log('response raw str', JSON.stringify(res.data, null, 4));
+    
+    //console.log('response raw str', JSON.stringify(res, null, 4));
 
     var totalRecords = 0;
-
+    var dataObjectsByIdPath = [pathKeys.root, objectType, pathKeys.masterListById];
     var objTypeInfo = pathKeys.objectTypesInfo[objectType];
     var collectionName = objTypeInfo.collectionName;
 
@@ -183,7 +184,7 @@ async function processData(objType, dataObjects, dataObjectAction, caller) {
     //console.log(dataObjectAction, caller);
 
     var objTypeInfoKey = pathKeys.objectTypesInfo[objType].typeInfo;
-    var objTypeCollectionName = pathKeys.objectTypesInfo[objType].collectionName;
+    var objTypeName = pathKeys.objectTypesInfo[objType].name;
 
     var dataObjectFields = ["id", objTypeInfoKey , "systemInfo", "properties"],
         response = [];
@@ -199,7 +200,7 @@ async function processData(objType, dataObjects, dataObjectAction, caller) {
         //console.log('dataObject data', JSON.stringify(dataObject, null, 4));
 
         var apiRequestObj = { includeRequest: false };
-        apiRequestObj[objTypeCollectionName] = [transformedDataObject];
+        apiRequestObj[objTypeName] = transformedDataObject;
 
         //console.log('api request data for process dataObjects', JSON.stringify(apiRequestObj));
 
