@@ -1,16 +1,17 @@
 'use strict';
 
-const arrayContains = require('../Utils/array-contains'),
-        isEmpty = require('../Utils/isEmpty'),
-        isObject = require('../Utils/isObject');
-    
+const arrayContains = require('../common/utils/array-contains'),
+        isEmpty = require('../common/utils/isEmpty'),
+        isObject = require('../common/utils/isObject');
+
+const pathUtils = require('./dataobject-falcor-path-utils');
+
+const sharedDataObjectFalcorUtil = require('../../../shared/dataobject-falcor-util');
+
 const jsonGraph = require('falcor-json-graph'), 
         $ref = jsonGraph.ref,
         $error = jsonGraph.error,
         $atom = jsonGraph.atom;
-
-const pathUtils = require('./dataobject-falcor-path-utils');
-var sharedDataObjectFalcorUtil = require('../../../shared/dataobject-falcor-util');
 
 const createPath = pathUtils.createPath,
         mergeAndCreatePath = pathUtils.mergeAndCreatePath,

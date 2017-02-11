@@ -5,10 +5,12 @@ const jsonGraph = require('falcor-json-graph'),
         $error = jsonGraph.error,
         $atom = jsonGraph.atom;
 
-const arrayUnion = require('../Utils/array-union'),
+const arrayUnion = require('../common/utils/array-union'),
         uuidV1 = require('uuid/v1');
        
 var sharedDataObjectFalcorUtil = require('../../../shared/dataobject-falcor-util');
+
+const DataObjectManageService = require('./DataObjectManageService');
 
 //falcor utilty functions' references
 const futil = require('./dataobject-falcor-utils');
@@ -29,7 +31,7 @@ var runOffline = process.env.RUN_OFFLINE;
 if(runOffline) {
     options.runOffline = runOffline;
 }
-const DataObjectManageService = require('../DataObjectManageService/DataObjectManageService');
+
 const dataObjectManageService = new DataObjectManageService(options);
 
 async function initiateSearch(callPath, args) {
@@ -43,6 +45,7 @@ async function initiateSearch(callPath, args) {
         objectType = callPath[1],
         basePath = [pathKeys.root, objectType, pathKeys.searchResults, requestId];
     
+    request.objType = objectType;
     //console.log('request str', JSON.stringify(request, null, 4));
 
     delete request.params.fields; // while initiating search, we dont want any of the fields to be returned..all we want is resulted ids..
@@ -59,7 +62,7 @@ async function initiateSearch(callPath, args) {
     var dataObjectResponse = res ? res[objTypeInfo.responseObjectName] : undefined;
 
     if (dataObjectResponse && dataObjectResponse.status == "success") {
-        var dataObjects = dataObjectResponse[collectionName];
+        var dataObjects = dataObjectResponse[collectionName];        
         var index = 0;
         if (dataObjects !== undefined) {
             totalRecords = dataObjects.length;
@@ -199,7 +202,7 @@ async function processData(objType, dataObjects, dataObjectAction, caller) {
 
         //console.log('dataObject data', JSON.stringify(dataObject, null, 4));
 
-        var apiRequestObj = { includeRequest: false };
+        var apiRequestObj = { 'includeRequest': false, 'objType': objType };
         apiRequestObj[objTypeName] = transformedDataObject;
 
         //console.log('api request data for process dataObjects', JSON.stringify(apiRequestObj));

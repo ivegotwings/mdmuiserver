@@ -1,12 +1,12 @@
 'use strict';
 
 var request = require('request-promise-native');
-var rdpConnectionConfig = require("../data/rdp-connection-config.json");
+var rdpConnectionConfig = require("../../../config/rdp-connection-config.json");
 
-var DPConnection = function (options) {
+var DFConnection = function (options) {
 };
 
-DPConnection.prototype = {
+DFConnection.prototype = {
     getBaseUrl: function () {
         return rdpConnectionConfig.baseUrl;
     },
@@ -15,7 +15,7 @@ DPConnection.prototype = {
     }
 };
 
-module.exports = DPConnection;
+module.exports = DFConnection;
 
 
 

@@ -1,6 +1,6 @@
 'use strict';
 
-var isObject = require('../Utils/isObject');
+var isObject = require('../common/utils/isObject');
 var expireTime = -60 * 60 * 1000; // 60 mins
 
 function createPath(pathSet, value, expires) {    

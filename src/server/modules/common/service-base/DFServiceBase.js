@@ -1,9 +1,9 @@
 'use strict';
 
-var DPConnection = require('./DPConnection');
+var DFConnection = require('./DFConnection');
 
-var DPServiceBase = function (options) {
-    var _dataConnection = new DPConnection();
+var DFServiceBase = function (options) {
+    var _dataConnection = new DFConnection();
     this._restRequest = _dataConnection.getRequest();
     this._baseUrl = _dataConnection.getBaseUrl();
 
@@ -28,5 +28,4 @@ var DPServiceBase = function (options) {
     console.log('Data platform service instance initiated with ', JSON.stringify({options: options, baseUrl: this.baseUrl}, null, 4));
 };
 
-
-module.exports = DPServiceBase;
+module.exports = DFServiceBase;
