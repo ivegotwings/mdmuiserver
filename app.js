@@ -7,7 +7,7 @@ var express = require('express');
 var history = require('connect-history-api-fallback');
 var cors = require('cors');
 var bodyParser = require('body-parser');
-var notificationEngine = require("./src/server/notification_engine/Socket");
+var notificationEngine = require("./src/server/modules/notification_engine/Socket");
 var buildPath = __dirname;
 var app = express();
 
@@ -25,13 +25,13 @@ app.use(cors());
 app.use(express.static(buildPath, { maxAge: "1s" }));
 
 //Load falcor api routes
-var dataobjectRoute = require('./src/server/api/DataObjectRoutes/dataobject-router');
+var dataobjectRoute = require('./src/server/modules/dataobject/dataobject-router');
 dataobjectRoute(app);
 
-var configRoute = require('./src/server/api/ConfigService/config-router');
+var configRoute = require('./src/server/modules/config/config-router');
 configRoute(app);
 
-var fileUploadRoute = require('./src/server/api/EntityManageService/file-upload-route');
+var fileUploadRoute = require('./src/server/modules/file-upload/file-upload-route');
 fileUploadRoute(app);
 
 // register static file root ...index.html..
