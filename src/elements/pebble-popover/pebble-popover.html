@@ -1,5 +1,4 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
-<link rel="import" href="../../../bower_components/iron-fit-behavior/iron-fit-behavior.html">
 <link rel="import" href="../../../bower_components/iron-overlay-behavior/iron-overlay-behavior.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 <!--
@@ -88,7 +87,7 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
         /*Arrow moved to top from bottom*/
         top: var(--arrow-position-top);
         /*Arrow moved to bottom from top*/
-        left: var(--arrow-position-left);
+        left: calc(var(--arrow-position-left) - 6px);
         /*Arrow moved to right from left*/
         right: var(--arrow-position-right);
         /*Arrow moved to left from right*/
@@ -117,8 +116,8 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
         border-left-color: var(--right-arrow);
         border-right-color: var(--left-arrow);
         border-top-color: var(--down-arrow);
-        border-width: var(--arrow-size, 7px);
-        /*Arrow size reduced to 1px from before to get shadow effect*/
+        border-width: var(--arrow-size, 8px);
+        /*Arrow size*/
         margin-left: var(--arrow-margin-left);
         margin-bottom: var(--arrow-margin-bottom);
       }
@@ -131,6 +130,9 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
     </div>
   </template>
   <script>
+    //To capture current opened popover
+    var currentPopover = null;
+
     Polymer({
       is: 'pebble-popover',
 
@@ -147,8 +149,7 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
 
         /*
          *  Indicates align popover vertically,  
-         *  above the target (bottom)
-         *  and below the target (top)
+         *  above the target (bottom), below the target (top), and as per the available space (auto)            
          */
 
         verticalAlign: {
@@ -158,8 +159,7 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
 
         /*
          *  Indicates align popover horizontally, 
-         *  left of the target 
-         *  and right of the target - left/right
+         *  left of the target (left), right of the target (right), and as per the available space (auto)
          */
 
         horizontalAlign: {
@@ -168,11 +168,11 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
         },
 
         /*
-         *  Specifies the popover not to overlap with target
+         *  Specifies the popover not to overlap with target [Overlay behavior]
          */
         noOverlap: {
           type: Boolean,
-          value: false
+          value: true
         },
 
         /*
@@ -181,15 +181,6 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
         displayArrowAsPerTarget: {
           type: Boolean,
           value: false
-        },
-
-        isOpen: {
-          type: Boolean,
-          value: false
-        },
-
-        currentPopover: {
-          type: Object
         }
       },
 
@@ -200,7 +191,6 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
 
       behaviors: [
         Polymer.IronOverlayBehavior
-        //Polymer.IronFitBehavior //IronFitBehavior is under IronOverlayBehavior, so no need to mention here
       ],
 
       attached: function () {
@@ -209,11 +199,11 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
       },
 
       _fixPopoverOnScrollAndResize: function () {
-        if (this.currentPopover == null) {
+        if (currentPopover == null) {
           return;
         }
 
-        this.currentPopover._refitPopover();
+        currentPopover.refitPopover();
       },
 
       /*
@@ -242,17 +232,13 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
        */
 
       _updateAlign: function (e) {
-        this.horizontalAlign = this.horizontalAlign;
-        this.verticalAlign = this.verticalAlign;
-        this.noOverlap = this.noOverlap;
-        this._refitPopover();
+        this.refitPopover();
       },
 
       /*
-       *  Reset position of the popover
+       *  Reset position of the popover and arrow
        */
-
-      _refitPopover: function () {
+      refitPopover: function () {
         this.refit();
         //After resetting the popover, now fix the arrow position
         this._fitArrowPosition();
@@ -262,19 +248,17 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
        * Raised when popover opens, initial arrow position will be set from here
        */
       _popoverOpened: function () {
-        this.currentPopover = this;
-        this.isopen = this.currentPopover.opened;
+        currentPopover = this;
         this._fitArrowPosition();
       },
 
       _popoverClosed: function () {
         //If popover opened, then do NOT make it to null and just return back
-        if (this.currentPopover.opened) {
+        if (currentPopover.opened) {
           return;
         }
 
-        this.isopen = this.currentPopover.opened;
-        this.currentPopover = null;
+        currentPopover = null;
       },
 
       _fitArrowPosition: function () {
@@ -287,91 +271,72 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
           return;
         }
 
-        //Enable default arrow
-        this._enableArrow();
-
+        var arrowType = '';
+        var arrowPositionLeft = '';
+        var arrowPositionBottom = '';
+        var arrowboxsize = 16;
         var padding = 5;
         var margin = 5;
-        var arrowboxsize = 16;
+        this.customStyle['--arrow-margin-bottom'] = '0px';
 
-        if (this.displayArrowAsPerTarget) {
-          if (this.verticalAlign == "bottom") {
-            this._enableArrow('down');
-            this.customStyle['--arrow-position-bottom'] = -(arrowboxsize + padding) + 'px';
-            this.customStyle['--arrow-position-left'] = (targetBounding.width / 2) + 'px';
-          } else {
-            this.customStyle['--arrow-position-bottom'] = '100%';
-            this.customStyle['--arrow-position-left'] = (targetBounding.right - popoverBounding.left) - (padding +
-              margin) - (targetBounding.width / 2) + 'px';
-
+        if (this.displayArrowAsPerTarget) //When user adjusted the popover position, implemented for up and down arrows
+        {
+          arrowPositionLeft = (targetBounding.left - popoverBounding.left) + targetBounding.width / 2;
+          if (targetBounding.bottom < popoverBounding.top) {
+            arrowType = 'up';
+            arrowPositionBottom = '100%';
             this.customStyle['--arrow-margin-bottom'] = padding + 'px';
+          } else {
+            arrowType = 'down';
+            arrowPositionBottom = -(arrowboxsize + margin);
           }
-
-          this.updateStyles();
-        } else if (this.horizontalAlign == "left" && this.verticalAlign == "top") {
+        } else if (targetBounding.bottom < popoverBounding.top) //Popover below the target
+        {
+          arrowType = 'up';
+          if (targetBounding.left < popoverBounding.left) {
+            arrowPositionLeft = (targetBounding.right - popoverBounding.left) / 2;
+          } else {
+            arrowPositionLeft = (targetBounding.left - popoverBounding.left) + targetBounding.width / 2 -
+              arrowboxsize;
+          }
+          arrowPositionBottom = '100%';
           this.customStyle['--arrow-margin-bottom'] = padding + 'px';
-
-          if (targetBounding.right < popoverBounding.left) {
-            this._enableArrow('left');
-
-            this.customStyle['--arrow-margin-left'] = -(padding + margin) + 'px';
-            this.customStyle['--arrow-position-left'] = -(padding + margin) + 'px';
-            this.customStyle['--arrow-position-bottom'] = popoverBounding.height - arrowboxsize - (targetBounding
-              .height / 2) + 'px';
+        } else if (popoverBounding.bottom < targetBounding.top) //Popover above the target
+        {
+          arrowType = 'down';
+          if (targetBounding.left < popoverBounding.left) {
+            arrowPositionLeft = (targetBounding.right - popoverBounding.left) / 2;
           } else {
-            this._enableArrow();
-            this.customStyle['--arrow-position-bottom'] = '100%'
-            this.customStyle['--arrow-position-left'] = (targetBounding.width / 2) + 'px';
+            arrowPositionLeft = (targetBounding.left - popoverBounding.left) + targetBounding.width / 2;
           }
-
-          this.updateStyles();
-        } else if (this.horizontalAlign == "right" && this.verticalAlign == "top") {
-
-          this.customStyle['--arrow-margin-bottom'] = padding + 'px';
-
-          if (targetBounding.left > popoverBounding.right) {
-            this._enableArrow('right');
-            this.customStyle['--arrow-position-bottom'] = popoverBounding.height - arrowboxsize - (targetBounding
-              .height / 2) + 'px';
-            this.customStyle['--arrow-position-left'] = popoverBounding.width - padding + 'px';
+          arrowPositionBottom = -(arrowboxsize + margin);
+        } else if (targetBounding.right < popoverBounding.left) //Popover right side of the target
+        {
+          arrowType = 'left';
+          if (targetBounding.bottom > popoverBounding.bottom) {
+            arrowPositionBottom = popoverBounding.height - (targetBounding.bottom - popoverBounding.top);
           } else {
-            //Enables default arrow                  
-            this._enableArrow();
-            this.customStyle['--arrow-position-bottom'] = '100%';
-            this.customStyle['--arrow-position-left'] = popoverBounding.width - arrowboxsize - (targetBounding.width /
-              2) + 'px';
+            arrowPositionBottom = popoverBounding.height - (targetBounding.bottom - popoverBounding.top) - (
+              padding + margin);
           }
-
-          this.updateStyles();
-        } else if (this.horizontalAlign == "right" && this.verticalAlign == "bottom") {
-          if (targetBounding.left > popoverBounding.right) {
-            this._enableArrow('right');
-            this.customStyle['--arrow-position-bottom'] = popoverBounding.height - arrowboxsize - (targetBounding
-              .height / 2) + 'px';
-            this.customStyle['--arrow-position-left'] = popoverBounding.width - padding + 'px';
+          arrowPositionLeft = -(arrowboxsize);
+        } else //Popover left side of the target
+        {
+          arrowType = 'right';
+          if (targetBounding.bottom > popoverBounding.bottom) {
+            arrowPositionBottom = popoverBounding.height - (targetBounding.bottom - popoverBounding.top);
           } else {
-            this._enableArrow('down');
-            this.customStyle['--arrow-position-bottom'] = -(arrowboxsize + padding) + 'px';
-            this.customStyle['--arrow-position-left'] = popoverBounding.width - (targetBounding.width / 2) + 'px';
+            arrowPositionBottom = popoverBounding.height - (targetBounding.bottom - popoverBounding.top) - (
+              padding + margin);
           }
-
-          this.updateStyles();
-        } else if (this.horizontalAlign == "left" && this.verticalAlign == "bottom") {
-          if (targetBounding.right < popoverBounding.left) {
-            this._enableArrow('left');
-
-            this.customStyle['--arrow-margin-left'] = -(padding + margin) + 'px';
-            this.customStyle['--arrow-position-left'] = -(padding + margin) + 'px';
-            this.customStyle['--arrow-position-bottom'] = popoverBounding.height - arrowboxsize - (targetBounding
-              .height / 2) + 'px';
-          } else {
-            this._enableArrow('down');
-            this.customStyle['--arrow-position-bottom'] = -(arrowboxsize + padding) + 'px';
-            this.customStyle['--arrow-position-left'] = (targetBounding.width / 2) + 'px';
-          }
-
-          this.updateStyles();
+          arrowPositionLeft = popoverBounding.width;
         }
+
+        this._enableArrow(arrowType);
+        this.customStyle['--arrow-position-bottom'] = arrowPositionBottom == '100%' ? arrowPositionBottom :
+          arrowPositionBottom + 'px';
+        this.customStyle['--arrow-position-left'] = arrowPositionLeft + 'px';
+        this.updateStyles();
       },
 
       _enableArrow: function (type) {
@@ -403,9 +368,7 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
         }
 
         this.updateStyles();
-      },
-
-
+      }
     });
   </script>
 </dom-module>
