@@ -23,6 +23,7 @@
 
 <link rel="import" href="grid-list-view.html">
 <link rel="import" href="grid-tile-view.html">
+<link rel="import" href="remote-data.html">
 
 <!--
 `pebble-grid` Represents the grid control of the framework. This grid creates visual consistency between layouts 
@@ -367,7 +368,8 @@ The following JSON object is a sample of data which can be used to bind the grid
 				color: var(--white);
 			}
 		</style>
-<template is="dom-if" if="{{_dataIsNotNull(data, config, attributeModels)}}">
+<template is="dom-if" if="{{_dataIsNotNull(config, attributeModels)}}">
+	<remote-data request="[[request]]" operation="[[operation]]" data-formatter="{{dataFormatter}}" data-source="{{dataSource}}" current-record-size="{{_currentPageDataSize}}"></remote-data>
 	<div id="gridHeader" align="right" class="row layout-middle layout-between">
 		<span class="trim">[[title]] </span>
 		<div class="grid-actions row layout-middle">
@@ -397,7 +399,7 @@ The following JSON object is a sample of data which can be used to bind the grid
 	</div>
 	<div id="pebbleGridContainer" class="m-l-10 m-r-10">
 		<template is="dom-if" if="{{_isTabularMode(config.viewMode)}}">
-			<iron-data-table page-size="{{pageSize}}" size="{{_currentPageDataSize}}" selection-enabled multi-selection="{{config.tabular.settings.isMultiSelect}}"
+			<iron-data-table page-size="{{pageSize}}" size="[[_currentPageDataSize]]" selection-enabled multi-selection="{{config.tabular.settings.isMultiSelect}}"
 				data-source="{{dataSource}}" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" sort-order="{{sortOrder}}">
 				<data-table-column name="Actions" hidden$="[[!_hasActions()]]">
 					<template>
@@ -492,16 +494,7 @@ The following JSON object is a sample of data which can be used to bind the grid
 						return {};
 					}
 				},
-				/**
-				 * Indicates a data-source that has to grid.
-				 * The format for the JSON object is given in the above description.
-				 */
-				dataSource: {
-					notify: true,
-					value: function () {
-						return this._dataSource.bind(this);
-					}
-				},
+
 				/**
 				 * Indicates the total size of the data-source.
 				 */
@@ -596,10 +589,6 @@ The following JSON object is a sample of data which can be used to bind the grid
 				},
 				_attributeModelMap: {
 					type: Object
-				},
-				_currentPageDataSize: {
-					notify: true,
-					value: 10
 				}
 			},
 			behaviors: [
@@ -645,6 +634,12 @@ The following JSON object is a sample of data which can be used to bind the grid
 			 * Can be used to re-render the grid.
 			 */
 			reRenderGrid: function () {
+				var remoteData = Polymer.dom(this).node.$$('remote-data');
+
+				if(remoteData) {
+					remoteData._resetDataSource();
+				}
+				
 				if (this._getIronDataTable()) {
 					this._getIronDataTable()._resetData(this.dataSource);
 				}
@@ -753,58 +748,13 @@ The following JSON object is a sample of data which can be used to bind the grid
 				var ironDataTable = this._getIronDataTable();
 				return ironDataTable.selectedItem;
 			},
-			//_computeCachedItems : function() {
-			//	return this.data.slice(0, (this.currentPage * this.pageSize) + this.pageSize);
-			//},
-			_dataSource: function (opts, cb) {
-				this.currentPage = opts.page;
-				if (this.config.schemaType == undefined || this.config.schemaType == "Simple") {
-					var pagedData = this.data.slice(opts.page * opts.pageSize, (opts.page * opts.pageSize) + opts.pageSize)
-					// if last page is reached, increment the size.
-					if (this._currentPageDataSize / opts.pageSize >= opts.page) {
-						this._currentPageDataSize += opts.pageSize;
-					}
-					cb(pagedData);
-				}
-				else {
-					this.dataChangedHandler = function (e) {
-						if (this.data) {
-							
-							var pagedData = this._getAttributeFormattedData(this.data, opts);
-							if(!pagedData){
-								pagedData = [];
-							}
-							// if last page is reached, increment the size.
-							if (pagedData.length > 0 && this._currentPageDataSize / opts.pageSize >= opts.page) {
-								this._currentPageDataSize += opts.pageSize;
-							}
-							cb(pagedData);
-							//this.removeEventListener("data-changed", this.dataChangedHandler);
-						}
-					};
-					if (opts.page == 0) {
-						
-						var pagedData = [];
-						if (this.data) {
-							pagedData = this._getAttributeFormattedData(this.data, opts);
-						}
-						cb(pagedData);
-					}
-					else {
-						this.addEventListener("data-changed", this.dataChangedHandler);
-					}
-				}
-			},
+
 			_calculatePageRange: function (currentPage, pageSize, recordSize) {
 				var currentSize = currentPage == 0 ? pageSize * 2 : (currentPage + 1) * pageSize;
 				if(currentSize > recordSize){
 					currentSize = recordSize;
 				}
 				this._pageRange = "1 - " + currentSize + " / " + recordSize;
-				//It is temporary heck, need to remove it
-				// if (this) {
-				// 	this.refreshPage(currentPage);
-				// }
 			},
 			_columnValue: function (gridData, index) {
 				var cellData;
@@ -865,8 +815,8 @@ The following JSON object is a sample of data which can be used to bind the grid
 			_isSortable: function (col) {
 				return col.sortable ? col.name : undefined;
 			},
-			_dataIsNotNull: function (data, config, attributeModels) {
-				var result = typeof (data) == "object" && typeof (config) == "object";
+			_dataIsNotNull: function (config, attributeModels) {
+				var result = typeof (config) == "object";
 				if (result && config.schemaType == "attribute" && Object.keys(attributeModels).length == 0) {
 					result = false;
 				}
