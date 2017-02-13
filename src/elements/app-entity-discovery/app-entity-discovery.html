@@ -8,9 +8,9 @@
 <link rel="import" href="../liquid-entity-getdata/liquid-entity-getdata.html">
 
 <link rel="import" href="../pebble-actions/pebble-actions.html">
-<link rel="import" href="../pebble-grid/pebble-grid.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 
+<link rel="import" href="../rock-grid/rock-grid.html">
 <link rel="import" href="../rock-dimension-selector/rock-dimension-selector.html">
 <link rel="import" href="../rock-layout/rock-layout.html">
 <link rel="import" href="../rock-layout/rock-titlebar/rock-titlebar.html">
@@ -144,19 +144,15 @@
             <rock-titlebar icon="pebble-md-icons:Advancesearch" title="Entity Search & Discovery" closable minimizable>
                 <div id="dimensionContainer" align="right">
                     <iron-ajax auto url="../../data/EntitySearchApp/dimensionData.json" handle-as="json" last-response="{{dimensionData}}"></iron-ajax>
-                    <rock-dimension-selector id="dimensionSelector" config-data="{{dimensionData}}" all-multi-select></rock-dimension-selector>
-                    <bedrock-pubsub on-bedrock-event-dimension-selector-list="_onCatalogChange" target-id="dimensionSelector"></bedrock-pubsub>
-                    <bedrock-pubsub on-bedrock-event-dimension-selector-source="_onSourceChange" target-id="dimensionSelector"></bedrock-pubsub>
-                    <bedrock-pubsub on-bedrock-event-dimension-selector-locale="_onLocaleChange" target-id="dimensionSelector"></bedrock-pubsub>
+                    <rock-dimension-selector id="dimensionSelector" selected-dimensions="{{_selectedDimensions}}" config-data="{{dimensionData}}" all-multi-select></rock-dimension-selector>
                 </div>
-                </rock-titlebar>
+            </rock-titlebar>
             <rock-header>
                 <div class="fixed-content">
                     <div class="layout horizontal">
                         <div class="flex">
                             <!-- search bar-->
-                            <rock-search-bar id="searchBar" class="p-5" placeholder="Enter Search text"></rock-search-bar>
-                            <bedrock-pubsub event-name="rock-search" handler="_onSearchQueryChange" target-id="searchBar"></bedrock-pubsub>
+                            <rock-search-bar id="searchBar" class="p-5" placeholder="Enter Search text" query="{{_searchQuery}}"></rock-search-bar>
                         </div>
                         <div>
                             <!-- Saved Search button & its popover-->
@@ -175,6 +171,7 @@
                             <iron-ajax auto url="../../data/EntitySearchApp/searchFilters.json" handle-as="json" last-response="{{searchFilters}}"></iron-ajax>
                             <rock-search-filter id="search-filter" icon="pebble-sm-icons:Filter-wt" text="Refine More" filters="{{searchFilters}}" hide-search-trigger></rock-search-filter>
                             <bedrock-pubsub event-name="tag-value-change" handler="_onSearchTagValueChange"></bedrock-pubsub>
+                            <bedrock-pubsub event-name="tag-item-remove" handler="_onTagItemRemove"></bedrock-pubsub>
                         </div>
                         <div>
                             <!-- Actions buttons and its popover -->
@@ -188,13 +185,7 @@
                 </div>
             </rock-header>
             <iron-ajax auto url="../../data/EntitySearchApp/gridConfig.json" handle-as="json" last-response="{{gridConfig}}"></iron-ajax>
-            <liquid-entity-get auto name="attributeModelGetService" request="{{_attributeModelRequest}}" response="{{attributeModelResponse}}"></liquid-entity-get>
-            <liquid-entity-getdata auto verbose id="initiateSearchResult" operation="initiatesearch" request-data="{{_request}}" last-response="{{_searchResponse}}"></liquid-entity-getdata>
-            <liquid-entity-getdata auto verbose id="getsearchresultdetail" operation="getsearchresultdetail" request-data="{{_request}}"
-                    request-id="[[_searchResponse.content.requestId]]" last-response="{{_searchResultResponse}}"></liquid-entity-getdata>
-            <pebble-grid id="entityGrid" config="{{gridConfig}}" attribute-models="{{attributeModelResponse.returnValue.attributeModels}}"
-                    page-size="10" current-page="{{_currentPage}}" record-size="{{_searchResponse.content.totalRecords}}" data="{{_searchResultResponse.content.entities}}"></pebble-grid>
-            <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="entityGrid"></bedrock-pubsub>
+            <rock-entity-search-grid grid-config="{{gridConfig}}" dimensions="{{_selectedDimensions}}" search-filters="{{_selectedSearchFilters}}" search-query="{{_searchQuery}}"></rock-entity-search-grid>
         </rock-layout>
     </template>
     <script>
@@ -208,14 +199,6 @@
                         type: Object,
                         value: function () {
                             return {};
-                        }
-                    },
-                    _attributeModelRequest: {
-                        type: Object,
-                        value: function () {
-                            return {
-                                action: "getAttributeModels"
-                            };
                         }
                     },
                     _request: {
@@ -287,8 +270,7 @@
                 ],
 
                 listeners: {
-                    'tag-item-remove': '_onTagItemRemove',
-                    'dimension-selector-initialized': '_onDimensionSelectorInitialized'
+                    'tag-item-remove': '_onTagItemRemove'
                 },
 
                 ready: function () {
@@ -305,45 +287,39 @@
                 _onTagItemRemove: function (e, detail) {
                     if (detail != undefined) {
                         this._removeFilterWithName(detail.name);
-                        var req = this._request;
-                        this._request = undefined;
-                        this._request = req;
+
+                        var _selectedSearchFilters = this._selectedSearchFilters;
+                        this._selectedSearchFilters = [];
+                        this._selectedSearchFilters = _selectedSearchFilters;
                     }
                 },
+
                 _onSearchTagValueChange: function (e, detail, sender) {
                     if (detail != undefined) {
                         var attrCond = {};
                         attrCond[detail.name] = detail.value;
                         this._removeFilterWithName(detail.name);
-                        this.push('_request.params.query.filters.attributesCriterion', attrCond);
-                        var req = this._request;
-                        this._request = undefined;
-                        this._request = req;
-                    }
-                },
-                _removeFilterWithName: function (name) {
-                    var attributesCriterion = this._request.params.query.filters.attributesCriterion;
-                    for (var i = 0; i < attributesCriterion.length; i++) {
-                        if (attributesCriterion[i][name]) {
-                            this.splice('_request.params.query.filters.attributesCriterion', i, 1);
-                        }
-                    }
-                },
-                // Refine Filter
 
-                // Full Text Search
-                _onSearchQueryChange: function (e, detail, sender) {
-                    if (detail != undefined) {
-                        if (!this._request.params.fields.all) {
-                            this._request.params.fields.all = {};
-                        }
-                        this._request.params.fields.all.exists = detail;
-                        var req = this._request;
-                        this._request = undefined;
-                        this._request = req;
+                        var _selectedSearchFilters = this._selectedSearchFilters;
+                        this._selectedSearchFilters = [];
+
+                        _selectedSearchFilters.push(attrCond);
+
+                        this._selectedSearchFilters = _selectedSearchFilters;
                     }
                 },
-                // Full Text Search
+
+                _removeFilterWithName: function (name) {
+                    if(this._selectedSearchFilters && this._selectedSearchFilters.length > 0) {
+                        for (var i = 0; i < this._selectedSearchFilters.length; i++) {
+                            if (this._selectedSearchFilters[i][name]) {
+                                this._selectedSearchFilters.splice(i, 1);
+                            }
+                        }
+                    }
+                },
+                
+                // Refine Filter
 
                 // Grid
                 _onSelectingGridItem: function (e, detail, sender) {
@@ -365,54 +341,6 @@
                         this.set("request.params.options", options);
                     }
                 },
-                // Grid
-
-                // Dimension Selector
-                _onDimensionSelectorInitialized: function () {
-                    this._loadSearchResults();
-                },
-                _onCatalogChange: function (event) {
-                    this._loadSearchResults();
-                },
-                _onSourceChange: function (event) {
-                    this._loadSearchResults();
-                },
-                _onLocaleChange: function (event) {
-                    this._loadSearchResults();
-                },
-                _prepareContextGroups: function (lists) {
-                    if (lists && lists instanceof Array) {
-                        var ctxGroup = [];
-
-                        for (var i = 0; i < lists.length; i++) {
-                            var ctxInfoObject = new Object();
-                            ctxInfoObject.list = lists[i].value;
-                            ctxInfoObject.classification =
-                                "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry";
-                            ctxGroup.push(ctxInfoObject);
-                        }
-
-                        return ctxGroup;
-                    }
-                },
-                _prepareValueContextGroups: function (sources, locales) {
-                    var valueCtxGroup = [];
-
-                    if (sources && locales && sources instanceof Array && locales instanceof Array) {
-                        for (var i = 0; i < sources.length; i++) {
-                            for (var j = 0; j < locales.length; j++) {
-
-                                var valueCtxInfoObject = new Object();
-                                valueCtxInfoObject.source = sources[i].value;
-                                valueCtxInfoObject.locale = locales[j].value;
-                                valueCtxGroup.push(valueCtxInfoObject);
-                            }
-                        }
-
-                        return valueCtxGroup;
-                    }
-                },
-                // Dimension Selector
 
                 // Saved Search
                 _loadSavedSearch: function (e, detail, sender) {
