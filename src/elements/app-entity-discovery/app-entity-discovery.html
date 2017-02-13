@@ -36,6 +36,7 @@
                     height: 16px;
                     width: 16px;
                     padding: 0 3px 0 3px;
+
                     color: var(--icon-color);
                 }
                 --pebble-button-dropdown-icon: {
@@ -176,6 +177,9 @@
                             <iron-ajax auto url="../../data/EntitySearchApp/searchFilters.json" handle-as="json" last-response="{{searchFilters}}"></iron-ajax>
                             <rock-search-filter id="search-filter" icon="pebble-sm-icons:Filter-wt" text="Refine More" filters="{{searchFilters}}" hide-search-trigger></rock-search-filter>
                             <bedrock-pubsub event-name="tag-value-change" handler="_onSearchTagValueChange"></bedrock-pubsub>
+                            <liquid-entity-getdata  verbose id="initiateLovSearchResult" operation="initiatesearch" request-data="{{_lovTagRequest}}" last-response="{{_lovSearchResponse}}"></liquid-entity-getdata>
+                            <liquid-entity-getdata auto verbose id="getLovsearchresultdetail" operation="getsearchresultdetail" request-data="{{_lovTagRequest}}"
+                                   request-id="[[_lovSearchResponse.content.requestId]]" last-response="{{_lovSearchResultResponse}}"></liquid-entity-getdata>
                         </div>
                         <div>
                             <!-- Actions buttons and its popover -->
@@ -255,6 +259,38 @@
                             };
                         }
                     },
+                    _lovTagRequest:{
+                      type:Object,
+                      value:function () {
+                          return {
+                              "params": {
+                                  "query": {
+                                      "ctx": [{
+                                          "list": "productMaster",
+                                          "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
+                                      }],
+                                      "valCtx": [{
+                                          "source": "SAP",
+                                          "locale": "en-US"
+                                      }],
+                                      "filters": {
+                                          "attributesCriterion": [],
+                                          "typesCriterion": ["nart"]
+                                      }
+                                  },
+                                  "fields": {
+                                      "ctxTypes": [
+                                          "properties"
+                                      ],
+                                      "attributes": [
+                                          "cpimProductName"
+                                      ],
+                                      "relationships": ["ALL"]
+                                  }
+                              }
+                          };
+                      }
+                    },
                     _searchResponse: {
                         type: Object,
                         value: undefined,
@@ -267,6 +303,12 @@
                             return {};
                         },
                         notify: true
+                    },
+                    _lovSearchResultResponse: {
+                        type: Object,
+                        value: undefined,
+                        notify: true,
+                        observer: '_lovSearchResultResponseChanged'
                     },
                     _savedSearchId: {
                         type: Number
@@ -289,6 +331,7 @@
 
                 listeners: {
                     'tag-item-remove': '_onTagItemRemove',
+                    'tag-item-added': '_onTagItemAdded',
                     'dimension-selector-initialized': '_onDimensionSelectorInitialized'
                 },
 
@@ -300,6 +343,16 @@
                     if (_savedSearchId && _savedSearchId != this._savedSearchId) {
                         this._savedSearchId = _savedSearchId;
                     }
+                },
+                _onTagItemAdded: function (e,detail) {
+                  if(detail !=undefined && detail.displayType=='textBox'){
+                      var request=this._lovTagRequest;
+                      request.params.fields.attributes=[detail.name];
+                      this._lovTagRequest=undefined;
+                      this._lovTagRequest=request;
+                      this.$.initiateLovSearchResult.generateRequest();
+                      this.currentTag=detail;
+                  }
                 },
 
                 // Refine Filter
@@ -667,7 +720,37 @@
                 _onActionItemTap: function (e, detail, sender) {
                     alert("event triggered: " + JSON.stringify(detail));
                 },
-                // Action Button
+                _lovSearchResultResponseChanged: function (_lovSearchResultResponse) {
+                    this._convertIntoEntityLovList(_lovSearchResultResponse);
+                },
+                _convertIntoEntityLovList: function (entitiesResponse) {
+                    if (entitiesResponse) {
+                        var items = [];
+                        if (entitiesResponse.content && entitiesResponse.content.entities) {
+                            var entities = entitiesResponse.content.entities;
+                            Object.keys(entities).forEach(function (item) {
+                                var entity = entities[item];
+                                if (entity && entity.data && entity.data.ctxInfo) {
+                                    var ctxInfo = entity.data.ctxInfo;
+                                    Object.keys(ctxInfo).forEach(function (dataItem) {
+                                        var data = ctxInfo[dataItem];
+                                        if (data) {
+                                            if (data.attributes) {
+                                                items.push({
+                                                    "id": entity.id,
+                                                    "title": data.attributes[this.currentTag.name].values[0].value,
+                                                });
+                                            }
+                                        }
+                                    }, this);
+                                }
+                            }, this);
+                        }
+                        if(this.$$("#search-filter") && this.$$("#search-filter").currentTag) {
+                            this.$$("#search-filter").currentTag.options = items;
+                        }
+                    }
+                }
             });
         })();
     </script>
