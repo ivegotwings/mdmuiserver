@@ -27,7 +27,14 @@
 <!--
 `rock-grid` Represents the grid control of the framework. This grid creates visual consistency between layouts 
 while allowing flexibility across a wide variety of designs.
-The following JSON object is a config sample which is used to configure the grid.
+
+There are three ways to use `rock-grid`.
+
+1. pass config and data.
+2. pass config, request, operation and data-formatter.
+3. pass config, data-source, record-size and grid-data-size. 
+
+The following JSON object is a config sample which is used to configure the grid in all above three ways.
 ### Example
 ```json
 {
@@ -64,6 +71,9 @@ The following JSON object is a config sample which is used to configure the grid
             }
 }
 ```
+
+1. pass config and data:
+
 The following JSON object is a sample of data which can be used to bind the grid.
 ```json
 [
@@ -93,6 +103,132 @@ The following JSON object is a sample of data which can be used to bind the grid
     }
 ]
 ```
+
+
+2. pass config, request, operation and data-formatter:
+
+`request` will be any liquid request from which data has to be loaded.
+
+`operation` liquid operation name for which `request` object has been prepared.
+
+`data-formatter` will be call back function which will be triggred on every page load in grid before binding data to grid. 
+It will be used for formatting response data which came from liquid request into array of records as per grid config.
+
+### Example:
+
+		<dom-module id="app">
+			<template>
+				<rock-grid request="[[request]]" data-formatter="{{dataFormatter}}" operation="getbyids" 
+					config="{{gridConfig}}" page-size="10"></rock-grid>
+			</template>
+			<script>
+				Polymer({
+					is: 'app',
+					properties: {
+						dataFormater: {
+							notify: true,
+							value: function() {
+								return this._dataFormatter.bind(this);
+							}
+						}
+					},
+					_dataFormatter: function(response) {
+						var data = [];
+
+						........
+						.......
+						...
+
+						return data;
+					}
+				});
+			</script>
+		</dom-module>
+
+
+3. pass config, data-source, record-size and grid-data-size:
+
+
+### Example:
+
+	A. External Data Source
+		 <dom-module id="data-source">
+			<template>
+				<style include="pebble-shared-styles"></style>
+			</template>
+			<script>
+				Polymer({
+					is: 'data-source',
+
+					properties: {
+						dataSource: {
+							notify: true,
+							value: function() {
+							return this._dataSource.bind(this);
+							}
+						},
+
+						size: {
+							type: Number,
+							notify: true,
+							value: 0
+						},
+
+						total-records: {
+							type: Number,
+							notify: true,
+							value: 0
+						}
+					},
+					_lastPage: -1,
+					_dataSource: function(opts, cb) {
+						var xhr = new XMLHttpRequest();
+						xhr.onreadystatechange = function() {
+							if (xhr.readyState == XMLHttpRequest.DONE) {
+								if (xhr.status == 200 && this._lastPage < opts.page) {
+									var data = JSON.parse(xhr.responseText);
+
+									// This if condition is required for any data source to make vitualization work
+									// pagination will work based on this inputs
+									if(opts.pageSize <= data.length)
+									{
+										if (this.size / opts.pageSize >= opts.page) {
+											this.size += this.size == 0 ? opts.pageSize * 2 : opts.pageSize;
+										}
+									}
+									else
+									{
+										if(this.size == 0) {
+											this.size = data.length;
+										}
+										else {
+											this.size -= opts.pageSize;                            
+										}
+									}
+
+									cb(data);
+									this._lastPage = opts.page;
+									this.totalRecords += data.length;
+								}
+							}
+						}.bind(this);
+
+						// page parameters could be used like this:
+						xhr.open("GET", 'gridData.json?per_page=' +
+							opts.pageSize + '&page=' + opts.page, true);
+						xhr.send();
+					}
+				});
+			</script>
+		</dom-module>
+
+	B. Usage of external data source in rock grid.
+
+		<data-source data-source="{{dataSource}}" size="{{size}}" total-records="{{totalRecords}}"></data-source>               
+  		<rock-grid data-source="{{dataSource}}" grid-data-size="{{size}}" record-size="{{totalRecords}}" config="{{gridConfig}}" 
+		  page-size="10"></rock-grid>
+
+
 @demo demo/index.html
 -->
 
@@ -368,8 +504,10 @@ The following JSON object is a sample of data which can be used to bind the grid
 			}
 		</style>
 <template is="dom-if" if="{{_dataIsNotNull(config, attributeModels)}}">
-	<remote-data request="[[request]]" operation="[[operation]]" data-formatter="{{dataFormatter}}" data-source="{{dataSource}}" 
-		current-record-size="{{_currentPageDataSize}}" total-records="{{totalRecords}}"></remote-data>
+	<template is="dom-if" if="{{!_isExtDataSourceOrData()}}">
+		<remote-data request="[[request]]" operation="[[operation]]" data-formatter="{{dataFormatter}}" data-source="{{dataSource}}" 
+			current-record-size="{{gridDataSize}}" total-records="{{recordSize}}"></remote-data>
+	</template>
 	<div id="gridHeader" align="right" class="row layout-middle layout-between">
 		<span class="trim">[[title]] </span>
 		<div class="grid-actions row layout-middle">
@@ -399,8 +537,8 @@ The following JSON object is a sample of data which can be used to bind the grid
 	</div>
 	<div id="pebbleGridContainer" class="m-l-10 m-r-10">
 		<template is="dom-if" if="{{_isTabularMode(config.viewMode)}}">
-			<iron-data-table page-size="{{pageSize}}" size="[[_currentPageDataSize]]" selection-enabled multi-selection="{{config.tabular.settings.isMultiSelect}}"
-				data-source="{{dataSource}}" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" sort-order="{{sortOrder}}">
+			<iron-data-table page-size="{{pageSize}}" size="[[gridDataSize]]" selection-enabled multi-selection="{{config.tabular.settings.isMultiSelect}}"
+				data-source="{{dataSource}}" items="{{data}}" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" sort-order="{{sortOrder}}">
 				<data-table-column name="Actions" hidden$="[[!_hasActions()]]">
 					<template>
 						<template is="dom-repeat" items="[[_actions()]]" as="col" index-as="colIndex">
@@ -490,9 +628,7 @@ The following JSON object is a sample of data which can be used to bind the grid
 				data: {
 					type: Object,
 					notify: true,
-					value: function () {
-						return {};
-					}
+					observer: '_gridDataLoad'
 				},
 
 				/**
@@ -503,6 +639,7 @@ The following JSON object is a sample of data which can be used to bind the grid
 					type: Number,
 					value: 0
 				},
+
 				/**
 				 * Indicates the number of items fetched at a time from the data-source.
 				 */
@@ -511,6 +648,7 @@ The following JSON object is a sample of data which can be used to bind the grid
 					notify: true,
 					value: 0
 				},
+
 				/**
 				 * Indicates a config object which decides the rendering behavior.
 				 * The format for the JSON object is given in above description.
@@ -519,6 +657,50 @@ The following JSON object is a sample of data which can be used to bind the grid
 					type: Object,
 					notify: true
 				},
+
+				/**
+				 * Indicates liquid request object for data to be rendered in grid.
+				 */
+				request: {
+					type: Object,
+					notify: true
+				},
+
+				/**
+				 * Indicates operation name for provided liquid request object.
+				 */
+				operation: {
+					type: String,
+					notify: true
+				},
+
+				/**
+				 * Indicates call back function where if user has given any liquid operation and request object to load data
+				 * user has to transform data based on their grid config and return array of records.
+				 */
+				dataFormatter: {
+					type: Object,
+					notify: true
+				},
+
+				/**
+				* Indicates external data source which will be bind to rock-grid for loading data.
+				* The format for external data source and how to pass it is given in above description.
+				**/
+				dataSource: {
+					type: Object,
+					notify: true
+				},
+
+				/**
+				* Indicates incremental data size for each page in grid while use of "dataSource".
+				* How to increase this gridDataSize is given in above description.
+				**/
+				gridDataSize: {
+					type: Number,
+					notify: true
+				},
+
 				/**
 				 * Indicates an attribute model to be used if the schema type is a <b>attribute</b>.
 				 */
@@ -529,10 +711,7 @@ The following JSON object is a sample of data which can be used to bind the grid
 						return {};
 					}
 				},
-				currentPage: {
-					notify: true,
-					value: 0
-				},
+
 				/**
 				 * Indicates an array that contains the selected items when `multiSelection` is true.
 				 * Otherwise, indicates null if no item is selected.
@@ -543,6 +722,7 @@ The following JSON object is a sample of data which can be used to bind the grid
 					notify: true,
 					reflectToAttribute: true
 				},
+				
 				/**
 				 * Indicates the currently selected item when `multiSelection` is false. 
 				 * Otherwise, indicates null if no item is selected.
@@ -553,6 +733,7 @@ The following JSON object is a sample of data which can be used to bind the grid
 					notify: true,
 					reflectToAttribute: true
 				},
+
 				/**
 				 * Specifies whether or not multiple items may be selected at once. When it is set to <b>true</b>
 				 * you can select multiple items at once. In this case, it indicates an array of currently selected items. 
@@ -564,6 +745,7 @@ The following JSON object is a sample of data which can be used to bind the grid
 					notify: true,
 					reflectToAttribute: true
 				},
+
 				/**
 				  * Indicates the title for the grid.
 				  */
@@ -571,6 +753,7 @@ The following JSON object is a sample of data which can be used to bind the grid
 					type: String,
 					notify: true
 				},
+
                 /**
                  * Indicates an array with a path and a sort order. <b>`asc`</b> or <b>`desc</b>` pairs 
 				 * are used to sort the items.
@@ -580,20 +763,16 @@ The following JSON object is a sample of data which can be used to bind the grid
 					notify: true
 				},
 
-				totalRecords: {
-					type: Number,
-					notify: true,
-					value: 0
-				},
-
 				_mode: {
 					type: String,
 					computed: '_getMode(config.mode)',
 					notify: true
 				},
+
 				_pageRange: {
 					value: ""
 				},
+
 				_attributeModelMap: {
 					type: Object
 				}
@@ -602,8 +781,8 @@ The following JSON object is a sample of data which can be used to bind the grid
 				RUFBehaviors.UIBehavior
 			],
 			observers: [
-				'_calculatePageRange(totalRecords, pageSize)',
-				'_computeTitle(config, data, totalRecords, sortOrder, sortOrder.*)'
+				'_calculatePageRange(recordSize, pageSize)',
+				'_computeTitle(config, data, recordSize, sortOrder, sortOrder.*)'				
 			],
 			listeners: {
 				'selecting-item': '_onSelectingItem',
@@ -651,14 +830,14 @@ The following JSON object is a sample of data which can be used to bind the grid
 					this._getIronDataTable()._resetData(this.dataSource);
 				}
 			},
-			_computeTitle: function (config, data, totalRecords, sortOrder) {
+			_computeTitle: function (config, data, recordSize, sortOrder) {
 				if (config && config.header && config.header.displayTitle) {
 					if (config.title) {
 						this.set('title', config.title);
 					}
 					this.set('title', config.header.defaultValue);
-				} else if (data && totalRecords) {
-					var status = totalRecords + ' items.';
+				} else if (data && recordSize) {
+					var status = recordSize + ' items.';
 					if (sortOrder && sortOrder.length > 0) {
 						status += ' Sorted by ';
 						for (var i = 0; i < sortOrder.length; i++) {
@@ -670,8 +849,8 @@ The following JSON object is a sample of data which can be used to bind the grid
 						}
 					}
 					this.set('title', status);
-				} else if(totalRecords) {
-					var status = totalRecords + ' items.';
+				} else if(recordSize) {
+					var status = recordSize + ' items.';
 					this.set('title', status);
 				}
 			},
@@ -759,8 +938,8 @@ The following JSON object is a sample of data which can be used to bind the grid
 				return ironDataTable.selectedItem;
 			},
 
-			_calculatePageRange: function (totalRecords, pageSize) {
-				this._pageRange = "1 - " + totalRecords + " / " + totalRecords;
+			_calculatePageRange: function (recordSize, pageSize) {
+				this._pageRange = "1 - " + recordSize + " / " + recordSize;
 			},
 			_columnValue: function (gridData, index) {
 				var cellData;
@@ -1003,6 +1182,22 @@ The following JSON object is a sample of data which can be used to bind the grid
 				//var pagedData = dataArray.slice(opts.page * opts.pageSize, (opts.page * opts.pageSize) + opts.pageSize)
 				DataHelper.transformEntitySchemaForGrid(dataArray, this.attributeModels);
 				return dataArray;
+			},
+
+			_isExtDataSourceOrData: function() {
+				if(this.dataSource || this.data) {
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			},
+
+			_gridDataLoad: function() {
+				if(this.data) {
+					this.gridDataSize = this.recordSize = this.data.length;
+				}
 			}
 		});
 	})();
