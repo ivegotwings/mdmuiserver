@@ -7,7 +7,15 @@ var resolver = require('./config-route-resolver');
 
 var ConfigRouterBase = Router.createClass([
     {
-        route: "configs[{keys:ctxKeys}]",
+        route: "configs.apps[{keys:apps}].componentNames",
+        get: async (pathSet) => await resolver.getConfigComponentNames(pathSet)
+    },
+    // {
+    //     route: "configs.tenants[{keys:tenantIds}].roles[{keys:roleNames}][{keys:apps}]",
+    //     get: async (pathSet) => await resolver.getConfigs(pathSet)
+    // },
+    {
+        route: "configs.tenants[{keys:tenants}].roles[{keys:roles}].users[{keys:users}].apps[{keys:apps}].components[{keys:components}].ctx[{keys:ctxKeys}].config",
         get: async (pathSet) => await resolver.getConfigs(pathSet)
     }
 ]);
