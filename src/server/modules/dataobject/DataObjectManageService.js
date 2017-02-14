@@ -13,6 +13,7 @@ DataObjectManageService.prototype = {
     },
     create: async function (request) {
         var serviceName = this._getServiceName(request);
+        //console.log('create entity RDP call: ', JSON.stringify(request));
         return this.post(serviceName + "/create", request);
     },
     update: async function (request) {
