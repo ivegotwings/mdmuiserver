@@ -60,7 +60,7 @@ Custom property | Description | Default
 				/*border: 1px solid #eaeaea;*/
 				border-radius: 2px;
 				margin: 12px;
-				font-size: 14px;
+				font-size: var(--default-font-size, 14px);
 				cursor: default;
 				@apply(--pebble-tree)
 			}
@@ -124,9 +124,9 @@ Custom property | Description | Default
 		<ul>
             <iron-list items="{{_nav}}" as="item" index-as="index">
                 <template>
-					<pebble-tree-node item-path$="[[index]]" expand-all="[[expandAll]]" node-data="{{item}}" selected-item="{{selectedItem}}"
+					<pebble-tree-node item-path$="[[index]]" default-expand-depth ="[[defaultExpandDepth]]" node-data="{{item}}" selected-item="{{selectedItem}}"
 									  selected-items="{{selectedItems}}" indeterminate-items="{{indeterminateItems}}"  multi-select="[[multiSelect]]"
-									  newly-added-items="[[_computeNewlyAddedItems(item)]]" selected-node="{{selectedNode}}" selected-nodes="{{selectedNodes}}"
+									  selected-node="{{selectedNode}}" selected-nodes="{{selectedNodes}}"
 									  tree="[[tree]]" check-child-nodes="[[checkChildNodes]]" show-horizontal-divider="[[showHorizontalDivider]]" addable-levels="[[addableLevels]]"></pebble-tree-node>
 				</template>
 			</iron-list>
@@ -210,14 +210,6 @@ Custom property | Description | Default
       _nav: {
         type: Object
       },
-        /**
-         * Indicates an array that has the items that are newly added.
-         */
-		newlyAddedItems : {
-			type : Array,
-			value: function() {return [];}
-		},
-
       /**
        * Boolean flag to make the tree either multi-select or single-select
        */
@@ -234,11 +226,11 @@ Custom property | Description | Default
         value: false
       },
         /**
-         * Specifies whether or not to show the tree in fully expanded mode
+         * Specifies the default depth to which the tree will be expanded by default
          */
-		expandAll:{
-          type: Boolean,
-			value:false
+		defaultExpandDepth :{
+          type: Number,
+		  value:0
 		},
         /**
          * Specifies whether child elements are selected  or not on selecting parent elements
@@ -281,16 +273,6 @@ Custom property | Description | Default
     listeners:{
       'item-selected':'itemSelected'
 	},
-
-      _computeNewlyAddedItems : function(nodeData) {
-          if(nodeData.children &&  nodeData.children.length>0) {
-              var newItem = {};
-              newItem.text = nodeData.text;
-              newItem.children = [];
-			  this.push('newlyAddedItems',newItem);
-			  return newItem.children;
-          }
-	  },
     /**
     * Fired when the search keyword is changed to call the filter on the `nav`.
     * You need to have debounce in place so that you don't do this on every single key down.
@@ -416,52 +398,133 @@ Custom property | Description | Default
        * check if a given element is parent element of another element
        */
 	  checkIfParentElement: function (parent, child) {
-        var parentItemPath=this.getElementPathByText(parent.text);
-        var childItemPath=this.getElementPathByText(child.text);
-	    var lastIndex = childItemPath.lastIndexOf(".");
-         return parentItemPath==childItemPath.substring(0,lastIndex);
+        var parentItemPaths=this.getElementPathByText(parent.text);
+        var childItemPaths=this.getElementPathByText(child.text);
+        for(var i=0;i<parentItemPaths.length;i++){
+            for(var j=0;j<childItemPaths.length;j++){
+                var lastIndex = childItemPaths[j].lastIndexOf(".");
+				if(parentItemPaths[i]==childItemPaths[j].substring(0,lastIndex)){
+				    return true;
+				}
+            }
+		}
+         return false;
+      },
+	  /**
+       * check if there is a parent element with a given text to another element with given text
+       */
+	  checkIfParentElementByText: function (parentText, childText) {
+        var parentItemPaths=this.getElementPathByText(parentText);
+        var childItemPaths=this.getElementPathByText(childText);
+        for(var i=0;i<parentItemPaths.length;i++){
+            for(var j=0;j<childItemPaths.length;j++){
+                var lastIndex = childItemPaths[j].lastIndexOf(".");
+				if(parentItemPaths[i]==childItemPaths[j].substring(0,lastIndex)){
+				    return true;
+				}
+            }
+		}
+         return false;
       },
       /**
        * check if 2 given elements are each other's sibling
        */
 	  checkIfSiblingElements: function (element1,element2) {
-		  var path1= this.getElementPathByText(element1.text);
-          var lastIndex1 = path1.lastIndexOf(".");
-		  var path2=this.getElementPathByText(element2.text);
-          var lastIndex2 = path2.lastIndexOf(".");
-          if(lastIndex1==-1 && lastIndex2==-1 ){
-                  return true;
-		  } else if(lastIndex1==-1 || lastIndex2==-1){
-              return false;
-		  }
-          return (path1.substring(0,lastIndex1)==path2.substring(0,lastIndex2));
+		  var element1Paths= this.getElementPathByText(element1.text);
+		  var element2Paths=this.getElementPathByText(element2.text);
+          for(var i=0;i<element1Paths.length;i++){
+              for(var j=0;j<element2Paths.length;j++){
+                  var lastIndex1 = element1Paths[i].lastIndexOf(".");
+                  var lastIndex2 = element2Paths[j].lastIndexOf(".");
+                  if(lastIndex1==-1 && lastIndex2==-1 ){
+                      return true;
+                  }  else if(lastIndex1==-1 || lastIndex2==-1){
+                      continue;
+				  }
+                  if(element1Paths[i].substring(0,lastIndex1)==element2Paths[j].substring(0,lastIndex2)){
+                      return true;
+				  }
+              }
+          }
+          return false;
       },
       /**
-       * toggle the value of expandAll attribute
+       * check if there are 2 sibling elements with the given text
        */
-	  toggleExpandAll: function () {
-		  this.expandAll=!this.expandAll;
+	  checkIfSiblingElementsByText: function (text1,text2) {
+		  var element1Paths= this.getElementPathByText(text1);
+		  var element2Paths=this.getElementPathByText(text2);
+          for(var i=0;i<element1Paths.length;i++){
+              for(var j=0;j<element2Paths.length;j++){
+                  var lastIndex1 = element1Paths[i].lastIndexOf(".");
+                  var lastIndex2 = element2Paths[j].lastIndexOf(".");
+                  if(lastIndex1==-1 && lastIndex2==-1 ){
+                      return true;
+                  }  else if(lastIndex1==-1 || lastIndex2==-1){
+                      continue;
+				  }
+                  if(element1Paths[i].substring(0,lastIndex1)==element2Paths[j].substring(0,lastIndex2)){
+                      return true;
+				  }
+              }
+          }
+          return false;
       },
       /**
        * find the path of an element from its text
        */
 	  getElementPathByText: function (text) {
-		 return this._checkText(text,this._nav,"");
-      },
-      /**
-       * find the path of an element from its value. Value is custom/user-defined data associated with a given node.
-       */
-	  getElementPathByValue: function (value) {
-		 return this._checkValue(value,this._nav,"");
+	      var paths=[];
+		  this._checkText(paths,text,this._nav,"");
+		  return paths;
       },
       /**
        * find the element's node from its text
        */
 	  getElementNodeByText: function (text) {
-		 var path=this.getElementPathByText(text);
-		 if(path){
-		     return this.getElementNodeByPath(path);
-		 }
+		 var paths=this.getElementPathByText(text);
+          var nodes=[];
+          if(paths && paths.length>0){
+              for(var i=0;i<paths.length;i++) {
+                  nodes.push(this.getElementNodeByPath(path));
+              }
+          }
+		 return nodes;
+      },
+      /**
+       * find the elements's data from its text
+       */
+      getElementByText: function (text) {
+          var paths=this.getElementPathByText(text);
+          var elements=[];
+          if(paths && paths.length>0){
+              for(var i=0;i<paths.length;i++) {
+                  elements.push(this.getElementByPath(paths[i]));
+              }
+          }
+          return elements;
+      },
+      _checkText: function (paths,text,nav,path) {
+          if(!path){
+              path="";
+          }
+          for(var i=0;i<nav.length;i++){
+              var currentPath=path==""?path+i:path+"."+i;
+              if(nav[i].text==text){
+                  paths.push(currentPath);
+              } else{
+                  if(nav[i].children){
+                      this._checkText(paths,text,nav[i].children,currentPath);
+                  }
+              }
+          }
+      },
+
+      /**
+       * find the path of an element from its value. Value is custom/user-defined data associated with a given node.
+       */
+      getElementPathByValue: function (value) {
+          return this._checkValue(value,this._nav,"");
       },
       /**
        * find the element's node from its value
@@ -472,15 +535,7 @@ Custom property | Description | Default
               return this.getElementNodeByPath(path);
           }
       },
-      /**
-       * find the elements's data from its text
-       */
-	  getElementByText: function (text) {
-		 var path=this.getElementPathByText(text);
-		 if(path){
-		     return this.getElementByPath(path);
-		 }
-      },
+
       /**
        * find the element's data from its value
        */
@@ -490,25 +545,7 @@ Custom property | Description | Default
               return this.getElementByPath(path);
           }
       },
-	  _checkText: function (text,nav,path) {
-		  if(!path){
-		      path="";
-		  }
-		  for(var i=0;i<nav.length;i++){
-		      var currentPath=path==""?path+i:path+"."+i;
-		      if(nav[i].text==text){
-		          return currentPath;
-			  } else{
-		          if(nav[i].children){
-		              var res=this._checkText(text,nav[i].children,currentPath);
-		              if(res!=currentPath){
-		                  return res;
-					  }
-				  }
-			  }
-		  }
-		  return path;
-      },
+
       _checkValue: function (value,nav,path) {
           if(!path){
               path="";
