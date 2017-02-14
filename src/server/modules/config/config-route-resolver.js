@@ -8,7 +8,7 @@ var jsonGraph = require('falcor-json-graph'),
     $error = jsonGraph.error,
     $atom = jsonGraph.atom,
     expireTime = -60 * 60 * 1000,
-    pathRootKey = "entitiesById"; // 60 mins
+    pathRootKey = "configs"; // 60 mins
 
 var options = {};
 var runOffline = process.env.RUN_OFFLINE;
@@ -21,6 +21,9 @@ var configService = new ConfigService(options);
 
 //falcor utilty functions' references
 var createPath = futil.createPath,
+    mergePathSets = futil.mergePathSets,
+    createPath = futil.createPath,
+    mergeAndCreatePath = futil.mergeAndCreatePath,
     unboxConfigData = futil.unboxConfigData,
     unboxJsonObject = futil.unboxJsonObject;
  
@@ -31,9 +34,13 @@ async function getConfigs(pathSet) {
     var ctxKeys = pathSet.ctxKeys;
     
     var response = [];
-    pathRootKey = pathSet[0];
+    var basePathSet = pathSet.slice(0, pathSet.indexOf("apps") + 1);
+    var pathAfterComponent = pathSet.slice(pathSet.indexOf("components") + 2);
 
-    var request = {};
+    var request = {
+        "apps": pathSet.apps,
+        "components": pathSet.components
+    };
 
     //console.log('req to api ', JSON.stringify(request));
     var res = await configService.getConfigs(request);
@@ -44,9 +51,24 @@ async function getConfigs(pathSet) {
         //console.log('response from api', JSON.stringify(res));
 
         if (res.configOperationResponse.configs !== undefined) {
-            for (let config of res.configOperationResponse.configs) {
-                response.push(createPath([pathRootKey, config.id], $atom(config)));                
-            }
+            res.configOperationResponse.configs.forEach(function(config) {
+                //console.log("config: ", JSON.stringify(config, null, 2));
+                var appPath = mergePathSets(basePathSet, config.name);
+                if(config.ctxInfo && config.ctxInfo.length > 0) {
+                    var configComponents = config.ctxInfo[0].components;
+                    //console.log('configComponents: ', JSON.stringify(configComponents, null, 2));
+                    request.components.forEach(function(componentName) { 
+                        //console.log('componentName ', componentName, ' ', componentName in configComponents);
+                        if(componentName in configComponents) {
+                            var componentPath = mergePathSets(appPath, ["components", componentName]);
+                            var componentConfigPath = mergePathSets(componentPath, pathAfterComponent);
+                            var componentConfigValue = configComponents[componentName].config;
+                            //console.log('componentConfigPath ', componentConfigPath, 'componentConfigValue ', componentConfigValue);
+                            response.push(createPath(componentConfigPath, $atom(componentConfigValue)));     
+                        }
+                    });
+                }        
+            });
         }
     }
     
@@ -54,6 +76,39 @@ async function getConfigs(pathSet) {
     return response;
 }
 
+async function getConfigComponentNames(pathSet) {
+    //console.log('getConfigComponentNames call pathset requested:', pathSet);
+    
+    var response = [];
+    var basePath = ["configs", "apps"];
+
+    var request = {
+        "apps": pathSet.apps
+    };
+
+    var res = await configService.getConfigComponentNames(request);
+
+    if (res !== undefined && res.configOperationResponse !== undefined && res.configOperationResponse.status == "success") {
+        //console.log('response from api', JSON.stringify(res));
+
+        if (res.configOperationResponse.configs !== undefined) {
+            for (let config of res.configOperationResponse.configs) {
+                if(config.components) {
+                    var componentNames = config.components;
+                    //console.log("config: ", JSON.stringify(config, null, 2));
+                    var outputPathSet = mergePathSets(basePath, [config.name, "componentNames"]);
+                    //console.log('preparing single response with outputPathSet: ', JSON.stringify(outputPathSet, null, 2));
+                    response.push(createPath(outputPathSet, $atom(componentNames)));       
+                }
+                         
+            }
+        }
+    }
+
+    return response;
+}
+
 module.exports = {
-    getConfigs: getConfigs
+    getConfigs: getConfigs,
+    getConfigComponentNames: getConfigComponentNames
 };
