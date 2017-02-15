@@ -13,6 +13,7 @@ var DFRestService = function(options) {
 
     this.post = async function(url, request, offlineCallback = this.defaultOfflineCallback) {
         //console.log('DFRestService url', url);
+        //console.log('DFRestService request', JSON.stringify(request));
 
         var serviceConfig = config.services[url];
 
