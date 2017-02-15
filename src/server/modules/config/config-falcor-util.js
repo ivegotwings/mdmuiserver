@@ -14,6 +14,16 @@ function createPath(pathSet, value, expires) {
     };
 }
 
+function mergePathSets(pathSet1, pathSet2){
+    //console.log('mergePathSets called with pathSet1: ', pathSet1, " pathSet2: ", pathSet2);
+    return pathSet1.concat(pathSet2);
+}
+
+function mergeAndCreatePath(basePath, pathSet, value, expires) {
+    var mergedPathSet = mergePathSets(basePath, pathSet);
+    return createPath(mergedPathSet, value, expires);
+}
+
 function unboxConfigData(config) {
    return config;
 }
@@ -29,5 +39,7 @@ function unboxJsonObject(obj) {
 module.exports = {
     createPath: createPath,
     unboxConfigData: unboxConfigData,
-    unboxJsonObject: unboxJsonObject
+    unboxJsonObject: unboxJsonObject,
+    mergePathSets: mergePathSets,
+    mergeAndCreatePath: mergeAndCreatePath
 };
