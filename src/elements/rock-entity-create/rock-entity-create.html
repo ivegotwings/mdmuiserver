@@ -8,12 +8,13 @@
 <link rel="import" href="../liquid-entity-get/liquid-entity-get.html">
 <link rel="import" href="../liquid-entity-savedata/liquid-entity-savedata.html">
 
-<link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-actions/pebble-actions.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-file-upload/pebble-file-upload.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 
 <link rel="import" href="../rock-attribute-list/rock-attribute-list.html">
+<link rel="import" href="../rock-grid/rock-grid.html">
 
 <dom-module id="rock-entity-create">
     <template>
@@ -74,6 +75,15 @@
                     color: white;
                 }
             }
+
+            #multiEntityUpperGrid::shadow iron-data-table {
+                    height: 135px;
+            }
+
+            #upperGridHeader {
+                font-size: 12px;
+                margin: 10px;
+            }
         </style>
         <div id="content-description" align="center" hidden>
             <!-- description message here -->
@@ -98,11 +108,16 @@
         </div>
         <div id="content-multiple-entity" hidden>
             <!-- screen for multi entity create function- probably grid -->
+            <iron-ajax auto url="config\gridConfig.json" handle-as="json" last-response="{{_gridConfig}}"></iron-ajax>
+            <div id="upperGridHeader"><b>[[attributeNames.length]] Attributes</b> ([[_managedAttrs]] Managed, [[_mappedAttrs]] Mapped, [[_newAttrs]] New). Last Updated on <b>[[_currentDateTime.date]]</b> at <b>[[_currentDateTime.time]]</b></div>
+            <rock-grid id="multiEntityUpperGrid" page-size="2" no-header></rock-grid>            
+            <bedrock-pubsub on-bedrock-event-save-item="_onSaveItem"></bedrock-pubsub>
         </div>
         <div id="content-entity-import" hidden>
             <!-- screen for import -->
             <pebble-file-upload accept="application/msword, application/vnd.ms-excel, application/vnd.ms-powerpoint,
                 text/plain, application/pdf, image/*" target="/file-upload"></pebble-file-upload>
+            <bedrock-pubsub on-bedrock-event-pebble-file-upload-success="_onFileUploadSuccess"></bedrock-pubsub>
         </div>
         <liquid-entity-get name="attributeModelGetService" request="{{attributeModelRequest}}" response="{{attributeModelResponse}}"></liquid-entity-get>
         <liquid-entity-savedata verbose name="attributeSaveDataService" operation="create" request-data="{{_saveRequest}}"
@@ -167,6 +182,34 @@
                     },
                     _currentViewName: {
                         type: String
+                    },
+                    _gridConfig: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _gridData: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _managedAttrs: {
+                        type: Number,
+                        value: 0
+                    },
+                    _mappedAttrs: {
+                        type: Number,
+                        value: 0 
+                    },
+                    _newAttrs: {
+                        type: Number,
+                        value: 0 
+                    },
+                    _currentDateTime: {
+                        type: Object,
+                        value: function(){ return {}; }
                     }
                 },
                 behaviors: [
@@ -262,6 +305,7 @@
                             this._hideView(this._currentViewName);
                             this._showView("multiple-entity");
                             this._currentViewName = "multiple-entity";
+                            this._populateMultiEntityUpperGrid();
                         }
                     }
                 },
@@ -318,7 +362,145 @@
                                         }
                                     }
                     return data;
-                }
+                },
+
+                _populateMultiEntityUpperGrid: function(){
+                    //Fetch the attributes from COP and pass to this.attributeNames
+                    //Based on attributeNames change, attributeModelRequest will be set
+                    //Using attributeModelGetServiceFetch, attribute models will be provided
+
+                    //Prepare grid configuration and data based on COP and Liquid details                    
+                    this._prepareMultiEntityUpperGridConfiguration();
+                    this._prepareMultiEntityUpperGridData();
+                    this._prepareUpperGridHeader();
+                    
+                    //Set config and data to grid
+                    this.$$('#multiEntityUpperGrid').config = this._gridConfig;
+                    this.$$('#multiEntityUpperGrid').data = this._gridData;
+
+                    this.async(function(){
+                        var gridTable = this.$$('#multiEntityUpperGrid').$$('#pebbleGridContainer').querySelector('iron-data-table');                        
+                        var firstRow = gridTable.querySelectorAll('data-table-row')[1];
+                        var secondRow = gridTable.querySelectorAll('data-table-row')[2];
+                        
+                        // Section start, will be removed this logic once rock-grid updated
+                        var firstRowButtons = firstRow.querySelectorAll('pebble-button');
+                        if(firstRowButtons.length > 0)
+                        {
+                            firstRowButtons[0].remove();
+                            firstRowButtons[1].remove();
+                        }
+                        // Section end
+                        
+                        firstRow.querySelectorAll('data-table-cell')[1].style['font-weight'] = 'bold';
+                        secondRow.querySelectorAll('data-table-cell')[1].style['font-weight'] = 'bold';
+
+                        // Attributes matched from managed list is black
+                        // Attributes matched from inferred list is green
+                        // Attributes are not matched (new), then red                        
+                        
+                    }, 100);
+                },
+
+                _prepareMultiEntityUpperGridConfiguration: function(){
+                    this._gridConfig.tabular.columns.push(
+                                {
+                                    "header": "Mapping",
+                                    "name": "mapping"
+                                }
+                    );
+                    for(var idx = 0; idx < this.attributeNames.length; idx++)
+                    {
+                        this._gridConfig.tabular.columns.push(
+                                {
+                                    "header": "Column " + (idx + 1),
+                                    "name": this.attributeNames[idx],
+                                    "displayType":"textbox"
+                                }
+                        );
+                    }                    
+                },
+
+                _prepareMultiEntityUpperGridData: function(){
+                    this._gridData = []; //Clear the data
+                    var gridRow = {};
+                    gridRow["id"] = 1;
+                    gridRow["mapping"] = "Excel column name";
+                    //First row
+                    for(var idx = 0; idx < this.attributeNames.length; idx++)
+                    {
+                        gridRow[this.attributeNames[idx]] = this.attributeNames[idx];
+                    }
+                    this._gridData.push(gridRow);
+                    
+                    gridRow = {};
+                    gridRow["id"] = 2;                    
+                    gridRow["mapping"] = "Mapped attribute name";
+                    
+                    //Second row - Capture the details from data model 
+                    for(var idx = 0; idx < this.attributeNames.length; idx++)
+                    {   
+                        if(this._findAttribute(this.attributeNames[idx]))
+                        {
+                            this._mappedAttrs++;
+                            gridRow[this.attributeNames[idx]] = this._findAttribute(this.attributeNames[idx]).name;
+                        }                   
+                        else
+                        {
+                            this._newAttrs++;
+                        }                     
+                    }
+                    this._gridData.push(gridRow);
+
+                    //Current Datetime
+                    var datetime = new Date();
+                    this._currentDateTime = {
+                        "date" : moment(datetime).format('MM/DD/YYYY'),
+                        "time" : moment(datetime).format('hh:mm A')
+                    }
+                },
+
+                _findAttribute: function(attribute){
+                    for(var i = 0; i < this._attributeValues.length; i++)
+                    {
+                        for(var j = 0; j < this._attributeValues[i].attributes.length; j++)
+                        {
+                            if(this._attributeValues[i].attributes[j].name == attribute)
+                            {                                
+                                return this._attributeValues[i].attributes[j];                                    
+                            }
+                        }
+                    }
+                },
+
+                _prepareUpperGridHeader: function(){
+                    //Total managed attributes                    
+                    for(var i = 0; i < this._attributeValues.length; i++)
+                    {
+                        this._managedAttrs = this._managedAttrs + this._attributeValues[i].attributes.length;
+                    }
+                },
+
+                _onSaveItem: function(e, details, sender)
+                {
+                    //Save logic comes here
+                },
+
+                _onFileUploadSuccess: function(e, details, sender)
+                {                    
+                    //After file upload, multi entity creation process starts
+                    // show div manual-multi
+                    this._hideView("description");
+                    this._hideView(this._currentViewName);
+                    this._showView("multiple-entity");
+                    this._currentViewName = "multiple-entity";
+                    this._populateMultiEntityUpperGrid();
+
+                    this.async(function(){
+                        //Clear file upload
+                        this.$$('pebble-file-upload').reset();
+                    });
+                },
             });
         })();
     </script>
