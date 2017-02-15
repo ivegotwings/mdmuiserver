@@ -33,27 +33,33 @@ Boolean control
                         reqData = request.requestData;
 
                     if (op === 'getconfigs') {
-                        return this._callGetconfigs(model, reqData);
+                        return this._callGetConfigs(model, request);
                     }
                     else {
                         throw 'exception: operation ' + op + ' is not supported in ' + this.is + ' element.';
                     }
                 },
-                _formatResponse: function(request, rawResponsePkg){
+                _formatResponse: function (request, rawResponsePkg) {
                     var op = request.operation;
 
                     if (op === 'getconfigs') {
                         var pathRootKey = "configs";
                         var configs = rawResponsePkg.json[pathRootKey];
                         var formattedConfigs = this._formatconfigData(configs);
-                        return {'configs': formattedConfigs};
+                        return { 'configs': formattedConfigs };
                     }
                 },
-                _formatconfigData: function(configs){
+                _formatconfigData: function (configs) {
                     return configs;
                 },
-                _callGetconfigs: function (model, reqData) {
-                    if (reqData === undefined || reqData.params === undefined) {
+                _callGetConfigs: function (model, request) {
+                    if (request === undefined) {
+                        console.log("Could not find request object");
+                        return;
+                    }
+                    var reqData = request.requestData;
+                    if (reqData === undefined || reqData.apps === undefined) {
+                        console.log("Could not find apps for config get... returning");
                         return;
                     }
 
@@ -62,11 +68,40 @@ Boolean control
                     }
 
                     var pathRootKey = "configs";
+                    var appNames = reqData.apps;
 
-                    var path1 = [pathRootKey, ["cf1", "cf2"]];
-                   // var path2 = [pathRootKey, configIds, "data", "ctxInfo", contextKeys, "attributes", attrs, "values"];
+                    //making two calls like this because, all component configs will be maintained in a master list and 
+                    //then every context specific config object will internlly refer the master list object - similar to relTo objects 
+                    var componentNamesPath = ["configs", "apps", appNames, "componentNames"];
+                    var configPathPart1 = ["configs", "tenants", ["t1"], "roles", ["buyer"], "users", ["john"], "apps"];
+                    var configPathPart2 = ["components"]
+                    var configPathPart3 = ["ctx", ["ctxKey1"], "config"];
+                    //var configPath = ["configs", "tenants", ["t1"], "roles", ["buyer"], "users", ["john"], "apps", ["app-entity-discovery"], "components", "all-components"];
 
-                    return model.get(path1);
+                    var self = this;
+                    model.get(componentNamesPath).then(function (responsePkg) {
+                        //console.log("response from component list call: ", JSON.stringify(responsePkg, null, 2));
+                        var configPaths = [];
+                        if (responsePkg && responsePkg.json.configs && responsePkg.json.configs.apps) {
+                            var appsWithComponentNames = responsePkg.json.configs.apps;
+                            appNames.forEach(function (appName) {
+                                //console.log('appName: ', appName, ' ', appName in appsWithComponentNames);
+                                if (appName in appsWithComponentNames && appsWithComponentNames[appName].componentNames) {
+                                    var appComponentNames = appsWithComponentNames[appName].componentNames;
+                                    if (appComponentNames.length > 0) {
+                                        var appConfigPath = configPathPart1.concat([[appName]]).concat(configPathPart2).concat([appComponentNames]).concat(configPathPart3);
+                                        //console.log("appConfigPath: ", appConfigPath);
+                                        configPaths.push(appConfigPath);
+                                    }
+                                }
+                            });
+                        }
+                        //console.log('making config get call with paths: ', configPaths);
+                        model.get.apply(model, configPaths).then(function (configGetResponse) {
+                            //console.log('response from config get call: ', configGetResponse);
+                            self._handleResponse(request, configGetResponse);
+                        });
+                    });
                 }
             });
         })();

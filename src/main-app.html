@@ -96,7 +96,7 @@ Main os app for riversand ui framework
             
             .drawer-content {
                 background-color: var(--left-nav-background);
-                color: white !important;
+                color: var(--left-menu-text-color);
                 overflow-x: hidden;
                 height: 100%;
             }
@@ -175,14 +175,14 @@ Main os app for riversand ui framework
             .profile-style #userProfile {
                 --name-box-styles: {
                     color: var(--palette-white);
-                    font-size: var(--font-size-small);
+                    font-size: var(--font-size-sm);
                     line-height: var(--default-line-height, 14px);
                     white-space: nowrap;
                 }
                 ;
                 --usertype-box-styles: {
                     color: var(--palette-white);
-                    font-size: var(--font-size-x-small);
+                    font-size: var(--font-size-xs);
                 }
             }
             
@@ -191,11 +191,11 @@ Main os app for riversand ui framework
                 display: inline-block;
                 vertical-align: middle;
                 margin: 0 5px;
-                --notification-badge {
-                    --pebble-badge-background: orange;
-                    --pebble-badge-margin-left: -18px;
-                    --pebble-badge-margin-top: 3px;
-                }
+            }
+            #mdmNotifications::shadow pebble-badge::shadow .badge{
+                background: var(--header-notification-color);
+                color: var(--header-notification-text-color);
+                border: 1px solid var(--header-notification-color);
             }
             
             #popoverNotifications {
@@ -320,7 +320,8 @@ Main os app for riversand ui framework
         </style>
         <bedrock-notification-manager></bedrock-notification-manager>
         <app-location route="{{route}}"></app-location>
-        <app-route route="{{route}}" pattern="/:page" data="{{routeData}}" query-params="{{queryParams}}" tail="{{subRoute}}"></app-route>
+        <app-route route="{{route}}" pattern="/:tenant" data="{{baseRouteData}}" query-params="{{tenantRouteQueryParams}}" tail="{{pageRoute}}"></app-route>
+        <app-route route="{{pageRoute}}" pattern="/:page" data="{{routeData}}" query-params="{{queryParams}}" tail="{{subRoute}}"></app-route>
         <app-route route="{{subRoute}}" pattern="/:id" data="{{subRouteData}}"></app-route>
         <app-localstorage-document id="userDetailsStorage" key="userdetails" data="{{_userDetails}}" session-only="true"></app-localstorage-document>
         <template is="dom-if" if="[[!isAuthenticated]]">            
@@ -331,9 +332,9 @@ Main os app for riversand ui framework
                 <app-header fixed effects="waterfall">                
                     <app-toolbar>
                         <div align="left">
-                            <pebble-main-logo logo-url="../src/images/mainlogo.svg" on-logo-click="onDataRouteClick"></pebble-main-logo>
+                            <pebble-main-logo logo-url="../src/images/mainlogo.svg" on-logo-click="onLogoClick"></pebble-main-logo>
                             <pebble-vertical-divider class="m-r-5 m-l-5"></pebble-vertical-divider>
-                            <pebble-tenant-logo logo-url="../src/images/Beiersdorf-logo.svg" logo-text="Beiersdorf" on-logo-click="onDataRouteClick"></pebble-tenant-logo>
+                            <pebble-tenant-logo logo-url="../src/images/Beiersdorf-logo.svg" logo-text="Beiersdorf" on-logo-click="onLogoClick"></pebble-tenant-logo>
                         </div>
                         <div id="toastArea" align="center"></div>
                         <!-- Profile Section -->
@@ -382,7 +383,7 @@ Main os app for riversand ui framework
                 </div>
             </template>            
         </app-drawer>
-        <template is="dom-if" if="[[isAuthenticated]]">        
+        <template is="dom-if" if="[[isAuthenticated]]">
             <pebble-toast id="pebbleAppToast" vertical-align="top">
                 [[toastText]]
             </pebble-toast>
@@ -398,6 +399,10 @@ Main os app for riversand ui framework
         attached: function () {
             if(this.isAuthenticated)
             {
+                if(this.route.path == "/") {
+                    this.set('route.path', '/' + this.tenantId);
+                }
+
                 this._startProgress();
             }
         },
@@ -441,7 +446,7 @@ Main os app for riversand ui framework
             tenantId: {
                 type: String,
                 notify: true,
-                value: ""
+                value: "t1"
             },
 
             roleId: {
@@ -460,13 +465,11 @@ Main os app for riversand ui framework
                 type: Boolean,
                 value: false
             },
-
             _userDetails: {
                 type: Object,
                 value: function(){ return {}; },
                 observer: '_onUserDetailsChange'                
             },
-
             _authResponse: {
                 type: Object,
                 value: function(){ return {}; },
@@ -512,32 +515,32 @@ Main os app for riversand ui framework
                 startProgress();
             });            
         },
-
+        changePageRoutePath: function(newPath) {
+            if(newPath) {
+                this.set('pageRoute.path', newPath);
+            }
+        },
         // When auth response changes
-        _onAuthResponseChange: function()
-        {            
-            if(this._authResponse && this._authResponse.isSuccessful)
-            {
+        _onAuthResponseChange: function() {
+            if(this._authResponse && this._authResponse.isSuccessful) {
                 this._userDetails = this._authResponse.userDetails;
-                this._startProgress();
-            } 
-            else if(this._authResponse.errorDetails)
-            {
+            }
+            else if(this._authResponse.errorDetails) {
                 alert(this._authResponse.errorDetails.message);
             }
         },
-
         // app-localstorage-document - session user details 
         _onUserDetailsChange: function(){
-            if(this._userDetails)
-            {
+            if(!isEmpty(this._userDetails)) {
                 this.isAuthenticated = this._userDetails.isAuthenticated;
+                this.tenantId = this._userDetails.tenantId;
+                this.set('route.path', '/' + this.tenantId);
+                this._startProgress();
             }
         },
         _routePageChanged: function (page) {
             this.page = page || '';
         },
-
         _pageChanged: function (page, menuRouteItems, menuItems) {
             this.debounce('_pageChanged', function () {
                 if (menuRouteItems && menuItems) {
@@ -557,18 +560,15 @@ Main os app for riversand ui framework
                 this.fire('bedrock-event', { name: "route-changed", data: { route: this.route } });
             });
         },
-
-        onDataRouteClick: function () {
+        onLogoClick: function () {
             var drawer = this.drawerLayout;
             //ToDo: remove hard coded style and use class toggle
             drawer.style.width = "256px";
         },
-
         // Scroll page to top and expand header
         scrollPageToTop: function () {
             document.getElementById('mainContainer').scrollTop = 0;
         },
-
         onMenuClick: function (e, customArgs) {
             //   debugger;
             //   this.page = customArgs.item.name;
@@ -577,13 +577,16 @@ Main os app for riversand ui framework
         onMenuCloseClick: function (e, customArgs) {
             this.$$('#contentViewManager').closeView(customArgs.item.name,customArgs.item.queryParams);
         },
-
         onRefreshClick: function () {
             location.reload();
         },
-
         onViewOpen: function (e, customArgs) {
             var queryParams;
+
+            if(!customArgs || !customArgs.config) {
+                return;
+            }
+            
             if (!isEmpty(this.queryParams)) {
                 queryParams = this.queryParams;
             }
@@ -643,9 +646,8 @@ Main os app for riversand ui framework
                 if(detail.data.name == "createProduct") {
                     //load create entity wizard
                     if (detail) {
-                        document.querySelector("main-app").set('route.__queryParams', {
-                        });
-                        document.querySelector("main-app").set('route.path', "/entity-create");
+                        document.querySelector("main-app").set('pageRoute.__queryParams', {});
+                        document.querySelector("main-app").changePageRoutePath("/entity-create");
                     }
                 }
             }
