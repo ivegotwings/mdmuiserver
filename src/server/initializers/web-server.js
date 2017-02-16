@@ -34,6 +34,9 @@ dataobjectRoute(app);
 var configRoute = require('../modules/config/config-router');
 configRoute(app);
 
+var passThroughRoute = require('../modules/pass-through/pass-through-route');
+passThroughRoute(app);
+
 var fileUploadRoute = require('../modules/file-upload/file-upload-route');
 fileUploadRoute(app);
 
