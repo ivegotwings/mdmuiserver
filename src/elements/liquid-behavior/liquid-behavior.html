@@ -2,13 +2,30 @@
 <link rel="import" href="../bedrock-datachannel/bedrock-datachannel.html">
 <script>
     /*
-    * @demo demo/index.html
-    * @polymerBehavior RUFBehaviors.LiquidBehavior
-    */
+     * @demo demo/index.html
+     * @polymerBehavior RUFBehaviors.LiquidBehavior
+     */
     var RUFBehaviors = RUFBehaviors || {};
+    var requestCount = 0;
+    var responseCount = 0;
+    var progressBar;
+    var requestsExcludedInProgress = [];
+
     RUFBehaviors.LiquidBehavior = {
-        attached: function () { },
-        ready: function () { },
+        ready: function () {
+            if (_.isEmpty(progressBar)) {
+                progressBar = ComponentHelper.getProgressBar();
+            }
+
+            if (!this.includeInProgress) {
+                requestCount++;
+            } else {
+                // expect unique identifier
+                var identifier = this.id ? this.id : this.name;
+                requestsExcludedInProgress.push(this.id);
+            }
+        },
+
         /**
          * Fired when a request is sent.
          *
@@ -41,7 +58,7 @@
              */
             lastRequest: {
                 type: Object,
-                value: function(){
+                value: function () {
                     return {};
                 },
                 notify: true,
@@ -69,7 +86,7 @@
              */
             lastResponse: {
                 type: Object,
-                value: function(){
+                value: function () {
                     return {};
                 },
                 notify: true,
@@ -82,7 +99,7 @@
              */
             lastError: {
                 type: Object,
-                value: function(){
+                value: function () {
                     return {};
                 },
                 notify: true,
@@ -170,6 +187,10 @@
                 type: String,
                 value: 'Unknown',
                 readonly: true
+            },
+            includeInProgress: {
+                type: Boolean,
+                value: false
             }
         },
         observers: [
@@ -183,28 +204,34 @@
             var request = this._createRequest();
             var self = this;
             if (request.requestData === null || request.operation === '') {
-                if(this.verbose){
-                    console.log('request operation is blank so NO request operation would be generated..terminating gracefully...');
+                if (this.verbose) {
+                    console.log(
+                        'request operation is blank so NO request operation would be generated..terminating gracefully...'
+                    );
                 }
                 return;
             }
-            this.push('activeRequests', request);
+
+            this._holdRequest(request);
             this._setLastRequest(request);
             this._setLoading(true);
             this.fire('request', {
                 request: request
-            }, { bubbles: this.bubbles });
+            }, {
+                bubbles: this.bubbles
+            });
             this.fire('liquid-request', {
                 request: request
-            }, { bubbles: this.bubbles });
+            }, {
+                bubbles: this.bubbles
+            });
             if (this._executeRequest) {
                 var model = RUFBehaviors.DataChannel.getModel(this._dataChannelName);
                 var modelResponse = this._executeRequest(model, request);
                 //console.log('response: ', JSON.stringify(modelResponse, null, 2));
-                if(!this._handleModelResponse(request, modelResponse)) //if mode response is not queued ...no need to create active request..
+                if (!this._handleModelResponse(request, modelResponse)) //if mode response is not queued ...no need to create active request..
                     return;
-            }
-            else {
+            } else {
                 throw "_executeRequest method is not defined";
                 return;
             }
@@ -213,11 +240,11 @@
         _executeRequest: function (model, request) {
             //abstract method....do nothing...all elements implementing this behavior must implement this method
         },
-        _formatResponse: function(request, rawResponsePkg){
+        _formatResponse: function (request, rawResponsePkg) {
             return rawResponsePkg;
             //abstract method....do nothing...all elements implementing this behavior must implement this method
         },
-        _validateAutoTriggerChanges: function(requestData, operation, requestId){
+        _validateAutoTriggerChanges: function (requestData, operation, requestId) {
             return true;
             //abstract method....do nothing...all elements implementing this behavior must implement this method
         },
@@ -228,23 +255,21 @@
                 "requestData": this.requestData
             }
         },
-        _handleModelResponse: function(request, modelResponse){
+        _handleModelResponse: function (request, modelResponse) {
             console.log('_handleModelResponse called with : ', request, modelResponse);
             var self = this;
-            if(modelResponse && modelResponse.then){
+            if (modelResponse && modelResponse.then) {
                 modelResponse.then(function (resPkg) {
-                    return self._handleResponse(request, resPkg);
-                },
-                function (errPkg) {
-                    return self._handleError(request, errPkg);
-                });
+                        return self._handleResponse(request, resPkg);
+                    },
+                    function (errPkg) {
+                        return self._handleError(request, errPkg);
+                    });
                 return true;
-            }
-            else {
-                if(modelResponse && modelResponse.status && modelResponse.status === "success"){
+            } else {
+                if (modelResponse && modelResponse.status && modelResponse.status === "success") {
                     return self._handleResponse(request, modelResponse);
-                }
-                else if(modelResponse && modelResponse.status && modelResponse.status === "error"){
+                } else if (modelResponse && modelResponse.status && modelResponse.status === "error") {
                     self._handleError(request, modelResponse);
                 }
                 return false;
@@ -252,7 +277,7 @@
             return true;
         },
         _handleResponse: function (request, responsePkg) {
-            if(this.verbose){
+            if (this.verbose) {
                 console.log('_handleResponse called with :', request, responsePkg);
             }
             var formattedResponse = this._formatResponse(request, responsePkg);
@@ -262,18 +287,28 @@
                 this._setLastError(null);
                 this._setLoading(false);
             }
-            var eventDetail = { 'request': request, 'response': response };
-            if(this.verbose){
+            var eventDetail = {
+                'request': request,
+                'response': response
+            };
+            if (this.verbose) {
                 //console.log('firing liquid-response event with event detail ', JSON.stringify(eventDetail, null, 4));
                 console.log('firing liquid-response event with event detail ', eventDetail);
             }
-            this.fire('response', eventDetail, { bubbles: this.bubbles });
-            this.fire('liquid-response', eventDetail, { bubbles: this.bubbles });
+            this.fire('response', eventDetail, {
+                bubbles: this.bubbles
+            });
+            this.fire('liquid-response', eventDetail, {
+                bubbles: this.bubbles
+            });
             this._discardRequest(request);
+
+            this._handleProgress();
         },
+
         _handleError: function (request, errorPkg) {
             var errResponse = this._createErrorResponse(request, errorPkg);
-            if(this.verbose){
+            if (this.verbose) {
                 Polymer.Base._error('_handleError called with :', errResponse);
             }
             if (request === this.lastRequest) {
@@ -281,15 +316,63 @@
                 this._setLastResponse(null);
                 this._setLoading(false);
             }
-            var eventDetail = { 'request': request, 'response': errResponse };
-            if(this.verbose){
+            var eventDetail = {
+                'request': request,
+                'response': errResponse
+            };
+            if (this.verbose) {
                 console.log('firing liquid-error event with event detail ', eventDetail);
             }
             // Tests fail if this goes after the normal this.fire('error', ...)
-            this.fire('liquid-error', eventDetail, { bubbles: this.bubbles });
-            this.fire('error', eventDetail, { bubbles: this.bubbles });
+            this.fire('liquid-error', eventDetail, {
+                bubbles: this.bubbles
+            });
+            this.fire('error', eventDetail, {
+                bubbles: this.bubbles
+            });
             this._discardRequest(request);
+
+            this._handleProgress();
         },
+
+        _handleProgress: function () {
+            if (requestCount > 0) {
+                if (!_.contains(requestsExcludedInProgress, this.id)) {
+                    responseCount++;
+                } else {
+                    // if it is available in excluded array then remove 
+                    requestsExcludedInProgress = _.without(requestsExcludedInProgress, this.id);
+                }
+
+                if (responseCount <= requestCount) {
+                    progressBar.value += progressBar.max / requestCount;
+                    // console.log("Progress increment by: " + progressBar.value);
+                }
+
+                function resetProgressBar() {
+                    if (requestCount == responseCount) {
+                        // console.log("Progress stopped at: " + requestCount + ", " + responseCount);
+                        var leftOver = progressBar.max - progressBar.value;
+                        if (leftOver > 0) {
+                            progressBar.value += leftOver;
+                        }
+
+                        requestCount = 0;
+                        responseCount = 0;
+
+                        progressBar.value = responseCount;
+                        // console.log("Counts Resetted: " + progressBar.value + ", " + progressBar.max);
+                    }
+                }
+
+                var debounceProgressBar = _.debounce(function () {
+                    resetProgressBar();
+                }, 1000);
+
+                debounceProgressBar();
+            }
+        },
+
         _createSuccessResponse: function (request, data) {
             var clonedData = this._cloneObject(data);
             return {
@@ -304,6 +387,10 @@
             };
             return result;
         },
+        _holdRequest: function (request) {
+            this.push('activeRequests', request);
+          
+        },
         _discardRequest: function (request) {
             var requestIndex = this.activeRequests.indexOf(request);
             if (requestIndex > -1) {
@@ -316,16 +403,16 @@
                     return;
                 }
                 if (this.auto) {
-                    if(this._validateAutoTriggerChanges(reqData, operation, requestId)){
+                    if (this._validateAutoTriggerChanges(reqData, operation, requestId)) {
                         this.generateRequest();
                     }
                 }
             }, this.debounceDuration);
         },
-        _cloneObject: function(obj) {
+        _cloneObject: function (obj) {
             var clonedObj = {};
-            
-            if(obj) {
+
+            if (obj) {
                 clonedObj = JSON.parse(JSON.stringify(obj));
             }
 
