@@ -1,14 +1,14 @@
 'use strict';
 
 var request = require('request-promise-native');
-var rdpConnectionConfig = require("../../../config/rdp-connection-config.json");
+var rdfConnectionConfig = require("../../../config/rdf-connection-config.json");
 
 var DFConnection = function (options) {
 };
 
 DFConnection.prototype = {
-    getBaseUrl: function () {
-        return rdpConnectionConfig.baseUrl;
+    getServerUrl: function () {
+        return rdfConnectionConfig.serverUrl;
     },
     getRequest: function () {
         return request;
