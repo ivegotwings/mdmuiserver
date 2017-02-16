@@ -287,7 +287,7 @@ function transformToExternal(objType, dataObject) {
                 }
 
                 if(!isEmpty(relationships)) { 
-                    ctxInfoItem.relationships = relationships;    
+                    ctxInfoItem.relationships = transformedRelationships;    
                 }
 
                 ctxInfo.push(ctxInfoItem);

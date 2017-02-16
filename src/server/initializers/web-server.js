@@ -7,6 +7,7 @@ var history = require('connect-history-api-fallback');
 var cors = require('cors');
 var bodyParser = require('body-parser');
 var notificationEngine = require("../modules/notification_engine/Socket");
+
 var buildPath = process.cwd();
 var app = express();
 
@@ -22,6 +23,9 @@ app.use(cors());
 
 // register static file content folder path..
 app.use(express.static(buildPath, { maxAge: "1s" }));
+
+var contextMgrMiddleware = require('../modules/common/context-manager/middleware'); 
+contextMgrMiddleware(app);
 
 //Load falcor api routes
 var dataobjectRoute = require('../modules/dataobject/dataobject-router');
