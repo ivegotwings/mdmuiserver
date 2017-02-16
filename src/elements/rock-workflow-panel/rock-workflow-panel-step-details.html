@@ -1,0 +1,165 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-validator/bedrock-validator.html">
+
+<link rel="import" href="../pebble-image-viewer/pebble-image-viewer.html">
+<link rel="import" href="../pebble-textarea/pebble-textarea.html">
+
+
+<dom-module id="rock-workflow-panel-step-details">
+    <template>
+        <style>
+        :host {
+            color:var(--palette-steel-grey);
+            font-size: 12px; 
+        }
+         #step-details {
+             margin-top: 10px;
+         }
+         .view-changes {
+            margin-top: 15px;
+            text-decoration: none;
+            float: right;
+        }
+        .user {
+            text-decoration: none;
+        }
+        #step-comments {
+            margin-top: 20px;
+        }
+        .user-image {
+            width: 15px;
+            height: 15px;
+            background: #ddd;
+        }
+        pebble-textarea{
+            --paper-input-container-label: {
+                font-size: 14px !important;
+            }
+            --paper-input-container-input: {
+                font-size: 14px !important;
+            }
+        }
+        </style>
+        <div id="step-description">
+            <span>[[_stepDetails.description]]</span>
+        </div>
+        <template is="dom-if" if="[[_stepHasDetails(_stepDetails)]]">
+            <div id="step-details">
+                <pebble-image-viewer class="user-image" shape="circle" sizing="contain" 
+                    src="../../images/no-photo.jpg"></pebble-image-viewer>
+                <span><a class="user" href="#">[[_stepDetails.assignedUser]]</a>[[_stepDetails.details]]</span>
+                <a class="view-changes" href="#">View all changes >></a>
+            </div>
+        </template>
+        <template is="dom-if" if="[[_isCommentsEnabled(stepItem)]]">
+            <div id="step-comments">
+                <pebble-textarea id="stepComments" required="[[_isRequired(_stepDetails)]]" autofocus label="ADD A COMMENT" disabled="[[_isDisabled(stepItem)]]" invalid="{{invalid}}"></pebble-textarea>
+            </div>
+        </template>
+    </template>
+    <script>
+        Polymer({
+            is: "rock-workflow-panel-step-details",
+
+            properties: {
+                stepItem: {
+                    type: Object,
+                    value: function() { return {}; }
+                },
+                workflowAttributes: {
+                    type: Object,
+                    value: function() { return {}; }
+                },
+                _stepDetails: {
+                    type: Object,
+                    value: function() { return {}; }
+                }
+            },
+            observers: [
+                '_getItemFullDetails(stepItem, workflowAttributes)'
+            ],
+            _getItemFullDetails: function(stepItem, workflowAttributes) {
+                if(stepItem && workflowAttributes && workflowAttributes.activities && workflowAttributes.activities.groups
+                    && workflowAttributes.activities.groups.length) {
+                    var currentActivity;
+                    for(var i=0; i<workflowAttributes.activities.groups.length; i++) {
+                        var group = workflowAttributes.activities.groups[i];
+                        var activityId = DataHelper.getFirstAttributeValue(group.activityGuid);
+                        if(activityId && activityId == stepItem.id) {
+                            currentActivity = group;
+                            break;
+                        }
+                    }
+                    var itemDetailsJson = {};
+                    var itemDescription = DataHelper.getFirstAttributeValue(currentActivity.activityDescription);
+                    var assignedUser = DataHelper.getFirstAttributeValue(currentActivity.assignedUser);
+                    var itemDetail = this._getItemDetail(currentActivity);
+                    itemDetailsJson["description"] = itemDescription;
+                    itemDetailsJson["assignedUser"] = assignedUser;
+                    itemDetailsJson["details"] = itemDetail;
+                    itemDetailsJson["actions"] = currentActivity.actions;
+                    
+                    this.set("_stepDetails", itemDetailsJson);
+                }
+            },
+            _getItemDetail: function(group) {
+                var status = DataHelper.getFirstAttributeValue(group.status);
+                var startDate = DataHelper.getFirstAttributeValue(group.startDateTime);
+                var endDate = DataHelper.getFirstAttributeValue(group.endDateTime);
+                var lastAction = DataHelper.getFirstAttributeValue(group.action);
+                var comments = DataHelper.getFirstAttributeValue(group.comments);
+                var itemDetail = "";
+                if(status == "Executing") {
+                    itemDetail = "  was assigned task on " + this._formatDate(startDate) + " and should complete by " + this._getSLADate(startDate,21) + " to follow SLA of 21 Days.";
+                }
+                if(status == "Completed") {
+                    itemDetail = "  " + '"' + lastAction + '"' + " on " + this._formatDate(endDate) + " met SLA of 3 days with comment " + comments;
+                }
+                return itemDetail;
+            },
+            _getSLADate: function(date, days) {
+                var result = new Date(moment(date).add(days, 'day'));
+                result = moment(result).format('DD/MM/YYYY hh:mm A')
+                return result;
+            },
+            _formatDate: function(date) {
+                var result = new Date(date);
+                result = moment(result).format('DD/MM/YYYY hh:mm A');
+                return result;
+            },
+            _isCommentsEnabled: function(item) {
+                if(item && item.actions && item.actions.length>0) {
+                    return true;
+                }
+                return false;
+            },
+            _isDisabled: function(item) {
+                if(!item.status || item.status == "pending") {
+                    return true;
+                }
+                return false;
+            },
+            _stepHasDetails: function(stepDetails) {
+                if(stepDetails && stepDetails.assignedUser && stepDetails.details) {
+                    return true;
+                }
+                return false;
+            },
+            _isRequired: function(stepDetails) {
+                if(stepDetails && stepDetails.actions && stepDetails.actions.groups 
+                    && stepDetails.actions.groups.length && stepDetails.actions.groups.length >0 ) {
+                     for(var i=0; i<stepDetails.actions.groups.length; i++) {
+                         var action = stepDetails.actions.groups[i];
+                         var commentsMode = DataHelper.getFirstAttributeValue(action.commentsMode);
+                         if(commentsMode != "required") {
+                             return false;
+                         }
+                     }
+                     return true;
+                }
+            }   
+        });
+    </script>
+</dom-module>
