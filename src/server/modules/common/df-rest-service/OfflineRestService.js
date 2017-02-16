@@ -4,7 +4,8 @@ const OfflineServiceBase = require('../service-base/OfflineServiceBase'),
         isEmpty = require('../utils/isEmpty'),
         fs = require('fs'),
         config = require('./df-rest-service-config.json'),
-        requireDir = require('require-dir');
+        requireDir = require('require-dir'),
+        executionContext = require('../context-manager/execution-context');
 
 var OfflineRestService = function (options) {
     OfflineServiceBase.call(this, options);
@@ -42,14 +43,24 @@ OfflineRestService.prototype = {
             
             var filePrefixes = this._getPathValue(request, requestPathToSelectDataFile);
             var files = [];
-                  
+
+            var tenantId = 't1';
+
+            var securityContext = executionContext.getSecurityContext();
+
+            if(securityContext) {
+                tenantId = securityContext.tenantId;
+            }
+
+            var basePath = process.cwd() + '/sampledata/' + tenantId + '/';
+
             if(isEmpty(filePrefixes)) {
-                files = requireDir('./offline-data/');
+                files = requireDir(basePath);
             }
             else {
                 for(let filePrefix of filePrefixes) {
-                    var fileName = './offline-data/' + filePrefix + '_data.json';
-                    var fileKey = filePrefix + "_data.json";
+                    var fileName = basePath + filePrefix + '.json';
+                    var fileKey = filePrefix + ".json";
                     files[fileKey] = require(fileName);
                 }
             }

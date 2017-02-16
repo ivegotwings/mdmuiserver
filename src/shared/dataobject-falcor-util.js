@@ -1,17 +1,29 @@
 'use strict';
 
-var DataObjectFalcorUtil = function() { };
+var DataObjectFalcorUtil = function () { };
 
-DataObjectFalcorUtil.getPathKeys = function() {
+DataObjectFalcorUtil.getPathKeys = function () {
     return {
         "root": "dataObjects",
         "masterListById": "masterList",
         "searchResults": "cachedSearchResults",
         "searchResultObjects": "items",
         "objectTypesInfo": {
-            "entity": {
-                "name": "entity",
+            "entityData": {
+                "name": "entityData",
                 "typeInfo": "entityInfo",
+                "collectionName": "entities",
+                "responseObjectName": "entityOperationResponse"
+            },
+            "entityGovernData": {
+                "name": "entityGovernData",
+                "typeInfo": "entityGovernInfo",
+                "collectionName": "entities",
+                "responseObjectName": "entityOperationResponse"
+            },
+            "entityModel": {
+                "name": "entityModel",
+                "typeInfo": "entityModelInfo",
                 "collectionName": "entities",
                 "responseObjectName": "entityOperationResponse"
             },
@@ -31,22 +43,22 @@ DataObjectFalcorUtil.getPathKeys = function() {
     };
 };
 
-DataObjectFalcorUtil.boxDataObject = function(dataObject, boxOp){
+DataObjectFalcorUtil.boxDataObject = function (dataObject, boxOp) {
     var modDataObject = {};
 
-    for(var dataObjectFieldKey in dataObject) {
-        if(dataObjectFieldKey === "data") {
+    for (var dataObjectFieldKey in dataObject) {
+        if (dataObjectFieldKey === "data") {
             var modCtxInfo = {};
 
-            for(var ctxKey in dataObject.data.ctxInfo) {
+            for (var ctxKey in dataObject.data.ctxInfo) {
                 var enCtxInfo = dataObject.data.ctxInfo[ctxKey];
 
                 var modAttrs = DataObjectFalcorUtil.boxAttributesData(enCtxInfo.attributes, boxOp);
                 var modRelationships = DataObjectFalcorUtil.boxRelationshipsData(enCtxInfo.relationships, boxOp);
-                
+
                 modCtxInfo[ctxKey] = { "attributes": modAttrs, "relationships": modRelationships };
             }
-            
+
             modDataObject.data = { 'ctxInfo': modCtxInfo };
         }
         else {
@@ -58,20 +70,20 @@ DataObjectFalcorUtil.boxDataObject = function(dataObject, boxOp){
     return modDataObject;
 };
 
-DataObjectFalcorUtil.boxAttributesData = function(attrs, boxOp) {
-    if(!attrs) { 
+DataObjectFalcorUtil.boxAttributesData = function (attrs, boxOp) {
+    if (!attrs) {
         return;
     }
 
     var modAttrs = {};
 
-    for(var attrId in attrs) {
+    for (var attrId in attrs) {
         var modAttr = DataObjectFalcorUtil.cloneObject(attrs[attrId]);
 
-        for(var valIndex in modAttr.values) {
+        for (var valIndex in modAttr.values) {
             var val = modAttr.values[valIndex];
-            
-            if(val && val.name !== undefined){
+
+            if (val && val.name !== undefined) {
                 delete val.name; // if name is coming as field inside val
             }
         }
@@ -83,21 +95,21 @@ DataObjectFalcorUtil.boxAttributesData = function(attrs, boxOp) {
     return modAttrs;
 };
 
-DataObjectFalcorUtil.boxRelationshipsData = function(relationships, boxOp) {
-    if(!relationships) { 
+DataObjectFalcorUtil.boxRelationshipsData = function (relationships, boxOp) {
+    if (!relationships) {
         return;
     }
 
     var modRelationships = {};
 
-    for(var relTypeIdx in relationships) {
+    for (var relTypeIdx in relationships) {
         var modRelTypeObj = DataObjectFalcorUtil.cloneObject(relationships[relTypeIdx]);
 
-        for(var relId in modRelTypeObj.rels) {
+        for (var relId in modRelTypeObj.rels) {
             var rel = modRelTypeObj.rels[relId];
-            
-            for(var relObjKey in rel) {
-                if(relObjKey === "attributes") {
+
+            for (var relObjKey in rel) {
+                if (relObjKey === "attributes") {
                     rel[relObjKey] = DataObjectFalcorUtil.boxAttributesData(rel[relObjKey], boxOp);
                 }
                 else {
@@ -112,11 +124,11 @@ DataObjectFalcorUtil.boxRelationshipsData = function(relationships, boxOp) {
     return modRelationships;
 };
 
-DataObjectFalcorUtil.boxJsonObject = function(obj) {
-    return {'$type': "atom", 'value': obj };
+DataObjectFalcorUtil.boxJsonObject = function (obj) {
+    return { '$type': "atom", 'value': obj };
 };
 
-DataObjectFalcorUtil.unboxJsonObject = function(obj) {
+DataObjectFalcorUtil.unboxJsonObject = function (obj) {
     if (obj && obj.$type) {
         return obj.value;
     } else {
@@ -124,17 +136,17 @@ DataObjectFalcorUtil.unboxJsonObject = function(obj) {
     }
 };
 
-DataObjectFalcorUtil.cloneObject = function(obj) {
+DataObjectFalcorUtil.cloneObject = function (obj) {
     var clonedObj = {};
-    
-    if(obj) {
+
+    if (obj) {
         clonedObj = JSON.parse(JSON.stringify(obj));
     }
 
     return clonedObj;
 }
 
-DataObjectFalcorUtil.test = function() {
+DataObjectFalcorUtil.test = function () {
     console.log('test success');
 }
 
@@ -148,7 +160,7 @@ if (typeof exports !== 'undefined') {
     exports.DataObjectFalcorUtil = DataObjectFalcorUtil
 }
 else {
-    if(!SharedUtils) {
+    if (!SharedUtils) {
         SharedUtils = {};
     }
     SharedUtils.DataObjectFalcorUtil = DataObjectFalcorUtil
