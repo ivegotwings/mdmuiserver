@@ -29,7 +29,7 @@ DataObjectManageService.prototype = {
             return "NA";
         };
 
-        if(request.objType == "entity") {
+        if(request.objType == "entityData") {
             return "entitymanageservice";
         }
         else if(request.objType == "workflowDefinition") {
@@ -38,10 +38,10 @@ DataObjectManageService.prototype = {
         else if(request.objType == "workflowRuntimeInstance") {
             return "entitygovernservice";
         }
-        else if(request.objType == "governentity") {
+        else if(request.objType == "entityGovernData") {
             return "entitygovernservice";
         }
-        else if(request.objType == "modelentity") {
+        else if(request.objType == "entityModel") {
             return "entitymodelservice";
         }
         else {

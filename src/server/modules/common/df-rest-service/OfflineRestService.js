@@ -4,7 +4,8 @@ const OfflineServiceBase = require('../service-base/OfflineServiceBase'),
         isEmpty = require('../utils/isEmpty'),
         fs = require('fs'),
         config = require('./df-rest-service-config.json'),
-        requireDir = require('require-dir');
+        requireDir = require('require-dir'),
+        executionContext = require('../context-manager/execution-context');
 
 var OfflineRestService = function (options) {
     OfflineServiceBase.call(this, options);
@@ -42,14 +43,26 @@ OfflineRestService.prototype = {
             
             var filePrefixes = this._getPathValue(request, requestPathToSelectDataFile);
             var files = [];
-                  
+
+            var tenantId = 't1';
+
+            var securityContext = executionContext.getSecurityContext();
+
+            if(securityContext) {
+                tenantId = securityContext.tenantId;
+            }
+
+            //console.log('tenant id', tenantId);
+
+            var basePath = process.cwd() + '/offline-data/' + tenantId + '/';
+
             if(isEmpty(filePrefixes)) {
-                files = requireDir('./offline-data/');
+                files = requireDir(basePath);
             }
             else {
                 for(let filePrefix of filePrefixes) {
-                    var fileName = './offline-data/' + filePrefix + '_data.json';
-                    var fileKey = filePrefix + "_data.json";
+                    var fileName = basePath + filePrefix + '.json';
+                    var fileKey = filePrefix + ".json";
                     files[fileKey] = require(fileName);
                 }
             }
@@ -60,11 +73,17 @@ OfflineRestService.prototype = {
                 var fileContent = files[fileId];
 
                 if(!isEmpty(fileContent)) {
-                    var responseObjName = Object.keys(fileContent)[0];
-                    var responseData = fileContent[responseObjName];
 
-                    var outputCollectionName = Object.keys(responseData)[0];
-                    var collectionData = responseData[outputCollectionName];
+                    var metaInfo = fileContent["metaInfo"];
+
+                    if(metaInfo === undefined) {
+                        continue;
+                    }
+
+                    var responseObjName = metaInfo.responseObjectName;
+                    var outputCollectionName = metaInfo.collectionName;
+                    
+                    var collectionData = fileContent[outputCollectionName];
                     
                     if(outputJson[responseObjName] === undefined) { 
                         outputJson[responseObjName] = {};
