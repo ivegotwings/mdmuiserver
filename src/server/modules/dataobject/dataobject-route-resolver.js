@@ -189,7 +189,7 @@ async function processData(objType, dataObjects, dataObjectAction, caller) {
     var objTypeInfoKey = pathKeys.objectTypesInfo[objType].typeInfo;
     var objTypeName = pathKeys.objectTypesInfo[objType].name;
 
-    var dataObjectFields = ["id", objTypeInfoKey , "systemInfo", "properties"],
+    var dataObjectFields = ["id", "name", objTypeInfoKey, "systemInfo", "properties"],
         response = [];
     
     var basePath = [pathKeys.root, objType, pathKeys.masterListById];
