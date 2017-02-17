@@ -59,7 +59,7 @@ module.exports = function () {
 };
 
 module.exports = function (app) {
-    app.use('/dataObjects.json',
+    app.use('/data/dataObjects.json',
         falcorExpress.dataSourceRoute(function (req, res) {
             return new DataObjectRouter();
         }));
