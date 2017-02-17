@@ -1,1 +1,0 @@
-liquid-config-getdata

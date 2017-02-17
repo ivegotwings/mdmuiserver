@@ -31,7 +31,7 @@ module.exports = function () {
 };
 
 module.exports = function (app) {
-    app.use('/configData.json',
+    app.use('/data/configs.json',
         falcorExpress.dataSourceRoute(function (req, res) {
             return new ConfigRouter();
         }));
