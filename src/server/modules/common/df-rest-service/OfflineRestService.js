@@ -52,6 +52,8 @@ OfflineRestService.prototype = {
                 tenantId = securityContext.tenantId;
             }
 
+            //console.log('tenant id', tenantId);
+
             var basePath = process.cwd() + '/sampledata/' + tenantId + '/';
 
             if(isEmpty(filePrefixes)) {
@@ -71,11 +73,17 @@ OfflineRestService.prototype = {
                 var fileContent = files[fileId];
 
                 if(!isEmpty(fileContent)) {
-                    var responseObjName = Object.keys(fileContent)[0];
-                    var responseData = fileContent[responseObjName];
 
-                    var outputCollectionName = Object.keys(responseData)[0];
-                    var collectionData = responseData[outputCollectionName];
+                    var metaInfo = fileContent["metaInfo"];
+
+                    if(metaInfo === undefined) {
+                        continue;
+                    }
+
+                    var responseObjName = metaInfo.responseObjectName;
+                    var outputCollectionName = metaInfo.collectionName;
+                    
+                    var collectionData = fileContent[outputCollectionName];
                     
                     if(outputJson[responseObjName] === undefined) { 
                         outputJson[responseObjName] = {};

@@ -19,13 +19,13 @@ DataObjectFalcorUtil.getPathKeys = function () {
                 "name": "entityGovernData",
                 "typeInfo": "entityGovernInfo",
                 "collectionName": "entities",
-                "responseObjectName": "entityOperationResponse"
+                "responseObjectName": "entityGovernOperationResponse"
             },
             "entityModel": {
                 "name": "entityModel",
                 "typeInfo": "entityModelInfo",
-                "collectionName": "entities",
-                "responseObjectName": "entityOperationResponse"
+                "collectionName": "entityModels",
+                "responseObjectName": "entityModelOperationResponse"
             },
             "workflowDefinition": {
                 "name": "workflowDefinition",
