@@ -309,7 +309,7 @@ And need to access auto calculated properties of `remote-data` and pass it to `r
 			pebble-button {
 				vertical-align: -webkit-baseline-middle;
 				vertical-align: -moz-baseline-middle;
-				vertical-align: baseline-middle;				;
+				vertical-align: baseline-middle;				
 				--pebble-button: {
 					padding: 0.5em 0em 0.5em 0em;
 					min-width: 2.14em;
@@ -524,7 +524,7 @@ And need to access auto calculated properties of `remote-data` and pass it to `r
 			<pebble-button icon="pebble-md-icons:ToolbarRefresh" class="pebble-md-icons m-l-5 m-r-5" on-tap="_onRefresh" noink></pebble-button>
 			<pebble-vertical-divider class="m-l-5 m-r-5"></pebble-vertical-divider>
 			<template is="dom-if" if="[[!config.readOnly]]">
-				<pebble-button icon="pebble-md-icons:Edit" class="pebble-md-icons m-l-5 m-r-5" on-tap="_changeToEditMode" noink></pebble-button>
+				<pebble-button icon="pebble-md-icons:Edit" class="pebble-md-icons m-l-5 m-r-5" on-tap="changeToEditMode" noink></pebble-button>
 				<pebble-vertical-divider class="m-l-5 m-r-5"></pebble-vertical-divider>
 			</template>
 			<pebble-button class="pageRange btn-with-border m-l-5 m-r-5" button-text="Add" on-tap="_addNewRow" noink></pebble-button>
@@ -801,14 +801,45 @@ And need to access auto calculated properties of `remote-data` and pass it to `r
 				this._getIronDataTable()._sizeChanged(oldsize + noOfRows, oldsize);
 				this._getIronDataTable()._resetData(this.dataSource);
 			},
+
+			getData: function() {
+				var allData = this._getIronDataTable().$.list.items;
+				var filteredData = [];
+				if(allData && allData.length > 0) {
+					var lastPageData = allData.slice(allData.length - this.pageSize, allData.length);
+					var lastPageFilteredData = lastPageData.filter(function(element) {
+													if(element != undefined) {
+														return element;
+													}
+												});
+
+					if(allData.length > this.pageSize) {
+						filteredData = allData.slice(0, allData.length - this.pageSize);
+						if(lastPageFilteredData && lastPageFilteredData.length) {
+							filteredData.concat(lastPageFilteredData);
+						}
+					}
+					else
+					{
+						filteredData = lastPageFilteredData;
+					}
+					
+				}
+
+				return filteredData;
+				
+			},
+
 			/* 
 			 * Can be used to re-render the grid.
 			 */
 			reRenderGrid: function () {
-				var remoteData = Polymer.dom(this).node.parentNode.querySelector('remote-data[id='+ this.dataSourceId +']');
+				if(this.dataSourceId) {
+					var remoteData = Polymer.dom(this).node.parentNode.querySelector('remote-data[id='+ this.dataSourceId +']');
 
-				if(remoteData) {
-					remoteData._resetDataSource();
+					if(remoteData) {
+						remoteData._resetDataSource();
+					}
 				}
 				
 				if (this._getIronDataTable()) {
@@ -922,6 +953,11 @@ And need to access auto calculated properties of `remote-data` and pass it to `r
 				var ironDataTable = this._getIronDataTable();
 				return ironDataTable.selectedItem;
 			},
+			
+			changeToEditMode: function () {
+				this.set('config.mode', "edit");
+				this._dataChanged();
+			},
 
 			_calculatePageRange: function (recordSize, pageSize) {
 				this._pageRange = "1 - " + recordSize + " / " + recordSize;
@@ -929,7 +965,7 @@ And need to access auto calculated properties of `remote-data` and pass it to `r
 			_columnValue: function (gridData, index) {
 				var cellData;
 				var columnName = this.config.tabular.columns[index].name;
-				if (this.config.schemaType == undefined || this.config.schemaType == "simple") {
+				if (this.config.schemaType == undefined || this.config.schemaType == "simple" || this.config.schemaType == "colModel") {
 					cellData = gridData[columnName];
 				}
 				else if (this.config.schemaType == "attribute") {
@@ -966,7 +1002,7 @@ And need to access auto calculated properties of `remote-data` and pass it to `r
 					}
 					return col;
 				}
-				else if (this.config.schemaType == "attribute") {
+				else if (this.config.schemaType == "attribute" || this.config.schemaType == "colModel") {
 					return this._getAttributeModelMap(col.name);
 				}
 			},
@@ -987,7 +1023,7 @@ And need to access auto calculated properties of `remote-data` and pass it to `r
 			},
 			_dataIsNotNull: function (config, attributeModels) {
 				var result = typeof (config) == "object";
-				if (result && config.schemaType == "attribute" && Object.keys(attributeModels).length == 0) {
+				if (result && (config.schemaType == "attribute" || config.schemaType == "colModel") && Object.keys(attributeModels).length == 0) {
 					result = false;
 				}
 				return result;
@@ -1039,8 +1075,8 @@ And need to access auto calculated properties of `remote-data` and pass it to `r
 				}
 				return {};
 			},
-			_changeToEditMode: function () {
-				this.set('config.mode', "edit");
+			_dataChanged: function() {
+				//TO-DO will get changed
 				this.fire('editMode');
 			},
 			_actionValue: function (index) {
@@ -1078,6 +1114,7 @@ And need to access auto calculated properties of `remote-data` and pass it to `r
 				}
 				if (action.name == "edit") {
 					this.editInline(e.currentTarget.item);
+					this._dataChanged();
 					return;
 				}
 				//				alert("fired " + eventName);
