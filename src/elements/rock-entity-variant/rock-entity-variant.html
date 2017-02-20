@@ -6,6 +6,8 @@
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 <link rel="import" href="../pebble-vertical-divider/pebble-vertical-divider.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 
 <!--
 `rock-entity-variant` Represents an element that is used to create new variants and entities.
@@ -80,22 +82,33 @@
 
         </style>
         <div class="container">
-            <iron-ajax auto url="/src/data/EntityManageApp/variantTreeData.json" handle-as="json" last-response="{{initialNav}}"></iron-ajax>
+            <liquid-entity-data-get verbose auto  id="getTreeData" operation="getbyids" request-data="[[treeRequest]]"  last-response="{{treeData}}" >
+            </liquid-entity-data-get>
+            <liquid-entity-data-get verbose  id="getChildrenData" operation="getbyids"   last-response="{{childrenData}}" on-response="[[_populateChildrenData()]]" >
+            </liquid-entity-data-get>
+            <liquid-entity-data-get verbose auto  id="getGridData" operation="getbyids" request-data="[[_getGridRequest()]]"  last-response="{{gridData}}" >
+            </liquid-entity-data-get>
+            <iron-ajax auto url="/src/data/EntityManageApp/variantTreeData.json" handle-as="json" last-response="{{kkdata}}"></iron-ajax>
             <iron-ajax auto url="/src/data/EntityManageApp/variantGridConfig.json" handle-as="json" last-response="{{gridConfig}}"></iron-ajax>
             <iron-ajax auto url="/src/data/EntityManageApp/variantGridData.json" handle-as="json" on-response="_handleResponse"></iron-ajax>
             <div class="left">
                 <div class="tree-title" >
                     {{treeTitle}}
                 </div>
-                <pebble-tree id = "tree" initial-nav="[[initialNav]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" multi-select enable-search></pebble-tree>
+                <pebble-tree id = "tree" disabled="[[isEditMode]]" data="[[data]]"  selected-items="{{selectedItems}}"  indeterminate-items="{{indeterminateItems}}"  default-expand-depth="1" multi-select enable-search check-child-nodes show-horizontal-divider></pebble-tree>
             </div>
             <pebble-vertical-divider></pebble-vertical-divider>
             <div class="right">
                 <div class ="grid-container">
-                    <rock-grid id = "pebbleGrid" config="{{gridConfig}}" page-size="10" data="{{gridData}}"></rock-grid>
+                    <remote-data id="gridSource" auto request="{{_getGridRequest(gridConfig)}}" operation="getbyids" data-formatter="{{dataFormatter}}"
+                                 current-record-size="{{size}}" total-records="{{totalRecords}}" data-source="{{dataSource}}"></remote-data>
+                    <rock-grid id="grid" data-source="{{dataSource}}" data-source-id="gridSource" record-size="{{totalRecords}}" config="{{gridConfig}}"
+                               grid-data-size="{{size}}" page-size="4"></rock-grid>
+                    <!--attribute-models="{{attributeModelResponse.returnValue.attributeModels}}"-->
+                    <bedrock-pubsub event-name="grid-edit-item" handler="_onGridEdit"></bedrock-pubsub>
                 </div>
-                <div class="action-container" hidden = [[!isEditMode]]>
-                    <pebble-button class="pageRange btn-with-border" button-text="Cancel" on-tap="_cancelAction" noink raised></pebble-button>
+                <div class="action-container" hidden = "[[!isEditMode]]">
+                    <pebble-button class="pageRange btn-with-border" button-text="Cancel" on-tap="cancelAction" noink raised></pebble-button>
                     <pebble-button class="pageRange btn-with-border" button-text="Save" on-tap="_saveAction" noink raised></pebble-button>
                 </div>
             </div>
@@ -112,11 +125,13 @@
                 properties: {
 
                     /**
-                     * Indicates initial navigation in the array form.
+                     * Indicates tree data in the array form.
                      */
-                    initialNav: {
-                        type: Array,
-                        value: function() {return [];}
+                    treeData: {
+                        type: Object,
+                        value: function() {return {};},
+                        observer:'_populateDataForTree'
+
                     },
                     /**
                     * Indicates the configuration object that to be passed to grid.
@@ -141,10 +156,11 @@
                     },
 
                     /**
-                     * Indicates the currently selected item.
+                     * Indicates the currently indeterminate item lists.
                      */
-                    selectedItem: {
-                        type: String,
+                    indeterminateItems: {
+                        type: Array,
+                        value: function() {return [];},
                         notify: true
                     },
 
@@ -164,47 +180,127 @@
                         type : Boolean,
                         notify : true,
                         value : false
+                    },
+                    dimensions: {
+                        type: Object
+                    },
+                    dataFormatter: {
+                        notify: true,
+                        value: function() {
+                            return this._getAttributeFormattedData.bind(this);
                     }
                 },
+                    //TODO get context from dimension selector
+                    treeRequest : {
+                        type: Object,
+                        value: {
+                            "params": {
+                                "query": {
+                                    "ctx": [
+                                        {"classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry",
+                                        "list": "productMaster"}
+                                    ],
+                                    "valCtx": [
+                                        {"locale": "en-US", "source": "SAP"}
+                                    ],
+                                    "id": "e1",
+                                    "filters": {
+                                        "attributesCriterion": [],
+                                        "typesCriterion": [
+                                            "nart"
+                                        ]
+                                    }
+                                },
+                                "fields": {
+                                    "ctxTypes": [
+                                        "properties"
+                                    ],
+                                    relationships:[
+                                        "billOfMaterial"
+                                    ],
+                                    relatedEntityAttributes:[
+                                        "cpimProductName","shortName","longName","name"
+                                    ]
+
+                                },
+                                "options": {
+                                    "from": 0,
+                                    "to": 9
+                                }
+                            }
+                        }
+                    }
+                },
+                behaviors: [
+                    RUFBehaviors.UIBehavior
+                ],
+
 
                 observers : [
                     '_editModeChanged(gridConfig.mode)'
                 ],
-
-                _selectedItemsChanged : function() {
-                    var foundItems = [];
-                    var that = this;
+                _getGridRequest: function (gridConfig) {
+                  var req= {
+                      "params": {
+                          "query": {
+                              "ctx": [
+                                  {"classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry",
+                                      "list": "productMaster"}
+                              ],
+                              "valCtx": [
+                                  {"locale": "en-US", "source": "SAP"}
+                              ],
+                              "ids": ["e1","nart1","nart3"],
+                              "filters": {
+                                  "attributesCriterion": [],
+                                  "typesCriterion": []
+                              }
+                          },
+                          "fields": {
+                              "ctxTypes": [
+                                  "properties"
+                              ],
+                              "attributes":[]
+                          },
+                          "options": {
+                              "from": 0,
+                              "to": 9
+                          }
+                      }
+                  };
+                  if(this.dimensions){
+                      req.params.query.ctx = this._prepareContextGroups(this.dimensions.lists)
+                      req.params.query.valCtx = this._prepareValueContextGroups(this.dimensions.sources, this.dimensions.locales);
+                  }
                     if(this.selectedItems && this.selectedItems.length > 0) {
-                        if(this.selectedItems.length == 1 && this.selectedItems[0].isNew) {
-                            this.gridData = [];
-                            this.$.pebbleGrid.addNewRows(1);
-                            this.isEditMode = true;
-                        } else {
-                            for (var i = 0, len = that.initialGridData.length; i < len; i++) {
                                 this.selectedItems.forEach(function (item) {
-                                    if (that._isDataMatches(that.initialGridData[i], item.text)) {
-                                        foundItems.push(that.initialGridData[i]);
+                          req.params.query.ids.push(item.value);
+                      });
                                     }
+                  if(this.indeterminateItems &&this.indeterminateItems.length>0){
+                      this.indeterminateItems.forEach(function (item) {
+                          req.params.query.ids.push(item.value);
                                 });
                             }
-                            this.$.pebbleGrid.data = foundItems;
-                            this.$.pebbleGrid.reRenderGrid();
+                  if(!this.gridConfig){
+                      return undefined;
                         }
-                    } else if(this.selectedItems && this.selectedItems.length == 0) {
-                        this.$.pebbleGrid.data = this.initialGridData;
-                        this.$.pebbleGrid.reRenderGrid();
-                    }
+                  this.gridConfig.tabular.columns.forEach(function(column){
+                      req.params.fields.attributes.push(column.name);
+                  });
+                  console.log("------------------------+++++++++++++++++++",req);
+
+                    return req;
                 },
 
-                _isDataMatches :function (data,text) {
-                    if(data.shortName.toLowerCase().indexOf(text.toLowerCase()) != -1 ||
-                        data.longName.toLowerCase().indexOf(text.toLowerCase()) != -1   ||
-                        data.productType.toLowerCase().indexOf(text.toLowerCase()) != -1 ||
-                        data.description.toLowerCase().indexOf(text.toLowerCase()) != -1
-                    ) {
-                        return true;
+                selectedItemsChanged : function() {
+                    if(this.selectedItems) {
+                        if ((this.selectedItems.length > 0) || (this.indeterminateItems && this.indeterminateItems.length > 0)) {
+
+                        } else if (this.selectedItems.length == 0) {
+                            this.$.grid.data = this.initialGridData;
                     }
-                    return false;
+                    }
                 },
 
                 _handleResponse : function (e) {
@@ -227,27 +323,209 @@
                         var newData = this.gridData[0];
                         newData.isEditable = false;
                         this.push('initialGridData', newData);
-//                        var arr = [];
-//                        arr.push(newData);
-                        this.$.pebbleGrid.data = this.initialGridData;
-                        this.$.pebbleGrid.reRenderGrid();
+                        this.$.grid.data = this.initialGridData;
+                        this.$.grid.reRenderGrid();
                         this.selectedItems[0].isNew = false;
                         this.$.tree.clearSelectedItems();
                     } else {
                         //TODO
                         this.initialGridData = this.gridData;
-                        this.$.pebbleGrid.reRenderGrid();
+                        this.$.grid.reRenderGrid();
                     }
                     this.isEditMode = false;
                 },
 
-                _cancelAction : function(e) {
-                    this.$.tree.clearSelectedItems();
-                    this.$.pebbleGrid.data = this.initialGridData;
-                    this.$.pebbleGrid.reRenderGrid();
+                cancelAction : function(e) {
+                    var that=this;
+                    this.editableItems.forEach(function (item) {
+                        that.$.grid.changeRowToViewMode(item);
+                    });
+                    this.$.grid.reRenderGrid();
                     this.isEditMode = false;
+                },
+                _onGridEdit:function (e, detail, sender) {
+                    if(!this.editableItems){
+                        this.editableItems=[];
+                    }
+                    this.push('editableItems',detail);
+                    this.isEditMode=true;
+                },
+                onTreeDataChanged: function (treeData) {
+                    console.log("-----------------------");
+                    console.log(treeData);
+                    console.log("-----------------------");
+                },
+                _getChildren: function (id) {
+                    var req=this.treeRequest;
+                    if(this.dimensions){
+                        req.params.query.ctx = this._prepareContextGroups(this.dimensions.lists)
+                        req.params.query.valCtx = this._prepareValueContextGroups(this.dimensions.sources, this.dimensions.locales);
+                    }
+                    this.$.getChildrenData.requestData=req;
+                    this.$.getChildrenData.generateRequest();
+                },
+                _populateChildrenData:function (respData) {
+                    var data = [];
+                    if(respData)
+                    {
+                        if(respData.content && respData.content.entities)
+                        {
+                            var entities = respData.content.entities;
+                            var entityId = Object.keys(entities)[0];
+                            if(entityId){
+                                var entity = entities[entityId];
+                                if(entity && entity.data && entity.data.ctxInfo){
+                                    Object.keys(entity.data.ctxInfo).forEach(function(item) {
+                                        if(entity.data.ctxInfo[item]) {
+                                            var relationships = entity.data.ctxInfo[item].relationships;
+                                            var relationshipTyleList = [];
+
+                                            if(relationships) {
+                                                //TODO replace billOfMaterial by isChildOf after data is added
+                                                var relatedEntities = relationships["billOfMaterial"];
+                                                Object.keys(relatedEntities.rels).forEach(function(relItem){
+                                                    var record = {};
+                                                    var relElement = relatedEntities.rels[relItem];
+                                                    if(relElement.attributes) {
+                                                        Object.keys(relElement.attributes).forEach(function(item){
+                                                            if(relElement.attributes[item]) {
+                                                                record[item] = relElement.attributes[item].values[0].value;
+                                                            }
+                                                        }, this);
+                                                    }
+                                                    if (relElement.relToObject) {
+                                                        record["value"] = relElement.relToObject.id;
+                                                        //TODO if entity name is present in data text should be entity name and not entity id
+                                                        record["text"] = relElement.relToObject.id;
+                                                    }
+                                                    data.push(record);
+                                                }, this);
+                                            }
+                                        }
+                                    }, this);
+                                }
+                            }
+                        }
+                    }
+                    return data;
+                },
+                _populateDataForTree: function(respData){
+                    var treeData = [];
+                    if(respData)
+                    {
+                        if(respData.content && respData.content.entities)
+                        {
+                            var entities = respData.content.entities;
+                            var entityId = Object.keys(entities)[0];
+                            if(entityId){
+                                treeData=[{"text":entityId, "value":entityId,children:[]}];
+                                var data=[];
+                                var entity = entities[entityId];
+                                if(entity && entity.data && entity.data.ctxInfo){
+                                    Object.keys(entity.data.ctxInfo).forEach(function(item) {
+                                        if(entity.data.ctxInfo[item]) {
+                                            var relationships = entity.data.ctxInfo[item].relationships;
+                                            var relationshipTyleList = [];
+
+                                            if(relationships) {
+                                                //TODO replace billOfMaterial by isChildOf after data is added
+                                                var relatedEntities = relationships["billOfMaterial"];
+                                                Object.keys(relatedEntities.rels).forEach(function(relItem){
+                                                    var record = {};
+                                                    var relElement = relatedEntities.rels[relItem];
+                                                    if(relElement.attributes) {
+                                                        Object.keys(relElement.attributes).forEach(function(item){
+                                                            if(relElement.attributes[item]) {
+                                                                record[item] = relElement.attributes[item].values[0].value;
+                                                            }
+                                                        }, this);
+                                                    }
+                                                    if (relElement.relToObject) {
+                                                        record["value"] = relElement.relToObject.id;
+                                                        //TODO if entity name is present in data text should be entity name and not entity id
+                                                        record["text"] = relElement.relToObject.id;
+
+//                                                        if(relElement.relToObject.data){
+//                                                            var relCtxInfo = relElement.relToObject.data.ctxInfo;
+//
+//                                                            if(relCtxInfo) {
+//                                                                Object.keys(relCtxInfo).forEach(function(item) {
+//                                                                    var relCtxList = relCtxInfo[item];
+//
+//                                                                    if(relCtxList && relCtxList.attributes){
+//                                                                        Object.keys(relCtxList.attributes).forEach(function(attrItem){
+//
+//                                                                            if(relCtxList.attributes[attrItem]) {
+//                                                                                record[attrItem] = relCtxList.attributes[attrItem].values[0].value;
+//                                                                            }
+//                                                                        }, this);
+//                                                                    }
+//                                                                }, this);
+//                                                            }
+//                                                        }
+                                                    }
+                                                    data.push(record);
+                                                }, this);
+                                            }
+                                        }
+                                    }, this);
+                                }
+                                treeData[0].children=data;
+                            }
+                        }
+                    }
+                    console.log(data);
+                    this.data=treeData;
+                },
+
+                _prepareContextGroups: function (lists) {
+                    if (lists && lists instanceof Array) {
+                        var ctxGroup = [];
+
+                        for (var i = 0; i < lists.length; i++) {
+                            var ctxInfoObject = new Object();
+                            ctxInfoObject.list = lists[i].value;
+                            ctxInfoObject.classification =
+                                "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry";
+                            ctxGroup.push(ctxInfoObject);
+                        }
+
+                        return ctxGroup;
+                    }
+                },
+
+                _prepareValueContextGroups: function (sources, locales) {
+                    var valueCtxGroup = [];
+
+                    if (sources && locales && sources instanceof Array && locales instanceof Array) {
+                        for (var i = 0; i < sources.length; i++) {
+                            for (var j = 0; j < locales.length; j++) {
+
+                                var valueCtxInfoObject = new Object();
+                                valueCtxInfoObject.source = sources[i].value;
+                                valueCtxInfoObject.locale = locales[j].value;
+                                valueCtxGroup.push(valueCtxInfoObject);
+                            }
+                        }
+
+                        return valueCtxGroup;
+                    }
+                }, _getAttributeFormattedData: function (data) {
+                    var dataArray = [];
+                    if(data && data.content) {
+                        var entities = data.content.entities;
+                        if(entities) {
+                            dataArray = Object.keys(entities).map(function (key) {
+                                if (entities.hasOwnProperty(key)) {
+                                    return entities[key];
                 }
             });
+                            DataHelper.transformEntitySchemaForGrid(dataArray, this.gridConfig.tabular.attributeModels);
+                        }
+                    }
+                    return dataArray;
+                },
+            })
         })();
     </script>
 </dom-module>

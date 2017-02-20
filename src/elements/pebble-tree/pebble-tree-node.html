@@ -122,7 +122,7 @@
         <template is="dom-if" if="[[!hasChildren(nodeData.*)]]"  >
             <li class="flex">
                 <div class="check-box-wrapper" on-tap = "_itemClick">
-                    <pebble-checkbox hidden="[[!multiSelect]]" checked="[[_isSelected(nodeData,selectedItems,selectedItems.*)]]"></pebble-checkbox>
+                    <pebble-checkbox hidden="[[!multiSelect]]" disabled="[[disabled]]" checked="[[_isSelected(nodeData,selectedItems,selectedItems.*)]]"></pebble-checkbox>
                 </div>
                 <iron-icon src="[[nodeData.src]]" icon="[[nodeData.icon]]" hidden="[[!_iconPassed(nodeData)]]"></iron-icon>
                 <a class$="nav-lnk" on-tap="_itemClick" >[[nodeData.text]]</a>
@@ -136,7 +136,7 @@
             <li class="flex">
                 <pebble-button class="iconButton" icon$="[[_expandClass(expanded)]]"  hidden="[[!multiSelect]]" on-click="_toggle" ></pebble-button>
                 <div class="check-box-wrapper" on-tap = "_itemClick">
-                    <pebble-checkbox hidden="[[!multiSelect]]" indeterminate="[[_isIndeterminate(nodeData,indeterminateItems,indeterminateItems.*)]]" checked="[[_isSelected(nodeData,selectedItems,selectedItems.*)]]"></pebble-checkbox>
+                    <pebble-checkbox hidden="[[!multiSelect]]" disabled="[[disabled]]" indeterminate="[[_isIndeterminate(nodeData,indeterminateItems,indeterminateItems.*)]]" checked="[[_isSelected(nodeData,selectedItems,selectedItems.*)]]"></pebble-checkbox>
                 </div>
                 <div on-click="_toggle" class="flex">
                     <div id="arrow" hidden="[[multiSelect]]" class$="[[_arrowClass(expanded)]] arrow"
@@ -153,15 +153,15 @@
         </template>
         <iron-collapse id="collapse" opened$="[[expanded]]">
             <ul class="flex" hidden="[[!nodeData.addNewItem]]">
-                <pebble-checkbox checked="{{newItemChecked}}"  hidden="[[!multiSelect]]"></pebble-checkbox>
-                <pebble-textbox id="newItem" label="text input" no-label-float
+                <pebble-checkbox disabled="[[disabled]]" checked="{{newItemChecked}}"  hidden="[[!multiSelect]]"></pebble-checkbox>
+                <pebble-textbox id="newItem" disabled="[[disabled]]" label="text input" no-label-float
                                 on-change="_keyPressed" ></pebble-textbox>
             </ul>
             <template is="dom-if" if="[[hasChildren(nodeData.*)]]" >
             <ul>
                 <iron-list items="[[nodeData.children]]" as="item" index-as="index" >
                     <template>
-                        <pebble-tree-node  node-data="{{item}}" default-expand-depth ="[[defaultExpandDepth]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}"
+                        <pebble-tree-node disabled="[[disabled]]"  node-data="{{item}}" default-expand-depth ="[[defaultExpandDepth]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}"
                                            indeterminate-items="{{indeterminateItems}}"  multi-select="[[multiSelect]]"
                                            parent-item="{{nodeData}}" item-path$="[[_setItemPath(index)]]" selected-node="{{selectedNode}}" selected-nodes="{{selectedNodes}}"
                                            tree="[[tree]]" check-child-nodes="[[checkChildNodes]]" show-horizontal-divider="[[showHorizontalDivider]]" addable-levels="[[addableLevels]]">
@@ -303,6 +303,13 @@
                     value: function () {
                         return [];
                     }
+                },
+                /**
+                 * Specifies whether the tree is disabled or not
+                 */
+                disabled:{
+                    type:Boolean,
+                    value:false
                 }
             },
             observers:[
@@ -343,46 +350,50 @@
              *  select the current Item. If checkChildNodes is set to true select child nodes also and make parent node indeterminate unless all the sibling nodes are also selected.
              */
             selectItem: function(){
-                var nodeData=this.nodeData;
-                if(this.selectedItems.indexOf(nodeData)==-1) {
-                    this.selectedItems.push(nodeData);
-                    this.selectedNodes.push(this);
-                    if (this.checkChildNodes) {
-                        if (this._hasChildren(nodeData)) {
-                            this.checkAllChildNodes(nodeData);
+                if(!this.disabled) {
+                    var nodeData = this.nodeData;
+                    if (this.selectedItems.indexOf(nodeData) == -1) {
+                        this.push('selectedItems', nodeData);
+                        this.selectedNodes.push(this);
+                        if (this.checkChildNodes) {
+                            if (this._hasChildren(nodeData)) {
+                                this.checkAllChildNodes(nodeData);
+                            }
+                            if (this._allSiblingsSelected()) {
+                                this.getParentNode().selectItem();
+                            } else {
+                                this._makeParentIndeterminate();
+                            }
                         }
-                        if (this._allSiblingsSelected()) {
-                            this.getParentNode().selectItem();
-                        } else {
-                            this._makeParentIndeterminate();
+                        var indeterminateIndex = this.indeterminateItems.indexOf(nodeData);
+                        if (indeterminateIndex > -1) {
+                            this.splice('indeterminateItems', indeterminateIndex, 1);
                         }
                     }
-                    var indeterminateIndex=this.indeterminateItems.indexOf(nodeData);
-                    if(indeterminateIndex>-1){
-                        this.splice('indeterminateItems', indeterminateIndex, 1);
-                    }
+                    this._notifySelectedItemChanges();
                 }
-                this._notifySelectedItemChanges();
             },
             /**
              *  Deselect the current Item. If checkChildNodes is set to true, deselect child nodes also and make parent node determinate unless at least 1 sibling nodes is selected.
              */
             deSelectItem: function () {
-                var index = this.selectedItems.indexOf(this.nodeData);
-                if (index > -1) {
-                    this.splice('selectedItems', index, 1);
-                }
-                var nodeIndex=this.selectedNodes.indexOf(this);
-                if(nodeIndex>-1) {
-                    this.splice('selectedNodes', nodeIndex, 1);
-                }
-                if(this.checkChildNodes) {
-                    if(this._hasChildren(this.nodeData)){
-                        this.unCheckAllChildNodes(this.nodeData);
+                if(!this.disabled) {
+                    var index = this.selectedItems.indexOf(this.nodeData);
+                    if (index > -1) {
+                        this.splice('selectedItems', index, 1);
                     }
-                    this._changeParentDeterminateState();
+                    var nodeIndex = this.selectedNodes.indexOf(this);
+                    if (nodeIndex > -1) {
+                        this.splice('selectedNodes', nodeIndex, 1);
+                    }
+                    if (this.checkChildNodes) {
+                        if (this._hasChildren(this.nodeData)) {
+                            this.unCheckAllChildNodes(this.nodeData);
+                        }
+                        this._changeParentDeterminateState();
+                    }
+                    this._notifySelectedItemChanges();
                 }
-                this._notifySelectedItemChanges();
             },
             /**
              *  select all the child nodes without affecting the state of the parent node
@@ -391,7 +402,7 @@
                 var children=nodeData.children;
                 for(var i=0;i<children.length;i++){
                     if(this.selectedItems.indexOf(children[i])==-1) {
-                        this.selectedItems.push(children[i]);
+                        this.push('selectedItems',children[i]);
                     }
                     if(this._hasChildren(children[i])) {
                         this.checkAllChildNodes(children[i]);
@@ -495,17 +506,19 @@
             },
 
             _addNewElement: function (evt) {
-                if (!this.expanded) {
-                    this._toggle();
-                }
-                this.tree._resizeIronList();
-                this.async(function () {
-                    var newItem=this.$$('#newItem');
-                    if(newItem) {
-                        newItem.focus();
+                if(!this.disabled) {
+                    if (!this.expanded) {
+                        this._toggle();
                     }
-                });
-                this.set('nodeData.addNewItem', true);
+                    this.tree._resizeIronList();
+                    this.async(function () {
+                        var newItem = this.$$('#newItem');
+                        if (newItem) {
+                            newItem.focus();
+                        }
+                    });
+                    this.set('nodeData.addNewItem', true);
+                }
             },
 
             /**
@@ -564,13 +577,13 @@
              * Can be used to check whether the given item has children.
              */
             _hasChildren: function (item) {
-                return item.children && item.children.length > 0;
+                return item.hasChildren || (item.children && item.children.length > 0);
             },
             /**
              * Can be used to check whether the current node has children.
              */
             hasChildren: function () {
-                return this.nodeData.children && this.nodeData.children.length > 0;
+                return this.nodeData.hasChildren || (this.nodeData.children && this.nodeData.children.length > 0);
             },
             /**
              * Can be used to check whether icon has passed.
