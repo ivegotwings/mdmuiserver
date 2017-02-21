@@ -16,6 +16,7 @@ var DFRestService = function(options) {
         //console.log('DFRestService request', JSON.stringify(request));
 
         var serviceConfig = config.services[url];
+        //console.log('DFRestService serviceConfig', JSON.stringify(serviceConfig));
 
         var actualUrl = serviceConfig.url,
             configMode = serviceConfig.mode;
