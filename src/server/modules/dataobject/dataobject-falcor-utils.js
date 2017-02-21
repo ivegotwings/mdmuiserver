@@ -21,7 +21,7 @@ const createPath = pathUtils.createPath,
 const pathKeys = sharedDataObjectFalcorUtil.getPathKeys();
 
 function _createContextKey(dataObjectContext, valueContext) {
-    var classification = dataObjectContext.classification ? dataObjectContext.classification : '';
+    var classification = dataObjectContext.classification ? dataObjectContext.classification : 'NA';
     var contextKey = "".concat(dataObjectContext.list, '#@#', classification, '#@#', valueContext.source, '#@#', valueContext.locale);
     return contextKey;
 }
@@ -30,10 +30,10 @@ function _compareClassification(c1, c2) {
     //console.log('c1: ', c1, 'c2: ', c2);
 
     if(!c1) {
-        c1 = '';
+        c1 = 'NA';
     }
     if(!c2) {
-        c2 = '';
+        c2 = 'NA';
     }
     if(c1 == c2) {
         return true;
@@ -108,10 +108,12 @@ function _buildAttributesDetailResponse(reqCtxGroup, reqValCtxGroup, reqAttrName
                 }
 
                 if (valCtxSpecifiedValues.length > 0) {
+                    //console.log('basePath reqAttrName', basePath.concat([reqAttrName]));
                     response.push(mergeAndCreatePath(basePath, [reqAttrName, "values"], $atom(valCtxSpecifiedValues)));
                 }
             }
             else if(attr.groups) {
+                //console.log('basePath reqAttrName', basePath.concat([reqAttrName]));
                  response.push(mergeAndCreatePath(basePath, [reqAttrName, "groups"], $atom(attr.groups)));
                  valOrGroupFound = true;
             }
@@ -125,7 +127,7 @@ function _buildAttributesDetailResponse(reqCtxGroup, reqValCtxGroup, reqAttrName
                 locale: reqValCtxGroup.locale,
                 value: ''
             };
-
+            //console.log('basePath reqAttrName', basePath.concat([reqAttrName]));
             response.push(mergeAndCreatePath(basePath, [reqAttrName, "values"], $atom([val])));
         }
     }
@@ -321,6 +323,7 @@ function buildAttributesResponse(dataObject, request, basePath) {
     var reqCtx = request.params.query.ctx;
     var reqValCtx = request.params.query.valCtx;
     var reqAttrNames = request.params.fields.attributes;
+    //console.log('reqCtx: ', JSON.stringify(reqCtx, null, 2));
 
     for(let reqCtxGroup of reqCtx) {
         for (var x in dataObject.data.ctxInfo) {
@@ -330,6 +333,7 @@ function buildAttributesResponse(dataObject, request, basePath) {
                 enCtxInfo.ctxGroup = reqCtxGroup; //TODO: For now, save call is not sending ctxGroup object so has beed assign with request object's ctxGroup..
             }
 
+            //console.log('_compareClassification(enCtxInfo.ctxGroup.classification, reqCtxGroup.classification) ', _compareClassification(enCtxInfo.ctxGroup.classification, reqCtxGroup.classification));
             if (enCtxInfo.ctxGroup.list === reqCtxGroup.list && _compareClassification(enCtxInfo.ctxGroup.classification, reqCtxGroup.classification)) {
                 
                 for(let reqValCtxGroup of reqValCtx){
@@ -337,6 +341,7 @@ function buildAttributesResponse(dataObject, request, basePath) {
                     var ctxBasePath = mergePathSets(basePath, ['data', 'ctxInfo', contextKey, 'attributes']);
                     var attrs = enCtxInfo.attributes;
                     
+                    //console.log('calling attr detail');
                     response.push.apply(response, _buildAttributesDetailResponse(reqCtxGroup, reqValCtxGroup, reqAttrNames, enCtxInfo, attrs, ctxBasePath));
                 }
             }
