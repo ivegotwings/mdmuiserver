@@ -90,10 +90,10 @@
                     <div class="right">
                         <div class ="grid-container">
                             <liquid-entity-get auto name="attributeModelGetService" request="{{attributeModelRequest}}" response="{{attributeModelResponse}}"></liquid-entity-get>
-                            <remote-data id="gridSource" request="[[_getGridRequest(gridConfig)]]" operation="getbyids" data-formatter="{{dataFormatter}}"
-                                         current-record-size="{{size}}" total-records="{{totalRecords}}" data-source="{{dataSource}}"></remote-data>
-                            <rock-grid id="grid" data-source="{{dataSource}}" data-source-id="gridSource" record-size="{{totalRecords}}" config="{{gridConfig}}"
-                                       grid-data-size="{{size}}" page-size="4"  attribute-models="{{attributeModelResponse.returnValue.attributeModels}}" ></rock-grid>
+                            <liquid-entity-data-get id="getGridData" operation="getbyids" request-data="[[gridRequest]]" last-response="{{remoteGridData}}" on-response="_onGridDataGet">
+                            </liquid-entity-data-get>
+                            <rock-grid id="grid" data="{{gridData}}"  config="{{gridConfig}}"
+                                        page-size="4"  attribute-models="{{attributeModelResponse.returnValue.attributeModels}}" ></rock-grid>
                             <bedrock-pubsub event-name="grid-edit-item" handler="_onGridEdit" target-id="grid"></bedrock-pubsub>
                         </div>
                         <div class="action-container" hidden = "[[!isEditMode]]">
@@ -167,7 +167,8 @@
                             selectedItems: {
                                 type: Array,
                                 notify: true,
-                                value: function() {return [];}
+                                value: function() {return [];},
+                                observer:'_selectedItemsChanged'
                             },
                             /**
                             * Specifies whether entity variants in edit mode or not.
@@ -243,8 +244,7 @@
                             '_editModeChanged(gridConfig.mode)'
                         ],
                         listeners:{
-                            'tree-node-expanded':'_treeNodeExpanded',
-                            'tree-selection-changed':'_selectedItemsChanged'
+                            'tree-node-expanded':'_treeNodeExpanded'
                         },
                         _getTreeRequest:function () {
                           var req=this.treeRequest;
@@ -317,12 +317,14 @@
                         },
                         _selectedItemsChanged : function() {
                             this.async(function () {
-                                if (this.selectedItems && this.selectedItems.length > 0) {
-                                    var request = this._getGridRequest();
-                                    this.$.gridSource.request = request;
-                                    this.$.grid.reRenderGrid();
-                                } else if (this.selectedItems.length == 0) {
-                                    this.$.grid.data = [];
+                                if(this.selectedItems) {
+                                    if (this.selectedItems.length > 0) {
+                                        var request = this._getGridRequest();
+                                        this.gridRequest = request;
+                                        this.$.getGridData.generateRequest();
+                                    } else if (this.selectedItems.length == 0) {
+                                        this.$.grid.data = [];
+                                    }
                                 }
                             });
                         },
@@ -474,6 +476,9 @@
                                 }
                             }
                             this.treeData=treeData;
+                            if(treeData.length>0) {
+                                this.push('selectedItems', treeData[0].children[0]);
+                            }
                         },
 
                         _prepareContextGroups: function (lists) {
@@ -522,6 +527,9 @@
                                     }
                                 }
                                 return dataArray;
+                        },
+                        _onGridDataGet:function (e) {
+                            this.gridData=this._getAttributeFormattedData(this.remoteGridData);
                         }
                     })
                 })();
