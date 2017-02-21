@@ -6,13 +6,13 @@
 
 <link rel="import" href="../liquid-governance-workflow-definition-get/liquid-governance-workflow-definition-get.html">
 <link rel="import" href="../liquid-governance-workflow-runtimeinstance-get/liquid-governance-workflow-runtimeinstance-get.html">
+<link rel="import" href="../liquid-rest/liquid-rest.html">
 
 <link rel="import" href="../pebble-stepper/pebble-stepper.html">
 <link rel="import" href="../pebble-stepper/pebble-step.html">
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-image-viewer/pebble-image-viewer.html">
-<link rel="import" href="../pebble-stepper/pebble-step-details.html">
-<link rel="import" href="../pebble-stepper/pebble-step-badge-content.html">
+<link rel="import" href="../pebble-textarea/pebble-textarea.html">
 
 <dom-module id="rock-workflow-panel">
     <template>
@@ -60,7 +60,57 @@
             pebble-stepper::shadow pebble-step::shadow #step-subtitle{
                 font-size:var(--default-font-size) !important;
             }
+            .step-details {
+                color:var(--palette-steel-grey);
+                font-size: 12px; 
+            }
+             #action-details {
+                margin-top: 10px;
+            }
+            .view-changes {
+                margin-top: 15px;
+                text-decoration: none;
+                float: right;
+            }
+            .user {
+                text-decoration: none;
+            }
+            #step-comments {
+                margin-top: 20px;
+            }
+            .user-image {
+                width: 15px;
+                height: 15px;
+                background: #ddd;
+            }
+            pebble-textarea{
+                --paper-input-container-label: {
+                    font-size: 14px !important;
+                }
+                --paper-input-container-input: {
+                    font-size: 14px !important;
+                }
+            }
+             #step-actions {
+                padding: 12px 0px 8px 0px;
+            }
+            .action-button {
+                padding-right: 6px;
+                --pebble-button: {
+                    height: 24px; 
+                    padding: 0.75em !important;
+                    border: 1px solid #75808b;
+                    color: #75808b;                                     
+                }
+                --pebble-button-left-icon: {
+                    height: 18px;
+                    width: 18px;
+                    padding-bottom: 2px; 
+                }
+            }
         </style>
+        <liquid-rest id="entityStartWorkflow" url="/pass-through/workflowservice/startworkflow" verbose 
+            method="POST" request-data={{_invokeWorkflowRequest}} last-response={{_invokeWorkflowResponse}} on-response="_onWorkflowReceived" on-error="_onWorkflowFailed"></liquid-rest>
         <liquid-governance-workflow-definition-get id="entityGetWorkflowDefinition" auto operation="getbyids" request-id="req1" request-data={{workflowDefinitionRequest}} 
                 last-response={{workflowDefinitions}} on-response="_onDefinitionReceived" on-error="_onDefinitionGetFailed"></liquid-governance-workflow-definition-get>
         <liquid-governance-workflow-runtimeinstance-get id="entityGetRunningInstance" operation="getbyids" request-id="req2" request-data={{runningInstanceRequest}} 
@@ -76,11 +126,10 @@
             </div>
             <div id="workflow-stepper">
                 <!-- place stepper here-->
-                <bedrock-pubsub event-name="pebble-step-action-click" handler="_onStepActionTap" target-id=""></bedrock-pubsub>
                 <pebble-stepper id="workflowStepper" stepper-config="[[_workflowstepperData]]">
                     <template is="dom-repeat" items="[[_workflowstepperData.items]]" as="item">
                         <pebble-step class="workflow-stepper" data="{{item}}">
-                            <pebble-step-badge-content>
+                            <div class="step-badge-content">
                                 <template is="dom-if" if="[[_userHasImage()]]">
                                     <pebble-image-viewer class="user-image" shape="circle" sizing="contain" 
                                         src="../../images/no-photo.jpg"></pebble-image-viewer>
@@ -88,10 +137,30 @@
                                 <template is="dom-if" if="[[!_userHasImage()]]">
                                     <span>[[item.index]]</span>
                                 </template>
-                            </pebble-step-badge-content>
-                            <pebble-step-details>
-                                <rock-workflow-panel-step-details step-item="[[item]]" workflow-attributes="[[_wfAttributes]]"></rock-workflow-panel-step-details> 
-                            </pebble-step-details>
+                            </div>
+                            <div class="step-details">
+                                <div id="step-description">
+                                    <span>[[item.stepDetails.description]]</span>
+                                </div>
+                                <template is="dom-if" if="[[_stepHasDetails(item.stepDetails)]]">
+                                    <div id="action-details">
+                                        <pebble-image-viewer class="user-image" shape="circle" sizing="contain" 
+                                            src="../../images/no-photo.jpg"></pebble-image-viewer>
+                                        <span><a class="user" href="#">[[item.stepDetails.assignedUser]]</a>[[item.stepDetails.details]]</span>
+                                        <a class="view-changes" href="#">View all changes >></a>
+                                    </div>
+                                </template>
+                                <template is="dom-if" if="[[_isCommentsEnabled(item)]]">
+                                    <div id="step-comments">
+                                        <pebble-textarea id="stepComments" required="[[_isRequired(item.stepDetails)]]" autofocus label="ADD A COMMENT" disabled="[[_isDisabled(item)]]" invalid="{{invalid}}" error-message="Comments Required."></pebble-textarea>
+                                    </div>
+                                </template>
+                                 <div id="step-actions">
+                                    <template is="dom-repeat" items="[[item.stepDetails.actions]]" as="button">
+                                        <pebble-button class="action-button" raised disabled="[[_isDisabled(item)]]" icon="[[button.actionIcon]]" button-text="[[button.action]]" on-tap="_onStepActionTap" data="[[button.event]]"></pebble-button>
+                                    </template>
+                                </div>
+                            </div> 
                         </pebble-step>
                     </template>
                 </pebble-stepper>
@@ -125,10 +194,6 @@
                         type: Object,
                         value: function() { return {}; }
                     },
-                    _wfAttributes: {
-                        type: Object,
-                        value: function() { return {}; }
-                    },
                     /*
                     * Indicates the request to fetch the workflow definition based on workflowId.
                     */
@@ -141,12 +206,6 @@
                                         "ctx": [
                                             {
                                                 "list": "workflowDefinitions"
-                                            }
-                                        ],
-                                        "valCtx": [
-                                            {
-                                                "source": "self",
-                                                "locale": "en-US"
                                             }
                                         ],
                                         "id": "productCreationWorkflow_id",
@@ -229,7 +288,11 @@
                     _runningInstanceResponse: {
                         type: Object,
                         value: function() { return {}; }
-                    }
+                    },
+                     _invokeWorkflowRequest: {
+                        type: Object,
+                        value: function() { return {}; }
+                    },
                 },
                  behaviors: [
                     RUFBehaviors.UIBehavior
@@ -265,14 +328,21 @@
                 _onRunningInstanceGetFailed: function(e) {
                     Polymer.Base._error('running instance get failed with error ', e.detail);
                 },
+                _onWorkflowReceived: function(e) {
+                    var workflowResponse = e.detail.response;
+                    //modify request for wfdefinition and generate request for work definition get.
+                },
+                _onWorkflowFailed: function(e) {
+                    Polymer.Base._error('starting workflow failed with error ', e.detail);
+                },
                 _transformEntityResponseToStepperJson: function(workflowDefinition, runningInstance) {
                     var runtimeInstanceId = "e1_workflow_runtimeinstance";
-                    if(workflowDefinition && workflowDefinition.content && workflowDefinition.content.entities && this._workflowId in workflowDefinition.content.entities
+                    if(workflowDefinition && workflowDefinition.content && workflowDefinition.content.entityModels && this._workflowId in workflowDefinition.content.entityModels
                         && runningInstance && runningInstance.content && runningInstance.content.entities && runtimeInstanceId in runningInstance.content.entities) {
                             var riContextKey = Object.keys(runningInstance.content.entities[runtimeInstanceId].data.ctxInfo)[0];
                             var riAttributes = runningInstance.content.entities[runtimeInstanceId].data.ctxInfo[riContextKey].attributes;
-                            var wfContextKey = Object.keys(workflowDefinition.content.entities[this._workflowId].data.ctxInfo)[0];
-                            var wfattributes = workflowDefinition.content.entities[this._workflowId].
+                            var wfContextKey = Object.keys(workflowDefinition.content.entityModels[this._workflowId].data.ctxInfo)[0];
+                            var wfattributes = workflowDefinition.content.entityModels[this._workflowId].
                             data.ctxInfo[wfContextKey].attributes;
                             var riActivities = riAttributes.activities;
                             var wfActivities = wfattributes.activities;
@@ -304,7 +374,6 @@
                                 }
                             }
                             attributes["activities"] = activitiesJson;
-                            this.set("_wfAttributes", attributes);
                             if(attributes) {
                                 var config = {
                                     "workflowName": DataHelper.getFirstAttributeValue(attributes.workflowName),
@@ -324,7 +393,8 @@
                                             var actionsGroup = group.actions.groups[j];
                                             var action = {
                                                 "action": DataHelper.getFirstAttributeValue(actionsGroup.actionText),
-                                                "event": DataHelper.getFirstAttributeValue(actionsGroup.actionName)
+                                                "event": DataHelper.getFirstAttributeValue(actionsGroup.actionName),
+                                                "commentsMode": DataHelper.getFirstAttributeValue(actionsGroup.commentsMode),
                                             };
                                             actions.push(action);
                                         }
@@ -335,9 +405,9 @@
                                         "title": DataHelper.getFirstAttributeValue(group.activityName),
                                         "subtitle": this._getItemSubtitle(group.action, group.endDateTime),
                                         "status": this._getItemStatus(group.status),
-                                        "selected": this._getSelected(group.status),
-                                        "actions": actions
+                                        "selected": this._getSelected(group.status)
                                     };
+                                    item["stepDetails"] = this._getItemFullDetails(item, attributes, actions);
                                     items.push(item);
                                 }
                                 config.items = items;
@@ -371,16 +441,6 @@
                     }
                     return description;
                 },
-                _getSLADate: function(date, days) {
-                    var result = new Date(moment(date).add(days, 'day'));
-                    result = moment(result).format('DD/MM/YYYY hh:mm A');
-                    return result;
-                },
-                _formatDate: function(date) {
-                    var result = new Date(date);
-                    result = moment(result).format('DD/MM/YYYY hh:mm A');
-                    return result;
-                },
                 _getItemSubtitle: function(action, endDateTime) {
                     var lastAction = DataHelper.getFirstAttributeValue(action);
                     var endDate = DataHelper.getFirstAttributeValue(endDateTime);
@@ -389,23 +449,20 @@
                     }
                     return null;
                 },
-                _onStepActionTap: function(e, detail, sender) {
-                    if(detail && detail.data) {
+                _onStepActionTap: function(e) {
                         var currentStepItem = this.$.workflowStepper.selectedItem;
-                        var stepContentElement = currentStepItem.querySelector('rock-workflow-panel-step-details');
-                        if(stepContentElement) {
-                            var currentStepData = stepContentElement.stepItem;
-                            var curretStepDetails = stepContentElement._stepDetails;
-                            var stepComments = stepContentElement.$$('#stepComments').value;
+                        if(currentStepItem) {
+                            var currentStepData = currentStepItem.data;
+                            var curretStepDetails = currentStepData.stepDetails;
+                            var stepComments = this.$$('#stepComments').value;
                         }
                         var isCommentsRequired;
-                        if(curretStepDetails && curretStepDetails.actions && curretStepDetails.actions.groups 
-                            && curretStepDetails.actions.groups.length && curretStepDetails.actions.groups.length >0 ) {
-                            for(var i=0; i<curretStepDetails.actions.groups.length; i++) {
-                                var action = curretStepDetails.actions.groups[i];
-                                var actionName = DataHelper.getFirstAttributeValue(action.actionName);
-                                if(actionName == detail.data) {
-                                    var commentsMode = DataHelper.getFirstAttributeValue(action.commentsMode);
+                        if(curretStepDetails && curretStepDetails.actions && curretStepDetails.actions.length && curretStepDetails.actions.length >0 ) {
+                            for(var i=0; i<curretStepDetails.actions.length; i++) {
+                                var action = curretStepDetails.actions[i];
+                                var actionName =action.event;
+                                if(actionName == e.target.data) {
+                                    var commentsMode = action.commentsMode;
                                     if(commentsMode == "required") {
                                         isCommentsRequired = true;
                                     }
@@ -414,12 +471,11 @@
                             }
                         }
                         if(isCommentsRequired && stepComments == "") {
-                            stepContentElement.$$('#stepComments').invalid = true;
-                            stepContentElement.$$('#stepComments').errorMessage = "Comments Required.";
+                            this.$$('#stepComments').invalid = true;
                             return;
                         }
                         else {
-                            stepContentElement.$$('#stepComments').invalid = false;
+                            this.$$('#stepComments').invalid = false;
                         }
                         var workflowTransitionRequestDataJson = {
                             "params": {
@@ -427,7 +483,7 @@
                                     "workflowId": this._workflowId,
                                     "activity": {
                                         "activityId": currentStepData.id,
-                                        "action": detail.data,
+                                        "action": e.target.data,
                                         "comment": stepComments
                                     }
                                 }
@@ -443,7 +499,6 @@
                         };
                         //To Do: set this to a request object and generate request for activity action save liquid.
                         //on response, need to refresh the workflow-panel
-                    }
                 },
                 _getItemStatus: function(stepStatus) {
                     var status = DataHelper.getFirstAttributeValue(stepStatus);
@@ -484,11 +539,92 @@
                     };
                     //To DO: set this object to a request object and generate request to invoke workflow for the entity.
                     //on response generate request to get workflow-definition and so...
+                    this.set("_invokeWorkflowRequest", invokeWorflowRequest);
+                    this.$$("#entityStartWorkflow").generateRequest();
                 },
                 _userHasImage: function() {
                     //To DO: functionality to get assigned user of item, get user preferences what to show in
                     // step badge and get details of the content to be shown.
-                },         
+                },
+                _getItemFullDetails: function(stepItem, workflowAttributes, actions) {
+                    if(stepItem && workflowAttributes && workflowAttributes.activities && workflowAttributes.activities.groups
+                        && workflowAttributes.activities.groups.length) {
+                        var currentActivity;
+                        for(var i=0; i<workflowAttributes.activities.groups.length; i++) {
+                            var group = workflowAttributes.activities.groups[i];
+                            var activityId = DataHelper.getFirstAttributeValue(group.activityGuid);
+                            if(activityId && activityId == stepItem.id) {
+                                currentActivity = group;
+                                break;
+                            }
+                        }
+                        var itemDetailsJson = {};
+                        var itemDescription = DataHelper.getFirstAttributeValue(currentActivity.activityDescription);
+                        var assignedUser = DataHelper.getFirstAttributeValue(currentActivity.assignedUser);
+                        var itemDetail = this._getItemDetail(currentActivity);
+                        itemDetailsJson["description"] = itemDescription;
+                        itemDetailsJson["assignedUser"] = assignedUser;
+                        itemDetailsJson["details"] = itemDetail;
+                        itemDetailsJson["actions"] = actions;
+                        
+                        return itemDetailsJson;
+                    }
+                },
+                _getItemDetail: function(group) {
+                    var status = DataHelper.getFirstAttributeValue(group.status);
+                    var startDate = DataHelper.getFirstAttributeValue(group.startDateTime);
+                    var endDate = DataHelper.getFirstAttributeValue(group.endDateTime);
+                    var lastAction = DataHelper.getFirstAttributeValue(group.action);
+                    var comments = DataHelper.getFirstAttributeValue(group.comments);
+                    var itemDetail = "";
+                    if(status == "Executing") {
+                        itemDetail = "  was assigned task on " + this._formatDate(startDate) + " and should complete by " + this._getSLADate(startDate,21) + " to follow SLA of 21 Days.";
+                    }
+                    if(status == "Completed") {
+                        itemDetail = "  " + '"' + lastAction + '"' + " on " + this._formatDate(endDate) + " met SLA of 3 days with comment " + comments;
+                    }
+                    return itemDetail;
+                },
+                _getSLADate: function(date, days) {
+                    var result = new Date(moment(date).add(days, 'day'));
+                    result = moment(result).format('DD/MM/YYYY hh:mm A')
+                    return result;
+                },
+                _formatDate: function(date) {
+                    var result = new Date(date);
+                    result = moment(result).format('DD/MM/YYYY hh:mm A');
+                    return result;
+                },
+                _isCommentsEnabled: function(item) {
+                    if(item && item.stepDetails &&  item.stepDetails.actions && item.stepDetails.actions.length>0) {
+                        return true;
+                    }
+                    return false;
+                },
+                _isDisabled: function(item) {
+                    if(!item.status || item.status == "pending") {
+                        return true;
+                    }
+                    return false;
+                },
+                _stepHasDetails: function(stepDetails) {
+                    if(stepDetails && stepDetails.assignedUser && stepDetails.details) {
+                        return true;
+                    }
+                    return false;
+                },
+                _isRequired: function(stepDetails) {
+                    if(stepDetails && stepDetails.actions && stepDetails.actions.groups 
+                        && stepDetails.actions.groups.length && stepDetails.actions.groups.length >0 ) {
+                        stepDetails.actions.groups.forEach(function(action) {
+                            var commentsMode = DataHelper.getFirstAttributeValue(action.commentsMode);
+                            if(commentsMode != "required") {
+                                return false;
+                            }
+                        });
+                        return true;
+                    }
+                },       
             });
         })();
     </script>
