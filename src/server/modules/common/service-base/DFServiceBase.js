@@ -43,6 +43,7 @@ var DFServiceBase = function (options) {
                             'reason': errors
                         };
 
+                console.error('EXCEPTION:', JSON.stringify(err, null, 2));
                 return err;
             })
             .catch(function (err) {
