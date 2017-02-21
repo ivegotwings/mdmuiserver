@@ -17,6 +17,7 @@ console.log('buildPath:', buildPath);
 app.use(bodyParser.urlencoded({
     extended: true
 })); 
+app.use(bodyParser.json());
 
 // register cors to allow cross domain calls
 app.use(cors());
