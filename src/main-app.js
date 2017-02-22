@@ -12,8 +12,6 @@
         }
     });
 
-    var GlobalVariables = GlobalVariables || {};
-
 })(document);
 
 
