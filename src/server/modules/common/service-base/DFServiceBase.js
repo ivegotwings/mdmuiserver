@@ -28,12 +28,29 @@ var DFServiceBase = function (options) {
                 "Cache-Control": "no-cache"
             },
             body: request,
-            json: true
+            json: true,
+            simple: false,
+            timeout:2000
         };
 
         //console.log('RDP call: ', JSON.stringify(options, null, 4));
 
-        return await this._restRequest(options);
+        var reqPromise = this._restRequest(options)
+            .catch(function (errors) {
+                var err = {
+                            'status': 'error', 
+                            'msg': 'RDF request failed due to technical reasons', 
+                            'reason': errors
+                        };
+
+                console.error('EXCEPTION:', JSON.stringify(err, null, 2));
+                return err;
+            })
+            .catch(function (err) {
+                console.error(err); // This will print any error that was thrown in the previous error handler.
+            });
+
+        return await reqPromise;
     };
 
     console.log('Data platform service instance initiated with ', JSON.stringify({options: options, baseUrl: this.baseUrl}, null, 4));
