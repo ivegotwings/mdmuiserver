@@ -32,6 +32,7 @@
                     .container {
                         width:100%;
                         display: inline-flex;
+                display: -webkit-inline-flex;
                     }
 
                     #tree{
@@ -47,8 +48,6 @@
                     }
 
                     pebble-button {
-                        vertical-align: -webkit-baseline-middle;
-                        vertical-align: -moz-baseline-middle;
                         vertical-align: baseline-middle;
                         --pebble-button: {
                             height: 30px;
@@ -73,6 +72,7 @@
 
                     .action-container {
                         display: inline-flex;
+                        display: -webkit-inline-flex;
                         float: right;
                     }
 
@@ -90,11 +90,13 @@
                     <div class="right">
                         <div class ="grid-container">
                             <liquid-entity-get auto name="attributeModelGetService" request="{{attributeModelRequest}}" response="{{attributeModelResponse}}"></liquid-entity-get>
-                            <liquid-entity-data-get id="getGridData" operation="getbyids" request-data="[[gridRequest]]" last-response="{{remoteGridData}}" on-response="_onGridDataGet">
-                            </liquid-entity-data-get>
-                            <rock-grid id="grid" data="{{gridData}}"  config="{{gridConfig}}"
-                                        page-size="4"  attribute-models="{{attributeModelResponse.returnValue.attributeModels}}" ></rock-grid>
+                            <template is="dom-if" if="[[_gridRequestAdded(gridRequest,gridConfig)]]">
+                            <remote-data id="gridSource" request="[[gridRequest]]" operation="getbyids" data-formatter="{{dataFormatter}}"
+                                         current-record-size="{{size}}" total-records="{{totalRecords}}" data-source="{{dataSource}}"></remote-data>
+                            <rock-grid id="grid" data-source="{{dataSource}}" data-source-id="gridSource" record-size="{{totalRecords}}" config="{{gridConfig}}"
+                                       grid-data-size="{{size}}" page-size="10"  attribute-models="{{attributeModelResponse.returnValue.attributeModels}}" ></rock-grid>
                             <bedrock-pubsub event-name="grid-edit-item" handler="_onGridEdit" target-id="grid"></bedrock-pubsub>
+                            </template>
                         </div>
                         <div class="action-container" hidden = "[[!isEditMode]]">
                             <pebble-button class="pageRange btn btn-secondary" button-text="Cancel" on-tap="_cancelAction" noink raised></pebble-button>
@@ -235,6 +237,16 @@
                                         action: "getAttributeModels"
                                     };
                                 }
+                            },
+                            /**
+                             * Indicates call back function where if user has given any liquid operation and request object to load data
+                             * user has to transform data based on their grid config and return array of records.
+                             */
+                            dataFormatter: {
+                                notify: true,
+                                value: function () {
+                                    return this._getAttributeFormattedData.bind(this);
+                                }
                             }
                         },
                         behaviors: [
@@ -263,7 +275,10 @@
                             this._getChildren(e.detail.nodeData.value);
                         },
 
-                        _getGridRequest: function (gridConfig) {
+                        _getGridRequest: function () {
+                         if(!this.gridConfig){
+                             return;
+                         }
                           var req= {
                               "params": {
                                   "query": {
@@ -308,9 +323,9 @@
                               });
                           }
                           if(req.params.query.ids.length==0){
-                              req.params.query.ids=[this.entityId];
+                              req.params.query.ids=[""];
                           }
-                          this.gridConfig.tabular.columns.forEach(function(column){
+                          this.gridConfig.tabular.columns.forEach(function (column) {
                               req.params.fields.attributes.push(column.name);
                           });
                           return req;
@@ -318,13 +333,11 @@
                         _selectedItemsChanged : function() {
                             this.async(function () {
                                 if(this.selectedItems) {
-                                    if (this.selectedItems.length > 0) {
                                         var request = this._getGridRequest();
                                         this.gridRequest = request;
-                                        this.$.getGridData.generateRequest();
-                                    } else if (this.selectedItems.length == 0) {
-                                        this.$.grid.data = [];
-                                    }
+                                        if(this.$$("#grid")) {
+                                            this.$$("#grid").reRenderGrid();
+                                        }
                                 }
                             });
                         },
@@ -353,7 +366,7 @@
                             this.isEditMode = false;
                             var that=this;
                             this.editableItems.forEach(function (item) {
-                                that.$.grid.changeRowToViewMode(item);
+                                that.$$("#grid").changeRowToViewMode(item);
                             });
                         },
 
@@ -361,9 +374,9 @@
                             this.isEditMode = false;
                             var that=this;
                             this.editableItems.forEach(function (item) {
-                                that.$.grid.changeRowToViewMode(item);
+                                that.$$("#grid").changeRowToViewMode(item);
                             });
-                            this.$.grid.reRenderGrid();
+                            this.$$("#grid").reRenderGrid();
                         },
                         _onGridEdit:function (e, detail, sender) {
                             if(!this.editableItems){
@@ -528,8 +541,11 @@
                                 }
                                 return dataArray;
                         },
-                        _onGridDataGet:function (e) {
-                            this.gridData=this._getAttributeFormattedData(this.remoteGridData);
+                        _gridRequestAdded:function () {
+                            if(this.gridConfig && this.gridRequest && !DataHelper.isEmptyObject(this.gridRequest)){
+                                return true;
+                            }
+                            return false;
                         }
                     })
                 })();
