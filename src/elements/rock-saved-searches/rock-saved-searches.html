@@ -1,6 +1,9 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
 
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+
 <link rel="import" href="../pebble-icons/pebble-icons.html">
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-horizontal-divider/pebble-horizontal-divider.html">
@@ -20,7 +23,7 @@
     <template>
         <style include="pebble-styles-shared"></style>
         <style is="custom-style" include="iron-flex">
-            #savedSearchButton {
+            /*#savedSearchButton {
                 --pebble-button: {
                     height: 32px;
                     padding: 1em 0em 1em 0.3em;
@@ -33,7 +36,7 @@
                     height: 20px !important;
                     width: 20px !important;
                 }
-            }
+            }*/
             
             #newSavedSearch {
                 font-weight: var(--font-bold, bold);
@@ -85,13 +88,6 @@
                 margin-left: 0;
             }
             
-            pebble-button::shadow iron-icon {
-                width: 16px !important;
-                height: 16px !important;
-                margin-right: 10px;
-                margin-left: 10px;
-            }
-            
             pebble-button::shadow iron-icon[icon="icons:add"] {
                 color: #036bc3!important;
                 margin-top: 1px;
@@ -112,21 +108,22 @@
             #savedSearchPopover::shadow .arrow_box .popover {
                 overflow: inherit;
             }
-        </style>
-        <iron-ajax auto url="/src/data/saved-searches.json" handle-as="json" last-response="{{savedSearches}}"></iron-ajax>
+        </style>        
+        <iron-ajax id="savedSearch-ajax" auto url="/src/data/saved-searches.json" handle-as="json" last-response="{{savedSearches}}"></iron-ajax>
+        <bedrock-pubsub event-name="component-creating" handler="_onComponentCreating"></bedrock-pubsub>
         <template is="dom-if" if="[[!viewMode]]">
             <pebble-button id="savedSearchButton" icon="[[icon]]" button-text="[[buttonText]]" noink raised dropdown-icon="[[dropdownIcon]]"
-                on-tap="_onSavedSearchTap"></pebble-button>
+                on-tap="_onSavedSearchTap" class="dropdownIcon dropdownText btn dropdown-outline-primary"></pebble-button>
                 <pebble-popover id="savedSearchPopover" for="savedSearchButton" auto-fit-on-attach no-overlap horizontal-align="right">
                     <template is="dom-if" if="[[!editMode]]">
                         <template is="dom-if" if="[[!viewMode]]">
                             <div id="newSavedSearch" class="m-b-20">
                                 <div class="savedSearchLabel">Saved Searches</div>
                                 <pebble-button icon="pebble-md-icons:Settings" class="pebble-md-icons pull-right m-l-15"></pebble-button>
-                                <pebble-button id="createEditSavedSearch" icon="icons:add" button-text="Create or Edit Saved Search" noink class="createEditSavedSearch icon"
+                                <pebble-button id="createEditSavedSearch" icon="pebble-sm-icons:Add" button-text="Create or Edit Saved Search" noink class="pebble-sm-icons createEditSavedSearch icon"
                                     on-tap="_onCreateEditSavedSearchTap"></pebble-button>
                             </div>
-                        </template>
+                        </template>                        
                         <rock-tabs id="rock-saved-searches-tabs" config="[[_tabConfig]]" selected-tab="{{_selectedTab}}"></rock-tabs>
                     </template>
                     <template is="dom-if" if="[[editMode]]">
@@ -139,10 +136,10 @@
                 <template is="dom-if" if="[[!viewMode]]">
                     <div id="newSavedSearch">
                         <div class="savedSearchLabel">Saved Searches</div>
-                        <pebble-button id="createEditSavedSearch" icon="icons:add" button-text="Create or Edit Saved Search" noink class="createEditSavedSearch"
+                        <pebble-button id="createEditSavedSearch" icon="pebble-sm-icons:Add" button-text="Create or Edit Saved Search" noink class="pebble-sm-icons createEditSavedSearch"
                             on-tap="_onCreateEditSavedSearchTap"></pebble-button>
                     </div>
-                </template>
+                </template>                
                 <rock-tabs id="rock-saved-searches-tabs" config="[[_tabConfig]]" selected-tab="{{_selectedTab}}"></rock-tabs>
             </template>
             <template is="dom-if" if="[[editMode]]">
@@ -314,6 +311,19 @@
                 listeners: {
                     'tag-item-select': '_onTagItemSelect'
                 },
+                behaviors: [
+                    RUFBehaviors.UIBehavior
+                ],
+
+                // Fired when rock-tabs creates component
+                _onComponentCreating: function (e, detail, sender) {                    
+                    var component = detail.data;
+
+                    if (this.savedSearches) {
+                       component.properties["saved-searches"] = this.savedSearches;
+                    }
+                },
+
                 /**
                 * Fired when filter tag triggers a tag-item-select event.
                 */
@@ -328,57 +338,27 @@
                 // On tab change populate searches
                 // Note - this will be removed once we integrated with liquid
                 _onSelectedTabChange: function () {
-                    this._populateSearchesPerTab(this._selectedTab.name);
-
                     if(this.$$('rock-tabs'))
-                    {                            
-                        this.async(function(){
+                    {  
+                        this.async(function(){                            
                             this.$$('rock-tabs').$$('pebble-tab-group').notifyResize();
-                        }, 600); //Delayed to populate the tabs properly
+                        }, 600); //Delayed to populate the tabs properly                        
                     }
-                },
-
-                // Populate searches based on tab selection
-                // Note - this will be removed once we integrated with liquid                     
-                _populateSearchesPerTab: function (tabName) {
-                    if (this.$$('rock-tabs') && this.savedSearches) {
-                        var tab = null;
-
-                        if (tabName == _mySearch) {
-                            this.async(function () {
-                                tab = this.$$('rock-tabs').$$('rock-saved-searches-tags[saved-search-category="my-searches"]');
-                                this._updateTabSearch(tab);
-                            }, 1000); //Delayed to get accurate details
-                        }
-                        else if (tabName == _sharedSearch) {
-                            this.async(function () {
-                                tab = this.$$('rock-tabs').$$('rock-saved-searches-tags[saved-search-category="shared-searches"]');
-                                this._updateTabSearch(tab);
-                            }, 1000); //Delayed to get accurate details
-                        }
-                        else if (tabName == _favSearch) {
-                            this.async(function () {
-                                tab = this.$$('rock-tabs').$$('rock-saved-searches-tags[saved-search-category="favourites"]');
-                                this._updateTabSearch(tab);
-                            }, 1000); //Delayed to get accurate details
-                        }
-                    }
-                },
-
-                // Note - this will be removed once we integrated with liquid
-                _updateTabSearch: function (tab) {
-                    if (tab) {
-                        tab.savedSearches = {};
-                        tab.savedSearches = this.savedSearches;
-                    }
-                },
+                },                
 
                 // On saved searches change, populate searches and select respected search tab
                 _onSavedSearchesChange: function () {
                     this._populateAllSearches();
-                    if (this.savedSearchId && this.$$('rock-tabs')) {
+
+                    if (this.savedSearchId && this.$$('rock-tabs')) 
+                    {
                         var listName = this._getSearchListNameBySearchId();
                         this.$$('rock-tabs').selectedTabIndex = tabs[listName];
+                    }
+
+                    if (this.$$('rock-tabs') && this.$$('rock-tabs').$$('rock-saved-searches-tags'))
+                    {
+                        this.$$('rock-tabs').reloadTabs();                       
                     }
                 },
 

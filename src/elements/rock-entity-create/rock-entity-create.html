@@ -6,15 +6,23 @@
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 
 <link rel="import" href="../liquid-entity-get/liquid-entity-get.html">
-<link rel="import" href="../liquid-entity-savedata/liquid-entity-savedata.html">
+<link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
 
-<link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-actions/pebble-actions.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-file-upload/pebble-file-upload.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 
 <link rel="import" href="../rock-attribute-list/rock-attribute-list.html">
+<link rel="import" href="../rock-grid/rock-grid.html">
+<!--
+    `rock-entity-create` component renders a view for creating a new entity with options "single entity creation",
+    "multiple entities creation" and "bulk entity creation with import".
 
+    Single Entity create renders a list of initial attributes that are to be filled initially for creating entity.
+
+    @demo demo/index.html
+-->
 <dom-module id="rock-entity-create">
     <template>
         <style include="pebble-styles-shared">
@@ -30,95 +38,35 @@
             #content-buttons {
                 padding: var(--default-box-padding);
             }
-            pebble-actions {
-                --pebble-actions-button: {
-                    height: 30px;
-                    font-size: var(--default-font-size, 14px)!important;
-                    padding-left: 10px !important;
-                    top: 0px !important;
-                    background: var(--success-button-color);
-                    color: var(--white);
-                }
-                --pebble-actions-popover: {
-                    margin-top: 12px;
-                    border-radius: 4px;
-                }
-            }
 
-            .import-button {
-                --pebble-button: {
-                    height: 30px;
-                    font-size: var(--default-font-size, 14px)!important;
-                    padding-left: 10px !important;
-                    border: 1px solid var(--left-menu-selected-border,#0bb2e8);
-                    color: var(--white,#fff);
-                    font-weight:bold !important;
-                    background: var(--left-menu-selected-border,#0bb2e8);
-                }
-            }
-
-            .action-button {
-                --pebble-button: {
-                    height: 30px;
-                    width: 100px;
-                    border: 1px solid var(--cancel-button-border-color,#c1cad4);
-                    background-color:var(--cancel-button-border-color,#c1cad4);
-                    font-size: 15px;
-                    font-weight:bold !important;
-                }
+            #manualActions::shadow #actionsPopover{
+                margin-top: 15px;
             }
             
-            .action-button-focus {
-                --pebble-button: {
-                    height: 30px;
-                    width: 100px;
-                    font-size: 15px;
-                    background: var(--success-button-color,#09c021);
-                    color: var(--white,#fff);
-                    font-weight:bold !important;
-                }
-            }
             .title{
             font-size:var(--default-font-size, 14px);
             text-align: center;
             }
-           .placeHolder{
-                padding: 10px;
-                width: 830px;
-                height: 401px;
-                left: 17%;
-                box-shadow: 0 0 4px 0 var(--cloudy-blue-color,#c1cad4);
+           .placeHolder{                
+                width: 880px;
+                height: 400px;
+                margin: 0 auto;
+                box-shadow: 0 0 10px 0 var(--cloudy-blue-color,#c1cad4);
                 position: relative;
             }
-            /* .placeHolder:before {
-    content:"";
-    position: absolute;
-    right: 43%;
-    top: -10px;
-    width: 0;
-    height: 0;
-    border-style: solid;
-    border-width: 0 10px 10px 10px;
-    border-color: transparent transparent var(--white) transparent;
-    z-index:9999;
-}
-.placeHolder:after {
-    content:"";
-    position: absolute;
-    right: 4px;
-    top: -22px;
-    width: 0;
-    height: 0;
-    border-style: solid;
-    border-width: 0 17px 17px 17px;
-    border-color: transparent transparent var(--white) transparent;
-    z-index:9998;
-}*/
 
+            #multiEntityUpperGrid::shadow iron-data-table {
+                    height: 135px;
+            }
+
+            #upperGridHeader {
+                font-size: 12px;
+                margin: 10px;
+            }
         </style>
         <div id="content-description" align="center" hidden>
             <!-- description message here -->
-            <div class="title">
+            <div class="title m-0">
                 Select how you would like to create a new product. 
                 You can create one manually or by importing data in any format you have.
             </div>
@@ -127,8 +75,8 @@
             <!-- manual and import buttons here -->
             <iron-ajax auto url="actions-config.json" handle-as="json" last-response="{{actionsData}}"></iron-ajax>
             <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
-            <pebble-actions id="manualActions" button-text="Manual" actions-data="[[actionsData]]"></pebble-actions>
-            <pebble-button class="import-button" button-text="Import" dropdown-icon raised on-tap="_onImportTap"></pebble-button>
+            <pebble-actions id="manualActions" class="dropdownText btn dropdown-outline-primary m-r-5" button-text="Manual" actions-data="[[actionsData]]"></pebble-actions>
+            <pebble-button class="import-button dropdownText btn dropdown-success" button-text="Import" dropdown-icon raised on-tap="_onImportTap"></pebble-button>
         </div>
         <div id="step-label">
             <!-- label of the current step here -->
@@ -139,21 +87,26 @@
         </div>
         <div id="content-multiple-entity" hidden>
             <!-- screen for multi entity create function- probably grid -->
+            <iron-ajax auto url="config\gridConfig.json" handle-as="json" last-response="{{_gridConfig}}"></iron-ajax>
+            <div id="upperGridHeader"><b>[[attributeNames.length]] Attributes</b> ([[_managedAttrs]] Managed, [[_mappedAttrs]] Mapped, [[_newAttrs]] New). Last Updated on <b>[[_currentDateTime.date]]</b> at <b>[[_currentDateTime.time]]</b></div>
+            <rock-grid id="multiEntityUpperGrid" page-size="2" no-header></rock-grid>            
+            <bedrock-pubsub on-bedrock-event-save-item="_onSaveItem"></bedrock-pubsub>
         </div>
         <div id="content-entity-import" hidden>
-           <div class="placeHolder">
-               <div class="title">Download a system template or just upload an existing data file</div>
-            <!-- screen for import -->
-            <pebble-file-upload accept="application/msword, application/vnd.ms-excel, application/vnd.ms-powerpoint,
-                text/plain, application/pdf, image/*" target="/file-upload"></pebble-file-upload>
-          </div>
+            <div class="placeHolder p-10">
+               <p class="title">Download a system template or just upload an existing data file</p>
+                <!-- screen for import -->
+                <pebble-file-upload accept="application/msword, application/vnd.ms-excel, application/vnd.ms-powerpoint,
+                    text/plain, application/pdf, image/*" target="/file-upload"></pebble-file-upload>
+                <bedrock-pubsub on-bedrock-event-pebble-file-upload-success="_onFileUploadSuccess"></bedrock-pubsub>
+            </div>
         </div>
         <liquid-entity-get name="attributeModelGetService" request="{{attributeModelRequest}}" response="{{attributeModelResponse}}"></liquid-entity-get>
-        <liquid-entity-savedata verbose name="attributeSaveDataService" operation="create" request-data="{{_saveRequest}}"
-                    last-response="{{_saveResponse}}" on-response="_onSaveResponse"></liquid-entity-savedata>
+        <liquid-entity-data-save name="attributeSaveDataService" operation="create" request-data="{{_saveRequest}}"
+                    last-response="{{_saveResponse}}" on-response="_onSaveResponse"></liquid-entity-data-save>
         <div id="content-actions" align="center" hidden>
-            <pebble-button class="action-button" id="skip" button-text="Cancel" raised on-tap="_onSkipTap"></pebble-button>
-            <pebble-button class="action-button-focus" id="next" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
+            <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="next" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>            
+            <pebble-button class="action-button btn btn-secondary" id="skip" button-text="Cancel" raised on-tap="_onSkipTap"></pebble-button>
         </div>
     </template>
     <script>
@@ -164,19 +117,31 @@
                 is: "rock-entity-create",
 
                 properties: {
+                    /**
+                    * Indicates the profile name that can be used for imports.
+                    */
                    importProfileName: {
                        type: String,
                        value: function() { return null; }
                    },
+                   /**
+                   * Indicates the names of the attributes to be rendered while creating single entity.
+                   */
                    attributeNames: {
                        type: Array,
                        value: function() { return []; }
                    },
+                   /**
+                   * Indicates the Mode in which attributes have to be rendered.
+                   */
                    mode: {
                         type: String,
                         value: "edit",
                         notify: true
                     },
+                    /**
+                    * Specifies the request object for attribute model request.
+                    */
                    attributeModelRequest: {
                         type: Object,
                         value: function () {
@@ -185,6 +150,9 @@
                             };
                         }
                     },
+                    /**
+                    * Specifies the response object for attribute models.
+                    */
                     attributeModelResponse: {
                         type: Object,
                         value: function () {
@@ -211,6 +179,38 @@
                     },
                     _currentViewName: {
                         type: String
+                    },
+                    _isDirty: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _gridConfig: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _gridData: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _managedAttrs: {
+                        type: Number,
+                        value: 0
+                    },
+                    _mappedAttrs: {
+                        type: Number,
+                        value: 0 
+                    },
+                    _newAttrs: {
+                        type: Number,
+                        value: 0 
+                    },
+                    _currentDateTime: {
+                        type: Object,
+                        value: function(){ return {}; }
                     }
                 },
                 behaviors: [
@@ -292,6 +292,15 @@
                 },
                  _onActionItemTap: function (e, detail, sender) {
                     if(detail && detail.data) {
+                        if(this._isDirty) {
+                            if (window.confirm("Changes done so far are saved. Do you want to leave the page?")) {
+                                // do nothing
+                            }
+                            else {
+                                return;
+                            }
+                        }
+                        this._isDirty = true;
                         if(detail.data.name == "createSingleProduct") {
                             // show div manual-single
                             this._hideView("description");
@@ -306,11 +315,21 @@
                             this._hideView(this._currentViewName);
                             this._showView("multiple-entity");
                             this._currentViewName = "multiple-entity";
+                            this._populateMultiEntityUpperGrid();
                         }
                     }
                 },
                 _onImportTap: function() {
                     // show div content-import
+                    if(this._isDirty) {
+                        if (window.confirm("Changes done so far are saved. Do you want to leave the page?")) {
+                            // do nothing
+                        }
+                        else {
+                            return;
+                        }
+                    }
+                    this._isDirty = true;
                     this._hideView("description");
                     this._hideView("actions");                    
                     this._hideView(this._currentViewName);
@@ -362,6 +381,150 @@
                                         }
                                     }
                     return data;
+                },
+                /**
+                * Can be used to get if the element is dirty or not.
+                */
+                getIsDirty: function() {
+                    return this._isDirty;
+                },
+
+                _populateMultiEntityUpperGrid: function(){
+                    //Fetch the attributes from COP and pass to this.attributeNames
+                    //Based on attributeNames change, attributeModelRequest will be set
+                    //Using attributeModelGetServiceFetch, attribute models will be provided
+
+                    //Prepare grid configuration and data based on COP and Liquid details                    
+                    this._prepareMultiEntityUpperGridConfiguration();
+                    this._prepareMultiEntityUpperGridData();
+                    this._prepareUpperGridHeader();
+                    
+                    //Set config and data to grid
+                    this.$$('#multiEntityUpperGrid').config = this._gridConfig;
+                    this.$$('#multiEntityUpperGrid').data = this._gridData;
+
+                    this.async(function(){
+                        var gridTable = this.$$('#multiEntityUpperGrid').$$('#pebbleGridContainer').querySelector('iron-data-table');                        
+                        var firstRow = gridTable.querySelectorAll('data-table-row')[1];
+                        var secondRow = gridTable.querySelectorAll('data-table-row')[2];
+                        
+                        // Section start, will be removed this logic once rock-grid updated
+                        var firstRowButtons = firstRow.querySelectorAll('pebble-button');
+                        if(firstRowButtons.length > 0)
+                        {
+                            firstRowButtons[0].remove();
+                            firstRowButtons[1].remove();
+                        }
+                        // Section end
+                        
+                        firstRow.querySelectorAll('data-table-cell')[1].style['font-weight'] = 'bold';
+                        secondRow.querySelectorAll('data-table-cell')[1].style['font-weight'] = 'bold';
+
+                        // Attributes matched from managed list is black
+                        // Attributes matched from inferred list is green
+                        // Attributes are not matched (new), then red                        
+                        
+                    }, 100);
+                },
+
+                _prepareMultiEntityUpperGridConfiguration: function(){
+                    this._gridConfig.tabular.columns.push(
+                                {
+                                    "header": "Mapping",
+                                    "name": "mapping"
+                                }
+                    );
+                    for(var idx = 0; idx < this.attributeNames.length; idx++)
+                    {
+                        this._gridConfig.tabular.columns.push(
+                                {
+                                    "header": "Column " + (idx + 1),
+                                    "name": this.attributeNames[idx],
+                                    "displayType":"textbox"
+                                }
+                        );
+                    }                    
+                },
+
+                _prepareMultiEntityUpperGridData: function(){
+                    this._gridData = []; //Clear the data
+                    var gridRow = {};
+                    gridRow["id"] = 1;
+                    gridRow["mapping"] = "Excel column name";
+                    //First row
+                    for(var idx = 0; idx < this.attributeNames.length; idx++)
+                    {
+                        gridRow[this.attributeNames[idx]] = this.attributeNames[idx];
+                    }
+                    this._gridData.push(gridRow);
+                    
+                    gridRow = {};
+                    gridRow["id"] = 2;                    
+                    gridRow["mapping"] = "Mapped attribute name";
+                    
+                    //Second row - Capture the details from data model 
+                    for(var idx = 0; idx < this.attributeNames.length; idx++)
+                    {   
+                        if(this._findAttribute(this.attributeNames[idx]))
+                        {
+                            this._mappedAttrs++;
+                            gridRow[this.attributeNames[idx]] = this._findAttribute(this.attributeNames[idx]).name;
+                        }                   
+                        else
+                        {
+                            this._newAttrs++;
+                        }                     
+                    }
+                    this._gridData.push(gridRow);
+
+                    //Current Datetime
+                    var datetime = new Date();
+                    this._currentDateTime = {
+                        "date" : moment(datetime).format('MM/DD/YYYY'),
+                        "time" : moment(datetime).format('hh:mm A')
+                    }
+                },
+
+                _findAttribute: function(attribute){
+                    for(var i = 0; i < this._attributeValues.length; i++)
+                    {
+                        for(var j = 0; j < this._attributeValues[i].attributes.length; j++)
+                        {
+                            if(this._attributeValues[i].attributes[j].name == attribute)
+                            {                                
+                                return this._attributeValues[i].attributes[j];                                    
+                            }
+                        }
+                    }
+                },
+
+                _prepareUpperGridHeader: function(){
+                    //Total managed attributes                    
+                    for(var i = 0; i < this._attributeValues.length; i++)
+                    {
+                        this._managedAttrs = this._managedAttrs + this._attributeValues[i].attributes.length;
+                    }
+                },
+
+                _onSaveItem: function(e, details, sender)
+                {
+                    //Save logic comes here
+                },
+
+                _onFileUploadSuccess: function(e, details, sender)
+                {                    
+                    //After file upload, multi entity creation process starts
+                    // show div manual-multi
+                    this._hideView("description");
+                    this._hideView(this._currentViewName);
+                    this._showView("multiple-entity");
+                    this._currentViewName = "multiple-entity";
+                    this._populateMultiEntityUpperGrid();
+
+                    this.async(function(){
+                        //Clear file upload
+                        this.$$('pebble-file-upload').reset();
+                    });
                 }
             });
         })();

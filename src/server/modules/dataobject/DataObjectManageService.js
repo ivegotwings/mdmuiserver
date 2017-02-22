@@ -9,6 +9,7 @@ var DataObjectManageService = function (options) {
 DataObjectManageService.prototype = {
     get: async function (request) {
         var serviceName = this._getServiceName(request);
+        //console.log('get entity RDP call: ', JSON.stringify(request));
         return this.post(serviceName + "/get", request);
     },
     create: async function (request) {
@@ -29,7 +30,7 @@ DataObjectManageService.prototype = {
             return "NA";
         };
 
-        if(request.objType == "entity") {
+        if(request.objType == "entityData") {
             return "entitymanageservice";
         }
         else if(request.objType == "workflowDefinition") {
@@ -38,10 +39,10 @@ DataObjectManageService.prototype = {
         else if(request.objType == "workflowRuntimeInstance") {
             return "entitygovernservice";
         }
-        else if(request.objType == "governentity") {
+        else if(request.objType == "entityGovernData") {
             return "entitygovernservice";
         }
-        else if(request.objType == "modelentity") {
+        else if(request.objType == "entityModel") {
             return "entitymodelservice";
         }
         else {
