@@ -1,6 +1,7 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
 <link rel="import" href="../bedrock-helpers/component-helper.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../pebble-lov/pebble-lov.html">
 <link rel="import" href="../pebble-button/pebble-button.html">
@@ -303,18 +304,18 @@ The following JSON object is a sample of data which can be used to bind the grid
         width: 75%;
       }
     </style>
-				<template is="dom-repeat" items="{{relationshipTypeList}}" as="relationship" index-as="colIndex">
-          <div class="header-text">
-            <pebble-accordion header-text="[[relationship]]" default-icon="expand-less" open-icon="expand-more">
-                <div class="relation-name-container">			
-                  <pebble-button icon="pebble-sm-icons:Add" id="[[relationship]]" class="pebble-sm-icons btn btn-primary m-r-10" button-text="Add" on-click="_onPopoverClick"></pebble-button>
-                  <pebble-popover for$="[[relationship]]" auto-fit-on-attach no-overlap>
-                      <pebble-lov id="[[relationship]]" items="{{items}}" show-image on-selection-changed="_addRelatedEntity"></pebble-lov>
-                  </pebble-popover>
-					</div>
-          <remote-data id="[[relationship]]" request="[[_getRelationshipGridRequest(relationship)]]" operation="getbyids" data-formatter="{{dataFormatter}}" current-record-size="{{size}}" total-records="{{totalRecords}}" data-source="{{dataSource}}"></remote-data>
-          <rock-grid id="[[relationship]]" data-source="{{dataSource}}" data-source-id="[[relationship]]" config="{{_getRelationshipGridConfig(relationship)}}"
-            attribute-models="[[attributeModels]]" record-size="{{totalRecords}}" grid-data-size="{{size}}" page-size="10"></rock-grid>
+    <template is="dom-repeat" items="{{relationshipTypeList}}" as="relationship" index-as="colIndex">
+      <div id="[[relationship]]_container">
+        <pebble-accordion header-text="[[relationship]]" default-icon="expand-less" open-icon="expand-more">
+          <div class="relation-name-container">
+            <pebble-button icon="pebble-icons:Add" id="[[relationship]]" class="pebble-sm-icons btn btn-primary m-r-10" button-text="Add" on-click="_onPopoverClick"></pebble-button>
+            <pebble-popover for$="[[relationship]]" auto-fit-on-attach no-overlap>
+              <pebble-lov id="[[relationship]]" items="{{items}}" show-image multi-select show-action-buttons></pebble-lov>
+            </pebble-popover>
+          </div>
+          <remote-data id="[[relationship]]" request="[[_getRelationshipGridRequest(relationship)]]" operation="getbyids" data-formatter="{{dataFormatter}}"></remote-data>
+          <rock-grid id="[[relationship]]" data-source-id="[[relationship]]" config="{{_getRelationshipGridConfig(relationship)}}"
+            attribute-models="[[attributeModels]]" page-size="3"></rock-grid>
           <div id="buttonContainer" align="center" hidden>
             <pebble-button id="cancel" class="button" button-text="Cancel" on-tap="_revertAll" elevation=1 raised></pebble-button>
             <pebble-button id="save" class="focus" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
@@ -466,6 +467,10 @@ The following JSON object is a sample of data which can be used to bind the grid
         _currentSelectedLov: null,
         _currentLovItems: null,
 
+        ready: function(){
+          this._setRelGridDataSource();
+        },
+
         getAttributeList: function (relationshipTypeName) {
           if (this._relationshipTypeAndAttributes && relationshipTypeName) {
             return this._relationshipTypeAndAttributes[relationshipTypeName];
@@ -498,20 +503,19 @@ The following JSON object is a sample of data which can be used to bind the grid
         },
 
         _getRelationshipGridRequest: function (relationshipTypeName) {
+          var req = DataHelper.cloneObject(this.relReq);
 
-          if (relationshipTypeName) {
+          if (req && relationshipTypeName) {
             var relAttr = this.getAttributeList(relationshipTypeName);
 
             if (relAttr) {
-              this.relReq.params.fields.relationshipAttributes = relAttr.relationshipAttributes;
-              this.relReq.params.fields.relatedEntityAttributes = relAttr.relatedEntityAttributes;
+              req.params.fields.relationshipAttributes = relAttr.relationshipAttributes;
+              req.params.fields.relatedEntityAttributes = relAttr.relatedEntityAttributes;
             }
 
-            this.relReq.params.fields.relationships = [relationshipTypeName];
+            req.params.fields.relationships = [relationshipTypeName];
           }
-
-
-          return this.relReq;
+          return req;
         },
 
         _initiateRelationshipGrid: function () {
@@ -626,6 +630,7 @@ The following JSON object is a sample of data which can be used to bind the grid
         },
 
         _onPopoverClick: function (e) {
+          var popover =  Polymer.dom(this).node.$$("pebble-popover[for=" + e.currentTarget.id + "]");
           var lov = Polymer.dom(this).node.$$("pebble-lov[id=" + e.currentTarget.id + "]");
           this._currentSelectedLov = Polymer.dom(this).node.$$('pebble-lov[id=' + e.currentTarget.id + ']');
 
@@ -1010,8 +1015,36 @@ The following JSON object is a sample of data which can be used to bind the grid
               }
             }, this);
           }
-        }
+        },
 
+        _setRelGridDataSource: function() {
+          var repeat = Polymer.dom(this).node.$$('template[is="dom-repeat"]');
+          
+          if(repeat) {
+            repeat.addEventListener("dom-change", function(event){
+               var relDivs = this.parentNode.querySelectorAll('div');
+               
+               if(relDivs && relDivs.length > 0) {
+                relDivs.forEach(function(item){
+                  var relGrid = item.querySelector('rock-grid');
+                  var remoteData = item.querySelector('remote-data');
+                  
+                  if(relGrid && remoteData) {
+                    relGrid.dataSource = remoteData.dataSource;
+                    
+                    remoteData.addEventListener('current-record-size-changed', function(e) {
+                      relGrid.gridDataSize = e.currentTarget.currentRecordSize;
+                    }.bind(relGrid));
+                    
+                    remoteData.addEventListener('total-records-changed', function(e) {
+                      relGrid.recordSize = e.currentTarget.totalRecords;
+                    }.bind(relGrid));
+                  }
+                }, this);
+               }
+            });
+          }
+        }
       });
     })();
   </script>
