@@ -182,7 +182,7 @@ function createRequestJson(objType, ctxKeys, attrNames, relTypes, relAttrNames, 
                 v.locale === valCtxGroupObj.locale)) {
             valCtxGroups.push(valCtxGroupObj);
         }
-    };
+    }
 
     var fields = {
         ctxTypes: ["properties"]

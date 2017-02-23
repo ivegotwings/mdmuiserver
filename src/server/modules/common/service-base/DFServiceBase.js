@@ -53,7 +53,7 @@ var DFServiceBase = function (options) {
         return await reqPromise;
     };
 
-    console.log('Data platform service instance initiated with ', JSON.stringify({options: options, baseUrl: this.baseUrl}, null, 4));
+    //console.log('Data platform service instance initiated with ', JSON.stringify({options: options, baseUrl: this.baseUrl}, null, 4));
 };
 
 module.exports = DFServiceBase;
