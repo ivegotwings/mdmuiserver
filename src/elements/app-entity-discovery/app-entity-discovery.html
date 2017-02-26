@@ -109,7 +109,7 @@
 			}
             .container {
                 width: 100%;
-            }           
+            }        
         </style>
         <rock-layout>
             <liquid-config-get auto id="getAppConfig" operation="getconfigs" request-id="getAppConfig" request-data="{{_configRequest}}"
@@ -145,9 +145,9 @@
                         </div>
                         <div class="action-buttons">
                             <!-- Actions buttons and its popover -->
-                            <pebble-actions id="actionsButton" button-icon="pebble-md-icons:actions" class="dropdownText dropdownIcon btn dropdown-success pull-right" button-text="Actions" actions-data="[[getConfig('pebble-actions')]]"></pebble-actions>
-                            <pebble-button class="btn btn-primary m-r-10 pull-right" button-text="Quick Manage" on-tap="_onTapQuickManage"></pebble-button>
+                            <pebble-button class="btn btn-primary m-r-5" button-text="Quick Manage" on-tap="_onTapQuickManage"></pebble-button>
                             <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
+                            <pebble-actions id="actionsButton" button-icon="pebble-md-icons:actions" class="dropdownText dropdownIcon btn dropdown-success" button-text="Actions" actions-data="[[getConfig('pebble-actions')]]"></pebble-actions>
                         </div>
                     </div>
                 </div>
@@ -156,7 +156,7 @@
             </rock-header>
             <div class="layout horizontal">
                 <div id="entityGridContainer" class$="[[_applyClass(_allowQuickManage)]]">
-                    <rock-entity-search-grid grid-config="[[getConfig('rock-entity-search-grid')]]" dimensions="{{_selectedDimensions}}" search-filters="{{_selectedSearchFilters}}"
+                    <rock-entity-search-grid id="entitySearchGrid" grid-config="[[getConfig('rock-entity-search-grid')]]" dimensions="{{_selectedDimensions}}" search-filters="{{_selectedSearchFilters}}"
                         search-query="{{_searchQuery}}"></rock-entity-search-grid>
                     <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="entityGrid"></bedrock-pubsub>
                 </div>
@@ -165,8 +165,13 @@
                         <pebble-vertical-divider></pebble-vertical-divider>
                     </div>
                     <div class="quick-manage-container">                        
-                        <rock-entity-manage-quick context="[[_context]]"></rock-entity-manage-quick>
+                        <rock-entity-manage-quick id="entityQuickManage" 
+                                                  context="[[_context]]" 
+                                                  current-index="{{_currentIndex}}" 
+                                                  total-records="[[_totalRecords]]"></rock-entity-manage-quick>
                         <bedrock-pubsub event-name="on-attribute-save" handler="_onAttributeSave"></bedrock-pubsub>
+                        <bedrock-pubsub on-bedrock-event-previous="_onClickPrevious"></bedrock-pubsub>
+                        <bedrock-pubsub on-bedrock-event-next="_onClickNext"></bedrock-pubsub>
                     </div>
                 </template>
             </div>
@@ -275,7 +280,22 @@
                     _selectedDimensions: {
                         type: Object,
                         value: function() { return {}; }
-                    }                    
+                    },
+
+                    _gridData: {
+                        type: Array,
+                        value: []
+                    },
+
+                    _currentIndex: {
+                        type: Number,
+                        value: -1
+                    },
+
+                    _totalRecords: {
+                        type: Number,
+                        value: 0
+                    }
                 },
 
                 behaviors: [
@@ -290,11 +310,19 @@
                     if (_savedSearchId && _savedSearchId != this._savedSearchId) {
                         this._savedSearchId = _savedSearchId;
                     }
-                },
+                },                
                 // Refine Filter
 
                 // Grid
-                _onSelectingGridItem: function (e, detail, sender) {
+                _getSearchGrid: function () {
+					return Polymer.dom(this.root).node.querySelector("#entitySearchGrid") ||
+						Polymer.dom(this).node.querySelector("#entitySearchGrid");
+			    },
+                _getQuickManage: function(){
+                    return Polymer.dom(this.root).node.querySelector("#entityQuickManage") ||
+						Polymer.dom(this).node.querySelector("#entityQuickManage");
+                },
+                _onSelectingGridItem: function (e, detail, sender) {                    
                     if(!this._allowQuickManage)
                     {
                         if (detail) 
@@ -305,22 +333,43 @@
                     }                    
                     else
                     {
-                        this._generateContext(detail.item.id);
+                        this._generateContext(detail.item.id);                        
+                        this._getSearchGrid().clearSelection();
+                        this._setCurrentIndex(detail.item.id);
+                    }
+                },
 
-                        // Grid details
-                        // var grid = this.$$('rock-entity-search-grid').$$('rock-grid');
-                        // Total # of records =  grid.gridDataSize
+                _setCurrentIndex: function(entityId){
+                    var foundItem = false;
+                    
+                    if(!entityId)
+                    {
+                        return;
+                    }
+
+                    for(var i = 0; i < this._gridData.length; i++)
+                    {
+                       if(this._gridData[i].id == entityId)
+                       {
+                          this.async(function(){                              
+                              this._currentIndex = i;
+                          });
+
+                          foundItem = true;
+                          break;                      
+                       }
+                    }
+
+                    if(!foundItem) //When item not found fetch the data again and retry
+                    {
+                        this._gridData = this._getSearchGrid().getData();
+                        this._setCurrentIndex(entityId);
                     }
                 },
                 _onAttributeSave: function(e, detail, sender){
-                    //Refresh entity search grid here
-                    var grid = this.$$('rock-entity-search-grid');                                    
-                    grid.reloadGrid();
-
-                    //Change context to reload attributes                    
-                    var _attrContext = this._context;
-                    this._context = {};
-                    this._context = _attrContext;
+                    //Changing the row style of the updated record 
+                    var selectedRow = this._getSearchGrid().getSelectedGridRow();
+                    selectedRow.style['font-style'] = 'italic';
                 },
                 _applyClass: function(){
                     if(this._allowQuickManage)
@@ -329,26 +378,72 @@
                     }
 
                     return "container";                    
-                },
+                },                
                 _onTapQuickManage: function(){
                     this._allowQuickManage = !this._allowQuickManage;                    
-                    var grid = this.$$('rock-entity-search-grid');
-
+                    var grid = this._getSearchGrid();
+                    
                     if(this._allowQuickManage)
                     {
-                        var gridData = grid.getData();                        
-                        if(gridData.length > 0)
-                        {
-                            this._generateContext(gridData[0].id);
+                        var selectedItem = grid.selectedItem;
+                        this._gridData = grid.getData(); //Set the grid data
+                        if(selectedItem)
+                        {                            
+                            this._generateContext(selectedItem.id);
+                            grid.clearSelection(); //Clear current selection
+                            grid.selectItem(selectedItem); //Select item
+                            this._setCurrentIndex(selectedItem.id);
                         }
+
+                        this.async(function(){
+                            this._totalRecords = grid.getTotalSize();
+                        });
                     }
                     else
                     {
-                        this._context = {}; //Reset context
+                        this._context = {}; //Reset context                                                
+                        this._currentIndex = -1;
                     }
 
-                    grid.setMultiSelection(!this._allowQuickManage);
-                    grid.reloadGrid(); //Re-render the grid
+                    grid.notifyResize();
+                },
+                _onClickPrevious: function(e, detail, sender){
+                    if(this._currentIndex > 0)
+                    {                        
+                        this._selectEntity(this._currentIndex - 1); 
+                    }
+                },
+                _onClickNext: function(e, detail, sender){
+                    if(this._currentIndex < (this._gridData.length))
+                    {
+                        this._selectEntity(this._currentIndex + 1);
+                    }
+                },
+                _selectEntity: function(index){
+                    if(!(index < 0))
+                    {                        
+                        var grid = this._getSearchGrid();;
+                                               
+                        if(this._gridData.length > 0 && index < this._gridData.length && this._gridData[index].attributes)
+                        {
+                            this._generateContext(this._gridData[index].id);
+                            this._currentIndex = index;
+                            grid.clearSelection();
+                            grid.selectItem(this._gridData[index]);
+                        }
+                        else
+                        {
+                            var nextScrollIndex = grid.totalRecords + grid.pageSize;
+                            var gridLength = this._totalRecords;
+                            var scrollIndex = gridLength < nextScrollIndex ? gridLength : nextScrollIndex
+                            grid.scrollToIndex(scrollIndex);
+
+                            this.async(function(){
+                                this._gridData = grid.getData();
+                                this._selectEntity(index);
+                            }, 10);
+                        }
+                    }
                 },
                 _currentPageChanged: function (currentPage) {
                     if (currentPage > 0) {
