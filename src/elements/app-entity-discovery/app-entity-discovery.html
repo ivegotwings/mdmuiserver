@@ -6,6 +6,8 @@
 <link rel="import" href="../liquid-config-get/liquid-config-get.html">
 
 <link rel="import" href="../pebble-actions/pebble-actions.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-vertical-divider/pebble-vertical-divider.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 
 <link rel="import" href="../rock-entity-search-grid/rock-entity-search-grid.html">
@@ -23,14 +25,7 @@
     <template>
         <style include="pebble-styles-shared"></style>
         <style include="iron-flex"></style>
-        <style is="custom-style">        
-            
-            pebble-actions::shadow pebble-button::shadow paper-button iron-icon#leftIcon {
-                width: 16px!important;
-                height: 16px!important;
-                margin: 0 10px;
-            }
-            
+        <style is="custom-style">
             rock-search-bar {
                 display: inline-flex;
                 display: -webkit-inline-flex;
@@ -41,35 +36,14 @@
             }
             rock-search-bar::shadow .input-panel iron-icon{
                 fill: #fff;
-            }
-            
+            }            
             rock-search-filter::shadow paper-menu-button {
                 padding: 0;
-            }
-            
-            rock-dimension-selector {
-                --dimesion-selector-container-popover: {
-                    width: auto;
-                }
-                --dimesion-selector-source-popover: {
-                    width: auto;
-                }
-                --dimesion-selector-date-dropdown: {
-                    width: auto;
-                }
-                --dimesion-selector-locale-popover: {
-                    width: auto;
-                }
-            }
-            
+            }            
             #dimensionContainer {
                 align-self: center;
                 -webkit-align-self: center; /* Safari 7.0+ */
                 width: 100%;
-            }
-            
-            #actionsPopover {
-                margin-top: 3px;
             }
             
             rock-search-filter::shadow paper-menu-button paper-menu {
@@ -123,8 +97,19 @@
             }
             .quick-manage-container {
                 height: 100%;
-                display: none;
+                width: 48%;
+                display: block;
             }
+            pebble-vertical-divider {
+				--pebble-vertical-divider-color: #1a2028;
+				height: 100%;
+				border: 0px;
+				min-height: 0px;
+                margin: 0 10px 0 10px;
+			}
+            .container {
+                width: 100%;
+            }           
         </style>
         <rock-layout>
             <liquid-config-get auto id="getAppConfig" operation="getconfigs" request-id="getAppConfig" request-data="{{_configRequest}}"
@@ -144,7 +129,7 @@
                         </div>
                         <div>
                             <!-- Saved Search button & its popover-->
-                            <rock-saved-searches id="rockSavedSearch" saved-searches="[[getConfig('rock-saved-searches')]]" saved-search-id="{{savedSearchId}}"
+                            <rock-saved-searches id="rockSavedSearch" saved-searches="{{_savedSearches}}" saved-search-id="{{_savedSearchId}}"
                                 icon="pebble-md-icons:SavedSearch" button-text="Load Saved Search" dropdown-icon></rock-saved-searches>
                                 <bedrock-pubsub event-name="saved-search-save" handler="_onCreateEditSavedSearch"></bedrock-pubsub>
                                 <bedrock-pubsub event-name="saved-search-cancel" handler="_onCancelSavedSearch"></bedrock-pubsub>
@@ -158,23 +143,33 @@
                             <!-- Search Filter Tags -->
                             <rock-entity-search-filter _selected-search-filters="{{_selectedSearchFilters}}" filters="[[getConfig('rock-search-filter')]]" dimensions="[[_selectedDimensions]]" ></rock-entity-search-filter>
                         </div>
-                        <div>
+                        <div class="action-buttons">
                             <!-- Actions buttons and its popover -->
+                            <pebble-actions id="actionsButton" button-icon="pebble-md-icons:actions" class="dropdownText dropdownIcon btn dropdown-success pull-right" button-text="Actions" actions-data="[[getConfig('pebble-actions')]]"></pebble-actions>
+                            <pebble-button class="btn btn-primary m-r-10 pull-right" button-text="Quick Manage" on-tap="_onTapQuickManage"></pebble-button>
                             <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
-                            <pebble-actions id="actionsButton" button-icon="pebble-md-icons:actions" class="dropdownText dropdownIcon btn dropdown-success" button-text="Actions" actions-data="[[getConfig('pebble-actions')]]"></pebble-actions>
                         </div>
                     </div>
                 </div>
                 <div class="shrunk-content">
                 </div>
             </rock-header>
-            <rock-sidebar id="rockSideBar" position="right">
-                <div class="quick-manage-container">
-                    <rock-entity-manage-quick></rock-entity-manage-quick>
+            <div class="layout horizontal">
+                <div id="entityGridContainer" class$="[[_applyClass(_allowQuickManage)]]">
+                    <rock-entity-search-grid grid-config="[[getConfig('rock-entity-search-grid')]]" dimensions="{{_selectedDimensions}}" search-filters="{{_selectedSearchFilters}}"
+                        search-query="{{_searchQuery}}"></rock-entity-search-grid>
+                    <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="entityGrid"></bedrock-pubsub>
                 </div>
-            </rock-sidebar>
-            <rock-entity-search-grid grid-config="[[getConfig('rock-entity-search-grid')]]" dimensions="{{_selectedDimensions}}" search-filters="{{_selectedSearchFilters}}"
-                search-query="{{_searchQuery}}"></rock-entity-search-grid>
+                <template is="dom-if" if="[[_allowQuickManage]]">
+                    <div>
+                        <pebble-vertical-divider></pebble-vertical-divider>
+                    </div>
+                    <div class="quick-manage-container">                        
+                        <rock-entity-manage-quick context="[[_context]]"></rock-entity-manage-quick>
+                        <bedrock-pubsub event-name="on-attribute-save" handler="_onAttributeSave"></bedrock-pubsub>
+                    </div>
+                </template>
+            </div>
         </rock-layout>
     </template>
     <script>
@@ -184,7 +179,7 @@
             Polymer({
                 is: 'app-entity-discovery',
                 properties: {
-                    context: {
+                    _context: {
                         type: Object,
                         value: function () {
                             return {};
@@ -216,7 +211,7 @@
                                             "csapMaterialStatusGlobal",
                                             "cpimSkinType"
                                         ],
-                                        "relationships": ["_ALL"]
+                                        "relationships": []
                                     },
                                     "options": {
                                         "from": 0,
@@ -244,7 +239,9 @@
                     },
                     _savedSearches: {
                         type: Object,
+                        value: function() { return{}; },
                         notify: true,
+                        computed: 'getConfig("rock-saved-searches")',
                         observer: '_savedSeachesChanged'
                     },
                     _currentPage: {
@@ -267,8 +264,18 @@
                                 "ctx": []
                             };
                         },
-                        notify: true
-                    }
+                        notify: true                                      
+                    },
+
+                    _allowQuickManage: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    _selectedDimensions: {
+                        type: Object,
+                        value: function() { return {}; }
+                    }                    
                 },
 
                 behaviors: [
@@ -288,10 +295,60 @@
 
                 // Grid
                 _onSelectingGridItem: function (e, detail, sender) {
-                    if (detail) {
-                        document.querySelector("main-app").set('pageRoute.__queryParams', { "id": detail.item.id });
-                        document.querySelector("main-app").changePageRoutePath("/entity-manage");
+                    if(!this._allowQuickManage)
+                    {
+                        if (detail) 
+                        {
+                            document.querySelector("main-app").set('pageRoute.__queryParams', { "id": detail.item.id });
+                            document.querySelector("main-app").changePageRoutePath("/entity-manage");
+                        }
+                    }                    
+                    else
+                    {
+                        this._generateContext(detail.item.id);
+
+                        // Grid details
+                        // var grid = this.$$('rock-entity-search-grid').$$('rock-grid');
+                        // Total # of records =  grid.gridDataSize
                     }
+                },
+                _onAttributeSave: function(e, detail, sender){
+                    //Refresh entity search grid here
+                    var grid = this.$$('rock-entity-search-grid');                                    
+                    grid.reloadGrid();
+
+                    //Change context to reload attributes                    
+                    var _attrContext = this._context;
+                    this._context = {};
+                    this._context = _attrContext;
+                },
+                _applyClass: function(){
+                    if(this._allowQuickManage)
+                    {
+                        return "quick-manage-container";
+                    }
+
+                    return "container";                    
+                },
+                _onTapQuickManage: function(){
+                    this._allowQuickManage = !this._allowQuickManage;                    
+                    var grid = this.$$('rock-entity-search-grid');
+
+                    if(this._allowQuickManage)
+                    {
+                        var gridData = grid.getData();                        
+                        if(gridData.length > 0)
+                        {
+                            this._generateContext(gridData[0].id);
+                        }
+                    }
+                    else
+                    {
+                        this._context = {}; //Reset context
+                    }
+
+                    grid.setMultiSelection(!this._allowQuickManage);
+                    grid.reloadGrid(); //Re-render the grid
                 },
                 _currentPageChanged: function (currentPage) {
                     if (currentPage > 0) {
@@ -302,6 +359,20 @@
                             "to": to
                         };
                         this.set("request.params.options", options);
+                    }
+                },
+                _generateContext: function(id){
+                    if(this._selectedDimensions &&
+                       this._selectedDimensions.lists.length > 0 &&
+                       this._selectedDimensions.sources.length > 0 &&
+                       this._selectedDimensions.locales.length > 0)
+                    {
+                        this._context = {
+                                        "list": this._selectedDimensions.lists[0].value,
+                                        "source": this._selectedDimensions.sources[0].value,
+                                        "locale": this._selectedDimensions.locales[0].value,
+                                        "entityId": id
+                                    };
                     }
                 },
 
@@ -446,8 +517,11 @@
                 },
                 _savedSeachesChanged: function (newValue, oldValue) {
                     if (newValue != oldValue) {
-                        var savedSearch = this._getSavedSearches(this._savedSearches, this._savedSearchId);
-                        this._populateHeaderControls(savedSearch);
+                        if(this._savedSearchId && this._savedSearches)
+                        {
+                            var savedSearch = this._getSavedSearches(this._savedSearches, this._savedSearchId);
+                            this._populateHeaderControls(savedSearch);
+                        }
                     }
                 },
                 _getSavedSearches: function (savedSearches, _savedSearchId) {

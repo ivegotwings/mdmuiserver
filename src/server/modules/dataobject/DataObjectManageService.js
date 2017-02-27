@@ -9,6 +9,7 @@ var DataObjectManageService = function (options) {
 DataObjectManageService.prototype = {
     get: async function (request) {
         var serviceName = this._getServiceName(request);
+        //console.log('get entity RDP call: ', JSON.stringify(request));
         return this.post(serviceName + "/get", request);
     },
     create: async function (request) {
@@ -18,6 +19,7 @@ DataObjectManageService.prototype = {
     },
     update: async function (request) {
         var serviceName = this._getServiceName(request);
+        //console.log('update entity RDP call: ', JSON.stringify(request));
         return this.post(serviceName + "/update", request);
     },
     deleteDataObjects: async function (request) {

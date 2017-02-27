@@ -66,7 +66,7 @@ function _buildAttributesDetailResponse(reqCtxGroup, reqValCtxGroup, reqAttrName
     //console.log('buildAttributesResponse...basePath: ', basePath, 'reqValCtxGroup: ',JSON.stringify(reqValCtxGroup), ' enAttributes: ', JSON.stringify(enAttributes));
 
     // if request is for all attrs then return every thing came back from api..
-    if(reqAttrNames.length == 1 && reqAttrNames[0] == "ALL"){
+    if(reqAttrNames.length == 1 && reqAttrNames[0] == "_ALL"){
         reqAttrNames = Object.keys(enAttributes);
     }
 
@@ -182,7 +182,7 @@ function createRequestJson(objType, ctxKeys, attrNames, relTypes, relAttrNames, 
                 v.locale === valCtxGroupObj.locale)) {
             valCtxGroups.push(valCtxGroupObj);
         }
-    };
+    }
 
     var fields = {
         ctxTypes: ["properties"]
@@ -386,7 +386,7 @@ function buildRelationshipsResponse(dataObject, request, basePath, caller) {
                     var relTypes = [];
 
                     // if request is for all rel types then return every thing came back from api..
-                    if(reqRelTypes.length === 1 && reqRelTypes[0] == "ALL"){
+                    if(reqRelTypes.length === 1 && reqRelTypes[0] == "_ALL"){
                         relTypes = Object.keys(enCtxInfo.relationships);
                     }
                     else
