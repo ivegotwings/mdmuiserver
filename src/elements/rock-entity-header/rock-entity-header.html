@@ -276,6 +276,13 @@ performed.
                     type: String
                 },
                 /**
+                 * Indictaes the classification for which the attributes have to be managed.
+                 */
+                classification: {
+                    type: String,
+                    value: "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
+                },
+                /**
                  * Indicates source value in which header attributes of the given entity are to be loaded.
                  */
                 source: {
@@ -298,7 +305,7 @@ performed.
                 if (this.verbose) {
                     console.log('entity header _headerConfigChanged ', JSON.stringify(headerConfig, null, 2));
                 }
-                if (headerConfig) {
+                if (headerConfig && headerConfig.length > 0) {
                     var attributeNames = [];
                     for (var i = 0; i < headerConfig.length; i++) {
                         if (headerConfig[i].attributeName) {
@@ -326,41 +333,42 @@ performed.
                             attributeNames.push(attributeName);
                         }
                     }
-                    var req = {
-                        "params": {
-                            "query": {
-                                "ctx": [{
-                                    "list": this.list,
-                                    "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
-                                }],
-                                "valCtx": [{
-                                    "source": this.source,
-                                    "locale": this.locale
-                                }],
-                                "id": this.entityId,
-                                "filters": {
-                                    "attributesCriterion": [],
-                                    "relationshipsCriterion": [],
-                                    "typesCriterion": ["nart"]
+                    if(attributeNames.length > 0) {
+                        var req = {
+                            "params": {
+                                "query": {
+                                    "ctx": [{
+                                        "list": this.list,
+                                        "classification": this.classification
+                                    }],
+                                    "valCtx": [{
+                                        "source": this.source,
+                                        "locale": this.locale
+                                    }],
+                                    "id": this.entityId,
+                                    "filters": {
+                                        "attributesCriterion": [],
+                                        "relationshipsCriterion": [],
+                                        "typesCriterion": ["nart"]
+                                    }
+                                },
+                                "fields": {
+                                    "ctxTypes": [
+                                        "properties"
+                                    ],
+                                    "attributes": attributeNames,
+                                    "relationships": [
+                                    ]
+                                },
+                                "options": {
+                                    "totalRecords": 1,
+                                    "includeRequest": false
                                 }
-                            },
-                            "fields": {
-                                "ctxTypes": [
-                                    "properties"
-                                ],
-                                "attributes": attributeNames,
-                                "relationships": [
-                                ]
-                            },
-                            "options": {
-                                "totalRecords": 1,
-                                "includeRequest": false
                             }
-                        }
-                    };
-                    this.set("headerAttributeRequest", req);
-                    this.$$("liquid-entity-data-get").generateRequest();
-                    //this.set("attributeRequest.attributeNames", attributeNames);
+                        };
+                        this.set("headerAttributeRequest", req);
+                        this.$$("liquid-entity-data-get").generateRequest();    
+                    }
                 }
             },
             _headerAttributeResponseChanged: function (headerAttributeResponse) {
@@ -369,36 +377,26 @@ performed.
                         headerAttributeResponse, null, 2));
                 }
                 var attributesData = [];
-                var locale = this.locale,
-                    time = 'now',
-                    source = this.source;
-                if (DataHelper.validateEntityExistsInResponse(headerAttributeResponse, this.entityId) &&
-                    this.headerAttributeModelResponse && this.headerAttributeModelResponse.returnValue &&
-                    this.headerAttributeModelResponse.returnValue.attributeModels) {
-                    var contextKey = Object.keys(headerAttributeResponse.content.entities[this.entityId].data
-                        .ctxInfo)[0];
-                    var attributes = headerAttributeResponse.content.entities[this.entityId].data.ctxInfo[
-                        contextKey].attributes;
-                    //values = DataHelper.transformAttributeToUIFormat(attributes, this.headerAttributeModelResponse.returnValue.attributeModels, locale, time, source);
-                    var attributeModels = this.headerAttributeModelResponse.returnValue.attributeModels;
-                    for (var attributeGroupName in attributeModels) {
-                        for (var attributeModelName in attributeModels[attributeGroupName]) {
-                            var attributeJSON = undefined;
-                            var attributeModel = attributeModels[attributeGroupName][attributeModelName];
-                            if (attributeModel.name) {
-                                var attribute = attributes[attributeModel.name];
-                                if (attribute && attribute.values) {
-                                    attributeJSON = DataHelper._getCurrentValue(attribute.values, locale,
-                                        time, source);
-                                }
-                                if (attributeJSON == undefined || !attributeJSON.hasOwnProperty('value')) {
-                                    attributeJSON = DataHelper._getEmptyValue(locale, time, source);
-                                }
-                                attributeJSON.name = attributeModel.name;
-                                attributesData.push(attributeJSON);
+                var dataContext = {
+                    "locale": this.locale,
+                    "time": "now",
+                    "source": this.source,                        
+                    "list": this.list,
+                    "classification": this.classification
+                };
+                if (DataHelper.validateGetEntitiesResponse(headerAttributeResponse) 
+                    && DataHelper.validateGetAttributeModelsResponse(this.headerAttributeModelResponse)) {
+                
+                    var entity = DataHelper.findEntityById(headerAttributeResponse.content.entities, this.entityId);
+                    if(entity) {
+                        var groupBasedAttributesData = DataHelper.getAttributesInManageFormat(entity, this.headerAttributeModelResponse.returnValue.attributeModels, dataContext);   
+                        for(let attributeGroup of groupBasedAttributesData) {
+                            for(let attribute of attributeGroup.attributes) {
+                                attributesData.push(attribute);
                             }
                         }
                     }
+                    
                 }                
                 this.set("_headerAttributeValues", attributesData);                
             },
