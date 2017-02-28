@@ -126,6 +126,13 @@ It renders rock-attribute-list the specified context parameters. It is responsib
                         type: String
                     },
                     /**
+                     * Indictaes the classification for which the attributes have to be managed.
+                     */
+                    classification: {
+                        type: String,
+                        value: "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
+                    },
+                    /**
                      * Indictaes the source dimension for which the attributes have to be managed.
                      */
                     source: {
@@ -253,7 +260,7 @@ It renders rock-attribute-list the specified context parameters. It is responsib
                                 "query": {
                                     "ctx": [{
                                         "list": this.list,
-                                        "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
+                                        "classification": this.classification
                                     }],
                                     "valCtx": [{
                                         "source": this.source,
@@ -290,24 +297,26 @@ It renders rock-attribute-list the specified context parameters. It is responsib
                     }
 
                     var values = [];
-                    var locale = this.locale,
-                        time = 'now',
-                        source = this.source;
-                    if (DataHelper.validateEntityExistsInResponse(_attributeResponse, this.entityId) && this._attributeModelResponse &&
-                        this._attributeModelResponse.returnValue && this._attributeModelResponse.returnValue
-                        .attributeModels) {
-                        var contextKey = Object.keys(_attributeResponse.content.entities[this.entityId]
-                            .data.ctxInfo)[0];
-                        var attributes = _attributeResponse.content.entities[this.entityId].data.ctxInfo[
-                            contextKey].attributes;
-                        //ToDo: read following through configuration to set rock title bar
-                        //ToDo: this should happen from app-entity-manage
-                        if (attributes.cpimProductName && attributes.cpimSkinType) {
-                            this._setTitleBar(attributes.cpimProductName.values[0].value, attributes.cpimSkinType
-                                .values[0].value);
+                    var dataContext = {
+                        "locale": this.locale,
+                        "time": "now",
+                        "source": this.source,                        
+                        "list": this.list,
+                        "classification": this.classification
+                    };
+                    if (DataHelper.validateGetEntitiesResponse(_attributeResponse) 
+                        && DataHelper.validateGetAttributeModelsResponse(this._attributeModelResponse)) {
+                        
+                        var entity = DataHelper.findEntityById(_attributeResponse.content.entities, this.entityId);
+                        if(entity) {
+                            values = DataHelper.getAttributesInManageFormat(entity, this._attributeModelResponse.returnValue.attributeModels, dataContext);   
+
+                            //ToDo: read following through configuration to set rock title bar
+                            //ToDo: this should happen from app-entity-manage
+                            if (values[0].attributes[0] && values[0].attributes[1]) {
+                                this._setTitleBar(values[0].attributes[0].value, values[0].attributes[1].value);
+                            }
                         }
-                        values = DataHelper.transformAttributeToUIFormat(attributes, this._attributeModelResponse
-                            .returnValue.attributeModels, locale, time, source);
                     }
                     this._attributeValues = values;                    
                 },
@@ -343,22 +352,35 @@ It renders rock-attribute-list the specified context parameters. It is responsib
                     }
                     var entityData = {};
                     if (this._attributeResponse && this._attributeResponse.content && this._attributeResponse
-                        .content.entities) {
-                        entityData = this._cloneObject(this._attributeResponse.content.entities);
+                        .content.entities && this._attributeResponse.content.entities.length > 0) {
+                        
+                        var originalEntity = this._attributeResponse.content.entities[0];
+                        for(var entityDataField in originalEntity) {
+                            if(entityDataField == "data") {
+                                var contextualData = {};
+                                contextualData.ctxInfo = [];
+                                var ctxItem = {};
+                                ctxItem.ctxGroup = {"list": this.list,"classification": this.classification};
+                                ctxItem.attributes = DataHelper.transformAttributeFromUIFormat(attributesJSON);
+                                contextualData.ctxInfo.push(ctxItem);
+                                entityData[entityDataField] = contextualData;
+                            } else {
+                                entityData[entityDataField] = this._cloneObject(originalEntity[entityDataField]);
+                            }
+                        }
                     }
-                    if (this.entityId in entityData) {
-                        var contextKey = Object.keys(entityData[this.entityId].data.ctxInfo)[0];
-                        entityData[this.entityId].data.ctxInfo[contextKey].attributes = DataHelper.transformAttributeFromUIFormat(
-                            attributesJSON);
+                    
+                    if(!_.isEmpty(entityData)) {
+                        //set requestObject for save liquid
+                        this._saveRequest = {
+                            "entities": [entityData]
+                        };
+                        var liquidSave = this.$$("[name=attributeSaveDataService]");
+                        if (liquidSave) {
+                            liquidSave.generateRequest();
+                        }
                     }
-                    //set requestObject for save liquid
-                    this._saveRequest = {
-                        "entities": entityData
-                    };
-                    var liquidSave = this.$$("[name=attributeSaveDataService]");
-                    if (liquidSave) {
-                        liquidSave.generateRequest();
-                    }
+                    
                     //this return isnt useful for now
                     return entityData;
                 },
