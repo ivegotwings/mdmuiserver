@@ -56,6 +56,8 @@ OfflineRestService.prototype = {
 
             var basePath = process.cwd() + '/offline-data/' + tenantId + '/';
 
+            //console.log('file prefixes: ', JSON.stringify(filePrefixes));
+
             if(isEmpty(filePrefixes)) {
                 files = requireDir(basePath);
             }
