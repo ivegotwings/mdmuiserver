@@ -334,6 +334,8 @@ The following JSON object is a sample of data which can be used to bind the grid
     <liquid-entity-data-get id="entityGetData" name="entityGet" operation="getbyids" request-data="{{_entityGetRequest}}" last-response="{{entitiesResponse}}"></liquid-entity-data-get>
     <liquid-entity-data-get id="entityGetAddData" name="entityGet" operation="getbyids" request-data="{{_entityGetAddRequest}}"
       last-response="{{relEntitiesResponse}}"></liquid-entity-data-get>
+    <liquid-entity-data-save name="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}"
+      on-response="_onSaveResponse"></liquid-entity-data-save>
   </template>
   <script>
     (function () {
@@ -413,6 +415,13 @@ The following JSON object is a sample of data which can be used to bind the grid
           },
 
           relReq: {
+            type: Object,
+            value: function () {
+              return {};
+            }
+          },
+
+          dimensions: {
             type: Object,
             value: function () {
               return {};
@@ -559,16 +568,16 @@ The following JSON object is a sample of data which can be used to bind the grid
         _populateDataForGrid: function (respData) {
           var data = [];
           if (respData) {
-            if (this.dataObject == undefined) {
+            if (this.dataObject == undefined && respData.content.entities[0].data) {
               this.dataObject = respData;
             }
 
             if (respData.content && respData.content.entities) {
               var entities = respData.content.entities;
-              var entityId = Object.keys(entities)[0];
+              var entityId = entities[0].id;
 
               if (entityId) {
-                var entity = entities[entityId];
+                var entity = entities[0];
                 if (entity && entity.data && entity.data.ctxInfo) {
                   Object.keys(entity.data.ctxInfo).forEach(function (item) {
                     if (item && entity.data.ctxInfo[item]) {
@@ -578,22 +587,21 @@ The following JSON object is a sample of data which can be used to bind the grid
                         var relationshipTypeName = Object.keys(relationships)[0];
                         var relatedEntities = relationships[relationshipTypeName];
 
-                        Object.keys(relatedEntities.rels).forEach(function (relItem) {
+                        relatedEntities.forEach(function (relItem) {
                           if (relItem) {
                             var record = {};
-                            var relElement = relatedEntities.rels[relItem];
-                            if (relElement.attributes) {
-                              Object.keys(relElement.attributes).forEach(function (item) {
-                                if (item && relElement.attributes[item]) {
-                                  record[item] = relElement.attributes[item].values[0].value;
+                            if (relItem.attributes) {
+                              Object.keys(relItem.attributes).forEach(function (item) {
+                                if (item && relItem.attributes[item]) {
+                                  record[item] = relItem.attributes[item].values[0].value;
                                 }
                               }, this);
                             }
-                            if (relElement.relToObject) {
-                              record["Related Entity"] = record["id"] = relElement.relToObject.id;
+                            if (relItem.relToObject) {
+                              record["Related Entity"] = record["id"] = relItem.relToObject.id;
 
-                              if (relElement.relToObject.data) {
-                                var relCtxInfo = relElement.relToObject.data.ctxInfo;
+                              if (relItem.relToObject.data) {
+                                var relCtxInfo = relItem.relToObject.data.ctxInfo;
 
                                 if (relCtxInfo) {
                                   Object.keys(relCtxInfo).forEach(function (item) {
@@ -884,32 +892,29 @@ The following JSON object is a sample of data which can be used to bind the grid
           if (currentRelGrid) {
             var gridData = currentRelGrid.getData();
             var entities = DataHelper.cloneObject(this.dataObject.content.entities);
-            var entity = entities[entityId];
+            var entity = entities[0];
             var relationships = this._relationships;
 
             if (entity) {
               var ctxInfo = entity.data.ctxInfo;
               if (ctxInfo) {
-                Object.keys(ctxInfo).forEach(function (item) {
+                ctxInfo.forEach(function (item) {
                   if (item) {
-                    var ctx = ctxInfo[item];
-                    ctx.attributes = {};
+                    item.attributes = {};
 
-                    var relationship = ctx.relationships[currentRel].rels;
-                    var relatedEntityIds = Object.keys(relationship);
+                    var relationships = item.relationships[currentRel];
                     var modifiedRelData = gridData;
                     var relAndRelEntityAttributes = this.getAttributeList(currentRel);
 
                     if (modifiedRelData) {
                       modifiedRelData.forEach(function (modItem) {
                         var key = "";
-                        relatedEntityIds.forEach(function (relId) {
-                          if (relId.indexOf(modItem["Related Entity"]) >= 0) {
-                            key = relId;
+                        var relObject = {};
+                        relationships.forEach(function (relItem) {
+                          if (relItem.id.indexOf(modItem["Related Entity"]) >= 0) {
+                            relObject = relItem;
                           }
                         }, this);
-
-                        var relObject = relationship[key];
 
                         if (relObject) {
                           delete relObject.attributes["Related Entity"];
@@ -917,43 +922,53 @@ The following JSON object is a sample of data which can be used to bind the grid
 
                           var relAttributes = relObject.attributes;
 
-                          Object.keys(relAttributes).forEach(function (relAttr) {
+                          relAndRelEntityAttributes.relationshipAttributes.forEach(function (relAttr) {
                             if (relAttr) {
                               var relAttribute = relAttributes[relAttr];
                               if (relAttribute) {
                                 relAttribute.values[0].value = modItem[relAttr];
+                              } else {
+                                if (modItem[relAttr]) {
+                                  relAttributes[relAttr] = {};
+                                  relAttributes[relAttr].values = [{
+                                    "value": modItem[relAttr],
+                                    "source": this.dimensions.source,
+                                    "locale": this.dimensions.locale
+                                  }];
+                                }
                               }
                             }
                           }, this);
                         } else {
+                          var relationship = {};
                           var relId = modItem["Related Entity"];
-                          relationship[relId] = {};
-                          relationship[relId].id = relId;
-                          relationship[relId].direction = "both";
-                          relationship[relId].operation = "association";
-                          relationship[relId].alias = modItem["relationshipType"];
 
-                          relationship[relId].attributes = {};
+                          relationship.id = relId;
+                          relationship.direction = "both";
+                          relationship.operation = "association";
+                          relationship.alias = modItem["relationshipType"];
+
+                          relationship.attributes = {};
 
                           if (relAndRelEntityAttributes) {
                             relAndRelEntityAttributes.relationshipAttributes.forEach(function (relAttr) {
                               if (relAttr) {
-                                relationship[relId].attributes[relAttr] = {};
-                                relationship[relId].attributes[relAttr].values = [{
+                                relationship.attributes[relAttr] = {};
+                                relationship.attributes[relAttr].values = [{
                                   "value": modItem[relAttr],
-                                  "source": "SAP",
-                                  "locale": "en-US"
+                                  "source": this.dimensions.source,
+                                  "locale": this.dimensions.locale
                                 }];
                               }
                             }, this);
                           }
 
-                          relationship[relId].relToObject = {};
-                          relationship[relId].relToObject.id = relId;
-                          relationship[relId].relToObject.entityInfo = modItem['entityInfo'];
-                          relationship[relId].relToObject.systemInfo = modItem['systemInfo'];
-                          relationship[relId].relToObject.properties = modItem['properties'];
-
+                          relationship.relToObject = {};
+                          relationship.relToObject.id = relId;
+                          relationship.relToObject.entityInfo = modItem['entityInfo'];
+                          relationship.relToObject.systemInfo = modItem['systemInfo'];
+                          relationship.relToObject.properties = modItem['properties'];
+                          relationships.push(relationship);
                         }
                       }, this);
                     }
