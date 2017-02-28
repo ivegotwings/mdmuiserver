@@ -1,18 +1,15 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
-
-<link rel="import" href="../bedrock-type-extensions/string-extensions.html">
-
 <link rel="import" href="../liquid-base-falcor-behavior/liquid-base-falcor-behavior.html">
 <link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
-
 <!--
 `liquid-dataobject-get-behavior`
-Boolean control
-
-@demo demo/index.html 
 -->
 
 <script>
+    /*
+     * @polymerBehavior RUFBehaviors.LiquidDataObjectGetBehavior
+     * @demo demo/index.html 
+     */
     var RUFBehaviors = RUFBehaviors || {};
     var liquidDataObjectGetBehavior = {
         //behaviors: [RUFBehaviors.LiquidBehavior],
@@ -69,7 +66,7 @@ Boolean control
             }
             else if (op === 'getsearchresultdetail') {
                 var dataObjects = rawResponsePkg.json[pathKeys.root][objectType][pathKeys.searchResults][request.requestId][pathKeys.searchResultObjects];
-                var formattedDataObjects = this._formatSearchResult(dataObjects);
+                var formattedDataObjects = this._formatData(objectType, dataObjects);
                 var searchResultDetailResponse = {};
                 searchResultDetailResponse[objTypeInfo.collectionName] = formattedDataObjects;
                 return searchResultDetailResponse;
@@ -78,11 +75,11 @@ Boolean control
                 var dataObjects = {};
                 if (rawResponsePkg !== undefined && rawResponsePkg.json && rawResponsePkg.json[pathKeys.root]) {
                     dataObjects = rawResponsePkg.json[pathKeys.root][objectType][pathKeys.masterListById];
-                    this._formatData(dataObjects);
+                    var formattedDataObjects = this._formatData(objectType, dataObjects);
                 }
 
                 var getByIdsResponse = {};
-                getByIdsResponse[objTypeInfo.collectionName] = dataObjects;
+                getByIdsResponse[objTypeInfo.collectionName] = formattedDataObjects;
                 return getByIdsResponse;
             }
         },
@@ -97,48 +94,50 @@ Boolean control
             var requestData = request.requestData;
             var operation = request.operation;
             var mainMessage = 'cannot make request for operation ' + operation + '{0} ... host: ' + this.domHost.localName + '... request: ' + JSON.stringify(requestData);
-            
-            if (!requestData) { 
+
+            if (!requestData) {
                 console.log(mainMessage.format(': requestData not found'));
-                return false; 
+                return false;
             }
-            if (!requestData.params) { 
+            if (!requestData.params) {
                 console.log(mainMessage.format(': requestData.params not found'));
-                return false; 
+                return false;
             }
-            if (!requestData.params.query) { 
+            if (!requestData.params.query) {
                 console.log(mainMessage.format(': requestData.params.query not found'));
-                return false; 
+                return false;
             }
 
             var isIdExists = requestData.params.query.id !== undefined || requestData.params.query.ids !== undefined;
             var isCtxExists = requestData.params.query.ctx !== undefined && requestData.params.query.ctx.length > 0;
             var isTypeCriterionExists = requestData.params.query.filters !== undefined && requestData.params.query.filters.typesCriterion !== undefined && requestData.params.query.filters.typesCriterion.length > 0;
 
-            if (!(isIdExists || isCtxExists || isTypeCriterionExists)) { 
+            if (!(isIdExists || isCtxExists || isTypeCriterionExists)) {
                 console.log(mainMessage.format(': at least one must be present (ids, ctx, typesCriterion)'));
-                return false; 
+                return false;
             }
 
             //operation based validation
-            if(operation === 'getbyids') {
-                if(!isIdExists) { 
+            if (operation === 'getbyids') {
+                if (!isIdExists) {
                     console.log(mainMessage.format(': ids is mandatory for this operation'));
-                    return false; 
+                    return false;
                 }
             }
             else if (operation == "getsearchresultdetail") {
-                if(!request.requestId) {
+                if (!request.requestId) {
                     console.log(mainMessage.format(': requestId is mandatory for this operation'));
                     return false;
                 }
             }
-            
+
             return true;
         },
         _callGetByIds: function (model, request, basePath) {
             var reqData = request.requestData,
                 dataObjectIds = [];
+
+            var utils = SharedUtils.DataObjectFalcorUtil;
 
             if (reqData === undefined || reqData.params === undefined) {
                 return;
@@ -168,15 +167,20 @@ Boolean control
 
             basePath = basePath === undefined ? [pathKeys.root, objectType, pathKeys.masterListById, dataObjectIds] : basePath;
 
-            var dataObjectFieldsPath = this._mergePathSets(basePath, [['id', 'name', objTypeInfo.typeInfo, 'systemInfo', 'properties']]);
+            var dataObjectFields = ['id', 'name', 'version', objTypeInfo.typeInfo, 'systemInfo', 'properties'];
+
+            var dataObjectFieldsPath = this._mergePathSets(basePath, [dataObjectFields]);
             paths.push(dataObjectFieldsPath);
 
-            var contextKeys = this._createContextKeys(reqData);
+            var ctxKeys = utils.createCtxKeys(reqData.params.query.ctx);
+            var valCtxKeys = utils.createCtxKeys(reqData.params.query.valCtx);
+
+            var attrDetailPath = ['valCtxInfo', valCtxKeys, ['values', 'group', 'properties']];
 
             if (reqData.params.fields.attributes !== undefined && reqData.params.fields.attributes.length > 0) {
                 var attrs = reqData.params.fields.attributes;
                 this._arrayRemove(attrs, '_ALL'); //TODO: Fix this once we have logic to resolve ALL...
-                var path2 = this._mergePathSets(basePath, ['data', 'ctxInfo', contextKeys, 'attributes', attrs, ['values', 'groups', 'properties']]);
+                var path2 = this._mergePathSets(basePath, ['data', 'ctxInfo', ctxKeys, 'attributes', attrs], attrDetailPath);
                 paths.push(path2);
             }
 
@@ -190,18 +194,18 @@ Boolean control
                 var relatedDataObjectAttrs = reqData.params.fields.relatedEntityAttributes === undefined ? [] : reqData.params.fields.relatedEntityAttributes;
                 this._arrayRemove(relatedDataObjectAttrs, '_ALL'); //TODO: Fix this once we have logic to resolve ALL...
 
-                var relIdCreatePath = this._mergePathSets(basePath, ['data', 'ctxInfo', contextKeys, 'relationships', relTypes, 'relIds']);
+                var relIdCreatePath = this._mergePathSets(basePath, ['data', 'ctxInfo', ctxKeys, 'relationships', relTypes, 'relIds']);
 
                 var relAttrsPath = [];
                 if (relAttrNames.length > 0) {
-                    var relAttrsPath = ['attributes', relAttrNames, 'values'];
+                    var relAttrsPath = this._mergePathSets(['attributes', relAttrNames], attrDetailPath);
                 }
 
-                var relToObjectPath_Fields = ['relToObject', ['id', objTypeInfo.typeInfo, 'systemInfo', 'properties']];
+                var relToObjectPath_Fields = this._mergePathSets(['relToObject'], dataObjectFields);
 
                 var relToObjectPath_Attrs = [];
                 if (relatedDataObjectAttrs.length > 0)
-                    relToObjectPath_Attrs = ['relToObject', 'data', 'ctxInfo', contextKeys, 'attributes', relatedDataObjectAttrs, 'values'];
+                    relToObjectPath_Attrs = this._mergePathSets(['relToObject', 'data', 'ctxInfo', ctxKeys, 'attributes', relatedDataObjectAttrs], attrDetailPath);
 
                 var relFieldsPath = [['id', 'direction', 'operation', 'source', 'alias']];
 
@@ -214,8 +218,8 @@ Boolean control
                     if (responsePkg !== undefined) {
                         for (var dataObjectIdIdx in dataObjectIds) {
                             var dataObjectId = dataObjectIds[dataObjectIdIdx];
-                            for (var ctxKeyIdx in contextKeys) {
-                                var ctxKey = contextKeys[ctxKeyIdx];
+                            for (var ctxKeyIdx in ctxKeys) {
+                                var ctxKey = ctxKeys[ctxKeyIdx];
                                 for (var relTypeIdx in relTypes) {
                                     var relType = relTypes[relTypeIdx];
                                     var relIds = responsePkg.json[pathKeys.root][self.objectType][pathKeys.masterListById][dataObjectId]['data']['ctxInfo'][ctxKey]['relationships'][relType]['relIds'];
@@ -348,126 +352,23 @@ Boolean control
             var pathKeys = this._pathKeys;
             return model.get([pathKeys.root, this.objectType, pathKeys.searchResults, reqId, pathKeys.searchResultObjects, [{ 'from': from, 'to': to }]]);
         },
-        _createContextKeys: function (reqData) {
-            var contextKeys = []
-            var self = this;
+        _formatData: function (objType, dataObjects) {
+            var utils = SharedUtils.DataObjectFalcorUtil;
+            var formattedDataObjects = [];
 
-            if(!reqData.params && !reqData.params.query) {
-                return contextKeys;
-            }
-
-            var reqCtx = reqData.params.query.ctx === undefined ? [] : reqData.params.query.ctx;
-            var reqValCtx = reqData.params.query.valCtx === undefined ? [] : reqData.params.query.valCtx;
-
-            const noVal = 'NA';
-
-            if (reqCtx.length == 0 && reqValCtx.length == 0) {
-                var ctxGroupUI = {
-                    'list': noVal, 
-                    'classification': noVal,
-                    'source': noVal, 
-                    'locale': noVal
-                };
-
-                var ctxKey = self.createContextKey(ctxGroupUI); 
-                contextKeys.push(ctxKey);
-            }
-            else {
-                if(reqCtx.length == 0 && reqValCtx.length > 0) {
-                    reqCtx.push({'list': noVal, 'classification': noVal });
-                }
-
-                if(reqValCtx.length == 0 && reqCtx.length > 0) {
-                    reqValCtx.push({'source': noVal, 'locale': noVal });
-                }
-
-                if(reqCtx.length > 0) {
-                    reqCtx.forEach(function (ctxGroup) {
-                        var list = ctxGroup.list ? ctxGroup.list : noVal;
-                        var classfication = ctxGroup.classification ? ctxGroup.classification : noVal;
-
-                        if(reqValCtx && reqValCtx.length > 0) {
-                            reqValCtx.forEach(function (valCtxGroup) {
-                                var source = valCtxGroup.source ? valCtxGroup.source.toLowerCase() : noVal;
-                                var locale = valCtxGroup.locale ? valCtxGroup.locale.toLowerCase() : noVal;
-                                
-                                var ctxGroupUI = {
-                                    'list': ctxGroup.list,
-                                    'classification': classfication,
-                                    'source': source,
-                                    'locale': locale                        
-                                };
-
-                                var ctxKey = self.createContextKey(ctxGroupUI);
-
-                                contextKeys.push(ctxKey);
-                            });
-                        }
-                    });
-                }
-            }
-
-            return contextKeys;
-        },
-        getCtxDataByGroupObj: function (dataObject, ctxGroup) {
-            var ctxInfoItem = {};
-            if (ctxGroup && ctxGroup.list) {
-                var ctxKey = this.createContextKey(ctxGroup);
-                ctxInfoItem = this.getCtxDataByKey(dataObject, ctxKey);
-            }
-
-            return ctxInfoItem;
-        },
-        getCtxDataByKey: function (dataObject, ctxKey) {
-            var ctxInfoItem = {};
-
-            if (dataObject && dataObject.data && dataObject.data.ctxInfo && dataObject.data.ctxInfo[ctxKey]) {
-                ctxInfoItem = dataObject.data.ctxInfo[ctxKey];
-            }
-
-            return ctxInfoItem;
-        },
-        createContextKey: function (ctxGroup) {
-            return "".concat(ctxGroup.list, '#@#', ctxGroup.classification, '#@#', ctxGroup.source, '#@#', ctxGroup.locale);
-        },
-        _populateContextGroups: function (dataObject) {
-            if (dataObject.data && dataObject.data.ctxInfo) {
-                var ctxKeys = Object.keys(dataObject.data.ctxInfo);
-                for (var i in ctxKeys) {
-                    var ctxKey = ctxKeys[i];
-                    var ctxInfoItem = dataObject.data.ctxInfo[ctxKey];
-
-                    var ctxKeySegments = ctxKey.split('#@#');
-
-                    var ctxGroupUI = {
-                        list: ctxKeySegments[0],
-                        classification: ctxKeySegments[1],
-                        source: ctxKeySegments[2],
-                        locale: ctxKeySegments[3]
-                    };
-
-                    ctxInfoItem['ctxGroup'] = ctxGroupUI;
-                }
-            }
-        },
-        _formatData: function (dataObjects) {
             for (var dataObjectId in dataObjects) {
                 var dataObject = dataObjects[dataObjectId];
-                this._populateContextGroups(dataObject);
-            }
-        },
-        _formatSearchResult: function (dataObjects) {
-            var formattedDataObjects = {};
-            for (var i in dataObjects) {
-                var dataObject = dataObjects[i];
-                this._populateContextGroups(dataObject);
-                formattedDataObjects[dataObject.id] = dataObject;
+                var formattedDataObject = utils.transformToExternal(dataObject);
+                formattedDataObjects.push(formattedDataObject);
             }
 
             return formattedDataObjects;
         },
-        _mergePathSets: function (pathSet1, pathSet2) {
-            return pathSet1.concat(pathSet2);
+        _mergePathSets: function () {
+            var mergedPathSets = [];
+            var args = Array.prototype.splice.call(arguments, 0);
+            var mergedPathSets = Array.prototype.concat.apply([], args);
+            return mergedPathSets;
         },
         _makeFalcorGetCall: function (model, paths) {
             return model.get.apply(model, paths);
