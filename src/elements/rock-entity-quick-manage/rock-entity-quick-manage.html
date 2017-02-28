@@ -17,7 +17,7 @@
 
 <link rel="import" href="../rock-tabs/rock-tabs.html">
 
-<dom-module id="rock-entity-manage-quick">
+<dom-module id="rock-entity-quick-manage">
     <template>
         <style include="pebble-styles-shared"></style>
         <style include="iron-flex"></style>
@@ -68,11 +68,10 @@
                 text-align: right;
             }
 
-            .right-section pebble-icon {
-                margin-right: 10px;
-                --pebble-icon-width: 14px;
-                --pebble-icon-height: 14px;
-                cursor: pointer;
+            .right-section pebble-button {
+                --pebble-button: {                    
+                    min-width: 2em;
+                }
             }
             #attrName {
                 font-size: 12px;
@@ -117,10 +116,14 @@
                 }
                 --paper-menu-background-color: var(--palette-white, #ffffff);
                 --pebble-horizontal-divider-color:var(--buttontext-color, #616161);
-            }            
+            }
+            .message {
+                font-weight: bold;
+                padding: 20px;
+            }
                    
         </style>        
-        <div id="quick-manage-header">            
+        <div id="quick-manage-header" hidden$="[[!_entityId]]">            
             <iron-ajax url="../../data/EntityManageApp/quick-manage-header-config.json" last-response="{{_headerConfig}}" auto></iron-ajax>
             <iron-ajax url="../../data/EntityManageApp/quick-manage-toolbar-config.json" last-response="{{_toolbarConfig}}" auto></iron-ajax>            
             <iron-ajax url="../../data/EntityManageApp/entity-summary-tofix-data.json" last-response="{{fixes}}" auto></iron-ajax>
@@ -140,9 +143,9 @@
                 </div>
                 <div class="layout flex right-section">
                     <span id="selected-item">[[_getSelectedItemIndex(currentIndex, totalRecords)]]</span>
-                    <span id="previous"><pebble-icon icon="pebble-icons:ExpandLess" on-tap="_onTapNavigation" data-args="previous"></pebble-icon></span>
-                    <span id="next"><pebble-icon icon="expand-more" on-tap="_onTapNavigation" data-args="next"></pebble-icon></span>
-                    <span id="maximize"><pebble-icon icon="pebble-md-icons:Expand" on-tap="_onTapMaximize"></pebble-icon></span>
+                    <span id="previous"><pebble-button icon="pebble-icons:ExpandLess" on-tap="_onTapNavigation" data-args="previous" disabled$="[[_setFlag('previous', currentIndex)]]"></pebble-button></span>
+                    <span id="next"><pebble-button icon="expand-more" on-tap="_onTapNavigation" data-args="next" disabled$="[[_setFlag('next', currentIndex)]]"></pebble-button></span>
+                    <span id="maximize"><pebble-button icon="pebble-md-icons:Expand" on-tap="_onTapMaximize"></pebble-button></span>
                 </div>
             </div>
             <div class="second-row flex-end-justified">
@@ -156,23 +159,21 @@
                 </div> 
             </div>           
         </div>
-        <div id="quick-manage-entity">
+        <div id="quick-manage-entity" hidden$="[[!_entityId]]">
             <bedrock-pubsub on-bedrock-event-error-length-changed="_errorLengthChanged"></bedrock-pubsub>            
             <rock-tabs id="rockTabs" config="{{_tabConfig}}">
-            </rock-tabs>            
-            <template is="dom-if" if="[[!_entityId]]">
-                <p class="warning">Please select an entity from grid.</p>
-            </template>
+            </rock-tabs>
             <iron-ajax auto url="../../data/EntityManageApp/quick-entity-manage-tab-config.json" handle-as="json" on-response="_handleResponse"></iron-ajax>
             <bedrock-pubsub event-name="component-creating" handler="_onComponentCreating"></bedrock-pubsub>
         </div>
+        <div class="message" hidden$="[[_entityId]]">Please select an entity from grid.</div>
     </template>
     <script>
         (function () {
             'use strict';
 
             Polymer({
-                is: 'rock-entity-manage-quick',
+                is: 'rock-entity-quick-manage',
 
                 properties: {
                     context: {
@@ -209,12 +210,26 @@
                         type: String
                     },
 
+                   /**
+                    * Indictaes the classification for which the attributes have to be managed.
+                    */
+                    _classification: {
+                        type: String,
+                        value: "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
+                    },
+
+                    /**
+                     * Indicates current selected item index
+                     */
                     currentIndex: {
                         type: Number,
                         value: -1,
                         notify: true
                     },
 
+                    /**
+                     * Indicates total count of the records
+                     */
                     totalRecords: {
                         type: Number,
                         value: 0
@@ -280,7 +295,7 @@
                     if (this.verbose) {
                         console.log('entity header _headerConfigChanged ', JSON.stringify(headerConfig, null, 2));
                     }
-                    if (headerConfig) {
+                    if (headerConfig && headerConfig.length > 0) {
                         var attributeNames = [];
                         for (var i = 0; i < headerConfig.length; i++) {
                             if (headerConfig[i].attributeName) {
@@ -308,78 +323,71 @@
                                 attributeNames.push(attributeName);
                             }
                         }
-                        var req = {
-                            "params": {
-                                "query": {
-                                    "ctx": [{
-                                        "list": this._list,
-                                        "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
-                                    }],
-                                    "valCtx": [{
-                                        "source": this._source,
-                                        "locale": this._locale
-                                    }],
-                                    "id": this._entityId,
-                                    "filters": {
-                                        "attributesCriterion": [],
-                                        "relationshipsCriterion": [],
-                                        "typesCriterion": ["nart"]
+
+                        if(attributeNames.length > 0) {
+                            var req = {
+                                "params": {
+                                    "query": {
+                                        "ctx": [{
+                                            "list": this._list,
+                                            "classification": this._classification
+                                        }],
+                                        "valCtx": [{
+                                            "source": this._source,
+                                            "locale": this._locale
+                                        }],
+                                        "id": this._entityId,
+                                        "filters": {
+                                            "attributesCriterion": [],
+                                            "relationshipsCriterion": [],
+                                            "typesCriterion": ["nart"]
+                                        }
+                                    },
+                                    "fields": {
+                                        "ctxTypes": [
+                                            "properties"
+                                        ],
+                                        "attributes": attributeNames,
+                                        "relationships": [
+                                        ]
+                                    },
+                                    "options": {
+                                        "totalRecords": 1,
+                                        "includeRequest": false
                                     }
-                                },
-                                "fields": {
-                                    "ctxTypes": [
-                                        "properties"
-                                    ],
-                                    "attributes": attributeNames,
-                                    "relationships": [
-                                    ]
-                                },
-                                "options": {
-                                    "totalRecords": 1,
-                                    "includeRequest": false
                                 }
-                            }
-                        };
-                        this.set("_headerAttributeRequest", req);
-                        this.$$("liquid-entity-data-get").generateRequest();                        
+                            };
+                            this.set("_headerAttributeRequest", req);
+                            this.$$("liquid-entity-data-get").generateRequest(); 
+                        }                       
                     }
                 },
                 _headerAttributeResponseChanged: function (headerAttributeResponse) {
                     if (this.verbose) {
-                        console.log('entity header _headerAttributeResponseChanged ', JSON.stringify(
-                            headerAttributeResponse, null, 2));
+                            console.log('entity header _headerAttributeResponseChanged ', JSON.stringify(
+                                headerAttributeResponse, null, 2));
                     }
                     var attributesData = [];
-                    var locale = this._locale,
-                        time = 'now',
-                        source = this._source;
-                    if (DataHelper.validateEntityExistsInResponse(headerAttributeResponse, this._entityId) &&
-                        this._headerAttributeModelResponse && this._headerAttributeModelResponse.returnValue &&
-                        this._headerAttributeModelResponse.returnValue.attributeModels) {
-                        var contextKey = Object.keys(headerAttributeResponse.content.entities[this._entityId].data
-                            .ctxInfo)[0];
-                        var attributes = headerAttributeResponse.content.entities[this._entityId].data.ctxInfo[
-                            contextKey].attributes;
-                        //values = DataHelper.transformAttributeToUIFormat(attributes, this.headerAttributeModelResponse.returnValue.attributeModels, locale, time, source);
-                        var attributeModels = this._headerAttributeModelResponse.returnValue.attributeModels;
-                        for (var attributeGroupName in attributeModels) {
-                            for (var attributeModelName in attributeModels[attributeGroupName]) {
-                                var attributeJSON = undefined;
-                                var attributeModel = attributeModels[attributeGroupName][attributeModelName];
-                                if (attributeModel.name) {
-                                    var attribute = attributes[attributeModel.name];
-                                    if (attribute && attribute.values) {
-                                        attributeJSON = DataHelper._getCurrentValue(attribute.values, locale,
-                                            time, source);
-                                    }
-                                    if (attributeJSON == undefined || !attributeJSON.hasOwnProperty('value')) {
-                                        attributeJSON = DataHelper._getEmptyValue(locale, time, source);
-                                    }
-                                    attributeJSON.name = attributeModel.name;
-                                    attributesData.push(attributeJSON);
+                    var dataContext = {
+                                "locale": this._locale,
+                                "time": "now",
+                                "source": this._source,                        
+                                "list": this._list,
+                                "classification": this._classification
+                            };
+                        if (DataHelper.validateGetEntitiesResponse(headerAttributeResponse) 
+                        && DataHelper.validateGetAttributeModelsResponse(this._headerAttributeModelResponse)) {
+                    
+                        var entity = DataHelper.findEntityById(headerAttributeResponse.content.entities, this._entityId);
+                        if(entity) {
+                            var groupBasedAttributesData = DataHelper.getAttributesInManageFormat(entity, this._headerAttributeModelResponse.returnValue.attributeModels, dataContext);   
+                            for(let attributeGroup of groupBasedAttributesData) {
+                                for(let attribute of attributeGroup.attributes) {
+                                    attributesData.push(attribute);
                                 }
                             }
                         }
+                        
                     }                
                     this.set("_headerAttributeValues", attributesData);                
                 },
@@ -431,12 +439,8 @@
                     this.$.tofixPopover.show();
                 },
                 _onTapNavigation: function(e){
-                    var eventDetail = {
-                        name: e.target.attributes["data-args"].value,
-                        data: this.currentEntityIndex
-                    }
-                    
-                    this.fire('bedrock-event', eventDetail);                    
+                    var eventName = 'on-tap-' + e.target.attributes["data-args"].value;
+                    this.fireBedrockEvent(eventName, { data: this.currentEntityIndex }, { ignoreId: true });                    
                 },
                 _onTapMaximize: function(){                    
                     if (this._entityId) 
@@ -475,8 +479,6 @@
                         component.properties.locale = this.context.locale;
                         component.properties['entity-id'] = this.context.entityId;
                     }
-
-                    this._setHeader();
                 },
                 _setHeader: function(){
                     this._entityId = this.context.entityId;
@@ -485,6 +487,8 @@
                     this._locale = this.context.locale;
                 },
                 _onContextChange: function(){ 
+                    this._setHeader();
+                    
                     if(this.$$('#rockTabs'))
                     {
                         this.$$('#rockTabs').reloadCurrentTab();
@@ -492,6 +496,16 @@
                 },
                 _errorLengthChanged: function (e, detail) {
                     this.$$('#rockTabs')._currentTabErrorLength = detail;
+                },
+                _setFlag: function(nav){                    
+                    if(nav == "previous" && this.currentIndex == 0){
+                        return true;
+                    }
+                    else if(nav == "next" && this.currentIndex == (this.totalRecords - 1)){
+                        return true;
+                    }
+
+                    return false;
                 }             
             });
         })();
