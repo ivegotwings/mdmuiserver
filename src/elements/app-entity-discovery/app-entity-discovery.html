@@ -155,12 +155,12 @@
                 </div>
             </rock-header>
             <div class="layout horizontal">
-                <div id="entityGridContainer" class$="[[_applyClass(_allowQuickManage)]]">
+                <div id="entityGridContainer" class$="[[_applyClass(_quickManageEnabled)]]">
                     <rock-entity-search-grid id="entitySearchGrid" grid-config="[[getConfig('rock-entity-search-grid')]]" dimensions="{{_selectedDimensions}}" search-filters="{{_selectedSearchFilters}}"
                         search-query="{{_searchQuery}}"></rock-entity-search-grid>
                     <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="entityGrid"></bedrock-pubsub>
                 </div>
-                <template is="dom-if" if="[[_allowQuickManage]]">
+                <template is="dom-if" if="[[_quickManageEnabled]]">
                     <div>
                         <pebble-vertical-divider></pebble-vertical-divider>
                     </div>
@@ -168,10 +168,11 @@
                         <rock-entity-quick-manage id="entityQuickManage" 
                                                   context="[[_context]]" 
                                                   current-index="{{_currentIndex}}" 
-                                                  total-records="[[_totalRecords]]"></rock-entity-quick-manage>
+                                                  total-records="[[_gridFullLength]]"
+                                                  selected-entity="[[_selectedEntity]]"></rock-entity-quick-manage>
                         <bedrock-pubsub event-name="on-attribute-save" handler="_onAttributeSave"></bedrock-pubsub>
-                        <bedrock-pubsub event-name="on-tap-previous" handler="_onClickPrevious"></bedrock-pubsub>
-                        <bedrock-pubsub event-name="on-tap-next" handler="_onClickNext"></bedrock-pubsub>                        
+                        <bedrock-pubsub target-id="entityQuickManage" event-name="on-tap-previous" handler="_onClickPrevious"></bedrock-pubsub>
+                        <bedrock-pubsub target-id="entityQuickManage" event-name="on-tap-next" handler="_onClickNext"></bedrock-pubsub>                        
                     </div>
                 </template>
             </div>
@@ -272,7 +273,7 @@
                         notify: true                                      
                     },
 
-                    _allowQuickManage: {
+                    _quickManageEnabled: {
                         type: Boolean,
                         value: false
                     },
@@ -282,19 +283,22 @@
                         value: function() { return {}; }
                     },
 
-                    _gridData: {
-                        type: Array,
-                        value: []
-                    },
-
                     _currentIndex: {
                         type: Number,
                         value: -1
                     },
 
-                    _totalRecords: {
+                    _gridFullLength: {
                         type: Number,
                         value: 0
+                    },
+
+                   /**
+                    * Indicates selected item
+                    */
+                    _selectedEntity: {
+                        type: Object,
+                        value: function(){ return{}; }
                     }
                 },
 
@@ -323,7 +327,7 @@
 						Polymer.dom(this).node.querySelector("#entityQuickManage");
                 },
                 _onSelectingGridItem: function (e, detail, sender) {                    
-                    if(!this._allowQuickManage)
+                    if(!this._quickManageEnabled)
                     {
                         if (detail) 
                         {
@@ -333,37 +337,13 @@
                     }                    
                     else
                     {
+                        this._selectedEntity = detail.item;
                         this._generateContext(detail.item.id);                        
                         this._getSearchGrid().clearSelection();
-                        this._setCurrentIndex(detail.item.id);
-                    }
-                },
 
-                _setCurrentIndex: function(entityId){
-                    var foundItem = false;
-                    
-                    if(!entityId)
-                    {
-                        return;
-                    }
-
-                    for(var i = 0; i < this._gridData.length; i++)
-                    {
-                       if(this._gridData[i].id == entityId)
-                       {
-                          this.async(function(){                              
-                              this._currentIndex = i;
-                          });
-
-                          foundItem = true;
-                          break;                      
-                       }
-                    }
-
-                    if(!foundItem) //When item not found fetch the data again and retry
-                    {
-                        this._gridData = this._getSearchGrid().getData();
-                        this._setCurrentIndex(entityId);
+                        this.async(function(){
+                            this._currentIndex = this._getSearchGrid().getSelectedItemIndex();
+                        });
                     }
                 },
                 _onAttributeSave: function(e, detail, sender){
@@ -372,7 +352,7 @@
                     selectedRow.style['font-style'] = 'italic';
                 },
                 _applyClass: function(){
-                    if(this._allowQuickManage)
+                    if(this._quickManageEnabled)
                     {
                         return "quick-manage-container";
                     }
@@ -380,22 +360,23 @@
                     return "container";                    
                 },                
                 _onTapQuickManage: function(){
-                    this._allowQuickManage = !this._allowQuickManage;                    
+                    this._quickManageEnabled = !this._quickManageEnabled;                    
                     var grid = this._getSearchGrid();
                     
-                    if(this._allowQuickManage)
+                    if(this._quickManageEnabled)
                     {
                         var selectedItem = grid.selectedItem;
-                        this._gridData = grid.getData(); //Set the grid data
+                        this._selectedEntity = selectedItem;                        
                         if(selectedItem)
                         {                            
                             this._generateContext(selectedItem.id);
                             grid.clearSelection(); //Clear current selection
                             grid.selectItem(selectedItem); //Select item
-                            this._setCurrentIndex(selectedItem.id);
+                            this._currentIndex = this._getSearchGrid().getSelectedItemIndex();
+                            grid.scrollToIndex(this._currentIndex);                          
                         }
 
-                        this._totalRecords = grid.getTotalSize();
+                        this._gridFullLength = grid.getTotalSize();
                     }
                     else
                     {
@@ -412,7 +393,7 @@
                     }
                 },
                 _onClickNext: function(e, detail, sender){
-                    if(this._currentIndex < (this._gridData.length))
+                    if(this._currentIndex < this._gridFullLength)
                     {
                         this._selectEntity(this._currentIndex + 1);
                     }
@@ -421,13 +402,15 @@
                     if(!(index < 0))
                     {                        
                         var grid = this._getSearchGrid();
+                        var gridData = grid.getData();
                                                
-                        if(this._gridData.length > 0 && index < this._gridData.length && this._gridData[index].attributes)
+                        if(gridData.length > 0 && index < gridData.length && gridData[index].attributes)
                         {
-                            this._generateContext(this._gridData[index].id);
+                            this._selectedEntity = gridData[index];
+                            this._generateContext(gridData[index].id);
                             this._currentIndex = index;
                             grid.clearSelection();
-                            grid.selectItem(this._gridData[index]);
+                            grid.selectItem(gridData[index]);
 
                             //On previous click already data got loaded, so directly we can set scroll index
                             //but for next, data will loaded as per page size, so scroll as per allow scroll
@@ -438,12 +421,11 @@
                         else
                         {
                             var nextScrollIndex = grid.totalRecords + grid.pageSize;
-                            var gridLength = this._totalRecords;
+                            var gridLength = this._gridFullLength;
                             var scrollIndex = gridLength < nextScrollIndex ? gridLength : nextScrollIndex
                             grid.scrollToIndex(scrollIndex);
 
-                            this.async(function(){
-                                this._gridData = grid.getData();
+                            this.async(function(){                                
                                 this._selectEntity(index);
                             }, 10);
                         }
