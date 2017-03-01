@@ -1,14 +1,16 @@
 'use strict';
 
-const jsonGraph = require('falcor-json-graph'), 
-        $ref = jsonGraph.ref,
-        $error = jsonGraph.error,
-        $atom = jsonGraph.atom;
+const jsonGraph = require('falcor-json-graph'),
+    $ref = jsonGraph.ref,
+    $error = jsonGraph.error,
+    $atom = jsonGraph.atom;
 
 const arrayUnion = require('../common/utils/array-union'),
-        uuidV1 = require('uuid/v1');
-       
+    uuidV1 = require('uuid/v1');
+
 var sharedDataObjectFalcorUtil = require('../../../shared/dataobject-falcor-util');
+const CONST_ALL = sharedDataObjectFalcorUtil.CONST_ALL,
+    CONST_ANY = sharedDataObjectFalcorUtil.CONST_ANY;
 
 const DataObjectManageService = require('./DataObjectManageService');
 
@@ -16,11 +18,7 @@ const DataObjectManageService = require('./DataObjectManageService');
 const futil = require('./dataobject-falcor-utils');
 
 const createPath = futil.createPath,
-    createRequestJson = futil.createRequestJson,
-    transformToExternal = futil.transformToExternal,
-    buildFieldsResponse = futil.buildFieldsResponse,
-    buildAttributesResponse = futil.buildAttributesResponse,
-    buildRelationshipsResponse = futil.buildRelationshipsResponse,
+    buildResponse = futil.buildResponse,
     mergeAndCreatePath = futil.mergeAndCreatePath,
     mergePathSets = futil.mergePathSets,
     pathKeys = futil.pathKeys;
@@ -28,7 +26,7 @@ const createPath = futil.createPath,
 var options = {};
 var runOffline = process.env.RUN_OFFLINE;
 
-if(runOffline) {
+if (runOffline) {
     options.runOffline = runOffline;
 }
 
@@ -44,14 +42,14 @@ async function initiateSearch(callPath, args) {
         request = args[0],
         objectType = callPath[1],
         basePath = [pathKeys.root, objectType, pathKeys.searchResults, requestId];
-    
+
     request.objType = objectType;
     //console.log('request str', JSON.stringify(request, null, 4));
 
     delete request.params.fields; // while initiating search, we dont want any of the fields to be returned..all we want is resulted ids..
 
     var res = await dataObjectManageService.get(request);
-    
+
     //console.log('response raw str', JSON.stringify(res, null, 4));
 
     var totalRecords = 0;
@@ -62,7 +60,7 @@ async function initiateSearch(callPath, args) {
     var dataObjectResponse = res ? res[objTypeInfo.responseObjectName] : undefined;
 
     if (dataObjectResponse && dataObjectResponse.status == "success") {
-        var dataObjects = dataObjectResponse[collectionName];        
+        var dataObjects = dataObjectResponse[collectionName];
         var index = 0;
         if (dataObjects !== undefined) {
             totalRecords = dataObjects.length;
@@ -101,9 +99,73 @@ async function getSearchResultDetail(pathSet) {
     return response;
 }
 
-async function getSingle(request, dataObjectId, dataObjectFields, caller) {
+function createGetRequest(reqData) {
+    
+    var ctxGroups = sharedDataObjectFalcorUtil.createCtxItems(reqData.ctxKeys);
+    var valCtxGroups = sharedDataObjectFalcorUtil.createCtxItems(reqData.valCtxKeys);
+
+    var fields = {
+        ctxTypes: ["properties"]
+    };
+
+    var attrNames = reqData.attrNames;
+    if (attrNames !== undefined && attrNames.length > 0) {
+        fields.attributes = attrNames;
+    }
+
+    var relTypes = reqData.relTypes;
+    if (relTypes !== undefined && relTypes.length > 0) {
+        fields.relationships = relTypes;
+    }
+
+    var relIds = reqData.relIds;
+    if (relIds !== undefined && relIds.length > 0) {
+        fields.relIds = relIds;
+    }
+
+    var relAttrNames = reqData.relAttrNames;
+    if (relAttrNames !== undefined && relAttrNames.length > 0) {
+        fields.relationshipAttributes = relAttrNames;
+    }
+
+    var options = {
+        totalRecords: 1,
+        includeRequest: false
+    };
+
+    // //TODO:: This is hard coded as of now as for get API dataObject request json creation..
+    // var filters = {
+    //     attributesCriterion: [],
+    //     relationshipsCriterion: [],
+    //     typesCriterion: []
+    // };
+
+    var query = {
+        ctx: ctxGroups,
+        valCtx: valCtxGroups,
+        id: ""
+    };
+
+    var params = {
+        query: query,
+        fields: fields,
+        options: options
+    };
+
+    var request = {
+        objType: reqData.objType,
+        params: params
+    };
+
+    return request;
+}
+
+async function getSingle(dataObjectId, reqData) {
 
     var response = [];
+
+    var request = createGetRequest(reqData);
+
     //update dataObject id in request query for current id
     request.params.query.id = dataObjectId;
 
@@ -111,7 +173,7 @@ async function getSingle(request, dataObjectId, dataObjectFields, caller) {
     var res = await dataObjectManageService.get(request);
     //console.log(JSON.stringify(res, null, 4));
 
-    var basePath = [pathKeys.root, request.objType, pathKeys.masterListById];
+    var basePath = [pathKeys.root, reqData.objType, pathKeys.masterListById];
     var dataObject;
     //console.log(JSON.stringify(pathKeys, null, 4));
 
@@ -129,15 +191,7 @@ async function getSingle(request, dataObjectId, dataObjectFields, caller) {
                 var dataObjectBasePath = mergePathSets(basePath, dataObject.id);
 
                 if (dataObject.id == dataObjectId) {
-                    response.push.apply(response, buildFieldsResponse(dataObject, dataObjectFields, dataObjectBasePath));
-                    
-                    if(request.params.fields.attributes){
-                        response.push.apply(response, buildAttributesResponse(dataObject, request, dataObjectBasePath));
-                    }
-                    
-                    if(request.params.fields.relationships){
-                        response.push.apply(response, buildRelationshipsResponse(dataObject, request, dataObjectBasePath, caller));
-                    }
+                    response.push.apply(response, buildResponse(dataObject, reqData, dataObjectBasePath));
                 }
             }
         }
@@ -153,29 +207,33 @@ async function getSingle(request, dataObjectId, dataObjectFields, caller) {
 
 async function getByIds(pathSet, caller) {
     /*
-    // route: "dataObjects[{keys:objTypes}].objectsById[{keys:dataObjectIds}][{keys:dataObjectFields}]",
-    // route: "dataObjects[{keys:objTypes}].objectsById[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].['values','groups']",
-    // route: "dataObjects[{keys:objTypes}].objectsById[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}].relIds",
-    // route: "dataObjects[{keys:objTypes}].objectsById[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}].rels[{keys:relIds}][{keys:relationshipFields}]",
-    // route: "dataObjects[{keys:objTypes}].objectsById[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}].rels[{keys:relIds}].attributes[{keys:relAttrNames}].values",
+    // route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}][{keys:dataObjectFields}]",
+    // route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].valCtxInfo[{keys:valCtxKeys}][keys:valFields]",
+    // route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}].relIds",
+    // route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}].rels[{keys:relIds}][{keys:relFields}]",
+    // route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}].rels[{keys:relIds}].attributes[{keys:relAttrNames}].valCtxInfo[{keys:valCtxKeys}][{keys:valFields}]",
     */
     //console.log('---------------------' , caller, ' dataObjectsById call pathset requested:', pathSet, ' caller:', caller);
-    var objType = pathSet.objTypes[0],
-        dataObjectIds = pathSet.dataObjectIds,
-        dataObjectFields = pathSet.dataObjectFields === undefined ? [] : pathSet.dataObjectFields,
-        ctxKeys = pathSet.ctxKeys === undefined ? [] : pathSet.ctxKeys,
-        attrNames = pathSet.attrNames === undefined ? [] : pathSet.attrNames,
-        relTypes = pathSet.relTypes === undefined ? [] : pathSet.relTypes,
-        relAttrNames = pathSet.relAttrNames === undefined ? [] : pathSet.relAttrNames,
-        relIds = pathSet.relIds === undefined ? [] : pathSet.relIds;
+    const reqData = {
+        'objType': pathSet.objTypes[0],
+        'dataObjectIds': pathSet.dataObjectIds,
+        'dataObjectFields': pathSet.dataObjectFields === undefined ? [] : pathSet.dataObjectFields,
+        'ctxKeys': pathSet.ctxKeys === undefined ? [] : pathSet.ctxKeys,
+        'attrNames': pathSet.attrNames === undefined ? [] : pathSet.attrNames,
+        'relTypes': pathSet.relTypes === undefined ? [] : pathSet.relTypes,
+        'relAttrNames': pathSet.relAttrNames === undefined ? [] : pathSet.relAttrNames,
+        'relIds': pathSet.relIds === undefined ? [] : pathSet.relIds,
+        'relFields': pathSet.relFields === undefined ? [] : pathSet.relFields,
+        'valCtxKeys': pathSet.valCtxKeys === undefined ? [] : pathSet.valCtxKeys,
+        'valFields': pathSet.valFields === undefined ? [] : pathSet.valFields,
+        'caller': caller
+    }
 
     var response = [];
-    var request = createRequestJson(objType, ctxKeys, attrNames, relTypes, relAttrNames, relIds);
-    //console.log('req', JSON.stringify(request));
+    //console.log('reqData', JSON.stringify(reqData));
 
-    for (let dataObjectId of dataObjectIds) {
-        var clonedRequest = sharedDataObjectFalcorUtil.cloneObject(request);
-        var singleDataObjectResponse = await getSingle(clonedRequest, dataObjectId, dataObjectFields, caller);
+    for (let dataObjectId of reqData.dataObjectIds) {
+        var singleDataObjectResponse = await getSingle(dataObjectId, reqData);
         response.push.apply(response, singleDataObjectResponse);
     }
 
@@ -188,74 +246,46 @@ async function processData(objType, dataObjects, dataObjectAction, caller) {
 
     var objTypeInfoKey = pathKeys.objectTypesInfo[objType].typeInfo;
     var objTypeName = pathKeys.objectTypesInfo[objType].name;
+    var response = [];
 
-    var dataObjectFields = ["id", "name", objTypeInfoKey, "systemInfo", "properties"],
-        response = [];
-    
     var basePath = [pathKeys.root, objType, pathKeys.masterListById];
 
     for (var dataObjectId in dataObjects) {
-        var dataObject = dataObjects[dataObjectId];
-       
-        dataObject = sharedDataObjectFalcorUtil.boxDataObject(dataObject, sharedDataObjectFalcorUtil.unboxJsonObject);
-        var transformedDataObject = transformToExternal(objType, dataObject);
-
+        var dataObject = sharedDataObjectFalcorUtil.boxDataObject(dataObjects[dataObjectId], sharedDataObjectFalcorUtil.unboxJsonObject);
         //console.log('dataObject data', JSON.stringify(dataObject, null, 4));
 
         var apiRequestObj = { 'includeRequest': false, 'objType': objType };
-        apiRequestObj[objTypeName] = transformedDataObject;
-
+        apiRequestObj[objTypeName] = dataObject;
         //console.log('api request data for process dataObjects', JSON.stringify(apiRequestObj));
 
         var dataOperationResponse = {};
-        
-        if(dataObjectAction == "create"){
+
+        if (dataObjectAction == "create") {
             dataOperationResponse = await dataObjectManageService.create(apiRequestObj);
         }
-        else if(dataObjectAction == "update"){
+        else if (dataObjectAction == "update") {
             dataOperationResponse = await dataObjectManageService.update(apiRequestObj);
         }
-        else if(dataObjectAction == "delete"){
+        else if (dataObjectAction == "delete") {
             dataOperationResponse = await dataObjectManageService.deleteDataObjects(apiRequestObj);
         }
-
-        var dataObjectBasePath = mergePathSets(basePath, dataObjectId);
-
         //console.log('dataObject api UPDATE raw response', JSON.stringify(dataOperationResponse, null, 4));
 
         if (dataObject) {
-            response.push.apply(response, buildFieldsResponse(dataObject, dataObjectFields, dataObjectBasePath));
 
-            if (dataObject.data && dataObject.data.ctxInfo) {
-                var ctxKeys = Object.keys(dataObject.data.ctxInfo);
+            var reqData = {
+                'objType': objType,
+                'dataObjectFields': [CONST_ALL],
+                'attrNames': [CONST_ALL],
+                'relTypes': [CONST_ALL],
+                'relAttrNames': [CONST_ALL],
+                'relFields': [CONST_ALL],
+                'valFields': [CONST_ALL],
+                'caller': caller
+            };
+            var dataObjectBasePath = mergePathSets(basePath, dataObjectId);
 
-                for (var ctxKey in dataObject.data.ctxInfo) {
-                    var ctxGroup = dataObject.data.ctxInfo[ctxKey];
-                    var attrNames = Object.keys(ctxGroup.attributes);
-                    var relTypes = [];
-                    var relAttrNames = [];
-                    
-                    for(var relType in ctxGroup.relationships){
-                        for(var relKey in ctxGroup.relationships[relType].rels){
-                            var rel = ctxGroup.relationships[relType].rels[relKey];
-                            relAttrNames = arrayUnion(relAttrNames, Object.keys(rel.attributes))        
-                        }
-                        relTypes.push(relType);
-                    }
-
-                    var request = createRequestJson(objType, [ctxKey], attrNames, relTypes, relAttrNames);
-                    
-                    //console.log('req during processDataObjects ', JSON.stringify(request, null, 4));
-
-                    if(request.params.fields.attributes){
-                        response.push.apply(response, buildAttributesResponse(dataObject, request, dataObjectBasePath));
-                    }
-                    
-                    if(request.params.fields.relationships){
-                        response.push.apply(response, buildRelationshipsResponse(dataObject, request, dataObjectBasePath, caller));
-                    }
-                }
-            }
+            response.push.apply(response, buildResponse(dataObject, reqData, dataObjectBasePath));
         }
     }
 
@@ -273,7 +303,7 @@ async function create(callPath, args, caller) {
     //console.log(dataObjects);
 
     // create new guids for the dataObjects to be created..
-    for(let dataObjectId of dataObjectIds) {
+    for (let dataObjectId of dataObjectIds) {
         var dataObject = dataObjects[dataObjectId];
         var newDataObjectId = uuidV1();
         //console.log('new dataObject id', newDataObjectId);
@@ -284,7 +314,7 @@ async function create(callPath, args, caller) {
 }
 
 async function update(callPath, args, caller) {
-    // route: "dataObjects[{keys:objTypes}].objectsById[{keys:dataObjectIds}].update"
+    // route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}].update"
 
     var jsonEnvelope = args[0];
     var objType = callPath.objTypes[0];
@@ -294,7 +324,7 @@ async function update(callPath, args, caller) {
 }
 
 async function deleteDataObjects(callPath, args, caller) {
-    // route: "dataObjects[{keys:objTypes}].objectsById[{keys:dataObjectIds}].delete"
+    // route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}].delete"
 
     var jsonEnvelope = args[0];
     var objType = callPath.objTypes[0];
