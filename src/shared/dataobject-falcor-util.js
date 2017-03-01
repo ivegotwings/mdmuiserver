@@ -221,7 +221,7 @@ DataObjectFalcorUtil.transformAttributesToExternal = function(attributes) {
                     transAttrValues.push.apply(transAttrValues, attrData.values);
                 }
                 else if(attrData.group) {
-                    var transAttrGroup = DataObjectFalcorUtil.createAndGet(transAttr, 'group', {});
+                    var transAttrGroup = DataObjectFalcorUtil.createAndGet(transAttr, 'group', []);
                     transAttrGroup.push.apply(transAttrGroup, attrData.group);
                 }
                 if(attrData.properties) {
