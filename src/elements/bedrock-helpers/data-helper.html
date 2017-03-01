@@ -2,6 +2,8 @@
 `bedrock-helpers` Represents a bunch of helpers that any bedrock, pebble, rock or app can use. 
 -->
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
+
 <!--<script type="text/javascript" src="data-helper.js" />-->
 <script>
     DataHelper = {};
@@ -26,8 +28,45 @@
             return attributes;
         }
 
-        DataHelper.transformAttributeToUIFormat = function (attributes, attributeModels, locale, time, source) {
-            var attributesData = [];
+        DataHelper.findEntityById = function(entitiesExternalFormat, entityId) {
+            for(let entity of entitiesExternalFormat) {
+                if(entityId == entity.id) {
+                    return entity;
+                }
+            }
+            return {};
+        }
+
+        DataHelper.prepareCtx = function(dataContext) {
+            return {
+                "list": dataContext.list,
+                "classification": dataContext.classification
+            };    
+        };
+
+        DataHelper.prepareValCtx = function(dataContext) {
+            return {
+                "source": dataContext.source,
+                "locale": dataContext.locale,
+                "time": dataContext.time
+            };    
+        };
+
+        DataHelper.getAttributesInManageFormat = function (entity, attributeModels, dataContext) {
+            if(!entity || !entity.data) {
+                return {};
+            }
+            var ctx = DataHelper.prepareCtx(dataContext);
+            var valCtx = DataHelper.prepareValCtx(dataContext);
+
+            var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, ctx);
+
+            return DataHelper.transformAttributesToManageFormat(attributes, attributeModels, valCtx);
+        };
+
+        DataHelper.transformAttributesToManageFormat = function (attributes, attributeModels, valCtx) {
+            var attributesInManageFormat = [];//our return value
+
             for (var attributeGroupName in attributeModels) {
                 var attributeGroupJSON = {
                     "name": attributeGroupName,
@@ -40,34 +79,36 @@
                     if (attributeModel.name) {
                         var attribute = attributes[attributeModel.name];
                         if (attribute && attribute.values) {
-                            attributeJSON = this._getCurrentValue(attribute.values, locale, time, source);
+                            attributeJSON = this._getCurrentValue(attribute.values, valCtx);
                         }
-                        if (attributeJSON == undefined) {
-                            attributeJSON = this._getEmptyValue(locale, time, source);
+                        if (attributeJSON == undefined || !attributeJSON.hasOwnProperty('value')) {
+                            attributeJSON = this._getEmptyValue(valCtx);
                         }
                         attributeJSON.name = attributeModel.name;
                         attributeGroupJSON.attributes.push(attributeJSON);
                     }
                 }
-                attributesData.push(attributeGroupJSON);
+                attributesInManageFormat.push(attributeGroupJSON);
             }
             //console.log(attributesData);
-            return attributesData;
+            return attributesInManageFormat;
         };
 
-        DataHelper.transformAttributesToGridFormat = function (attributes, attributeModels, locale, time, source) {
-            var attributesData = {};
+        DataHelper.transformAttributesToGridFormat = function (attributes, attributeModels, valCtx) {
+            var attributesData = {};//our return value
+            
             for (var attributeGroupName in attributeModels) {
                 var attributeValueData = {};
                 for (var attributeModelName in attributeModels[attributeGroupName]) {
                     var attributeModel = attributeModels[attributeGroupName][attributeModelName];
                     if (attributeModel.name) {
-                        var attributeJSON;
+                        var attributeJSON = {};
                         var attribute = attributes[attributeModel.name];
                         if (attribute && attribute.values) {
-                            attributeJSON = this._getCurrentValue(attribute.values, locale, time, source);
-                        } else {
-                            attributeJSON = this._getEmptyValue(locale, time, source);
+                            attributeJSON = this._getCurrentValue(attribute.values, valCtx);
+                        } 
+                        if (attributeJSON == undefined || !attributeJSON.hasOwnProperty('value')) {
+                            attributeJSON = this._getEmptyValue(valCtx);
                         }
 
                         attributeValueData[attributeModel.name] = attributeJSON;
@@ -79,21 +120,23 @@
             return attributesData;
         };
 
-        DataHelper.transformEntitySchemaForGrid = function (entities, attributeModels, locale, time, source) {
+        DataHelper.transformEntitySchemaForGrid = function (entities, attributeModels, dataContext) {
+
+            var ctx = DataHelper.prepareCtx(dataContext);
+            var valCtx = DataHelper.prepareValCtx(dataContext);
+
             if (entities && entities.length) {
                 var entitiesToBeRemoved = [];
                 for (var i = 0; i < entities.length; i++) {
                     if (typeof (entities[i]) == "object" && entities[i].data) {
-                        var contextKey = Object.keys(entities[i].data.ctxInfo)[0];
-                        entities[i].attributes = this.transformAttributesToGridFormat(entities[i].data.ctxInfo[
-                                contextKey].attributes,
-                            attributeModels, locale, time, source);
+                        var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entities[i], ctx);
+                        entities[i].attributes = this.transformAttributesToGridFormat(attributes, attributeModels, valCtx);
                     } else {
                         //if the array has a bad item (non-entity, or entity with no data) then mark it for delete
                         entitiesToBeRemoved.push(i);
                     }
                 }
-                entitiesToBeRemoved.forEach(function(entityToBeRemoved) {
+                entitiesToBeRemoved.forEach(function (entityToBeRemoved) {
                     entities.splice(entityToBeRemoved, 1);
                 });
             }
@@ -135,17 +178,17 @@
             return true;
         }
 
-        DataHelper._getCurrentValue = function (values, locale, time, source) {
+        DataHelper._getCurrentValue = function (values, valCtx) {
             var value;
             if (values) {
                 for (var i = 0; i < values.length; i++) {
                     var currentValue = values[i];
                     //TODO: locale and source case is not matching for what is there in dimension selector and what is coming in data,
                     // need to find a better answer
-                    if (locale && currentValue.locale && currentValue.locale.toLowerCase() != locale.toLowerCase()) {
+                    if (valCtx.locale && currentValue.locale && currentValue.locale.toLowerCase() != valCtx.locale.toLowerCase()) {
                         continue;
                     }
-                    if (source && currentValue.source && currentValue.source.toLowerCase() != source.toLowerCase()) {
+                    if (valCtx.source && currentValue.source && currentValue.source.toLowerCase() != valCtx.source.toLowerCase()) {
                         continue;
                     }
                     //TODO: compare for time?
@@ -156,20 +199,19 @@
             return value;
         };
 
-        DataHelper._getEmptyValue = function (locale, time, source) {
+        DataHelper._getEmptyValue = function (valCtx) {
             return {
                 "value": "",
-                "locale": locale,
-                "time": time,
-                "source": source
+                "locale": valCtx.locale,
+                "time": valCtx.time,
+                "source": valCtx.source
             };
         };
 
         DataHelper._getEntityId = function () {
             var mainApp = document.querySelector('main-app');
-            if (mainApp && mainApp.route && mainApp.route.__queryParams && "id" in mainApp.route
-                .__queryParams) {
-                return mainApp.route.__queryParams['id'];
+            if (mainApp && mainApp.pageRoute && mainApp.pageRoute.__queryParams && "id" in mainApp.pageRoute.__queryParams) {
+                return mainApp.pageRoute.__queryParams['id'];
             }
         };
 
@@ -186,12 +228,43 @@
 
             return elementToReturn[0];
         };
-        DataHelper.getFirstAttributeValue = function(attribute) {
-            if(attribute && attribute.values && attribute.values.length > 0) {
+        DataHelper.getFirstAttributeValue = function (attribute) {
+            if (attribute && attribute.values && attribute.values.length > 0) {
                 return attribute.values[0].value;
             }
             return null;
         };
 
+        DataHelper.getValue = function (obj, key) {
+            var outputObj = {};
+            for (var i in obj) {
+                if (!obj.hasOwnProperty(i)) continue;
+                if (i == key) {
+                    return obj[i];
+                } else if (typeof obj[i] == 'object') {
+                    outputObj = DataHelper.getValue(obj[i], key);
+                } 
+            }
+            return outputObj;
+        };
+
+        DataHelper.validateGetEntitiesResponse = function(entitiesResponse) {
+            if(entitiesResponse && entitiesResponse.content && entitiesResponse.content.entities
+                && !_.isEmpty(entitiesResponse.content.entities)) {
+                return true;
+            }
+            return false;
+        };
+
+        DataHelper.validateGetAttributeModelsResponse = function(attributeModelsResponse) {
+            if(attributeModelsResponse && attributeModelsResponse.returnValue 
+                && attributeModelsResponse.returnValue.attributeModels 
+                && !_.isEmpty(attributeModelsResponse.returnValue.attributeModels)) {
+                return true;
+            }
+            return false;
+        };
+
     })();
+
 </script>

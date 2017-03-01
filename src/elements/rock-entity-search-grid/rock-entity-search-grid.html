@@ -1,9 +1,13 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
-<link rel="import" href="../pebble-grid/pebble-grid.html">
+
+<link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+
 <link rel="import" href="../liquid-entity-get/liquid-entity-get.html">
-<link rel="import" href="../liquid-entity-getdata/liquid-entity-getdata.html">
-<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+
+<link rel="import" href="../rock-grid/rock-grid.html">
+<link rel="import" href="../rock-grid/remote-data.html">
 
 <!--
 `rock-entity-search-grid` component is used to render entities in grid, it filters data as per filter criteria.
@@ -12,16 +16,17 @@
 -->
 
 <dom-module id="rock-entity-search-grid">
+    <style>
+      rock-grid {
+          --rock-grid-height: 355px;
+      }
+    </style>
     <template>
-        <style>
-        </style>
         <liquid-entity-get auto name="attributeModelGetService" request="{{attributeModelRequest}}" response="{{attributeModelResponse}}"></liquid-entity-get>
-        <liquid-entity-getdata auto operation="initiatesearch" request-data="{{request}}" last-response="{{searchResponse}}"></liquid-entity-getdata>
-        <liquid-entity-getdata auto operation="getsearchresultdetail" request-data="{{request}}" request-id="[[searchResponse.content.requestId]]"
-            last-response="{{searchResultResponse}}"></liquid-entity-getdata>
-        <pebble-grid id="entityGrid" config="{{gridConfig}}" attribute-models="{{attributeModelResponse.returnValue.attributeModels}}"
-            page-size="10" current-page="{{_currentPage}}" record-size="{{searchResponse.content.totalRecords}}" data="{{searchResultResponse.content.entities}}"></pebble-grid>
-        <bedrock-pubsub event-name="grid-selecting-item" handler="onSelectingGridItem" target-id="entityGrid"></bedrock-pubsub>
+        <remote-data id="searchGrid" request="{{request}}" operation="entitySearch" data-formatter="{{dataFormatter}}" 
+            current-record-size="{{size}}" total-records="{{totalRecords}}" data-source="{{dataSource}}"></remote-data>
+        <rock-grid id="entityGrid" data-source="{{dataSource}}" data-source-id="searchGrid" record-size="{{totalRecords}}" config="{{gridConfig}}"
+            grid-data-size="{{size}}" attribute-models="{{attributeModelResponse.returnValue.attributeModels}}" page-size="4"></rock-grid>        
 </template>
 
 <script> 
@@ -45,7 +50,18 @@
                         };
                     }
                 },
-
+                /**
+                * Specifies the configuration object that to be passed to grid.
+                */                
+                gridConfig: {
+                    type: Object,
+                    value: function() {
+                        return {};
+                    }
+                },
+                /**
+                * Specifies the request Object to initiate the search.
+                */
                 request: {
                     type: Object,
                     value: function () {
@@ -74,50 +90,61 @@
                                         "csapDescriptionOfNart",
                                         "csapMaterialStatusGlobal",
                                         "cpimSkinType"
-                                    ],
-                                    "relationships": ["ALL"]
+                                    ]
                                 },
                                 "options": {
                                     "from": 0,
-                                    "to": 9
+                                    "to": 0
                                 }
                             }
                         };
                     }
                 },
-
                 /**
-                 * Indicates the response object that is received from liquid element.
-                 */
-                searchResponse: {
+                * Specifies all dimensions that are selected in dimension selector.
+                */
+                dimensions: {
                     type: Object,
-                    value: function () { return {}; },
                     notify: true,
-                    observer: '_searchResponseChanged'
+                    observer: '_loadSearchResultsByDimension'
                 },
-
-                searchResultFilters: {
-                    type: Object,
+                /**
+                * Specifies the filters that can be used to filter the search.
+                */
+                searchFilters: {
+                    type: Array,
                     notify: true,
                     value: function(){
-                        return {
-                                    "attributesCriterion": [],
-                                    "typesCriterion": ["nart"]
-                               };
+                        return [];
                     },
-                    observer: '_searchResultFiltersChanged'
+                    observer: '_loadSearchResultsByFilters'
+                },
+                /**
+                * Specifies the query object that can be used to initiate the search.
+                */
+                searchQuery: {
+                    type: String,
+                    notify: true,
+                    value: "",
+                    observer: '_loadSearchResultsByQuery'
+                },
+                /**
+                * Specifies the format of the data that to be passed to remote-data
+                */
+                dataFormatter: {
+                    notify: true,
+                    value: function() {
+                        return this._getAttributeFormattedData.bind(this);
+                    }
                 },
 
-                searchResultResponse: {
+                _attributeModelRequest: {
                     type: Object,
-                    value: function () { return {}; },
-                    notify: true
-                },
-
-                 _currentPage: {
-                    type: Number,
-                    value: 0,
-                    observer: "_currentPageChanged"
+                    value: function () {
+                        return {
+                            action: "getAttributeModels"
+                        }
+                    }
                 }
 
             },
@@ -129,28 +156,124 @@
             behaviors: [
                 RUFBehaviors.UIBehavior
             ],
-            _searchResponseChanged: function (searchResponse) {
-                if (!searchResponse || !searchResponse.content || searchResponse.content.totalRecords ==
-                    0) {
-                    this.searchResultResponse = {
-                        "content": {
-                            "entities": {}
-                        }
-                    };
-                }
-            },
-
-            _currentPageChanged: function (currentPage) {
-                if (currentPage > 0) {
-                    var from = (currentPage * 9) + currentPage;
-                    var to = currentPage + (currentPage * 9 + 9);
-                    var options = { "from": from, "to": to };
-                    this.set("request.params.options", options);
-                }
-            },
 
             _searchResultFiltersChanged: function(currentFilters){
                 this.set("request.params.query.filters", currentFilters);
+            },
+            
+
+            _getAttributeFormattedData: function (data) {
+                var dataArray = [];
+                if(data && data.content) {
+                    var entities = data.content.entities;
+                    if(entities) {
+                        var dataContext = {
+                            "list": this.dimensions.lists[0].value,
+                            "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry",
+                            "source": this.dimensions.sources[0].value,
+                            "time": "now",
+                            "locale": this.dimensions.locales[0].value
+                        };
+                        DataHelper.transformEntitySchemaForGrid(entities, this.attributeModelResponse.returnValue.attributeModels, dataContext);
+                    }
+                }
+                return entities;
+			},
+
+            _loadSearchResultsByDimension: function () {
+                var grid = Polymer.dom(this).node.$$('rock-grid');
+
+                if(grid && this.dimensions) {
+                    this.request.params.query.ctx = this._prepareContextGroups(this.dimensions.lists)
+                    this.request.params.query.valCtx = this._prepareValueContextGroups(this.dimensions.sources, this.dimensions.locales);
+
+                    grid.reRenderGrid();
+                }
+            },
+
+            _loadSearchResultsByFilters: function() {
+                var grid = Polymer.dom(this).node.$$('rock-grid');
+                if(grid && this.searchFilters) {
+                    this.request.params.query.filters.attributesCriterion = this.searchFilters;
+
+                    grid.reRenderGrid();
+                }
+            },
+
+            _loadSearchResultsByQuery: function() {
+                var grid = Polymer.dom(this).node.$$('rock-grid');
+                if (grid && this.searchQuery) {
+                    if (!this.request.params.fields.all) {
+                        this.request.params.fields.all = {};
+                    }
+                    this.request.params.fields.all.exists = this.searchQuery;
+
+                    grid.reRenderGrid();
+                }
+            },
+
+            _prepareContextGroups: function (lists) {
+                if (lists && lists instanceof Array) {
+                    var ctxGroup = [];
+
+                    for (var i = 0; i < lists.length; i++) {
+                        var ctxInfoObject = new Object();
+                        ctxInfoObject.list = lists[i].value;
+                        ctxInfoObject.classification =
+                            "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry";
+                        ctxGroup.push(ctxInfoObject);
+                    }
+
+                    return ctxGroup;
+                }
+            },
+
+            _prepareValueContextGroups: function (sources, locales) {
+                var valueCtxGroup = [];
+
+                if (sources && locales && sources instanceof Array && locales instanceof Array) {
+                    for (var i = 0; i < sources.length; i++) {
+                        for (var j = 0; j < locales.length; j++) {
+
+                            var valueCtxInfoObject = new Object();
+                            valueCtxInfoObject.source = sources[i].value;
+                            valueCtxInfoObject.locale = locales[j].value;
+                            valueCtxGroup.push(valueCtxInfoObject);
+                        }
+                    }
+
+                    return valueCtxGroup;
+                }
+            },
+
+            /**
+             * Reload grid
+             */
+            reloadGrid: function(){
+                if(this.$$('#entityGrid'))
+                {
+                    this.$$('#entityGrid').reRenderGrid();
+                }
+            },
+
+            /**
+             * Get grid data
+             */
+            getData: function(){
+                if(this.$$('#entityGrid'))
+                {
+                    return this.$$('#entityGrid').getData();
+                }
+            },
+
+            /**
+             * Set multi selection for grid
+             */
+            setMultiSelection: function(flag){
+                if(this.$$('#entityGrid') && flag != undefined)
+                {
+                    this.$$('#entityGrid').setMultiSelection(flag);
+                }
             }
         });
     })();

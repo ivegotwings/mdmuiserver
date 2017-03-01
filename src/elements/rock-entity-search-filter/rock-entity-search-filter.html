@@ -1,0 +1,202 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+
+<link rel="import" href="../liquid-entity-get/liquid-entity-get.html">
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+
+<link rel="import" href="../rock-search-filter/rock-search-filter.html">
+
+
+<!--
+`rock-entity-search-filter` component is used to filter entities in grid. It provides mechanism to add filter criteria for the entities grid.
+
+-->
+
+<dom-module id="rock-entity-search-filter">
+    <template>
+        <rock-search-filter id="search-filter" icon="pebble-sm-icons:Filter-wt" text="Refine More" filters="[[filters]]"
+                            hide-search-trigger></rock-search-filter>
+        <bedrock-pubsub event-name="tag-value-change" handler="_onSearchTagValueChange"></bedrock-pubsub>
+        <bedrock-pubsub event-name="tag-item-remove" handler="_onTagItemRemove"></bedrock-pubsub>
+        <liquid-entity-data-get id="initiateLovSearchResult" operation="initiatesearch" request-data="{{_lovTagRequest}}" 
+            last-response="{{_lovSearchResponse}}" exclude-in-progress></liquid-entity-data-get>
+        <liquid-entity-data-get auto id="getLovsearchresultdetail" operation="getsearchresultdetail" request-data="{{_lovTagRequest}}"
+            request-id="[[_lovSearchResponse.content.requestId]]" last-response="{{_lovSearchResultResponse}}" exclude-in-progress></liquid-entity-data-get>
+</template>
+
+<script> 
+    (function () {
+        'use strict';
+
+        Polymer({
+            is: 'rock-entity-search-filter',
+            properties: {
+                _lovTagRequest:{
+                    type:Object,
+                    value:function () {
+                        return {
+                            "params": {
+                                "query": {
+                                    "ctx": [],
+                                    "valCtx": [{
+                                        "source": "",
+                                        "locale": ""
+                                    }],
+                                    "filters": {
+                                        "attributesCriterion": [],
+                                        "typesCriterion": ["nart"]
+                                    }
+                                },
+                                "fields": {
+                                    "ctxTypes": [
+                                        "properties"
+                                    ],
+                                    "attributes": [
+                                    ],
+                                    "relationships": [
+                                    ]
+                                }
+                            }
+                        };
+                    }
+                },
+                _lovSearchResultResponse: {
+                    type: Object,
+                    value: undefined,
+                    notify: true,
+                    observer: '_lovSearchResultResponseChanged'
+                },
+                _selectedSearchFilters:{
+                    type:Array,
+                    notify:true
+                },
+                dimensions: {
+                    type: Object
+                }
+            },
+            listeners: {
+                'tag-item-remove': '_onTagItemRemove',
+                'tag-item-added': '_onTagItemAdded'
+             },
+            behaviors: [
+                RUFBehaviors.UIBehavior
+            ],
+            _onTagItemAdded: function (e,detail) {
+                if(detail !=undefined && detail.displayType=='textBox'){
+                    var request=this._lovTagRequest;
+                    request.params.fields.attributes=[detail.name];
+                    if(this.dimensions) {
+                        request.params.query.ctx = this._prepareContextGroups(this.dimensions.lists)
+                        request.params.query.valCtx = this._prepareValueContextGroups(this.dimensions.sources, this.dimensions.locales);
+                    }
+                    this._lovTagRequest=undefined;
+                    this._lovTagRequest=request;
+                    this.$.initiateLovSearchResult.generateRequest();
+                    this.currentTag=detail;
+                }
+            },
+
+            // Refine Filter
+            _onTagItemRemove: function (e, detail) {
+                if (detail != undefined) {
+                    this._removeFilterWithName(detail.name);
+                    var _selectedSearchFilters = this._selectedSearchFilters;
+                    this._selectedSearchFilters = [];
+                    this._selectedSearchFilters = _selectedSearchFilters;
+                }
+            },
+
+            _onSearchTagValueChange: function (e, detail, sender) {
+                if (detail != undefined) {
+                    var attrCond = {};
+                    attrCond[detail.name] = detail.value;
+                    this._removeFilterWithName(detail.name);
+
+                    var _selectedSearchFilters = this._selectedSearchFilters;
+                    this._selectedSearchFilters = [];
+
+                    _selectedSearchFilters.push(attrCond);
+
+                    this._selectedSearchFilters = _selectedSearchFilters;
+                }
+            },
+
+            _removeFilterWithName: function (name) {
+                if (this._selectedSearchFilters && this._selectedSearchFilters.length > 0) {
+                    for (var i = 0; i < this._selectedSearchFilters.length; i++) {
+                        if (this._selectedSearchFilters[i][name]) {
+                            this._selectedSearchFilters.splice(i, 1);
+                        }
+                    }
+                }
+            },
+            _lovSearchResultResponseChanged: function (_lovSearchResultResponse) {
+                this._convertIntoEntityLovList(_lovSearchResultResponse);
+            },
+            _convertIntoEntityLovList: function (entitiesResponse) {
+                if (entitiesResponse) {
+                    var items = [];
+                    if (entitiesResponse.content && entitiesResponse.content.entities) {
+                        var entities = entitiesResponse.content.entities;
+                        Object.keys(entities).forEach(function (item) {
+                            var entity = entities[item];
+                            if (entity && entity.data && entity.data.ctxInfo) {
+                                var ctxInfo = entity.data.ctxInfo;
+                                Object.keys(ctxInfo).forEach(function (dataItem) {
+                                    var data = ctxInfo[dataItem];
+                                    if (data) {
+                                        if (data.attributes) {
+                                            items.push({
+                                                "id": entity.id,
+                                                "title": data.attributes[this.currentTag.name].values[0].value,
+                                            });
+                                        }
+                                    }
+                                }, this);
+                            }
+                        }, this);
+                    }
+                    if(this.$$("#search-filter") && this.$$("#search-filter").currentTag) {
+                        this.$$("#search-filter").currentTag.options = items;
+                    }
+                }
+            } ,
+            _prepareContextGroups: function (lists) {
+                if (lists && lists instanceof Array) {
+                    var ctxGroup = [];
+
+                    for (var i = 0; i < lists.length; i++) {
+                        var ctxInfoObject = new Object();
+                        ctxInfoObject.list = lists[i].value;
+                        ctxInfoObject.classification =
+                            "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry";
+                        ctxGroup.push(ctxInfoObject);
+                    }
+
+                    return ctxGroup;
+                }
+            },
+            _prepareValueContextGroups: function (sources, locales) {
+                var valueCtxGroup = [];
+
+                if (sources && locales && sources instanceof Array && locales instanceof Array) {
+                    for (var i = 0; i < sources.length; i++) {
+                        for (var j = 0; j < locales.length; j++) {
+
+                            var valueCtxInfoObject = new Object();
+                            valueCtxInfoObject.source = sources[i].value;
+                            valueCtxInfoObject.locale = locales[j].value;
+                            valueCtxGroup.push(valueCtxInfoObject);
+                        }
+                    }
+
+                    return valueCtxGroup;
+                }
+            }
+
+
+        });
+    })();
+</script>
+</dom-module>
