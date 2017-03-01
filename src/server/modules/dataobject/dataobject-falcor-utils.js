@@ -114,6 +114,7 @@ function _buildAttributesResponse(attrs, attrNames, basePath) {
         else if (attr.group) {
             var valCtxItem = { 'source': CONST_ANY, 'locale': CONST_ANY }; //TODO: How to find out val ctx keys from the flat list of values object..??
             var valCtxKey = sharedDataObjectFalcorUtil.createCtxKey(valCtxItem);
+            //console.log('attr group', JSON.stringify(attr.group));
             response.push(mergeAndCreatePath(basePath, [attrKey, 'valCtxInfo', valCtxKey, 'group'], $atom(attr.group)));
         }
         else if (attr.properties) {
