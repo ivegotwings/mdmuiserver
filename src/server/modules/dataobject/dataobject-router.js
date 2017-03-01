@@ -19,7 +19,7 @@ var DataObjectRouterBase = Router.createClass([
         get: async (pathSet) => await resolver.getByIds(pathSet, "getFields")
     },
     {
-        route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].['values','groups']",
+        route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].valCtxInfo[{keys:valCtxKeys}][{keys:valFields}]",
         get: async (pathSet) => await resolver.getByIds(pathSet, "getAttrs")
     },
     {
@@ -27,11 +27,11 @@ var DataObjectRouterBase = Router.createClass([
         get: async (pathSet) => await resolver.getByIds(pathSet, "getRelIdOnly")
     },
     {
-        route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}].rels[{keys:relIds}][{keys:relationshipFields}]",
+        route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}].rels[{keys:relIds}][{keys:relFields}]",
         get: async (pathSet) => await resolver.getByIds(pathSet, "getRelFieldsByActual")
     },
     {
-        route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}].rels[{keys:relIds}].attributes[{keys:relAttrNames}].['values', 'groups']",
+        route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}].rels[{keys:relIds}].attributes[{keys:relAttrNames}].valCtxInfo[{keys:valCtxKeys}][{keys:valFields}]",
         get: async (pathSet) => await resolver.getByIds(pathSet, "getRelAttrsByActual")
     },
     {
