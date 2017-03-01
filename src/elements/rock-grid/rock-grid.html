@@ -527,6 +527,7 @@ And need to access auto calculated properties of `remote-data` and pass it to `r
 				float: right;
 				color: var(--white);
 			}
+			
 			iron-data-table {
 				height: var(--rock-grid-height, 400px);
 			}
@@ -575,7 +576,7 @@ And need to access auto calculated properties of `remote-data` and pass it to `r
 						</data-table-column>
 						<data-table-column name="Status" hidden$="[[!config.statusEnabled]]">
 							<template>
-								<pebble-icon></pebble-icon>
+								<pebble-icon id="rowStatus" icon="{{_getRowStatusIcon(item)}}"></pebble-icon>
 							</template>
 						</data-table-column>
 						<template is="dom-repeat" items="[[config.tabular.columns]]" as="col" index-as="colIndex">
@@ -608,7 +609,7 @@ And need to access auto calculated properties of `remote-data` and pass it to `r
 			</p>
 		</pebble-dialog>
 		<bedrock-pubsub target-id="gridMsgDialog" event-name="on-buttonok-clicked" handler="_onDialogOk"></bedrock-pubsub>
-        <bedrock-pubsub target-id="gridMsgDialog" event-name="on-buttoncancel-clicked" handler="_onDialogCancel"></bedrock-pubsub>
+		<bedrock-pubsub target-id="gridMsgDialog" event-name="on-buttoncancel-clicked" handler="_onDialogCancel"></bedrock-pubsub>
 	</template>
 	<script>
 		(function () {
@@ -843,10 +844,16 @@ And need to access auto calculated properties of `remote-data` and pass it to `r
 						var data = this.getData();
 						records.forEach(function (record) {
 							record.rowStatus = "new";
-							data.push(record);
+							record.rowStatusIcon = "pebble-icons:Colors";
+							data.unshift(record);
 						}, this);
 
 						this.data = data;
+						var ironDataTable = this._getIronDataTable();
+						if (ironDataTable) {
+							var oldSize = ironDataTable.size;
+							ironDataTable.size = oldSize + data.length;
+						}
 						this.reRenderGrid();
 						this.changeToEditMode();
 					}
@@ -871,14 +878,26 @@ And need to access auto calculated properties of `remote-data` and pass it to `r
 						filteredData = data.filter(function (element) {
 							if (element.rowStatus) {
 								if (element.rowStatus != "new") {
-									return element;
+									if (element.rowStatus == "update") {
+										this._setOldValue(element);
+
+										element.rowStatusIcon = "";
+										return element;
+									} else {
+
+										element.rowStatusIcon = "";
+										return element;
+									}
 								}
 							} else {
+
+								element.rowStatusIcon = "";
 								return element;
 							}
-						});
+						}.bind(this));
 					}
 
+					this.data = [];
 					this.data = filteredData;
 					this.set('config.mode', "read");
 					this.reRenderGrid();
@@ -1010,7 +1029,7 @@ And need to access auto calculated properties of `remote-data` and pass it to `r
 						this.$$('iron-data-table').multiSelection = flag;
 					}
 				},
-				openGridMsgDialog: function(msg) {
+				openGridMsgDialog: function (msg) {
 					this.$$('p[id="msgDialog"]').innerText = msg;
 					this.$.gridMsgDialog.open();
 				},
@@ -1185,35 +1204,57 @@ And need to access auto calculated properties of `remote-data` and pass it to `r
 					var item = e.model.item; //typeof e.target.item === 'undefined' ? e.srcElement.dataHost.item : e.target.item;
 					var value = e.detail;
 					var columnName = this.config.tabular.columns[columnIndex].name;
+					var row = this._getParentRow(e.currentTarget);
+					var status = "";
+
 					if (this.config.schemaType == undefined || this.config.schemaType == "simple" || this.config.schemaType ==
 						"colModel") {
-						if (item.oldValue) {
-							if (item.oldValue != value) {
-								item.rowStatus = "update";
+						var columnOldValue = columnName + "_oldValue";
+
+						if (item[columnOldValue] || item[columnOldValue] == "") {
+							if (item[columnOldValue] != value) {
+								status = "update";
 							} else {
-								item.rowStatus = "read";
+								status = "read";
 							}
 						} else {
-							item.oldValue = item[columnName];
-							item.rowStatus = "update";
+							item[columnOldValue] = item[columnName] ? item[columnName] : "";
+							status = "update";
 						}
 						item[columnName] = value;
+						item.rowStatus = item.rowStatus && item.rowStatus == "new" ? "new" : status;
+
 					} else if (this.config.schemaType == "attribute") {
 						for (var key in item.attributes) {
 							if (item.attributes[key].hasOwnProperty(columnName)) {
-								if (item.attributes[key][columnName].oldValue) {
+								if (item.attributes[key][columnName].oldValue || item.attributes[key][columnName].oldValue == "") {
 									if (item.attributes[key][columnName].oldValue != value) {
-										item.rowStatus = "update";
+										status = "update";
 									} else {
-										item.rowStatus = "read";
+										status = "read";
 									}
 								} else {
-									item.attributes[key][columnName].oldValue = item[columnName];
-									item.rowStatus = "update";
+									item.attributes[key][columnName].oldValue = item[columnName] ? item[columnName] : "";
+									status = "update";
 								}
 								item.attributes[key][columnName].value = value;
+								item.rowStatus = item.rowStatus && item.rowStatus == "new" ? "new" : status;
+
 								break;
 							}
+						}
+					}
+
+					if (row) {
+						var rowStatusIcon = row.querySelector('pebble-icon[id="rowStatus"]');
+						if (rowStatusIcon && item.rowStatus) {
+							if (item.rowStatus == "update") {
+								item.rowStatusIcon = rowStatusIcon.icon = "pebble-icons:Edit";
+							} else if (item.rowStatus == "read") {
+								item.rowStatusIcon = rowStatusIcon.icon = "";
+							}
+						} else {
+							item.rowStatusIcon = rowStatusIcon.icon = "";
 						}
 					}
 				},
@@ -1332,6 +1373,42 @@ And need to access auto calculated properties of `remote-data` and pass it to `r
 				},
 				_onDialogCancel: function (e) {
 					this.fireBedrockEvent("on-grid-msg-dialog-cancel", e);
+				},
+				_getParentRow: function (element) {
+					if (element) {
+						if (element.is == "data-table-row") {
+							return element;
+						} else {
+							return this._getParentRow(element.parentNode);
+						}
+					}
+					return undefined;
+				},
+				_setOldValue: function (element) {
+					if (element) {
+						if (this.config.schemaType == undefined || this.config.schemaType == "simple" || this.config.schemaType ==
+							"colModel") {
+							Object.keys(element).forEach(function (item) {
+								if (element[item + "_oldValue"] || element[item + "_oldValue"] == "") {
+									element[item] = element[item + "_oldValue"];
+								}
+							}, this);
+
+						} else if (this.config.schemaType == "attribute") {
+							for (var key in element.attributes) {
+								for (var attrKey in element.attributes[key]) {
+									if (element.attributes[key][attrKey].oldValue || element.attributes[key][attrKey].oldValue == "") {
+										element.attributes[key][attrKey].value = element.attributes[key][attrKey].oldValue;
+									}
+								}
+							}
+						}
+					}
+				},
+				_getRowStatusIcon: function(item) {
+					if(item) {
+						return item.rowStatusIcon || item.rowStatusIcon == "" ? item.rowStatusIcon : item.rowStatusIcon = "";
+					}
 				}
 			});
 		})();
