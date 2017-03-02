@@ -1,11 +1,15 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
+
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../pebble-icons/pebble-icons.html">
 <link rel="import" href="../pebble-icon/pebble-icon.html">
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-lov/pebble-lov.html">
+<link rel="import" href="../pebble-textbox/pebble-textbox.html">
 <link rel="import" href="../pebble-horizontal-divider/pebble-horizontal-divider.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../pebble-combo-box/pebble-combo-box.html">
 
 <link rel="import" href="../rock-tags/rock-tags.html">
 
@@ -54,7 +58,7 @@
                     height: 40px;
                 }
             }
-            pebble-button.optionButton {
+            .optionButton {
                 float:right;
                 /*--pebble-button: {*/
                     /*border-bottom: 1px solid #036BC3;*/
@@ -72,6 +76,8 @@
         <div>
             <p>You can select multiple <b>Options</b> to create <b>SKUs</b></p>
         </div>
+        <iron-ajax id="guideme-ajax" auto url="/src/data/guideme-data.json" handle-as="json" last-response="{{data}}"></iron-ajax>
+        <iron-ajax id="guideme-ajax" auto url="/src/data/EntityManageApp/variant-definition-external.json" handle-as="json" last-response="{{variantsDefinition}}"></iron-ajax>
         <template is="dom-repeat" items="{{selectedOptions}}">
             <div class="flexbox-container" id="row[[index]]">
                 <div class="box1">
@@ -79,20 +85,12 @@
                     <span style="vertical-align: super;">[[_getSerialNumber(index)]]</span>
                 </div>
                 <div class="box2">
-                    <div>
                     <div class="label">OPTION</div>
-                    <!--ToDO use combo box here to show selected options : item.option-->
-                    <pebble-button class="optionButton" icon="icons:arrow-drop-down" ></pebble-button>
-                    </div>
-                    <pebble-horizontal-divider></pebble-horizontal-divider>
+                    <pebble-combo-box items="[[_getOptions(selectedOptions)]]" selected-item="{{item.option}}" on-selection-changed="_optionLovSelectionChanged" ></pebble-combo-box>
                 </div>
                 <div class="box3">
-                    <div>
-                        <div class="label">VALUES</div>
-                        <!--ToDO use combo box here to show selected values : item.values-->
-                        <pebble-button class="optionButton" icon="icons:arrow-drop-down" ></pebble-button>
-                    </div>
-                    <pebble-horizontal-divider></pebble-horizontal-divider>
+                    <div class="label">VALUES</div>
+                    <pebble-combo-box items="{{_getValues(item.option,data)}}" selected-items="{{item.values}}" multi-select show-color  on-selection-changed="_valuesLovSelectionChanged" ></pebble-combo-box>
                 </div>
             </div>
         </template>
@@ -120,6 +118,11 @@
                         return [];
                     },
                     notify:true
+                },
+                options:{
+                    type: Array,
+                    computed:'_getOptions(variantDefinition, selectedOptions)'
+                    notify:true
                 }
 
             },
@@ -127,7 +130,7 @@
                 RUFBehaviors.UIBehavior
             ],
             _addNewRow:function () {
-                var newOption={"option":"", values:[]};
+                var newOption={"option":"","values":[]};
                 this.push('selectedOptions',newOption);
                 //TODO open lov for option
                 var newOptionIndex=this.selectedOptions.length-1;
@@ -159,6 +162,46 @@
                     data:this.selectedOptions
                 };
                 this.fireBedrockEvent(eventName, eventDetail,{ ignoreId: true });
+            },
+            _openOptionPopover:function (e) {
+                var index=e.currentTarget.index;
+                this.$$("#optionPopover"+index).open();
+                this.$$('#lov'+index).activate();
+            },
+            _openValuesPopover:function (e) {
+                var index=e.currentTarget.index;
+                this.$$("#valuesPopover"+index).open();
+                this.$$('#vLov'+index).activate();
+            },
+            _getOptions:function (variantsDefinition, selectedOptions) {
+                var options=[];
+                variantsDefinition.levels.forEach(function (level) {
+                   for(var i=0;i<level.dimensions.length;i++){
+                        options.push({"title":level.dimensions[i].sourceAttribute});
+                   }
+                });
+                for(var i=0;i<this.selectedOptions.length;i++){
+                    var index=options.indexOf(this.selectedOptions[i].option.title);
+                    if(index>-1){
+                        delete options[index];
+                    }
+                }
+                var lovOptions=[];
+                options.forEach(function (option) {
+                    lovOptions.push({"title":option});
+                });
+                return lovOptions;
+            },
+            _getValues:function (option) {
+                if(option) {
+                    var dimensionObjects = this.data.filter(function (data) {
+                        return data.name.toLowerCase() == option.title.toLowerCase();
+                    });
+                    if (dimensionObjects.length > 0) {
+                        return dimensionObjects[0].variants;
+                    }
+                }
+                return [];
             }
         });
     </script>
