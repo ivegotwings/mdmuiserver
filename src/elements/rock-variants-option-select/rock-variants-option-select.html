@@ -76,8 +76,11 @@
         <div>
             <p>You can select multiple <b>Options</b> to create <b>SKUs</b></p>
         </div>
-        <iron-ajax id="guideme-ajax" auto url="/src/data/guideme-data.json" handle-as="json" last-response="{{data}}"></iron-ajax>
-        <iron-ajax id="guideme-ajax" auto url="/src/data/EntityManageApp/variant-definition-external.json" handle-as="json" last-response="{{variantsDefinition}}"></iron-ajax>
+        <iron-ajax id="guideme-ajax" auto url="/src/data/EntityManageApp/variant-definition-external.json" handle-as="json" last-response="{{variantDefinition}}" on-response="_onDefinitionRender"></iron-ajax>
+        <liquid-entity-data-get   id="getData" operation="getbyids" request-data="[[_getRequest(variantDefinition,entityId)]]"  last-response="{{remoteData}}" on-response="_onResponse" >
+        </liquid-entity-data-get>
+        <liquid-entity-data-save name="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}"
+                                 on-response="_onSaveResponse"></liquid-entity-data-save>
         <template is="dom-repeat" items="{{selectedOptions}}">
             <div class="flexbox-container" id="row[[index]]">
                 <div class="box1">
@@ -86,11 +89,11 @@
                 </div>
                 <div class="box2">
                     <div class="label">OPTION</div>
-                    <pebble-combo-box items="[[_getOptions(selectedOptions)]]" selected-item="{{item.option}}" on-selection-changed="_optionLovSelectionChanged" ></pebble-combo-box>
+                    <pebble-combo-box items="[[options]]" selected-item="{{item.option}}" index="[[index]]" on-selection-changed="_optionLovSelectionChanged" ></pebble-combo-box>
                 </div>
                 <div class="box3">
                     <div class="label">VALUES</div>
-                    <pebble-combo-box items="{{_getValues(item.option,data)}}" selected-items="{{item.values}}" multi-select show-color  on-selection-changed="_valuesLovSelectionChanged" ></pebble-combo-box>
+                    <pebble-combo-box items="{{_getValues(item.option,item)}}" selected-items="{{item.values}}" multi-select   on-selection-changed="_valuesLovSelectionChanged" ></pebble-combo-box>
                 </div>
             </div>
         </template>
@@ -112,23 +115,146 @@
                 /**
                  * Indicates the index of a tag.
                  */
+                attributesList:{
+                    type:Array
+                },
                 selectedOptions: {
                     type: Array,
                     value: function () {
                         return [];
                     },
-                    notify:true
+                    notify: true
                 },
-                options:{
+                _reupdateOptions:{
+                  type:Boolean,
+                    value:false
+                },
+                options: {
                     type: Array,
-                    computed:'_getOptions(variantDefinition, selectedOptions)'
-                    notify:true
-                }
-
+                    computed: '_getOptions(variantDefinition, selectedOptions,_reupdateOptions)',
+                    notify: true
+                },
+                /**
+                 * Indictaes the identification of the entity for which the attributes are managed.
+                 */
+                entityId: {
+                    type: String
+                },
+                /**
+                 * Indicates the locale dimension for which the attributes are managed.
+                 */
+                locale: {
+                    type: String
+                },
+                /**
+                 * Indictaes the list for which the attributes are managed.
+                 */
+                list: {
+                    type: String
+                },
+                /**
+                 * Indictaes the classification for which the attributes are managed.
+                 */
+                classification: {
+                    type: String,
+                    value: "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
+                },
+                /**
+                 * Indictaes the source dimension for which the attributes are managed.
+                 */
+                source: {
+                    type: String
+                },
+                _saveRequest: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
             },
             behaviors: [
                 RUFBehaviors.UIBehavior
             ],
+            _onDefinitionRender:function () {
+                this.$.getData.generateRequest();
+            },
+            _getRequest:function (variantsDefinition) {
+                var req = {
+                    "params": {
+                        "query": {
+                            "ctx": [{
+                                "list": this.list,
+                                "classification": this.classification
+                            }],
+                            "valCtx": [{
+                                "source": this.source,
+                                "locale": this.locale
+                            }],
+                            "id": this.entityId,
+                            "filters": {
+                                "attributesCriterion": [],
+                                "relationshipsCriterion": [],
+                                "typesCriterion": ["nart"]
+                            }
+                        },
+                        "fields": {
+                            "ctxTypes": [
+                                "properties"
+                            ],
+                            "attributes": [],
+                            "relationships": [
+                            ]
+                        },
+                        "options": {
+                            "totalRecords": 10,
+                            "includeRequest": false
+                        }
+                    }
+                };
+                var attributes=[];
+                var attributesList=[];
+                variantsDefinition.levels.forEach(function (level) {
+                    for(var i=0;i<level.dimensions.length;i++){
+                        attributes.push(level.dimensions[i].sourceAttribute);
+                        attributesList.push({"name":level.dimensions[i].sourceAttribute,"optional":level.dimensions[i].optional});
+                    }
+                });
+                this.attributesList=attributesList;
+                req.params.fields.attributes=attributes;
+                return req;
+            },
+            _onResponse:function () {
+                var data=this.remoteData;
+                if(data && data.content) {
+                    var entities = data.content.entities;
+                    if(entities) {
+                        var dataContext = {
+                            "list": this.list,
+                            "classification":this.classification,
+                            "source": this.source,
+                            "time": "now",
+                            "locale": this.locale
+                        };
+                        var entity=entities[0];
+                        this.originalEntity=entity;
+                        if(entity.data) {
+                            var ctx = DataHelper.prepareCtx(dataContext);
+                            var valCtx = DataHelper.prepareValCtx(dataContext);
+                            var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, ctx);
+                            for (var i = 0; i < this.attributesList.length; i++) {
+                                var attribute = attributes[this.attributesList[i].name];
+                                if (attribute && attribute.values) {
+                                  var value = DataHelper._getCurrentValue(attribute.values, valCtx);
+                                    this.push('selectedOptions', {
+                                        "option": {"title": this.attributesList[i].name},
+                                        "values": [value]
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            },
             _addNewRow:function () {
                 var newOption={"option":"","values":[]};
                 this.push('selectedOptions',newOption);
@@ -153,15 +279,64 @@
             },
             _onSaveTap: function(e) {
                 if(this.selectedOptions.length==0){
-                    alert("select at least 1 option");
+                    alert("Please select at least 1 option");
                     return;
                 }
+                var selectedOptions=this.selectedOptions;
+                var attrNames=selectedOptions.map(function (selectedItem) {
+                    if(selectedItem.option && selectedItem.values && selectedItem.values.length>0) {
+                        return selectedItem.option.title;
+                    }
+                });
+                for(i=0;i<this.attributesList.length;i++){
+                    var attribute=this.attributesList[i];
+                    if(!attribute.optional){
+                        if(attrNames.indexOf(attribute.name)==-1){
+                            alert("Adding values for "+attribute.name+" is compulsary");
+                            return;
+                        }
+                    }
+                }
+                var attributes={};
+                for(var i=0;i<selectedOptions.length;i++){
+                    if(selectedOptions[i].option && selectedOptions[i].values && selectedOptions[i].values.length>0) {
+                        var attr= {
+                            "name": selectedOptions[i].option.title,
+                            "value": selectedOptions[i].values,
+                            "source": this.source,
+                            "locale": this.locale
+                        };
+                        attributes[attr.name]={"values":attr};
+                    }
+                }
+                var entityData=this.originalEntity;
+                var contextualData = {};
+                contextualData.ctxInfo = [];
+                var ctxItem = {};
+                ctxItem.ctxGroup = { "list": this.list, "classification": this.classification };
+                ctxItem.attributes = attributes;
+                contextualData.ctxInfo.push(ctxItem);
+                entityData["data"] = contextualData;
+
+                if (!_.isEmpty(entityData)) {
+                    this._saveRequest = {
+                        "entities": [entityData]
+                    };
+                    var liquidSave = this.$$("[name=attributeSaveDataService]");
+                    if (liquidSave) {
+                        liquidSave.generateRequest();
+                    }
+                }
+
                 var eventName = "onSave";
                 var eventDetail = {
                     name: eventName,
                     data:this.selectedOptions
                 };
                 this.fireBedrockEvent(eventName, eventDetail,{ ignoreId: true });
+            },
+            _onSaveResponse:function () {
+
             },
             _openOptionPopover:function (e) {
                 var index=e.currentTarget.index;
@@ -177,7 +352,7 @@
                 var options=[];
                 variantsDefinition.levels.forEach(function (level) {
                    for(var i=0;i<level.dimensions.length;i++){
-                        options.push({"title":level.dimensions[i].sourceAttribute});
+                        options.push(level.dimensions[i].sourceAttribute);
                    }
                 });
                 for(var i=0;i<this.selectedOptions.length;i++){
@@ -193,15 +368,22 @@
                 return lovOptions;
             },
             _getValues:function (option) {
+                //TODO add mechanism to get values given an option name. Right now Just hard coding some values
+                var values={
+                    "colors":["Dark","Light","Azure"],
+                    "materials":["Silk","Cotton","Polyster","Wool"],
+                    "primarySizes":["1.3oz","1.8oz"],
+                    "secondarySizes":["s","m","xl","xxl","xxxl"]
+                 };
                 if(option) {
-                    var dimensionObjects = this.data.filter(function (data) {
-                        return data.name.toLowerCase() == option.title.toLowerCase();
+                    return values[option.title].map(function (color,index) {
+                        return {"title": color,"id":index};
                     });
-                    if (dimensionObjects.length > 0) {
-                        return dimensionObjects[0].variants;
-                    }
                 }
                 return [];
+            },
+            _optionLovSelectionChanged:function (e) {
+                this._reupdateOptions=!this._reupdateOptions;
             }
         });
     </script>
