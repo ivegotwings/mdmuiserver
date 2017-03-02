@@ -24,7 +24,7 @@ const pathKeys = sharedDataObjectFalcorUtil.getPathKeys();
 
 function _createRelUniqueId(rel) {
     if (rel) {
-        var relDataObjectId = rel.relToObject && rel.relToObject.id && rel.relToObject.id !== "" ? rel.relToObject.id : "-1";
+        var relDataObjectId = rel.relTo && rel.relTo.id && rel.relTo.id !== "" ? rel.relTo.id : "-1";
         var source = rel.source !== undefined && rel.source !== "" ? rel.source : "ANY";
         return relDataObjectId.concat("#@#", source);
     }
@@ -190,7 +190,7 @@ function _buildRelationshipDetailsResponse(enRel, reqData, basePath) {
                 response.push.apply(response, _buildAttributesResponse(attrs, relAttrNames, relAttributesBasePath));
             }
         }
-        else if (relFieldKey == "relToObject") {
+        else if (relFieldKey == "relTo") {
             response.push(mergeAndCreatePath(relBasePath, relFieldKey, $ref(mergePathSets(dataObjectsByIdPath, [enRel[relFieldKey].id]))));
         }
         else {
