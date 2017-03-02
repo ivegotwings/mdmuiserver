@@ -133,17 +133,16 @@ function createGetRequest(reqData) {
         includeRequest: false
     };
 
-    // //TODO:: This is hard coded as of now as for get API dataObject request json creation..
-    // var filters = {
-    //     attributesCriterion: [],
-    //     relationshipsCriterion: [],
-    //     typesCriterion: []
-    // };
+    //TODO:: This is hard coded as of now as for get API dataObject request json creation..
+    var filters = {
+        typesCriterion: ['nart']
+    };
 
     var query = {
         ctx: ctxGroups,
         valCtx: valCtxGroups,
-        id: ""
+        filters: filters,
+        id: ''
     };
 
     var params = {
@@ -254,6 +253,11 @@ async function processData(objType, dataObjects, dataObjectAction, caller) {
         var dataObject = sharedDataObjectFalcorUtil.boxDataObject(dataObjects[dataObjectId], sharedDataObjectFalcorUtil.unboxJsonObject);
         //console.log('dataObject data', JSON.stringify(dataObject, null, 4));
 
+        //TODO: temporarily as RDF is still working on to make domain optional..
+        if(dataObject.entityInfo) {
+            dataObject.entityInfo.entityDomain = "thing";
+        }
+
         var apiRequestObj = { 'includeRequest': false, 'objType': objType };
         apiRequestObj[objTypeName] = dataObject;
         //console.log('api request data for process dataObjects', JSON.stringify(apiRequestObj));
@@ -305,9 +309,12 @@ async function create(callPath, args, caller) {
     // create new guids for the dataObjects to be created..
     for (let dataObjectId of dataObjectIds) {
         var dataObject = dataObjects[dataObjectId];
-        var newDataObjectId = uuidV1();
-        //console.log('new dataObject id', newDataObjectId);
-        dataObject.id = newDataObjectId;
+
+        if(dataObject.id == undefined || dataObject.id == "") {
+            var newDataObjectId = uuidV1();
+            //console.log('new dataObject id', newDataObjectId);
+            dataObject.id = newDataObjectId;
+        }
     }
 
     return processData(objType, dataObjects, "create", caller);
