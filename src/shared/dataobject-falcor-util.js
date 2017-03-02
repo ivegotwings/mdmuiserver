@@ -260,7 +260,7 @@ DataObjectFalcorUtil.transformRelationshipsToExternal = function(relationships) 
         for (var relObjKey in relTypeObj.rels) {
             var rel = relTypeObj.rels[relObjKey];
             rel.attributes = DataObjectFalcorUtil.transformAttributesToExternal(rel.attributes);
-            rel.relToObject = DataObjectFalcorUtil.transformToExternal(rel.relToObject);
+            rel.relTo = DataObjectFalcorUtil.transformToExternal(rel.relTo);
             relsArray.push(rel);
         }
 
