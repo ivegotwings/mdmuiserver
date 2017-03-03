@@ -9,9 +9,16 @@ var bodyParser = require('body-parser');
 var notificationEngine = require("../modules/notification_engine/Socket");
 
 var buildPath = process.cwd();
-var app = express();
+
+var relativePath = process.env.PROJECT_PATH;
+
+if(relativePath) {
+    buildPath = buildPath + '/' + relativePath;
+}
 
 console.log('buildPath:', buildPath);
+
+var app = express();
 
 // parse application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({

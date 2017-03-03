@@ -112,7 +112,7 @@ function dependencies() {
     //    minifyCSS: true,
     //    uglifyJS: true
     //  })))
-    .pipe(gulpif('**/*.js', babel()))
+    .pipe(gulpif(['**/*.js', '!bower_components/web-component-tester/**/*'], babel()))
     //.pipe(gulpif('**/*.js', uglify()))
     .pipe(project.rejoin());
 }
@@ -126,7 +126,7 @@ function devDependencies() {
   //gulp.src('bower_components/**/*').pipe(gulp.dest(depsPath));
 
   return project.splitDependencies()
-    //.pipe(gulpif('**/*.js', babel()))
+    .pipe(gulpif(['**/*.js', '!bower_components/web-component-tester/**/*'], babel()))
     .pipe(project.rejoin());
 }
 
@@ -206,18 +206,26 @@ function stackLiveReload(changedFiles) {
 gulp.task('app-nodemon', function (cb) {
   var started = false;
   var appPath = project.devPath + "/app.js"; //default load app from build/unbundled path
-  var lrEnabled = true;
-  var appPath = (argv.appPath !== undefined) ? argv.appPath : appPath;
+  appPath = (argv.appPath !== undefined) ? argv.appPath : appPath;
+
+  var projectPath = appPath.replace('/app.js', '');
+
   var runOffline = (argv.runOffline !== undefined) ? argv.runOffline : 'false';
+  var lrEnabled = true;
 
   if(appPath === "build/bundled") {
+    projectPath = project.bundledPath;
     appPath = project.bundledPath + "/app.js";
     lrEnabled = false;
   }
   else if(appPath === "build/unbundled") {
+    projectPath = project.unbundledPath;
     appPath = project.unbundledPath + "/app.js";
     lrEnabled = false;
   }
+
+  console.log('appPath ', appPath);
+  console.log('projectPath ', projectPath);
 
   if(lrEnabled) {
     lr = tinylr();
@@ -226,7 +234,7 @@ gulp.task('app-nodemon', function (cb) {
 
   var stream = nodemon({
                   script: appPath, // run ES5 code
-                  env: { 'RUN_OFFLINE': runOffline }, // set env variables
+                  env: { 'RUN_OFFLINE': runOffline, 'PROJECT_PATH': projectPath }, // set env variables
                   //nodeArgs:['--debug'], // set node args
                   watch: global.config.build.serverFilePaths, // watch ES2015 code
                   ext: 'js html css json jpg jpeg png gif',
