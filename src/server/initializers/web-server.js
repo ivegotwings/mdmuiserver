@@ -48,6 +48,9 @@ passThroughRoute(app);
 var fileUploadRoute = require('../modules/file-upload/file-upload-route');
 fileUploadRoute(app);
 
+var notificationService = require('../modules/notification-service/notification-route');
+notificationService(app);
+
 //register static file root ...index.html..
 app.get('*', function (req, res) {
     console.log(JSON.stringify(req.url));
