@@ -2,6 +2,8 @@
 <link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
 <link rel="import" href="../bedrock-helpers/component-helper.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../pebble-lov/pebble-lov.html">
 <link rel="import" href="../pebble-button/pebble-button.html">
@@ -19,7 +21,7 @@ Based on the config, relationship grid gets loaded with the defined attributes f
 
 ```json
 {
-  "crosssell": {
+  "crossSell": {
     "viewMode": "Tabular",
     "mode": "Read",
     "title": "Related Products",    
@@ -92,11 +94,7 @@ The following JSON object is a sample of data which can be used to bind the grid
 {
   "id": "e2",
   "entityInfo": {
-    "entityType": "product",
-    "entityDomain": "thing"
-  },
-  "systemInfo": {
-    "tenantId": "t1"
+    "entityType": "product"
   },
   "properties": {
     "source": "PLM",
@@ -128,7 +126,7 @@ The following JSON object is a sample of data which can be used to bind the grid
           }
         },
         "relationships": {
-          "crosssell": [
+          "crossSell": [
             {
               "id": "rel1",
               "direction": "both",
@@ -163,11 +161,10 @@ The following JSON object is a sample of data which can be used to bind the grid
                   ]
                 }
               },
-              "relToObject": {
+              "relTo": {
                 "id": "e5",
                 "entityInfo": {
-                  "entityType": "product",
-                  "entityDomain": "thing"
+                  "entityType": "product"
                 }
               }
             }
@@ -178,11 +175,10 @@ The following JSON object is a sample of data which can be used to bind the grid
               "direction": "both",
               "source": "PLM",
               "operation": "association",
-              "relToObject": {
+              "relTo": {
                 "id": "e6",
                 "entityInfo": {
-                  "entityType": "product",
-                  "entityDomain": "thing"
+                  "entityType": "product"
                 }
               }
             }
@@ -317,6 +313,7 @@ The following JSON object is a sample of data which can be used to bind the grid
           <remote-data id="[[relationship]]" request="[[_getRelationshipGridRequest(relationship)]]" operation="getbyids" data-formatter="{{dataFormatter}}"></remote-data>
           <rock-grid id$="[[relationship]]" data-source-id="[[relationship]]" config="{{_getRelationshipGridConfig(relationship)}}"
             attribute-models="[[attributeModels]]" page-size="3"></rock-grid>
+          <bedrock-pubsub target-id="[[relationship]]" event-name="on-grid-msg-dialog-ok" handler="_onDialogOk"></bedrock-pubsub>
           <div id="buttonContainer" align="center" hidden>
             <pebble-button id="cancel" class="button" button-text="Cancel" on-tap="_revertAll" elevation=1 raised></pebble-button>
             <pebble-button id="save" class="focus" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
@@ -463,6 +460,10 @@ The following JSON object is a sample of data which can be used to bind the grid
           }
         },
 
+        behaviors: [
+          RUFBehaviors.UIBehavior
+        ],
+
         observers: [
           '_initiateRelationshipGrid(relationshipGridConfig)',
           '_convertIntoEntityLovList(searchResultResponse)',
@@ -485,19 +486,6 @@ The following JSON object is a sample of data which can be used to bind the grid
         getAttributeList: function (relationshipTypeName) {
           if (this._relationshipTypeAndAttributes && relationshipTypeName) {
             return this._relationshipTypeAndAttributes[relationshipTypeName];
-          }
-        },
-
-        resetData: function () {
-          //TO-DO Needs to enhance
-          var rockGrids = Polymer.dom(this).node.shadowRoot.querySelectorAll('rock-grid');
-
-          if (rockGrids && rockGrids.length > 0) {
-            rockGrids.forEach(function (gridItem) {
-              if (gridItem) {
-                gridItem.reRenderGrid();
-              }
-            }, this);
           }
         },
 
@@ -606,11 +594,11 @@ The following JSON object is a sample of data which can be used to bind the grid
                                   }
                                 }, this);
                               }
-                              if (relItem.relToObject) {
-                                record["Related Entity"] = record["id"] = relItem.relToObject.id;
+                              if (relItem.relTo) {
+                                record["Related Entity"] = record["id"] = relItem.relTo.id;
 
-                                if (relItem.relToObject.data) {
-                                  var relCtxInfo = relItem.relToObject.data.ctxInfo;
+                                if (relItem.relTo.data) {
+                                  var relCtxInfo = relItem.relTo.data.ctxInfo;
 
                                   if (relCtxInfo) {
                                     relCtxInfo.forEach(function (item) {
@@ -841,6 +829,7 @@ The following JSON object is a sample of data which can be used to bind the grid
             var relGrid = Polymer.dom(this).node.$$('rock-grid[id=' + this._currentRelationshipItem + ']');
 
             if (relGrid) {
+              var relData = [];
               if (this.relEntitiesResponse.content && this.relEntitiesResponse.content.entities) {
                 var entities = this.relEntitiesResponse.content.entities;
                 var relGridData = relGrid.getData();
@@ -864,26 +853,23 @@ The following JSON object is a sample of data which can be used to bind the grid
                       }, this);
                     }
                     record['entityInfo'] = relitem.entityInfo;
-                    record['systemInfo'] = relitem.systemInfo;
                     record['properties'] = relitem.properties;
                     record['relationshipType'] = this._currentRelationshipItem;
                     record.isEditable = true
-                    relGridData.push(record);
+                    relData.push(record);
                   }
                 }, this);
               }
 
-              relGrid.data = relGridData;
-              relGrid.reRenderGrid();
-              relGrid.changeToEditMode();
+              relGrid.addNewRecords(relData);
             }
           }
         },
 
         _onEditMode: function (e) {
           this._hideAllRelationshipGrid(true);
-          var relGridId = e.path[0].id;
-          var relDiv = Polymer.dom(this).node.$$('div[id=' + relGridId + '_container]');
+          this._currentRelationshipItem = e.path[0].id;
+          var relDiv = Polymer.dom(this).node.$$('div[id=' + this._currentRelationshipItem + '_container]');
 
           if (relDiv) {
             relDiv.hidden = false;
@@ -972,11 +958,10 @@ The following JSON object is a sample of data which can be used to bind the grid
                             }, this);
                           }
 
-                          relationship.relToObject = {};
-                          relationship.relToObject.id = relId;
-                          relationship.relToObject.entityInfo = modItem['entityInfo'];
-                          relationship.relToObject.systemInfo = modItem['systemInfo'];
-                          relationship.relToObject.properties = modItem['properties'];
+                          relationship.relTo = {};
+                          relationship.relTo.id = relId;
+                          relationship.relTo.entityInfo = modItem['entityInfo'];
+                          relationship.relTo.properties = modItem['properties'];
                           relationships.push(relationship);
                         }
                       }, this);
@@ -1003,26 +988,25 @@ The following JSON object is a sample of data which can be used to bind the grid
           mainApp.toastText = "Relatinships saved successfully.";
           mainApp.$$("#pebbleAppToast").show();
 
-          this.resetData();
+          var currentRelGrid = Polymer.dom(this).node.$$('rock-grid[id=' + this._currentRelationshipItem + ']');
+
+          if (currentRelGrid) {
+            currentRelGrid.reRenderGrid();
+          }
         },
 
         _revertAll: function (e) {
           var currentRel = e.model.relationship;
-
           var currentRelGrid = Polymer.dom(this).node.$$('rock-grid[id=' + currentRel + ']');
-          var relDiv = Polymer.dom(this).node.$$('div[id=' + currentRel + '_container ]');
-
-          if (relDiv) {
-            var buttonContainer = Polymer.dom(relDiv).node.querySelector("div[id='buttonContainer']");
-            buttonContainer.hidden = true;
-          }
 
           if (currentRelGrid) {
-            currentRelGrid.set('config.mode', "read");
+            if (currentRelGrid.isDirty()) {
+              currentRelGrid.openGridMsgDialog(currentRel +" relationship has unsaved changes. Do you wants to revert those ?");
+            } else {
+              currentRelGrid.changeToReadMode();
+              this._changeRelationshipToReadMode();
+            }
           }
-
-
-          this._hideAllRelationshipGrid(false);
         },
 
         _hideAllRelationshipGrid: function (boolVal) {
@@ -1065,7 +1049,32 @@ The following JSON object is a sample of data which can be used to bind the grid
               }
             });
           }
-        }
+        },
+
+        _onDialogOk: function (e) {
+          if (this._currentRelationshipItem) {
+            var relGrid = Polymer.dom(this).node.$$('rock-grid[id=' + this._currentRelationshipItem + ']');
+
+            if(relGrid) {
+              this._changeRelationshipToReadMode();
+              relGrid.revertData();
+            }
+          }
+        },
+
+        _changeRelationshipToReadMode: function () {
+          if (this._currentRelationshipItem) {
+            var relDiv = Polymer.dom(this).node.$$('div[id=' + this._currentRelationshipItem + '_container ]');
+
+            if (relDiv) {
+              var buttonContainer = Polymer.dom(relDiv).node.querySelector("div[id='buttonContainer']");
+              buttonContainer.hidden = true;
+            }
+
+            this._hideAllRelationshipGrid(false);
+          }
+        },
+
       });
     })();
   </script>
