@@ -19,11 +19,13 @@
 <dom-module id="rock-variants-create-grid">
     <template>
         <style include="pebble-styles-shared"></style>
-        <p>You select <b>2 Colors</b> and <b>2 Sizes</b> as possible options. We have created <b>4</b> potential SKU options for you.
-            All new SKUs in th list below will be created unless you want to delete the SKUs from this list.
+        <p>You select <b>{{_attributesCountText}}</b> as possible options. We have created <b>[[totalVariants]]</b> potential [[leafEntity.type]] options for you.
+            All new [[leafEntity.type]]s in the list below will be created unless you want to delete the [[leafEntity.type]]s from this list.
         </p>
+        <iron-ajax id="guideme-ajax" auto url="/src/data/EntityManageApp/variant-definition-external.json" handle-as="json" last-response="{{variantDefinition}}" on-response="_onDefinitionRender"></iron-ajax>
         <iron-ajax auto url="/src/data/EntityManageApp/createVariantsGridConfig.json" handle-as="json" last-response="{{gridConfig}}"></iron-ajax>
-        <liquid-entity-get auto name="attributeModelGetService" request="{{attributeModelRequest}}" response="{{attributeModelResponse}}"></liquid-entity-get>
+        <liquid-entity-data-get auto  id="getData" operation="getbyids" request-data="[[_request]]"  last-response="{{remoteData}}" on-response="_onGetResponse" >
+        </liquid-entity-data-get>
         <rock-grid  title="Variant Options" id="variantGrid" data="{{data}}"  config="{{gridConfig}}" attribute-models="{{attributeModelResponse.returnValue.attributeModels}}" page-size="4"></rock-grid>
         <div id="content-actions" align="center">
             <pebble-button class="action-button btn btn-secondary" id="skip" button-text="Cancel" raised on-tap="_onCancelTap"></pebble-button>
@@ -70,20 +72,6 @@
                         type: String
                     },
                     /**
-                     * Indicates the request object that is passed to the data element to retrive attribute model data.
-                     Sample: { 
-                            action: "getAttributeModels" 
-                        }
-                     */
-                    attributeModelRequest: {
-                        type: Object,
-                        value: function () {
-                            return {
-                                action: "getAttributeModels"
-                            };
-                        }
-                    },
-                    /**
                      * Specifies the configuration object that to be passed to grid.
                      */
                     gridConfig: {
@@ -92,18 +80,24 @@
                             return {};
                         }
                     },
-                    _attributeModelRequest: {
-                        type: Object,
-                        value: function () {
-                            return {
-                                action: "getAttributeModels"
-                            }
-                        }
+                    // List of attributes present in variant definition
+                    attributesList:{
+                        type:Array
                     },
-                    selectedItems:{
-
+                    _currentIndex:{
+                        type:Number,
+                        value:0
+                    },
+                    //List of leaf entities which are child of parent entity
+                    leafEntities:{
+                        type:Array,
+                        observer:'_leafEntitiesChanged'
+                    },
+                    //Total possible number of variants
+                    totalVariants:{
+                        type:Number,
+                        value:1
                     }
-
                 },
 
                 observers: [
@@ -113,6 +107,188 @@
                 behaviors: [
                     RUFBehaviors.UIBehavior
                 ],
+                _onDefinitionRender:function () {
+                    var attrs=[];
+                    var leafEntity;
+                    var max=0;
+                    this.variantDefinition.levels.forEach(function (level) {
+                        if(level.index>max){
+                            max=level.index;
+                            leafEntity={index:level.index,type:level.entityType};
+                        }
+                        for(var i=0;i<level.dimensions.length;i++){
+                            attrs.push(level.dimensions[i].sourceAttribute);
+                        }
+                    });
+                    this.attributesList=attrs;
+                    this.leafEntity=leafEntity;
+                    this._request=this._getGridRequest(this.entityId);
+                    this.$.getData.generateRequest();
+                },
+                _getGridRequest:function (id,type) {
+                    var req={
+                        "params": {
+                            "query": {
+                                "ctx": [
+                                    {
+                                        "classification": this.classification,
+                                        "list": this.list
+                                    }
+                                ],
+                                "valCtx": [
+                                    {"locale": this.locale, "source": this.source}
+                                ],
+                                "id": id,
+                                "filters": {
+                                    "attributesCriterion": [],
+                                    "typesCriterion": [
+                                        "nart"
+                                    ]
+                                }
+                            },
+                            "fields": {
+                                "ctxTypes": [
+                                    "properties"
+                                ],
+                                relationships:[
+                                    "billOfMaterial"
+                                ],
+                                relatedEntityAttributes:this.attributesList,
+                                attributes:this.attributesList
+
+                            },
+                            "options": {
+                                "from": 0,
+                                "to": 9
+                            }
+                        }
+                    };
+                    if(typeof id != 'string'){
+                        delete  req.params.query.id;
+                        req.params.query.ids=id;
+                    }
+                    if(type){
+                        req.params.query.filters.typesCriterion=[type];
+                    }
+                    return req;
+                },
+                _getRelatedEntitiesIds: function (entity) {
+                    var ids=[];
+                    var dataContext = {
+                        "list": this.list,
+                        "classification": this.classification,
+                        "source": this.source,
+                        "time": "now",
+                        "locale": this.locale
+                    };
+                    if(entity && entity.data && entity.data.ctxInfo){
+                        var ctx = DataHelper.prepareCtx(dataContext);
+                        var relationshipsList;
+                        for (let ctxData of entity.data.ctxInfo) {
+                            var compareResult = DataObjectFalcorUtil.compareCtx(ctxData.ctxGroup, ctx);
+                            if (compareResult) {
+                                relationshipsList=ctxData.relationships;
+                                break;
+                            }
+                        }
+                        if(relationshipsList) {
+                            var isChildRelationshipEntities = relationshipsList["billOfMaterial"];
+                            if(isChildRelationshipEntities) {
+                                isChildRelationshipEntities.forEach(function (relationshipEntity) {
+                                    if (relationshipEntity.relTo) {
+                                        ids.push(relationshipEntity.relTo.id);
+                                    }
+                                });
+                            }
+                        }
+                    }
+                    return ids;
+                },
+                _getAttributeValues:function (entity) {
+                    var dataContext = {
+                        "list": this.list,
+                        "classification":this.classification,
+                        "source": this.source,
+                        "time": "now",
+                        "locale": this.locale
+                    };
+                    this.attributeValues=[];
+                    var text="";
+                    if(entity.data) {
+                        var ctx = DataHelper.prepareCtx(dataContext);
+                        var valCtx = DataHelper.prepareValCtx(dataContext);
+                        var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, ctx);
+                        var totalVariants=1;
+                        for (var i = 0; i < this.attributesList.length; i++) {
+                            var attribute = attributes[this.attributesList[i]];
+                            if (attribute && attribute.values) {
+                                var value = DataHelper._getCurrentValue(attribute.values, valCtx).value;
+                                var values=[];
+                                if( typeof value === 'string' ) {
+                                    values=[value];
+                                } else{
+                                    values=value;
+                                }
+                                this.push('attributeValues', {
+                                    "name":  this.attributesList[i],
+                                    "values":values
+                                });
+                                totalVariants=totalVariants * values.length;
+                                text+= values.length +" "+ this.attributesList[i]+" and";
+                            }
+                        }
+                    }
+                    this._attributesCountText=text.substring(0,text.lastIndexOf("and"));
+                    this.totalVariants=totalVariants;
+
+                },
+                _onGetResponse:function (e) {
+                    var respData=e.detail.response;
+                    if(respData)
+                    {
+                        if(respData.content && respData.content.entities)
+                        {
+                            var ids=[];
+                            if(this._currentIndex==0) {
+                                this._currentIndex++;
+                                var entities = respData.content.entities;
+                                var entity = entities[0];
+                                this._getAttributeValues(entity);
+                                ids = this._getRelatedEntitiesIds(entity);
+                                for(var i=0;i< this.variantDefinition.levels.length;i++){
+                                    if(this.variantDefinition.levels[i].index==1){
+                                        type=this.variantDefinition.levels[i].entityType;
+                                    }
+                                }
+                            } else if(this._currentIndex<this.leafEntity.index){
+                                this._currentIndex++;
+                                var entities = respData.content.entities;
+                                for(var i=0;i<entities.length;i++){
+                                    var entity = entities[0];
+                                    var relIds = this._getRelatedEntitiesIds(entity);
+                                    ids=ids.concat(relIds);
+                                }
+                            } else {
+                                this._currentIndex++;
+                                var entities = respData.content.entities;
+                                this.leafEntities=entities;
+                                return;
+                            }
+                            var type;
+                            for(var i=0;i< this.variantDefinition.levels.length;i++){
+                                if(this.variantDefinition.levels[i].index==1){
+                                    type=this.variantDefinition.levels[i].entityType;
+                                }
+                            }
+                            if(ids.length>0) {
+                                this._request = this._getGridRequest(ids, type);
+                                this.$.getData.generateRequest();
+                            } else{
+                                this.leafEntities=[];
+                            }
+                        }
+                    }
+                },
                 _onCancelTap: function(e) {
                     //raise event with name given for onbackAction in configuration
                     var eventName = "onCancel";
@@ -128,6 +304,58 @@
                         data:this.selectedOptions
                     };
                     this.fireBedrockEvent(eventName, eventDetail,{ ignoreId: true });
+                },
+                _leafEntitiesChanged:function () {
+
+                    var data=[];
+                    var n=this.attributeValues.length;
+                    var nameArray=[];
+                    var valuesArray=[];
+                    for(var i=0;i<n;i++){
+                        nameArray.push(this.attributeValues[i].name);
+                        valuesArray.push(this.attributeValues[i].values);
+                    }
+
+                    var combinations=this.getAllCombinations(valuesArray);
+                    for(var i=0;i<this.totalVariants;i++){
+                      data[i]={};
+                      for(var j=0;j<nameArray.length;j++){
+                          data[i][nameArray[j]]=combinations[i][j];
+                          data[i]["existing"]="New";
+                      }
+                    }
+                    //TODO take this.leafEntities and replace those combinations with the present entities data
+                    this.data=data;
+
+
+                },
+                // Function to get all combinations of multiple arrays
+                getAllCombinations:function(arraysToCombine) {
+                    var divisors = [];
+                    for (var i = arraysToCombine.length - 1; i >= 0; i--) {
+                        divisors[i] = divisors[i + 1] ? divisors[i + 1] * arraysToCombine[i + 1].length : 1;
+                    }
+
+                    function getPermutation(n, arraysToCombine) {
+                        var result = [],
+                            curArray;
+                        for (var i = 0; i < arraysToCombine.length; i++) {
+                            curArray = arraysToCombine[i];
+                            result.push(curArray[Math.floor(n / divisors[i]) % curArray.length]);
+                        }
+                        return result;
+                    }
+
+                    var numPerms = arraysToCombine[0].length;
+                    for(var i = 1; i < arraysToCombine.length; i++) {
+                        numPerms *= arraysToCombine[i].length;
+                    }
+
+                    var combinations = [];
+                    for(var i = 0; i < numPerms; i++) {
+                        combinations.push(getPermutation(i, arraysToCombine));
+                    }
+                    return combinations;
                 }
             });
         })();
