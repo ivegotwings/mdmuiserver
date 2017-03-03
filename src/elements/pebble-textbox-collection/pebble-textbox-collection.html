@@ -12,11 +12,28 @@
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 
 <!--
-`<pebble-textbox-collection>` Represents an element which contains dimension selection.
+`<pebble-textbox-collection>` Represents an element which contains tags with manage option
 
 ### Example:
 
-    <pebble-textbox-collection id="guideme" selected-items="{{selectedItems}}"></pebble-textbox-collection>
+    <pebble-textbox-collection values='[{"name":"color"}, {"name":"size"}]'></pebble-textbox-collection>
+
+### Styling
+The following custom properties and mixins are available for styling:
+
+Custom property | Description | Default
+----------------|-------------|----------
+`--text-collection-container` | Mixin applied to component | {}
+`--text-collection-label` | Mixin applied to component label | {}
+`--tags-container` | Mixin applied to tags container | {}
+`--tag-content` | Mixin applied to tag content | {}
+`--tag-value` | Mixin applied to tag value | {}
+`--tag-close` | Mixin applied to tag close | {}
+`--text-collection-popover` | Mixin applied to tags collection popover | {}
+`--text-collection-manage-tag-container` | Mixin applied to manage tag container | {}
+`--dropdown-icon` | Mixin applied to dropdown icon | {}
+`--add-update-message` | Mixin applied to tag add/update message | {}
+`--add-icon-fill-color` | The color property for icon under tag manage container | `green`
 
 @group rock Elements
 @element pebble-textbox-collection
@@ -40,8 +57,8 @@
             }
             .tags-container {
                 max-height: 75px;                
-                overflow-y: scroll; 
-                margin-right: 20px;
+                overflow-y: auto; 
+                margin-right: 25px;
                 display: block;                
                 @apply(--layout-horizontal);
                 @apply(--layout-wrap);
@@ -54,10 +71,16 @@
                 margin: 4px;
                 padding: 4px;                                
                 @apply(--layout-horizontal);
-                @apply(--tags-content)                
+                @apply(--tag-content)                
+            }
+            .tag-value {
+                text-transform: capitalize;
+                cursor: pointer;
+                @apply(--tag-value);
             }
             .tag-close {
                 margin-left: 10px;
+                @apply(--tag-close);
             }
             .tag-close > pebble-icon {
                 --pebble-icon-width: 14px;
@@ -66,16 +89,28 @@
             pebble-icon {
                 cursor: pointer;
             }
-            pebble-popover {                
-                --pebble-popover-width: 300px;
+            pebble-popover {
+                --pebble-popover-max-width: 400px;                
+                --pebble-popover-width: 380px;
+                margin-top: -5px;
                 @apply(--text-collection-popover)                
             }
-            .add-tag-container {
-                margin: 20px 0 10px 0;                
-                @apply(--text-collection-add-tag-container)
+            .tag-container {
+                margin: 15px 10px 5px 10px;
+                width: 360px;                
+                @apply(--text-collection-manage-tag-container)
             }
-            .add-tag-container > pebble-textbox::shadow pebble-icon {
-                --pebble-icon-fill-color: green;
+            .tag-container > pebble-textbox::shadow pebble-icon {
+                --pebble-icon-fill-color: var(--add-icon-fill-color, green);
+            }
+            .dropdown-icon {                
+                --pebble-icon-width: 30px;
+                --pebble-icon-height: 30px;
+                @apply(--dropdown-icon)
+            }
+            .message {
+                color: red;
+                @apply(--add-update-message)
             }
             
         </style>
@@ -84,25 +119,36 @@
             <div class="tags-container">                
                 <template is="dom-repeat" items="[[values]]">
                     <div class="tag-content">
-                        <div class="tag-value">[[item.name]]</div>
+                        <div class="tag-value" index$="[[index]]" on-tap="_onTapEdit">[[item.name]]</div>
                         <div class="tag-close">
-                            <pebble-icon icon="pebble-md-icons:Clear" on-tap="_removeTag"></pebble-icon>
+                            <pebble-icon icon="pebble-md-icons:Clear" on-tap="_onTapRemove"></pebble-icon>
                         </div>                        
                     </div>
                 </template>                
             </div>
             <pebble-textbox id="tagTextCollection" no-Label-Float type="text" readonly>
-                <pebble-icon icon="icons:arrow-drop-down" suffix on-tap="_openPopover"></pebble-icon>
+                <pebble-icon class="dropdown-icon" icon="arrow-drop-down" suffix on-tap="_openPopover"></pebble-icon>
             </pebble-textbox>
             <bedrock-pubsub event-name="on-popover-close" handler="_onPopoverClose"></bedrock-pubsub>
             <bedrock-pubsub event-name="on-popover-open" handler="_onPopoverOpen"></bedrock-pubsub>
-            <pebble-popover id="tagAddPopover" for="tagTextCollection" horizontal-align="right">            
-                <div class="add-tag-container">
-                    <pebble-textbox id='txtTag' label="Enter more values here to add" value="{{_tagInputText}}" on-keyup="_onEnterAdd">
-                        <pebble-icon icon="add-circle" suffix on-tap="_onTapAdd"></pebble-icon>
-                    </pebble-textbox>                
-                </div>
-            </pebble-popover>
+            <pebble-popover id="tagPopover" for="tagTextCollection">
+                <template is="dom-if" if="[[!_showUpdateWindow]]">            
+                    <div class="tag-container">
+                        <pebble-textbox id='txtAddTag' label="Enter more values here to add" value="{{_tagInputText}}" on-keyup="_onEnterAdd">
+                            <pebble-icon icon="add-circle" suffix on-tap="_onTapAdd"></pebble-icon>
+                        </pebble-textbox>
+                        <span class="message" hidden="[[!_showMessage]]">Alreay exists</span>
+                    </div>
+                </template>
+                <template is="dom-if" if="[[_showUpdateWindow]]">
+                    <div class="tag-container">
+                        <pebble-textbox id='txtUpdateTag' label="Update tag" value="{{_tagInputText}}" on-keyup="_onEnterUpdate">
+                            <pebble-icon icon="save" suffix on-tap="_onTapUpdate"></pebble-icon>
+                        </pebble-textbox>
+                        <span class="message" hidden="[[!_showMessage]]">Already exists</span>
+                    </div>
+                </template>
+            </pebble-popover>            
         </div>
     </template>
 
@@ -132,40 +178,154 @@
                     _tagInputText: {
                         type: String,
                         value: null
+                    },
+
+                    _showMessage: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    _showUpdateWindow: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    _currentEditTag: {
+                        type: Object,
+                        value: function(){ return {}; }
                     }
 
                 },
                 behaviors: [
                     RUFBehaviors.UIBehavior
-                ],                
-                _openPopover:function (e) {                    
-                    this.$$('#tagAddPopover').show();            
+                ],
+
+                // Public
+                /**
+                 * Can be used to add tag item
+                 */
+                add: function(item){
+                    if(!this.isExists(item))
+                    {
+                        this.push('values', item);                        
+                        this._reset();
+
+                        this.async(function(){
+                            this.$$('#tagPopover').refitPopover();
+                        });                      
+                    }
+                    else
+                    {
+                        this._showMessage = true;
+                    }
                 },                
-                _removeTag: function (e) {
-                    var tag = e.model.item;
-                    this.fireBedrockEvent("on-tag-remove", {"tag": tag}, { ignoreId: true });
-                    this.splice('values', this.values.indexOf(tag), 1);
+                
+                /**
+                 * Can be used to know the tag exists or not
+                 */
+                isExists: function(tag){
+                    for(var i = 0; i < this.values.length; i++)
+                    {
+                        if(this.values[i].name.toLowerCase() == tag.name.toLowerCase())
+                        {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                },               
+                
+                /**
+                 * Can be used to remove tag item
+                 */
+                remove: function(item)
+                {
+                    if(item && this.isExists(item))
+                    {
+                        this.splice('values', this.values.indexOf(item), 1);
+                    }
+                },                
+                
+                //Private
+                _reset: function(){
+                    this._tagInputText = '';                    
+                    this._showMessage = false;
+                    this._showUpdateWindow = false;
+                    this._currentEditTag = {};
                 },
+
+                _openPopover:function (e) {                    
+                    this.$$('#tagPopover').show();            
+                },
+
+                //Events
+                _onTapRemove: function (e) {
+                    var tag = e.model.item;                    
+                    this.remove(tag);
+                },
+
                 _onTapAdd: function() {
                     if(!this._tagInputText || (this._tagInputText && !this._tagInputText.trim()) ){
                         return;
                     }
 
-                    this.fireBedrockEvent("on-tag-add", {"text": this._tagInputText}, { ignoreId: true });
-                    this._tagInputText = ''; //Clear text
-                    this.$$('#txtTag').focus();
+                    var item = {"name": this._tagInputText};
+                    this.add(item);                    
                 },
+
                 _onEnterAdd: function(e) {
                     if (e.keyCode === 13) {
                         this._onTapAdd();
                     }
                 },
-                _onPopoverClose: function(){
-                    this._tagInputText = '';
+
+                _onTapEdit: function(e){
+                    this._currentEditTag = { "item" : e.model.item, "index" : e.target.attributes['index'].value }; //Current edit item
+                    this._tagInputText = this._currentEditTag.item.name;                    
+                    this._showUpdateWindow = true;
+                    this.$$('#tagPopover').show();                    
                 },
+
+                _onTapUpdate: function(){
+                    //Verify input data
+                    if(!this._tagInputText || (this._tagInputText && !this._tagInputText.trim()) ){
+                        return;
+                    }
+
+                    //If updated input is already exists
+                    for(var i = 0; i < this.values.length; i++)
+                    {
+                        if(i != this._currentEditTag.index && this.values[i].name == this._tagInputText)
+                        {
+                            this._showMessage = true;
+                            return;
+                        }
+                    }
+
+                    this.set('values.' + this._currentEditTag.index + '.name', this._tagInputText);
+                    this.$$('#tagPopover').hide();
+                },
+
+                _onEnterUpdate: function(e){
+                    if (e.keyCode === 13) {
+                        this._onTapUpdate();
+                    }
+                },
+
+                _onPopoverClose: function(){
+                    this._reset();
+                },
+                
                 _onPopoverOpen: function(){
-                    this.$$('#txtTag').focus();
-                }
+                    if(this._showUpdateWindow)
+                    {
+                        this.$$('#txtUpdateTag').focus();
+                    }
+                    else
+                    {
+                        this.$$('#txtAddTag').focus();
+                    }                   
+                }          
             });
         })();
     </script>
