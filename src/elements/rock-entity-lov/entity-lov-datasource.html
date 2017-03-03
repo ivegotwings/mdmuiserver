@@ -1,0 +1,137 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+
+<dom-module id="entity-lov-datasource">
+    <template>
+        <liquid-entity-data-get id="initiateSearchResult" operation="initiatesearch" request-data="{{request}}" last-response="{{_initSearchResponse}}"
+            exclude-in-progress></liquid-entity-data-get>
+        <liquid-entity-data-get id="getSearchResultDetail" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[_initSearchResponse.content.requestId]]"
+            last-response="{{remoteData}}" exclude-in-progress></liquid-entity-data-get>
+    </template>
+    <script>
+        Polymer({
+            is: 'entity-lov-datasource',
+            properties: {
+                /**
+                 * Indicates an external data source which is binded to the `rock-grid` for loading the data.
+                 * The format for external data source and how to pass it is given in the above description.
+                 **/
+                dataSource: {
+                    notify: true,
+                    value: function () {
+                        return this._dataSource.bind(this);
+                    }
+                },
+
+                /**
+                 * Specifies the request Object to initiate the search.
+                 */
+                request: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+
+                /**
+                 * Indicates call back function where if user has given any liquid operation and request object to load data
+                 * user has to transform data based on their grid config and return array of records.
+                 */
+                dataFormatter: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    },
+                    notify: true
+                },
+
+                attributesCriterionBuilder: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    },
+                    notify: true
+                },
+
+
+                _liquidInitSearchElement: {
+                    type: Object,
+                    value: function () {
+                        return {}
+                    }
+                },
+
+                _liquidGetSearchElement: {
+                    type: Object,
+                    value: function () {
+                        return {}
+                    }
+                }
+            },
+
+            ready: function () {
+                this._liquidInitSearchElement = Polymer.dom(this).node.$$(
+                    "liquid-entity-data-get[id='initiateSearchResult']");
+                this._liquidGetSearchElement = Polymer.dom(this).node.$$(
+                    "liquid-entity-data-get[id='getSearchResultDetail']");
+            },
+
+            detached: function () {
+                this._liquidInitSearchElement.removeEventListener('response', this._onInitSearchResponse.bind(
+                    this));
+                this._liquidGetSearchElement.removeEventListener('response', this._onGetSearchResponse.bind(
+                    this, success, error));
+            },
+
+            _dataSource: function (data, success, error) {
+                // Pagination
+                var from = data.page > 0 ? (data.page - 1) * data.pageSize : 0;
+                var to = data.page > 0 ? data.page * data.pageSize - 1 : 0;
+
+                var options = {
+                    "from": from,
+                    "to": to
+                };
+                this.set("request.params.options", options);
+
+                // Filter
+                var attributesCriterion = this.attributesCriterionBuilder(data.filter);
+
+                if (attributesCriterion && attributesCriterion.length > 0) {
+                    this.set("request.params.query.filters.attributesCriterion", attributesCriterion);
+                } else {
+                    this.set("request.params.query.filters.attributesCriterion", []);
+                }
+
+                this._oneTimeEvent(this._liquidInitSearchElement, 'response', this._onInitSearchResponse.bind(
+                    this));
+                this._oneTimeEvent(this._liquidGetSearchElement, 'response', this._onGetSearchResponse.bind(
+                    this, success, error));
+
+                this._liquidInitSearchElement.generateRequest();
+            },
+
+            _onInitSearchResponse: function () {
+                console.log(JSON.stringify(this.request));
+                this._liquidGetSearchElement.generateRequest();
+            },
+
+            _onGetSearchResponse: function (success, error) {
+                var entityObject = {};
+                if (this.dataFormatter) {
+                    var remoteData = this.dataFormatter(this.remoteData);
+                    success(remoteData);
+                    console.log(JSON.stringify(remoteData));
+                }
+            },
+
+            _oneTimeEvent: function (element, type, callback) {
+                element.addEventListener(type, function (e) {
+                    e.target.removeEventListener(e.type, arguments.callee);
+                    return callback(e);
+                });
+            }
+        });
+    </script>
+</dom-module>
