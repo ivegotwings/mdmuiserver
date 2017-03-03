@@ -1,0 +1,325 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
+
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-dialog/pebble-dialog.html">
+<link rel="import" href="../pebble-icon/pebble-icon.html">
+<link rel="import" href="../pebble-image-viewer/pebble-image-viewer.html">
+<link rel="import" href="../pebble-vertical-divider/pebble-vertical-divider.html">
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../pebble-toolbar/pebble-toolbar.html">
+<link rel="import" href="../pebble-popover/pebble-popover.html">
+<link rel="import" href="../pebble-horizontal-divider/pebble-horizontal-divider.html">
+
+
+<link rel="import" href="../rock-tabs/rock-tabs.html">
+
+<dom-module id="rock-entity-quick-manage">
+    <template>
+        <style include="pebble-styles-shared"></style>
+        <style include="iron-flex"></style>
+        <style is="custom-style">
+            .thumb-image {
+                width: 50px;
+                height: 50px;
+            }
+            .product-head {
+                padding-left: 5px; 
+                font-size: 13px;               
+                color: #cacaca;
+            }
+            .product-name {
+                padding-left: 5px;
+                font-weight: bold;
+            }
+            .product-right {
+                text-align: right;
+            }
+            rock-entity-header {
+                --attribute-panel-width: 60%; 
+                --attribute-width: 100%;
+                @apply(--rock-entity-manage-header)
+            }                       
+            .trim {
+                text-overflow: ellipsis;
+                overflow: hidden;
+                white-space: nowrap;
+            }
+            #buttonPanel {
+                display: inline-block;
+            }            
+            #buttonPanel pebble-button,
+            #buttonPanel pebble-toolbar::shadow paper-toolbar {
+                display: inline-block;
+                vertical-align: middle;
+            }
+            .flex-end-justified {
+                @apply(--layout-horizontal);
+                @apply(--layout-end-justified);
+            }
+            .first-row {                
+                padding-top: 10px;
+                font-size: 14px;
+            }
+            .right-section {
+                text-align: right;
+            }
+
+            .right-section pebble-button {
+                --pebble-button: {                    
+                    min-width: 2em;
+                }
+            }
+            #attrName {
+                font-size: 12px;
+                color: #cacaca;
+            }
+            #attrVal {
+                font-weight: bold;
+            }
+
+            #quick-manage-header {
+                border-bottom: 1px solid #cacaca;
+            }
+
+            #quick-manage-entity {
+                padding-top: 10px;
+            }
+
+            pebble-toolbar {
+                --pebble-toolbar-button-icon: {
+                    padding: 4.5px;
+                    border: 0px;
+                    min-width: 2.14em;
+                    margin: 0px;
+                    top: 3px;
+                    color: var(--buttontext-color, #616161);
+                }
+                --pebble-toolbar-menubutton: {
+                    border: 0px;
+                }
+                --pebble-button: {
+                    color: var(--palette-kelly-green, #09c021);
+                    font-weight: var(--font-medium, 500);
+                }
+                --pebble-button-iron-icon: {
+                    height: 16px;
+                    width: 16px;
+                    margin-right: 5px;
+                }
+                --pebble-toolbar-pebble-button-menu-item-icon: {
+                    width: 16px;
+                    height: 16px;
+                }
+                --paper-menu-background-color: var(--palette-white, #ffffff);
+                --pebble-horizontal-divider-color:var(--buttontext-color, #616161);
+            }
+            .message {
+                font-weight: bold;
+                padding: 20px;
+            }
+                   
+        </style>        
+        <div id="quick-manage-header" hidden$="[[!_entityId]]">
+            <iron-ajax url="../../data/EntityManageApp/quick-manage-toolbar-config.json" last-response="{{_toolbarConfig}}" auto></iron-ajax>            
+            <iron-ajax url="../../data/EntityManageApp/entity-summary-tofix-data.json" last-response="{{fixes}}" auto></iron-ajax>
+                        
+            <div class="first-row layout horizontal">
+                <div>
+                    <span id="attrName">Product</span><br>
+                    <span id="attrVal">[[_getEntityDetailsForHeader(selectedEntity)]]</span>
+                </div>
+                <div class="layout flex right-section">
+                    <span id="selected-item">[[_getSelectedItemIndex(currentIndex, totalRecords)]]</span>
+                    <span id="previous"><pebble-button icon="pebble-icons:ExpandLess" on-tap="_onTapNavigation" data-args="previous" disabled$="[[_setFlag('previous', currentIndex, totalRecords)]]"></pebble-button></span>
+                    <span id="next"><pebble-button icon="expand-more" on-tap="_onTapNavigation" data-args="next" disabled$="[[_setFlag('next', currentIndex, totalRecords)]]"></pebble-button></span>
+                    <span id="maximize"><pebble-button icon="pebble-md-icons:Expand" on-tap="_onTapMaximize"></pebble-button></span>
+                </div>
+            </div>
+            <div class="second-row flex-end-justified">
+                <div id="buttonPanel">
+                    <pebble-button id="pebbleButton" class="iconTextButton" on-click="_openPopover" icon="[[_computeIcon(fixes.completionPercentage)]]"
+                        button-text="[[fixes.completionPercentage]]%"></pebble-button>
+                    <pebble-popover id="tofixPopover" for="pebbleButton" horizontal-align="right" auto-fit-on-attach no-overlap>
+                        <rock-entity-tofix data="[[fixes]]"></rock-entity-tofix>
+                    </pebble-popover>
+                    <pebble-toolbar config-data="[[_toolbarConfig]]"></pebble-toolbar>
+                </div> 
+            </div>           
+        </div>
+        <div id="quick-manage-entity" hidden$="[[!_entityId]]">
+            <bedrock-pubsub on-bedrock-event-error-length-changed="_errorLengthChanged"></bedrock-pubsub>            
+            <rock-tabs id="rockTabs" config="{{_tabConfig}}">
+            </rock-tabs>
+            <iron-ajax auto url="../../data/EntityManageApp/quick-entity-manage-tab-config.json" handle-as="json" on-response="_handleResponse"></iron-ajax>
+            <bedrock-pubsub event-name="component-creating" handler="_onComponentCreating"></bedrock-pubsub>
+        </div>
+        <div class="message" hidden$="[[_entityId]]">Please select an entity from grid.</div>
+    </template>
+    <script>
+        (function () {
+            'use strict';
+
+            Polymer({
+                is: 'rock-entity-quick-manage',
+
+                properties: {
+                    context: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        },
+                        observer: '_onContextChange'
+                    },
+                    /*
+                    * Indicates the config for tab element
+                    */
+                    _tabConfig: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },                    
+
+                    _entityId: {
+                        type: String,
+                        value: null
+                    },
+
+                    _list: {
+                        type: String
+                    },
+
+                    _source: {
+                        type: String
+                    },
+
+                    _locale: {
+                        type: String
+                    },
+
+                   /**
+                    * Indictaes the classification for which the attributes have to be managed.
+                    */
+                    _classification: {
+                        type: String,
+                        value: "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
+                    },
+
+                    /**
+                     * Indicates current selected item index
+                     */
+                    currentIndex: {
+                        type: Number,
+                        value: -1,
+                        notify: true
+                    },
+
+                    /**
+                     * Indicates total count of the records
+                     */
+                    totalRecords: {
+                        type: Number,
+                        value: 0
+                    },
+
+                   /**
+                    * Indicates selected item
+                    */
+                    selectedEntity: {
+                        type: Object,
+                        value: function(){ return{}; }
+                    },
+                                     
+                    /**
+                    * Indicates whether to write logs or not.
+                    */
+                    verbose: {
+                        type: Boolean,
+                        value: false
+                    }
+                },         
+                behaviors: [
+                    RUFBehaviors.UIBehavior
+                ],                                
+                 _computeIcon: function (percentage) {
+                    var per = Math.round(percentage / 10) * 10;
+                    return "pebble-md-icons:Percentage";
+                },
+                _openPopover: function () {
+                    this.$.tofixPopover.show();
+                },
+                _onTapNavigation: function(e){
+                    var eventName = 'on-tap-' + e.target.attributes["data-args"].value;
+                    this.fireBedrockEvent(eventName, { data: this.currentEntityIndex });                    
+                },
+                _onTapMaximize: function(){                    
+                    if (this._entityId) 
+                    {
+                        document.querySelector("main-app").set('pageRoute.__queryParams', { "id": this._entityId });
+                        document.querySelector("main-app").changePageRoutePath("/entity-manage");
+                    }
+                },                
+                _getSelectedItemIndex: function(){
+                    if(this.currentIndex == -1 && this.totalRecords == 0)
+                    {
+                        return "";
+                    }
+                    else
+                    {
+                        return (this.currentIndex + 1) + " - " + this.totalRecords; 
+                    }
+                },
+                _handleResponse: function (e) {
+                    this.set("_tabConfig", e.currentTarget.lastResponse);
+                },
+                _onComponentCreating: function (e, detail, sender) {
+                    var component = detail.data;
+
+                    if (component.name.indexOf("attribute") != -1 && component.properties) {
+                        component.properties.list = this.context.list;
+                        component.properties.source = this.context.source;
+                        component.properties.locale = this.context.locale;
+                        component.properties['entity-id'] = this.context.entityId;
+                    }
+                },
+                _setHeader: function(){
+                    this._entityId = this.context.entityId;
+                    this._list = this.context.list;
+                    this._source = this.context.source;
+                    this._locale = this.context.locale;
+                },
+                _onContextChange: function(){ 
+                    this._setHeader();
+                    
+                    if(this.$$('#rockTabs'))
+                    {
+                        this.$$('#rockTabs').reloadCurrentTab();
+                    }
+                },
+                _errorLengthChanged: function (e, detail) {
+                    this.$$('#rockTabs')._currentTabErrorLength = detail;
+                },
+                _setFlag: function(nav){                    
+                    if(nav == "previous" && this.currentIndex == 0){
+                        return true;
+                    }
+                    else if(nav == "next" && this.currentIndex == (this.totalRecords - 1)){
+                        return true;
+                    }
+
+                    return false;
+                },
+                _getEntityDetailsForHeader: function(){
+                    if(this.selectedEntity && this.selectedEntity.attributes)
+                    {
+                        return this.selectedEntity.attributes.coreAttributes["cpimProductName"].value;
+                    }
+                }                            
+            });
+        })();
+    </script>
+</dom-module>
