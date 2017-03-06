@@ -14,7 +14,14 @@
 <link rel="import" href="../pebble-button/pebble-button.html">
 
 <link rel="import" href="../rock-attribute-list/rock-attribute-list.html">
+<!--
+`rock-extension-manage` represents a component that renders all the extensions of the entity.
+Can manage current extensions, create new extensions etc.
 
+@element rock-extension-manage
+@group rock-elements
+@demo demo/index.html
+-->
 <dom-module id="rock-extension-manage">
     <template>
         <style include="pebble-styles-shared">
@@ -89,8 +96,8 @@
             <div id="extensions-container">
                 <div id="tree-container" class="left">
                     <span class="tree-heading">Container & Catagory Context</span>
-                    <!--<iron-ajax auto url="demo/entity-containers-data.json" handle-as="json" last-response="{{_containerData}}"></iron-ajax>
-                    <iron-ajax auto url="demo/entity-catagories-data.json" handle-as="json" last-response="{{_catagoriesData}}"></iron-ajax>-->
+                    <iron-ajax auto url="demo/entity-containers-data.json" handle-as="json" last-response="{{_containerData}}"></iron-ajax>
+                    <iron-ajax auto url="demo/entity-catagories-data.json" handle-as="json" last-response="{{_catagoriesData}}"></iron-ajax>
                     <pebble-tree id="contextTree" data="{{_treeData}}" enable-search multi-select check-parent-nodes></pebble-tree>
                 </div>
                 <pebble-vertical-divider class="divider"></pebble-vertical-divider>
@@ -230,116 +237,111 @@
                     },
                 },
                 observers: [
-                    '_contextChanged(entityId)',
+                    '_entityDataChanged(_containerData, _catagoriesData)',
                     '_attributeModelResponseChanged(_attributeModelResponse)'
                 ],
                 listeners:{
-                    'item-selected':'_treeItemSelected',
-                    'node-expanded': '_nodeExpanded'
+                    'item-selected':'_treeItemSelected'
                 },
-                _contextChanged: function(entityId) {
-                    var req = {
-                        "objType": "entity",
-                        "params": {
-                            "query": {
-                                "id": entityId,
-                                "filters": {
-                                    "typesCriterion": ["nart"]
+                _entityDataChanged: function(_containerData, _catagoriesData) {
+                    if(_containerData && _containerData.length > 0) {
+                        var treeData = [];
+                        for(var i=0; i < _containerData.length; i++) {
+                            var nodeJson = {
+                                "text": _containerData[i].text,
+                                "value": _containerData[i].value,
+                                "border": _containerData[i].border,
+                                "expanded": _containerData[i].expanded
+                            };
+                            treeData.push(nodeJson);
+                        }
+                        if(_catagoriesData && _catagoriesData.length > 0) {
+                            for(var i=0; i<treeData.length; i++) {
+                                var containerName = treeData[i].text;
+                                var catagories = this._getCatagoriesForContainer(_catagoriesData, containerName);
+                                if(catagories && catagories.length > 0) {
+                                    treeData[i]["children"] = catagories;
                                 }
-                            },
-                            "fields": {
-                                "ctxTypes": [
-                                    "properties"
-                                ],
-                                "attributes": [
-                                ]
-                            },
-                            "options": {
-                                "totalRecords": 1,
-                                "includeRequest": false
+                            }
+                            this._generateRequestForEntity();
+                        }
+                        this.set("_treeData", treeData);
+                    }
+                },
+                _getCatagoriesForContainer: function(catagories, containerName) {
+                    if(catagories && catagories.length > 0) {
+                        var catagoriesJson = [];
+                        for(var i=0; i< catagories.length; i++) {
+                            var container = catagories[i].text;
+                            if(container == containerName) {
+                                catagoriesJson = catagories[i].children;
+                                return catagoriesJson;
                             }
                         }
-                    };
-                    this.set("_entityRequest", req);
-                    this.$$("#entityGetData3").generateRequest();
+                    }
+                },
+                _generateRequestForEntity: function() {
+                    var req = {
+                            "objType": "entity",
+                            "params": {
+                                "query": {
+                                    "id": this.entityId,
+                                    "filters": {
+                                        "typesCriterion": ["nart"]
+                                    }
+                                },
+                                "fields": {
+                                    "ctxTypes": [
+                                        "properties"
+                                    ],
+                                    "attributes": [
+                                    ]
+                                },
+                                "options": {
+                                    "totalRecords": 1,
+                                    "includeRequest": false
+                                }
+                            }
+                        };
+                        this.set("_entityRequest", req);
+                        this.$$("#entityGetData3").generateRequest();
                 },
                 _onEntitiesReceived: function(e) {
                     var entities = e.detail.response;
-                    if(!entities.data) {
-                        entities["data"] = data;
-                    }
+                   
                     if(entities.data) {
-                        this._transformEntityDataToTreeHeirarchy(entities.data);
+                        //this._transformEntityDataToTreeHeirarchy(entities.data);
+                        this._selectNodes(entities.data);
+                    }
+                },
+                _selectNodes: function(entityData) {
+                    var treeElement = this.$$("#contextTree");
+                    for(var i=0; i< entityData.ctxInfo.length; i++) {
+                        var ctxGroup = entityData.ctxInfo[i].ctxGroup;
+                        var list = ctxGroup.list;
+                        var classification = ctxGroup.classification;
+                        var catagories = classification.split("/");
+                        var catagoryValue = catagories[catagories.length - 1];
+                        var nodePath = treeElement.getElementPathByValue(catagoryValue);
+                        var paths = nodePath.split(".");
+                        var previousNode = undefined;
+                        var path="";
+                        for(var j=0; j<paths.length; j++) {
+                            path = path + paths[j];
+                            var node = treeElement.getElementNodeByPath(path);
+                            if(node) {
+                                node.expanded = true;
+                                if(!node.children && node.children.length == 0) {
+                                    node.selectItem();
+                                }
+                            }
+                            previousNode = node;
+                            path = path + ".";
+                        }
                     }
                 },
                 _onEntityGetFailed: function(e) {
                     var message = e.detail.response;
-                },
-                _transformEntityDataToTreeHeirarchy : function(entityData) {
-                        var containersData = [];
-                        var selectedItems = [];
-                        for(var i=0; i< entityData.ctxInfo.length; i++) {
-                            var ctxGroup = entityData.ctxInfo[i].ctxGroup;
-                            var list = ctxGroup.list;
-                            var classification = ctxGroup.classification;
-                            //To Do: functionality to get longname of list
-                            var nodeData = {
-                                "text": list, // should have list long name here.
-                                "value": list,
-                                "border": true,
-                                "expanded": true,
-                                "children": []
-                            };
-                            var container = this._checkIfContainerExists(containersData, nodeData);
-                            if(!container) {
-                                container = nodeData;
-                                var catagories = classification.split("/");
-                                var previousNodeData = undefined;
-                                for(var j=1; j<=catagories.length; j++) {
-                                    var catagoryNode = catagories[catagories.length - j];
-                                    var catagoryNodeData = {
-                                        "text": catagoryNode,//get longname of catagory
-                                        "value": catagoryNode,
-                                        "expanded": true
-                                    };
-                                    if(previousNodeData) {
-                                        catagoryNodeData["children"] = [];
-                                        catagoryNodeData.children[0] = previousNodeData;
-                                    }
-                                    else {
-                                        selectedItems.push(catagoryNodeData);
-                                    }
-                                    previousNodeData = catagoryNodeData;
-                                }
-                                container.children[0] = catagoryNodeData;
-                            }
-                            containersData.push(container);
-                        }
-                        this.set("_selectedItems", selectedItems);
-                        this.set("_treeData", containersData);
-                },
-                _checkIfContainerExists: function(containersData, data) {
-                    if(data && containersData && containersData.length > 0) {
-                        for(var i=0; i<containersData.length; i++) {
-                            if(containersData[i].value == data.value) {
-                                return containersData[i];
-                            }
-                        }
-                    }
-                },
-                _nodeExpanded: function(e) {
-                    if(e.detail) {
-                        var node = e.detail;
-                        var nodeData = node.nodeData;
-                        if(this._selectedItems && this._selectedItems.length > 0) {
-                            for(var i=0; i<this._selectedItems.length; i++) {
-                                var item = this._selectedItems[i];
-                                if(item.value == nodeData.value && !nodeData.children) {
-                                    node.selectItem();
-                                }
-                            }
-                        }
-                    }
                 },
                 _treeItemSelected: function(e) {
                     if(e.detail.data) {
