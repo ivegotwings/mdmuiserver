@@ -54,19 +54,20 @@ DataObjectFalcorUtil.boxDataObject = function (dataObject, boxOp) {
     for (var dataObjectFieldKey in dataObject) {
         if (dataObjectFieldKey === "data") {
             var modCtxInfo = [];
+            if (dataObject && dataObject.data && dataObject.data.ctxInfo) {
+                for (var i = 0; i < dataObject.data.ctxInfo.length; i++) {
+                    var ctxItem = dataObject.data.ctxInfo[i];
+                    var modAttrs = DataObjectFalcorUtil.boxAttributesData(ctxItem.attributes, boxOp);
+                    var modRelationships = DataObjectFalcorUtil.boxRelationshipsData(ctxItem.relationships, boxOp);
 
-            for (let ctxItem of dataObject.data.ctxInfo) {
-                
-                var modAttrs = DataObjectFalcorUtil.boxAttributesData(ctxItem.attributes, boxOp);
-                var modRelationships = DataObjectFalcorUtil.boxRelationshipsData(ctxItem.relationships, boxOp);
-
-                modCtxInfo.push({ "ctxGroup": ctxItem.ctxGroup, "attributes": modAttrs, "relationships": modRelationships });
+                    modCtxInfo.push({ "ctxGroup": ctxItem.ctxGroup, "attributes": modAttrs, "relationships": modRelationships });
+                }
             }
-
             modDataObject.data = { 'ctxInfo': modCtxInfo };
+
         }
         else {
-            if(!isEmpty(dataObject[dataObjectFieldKey])) {
+            if (!isEmpty(dataObject[dataObjectFieldKey])) {
                 modDataObject[dataObjectFieldKey] = boxOp(dataObject[dataObjectFieldKey]);
             }
         }
@@ -145,15 +146,15 @@ DataObjectFalcorUtil.unboxJsonObject = function (obj) {
 DataObjectFalcorUtil.transformToExternal = function (dataObject) {
 
     //console.log('transform dataObject input:', JSON.stringify(dataObject));
-    
+
     var transDataObject = {};
 
-    if(isEmpty(dataObject)) {
+    if (isEmpty(dataObject)) {
         return transDataObject;
     }
 
-    for(var dataObjectField in dataObject) {
-        if(dataObjectField != 'data') {
+    for (var dataObjectField in dataObject) {
+        if (dataObjectField != 'data') {
             transDataObject[dataObjectField] = dataObject[dataObjectField];
         }
     }
@@ -164,81 +165,83 @@ DataObjectFalcorUtil.transformToExternal = function (dataObject) {
     var ctxInfo = [];
 
     if (dataObject.data && dataObject.data.ctxInfo) {
-        
+
         var transCtxInfo = [];
         var ctxKeys = Object.keys(dataObject.data.ctxInfo);
-        
-        for (let ctxKey of ctxKeys) {
-            var transCtxInfoItem = {};
+        if (ctxKeys && ctxKeys.length) {
+            for (var i = 0; i < ctxKeys.length; i++) {
+                var ctxKey = ctxKeys[i];
+                var transCtxInfoItem = {};
 
-            var ctxGroup = DataObjectFalcorUtil.createCtxItem(ctxKey);
-            transCtxInfoItem.ctxGroup = ctxGroup;
-            
-            var enCtxInfo = dataObject.data.ctxInfo[ctxKey];
-            
-            if(enCtxInfo.attributes) {
-                transCtxInfoItem.attributes = DataObjectFalcorUtil.transformAttributesToExternal(enCtxInfo.attributes);
+                var ctxGroup = DataObjectFalcorUtil.createCtxItem(ctxKey);
+                transCtxInfoItem.ctxGroup = ctxGroup;
+
+                var enCtxInfo = dataObject.data.ctxInfo[ctxKey];
+
+                if (enCtxInfo.attributes) {
+                    transCtxInfoItem.attributes = DataObjectFalcorUtil.transformAttributesToExternal(enCtxInfo.attributes);
+                }
+
+                if (enCtxInfo.relationships) {
+                    transCtxInfoItem.relationships = DataObjectFalcorUtil.transformRelationshipsToExternal(enCtxInfo.relationships);
+                }
+
+                transCtxInfo.push(transCtxInfoItem);
             }
-            
-            if(enCtxInfo.relationships) {
-                transCtxInfoItem.relationships = DataObjectFalcorUtil.transformRelationshipsToExternal(enCtxInfo.relationships);
-            }
-            
-            transCtxInfo.push(transCtxInfoItem);            
         }
-
         transDataObject.data = { ctxInfo: transCtxInfo };
     }
 
     return transDataObject;
 };
 
-DataObjectFalcorUtil.transformAttributesToExternal = function(attributes) {
+DataObjectFalcorUtil.transformAttributesToExternal = function (attributes) {
     var transAttributes = {};
 
-    if(isEmpty(attributes)) {
+    if (isEmpty(attributes)) {
         return transAttributes;
     }
 
-    for(var attrKey in attributes) {
+    for (var attrKey in attributes) {
         var attr = attributes[attrKey];
         var attrValCtxInfo = attr.valCtxInfo;
 
-        if(!attrValCtxInfo) {
+        if (!attrValCtxInfo) {
             continue;
         }
 
         var valCtxKeys = Object.keys(attrValCtxInfo);
-        
-        for (let valCtxKey of valCtxKeys) {
-            var attrData = attrValCtxInfo[valCtxKey];
+        if (valCtxKeys && valCtxKeys.length) {
+            for (var i = 0; i < valCtxKeys.length; i++) {
+                var valCtxKey = valCtxKeys[i];
+                var attrData = attrValCtxInfo[valCtxKey];
 
-            var transAttr = DataObjectFalcorUtil.createAndGet(transAttributes, attrKey, {});
-           
-            if(attrData) {
-                if(attrData.values) {
-                    var transAttrValues = DataObjectFalcorUtil.createAndGet(transAttr, 'values', []);
-                    transAttrValues.push.apply(transAttrValues, attrData.values);
-                }
-                else if(attrData.group) {
-                    var transAttrGroup = DataObjectFalcorUtil.createAndGet(transAttr, 'group', []);
-                    transAttrGroup.push.apply(transAttrGroup, attrData.group);
-                }
-                if(attrData.properties) {
-                    var transAttrProperties = DataObjectFalcorUtil.createAndGet(transAttr, 'properties', {});
-                    transAttrProperties.push.apply(transAttrProperties, attrData.properties);
+                var transAttr = DataObjectFalcorUtil.createAndGet(transAttributes, attrKey, {});
+
+                if (attrData) {
+                    if (attrData.values) {
+                        var transAttrValues = DataObjectFalcorUtil.createAndGet(transAttr, 'values', []);
+                        transAttrValues.push.apply(transAttrValues, attrData.values);
+                    }
+                    else if (attrData.group) {
+                        var transAttrGroup = DataObjectFalcorUtil.createAndGet(transAttr, 'group', []);
+                        transAttrGroup.push.apply(transAttrGroup, attrData.group);
+                    }
+                    if (attrData.properties) {
+                        var transAttrProperties = DataObjectFalcorUtil.createAndGet(transAttr, 'properties', {});
+                        transAttrProperties.push.apply(transAttrProperties, attrData.properties);
+                    }
                 }
             }
         }
     }
-    
     return transAttributes;
 };
 
-DataObjectFalcorUtil.createAndGet = function(obj, key, defaultVal) {
+DataObjectFalcorUtil.createAndGet = function (obj, key, defaultVal) {
     var keyObj = obj[key];
 
-    if(keyObj === undefined) {
+    if (keyObj === undefined) {
         keyObj = defaultVal;
         obj[key] = keyObj;
     }
@@ -246,10 +249,10 @@ DataObjectFalcorUtil.createAndGet = function(obj, key, defaultVal) {
     return keyObj;
 };
 
-DataObjectFalcorUtil.transformRelationshipsToExternal = function(relationships) {
+DataObjectFalcorUtil.transformRelationshipsToExternal = function (relationships) {
     var transRelationships = {};
 
-    if(isEmpty(relationships)) {
+    if (isEmpty(relationships)) {
         return transRelationships;
     }
 
@@ -270,24 +273,24 @@ DataObjectFalcorUtil.transformRelationshipsToExternal = function(relationships) 
     return transRelationships;
 };
 
-DataObjectFalcorUtil.sortObject = function(object) {
-    if(isEmpty(object)) {
+DataObjectFalcorUtil.sortObject = function (object) {
+    if (isEmpty(object)) {
         return object;
     }
 
     var sortedObj = {},
         keys = Object.keys(object);
 
-    keys.sort(function(key1, key2){
+    keys.sort(function (key1, key2) {
         key1 = key1.toLowerCase(), key2 = key2.toLowerCase();
-        if(key1 < key2) return -1;
-        if(key1 > key2) return 1;
+        if (key1 < key2) return -1;
+        if (key1 > key2) return 1;
         return 0;
     });
 
-    for(var index in keys){
+    for (var index in keys) {
         var key = keys[index];
-        if(typeof object[key] == 'object' && !(object[key] instanceof Array)){
+        if (typeof object[key] == 'object' && !(object[key] instanceof Array)) {
             sortedObj[key] = DataObjectFalcorUtil.sortObject(object[key]);
         } else {
             sortedObj[key] = object[key];
@@ -297,22 +300,22 @@ DataObjectFalcorUtil.sortObject = function(object) {
     return sortedObj;
 };
 
-DataObjectFalcorUtil.createCtxKey = function(ctxItem) {
+DataObjectFalcorUtil.createCtxKey = function (ctxItem) {
     var ctxKey = '{}';
 
-    if(!isEmpty(ctxItem)) {
+    if (!isEmpty(ctxItem)) {
         ctxKey = JSON.stringify(DataObjectFalcorUtil.sortObject(ctxItem));
     }
 
     return ctxKey;
 };
 
-DataObjectFalcorUtil.createCtxKeys = function(ctxItems) {
+DataObjectFalcorUtil.createCtxKeys = function (ctxItems) {
     var ctxKeys = [];
 
-    if(!isEmpty(ctxItems)) {
-        for(let ctxItem of ctxItems) {
-            ctxKeys.push(DataObjectFalcorUtil.createCtxKey(ctxItem));
+    if (!isEmpty(ctxItems)) {
+        for (var i = 0; i < ctxItems.length; i++) {
+            ctxKeys.push(DataObjectFalcorUtil.createCtxKey(ctxItems[i]));
         }
     }
     else {
@@ -322,39 +325,39 @@ DataObjectFalcorUtil.createCtxKeys = function(ctxItems) {
     return ctxKeys;
 };
 
-DataObjectFalcorUtil.createEmptyKeyFieldIfMissing = function(obj, key, defaultVal) {
-    if(obj && (obj[key] === undefined || isEmpty(obj[key]))) {
+DataObjectFalcorUtil.createEmptyKeyFieldIfMissing = function (obj, key, defaultVal) {
+    if (obj && (obj[key] === undefined || isEmpty(obj[key]))) {
         obj[key] = defaultVal;
     }
 };
 
-DataObjectFalcorUtil.compareCtx = function(obj1, obj2) {
+DataObjectFalcorUtil.compareCtx = function (obj1, obj2) {
     return JSON.stringify(DataObjectFalcorUtil.sortObject(obj1)) == JSON.stringify(DataObjectFalcorUtil.sortObject(obj2));
 };
 
-DataObjectFalcorUtil.createCtxItem = function(ctxKey) {
+DataObjectFalcorUtil.createCtxItem = function (ctxKey) {
     return JSON.parse(ctxKey);
 };
 
-DataObjectFalcorUtil.createCtxItems = function(ctxKeys) {
+DataObjectFalcorUtil.createCtxItems = function (ctxKeys) {
     var ctxItems = [];
 
     if (isEmpty(ctxKeys)) {
         return ctxItems;
     }
 
-    for (let ctxKey of ctxKeys) {
+    for (var i = 0; i < ctxKeys.length; i++) {
+        var ctxKey = ctxKeys[i];
         var ctxItem = DataObjectFalcorUtil.createCtxItem(ctxKey);
 
         var ctxItemFound = false;
-        for(let existingCtxItem of ctxItems) {
-            if(DataObjectFalcorUtil.compareCtx(existingCtxItem, ctxItem)) {
+        for (var j = 0; j < ctxItems.length; j++) {
+            if (DataObjectFalcorUtil.compareCtx(ctxItems[j], ctxItem)) {
                 ctxItemFound = true;
                 break;
             }
         }
-
-        if(!ctxItemFound) {
+        if (!ctxItemFound) {
             ctxItems.push(ctxItem);
         }
     }
@@ -363,13 +366,15 @@ DataObjectFalcorUtil.createCtxItems = function(ctxKeys) {
 };
 
 DataObjectFalcorUtil.getAttributesByCtx = function (entity, ctx) {
-    for (let ctxData of entity.data.ctxInfo) {
-        var compareResult = DataObjectFalcorUtil.compareCtx(ctxData.ctxGroup, ctx);
-        if (compareResult) {
-            return ctxData.attributes;
+    if (entity && entity.data && entity.data.ctxInfo && entity.data.ctxInfo.length) {
+        for (var i = 0; i < entity.data.ctxInfo.length; i++) {
+            var ctxData = entity.data.ctxInfo[i];
+            var compareResult = DataObjectFalcorUtil.compareCtx(ctxData.ctxGroup, ctx);
+            if (compareResult) {
+                return ctxData.attributes;
+            }
         }
     }
-
     return {};
 };
 
@@ -391,7 +396,7 @@ var SharedUtils = SharedUtils || {};
 
 function isEmpty(obj) {
     //if (obj === undefined) { return true };
-    
+
     for (var x in obj) { return false; }
 
     return true;
