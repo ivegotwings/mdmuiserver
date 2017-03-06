@@ -1,0 +1,582 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
+
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+
+<link rel="import" href="../liquid-entity-get/liquid-entity-get.html">
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+<link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
+
+<link rel="import" href="../pebble-accordion/pebble-accordion.html">
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../pebble-vertical-divider/pebble-vertical-divider.html">
+<link rel="import" href="../pebble-tree/pebble-tree.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+
+<link rel="import" href="../rock-attribute-list/rock-attribute-list.html">
+
+<dom-module id="rock-extension-manage">
+    <template>
+        <style include="pebble-styles-shared">
+            /* Accordian styles */
+            pebble-accordion::shadow .header{
+                background-color:var(--palette-pale-grey-four);
+                border: 0;
+                margin:1px;
+            }
+            pebble-accordion::shadow .header-items-space{
+                float:left !important;
+            }
+            .tree-heading {
+                margin-left: 18px;
+                font-weight: bolder;
+                font-size: 15px;
+            }
+            #extensions-container {
+                position: relative;
+                margin: 10px;
+                width:98%;
+                display: inline-flex;
+                display: -webkit-inline-flex;
+                box-shadow: 0 1px 7px 0 rgba(156, 166, 178, 0.96);
+            }
+            .divider {
+                --pebble-vertical-divider-color: #c1cad4;
+            }
+            .left {
+                width:30%;
+            }
+            .right {
+                width:70%;
+            }
+            .card {
+                margin: 10px;
+                box-shadow: 0 1px 7px 0 rgba(156, 166, 178, 0.96);
+            }
+            .card > pebble-accordion::shadow .header-items-space{
+                float:right !important;
+            }
+            .card > pebble-accordion::shadow .header{
+                background-color: #fff;
+                border: 0;
+                margin:1px;
+            }
+            .card > pebble-accordion::shadow .header-text a {
+                font-size: 15px;
+            }
+            .card > pebble-accordion::shadow .header-text iron-icon {
+                height: 30px;
+                width: 30px;
+            }
+            .attribute {
+                display: inline-block;
+                width: 49%;
+            }
+            #buttonContainer {
+                height: 50px;
+                width: 50%;
+                position: fixed;
+                bottom: 55px;
+                text-align: center;
+                display: none;
+                padding: 12px 0 0 0;
+                z-index: 1;
+            }
+        </style>
+        <liquid-entity-data-get id="entityGetData3" verbose operation="getbyids" request-id="req1" request-data={{_entityRequest}} 
+        last-response={{entities}} on-response="_onEntitiesReceived" on-error="_onEntityGetFailed"></liquid-entity-data-get>
+        <pebble-accordion header-text="Extension Context" default-icon="expand-less" open-icon="expand-more">
+            <div id="extensions-container">
+                <div id="tree-container" class="left">
+                    <span class="tree-heading">Container & Catagory Context</span>
+                    <!--<iron-ajax auto url="demo/entity-containers-data.json" handle-as="json" last-response="{{_containerData}}"></iron-ajax>
+                    <iron-ajax auto url="demo/entity-catagories-data.json" handle-as="json" last-response="{{_catagoriesData}}"></iron-ajax>-->
+                    <pebble-tree id="contextTree" data="{{_treeData}}" enable-search multi-select check-parent-nodes></pebble-tree>
+                </div>
+                <pebble-vertical-divider class="divider"></pebble-vertical-divider>
+                <div id="expansion-panel" class="right">
+                    <div id="buttonContainer" align="center">
+                        <pebble-button id="cancel" class="action-button btn btn-secondary" button-text="Cancel" on-tap="_revertAll" elevation=1 raised></pebble-button>
+                        <pebble-button id="save" class="action-button-focus dropdownText btn btn-success m-r-5" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
+                    </div>
+                </div>
+            </div>
+        </pebble-accordion>
+        <liquid-entity-get name="attributeModelGetService" request="{{_attributeModelRequest}}" response="{{_attributeModelResponse}}"></liquid-entity-get>
+        <liquid-entity-data-get id="attributeGetDataService" name="attributeGetDataService" operation="getbyids" request-data="{{_attributeRequest}}"
+            last-response="{{_attributeResponse}}" on-response="_onAttributeResponse"></liquid-entity-data-get>
+        <liquid-entity-data-save name="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}"
+                on-response="_onSaveResponse"></liquid-entity-data-save>
+    </template>
+    <script>
+        (function () {
+            'use strict';
+
+            Polymer({
+                is: "rock-extension-manage",
+                properties: {
+                    /**
+                     * Indictaes Id of the entity for which the extansions have to be managed.
+                     */
+                    entityId: {
+                        type: String
+                    },
+                     _selectedItems: {
+                        type: Array,
+                        value: function() {return [];},
+                    },
+                    /**
+                   * Indicates the names of the attributes to be rendered in extensions.
+                   */
+                   attributeNames: {
+                       type: Array,
+                       value: function() { 
+                           return ["cpimProductName", "csapGenderDescriptionType", "cpimSkinType", "cpimShortDescription"]; 
+                        }
+                   },
+                    /**
+                    * Specifies the request object for attribute model request.
+                    */
+                   _attributeModelRequest: {
+                        type: Object,
+                        value: function () {
+                            return {
+                                action: "getAttributeModels"
+                            };
+                        }
+                    },
+                    /**
+                    * Specifies the response object for attribute models.
+                    */
+                    _attributeModelResponse: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _containerData: {
+                        type: Array,
+                        value: function() { return []; }
+                    },
+                    _catagoriesData: {
+                        type: Array,
+                        value: function() { return []; }
+                    },
+                    _treeData: {
+                        type: Array,
+                        value: function() { return []; }
+                    },
+                     /**
+                    * Indicates the request object that is passed to the data element to retrive attribute data.
+                      Sample: { 
+                                action: "getAttributes" 
+                              }
+                    */
+                    _attributeRequest: {
+                        type: Object,
+                        value: function () {
+                            return {
+                                "params": {
+                                    "query": {
+                                        "ctx": [{
+                                            "list": "",
+                                            "classification": ""
+                                        }],
+                                        "valCtx": [{
+                                            "source": "SAP",
+                                            "locale": "en-US"
+                                        }],
+                                        "id": "",
+                                        "filters": {
+                                            "attributesCriterion": [],
+                                            "relationshipsCriterion": [],
+                                            "typesCriterion": ["nart"]
+                                        }
+                                    },
+                                    "fields": {
+                                        "ctxTypes": [
+                                            "properties"
+                                        ],
+                                        "attributes": "",
+                                        "relationships": [
+                                        ]
+                                    },
+                                    "options": {
+                                        "totalRecords": 4,
+                                        "includeRequest": false
+                                    }
+                                }
+                            };
+                        }
+                    },
+                    /**
+                     * Indicates the response object that is received from the data element for the attribute get request.
+                     */
+                    _attributeResponse: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                     _attributeValues: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _entityRequest: {
+                        type: Object,
+                        value: function() { return {}; }
+                    },
+                },
+                observers: [
+                    '_contextChanged(entityId)',
+                    '_attributeModelResponseChanged(_attributeModelResponse)'
+                ],
+                listeners:{
+                    'item-selected':'_treeItemSelected',
+                    'node-expanded': '_nodeExpanded'
+                },
+                _contextChanged: function(entityId) {
+                    var req = {
+                        "objType": "entity",
+                        "params": {
+                            "query": {
+                                "id": entityId,
+                                "filters": {
+                                    "typesCriterion": ["nart"]
+                                }
+                            },
+                            "fields": {
+                                "ctxTypes": [
+                                    "properties"
+                                ],
+                                "attributes": [
+                                ]
+                            },
+                            "options": {
+                                "totalRecords": 1,
+                                "includeRequest": false
+                            }
+                        }
+                    };
+                    this.set("_entityRequest", req);
+                    this.$$("#entityGetData3").generateRequest();
+                },
+                _onEntitiesReceived: function(e) {
+                    var entities = e.detail.response;
+                    if(!entities.data) {
+                        entities["data"] = data;
+                    }
+                    if(entities.data) {
+                        this._transformEntityDataToTreeHeirarchy(entities.data);
+                    }
+                },
+                _onEntityGetFailed: function(e) {
+                    var message = e.detail.response;
+                },
+                _transformEntityDataToTreeHeirarchy : function(entityData) {
+                        var containersData = [];
+                        var selectedItems = [];
+                        for(var i=0; i< entityData.ctxInfo.length; i++) {
+                            var ctxGroup = entityData.ctxInfo[i].ctxGroup;
+                            var list = ctxGroup.list;
+                            var classification = ctxGroup.classification;
+                            //To Do: functionality to get longname of list
+                            var nodeData = {
+                                "text": list, // should have list long name here.
+                                "value": list,
+                                "border": true,
+                                "expanded": true,
+                                "children": []
+                            };
+                            var container = this._checkIfContainerExists(containersData, nodeData);
+                            if(!container) {
+                                container = nodeData;
+                                var catagories = classification.split("/");
+                                var previousNodeData = undefined;
+                                for(var j=1; j<=catagories.length; j++) {
+                                    var catagoryNode = catagories[catagories.length - j];
+                                    var catagoryNodeData = {
+                                        "text": catagoryNode,//get longname of catagory
+                                        "value": catagoryNode,
+                                        "expanded": true
+                                    };
+                                    if(previousNodeData) {
+                                        catagoryNodeData["children"] = [];
+                                        catagoryNodeData.children[0] = previousNodeData;
+                                    }
+                                    else {
+                                        selectedItems.push(catagoryNodeData);
+                                    }
+                                    previousNodeData = catagoryNodeData;
+                                }
+                                container.children[0] = catagoryNodeData;
+                            }
+                            containersData.push(container);
+                        }
+                        this.set("_selectedItems", selectedItems);
+                        this.set("_treeData", containersData);
+                },
+                _checkIfContainerExists: function(containersData, data) {
+                    if(data && containersData && containersData.length > 0) {
+                        for(var i=0; i<containersData.length; i++) {
+                            if(containersData[i].value == data.value) {
+                                return containersData[i];
+                            }
+                        }
+                    }
+                },
+                _nodeExpanded: function(e) {
+                    if(e.detail) {
+                        var node = e.detail;
+                        var nodeData = node.nodeData;
+                        if(this._selectedItems && this._selectedItems.length > 0) {
+                            for(var i=0; i<this._selectedItems.length; i++) {
+                                var item = this._selectedItems[i];
+                                if(item.value == nodeData.value && !nodeData.children) {
+                                    node.selectItem();
+                                }
+                            }
+                        }
+                    }
+                },
+                _treeItemSelected: function(e) {
+                    if(e.detail.data) {
+                        var node = e.detail.data;
+                        this._transformItemIntoContext(node);
+                        this.$.buttonContainer.style.display = "inline-block";
+                    }
+                },
+                _transformItemIntoContext: function(node) {
+                    var children = node.nodeData.children;
+                    if(!children || children.length == 0) {
+                        var context = this._getContextData(node);
+                        var list = context.list;
+                        var classification = context.classification;
+                        var catagoryPath = context.catagoryPath;
+                        var catagoryPathValue = this._getCatagoryPathValue(classification);
+                        this._attributeRequest.params.query.ctx[0].list = list;
+                        this._attributeRequest.params.query.ctx[0].classification = classification;
+                        this._attributeRequest.params.query.id = this.entityId;
+                        this._createCardDiv(catagoryPathValue);
+                        this._createAccordion(catagoryPathValue, catagoryPath);
+                        var t = {
+                            action: "getAttributeModels",
+                            "attributeNames": this.attributeNames
+                        };
+                        this.set("_attributeModelRequest", t);
+                    }
+                },
+                _getContextData: function(selectedNode) {
+                    var treeElement = this.$$("#contextTree");
+                    var nodePath = selectedNode.itemPath;
+                    var paths = nodePath.split(".");
+                    var path = "";
+                    var list = "";
+                    var classification = "";
+                    var catagoryPath = "";
+                    var catagoryPathValue = "";
+                    var previousNode = undefined;
+                    for(var j=0; j<paths.length; j++) {
+                        path = path + paths[j];
+                        var node = treeElement.getElementNodeByPath(path, previousNode);
+                        previousNode = node;
+                        if(j == 0){
+                            catagoryPath = node.nodeData.text + " - ";
+                            list = node.nodeData.value;
+                        }
+                        else if(j== paths.length -1) {
+                            catagoryPath = catagoryPath + node.nodeData.text;
+                            classification = classification + node.nodeData.value;
+                        }
+                        else {
+                            catagoryPath = catagoryPath + node.nodeData.text + " >> ";
+                            classification = classification + node.nodeData.value + "/";
+                        }
+                        path = path + ".";
+                    }
+                    var catagoryPathValue = this._getCatagoryPathValue(classification);
+                    var contextJson = {
+                        "list": list,
+                        "catagoryPath": catagoryPath,
+                        "catagoryPathValue": catagoryPathValue,
+                        "classification": classification
+                    };
+                    return contextJson;
+                },
+                _getCatagoryPathValue: function(classification) {
+                    var catagories = classification.split("/");
+                    if(catagories && catagories.length > 0) {
+                        var catagoryPathValue="";
+                        for(var i=0; i<catagories.length; i++) {
+                            catagoryPathValue = catagoryPathValue + "-" + catagories[i];
+                        }
+                        return catagoryPathValue;
+                    } 
+                },
+                _attributeModelResponseChanged: function(_attributeModelResponse) {
+                     if (_attributeModelResponse && _attributeModelResponse.returnValue &&
+                            _attributeModelResponse.returnValue.attributeModels) {
+                        var attributeNames = [];
+                        for (var attributeGroupName in _attributeModelResponse.returnValue.attributeModels) {
+                            for (var attributeName in _attributeModelResponse.returnValue.attributeModels[
+                                    attributeGroupName]) {
+                                attributeNames.push(attributeName);
+                            }
+                        }
+                        this._attributeRequest.params.fields.attributes = attributeNames;
+                        this.$$("#attributeGetDataService").generateRequest();
+                    }
+                },
+                 _onAttributeResponse: function (e) {
+                    var _attributeResponse = e.detail.response;
+                    var _attributeRequest = e.detail.request;
+                    var values = [];
+                    var list = _attributeRequest.requestData.params.query.ctx[0].list;
+                    var classification = _attributeRequest.requestData.params.query.ctx[0].classification;
+                    var dataContext = {
+                            "locale": "en-US",
+                            "time": "now",
+                            "source": "SAP",
+                            "list": list,
+                            "classification": classification                        
+                        };
+                    if (DataHelper.validateGetEntitiesResponse(_attributeResponse) 
+                        && DataHelper.validateGetAttributeModelsResponse(this._attributeModelResponse)) {
+                        
+                        var entity = DataHelper.findEntityById(_attributeResponse.content.entities, this.entityId);
+                        if(entity) {
+                            values = DataHelper.getAttributesInManageFormat(entity, this._attributeModelResponse.returnValue.attributeModels, dataContext);
+                            if(!_.isEmpty(values)){
+                                var catagoryPathValue = this._getCatagoryPathValue(classification);
+                                this._createAttributteList(catagoryPathValue, values);  
+                            }
+                        }
+                    }
+                },
+                _createCardDiv: function(catagoryPathValue) {
+                    var divEl = document.createElement('div');
+                    divEl.setAttribute('id', 'card'+ catagoryPathValue);
+                    divEl.setAttribute('class', "card");
+                    var expansionPanel = this.$$("#expansion-panel");
+                    if(expansionPanel) {
+                        expansionPanel.appendChild(divEl);
+                    }
+                },
+                _createAccordion: function(catagoryPathValue, catagoryPath) {
+                    var accordionEl = document.createElement('pebble-accordion');
+                    accordionEl.setAttribute('id', 'accordion' + catagoryPathValue);
+                    accordionEl.setAttribute('header-text', catagoryPath);
+                    accordionEl.setAttribute('default-icon', 'expand-less');
+                    accordionEl.setAttribute('open-icon', 'expand-more');
+                    var cardDiv = this.$$("#card"+ catagoryPathValue);
+                    if(cardDiv){
+                        cardDiv.appendChild(accordionEl);
+                    }
+                },
+                _createAttributteList: function(catagoryPathValue, attributes) {
+                    var attributeListEl = document.createElement('rock-attribute-list');
+                    attributeListEl.setAttribute('id', 'list'+ catagoryPathValue);
+                    attributeListEl.setAttribute('mode', 'view');
+                    attributeListEl.setAttribute('no-of-columns', 2);
+                    attributeListEl.attributeValues = attributes;
+                    attributeListEl.attributeModels = this._attributeModelResponse.returnValue.attributeModels;
+                    var accordion = this.$$("#accordion"+ catagoryPathValue);
+                    if(accordion){
+                        accordion.appendChild(attributeListEl);
+                    }
+                },
+                _save: function(e) {
+                    var treeElement = this.$$("#contextTree");
+                    var selectedNodes = treeElement.selectedNodes;
+                    var contexts = this._getChangedContexts(selectedNodes);
+                    var ctxInfo = this._getChangedCtxInfo(contexts);
+                    var entityData = this._getEntityData(ctxInfo);
+                    if (!_.isEmpty(entityData)) {
+                        //set requestObject for save liquid
+                        this._saveRequest = {
+                            "entities": [entityData]
+                        };
+                        var liquidSave = this.$$("[name=attributeSaveDataService]");
+                        if (liquidSave) {
+                            liquidSave.generateRequest();
+                        }
+                    }
+                },
+                _onSaveResponse: function (e) {
+                    //generate request for extensions again
+                    this.$$("#entityGetData3").generateRequest();
+                },
+                _revertAll: function(e) {
+                    //clear all tree items
+                    var treeElement = this.$$("#contextTree");
+                    treeElement.clearSelectedItems();
+                    this.$.buttonContainer.style.display = "none";
+                },
+                _getChangedContexts: function(selectedNodes) {
+                    if(selectedNodes && selectedNodes.length > 0) {
+                        var changedContexts = [];
+                        for(var i=0; i<selectedNodes.length; i++) {
+                            var node = selectedNodes[i];
+                            var context = this._getContextData(node);
+                            var contextJson = {
+                                "contextPath": context.catagoryPathValue,
+                                "list": context.list,
+                                "classification": context.classification
+                            };
+                            changedContexts.push(contextJson);
+                        }
+                        return changedContexts;
+                    }
+                },
+                _getChangedCtxInfo: function(contexts) {
+                    if(contexts && contexts.length > 0) {
+                        var ctxInfo = [];
+                        for(var i=0; i<contexts.length; i++) {
+                            var context = contexts[i].contextPath;
+                            var attributeList = this.$$("#list-"+ context);
+                            if(attributeList){
+                                var changedAttributeElements = attributeList.getChangedAttributeElements();
+                                if (changedAttributeElements == undefined || changedAttributeElements.length == 0) {
+                                    return;
+                                }
+                                var attributesJSON = [];
+                                for (var j = 0; j < changedAttributeElements.length; j++) {
+                                    var attributeElement = changedAttributeElements[j];
+                                    var attributeJSON = attributeElement.attributeObject;
+                                    attributesJSON.push(attributeJSON);
+                                }
+                                var ctxItem = {};
+                                ctxItem.ctxGroup = { "list": context.list, "classification": context.classification };
+                                ctxItem.attributes = DataHelper.transformAttributeFromUIFormat(attributesJSON);
+                                ctxInfo.push(ctxItem);
+                            }
+                        }
+                        return ctxInfo;
+                    }
+                },
+                _getEntityData: function(ctxInfo) {
+                    if(ctxInfo) {
+                        var entityData = {};
+                        if (this._attributeResponse && this._attributeResponse.content && this._attributeResponse
+                        .content.entities && this._attributeResponse.content.entities.length > 0) {
+
+                            var originalEntity = this._attributeResponse.content.entities[0];
+                            for (var entityDataField in originalEntity) {
+                                if (entityDataField == "data") {
+                                    var contextualData = {};
+                                    contextualData.ctxInfo = ctxInfo;
+                                    entityData[entityDataField] = contextualData;
+                                } else {
+                                    entityData[entityDataField] = DataHelper.cloneObject(originalEntity[entityDataField]);
+                                }
+                            }
+                        }
+                        return entityData;
+                    }
+                }
+            });
+        })();
+    </script>
+</dom-module>
