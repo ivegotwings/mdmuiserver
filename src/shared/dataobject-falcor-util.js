@@ -7,40 +7,31 @@ const CONST_ALL = '_ALL';
 
 DataObjectFalcorUtil.getPathKeys = function () {
     return {
-        "root": "dataObjects",
-        "masterListById": "masterList",
-        "searchResults": "cachedSearchResults",
-        "searchResultObjects": "items",
-        "objectTypesInfo": {
+        "root": "root",
+        "byIds": "byIds",
+        "searchResults": "searchResults",
+        "searchResultItems": "items",
+        "dataIndexInfo": {
             "entityData": {
                 "name": "entity",
                 "typeInfo": "entityInfo",
+                "typeName": "entityType",
                 "collectionName": "entities",
                 "responseObjectName": "entityOperationResponse"
             },
             "entityGovernData": {
                 "name": "entityGovernData",
                 "typeInfo": "entityGovernInfo",
+                "typeName": "entityGovernType",
                 "collectionName": "entities",
                 "responseObjectName": "entityGovernOperationResponse"
             },
             "entityModel": {
                 "name": "entityModel",
                 "typeInfo": "entityModelInfo",
+                "typeName": "entityModelType",
                 "collectionName": "entityModels",
                 "responseObjectName": "entityModelOperationResponse"
-            },
-            "workflowDefinition": {
-                "name": "workflowDefinition",
-                "typeInfo": "entityModelInfo",
-                "collectionName": "entities",
-                "responseObjectName": "entityOperationResponse"
-            },
-            "workflowRuntimeInstance": {
-                "name": "workflowRuntimeInstance",
-                "typeInfo": "entityGovernInfo",
-                "collectionName": "entities",
-                "responseObjectName": "entityOperationResponse"
             }
         }
     };

@@ -7,43 +7,43 @@ var resolver = require('./dataobject-route-resolver');
 
 var DataObjectRouterBase = Router.createClass([
     {
-        route: 'dataObjects[{keys:objTypes}].cachedSearchResults.create',
+        route: 'root[{keys:dataIndexes}].searchResults.create',
         call: async (callPath, args) => await resolver.initiateSearch(callPath, args)
     },
     {
-        route: 'dataObjects[{keys:objTypes}].cachedSearchResults[{keys:requestIds}].items[{ranges:dataObjectRanges}]',
+        route: 'root[{keys:dataIndexes}].searchResults[{keys:requestIds}].items[{ranges:dataObjectRanges}]',
         get: async (pathSet) => await resolver.getSearchResultDetail(pathSet)
-    }, 
+    },
     {
-        route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}][{keys:dataObjectFields}]",
+        route: "root[{keys:dataIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}][{keys:dataObjectFields}]",
         get: async (pathSet) => await resolver.getByIds(pathSet, "getFields")
     },
     {
-        route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].valCtxInfo[{keys:valCtxKeys}][{keys:valFields}]",
+        route: "root[{keys:dataIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].valCtxInfo[{keys:valCtxKeys}][{keys:valFields}]",
         get: async (pathSet) => await resolver.getByIds(pathSet, "getAttrs")
     },
     {
-        route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}].relIds",
+        route: "root[{keys:dataIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}].relIds",
         get: async (pathSet) => await resolver.getByIds(pathSet, "getRelIdOnly")
     },
     {
-        route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}].rels[{keys:relIds}][{keys:relFields}]",
+        route: "root[{keys:dataIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}].rels[{keys:relIds}][{keys:relFields}]",
         get: async (pathSet) => await resolver.getByIds(pathSet, "getRelFieldsByActual")
     },
     {
-        route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}].rels[{keys:relIds}].attributes[{keys:relAttrNames}].valCtxInfo[{keys:valCtxKeys}][{keys:valFields}]",
+        route: "root[{keys:dataIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}].rels[{keys:relIds}].attributes[{keys:relAttrNames}].valCtxInfo[{keys:valCtxKeys}][{keys:valFields}]",
         get: async (pathSet) => await resolver.getByIds(pathSet, "getRelAttrsByActual")
     },
     {
-        route: "dataObjects[{keys:objTypes}].create",
+        route: "root[{keys:dataIndexes}][{keys:dataObjectTypes}].create",
         call: async (callPath, args) => await resolver.create(callPath, args, "create")
     },
     {
-        route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}].update",
+        route: "root[{keys:dataIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].update",
         call: async (callPath, args) => await resolver.update(callPath, args, "update")
     },
     {
-        route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}].delete",
+        route: "root[{keys:dataIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].delete",
         call: async (callPath, args) => await resolver.deleteDataObjects(callPath, args, "delete")
     }
 ]);
