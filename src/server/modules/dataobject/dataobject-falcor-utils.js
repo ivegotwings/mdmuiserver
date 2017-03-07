@@ -96,8 +96,8 @@ function _buildAttributesResponse(attrs, attrNames, basePath) {
                 var valCtxItem = { 'source': source, 'locale': locale }; //TODO: Here, source and locale are hard coded... How to find out val ctx keys from the flat list of values object..??
                 var valCtxKey = sharedDataObjectFalcorUtil.createCtxKey(valCtxItem);
 
-                var valCtxItem = sharedDataObjectFalcorUtil.createAndGet(valCtxItems, valCtxKey, {});
-                var values = sharedDataObjectFalcorUtil.createAndGet(valCtxItem, 'values', []);
+                var valCtxItem = sharedDataObjectFalcorUtil.getOrCreate(valCtxItems, valCtxKey, {});
+                var values = sharedDataObjectFalcorUtil.getOrCreate(valCtxItem, 'values', []);
 
                 //TEMP: just pick last value..
                 values.length = 0;
@@ -111,13 +111,15 @@ function _buildAttributesResponse(attrs, attrNames, basePath) {
                 response.push(mergeAndCreatePath(basePath, [attrKey, 'valCtxInfo', valCtxKey, 'values'], $atom(valCtxItem.values)));
             }
         }
-        else if (attr.group) {
+
+        if (attr.group) {
             var valCtxItem = { 'source': CONST_ANY, 'locale': CONST_ANY }; //TODO: How to find out val ctx keys from the flat list of values object..??
             var valCtxKey = sharedDataObjectFalcorUtil.createCtxKey(valCtxItem);
             //console.log('attr group', JSON.stringify(attr.group));
             response.push(mergeAndCreatePath(basePath, [attrKey, 'valCtxInfo', valCtxKey, 'group'], $atom(attr.group)));
         }
-        else if (attr.properties) {
+
+        if (attr.properties) {
             var valCtxItem = { 'source': CONST_ANY, 'locale': CONST_ANY }; //TODO: How to find out val ctx keys from the flat list of values object..??
             var valCtxKey = sharedDataObjectFalcorUtil.createCtxKey(valCtxItem);
             response.push(mergeAndCreatePath(basePath, [attrKey, 'valCtxInfo', valCtxKey, 'properties'], $atom(attr.properties)));

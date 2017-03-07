@@ -207,20 +207,22 @@ DataObjectFalcorUtil.transformAttributesToExternal = function (attributes) {
                 var valCtxKey = valCtxKeys[i];
                 var attrData = attrValCtxInfo[valCtxKey];
 
-                var transAttr = DataObjectFalcorUtil.createAndGet(transAttributes, attrKey, {});
+                var transAttr = DataObjectFalcorUtil.getOrCreate(transAttributes, attrKey, {});
 
                 if (attrData) {
                     if (attrData.values) {
-                        var transAttrValues = DataObjectFalcorUtil.createAndGet(transAttr, 'values', []);
+                        var transAttrValues = DataObjectFalcorUtil.getOrCreate(transAttr, 'values', []);
                         transAttrValues.push.apply(transAttrValues, attrData.values);
                     }
-                    else if (attrData.group) {
-                        var transAttrGroup = DataObjectFalcorUtil.createAndGet(transAttr, 'group', []);
+                    
+                    if (attrData.group) {
+                        var transAttrGroup = DataObjectFalcorUtil.getOrCreate(transAttr, 'group', []);
                         transAttrGroup.push.apply(transAttrGroup, attrData.group);
                     }
+                    
                     if (attrData.properties) {
-                        var transAttrProperties = DataObjectFalcorUtil.createAndGet(transAttr, 'properties', {});
-                        transAttrProperties.push.apply(transAttrProperties, attrData.properties);
+                        var transAttrProperties = DataObjectFalcorUtil.getOrCreate(transAttr, 'properties', {});
+                        transAttrProperties = DataObjectFalcorUtil.mergeObjects(transAttrProperties, attrData.properties);
                     }
                 }
             }
@@ -229,7 +231,7 @@ DataObjectFalcorUtil.transformAttributesToExternal = function (attributes) {
     return transAttributes;
 };
 
-DataObjectFalcorUtil.createAndGet = function (obj, key, defaultVal) {
+DataObjectFalcorUtil.getOrCreate = function (obj, key, defaultVal) {
     var keyObj = obj[key];
 
     if (keyObj === undefined) {
@@ -238,6 +240,10 @@ DataObjectFalcorUtil.createAndGet = function (obj, key, defaultVal) {
     }
 
     return keyObj;
+};
+
+DataObjectFalcorUtil.mergeObjects = function(obj1, obj2) {
+    return Object.assign(obj1, obj2);
 };
 
 DataObjectFalcorUtil.transformRelationshipsToExternal = function (relationships) {
