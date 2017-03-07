@@ -33,17 +33,16 @@ if (runOffline) {
 const dataObjectManageService = new DataObjectManageService(options);
 
 async function initiateSearch(callPath, args) {
-    // route: 'dataObjects[{keys:objTypes}].searchResults.create' 
 
     var response = [];
     //console.log(callPath, args);
 
     var requestId = uuidV1(),
         request = args[0],
-        objectType = callPath[1],
-        basePath = [pathKeys.root, objectType, pathKeys.searchResults, requestId];
+        dataIndex = callPath[1],
+        basePath = [pathKeys.root, dataIndex, pathKeys.searchResults, requestId];
 
-    request.objType = objectType;
+    request.dataIndex = dataIndex;
     //console.log('request str', JSON.stringify(request, null, 4));
 
     delete request.params.fields; // while initiating search, we dont want any of the fields to be returned..all we want is resulted ids..
@@ -53,11 +52,11 @@ async function initiateSearch(callPath, args) {
     //console.log('response raw str', JSON.stringify(res, null, 4));
 
     var totalRecords = 0;
-    var dataObjectsByIdPath = [pathKeys.root, objectType, pathKeys.masterListById];
-    var objTypeInfo = pathKeys.objectTypesInfo[objectType];
-    var collectionName = objTypeInfo.collectionName;
 
-    var dataObjectResponse = res ? res[objTypeInfo.responseObjectName] : undefined;
+    var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
+    var collectionName = dataIndexInfo.collectionName;
+
+    var dataObjectResponse = res ? res[dataIndexInfo.responseObjectName] : undefined;
 
     if (dataObjectResponse && dataObjectResponse.status == "success") {
         var dataObjects = dataObjectResponse[collectionName];
@@ -66,7 +65,9 @@ async function initiateSearch(callPath, args) {
             totalRecords = dataObjects.length;
             for (let dataObject of dataObjects) {
                 if (dataObject.id !== undefined) {
-                    response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultObjects, index++], $ref(mergePathSets(dataObjectsByIdPath, [dataObject.id]))));
+                    var dataObjectType = dataObject[dataIndexInfo.typeInfo][dataIndexInfo.typeName];
+                    var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds];
+                    response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [dataObject.id]))));
                 }
             }
         }
@@ -77,22 +78,21 @@ async function initiateSearch(callPath, args) {
 
     response.push(mergeAndCreatePath(basePath, ["totalRecords"], $atom(totalRecords)));
     response.push(mergeAndCreatePath(basePath, ["requestId"], $atom(requestId)));
-    response.push(mergeAndCreatePath(basePath, ["request"], $atom(request)));
+    //response.push(mergeAndCreatePath(basePath, ["request"], $atom(request)));
 
     //console.log(JSON.stringify(response));   
     return response;
 }
 
 async function getSearchResultDetail(pathSet) {
-    // route: 'dataObjects[{keys:objTypes}].searchResults[{keys:requestIds}].dataObjects[{ranges:dataObjectRanges}]'
 
     var response = [];
     //console.log(pathSet.requestIds, pathSet.dataObjectRanges);
 
     var requestId = pathSet.requestIds[0];
     //console.log(requestId);
-    var objectType = pathSet[1],
-        basePath = [pathKeys.root, objectType];
+    var dataIndex = pathSet[1],
+        basePath = [pathKeys.root, dataIndex];
 
     response.push(mergeAndCreatePath(basePath, [pathKeys.searchResults, requestId], $error('search result is expired. Retry the search operation.')));
 
@@ -100,7 +100,7 @@ async function getSearchResultDetail(pathSet) {
 }
 
 function createGetRequest(reqData) {
-    
+
     var ctxGroups = sharedDataObjectFalcorUtil.createCtxItems(reqData.ctxKeys);
     var valCtxGroups = sharedDataObjectFalcorUtil.createCtxItems(reqData.valCtxKeys);
 
@@ -133,10 +133,11 @@ function createGetRequest(reqData) {
         includeRequest: false
     };
 
-    //TODO:: This is hard coded as of now as for get API dataObject request json creation..
-    var filters = {
-        typesCriterion: ['nart']
-    };
+    var filters = {};
+
+    if (reqData.dataObjectTypes) {
+        filters.typesCriterion = reqData.dataObjectTypes;
+    }
 
     var query = {
         ctx: ctxGroups,
@@ -152,7 +153,7 @@ function createGetRequest(reqData) {
     };
 
     var request = {
-        objType: reqData.objType,
+        dataIndex: reqData.dataIndex,
         params: params
     };
 
@@ -172,24 +173,26 @@ async function getSingle(dataObjectId, reqData) {
     var res = await dataObjectManageService.get(request);
     //console.log(JSON.stringify(res, null, 4));
 
-    var basePath = [pathKeys.root, reqData.objType, pathKeys.masterListById];
+    var basePath = [pathKeys.root, reqData.dataIndex];
     var dataObject;
     //console.log(JSON.stringify(pathKeys, null, 4));
 
-    var objTypeInfo = pathKeys.objectTypesInfo[request.objType];
-    var collectionName = objTypeInfo.collectionName;
+    var dataIndexInfo = pathKeys.dataIndexInfo[request.dataIndex];
+    var collectionName = dataIndexInfo.collectionName;
 
-    //console.log(objTypeInfo);
-    var dataObjectResponse = res ? res[objTypeInfo.responseObjectName] : undefined;
+    //console.log(dataIndexInfo);
+    var dataObjectResponse = res ? res[dataIndexInfo.responseObjectName] : undefined;
 
     if (dataObjectResponse && dataObjectResponse.status == "success") {
         var dataObjects = dataObjectResponse[collectionName];
 
         if (dataObjects !== undefined) {
             for (let dataObject of dataObjects) {
-                var dataObjectBasePath = mergePathSets(basePath, dataObject.id);
+                var dataObjectType = dataObject[dataIndexInfo.typeInfo][dataIndexInfo.typeName];
+                var dataObjectBasePath = mergePathSets(basePath, dataObjectType, pathKeys.byIds, dataObject.id);
 
                 if (dataObject.id == dataObjectId) {
+
                     response.push.apply(response, buildResponse(dataObject, reqData, dataObjectBasePath));
                 }
             }
@@ -206,15 +209,11 @@ async function getSingle(dataObjectId, reqData) {
 
 async function getByIds(pathSet, caller) {
     /*
-    // route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}][{keys:dataObjectFields}]",
-    // route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].attributes[{keys:attrNames}].valCtxInfo[{keys:valCtxKeys}][keys:valFields]",
-    // route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}].relIds",
-    // route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}].rels[{keys:relIds}][{keys:relFields}]",
-    // route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].relationships[{keys:relTypes}].rels[{keys:relIds}].attributes[{keys:relAttrNames}].valCtxInfo[{keys:valCtxKeys}][{keys:valFields}]",
     */
     //console.log('---------------------' , caller, ' dataObjectsById call pathset requested:', pathSet, ' caller:', caller);
     const reqData = {
-        'objType': pathSet.objTypes[0],
+        'dataIndex': pathSet.dataIndexes[0],
+        'dataObjectTypes': pathSet.dataObjectTypes,
         'dataObjectIds': pathSet.dataObjectIds,
         'dataObjectFields': pathSet.dataObjectFields === undefined ? [] : pathSet.dataObjectFields,
         'ctxKeys': pathSet.ctxKeys === undefined ? [] : pathSet.ctxKeys,
@@ -240,26 +239,25 @@ async function getByIds(pathSet, caller) {
     return response;
 }
 
-async function processData(objType, dataObjects, dataObjectAction, caller) {
+async function processData(dataIndex, dataObjects, dataObjectAction, caller) {
     //console.log(dataObjectAction, caller);
 
-    var objTypeInfoKey = pathKeys.objectTypesInfo[objType].typeInfo;
-    var objTypeName = pathKeys.objectTypesInfo[objType].name;
+    var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
     var response = [];
 
-    var basePath = [pathKeys.root, objType, pathKeys.masterListById];
+    var basePath = [pathKeys.root, dataIndex];
 
     for (var dataObjectId in dataObjects) {
         var dataObject = sharedDataObjectFalcorUtil.boxDataObject(dataObjects[dataObjectId], sharedDataObjectFalcorUtil.unboxJsonObject);
         //console.log('dataObject data', JSON.stringify(dataObject, null, 4));
 
         //TODO: temporarily as RDF is still working on to make domain optional..
-        if(dataObject.entityInfo) {
+        if (dataObject.entityInfo) {
             dataObject.entityInfo.entityDomain = "thing";
         }
 
-        var apiRequestObj = { 'includeRequest': false, 'objType': objType };
-        apiRequestObj[objTypeName] = dataObject;
+        var apiRequestObj = { 'includeRequest': false, 'dataIndex': dataIndex };
+        apiRequestObj[dataIndexInfo.name] = dataObject;
         //console.log('api request data for process dataObjects', JSON.stringify(apiRequestObj));
 
         var dataOperationResponse = {};
@@ -278,7 +276,8 @@ async function processData(objType, dataObjects, dataObjectAction, caller) {
         if (dataObject) {
 
             var reqData = {
-                'objType': objType,
+                'dataIndex': dataIndex,
+                'dataObjectTypes': [CONST_ALL],
                 'dataObjectFields': [CONST_ALL],
                 'attrNames': [CONST_ALL],
                 'relTypes': [CONST_ALL],
@@ -287,8 +286,9 @@ async function processData(objType, dataObjects, dataObjectAction, caller) {
                 'valFields': [CONST_ALL],
                 'caller': caller
             };
-            var dataObjectBasePath = mergePathSets(basePath, dataObjectId);
 
+            var dataObjectType = dataObject[dataIndexInfo.typeInfo][dataIndexInfo.typeName];
+            var dataObjectBasePath = mergePathSets(basePath, dataObjectType, pathKeys.byIds, dataObjectId);
             response.push.apply(response, buildResponse(dataObject, reqData, dataObjectBasePath));
         }
     }
@@ -298,11 +298,11 @@ async function processData(objType, dataObjects, dataObjectAction, caller) {
 }
 
 async function create(callPath, args, caller) {
-    // route: "dataObjects[{keys:objTypes}].create"
 
     var jsonEnvelope = args[0];
-    var objType = callPath.objTypes[0];
-    var dataObjects = jsonEnvelope.json[pathKeys.root][objType][pathKeys.masterListById];
+    var dataIndex = callPath.dataIndexes[0];
+    var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
+    var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
     var dataObjectIds = Object.keys(dataObjects);
     //console.log(dataObjects);
 
@@ -310,33 +310,32 @@ async function create(callPath, args, caller) {
     for (let dataObjectId of dataObjectIds) {
         var dataObject = dataObjects[dataObjectId];
 
-        if(dataObject.id == undefined || dataObject.id == "") {
+        if (dataObject.id == undefined || dataObject.id == "") {
             var newDataObjectId = uuidV1();
             //console.log('new dataObject id', newDataObjectId);
             dataObject.id = newDataObjectId;
         }
     }
 
-    return processData(objType, dataObjects, "create", caller);
+    return processData(dataIndex, dataObjects, "create", caller);
 }
 
 async function update(callPath, args, caller) {
-    // route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}].update"
 
     var jsonEnvelope = args[0];
-    var objType = callPath.objTypes[0];
-    var dataObjects = jsonEnvelope.json[pathKeys.root][objType][pathKeys.masterListById];
+    var dataIndex = callPath.dataIndexes[0];
+    var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
+    var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
 
-    return processData(objType, dataObjects, "update", caller);
+    return processData(dataIndex, dataObjects, "update", caller);
 }
 
 async function deleteDataObjects(callPath, args, caller) {
-    // route: "dataObjects[{keys:objTypes}].masterList[{keys:dataObjectIds}].delete"
 
     var jsonEnvelope = args[0];
-    var objType = callPath.objTypes[0];
-    var dataObjects = jsonEnvelope.json[pathKeys.root][objType][pathKeys.masterListById];
-    return processData(objType, dataObjects, "delete", caller);
+    var dataIndex = callPath.dataIndexes[0];
+    var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][pathKeys.byIds];
+    return processData(dataIndex, dataObjects, "delete", caller);
 }
 
 module.exports = {
