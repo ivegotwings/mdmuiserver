@@ -134,6 +134,7 @@ function _buildRelationshipsResponse(rels, reqData, basePath) {
     var reqRelIds = reqData.relIds,
         caller = reqData.caller;
 
+    //console.log('rels', JSON.stringify(rels)); 
     var relTypeKeys = _getKeyNames(rels, reqData.relTypes);
 
     for (let relTypeKey of relTypeKeys) {
@@ -172,9 +173,10 @@ function _buildRelationshipDetailsResponse(enRel, reqData, basePath) {
     var response = [];
 
     var relBasePath = mergePathSets(basePath, ["rels", enRel.id]);
+    
+    var dataIndexInfo = pathKeys.dataIndexInfo[reqData.dataIndex];
 
-    var dataObjectsByIdPath = [pathKeys.root, reqData.objType, pathKeys.masterListById];
-
+    var dataObjectsByIdBasePath = [pathKeys.root, reqData.dataIndex];
     //TODO:: NOT using input relFields yet..
     //var relFieldKeys = _getKeyNames(enRel, reqData.relFields);
 
@@ -191,6 +193,8 @@ function _buildRelationshipDetailsResponse(enRel, reqData, basePath) {
             }
         }
         else if (relFieldKey == "relTo") {
+            var dataObjectType = enRel[relFieldKey][dataIndexInfo.typeInfo][dataIndexInfo.typeName];
+            var dataObjectsByIdPath = mergePathSets(dataObjectsByIdBasePath, dataObjectType, pathKeys.byIds);
             response.push(mergeAndCreatePath(relBasePath, relFieldKey, $ref(mergePathSets(dataObjectsByIdPath, [enRel[relFieldKey].id]))));
         }
         else {
@@ -247,6 +251,7 @@ function buildResponse(dataObject, reqData, basePath) {
                 }
             }
             
+            //console.log('relTypes', JSON.stringify(reqData.relTypes));
             if(!isEmpty(reqData.relTypes)) {
                 var rels = ctxInfoItem.relationships;
                 if (!isEmpty(rels)) {

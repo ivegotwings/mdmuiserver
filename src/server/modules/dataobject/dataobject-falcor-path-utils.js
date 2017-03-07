@@ -15,8 +15,11 @@ function createPath(pathSet, value, expires) {
     };
 }
 
-function mergePathSets(pathSet1, pathSet2){
-    return pathSet1.concat(pathSet2);
+function mergePathSets () {
+    var mergedPathSets = [];
+    var args = Array.prototype.splice.call(arguments, 0);
+    var mergedPathSets = Array.prototype.concat.apply([], args);
+    return mergedPathSets;
 }
 
 function mergeAndCreatePath(basePath, pathSet, value, expires) {
