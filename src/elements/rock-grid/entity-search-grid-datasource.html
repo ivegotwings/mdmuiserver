@@ -1,18 +1,18 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
-<link rel="import" href="../bedrock-datasource-behavior/bedrock-datasource-behavior.html">
 
+<link rel="import" href="../bedrock-grid-datasource-behavior/bedrock-grid-datasource-behavior.html">
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 
-<dom-module id="entity-lov-datasource">
+<dom-module id="entity-search-grid-datasource">
     <template>
         <liquid-entity-data-get id="initiateSearchResult" operation="initiatesearch" request-data="{{request}}" last-response="{{_initSearchResponse}}"
             exclude-in-progress></liquid-entity-data-get>
         <liquid-entity-data-get id="getSearchResultDetail" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[_initSearchResponse.content.requestId]]"
-            last-response="{{remoteData}}" exclude-in-progress></liquid-entity-data-get>
+            last-response="{{searchResultResponse}}" exclude-in-progress></liquid-entity-data-get>
     </template>
     <script>
         Polymer({
-            is: 'entity-lov-datasource',
+            is: 'entity-search-grid-datasource',
             properties: {
                 _liquidInitSearchElement: {
                     type: Object,
@@ -36,11 +36,18 @@
                 _isRequestInitiated: {
                     type: Boolean,
                     value: false
+                },
+
+                _options: {
+                    type: Object,
+                    value: function () {
+                        return {}
+                    }
                 }
             },
 
             behaviors: [
-                RUFBehaviors.DataSourceBehavior
+                RUFBehaviors.GridDataSourceBehavior
             ],
 
             ready: function () {
@@ -52,7 +59,7 @@
                 this.dataSource = this._dataSource.bind(this);
             },
 
-            _dataSource: function (data, success, error) {
+            _dataSource: function (options, success, error) {
                 // Bind Reponse
                 if (!this._isResponseAttached) {
                     this._liquidInitSearchElement.addEventListener('response', this._onInitSearchResponse.bind(
@@ -62,24 +69,12 @@
                     this._isResponseAttached = true;
                 }
 
+                // Set Options
+                this._options = options;
+
                 // Set Range
-                var from = data.page > 0 ? (data.page - 1) * data.pageSize : 0;
-                var to = data.page > 0 ? data.page * data.pageSize - 1 : 0;
-
-                var options = {
-                    "from": from,
-                    "to": to
-                };
-                this.set("request.params.options", options);
-
-                // Filter
-                var attributesCriterion = this.attributesCriterionBuilder(data.filter);
-
-                if (attributesCriterion && attributesCriterion.length > 0) {
-                    this.set("request.params.query.filters.attributesCriterion", attributesCriterion);
-                } else {
-                    this.set("request.params.query.filters.attributesCriterion", []);
-                }
+                var requestOptions = this.prepareRequestOptions(this._options);
+                this.set("request.params.options", requestOptions);
 
                 // Initiate Request only for First Time.
                 if (!this._isRequestInitiated) {
@@ -95,9 +90,20 @@
             },
 
             _onGetSearchResponse: function (success, error) {
-                if (this.dataFormatter) {
-                    var remoteData = this.dataFormatter(this.remoteData);
-                    success(remoteData);
+                if (this._lastPage < this._options.page) {
+                    // Format ResponseData
+                    var searchResults = this.formatResponse(this.searchResultResponse);
+                    if (typeof (searchResults) == 'undefined') {
+                        searchResults = [];
+                    }
+
+                    // UpdateCurrent RecordSize
+                    this.updateCurrentRecordSize(this._options, searchResults);
+
+                    // console.log("---------------------------")
+                    // console.log(JSON.stringify(searchResults)) 
+                    // Invoke Callback
+                    success(searchResults);
                 }
             }
         });
