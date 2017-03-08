@@ -39,6 +39,12 @@ DataObjectFalcorUtil.getPathKeys = function () {
 
 const pathKeys = DataObjectFalcorUtil.getPathKeys();
 
+DataObjectFalcorUtil.getSelfCtx = function () {
+    return { 'self': 1 };
+};
+
+const selfCtx = DataObjectFalcorUtil.getSelfCtx();
+
 DataObjectFalcorUtil.boxDataObject = function (dataObject, boxOp) {
     var modDataObject = {};
 
@@ -158,13 +164,16 @@ DataObjectFalcorUtil.transformToExternal = function (dataObject) {
     if (dataObject.data && dataObject.data.ctxInfo) {
 
         var transCtxInfo = [];
+        var selfCtxItem = {};
         var ctxKeys = Object.keys(dataObject.data.ctxInfo);
+
         if (ctxKeys && ctxKeys.length) {
             for (var i = 0; i < ctxKeys.length; i++) {
                 var ctxKey = ctxKeys[i];
                 var transCtxInfoItem = {};
 
                 var ctxGroup = DataObjectFalcorUtil.createCtxItem(ctxKey);
+
                 transCtxInfoItem.ctxGroup = ctxGroup;
 
                 var enCtxInfo = dataObject.data.ctxInfo[ctxKey];
@@ -177,10 +186,30 @@ DataObjectFalcorUtil.transformToExternal = function (dataObject) {
                     transCtxInfoItem.relationships = DataObjectFalcorUtil.transformRelationshipsToExternal(enCtxInfo.relationships);
                 }
 
-                transCtxInfo.push(transCtxInfoItem);
+                if (transCtxInfoItem.attributes && transCtxInfoItem.attributes.properties) {
+                    transCtxInfoItem.properties = DataObjectFalcorUtil.transformPropertiesToExternal(transCtxInfoItem.attributes.properties);
+                    delete transCtxInfoItem.attributes.properties;
+                }
+
+                if (ctxGroup.self) {
+                    selfCtxItem = transCtxInfoItem;
+                }
+                else {
+                    transCtxInfo.push(transCtxInfoItem);
+                }
             }
         }
-        transDataObject.data = { ctxInfo: transCtxInfo };
+
+        var transData = {};
+        transData.ctxInfo = transCtxInfo;
+
+        if (!isEmpty(selfCtxItem)) {
+            transData.attributes = selfCtxItem.attributes;
+            transData.relationships = selfCtxItem.relationships;
+            transData.properties = selfCtxItem.properties;
+        }
+
+        transDataObject.data = transData;
     }
 
     return transDataObject;
@@ -207,37 +236,28 @@ DataObjectFalcorUtil.transformAttributesToExternal = function (attributes) {
                 var valCtxKey = valCtxKeys[i];
                 var attrData = attrValCtxInfo[valCtxKey];
 
-                var transAttr = DataObjectFalcorUtil.createAndGet(transAttributes, attrKey, {});
+                var transAttr = DataObjectFalcorUtil.getOrCreate(transAttributes, attrKey, {});
 
                 if (attrData) {
                     if (attrData.values) {
-                        var transAttrValues = DataObjectFalcorUtil.createAndGet(transAttr, 'values', []);
+                        var transAttrValues = DataObjectFalcorUtil.getOrCreate(transAttr, 'values', []);
                         transAttrValues.push.apply(transAttrValues, attrData.values);
                     }
-                    else if (attrData.group) {
-                        var transAttrGroup = DataObjectFalcorUtil.createAndGet(transAttr, 'group', []);
+
+                    if (attrData.group) {
+                        var transAttrGroup = DataObjectFalcorUtil.getOrCreate(transAttr, 'group', []);
                         transAttrGroup.push.apply(transAttrGroup, attrData.group);
                     }
+
                     if (attrData.properties) {
-                        var transAttrProperties = DataObjectFalcorUtil.createAndGet(transAttr, 'properties', {});
-                        transAttrProperties.push.apply(transAttrProperties, attrData.properties);
+                        var transAttrProperties = DataObjectFalcorUtil.getOrCreate(transAttr, 'properties', {});
+                        transAttrProperties = DataObjectFalcorUtil.mergeObjects(transAttrProperties, attrData.properties);
                     }
                 }
             }
         }
     }
     return transAttributes;
-};
-
-DataObjectFalcorUtil.createAndGet = function (obj, key, defaultVal) {
-    var keyObj = obj[key];
-
-    if (keyObj === undefined) {
-        keyObj = defaultVal;
-        obj[key] = keyObj;
-    }
-
-    return keyObj;
 };
 
 DataObjectFalcorUtil.transformRelationshipsToExternal = function (relationships) {
@@ -253,8 +273,15 @@ DataObjectFalcorUtil.transformRelationshipsToExternal = function (relationships)
 
         for (var relObjKey in relTypeObj.rels) {
             var rel = relTypeObj.rels[relObjKey];
-            rel.attributes = DataObjectFalcorUtil.transformAttributesToExternal(rel.attributes);
-            rel.relTo = DataObjectFalcorUtil.transformToExternal(rel.relTo);
+
+            if (!isEmpty(rel.attributes)) {
+                rel.attributes = DataObjectFalcorUtil.transformAttributesToExternal(rel.attributes);
+            }
+
+            if (!isEmpty(rel.relTo)) {
+                rel.relTo = DataObjectFalcorUtil.transformToExternal(rel.relTo);
+            }
+
             relsArray.push(rel);
         }
 
@@ -262,6 +289,37 @@ DataObjectFalcorUtil.transformRelationshipsToExternal = function (relationships)
     }
 
     return transRelationships;
+};
+
+DataObjectFalcorUtil.transformPropertiesToExternal = function (properties) {
+    var transProperties = {};
+
+    if (isEmpty(properties)) {
+        return transProperties;
+    }
+
+    for (var propKey in properties.properties) {
+        var property = properties.properties[propKey];
+
+        transProperties[propKey] = DataObjectFalcorUtil.cloneObject(property);
+    }
+
+    return transProperties;
+};
+
+DataObjectFalcorUtil.getOrCreate = function (obj, key, defaultVal) {
+    var keyObj = obj[key];
+
+    if (keyObj === undefined) {
+        keyObj = defaultVal;
+        obj[key] = keyObj;
+    }
+
+    return keyObj;
+};
+
+DataObjectFalcorUtil.mergeObjects = function (obj1, obj2) {
+    return Object.assign(obj1, obj2);
 };
 
 DataObjectFalcorUtil.sortObject = function (object) {
@@ -341,6 +399,11 @@ DataObjectFalcorUtil.createCtxItems = function (ctxKeys) {
         var ctxKey = ctxKeys[i];
         var ctxItem = DataObjectFalcorUtil.createCtxItem(ctxKey);
 
+        //skip self ctx..
+        if (ctxItem.self) {
+            continue;
+        }
+
         var ctxItemFound = false;
         for (var j = 0; j < ctxItems.length; j++) {
             if (DataObjectFalcorUtil.compareCtx(ctxItems[j], ctxItem)) {
@@ -377,6 +440,22 @@ DataObjectFalcorUtil.cloneObject = function (obj) {
     }
 
     return clonedObj;
+};
+
+DataObjectFalcorUtil.objectHasKeys = function (obj, keys) {
+    var next = keys.shift();
+    return obj[next] && (!keys.length || DataObjectFalcorUtil.objectHasKeys(obj[next], keys));
+};
+
+DataObjectFalcorUtil.getNestedObject = function (obj, keys) {
+    var next = keys.shift();
+    var obj = obj[next];
+
+    if (obj !== undefined && keys.length) {
+        obj = DataObjectFalcorUtil.getNestedObject(obj, keys);
+    }
+
+    return obj;
 };
 
 DataObjectFalcorUtil.test = function () {
