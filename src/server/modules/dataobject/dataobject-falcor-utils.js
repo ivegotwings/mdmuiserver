@@ -96,8 +96,8 @@ function _buildAttributesResponse(attrs, attrNames, basePath) {
                 var valCtxItem = { 'source': source, 'locale': locale }; //TODO: Here, source and locale are hard coded... How to find out val ctx keys from the flat list of values object..??
                 var valCtxKey = sharedDataObjectFalcorUtil.createCtxKey(valCtxItem);
 
-                var valCtxItem = sharedDataObjectFalcorUtil.createAndGet(valCtxItems, valCtxKey, {});
-                var values = sharedDataObjectFalcorUtil.createAndGet(valCtxItem, 'values', []);
+                var valCtxItem = sharedDataObjectFalcorUtil.getOrCreate(valCtxItems, valCtxKey, {});
+                var values = sharedDataObjectFalcorUtil.getOrCreate(valCtxItem, 'values', []);
 
                 //TEMP: just pick last value..
                 values.length = 0;
@@ -111,13 +111,15 @@ function _buildAttributesResponse(attrs, attrNames, basePath) {
                 response.push(mergeAndCreatePath(basePath, [attrKey, 'valCtxInfo', valCtxKey, 'values'], $atom(valCtxItem.values)));
             }
         }
-        else if (attr.group) {
+
+        if (attr.group) {
             var valCtxItem = { 'source': CONST_ANY, 'locale': CONST_ANY }; //TODO: How to find out val ctx keys from the flat list of values object..??
             var valCtxKey = sharedDataObjectFalcorUtil.createCtxKey(valCtxItem);
             //console.log('attr group', JSON.stringify(attr.group));
             response.push(mergeAndCreatePath(basePath, [attrKey, 'valCtxInfo', valCtxKey, 'group'], $atom(attr.group)));
         }
-        else if (attr.properties) {
+
+        if (attr.properties) {
             var valCtxItem = { 'source': CONST_ANY, 'locale': CONST_ANY }; //TODO: How to find out val ctx keys from the flat list of values object..??
             var valCtxKey = sharedDataObjectFalcorUtil.createCtxKey(valCtxItem);
             response.push(mergeAndCreatePath(basePath, [attrKey, 'valCtxInfo', valCtxKey, 'properties'], $atom(attr.properties)));
@@ -173,7 +175,7 @@ function _buildRelationshipDetailsResponse(enRel, reqData, basePath) {
     var response = [];
 
     var relBasePath = mergePathSets(basePath, ["rels", enRel.id]);
-    
+
     var dataIndexInfo = pathKeys.dataIndexInfo[reqData.dataIndex];
 
     var dataObjectsByIdBasePath = [pathKeys.root, reqData.dataIndex];
@@ -205,17 +207,12 @@ function _buildRelationshipDetailsResponse(enRel, reqData, basePath) {
     return response;
 }
 
-function _addCtxGroupToAttributes(attrs, attrNames, ctxGroup) {
-    //ctxGroup.source = ctxGroup.locale = CONST_ANY;
-
-    var ctxGroupAttrValues = {
-        'values': [{
-            ctxGroup
-        }]
+function _addCtxPropertiesToAttributes(attrs, attrNames, properties) {
+    var ctxProperties = {
+        'properties': properties
     };
 
-    attrs['ctxGroup'] = ctxGroupAttrValues;
-    attrNames.push('ctxGroup');
+    attrs['properties'] = ctxProperties;
 }
 
 function buildResponse(dataObject, reqData, basePath) {
@@ -231,28 +228,47 @@ function buildResponse(dataObject, reqData, basePath) {
 
     if (!(isEmpty(reqData.attrNames) && isEmpty(reqData.relTypes))) {
 
-        if (!dataObject.data) { return response; }
-        if (!dataObject.data.ctxInfo) { return response; }
+        if (isEmpty(dataObject.data)) { return response; }
 
-        for (let ctxInfoItem of dataObject.data.ctxInfo) {
+        var data = dataObject.data;
+    
+        //add data level attrs, rels and props as self context item in falcor response..
+        if (data.attributes || data.relationships || data.properties) {
+            var ctxInfo = sharedDataObjectFalcorUtil.getOrCreate(data, "ctxInfo", []);
+
+            var selfCtxItem = {
+                'ctxGroup': sharedDataObjectFalcorUtil.getSelfCtx(),
+                'attributes': data.attributes,
+                'relationships': data.relationships,
+                'properties': data.properties,
+            }
+
+            ctxInfo.push(selfCtxItem);
+        }
+
+        for (let ctxInfoItem of data.ctxInfo) {
             var ctxGroup = ctxInfoItem.ctxGroup;
+
             var ctxKey = sharedDataObjectFalcorUtil.createCtxKey(ctxGroup);
             var ctxBasePath = mergePathSets(basePath, ['data', 'ctxInfo', ctxKey]);
 
-            //HACK>> pass ctxGroup info as one of the attribute and remove it up in liquid...this is necessary to save one extra RDF call just to get ctxGroup...
-            //_addCtxGroupToAttributes(attrs, reqData.attrNames, ctxGroup);
-            
-            if(!isEmpty(reqData.attrNames)) {
-                var attrs = ctxInfoItem.attributes;
+            var attrs = ctxInfoItem.attributes;
+
+            if (!isEmpty(reqData.attrNames)) {
+                
+                if (!isEmpty(ctxInfoItem.properties) && reqData.attrNames.indexOf('properties') >= 0) {
+                    _addCtxPropertiesToAttributes(attrs, reqData.attrNames, ctxInfoItem.properties);
+                }
+
                 if (!isEmpty(attrs)) {
                     //console.log('attrs', JSON.stringify(attrs));
                     var attrsBasePath = mergePathSets(ctxBasePath, ['attributes']);
                     response.push.apply(response, _buildAttributesResponse(attrs, reqData.attrNames, attrsBasePath));
                 }
             }
-            
+
             //console.log('relTypes', JSON.stringify(reqData.relTypes));
-            if(!isEmpty(reqData.relTypes)) {
+            if (!isEmpty(reqData.relTypes)) {
                 var rels = ctxInfoItem.relationships;
                 if (!isEmpty(rels)) {
                     var relsBasePath = mergePathSets(ctxBasePath, ['relationships']);

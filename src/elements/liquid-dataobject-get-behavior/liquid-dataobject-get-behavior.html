@@ -178,18 +178,32 @@
             var dataObjectFieldsPath = this._mergePathSets(basePath, [dataObjectFields]);
             paths.push(dataObjectFieldsPath);
 
-            var ctxKeys = utils.createCtxKeys(reqData.params.query.ctx);
+            var clonedCtx = utils.cloneObject(reqData.params.query.ctx);
+            clonedCtx.push(utils.getSelfCtx());
+
+            var ctxKeys = utils.createCtxKeys(clonedCtx);
             var valCtxKeys = utils.createCtxKeys(reqData.params.query.valCtx);
 
             var attrDetailPath = ['valCtxInfo', valCtxKeys, ['values', 'group', 'properties']];
 
+            var attrs = [];
+
             if (reqData.params.fields.attributes !== undefined && reqData.params.fields.attributes.length > 0) {
-                var attrs = reqData.params.fields.attributes;
-                this._arrayRemove(attrs, '_ALL'); //TODO: Fix this once we have logic to resolve ALL...
+                attrs.push.apply(attrs, reqData.params.fields.attributes);
+            }
+
+            // TODO:: how to solve this hack..
+            if(dataIndex == "entityModel") {
+                attrs.push('properties'); /// get ctx level properties as attribute named 'properties'.. this is cheating..
+            }
+
+            this._arrayRemove(attrs, '_ALL'); //TODO: Fix this once we have logic to resolve ALL...
+
+            if(attrs.length > 0) {
                 var path2 = this._mergePathSets(basePath, ['data', 'ctxInfo', ctxKeys, 'attributes', attrs], attrDetailPath);
                 paths.push(path2);
             }
-
+            
             var relTypes = reqData.params.fields.relationships === undefined ? [] : reqData.params.fields.relationships;
             this._arrayRemove(relTypes, '_ALL'); //TODO: Fix this once we have logic to resolve ALL...
 
@@ -213,7 +227,7 @@
                 if (relatedDataObjectAttrs.length > 0)
                     relToObjectPath_Attrs = this._mergePathSets(['relTo', 'data', 'ctxInfo', ctxKeys, 'attributes', relatedDataObjectAttrs], attrDetailPath);
 
-                var relFieldsPath = [['id', 'direction', 'operation', 'source', 'alias']];
+                var relFieldsPath = [['id', 'direction', 'operation', 'source', 'alias', 'properties']];
 
                 var self = this;
                 model.get(relIdCreatePath).then(function (responsePkg) {
@@ -230,7 +244,11 @@
                                 var ctxKey = ctxKeys[ctxKeyIdx];
                                 for (var relTypeIdx in relTypes) {
                                     var relType = relTypes[relTypeIdx];
-                                    var relIds = responseDataObjects[dataObjectId]['data']['ctxInfo'][ctxKey]['relationships'][relType]['relIds'];
+                                    var relIds = utils.getNestedObject(responseDataObjects[dataObjectId], ['data', 'ctxInfo', ctxKey, 'relationships', relType, 'relIds']);
+                                    
+                                    if(!relIds) {
+                                        continue;
+                                    }
 
                                     var from = reqData.params.options && reqData.params.options.from !== undefined ? reqData.params.options.from : 0;
                                     var to = reqData.params.options && reqData.params.options.to !== undefined ? reqData.params.options.to : relIds.length - 1;
