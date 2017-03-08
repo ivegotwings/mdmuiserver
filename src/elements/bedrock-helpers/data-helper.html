@@ -28,32 +28,35 @@
             return attributes;
         }
 
-        DataHelper.findEntityById = function(entitiesExternalFormat, entityId) {
-            for(let entity of entitiesExternalFormat) {
-                if(entityId == entity.id) {
-                    return entity;
+        DataHelper.findEntityById = function (entitiesExternalFormat, entityId) {
+            if (entitiesExternalFormat && entitiesExternalFormat.length) {
+                for (var i = 0; i < entitiesExternalFormat.length; i++) {
+                    var entity = entitiesExternalFormat[i];
+                    if (entityId == entity.id) {
+                        return entity;
+                    }
                 }
             }
             return {};
         }
 
-        DataHelper.prepareCtx = function(dataContext) {
+        DataHelper.prepareCtx = function (dataContext) {
             return {
                 "list": dataContext.list,
                 "classification": dataContext.classification
-            };    
+            };
         };
 
-        DataHelper.prepareValCtx = function(dataContext) {
+        DataHelper.prepareValCtx = function (dataContext) {
             return {
                 "source": dataContext.source,
                 "locale": dataContext.locale,
                 "time": dataContext.time
-            };    
+            };
         };
 
         DataHelper.getAttributesInManageFormat = function (entity, attributeModels, dataContext) {
-            if(!entity || !entity.data) {
+            if (!entity || !entity.data) {
                 return {};
             }
             var ctx = DataHelper.prepareCtx(dataContext);
@@ -65,7 +68,7 @@
         };
 
         DataHelper.transformAttributesToManageFormat = function (attributes, attributeModels, valCtx) {
-            var attributesInManageFormat = [];//our return value
+            var attributesInManageFormat = []; //our return value
 
             for (var attributeGroupName in attributeModels) {
                 var attributeGroupJSON = {
@@ -95,8 +98,8 @@
         };
 
         DataHelper.transformAttributesToGridFormat = function (attributes, attributeModels, valCtx) {
-            var attributesData = {};//our return value
-            
+            var attributesData = {}; //our return value
+
             for (var attributeGroupName in attributeModels) {
                 var attributeValueData = {};
                 for (var attributeModelName in attributeModels[attributeGroupName]) {
@@ -106,7 +109,7 @@
                         var attribute = attributes[attributeModel.name];
                         if (attribute && attribute.values) {
                             attributeJSON = this._getCurrentValue(attribute.values, valCtx);
-                        } 
+                        }
                         if (attributeJSON == undefined || !attributeJSON.hasOwnProperty('value')) {
                             attributeJSON = this._getEmptyValue(valCtx);
                         }
@@ -130,7 +133,8 @@
                 for (var i = 0; i < entities.length; i++) {
                     if (typeof (entities[i]) == "object" && entities[i].data) {
                         var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entities[i], ctx);
-                        entities[i].attributes = this.transformAttributesToGridFormat(attributes, attributeModels, valCtx);
+                        entities[i].attributes = this.transformAttributesToGridFormat(attributes,
+                            attributeModels, valCtx);
                     } else {
                         //if the array has a bad item (non-entity, or entity with no data) then mark it for delete
                         entitiesToBeRemoved.push(i);
@@ -140,6 +144,52 @@
                     entities.splice(entityToBeRemoved, 1);
                 });
             }
+        };
+
+        DataHelper.transformEntitySchemaForLov = function (entities, lovAttributeMap) {
+            var lovFormatedData = [];
+            if (entities && entities.length) {
+                var entitiesToBeRemoved = [];
+                for (var i = 0; i < entities.length; i++) {
+                    if (typeof (entities[i]) == "object" && entities[i].data) {
+                        var lovFormattedEntity = {};
+                        Object.keys(lovAttributeMap).map(function (key) {
+                            var attributeValue;
+                            if (lovAttributeMap[key] == "id") {
+                                lovFormattedEntity[key] = entities[i].id;
+                            } else {
+                                attributeValue = DataHelper.transformAttributesToLovFormat(entities[i].data
+                                    .ctxInfo,
+                                    lovAttributeMap[key]);
+                                lovFormattedEntity[key] = attributeValue.value;
+                            }
+                        });
+                        lovFormatedData.push(lovFormattedEntity);
+                    } else {
+                        //if the array has a bad item (non-entity, or entity with no data) then mark it for delete
+                        entitiesToBeRemoved.push(i);
+                    }
+                }
+                if (entitiesToBeRemoved && entitiesToBeRemoved.length) {
+                    for (var i = 0; i < entitiesToBeRemoved.length; i++) {
+                        entities.splice(entitiesToBeRemoved[i], 1);
+                    }
+                }
+            }
+            return lovFormatedData;
+        };
+
+        DataHelper.transformAttributesToLovFormat = function (ctxInfo, attributeName) {
+            var attributeValueObject = {};
+            for (var i = 0; i < ctxInfo.length; i++) {
+                var attributes = ctxInfo[i].attributes
+                Object.keys(attributes).map(function (key) {
+                    if (key == attributeName && attributes[key].values) {
+                        attributeValueObject = attributes[key].values[0];
+                    }
+                });
+            }
+            return attributeValueObject;
         };
 
         DataHelper.compareObjects = function (firstObject, secondObject) {
@@ -185,10 +235,12 @@
                     var currentValue = values[i];
                     //TODO: locale and source case is not matching for what is there in dimension selector and what is coming in data,
                     // need to find a better answer
-                    if (valCtx.locale && currentValue.locale && currentValue.locale.toLowerCase() != valCtx.locale.toLowerCase()) {
+                    if (valCtx.locale && currentValue.locale && currentValue.locale.toLowerCase() != valCtx.locale
+                        .toLowerCase()) {
                         continue;
                     }
-                    if (valCtx.source && currentValue.source && currentValue.source.toLowerCase() != valCtx.source.toLowerCase()) {
+                    if (valCtx.source && currentValue.source && currentValue.source.toLowerCase() != valCtx.source
+                        .toLowerCase()) {
                         continue;
                     }
                     //TODO: compare for time?
@@ -243,28 +295,78 @@
                     return obj[i];
                 } else if (typeof obj[i] == 'object') {
                     outputObj = DataHelper.getValue(obj[i], key);
-                } 
+                }
             }
             return outputObj;
         };
 
-        DataHelper.validateGetEntitiesResponse = function(entitiesResponse) {
-            if(entitiesResponse && entitiesResponse.content && entitiesResponse.content.entities
-                && !_.isEmpty(entitiesResponse.content.entities)) {
+        DataHelper.validateGetEntitiesResponse = function (entitiesResponse) {
+            if (entitiesResponse && entitiesResponse.content && entitiesResponse.content.entities &&
+                !_.isEmpty(entitiesResponse.content.entities)) {
                 return true;
             }
             return false;
         };
 
-        DataHelper.validateGetAttributeModelsResponse = function(attributeModelsResponse) {
-            if(attributeModelsResponse && attributeModelsResponse.returnValue 
-                && attributeModelsResponse.returnValue.attributeModels 
-                && !_.isEmpty(attributeModelsResponse.returnValue.attributeModels)) {
+        DataHelper.validateGetAttributeModelsResponse = function (attributeModelsResponse) {
+            if (attributeModelsResponse && attributeModelsResponse.returnValue &&
+                attributeModelsResponse.returnValue.attributeModels &&
+                !_.isEmpty(attributeModelsResponse.returnValue.attributeModels)) {
                 return true;
             }
             return false;
         };
+
+        DataHelper._prepareContextGroups=function (lists,classification) {
+            if(!classification){
+                classification= "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry";
+            }
+            if (lists && lists instanceof Array) {
+                var ctxGroup = [];
+                for (var i = 0; i < lists.length; i++) {
+                    var ctxInfoObject = {};
+                    ctxInfoObject.list = lists[i].value;
+                    ctxInfoObject.classification =classification;
+                    ctxGroup.push(ctxInfoObject);
+                }
+                return ctxGroup;
+            }
+        };
+
+        DataHelper._prepareValueContextGroups= function (sources, locales) {
+            var valueCtxGroup = [];
+            if (sources && locales && sources instanceof Array && locales instanceof Array) {
+                for (var i = 0; i < sources.length; i++) {
+                    for (var j = 0; j < locales.length; j++) {
+                        var valueCtxInfoObject ={};
+                        valueCtxInfoObject.source = sources[i].value;
+                        valueCtxInfoObject.locale = locales[j].value;
+                        valueCtxGroup.push(valueCtxInfoObject);
+                    }
+                }
+                return valueCtxGroup;
+            }
+        };
+
+        DataHelper.getEmptyRelationshipDataObject = function(list, classification, relationship) {
+            var ctxGroup = {};
+            var relationships = {};
+
+            relationships[relationship] = [];
+
+            return {
+                "ctxInfo" : [
+                    {
+                        "ctxGroup" : {
+                            "classification" : classification,
+                            "list" : list
+                        },
+                        "relationships": relationships
+                    }
+                ]
+            }
+        }
+
 
     })();
-
 </script>

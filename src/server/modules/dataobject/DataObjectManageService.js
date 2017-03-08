@@ -31,19 +31,13 @@ DataObjectManageService.prototype = {
             return "NA";
         };
 
-        if(request.objType == "entityData") {
+        if(request.dataIndex == "entityData") {
             return "entitymanageservice";
         }
-        else if(request.objType == "workflowDefinition") {
-            return "entitymodelservice";
-        }
-        else if(request.objType == "workflowRuntimeInstance") {
+        else if(request.dataIndex == "entityGovernData") {
             return "entitygovernservice";
         }
-        else if(request.objType == "entityGovernData") {
-            return "entitygovernservice";
-        }
-        else if(request.objType == "entityModel") {
+        else if(request.dataIndex == "entityModel") {
             return "entitymodelservice";
         }
         else {
