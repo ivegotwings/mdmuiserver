@@ -23,7 +23,7 @@
                 value: "dataObjectChannel",
                 readonly: true
             },
-            objectType: {
+            dataIndex: {
                 type: String,
                 value: 'entityData'
             },
@@ -89,54 +89,59 @@
             }
         },
         _callCreate: function(model, request) {
-            var jsonEnvelope = this._createJsonEnvelope(request);
+            var jsonEnvelopeCreateResponse = this._createJsonEnvelope(request);
+            var jsonEnvelope = jsonEnvelopeCreateResponse.jsonEnvelope;
 
             if(jsonEnvelope === {}) {
                 return;
             }
 
             var pathKeys = this._pathKeys;
-            var objectType = this.objectType;
-            var objectTypeInfo = pathKeys.objectTypesInfo[objectType];
+            var dataIndex = this.dataIndex;
+            var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
             
+            var dataObjectTypes = jsonEnvelopeCreateResponse.dataObjectTypes;
+
             if(this.verbose) {
                 console.log('dataobject json envelope', jsonEnvelope);
                 console.log('model cache before save call', model.getCache());
             }
 
-            return model.call([pathKeys.root, this.objectType, "create"], [jsonEnvelope], [], []);
+            return model.call([pathKeys.root, this.dataIndex, dataObjectTypes, "create"], [jsonEnvelope], [], []);
         },
         _callUpdate: function(model, request) {
-            var jsonEnvelope = this._createJsonEnvelope(request);
+            var jsonEnvelopeCreateResponse = this._createJsonEnvelope(request);
+            var jsonEnvelope = jsonEnvelopeCreateResponse.jsonEnvelope;
 
             if(jsonEnvelope === {}) {
                 return;
             }
 
             var pathKeys = this._pathKeys;
-            var objectType = this.objectType;
-            var objectTypeInfo = pathKeys.objectTypesInfo[objectType];
+            var dataIndex = this.dataIndex;
+            var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
             
-            var dataObjectIds = Object.keys(jsonEnvelope.json[pathKeys.root][objectType][pathKeys.masterListById]);
+            var dataObjectIds = jsonEnvelopeCreateResponse.dataObjectIds;
+            var dataObjectTypes = jsonEnvelopeCreateResponse.dataObjectTypes;
             
             if(this.verbose) {
                 console.log('dataobject json envelope', jsonEnvelope);
                 console.log('model cache before save call', model.getCache());
             }
 
-            return model.call([pathKeys.root, this.objectType, pathKeys.masterListById, dataObjectIds, "update"], [jsonEnvelope], [], []);
+            return model.call([pathKeys.root, this.dataIndex, dataObjectTypes, pathKeys.byIds, dataObjectIds, "update"], [jsonEnvelope], [], []);
         },
         _createJsonEnvelope: function(request) {
             var reqData = request.requestData;
             var pathKeys = this._pathKeys;
-            var objectType = this.objectType;
-            var objectTypeInfo = pathKeys.objectTypesInfo[objectType];
+            var dataIndex = this.dataIndex;
+            var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
 
-            if(reqData === undefined || !Object.keys(reqData[objectTypeInfo.collectionName]).length) {
+            if(reqData === undefined || !Object.keys(reqData[dataIndexInfo.collectionName]).length) {
                 return {};
             }
 
-            var dataObjects = reqData[objectTypeInfo.collectionName];
+            var dataObjects = reqData[dataIndexInfo.collectionName];
 
             if(this.verbose) {
                 console.log('Request for save data objects call...data objects: ', dataObjects);
@@ -144,21 +149,33 @@
 
             var jsonEnvelope = {"json": {}};
             jsonEnvelope.json[pathKeys.root] = {};
-            jsonEnvelope.json[pathKeys.root][objectType] = {};
+            var dataObjectsBaseJson = jsonEnvelope.json[pathKeys.root][dataIndex] = {};
 
-            var dataObjectsMasterListJson = jsonEnvelope.json[pathKeys.root][objectType][pathKeys.masterListById] = {};
-            
             if(dataObjects.length == 0) {
                 var reason = {'status':'error', 'msg': 'No data objects found for save'};
                 return reason;
             }
 
-            for(let dataObject of dataObjects) {
+            var dataObjectIds = [];
+            var dataObjectTypes = [];
+
+            for(var i = 0;  i < dataObjects.length; i++){
+                var dataObject = dataObjects[i];
                 var dataObjectId = dataObject.id;
-                dataObjectsMasterListJson[dataObjectId] = SharedUtils.DataObjectFalcorUtil.boxDataObject(dataObject, SharedUtils.DataObjectFalcorUtil.boxJsonObject);
+                var dataObjectType = dataObject[dataIndexInfo.typeInfo][dataIndexInfo.typeName];
+
+                var dataObjectTypeJson = SharedUtils.DataObjectFalcorUtil.getOrCreate(dataObjectsBaseJson, dataObjectType, {});
+                dataObjectsByIdJson = SharedUtils.DataObjectFalcorUtil.getOrCreate(dataObjectTypeJson, pathKeys.byIds, {});
+                dataObjectsByIdJson[dataObjectId] = SharedUtils.DataObjectFalcorUtil.boxDataObject(dataObject, SharedUtils.DataObjectFalcorUtil.boxJsonObject);
+
+                dataObjectIds.push(dataObjectId);
+
+                if(dataObjectTypes.indexOf(dataObjectType) === -1){
+                     dataObjectTypes.push(dataObjectType);
+                }
             }
 
-            return jsonEnvelope;
+            return { 'jsonEnvelope': jsonEnvelope, 'dataObjectIds': dataObjectIds, 'dataObjectTypes': dataObjectTypes };
         },
         _getDataObjectPathKeys: function() {
             return SharedUtils.DataObjectFalcorUtil.getPathKeys();

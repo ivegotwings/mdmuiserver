@@ -1,6 +1,5 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html"/>
 <link rel="import" href="../../../bower_components/iron-collapse/iron-collapse.html"/>
-<link rel="import" href="../../../bower_components/iron-list/iron-list.html"/>
 <link rel="import" href="../../../bower_components/iron-icon/iron-icon.html"/>
 <link rel="import" href="../../../bower_components/paper-input/paper-input.html">
 
@@ -109,20 +108,13 @@
             .right{
                 margin-left: auto;
             }
-            pebble-horizontal-divider {
-                --pebble-horizontal-divider-color: var(--divider-color, #eaeaea);
-                /*--pebble-horizontal-divider: {*/
-                    /*margin-bottom: 1px;*/
-                    /*margin-top: 1px;*/
-                    /*@apply(--guideme-horizontal-divider);*/
-                /*}*/
+            .node-border {
+                border-top: 1px solid #c1cad4;
+                border-bottom: 1px solid #c1cad4;
             }
-
-
-
         </style>
         <template is="dom-if" if="[[!hasChildren(nodeData.*,itemPath)]]"  >
-            <li class="flex">
+            <li class$="[[_getNodeClass(nodeData)]]">
                 <div class="check-box-wrapper" on-tap = "_itemClick">
                     <pebble-checkbox hidden="[[!multiSelect]]" disabled="[[disabled]]" checked="[[_isSelected(nodeData,selectedItems,selectedItems.*)]]"></pebble-checkbox>
                 </div>
@@ -134,24 +126,22 @@
             </li>
         </template>
         <template is="dom-if" if="[[hasChildren(nodeData.*,itemPath)]]" >
-            <div><pebble-horizontal-divider hidden="[[!showHorizontalDivider]]"></pebble-horizontal-divider></div>
-            <li class="flex">
+            <li class$="[[_getNodeClass(nodeData)]]">
                 <pebble-button class="iconButton" icon$="[[_expandClass(expanded)]]"  hidden="[[!multiSelect]]" on-click="_toggle" ></pebble-button>
                 <div class="check-box-wrapper" on-tap = "_itemClick">
                     <pebble-checkbox hidden="[[!multiSelect]]" disabled="[[disabled]]" indeterminate="[[_isIndeterminate(nodeData,indeterminateItems,indeterminateItems.*)]]" checked="[[_isSelected(nodeData,selectedItems,selectedItems.*)]]"></pebble-checkbox>
                 </div>
                 <div on-click="_toggle" class="flex">
                     <div id="arrow" hidden="[[multiSelect]]" class$="[[_arrowClass(expanded)]] arrow"
-                         ></div>
+                        ></div>
                     <iron-icon src="[[nodeData.src]]" icon="[[nodeData.icon]]"
-                               hidden="[[!_iconPassed(nodeData)]]"></iron-icon>
+                            hidden="[[!_iconPassed(nodeData)]]"></iron-icon>
                     <div>[[nodeData.text]]</div>
                 </div>
                 <div class="right" hidden="[[isNotAddable(addableLevels)]]">
                     <pebble-button class="iconButton" icon="icons:add-circle" on-tap="_addNewElement"></pebble-button>
                 </div>
             </li>
-            <div ><pebble-horizontal-divider hidden="[[!showHorizontalDivider]]"></pebble-horizontal-divider></div>
         </template>
         <iron-collapse id="collapse" opened$="[[expanded]]">
             <ul class="flex" hidden="[[!nodeData.addNewItem]]">
@@ -161,15 +151,13 @@
             </ul>
             <template is="dom-if" if="[[hasChildren(nodeData.*,itemPath)]]" >
             <ul>
-                <iron-list items="[[nodeData.children]]" as="item" index-as="index" >
-                    <template>
-                        <pebble-tree-node disabled="[[disabled]]"  node-data="{{item}}" default-expand-depth ="[[defaultExpandDepth]]" default-child-depth="[[defaultChildDepth]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}"
+                    <template is="dom-repeat" id="childList"  items="[[_getChildren(searchKeyword,nodeData.*)]]" >
+                        <pebble-tree-node disabled="[[disabled]]"  node-data="{{item}}" search-keyword="[[searchKeyword]]" default-expand-depth ="[[defaultExpandDepth]]" default-child-depth="[[defaultChildDepth]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}"
                                            indeterminate-items="{{indeterminateItems}}"  multi-select="[[multiSelect]]"
                                            parent-item="{{nodeData}}" item-path$="[[_setItemPath(index)]]" selected-node="{{selectedNode}}" selected-nodes="{{selectedNodes}}"
-                                           tree="[[tree]]" check-child-nodes="[[checkChildNodes]]" show-horizontal-divider="[[showHorizontalDivider]]" addable-levels="[[addableLevels]]">
+                                           tree="[[tree]]" check-child-nodes="[[checkChildNodes]]" check-parent-nodes="[[checkParentNodes]]" addable-levels="[[addableLevels]]">
                         </pebble-tree-node>
                     </template>
-                </iron-list>
             </ul>
             </template>
         </iron-collapse>
@@ -262,7 +250,8 @@
                  * @type String
                  */
                 itemPath:{
-                    type:String
+                    type:String,
+                    observer: '_itemPathChanged'
                 },
                 /**
                  * Specifies the default depth to which the tree will be expanded by default.
@@ -286,6 +275,13 @@
                     value:false
                 },
                 /**
+                 * Specifies whether parent elements are selected or not on selecting the child elements.
+                 */
+                checkParentNodes:{
+                    type:Boolean,
+                    value:false
+                },
+                /**
                  * Indicates a reference to the tree.
                  */
                 tree:{
@@ -293,13 +289,6 @@
                     value: function () {
                         return this;
                     }
-                },
-                /**
-                 * Specifies whether or not to show the horizental divider for parent nodes.
-                 */
-                showHorizontalDivider:{
-                    type:Boolean,
-                    value:false
                 },
                 /**
                  * Specifies the level at which add buttons should be present so that new child elements can be added. 
@@ -326,7 +315,6 @@
                 '_defaultExpandDepthChanged(defaultExpandDepth,itemPath)',
                 '_nodeDataExpandedChanged(nodeData.expanded)'
             ],
-
             /**
              *  Can be used to return `arrow-down`, if `item.expanded` is <b>true</b>. Otherwise,
              *  `arrow-right` is returned.
@@ -394,11 +382,22 @@
                                 this._makeParentIndeterminate();
                             }
                         }
+                        if(this.checkParentNodes) {
+                            if (this._allSiblingsSelected()) {
+                                var parentNode= this.getParentNode();
+                                if(parentNode) {
+                                    parentNode.selectItem();
+                                }
+                            } else {
+                                this._makeParentIndeterminate();
+                            }
+                        }
                         var indeterminateIndex = this.indeterminateItems.indexOf(nodeData);
                         if (indeterminateIndex > -1) {
                             this.splice('indeterminateItems', indeterminateIndex, 1);
                         }
                     }
+                    this.fire('item-selected', {data: this});
                     this._notifySelectedItemChanges();
                 }
             },
@@ -533,8 +532,6 @@
                 this.fire('tree-node-expanded',this);
                 this.$$('#collapse').toggle();
                 this.expanded=!this.expanded;
-                //To resize iron-list when navigation menu toggles
-                this._resizeIronList();
                 this.set('nodeData.addNewItem', false);
             },
 
@@ -543,7 +540,6 @@
                     if (!this.expanded) {
                         this._toggle();
                     }
-                    this.tree._resizeIronList();
                     this.async(function () {
                         var newItem = this.$$('#newItem');
                         if (newItem) {
@@ -567,7 +563,6 @@
                 this.set('nodeData.addNewItem', false);
                 this.$$('#newItem').value = '';
                 this.unshift('nodeData.children', newItem);
-                this._resizeIronList();
                 this.async(function () {
                     if(this.newItemChecked){
                         this.tree.getElementNodeByPath(this.itemPath+".0").selectItem();
@@ -576,6 +571,7 @@
                         this.tree.getElementNodeByPath(this.itemPath+".0")._changeParentDeterminateState();
                     }
                 });
+                this.refreshChildList();
                 this.fire('new-item-added', {nodeData:newItem, path:this.itemPath + ".0"});
             },
 
@@ -632,14 +628,6 @@
                     return true;
                 }
                 return false;
-            },
-
-            _resizeIronList : function() {
-                var ironList = Polymer.dom(this.root).querySelector("iron-list")
-                    || Polymer.dom(this).querySelector("iron-list");
-                if(ironList) {
-                    ironList.notifyResize();
-                }
             },
             /**
              *  Can be used to get the parent element of the current item.
@@ -745,6 +733,51 @@
                     return false;
                 }
                 return true;
+            },
+            _getChildren:function (searchKeyword) {
+                    var navArr=this.nodeData.children;
+                    if(!navArr){
+                        return [];
+                    }
+                    if(!searchKeyword || searchKeyword==""){
+                        return navArr;
+                    }
+                    var foundItems=[];
+                    var len=navArr.length;
+                    for (var i = 0;  i < len; i++) {
+                        if (navArr[i].text.toLowerCase().indexOf(searchKeyword.toLowerCase()) != -1 ) {
+                            foundItems.push(navArr[i]);
+                            continue;
+                        }
+                        var childMatch=false;
+                        if (navArr[i].children) {
+                            childMatch = this.tree._checkChildMatch(navArr[i].children, searchKeyword);
+                        }
+                        if (childMatch) {
+                            foundItems.push(navArr[i]);
+                        }
+                    }
+                    if(foundItems.length>0){
+                            this.expanded = true;
+                    }
+                    return foundItems;
+            },
+            /*
+             * Refresh the tree node in case there in any change in the children data
+             */
+            refreshChildList:function () {
+                this.$$("#childList").render();
+            },
+            _getNodeClass: function(nodeData) {
+                if(nodeData.border) {
+                    return "flex node-border";
+                }
+                else {
+                    return "flex";
+                }
+            },
+            _itemPathChanged: function(itemPath) {
+                this.fire('node-expanded',this);
             }
         });
 

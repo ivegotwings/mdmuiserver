@@ -40,7 +40,6 @@ OfflineRestService.prototype = {
         //console.log('filterVal', filterVal);
 
         if(requestPathToSelectDataFile) {
-            
             var filePrefixes = this._getPathValue(request, requestPathToSelectDataFile);
             var files = [];
 
@@ -57,21 +56,26 @@ OfflineRestService.prototype = {
             var basePath = process.cwd() + '/offline-data/' + tenantId + '/';
 
             //console.log('file prefixes: ', JSON.stringify(filePrefixes));
+            files = requireDir(basePath);
+            var filteredFiles = {};
 
             if(isEmpty(filePrefixes)) {
-                files = requireDir(basePath);
+                filteredFiles = files;
             }
             else {
-                for(let filePrefix of filePrefixes) {
-                    var fileName = basePath + filePrefix + '.json';
-                    var fileKey = filePrefix + ".json";
-                    files[fileKey] = require(fileName);
+                 for(let fileId in files) {
+                    for(let filePrefix of filePrefixes) {
+                        if(fileId.indexOf(filePrefix) >= 0) {
+                            filteredFiles[fileId] = files[fileId];
+                        }
+                    }
                 }
             }
 
-            //console.log('file names: ', JSON.stringify(Object.keys(files)));
+            //console.log('filtered file names: ', JSON.stringify(Object.keys(filteredFiles)));
 
-            for(let fileId in files) {
+            for(let fileId in filteredFiles) {
+                                
                 var fileContent = files[fileId];
 
                 if(!isEmpty(fileContent)) {
