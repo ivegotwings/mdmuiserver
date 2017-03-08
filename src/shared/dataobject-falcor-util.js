@@ -449,13 +449,71 @@ DataObjectFalcorUtil.objectHasKeys = function (obj, keys) {
 
 DataObjectFalcorUtil.getNestedObject = function (obj, keys) {
     var next = keys.shift();
-    var obj = obj[next];
 
-    if (obj !== undefined && keys.length) {
-        obj = DataObjectFalcorUtil.getNestedObject(obj, keys);
+    if(obj !== undefined) {
+    
+        var obj = obj[next];
+    
+        if (obj !== undefined && keys.length) {
+            obj = DataObjectFalcorUtil.getNestedObject(obj, keys);
+        }
+    }
+    
+    return obj;
+};
+
+DataObjectFalcorUtil.isObject = function (item) {
+  return (item && typeof item === 'object' && !Array.isArray(item));
+}
+
+DataObjectFalcorUtil.deepAssign = function(...objs) {
+    if (objs.length < 2) {
+        throw new Error('Need two or more objects to merge')
     }
 
-    return obj;
+    const target = objs[0]
+    for (let i = 1; i < objs.length; i++) {
+        const source = objs[i]
+        Object.keys(source).forEach(prop => {
+            const value = source[prop]
+            if (DataObjectFalcorUtil.isObject(value)) {
+                if (target.hasOwnProperty(prop) && DataObjectFalcorUtil.isObject(target[prop])) {
+                    target[prop] = DataObjectFalcorUtil.deepAssign(target[prop], value)
+                } else {
+                    target[prop] = value
+                }
+            } else if (Array.isArray(value)) {
+                if (target.hasOwnProperty(prop) && Array.isArray(target[prop])) {
+                    const targetArray = target[prop]
+                    value.forEach((sourceItem, itemIndex) => {
+                        if (itemIndex < targetArray.length) {
+                            const targetItem = targetArray[itemIndex]
+
+                            if (Object.is(targetItem, sourceItem)) {
+                                return
+                            }
+
+                            if (DataObjectFalcorUtil.isObject(targetItem) && DataObjectFalcorUtil.isObject(sourceItem)) {
+                                targetArray[itemIndex] = DataObjectFalcorUtil.deepAssign(targetItem, sourceItem)
+                            } else if (Array.isArray(targetItem) && Array.isArray(sourceItem)) {
+                                targetArray[itemIndex] = DataObjectFalcorUtil.deepAssign(targetItem, sourceItem)
+                            } else {
+                                targetArray[itemIndex] = sourceItem
+                            }
+                        } else {
+                            targetArray.push(sourceItem)
+                        }
+                    })
+                } else {
+                    target[prop] = value
+                }
+            } else {
+                target[prop] = value
+            }
+        })
+    }
+
+    return target;
 };
 
 DataObjectFalcorUtil.test = function () {
