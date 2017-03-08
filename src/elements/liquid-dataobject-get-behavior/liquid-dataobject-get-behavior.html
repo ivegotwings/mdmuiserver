@@ -23,7 +23,7 @@
                 value: 'dataObjectChannel',
                 readonly: true
             },
-            objectType: {
+            dataIndex: {
                 type: String,
                 value: 'entityData'
             },
@@ -57,29 +57,29 @@
         _formatResponse: function (request, rawResponsePkg) {
             var op = request.operation;
             var pathKeys = this._pathKeys;
-            var objectType = this.objectType;
-            var objTypeInfo = pathKeys.objectTypesInfo[objectType];
+            var dataIndex = this.dataIndex;
+            var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
 
             if (op === 'initiatesearch') {
-                var resSearchResultId = Object.keys(rawResponsePkg.json[pathKeys.root][objectType][pathKeys.searchResults])[0];
-                return rawResponsePkg.json[pathKeys.root][objectType][pathKeys.searchResults][resSearchResultId];
+                var resSearchResultId = Object.keys(rawResponsePkg.json[pathKeys.root][dataIndex][pathKeys.searchResults])[0];
+                return rawResponsePkg.json[pathKeys.root][dataIndex][pathKeys.searchResults][resSearchResultId];
             }
             else if (op === 'getsearchresultdetail') {
-                var dataObjects = rawResponsePkg.json[pathKeys.root][objectType][pathKeys.searchResults][request.requestId][pathKeys.searchResultObjects];
-                var formattedDataObjects = this._formatData(objectType, dataObjects);
+                var dataObjects = rawResponsePkg.json[pathKeys.root][dataIndex][pathKeys.searchResults][request.requestId][pathKeys.searchResultItems];
+                var formattedDataObjects = this._formatData(dataIndex, dataObjects);
                 var searchResultDetailResponse = {};
-                searchResultDetailResponse[objTypeInfo.collectionName] = formattedDataObjects;
+                searchResultDetailResponse[dataIndexInfo.collectionName] = formattedDataObjects;
                 return searchResultDetailResponse;
             }
             else if (op === 'getbyids') {
                 var dataObjects = {};
                 if (rawResponsePkg !== undefined && rawResponsePkg.json && rawResponsePkg.json[pathKeys.root]) {
-                    dataObjects = rawResponsePkg.json[pathKeys.root][objectType][pathKeys.masterListById];
-                    var formattedDataObjects = this._formatData(objectType, dataObjects);
+                    dataObjects = this._getDataObjects(rawResponsePkg, dataIndex);
+                    var formattedDataObjects = this._formatData(dataIndex, dataObjects);
                 }
 
                 var getByIdsResponse = {};
-                getByIdsResponse[objTypeInfo.collectionName] = formattedDataObjects;
+                getByIdsResponse[dataIndexInfo.collectionName] = formattedDataObjects;
                 return getByIdsResponse;
             }
         },
@@ -96,37 +96,43 @@
             var mainMessage = 'cannot make request for operation ' + operation + '{0} ... host: ' + this.domHost.localName + '... request: ' + JSON.stringify(requestData);
 
             if (!requestData) {
-                console.log(mainMessage.format(': requestData not found'));
+                console.warn(mainMessage.format(': requestData not found'));
                 return false;
             }
             if (!requestData.params) {
-                console.log(mainMessage.format(': requestData.params not found'));
+                console.warn(mainMessage.format(': requestData.params not found'));
                 return false;
             }
             if (!requestData.params.query) {
-                console.log(mainMessage.format(': requestData.params.query not found'));
+                console.warn(mainMessage.format(': requestData.params.query not found'));
                 return false;
             }
 
             var isIdExists = requestData.params.query.id !== undefined || requestData.params.query.ids !== undefined;
+            var isNameExists = requestData.params.query.name !== undefined;
             var isCtxExists = requestData.params.query.ctx !== undefined && requestData.params.query.ctx.length > 0;
             var isTypeCriterionExists = requestData.params.query.filters !== undefined && requestData.params.query.filters.typesCriterion !== undefined && requestData.params.query.filters.typesCriterion.length > 0;
 
-            if (!(isIdExists || isCtxExists || isTypeCriterionExists)) {
-                console.log(mainMessage.format(': at least one must be present (ids, ctx, typesCriterion)'));
+            if (!(isIdExists || isNameExists || isCtxExists || isTypeCriterionExists)) {
+                console.warn(mainMessage.format(': at least one must be present (ids, ctx, typesCriterion)'));
+                return false;
+            }
+
+            if (!isTypeCriterionExists) {
+                console.warn(mainMessage.format(': typesCriterion is mandatory in filters'));
                 return false;
             }
 
             //operation based validation
             if (operation === 'getbyids') {
-                if (!isIdExists) {
-                    console.log(mainMessage.format(': ids is mandatory for this operation'));
+                if (!(isIdExists || isNameExists)) {
+                    console.warn(mainMessage.format(': at least one of [id / ids / name] field is mandatory for this operation'));
                     return false;
                 }
             }
             else if (operation == "getsearchresultdetail") {
                 if (!request.requestId) {
-                    console.log(mainMessage.format(': requestId is mandatory for this operation'));
+                    console.warn(mainMessage.format(': requestId is mandatory for this operation'));
                     return false;
                 }
             }
@@ -143,11 +149,23 @@
                 return;
             }
 
-            if ((!dataObjectIds || dataObjectIds.length == 0) && reqData.params && reqData.params.query && (reqData.params.query.id || reqData.params.query.ids)) {
-                if (reqData.params.query.id) {
-                    dataObjectIds.push(reqData.params.query.id);
-                } else if (reqData.params.query.ids) {
-                    dataObjectIds.push.apply(dataObjectIds, reqData.params.query.ids);
+            if ((!dataObjectIds || dataObjectIds.length == 0)) {
+                if (reqData.params && reqData.params.query && (reqData.params.query.id || reqData.params.query.ids)) {
+                    if (reqData.params.query.id) {
+                        dataObjectIds.push(reqData.params.query.id);
+                    } else if (reqData.params.query.ids) {
+                        dataObjectIds.push.apply(dataObjectIds, reqData.params.query.ids);
+                    }
+                }
+                else if (reqData.params && reqData.params.query && reqData.params.query.name) {
+                    if (reqData.params.query.filters && reqData.params.query.filters.typesCriterion) {
+                        var types = reqData.params.query.filters.typesCriterion;
+                        for(var i = 0; i < types.length; i++) {
+                            var type = types[i];
+                            var smartId = type + "_" + reqData.params.query.name;
+                            dataObjectIds.push(smartId);
+                        }
+                    }
                 }
             }
 
@@ -162,24 +180,39 @@
 
             var paths = [];
             var pathKeys = this._pathKeys;
-            var objectType = this.objectType;
-            var objTypeInfo = pathKeys.objectTypesInfo[objectType];
+            var dataIndex = this.dataIndex;
+            var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
+            var dataObjectTypes = this._getDataObjectTypes(reqData);
 
-            basePath = basePath === undefined ? [pathKeys.root, objectType, pathKeys.masterListById, dataObjectIds] : basePath;
+            basePath = basePath === undefined ? [pathKeys.root, dataIndex, dataObjectTypes, pathKeys.byIds, dataObjectIds] : basePath;
 
-            var dataObjectFields = ['id', 'name', 'version', objTypeInfo.typeInfo, 'properties'];
+            var dataObjectFields = ['id', 'name', 'version', dataIndexInfo.typeInfo, 'properties'];
 
             var dataObjectFieldsPath = this._mergePathSets(basePath, [dataObjectFields]);
             paths.push(dataObjectFieldsPath);
 
-            var ctxKeys = utils.createCtxKeys(reqData.params.query.ctx);
+            var clonedCtx = utils.cloneObject(reqData.params.query.ctx);
+            clonedCtx.push(utils.getSelfCtx());
+
+            var ctxKeys = utils.createCtxKeys(clonedCtx);
             var valCtxKeys = utils.createCtxKeys(reqData.params.query.valCtx);
 
             var attrDetailPath = ['valCtxInfo', valCtxKeys, ['values', 'group', 'properties']];
 
+            var attrs = [];
+
             if (reqData.params.fields.attributes !== undefined && reqData.params.fields.attributes.length > 0) {
-                var attrs = reqData.params.fields.attributes;
-                this._arrayRemove(attrs, '_ALL'); //TODO: Fix this once we have logic to resolve ALL...
+                attrs.push.apply(attrs, reqData.params.fields.attributes);
+            }
+
+            // TODO:: how to solve this hack..
+            if (dataIndex == "entityModel") {
+                attrs.push('properties'); /// get ctx level properties as attribute named 'properties'.. this is cheating..
+            }
+
+            this._arrayRemove(attrs, '_ALL'); //TODO: Fix this once we have logic to resolve ALL...
+
+            if (attrs.length > 0) {
                 var path2 = this._mergePathSets(basePath, ['data', 'ctxInfo', ctxKeys, 'attributes', attrs], attrDetailPath);
                 paths.push(path2);
             }
@@ -201,13 +234,13 @@
                     var relAttrsPath = this._mergePathSets(['attributes', relAttrNames], attrDetailPath);
                 }
 
-                var relToObjectPath_Fields = this._mergePathSets(['relTo'], dataObjectFields);
+                var relToObjectPath_Fields = this._mergePathSets(['relTo'], [dataObjectFields]);
 
                 var relToObjectPath_Attrs = [];
                 if (relatedDataObjectAttrs.length > 0)
                     relToObjectPath_Attrs = this._mergePathSets(['relTo', 'data', 'ctxInfo', ctxKeys, 'attributes', relatedDataObjectAttrs], attrDetailPath);
 
-                var relFieldsPath = [['id', 'direction', 'operation', 'source', 'alias']];
+                var relFieldsPath = [['id', 'direction', 'operation', 'source', 'alias', 'properties']];
 
                 var self = this;
                 model.get(relIdCreatePath).then(function (responsePkg) {
@@ -218,11 +251,17 @@
                     if (responsePkg !== undefined) {
                         for (var dataObjectIdIdx in dataObjectIds) {
                             var dataObjectId = dataObjectIds[dataObjectIdIdx];
+                            var responseDataObjects = self._getDataObjects(responsePkg, self.dataIndex);
+
                             for (var ctxKeyIdx in ctxKeys) {
                                 var ctxKey = ctxKeys[ctxKeyIdx];
                                 for (var relTypeIdx in relTypes) {
                                     var relType = relTypes[relTypeIdx];
-                                    var relIds = responsePkg.json[pathKeys.root][self.objectType][pathKeys.masterListById][dataObjectId]['data']['ctxInfo'][ctxKey]['relationships'][relType]['relIds'];
+                                    var relIds = utils.getNestedObject(responseDataObjects[dataObjectId], ['data', 'ctxInfo', ctxKey, 'relationships', relType, 'relIds']);
+
+                                    if (!relIds) {
+                                        continue;
+                                    }
 
                                     var from = reqData.params.options && reqData.params.options.from !== undefined ? reqData.params.options.from : 0;
                                     var to = reqData.params.options && reqData.params.options.to !== undefined ? reqData.params.options.to : relIds.length - 1;
@@ -280,7 +319,7 @@
         },
         _callInitiateSearch: function (model, reqData) {
             var pathKeys = this._pathKeys;
-            return model.call([pathKeys.root, this.objectType, pathKeys.searchResults, 'create'], [reqData], [], []);
+            return model.call([pathKeys.root, this.dataIndex, pathKeys.searchResults, 'create'], [reqData], [], []);
         },
         _callSearchResultDetail: function (model, request) {
             var self = this,
@@ -297,11 +336,11 @@
             }
 
             var pathKeys = this._pathKeys;
-            var objectType = this.objectType;
+            var dataIndex = this.dataIndex;
             var totalRecordsResponse = this._callSearchResultTotalRecordsGet(model, reqId);
 
             totalRecordsResponse.then(function (totalRecordsPkg) {
-                totalRecords = totalRecordsPkg.json[pathKeys.root][objectType][pathKeys.searchResults][reqId].totalRecords;
+                totalRecords = totalRecordsPkg.json[pathKeys.root][dataIndex][pathKeys.searchResults][reqId].totalRecords;
 
                 var from = reqData.params.options && reqData.params.options.from !== undefined ? reqData.params.options.from : 0;
                 var to = reqData.params.options && reqData.params.options.to !== undefined ? reqData.params.options.to : totalRecords - 1;
@@ -320,7 +359,7 @@
                 var to1 = (to + 1) < totalRecords ? to : totalRecords - 1;
 
                 if (from != -1) {
-                    var searchResultPath = [pathKeys.root, objectType, pathKeys.searchResults, reqId, pathKeys.searchResultObjects, [{ 'from': from, 'to': to1 }]];
+                    var searchResultPath = [pathKeys.root, dataIndex, pathKeys.searchResults, reqId, pathKeys.searchResultItems, [{ 'from': from, 'to': to1 }]];
                     var getByIdsResponse = self._callGetByIds(model, request, searchResultPath);
                     return self._handleModelResponse(request, getByIdsResponse);
                 }
@@ -332,10 +371,10 @@
                     };
 
                     emptyResponse.json[pathKeys.root] = {};
-                    emptyResponse.json[pathKeys.root][objectType] = {};
-                    emptyResponse.json[pathKeys.root][objectType][pathKeys.searchResults] = {};
-                    emptyResponse.json[pathKeys.root][objectType][pathKeys.searchResults][reqId] = {};
-                    emptyResponse.json[pathKeys.root][objectType][pathKeys.searchResults][reqId][pathKeys.searchResultObjects] = {};
+                    emptyResponse.json[pathKeys.root][dataIndex] = {};
+                    emptyResponse.json[pathKeys.root][dataIndex][pathKeys.searchResults] = {};
+                    emptyResponse.json[pathKeys.root][dataIndex][pathKeys.searchResults][reqId] = {};
+                    emptyResponse.json[pathKeys.root][dataIndex][pathKeys.searchResults][reqId][pathKeys.searchResultItems] = {};
                     return self._handleModelResponse(request, emptyResponse);
 
                     if (self.verbose) {
@@ -346,13 +385,13 @@
         },
         _callSearchResultTotalRecordsGet: function (model, reqId, reqData) {
             var pathKeys = this._pathKeys;
-            return model.get([pathKeys.root, this.objectType, pathKeys.searchResults, reqId, 'totalRecords']);
+            return model.get([pathKeys.root, this.dataIndex, pathKeys.searchResults, reqId, 'totalRecords']);
         },
         _callSearchResultDataObjectIdsGet: function (model, reqId, from, to) {
             var pathKeys = this._pathKeys;
-            return model.get([pathKeys.root, this.objectType, pathKeys.searchResults, reqId, pathKeys.searchResultObjects, [{ 'from': from, 'to': to }]]);
+            return model.get([pathKeys.root, this.dataIndex, pathKeys.searchResults, reqId, pathKeys.searchResultItems, [{ 'from': from, 'to': to }]]);
         },
-        _formatData: function (objType, dataObjects) {
+        _formatData: function (dataIndex, dataObjects) {
             var utils = SharedUtils.DataObjectFalcorUtil;
             var formattedDataObjects = [];
 
@@ -363,6 +402,35 @@
             }
 
             return formattedDataObjects;
+        },
+        _getDataObjectTypes: function (reqData) {
+            var dataObjectTypes = [];
+            if (reqData && reqData.params && reqData.params.query
+                && reqData.params.query.filters && reqData.params.query.filters.typesCriterion
+                && reqData.params.query.filters.typesCriterion.length > 0) {
+                dataObjectTypes = reqData.params.query.filters.typesCriterion;
+            }
+
+            if (dataObjectTypes.length == 0) {
+                dataObjectTypes = [SharedUtils.DataObjectFalcorUtil.CONST_ALL];
+            }
+
+            return dataObjectTypes;
+        },
+        _getDataObjects: function (rawResponsePkg, dataIndex) {
+            var pathKeys = this._pathKeys;
+            var dataObjects = {};
+            var dataByIndex = rawResponsePkg.json[pathKeys.root][this.dataIndex];
+            if (dataByIndex) {
+                for (var dataObjectType in dataByIndex) {
+                    var dataObjectTypeJson = dataByIndex[dataObjectType][pathKeys.byIds];
+                    for (var dataObjectId in dataObjectTypeJson) {
+                        dataObjects[dataObjectId] = dataObjectTypeJson[dataObjectId];
+                    }
+                }
+            }
+
+            return dataObjects;
         },
         _mergePathSets: function () {
             var mergedPathSets = [];

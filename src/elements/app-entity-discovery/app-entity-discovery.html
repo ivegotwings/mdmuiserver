@@ -19,7 +19,7 @@
 <link rel="import" href="../rock-search-bar/rock-search-bar.html">
 <link rel="import" href="../rock-entity-search-filter/rock-entity-search-filter.html" />
 <link rel="import" href="../rock-saved-searches/rock-saved-searches.html" />
-<link rel="import" href="../rock-entity-manage-quick/rock-entity-manage-quick.html" />
+<link rel="import" href="../rock-entity-quick-manage/rock-entity-quick-manage.html" />
 
 <dom-module id="app-entity-discovery">
     <template>
@@ -109,7 +109,7 @@
 			}
             .container {
                 width: 100%;
-            }           
+            }        
         </style>
         <rock-layout>
             <liquid-config-get auto id="getAppConfig" operation="getconfigs" request-id="getAppConfig" request-data="{{_configRequest}}"
@@ -141,13 +141,13 @@
                     <div class="layout horizontal p-t-10">
                         <div class="flex searchFilterTag">
                             <!-- Search Filter Tags -->
-                            <rock-entity-search-filter _selected-search-filters="{{_selectedSearchFilters}}" filters="[[getConfig('rock-search-filter')]]" dimensions="[[_selectedDimensions]]" ></rock-entity-search-filter>
+                            <rock-entity-search-filter id="searchFilter" _selected-search-filters="{{_selectedSearchFilters}}" filters="[[getConfig('rock-search-filter')]]" dimensions="[[_selectedDimensions]]" tags="{{tags}}" ></rock-entity-search-filter>
                         </div>
                         <div class="action-buttons">
                             <!-- Actions buttons and its popover -->
-                            <pebble-actions id="actionsButton" button-icon="pebble-md-icons:actions" class="dropdownText dropdownIcon btn dropdown-success pull-right" button-text="Actions" actions-data="[[getConfig('pebble-actions')]]"></pebble-actions>
-                            <pebble-button class="btn btn-primary m-r-10 pull-right" button-text="Quick Manage" on-tap="_onTapQuickManage"></pebble-button>
+                            <pebble-button class="btn btn-primary m-r-5" button-text="Quick Manage" on-tap="_onTapQuickManage"></pebble-button>
                             <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
+                            <pebble-actions id="actionsButton" button-icon="pebble-md-icons:actions" class="dropdownText dropdownIcon btn dropdown-success" button-text="Actions" actions-data="[[getConfig('pebble-actions')]]"></pebble-actions>
                         </div>
                     </div>
                 </div>
@@ -155,18 +155,24 @@
                 </div>
             </rock-header>
             <div class="layout horizontal">
-                <div id="entityGridContainer" class$="[[_applyClass(_allowQuickManage)]]">
-                    <rock-entity-search-grid grid-config="[[getConfig('rock-entity-search-grid')]]" dimensions="{{_selectedDimensions}}" search-filters="{{_selectedSearchFilters}}"
-                        search-query="{{_searchQuery}}"></rock-entity-search-grid>
+                <div id="entityGridContainer" class$="[[_applyClass(_quickManageEnabled)]]">
+                    <rock-entity-search-grid id="entitySearchGrid" grid-config="[[getConfig('rock-entity-search-grid')]]" dimensions="{{_selectedDimensions}}" search-filters="{{_selectedSearchFilters}}"
+                        search-query="{{_searchQuery}}" total-records="{{_gridFullLength}}"></rock-entity-search-grid>
                     <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="entityGrid"></bedrock-pubsub>
                 </div>
-                <template is="dom-if" if="[[_allowQuickManage]]">
+                <template is="dom-if" if="[[_quickManageEnabled]]">
                     <div>
                         <pebble-vertical-divider></pebble-vertical-divider>
                     </div>
                     <div class="quick-manage-container">                        
-                        <rock-entity-manage-quick context="[[_context]]"></rock-entity-manage-quick>
+                        <rock-entity-quick-manage id="entityQuickManage" 
+                                                  context="[[_context]]" 
+                                                  current-index="{{_currentIndex}}" 
+                                                  total-records="[[_gridFullLength]]"
+                                                  selected-entity="[[_selectedEntity]]"></rock-entity-quick-manage>
                         <bedrock-pubsub event-name="on-attribute-save" handler="_onAttributeSave"></bedrock-pubsub>
+                        <bedrock-pubsub target-id="entityQuickManage" event-name="on-tap-previous" handler="_onClickPrevious"></bedrock-pubsub>
+                        <bedrock-pubsub target-id="entityQuickManage" event-name="on-tap-next" handler="_onClickNext"></bedrock-pubsub>                        
                     </div>
                 </template>
             </div>
@@ -267,7 +273,7 @@
                         notify: true                                      
                     },
 
-                    _allowQuickManage: {
+                    _quickManageEnabled: {
                         type: Boolean,
                         value: false
                     },
@@ -275,7 +281,25 @@
                     _selectedDimensions: {
                         type: Object,
                         value: function() { return {}; }
-                    }                    
+                    },
+
+                    _currentIndex: {
+                        type: Number,
+                        value: -1
+                    },
+
+                    _gridFullLength: {
+                        type: Number,
+                        value: 0
+                    },
+
+                   /**
+                    * Indicates selected item
+                    */
+                    _selectedEntity: {
+                        type: Object,
+                        value: function(){ return{}; }
+                    }
                 },
 
                 behaviors: [
@@ -290,65 +314,117 @@
                     if (_savedSearchId && _savedSearchId != this._savedSearchId) {
                         this._savedSearchId = _savedSearchId;
                     }
-                },
+                },                
                 // Refine Filter
 
                 // Grid
-                _onSelectingGridItem: function (e, detail, sender) {
-                    if(!this._allowQuickManage)
+                _getSearchGrid: function () {
+                    return ElementHelper.getElement(this, "#entitySearchGrid");
+			    },               
+                _onSelectingGridItem: function (e, detail, sender) {                    
+                    if(this._quickManageEnabled)
                     {
-                        if (detail) 
-                        {
-                            document.querySelector("main-app").set('pageRoute.__queryParams', { "id": detail.item.id });
-                            document.querySelector("main-app").changePageRoutePath("/entity-manage");
-                        }
-                    }                    
-                    else
-                    {
-                        this._generateContext(detail.item.id);
+                        this._selectedEntity = detail.item;
+                        this._generateContext(detail.item.id);                        
+                        this._getSearchGrid().clearSelection();
 
-                        // Grid details
-                        // var grid = this.$$('rock-entity-search-grid').$$('rock-grid');
-                        // Total # of records =  grid.gridDataSize
+                        this.async(function(){
+                            this._currentIndex = this._getSearchGrid().getSelectedItemIndex();
+                        });
                     }
                 },
                 _onAttributeSave: function(e, detail, sender){
-                    //Refresh entity search grid here
-                    var grid = this.$$('rock-entity-search-grid');                                    
-                    grid.reloadGrid();
-
-                    //Change context to reload attributes                    
-                    var _attrContext = this._context;
-                    this._context = {};
-                    this._context = _attrContext;
+                    //Changing the row style of the updated record 
+                    var selectedRow = this._getSearchGrid().getSelectedGridRow();
+                    selectedRow.style['font-style'] = 'italic';
                 },
                 _applyClass: function(){
-                    if(this._allowQuickManage)
+                    if(this._quickManageEnabled)
                     {
                         return "quick-manage-container";
                     }
 
                     return "container";                    
-                },
+                },                
                 _onTapQuickManage: function(){
-                    this._allowQuickManage = !this._allowQuickManage;                    
-                    var grid = this.$$('rock-entity-search-grid');
-
-                    if(this._allowQuickManage)
+                    this._quickManageEnabled = !this._quickManageEnabled;                    
+                    var grid = this._getSearchGrid();
+                    
+                    if(this._quickManageEnabled)
                     {
-                        var gridData = grid.getData();                        
-                        if(gridData.length > 0)
-                        {
-                            this._generateContext(gridData[0].id);
-                        }
+                        var selectedItem = grid.selectedItem;
+                        this._selectedEntity = selectedItem;                        
+                        if(selectedItem)
+                        {                            
+                            this._generateContext(selectedItem.id);
+                            grid.clearSelection(); //Clear current selection
+                            grid.selectItem(selectedItem); //Select item
+                            this._currentIndex = this._getSearchGrid().getSelectedItemIndex();
+                            grid.scrollToIndex(this._currentIndex);                          
+                        }                        
                     }
                     else
                     {
-                        this._context = {}; //Reset context
+                        this._context = {}; //Reset context                                                
+                        this._currentIndex = -1;
                     }
 
-                    grid.setMultiSelection(!this._allowQuickManage);
-                    grid.reloadGrid(); //Re-render the grid
+                    grid.notifyResize();
+                },
+                _onClickPrevious: function(e, detail, sender){
+                    if(this._currentIndex > 0)
+                    {                        
+                        this._selectEntity(this._currentIndex - 1, 'previous'); 
+                    }
+                },
+                _onClickNext: function(e, detail, sender){
+                    if(this._currentIndex < this._gridFullLength) {
+                        this._selectEntity(this._currentIndex + 1);
+                    }
+                },
+                _selectEntity: function(index, nav){
+                    if(!(index < 0)) {                        
+                        var grid = this._getSearchGrid();
+                        var gridData = grid.getData();
+
+                        if(gridData.length > 0 && index < this._gridFullLength)
+                        {                    
+                            if(gridData[index].attributes)
+                            {
+                                this._selectedEntity = gridData[index];
+                                this._generateContext(gridData[index].id);
+                                this._currentIndex = index;
+                                grid.clearSelection();
+                                grid.selectItem(gridData[index]);
+
+                                //On previous click already data got loaded, so directly we can set scroll index
+                                //but for next, data will loaded as per page size, so scroll as per allow scroll
+                                if(nav == 'previous' || this._isAllowedToScroll()) {
+                                    grid.scrollToIndex(this._currentIndex);
+                                }                         
+                            }
+                            else
+                            {
+                                var nextScrollIndex = grid.totalRecords + grid.pageSize;
+                                // Todo: nextScrollIndex will be based on the grid total count
+                                grid.scrollToIndex(nextScrollIndex);
+
+                                this.async(function(){                                
+                                    this._selectEntity(index);
+                                }, 10);
+                            }
+                        }
+                    }
+                },
+                _isAllowedToScroll: function(){
+                    var grid = this._getSearchGrid();
+                    
+                    if(((this._currentIndex) % grid.pageSize) == 0)
+                    {
+                        return true;
+                    }
+
+                    return false;
                 },
                 _currentPageChanged: function (currentPage) {
                     if (currentPage > 0) {
@@ -399,8 +475,8 @@
                         var searchQuery = this.$$("#searchBar").query;
 
                         //search filters
-                        var searchFilters = this.$$("#search-filter").filters;
-                        var searchTags = this.$$("#search-filter").tags;
+                        var searchFilters = this.$$("#searchFilter").filters;
+                        var searchTags = this.$$("#searchFilter").tags;
 
                         // dimension selectors info
                         var dimensionsInfo = {};
@@ -553,7 +629,7 @@
                         }
 
                         // search filter info
-                        var searchFilter = this.$$("#search-filter");
+                        var searchFilter = this.$$("#searchFilter");
                         if (searchFilter) {
                             searchFilter.filters = savedSearch.searchFilters;
                             searchFilter.tags = savedSearch.searchTags;
@@ -592,7 +668,7 @@
                     }
 
                     // search filter info
-                    var searchTags = this.$$("#search-filter").tags;
+                    var searchTags = this.$$("#searchFilter").tags;
                     var attrCond = {};
                     if (searchTags && searchTags.length > 0) {
                         for (var i = 0; i < searchTags.length; i++) {
@@ -604,9 +680,9 @@
 
                     // dimensionselector info
                     var dimensionSelector = this.$.dimensionSelector;
-                    this._request.params.query.ctx = this._prepareContextGroups(dimensionSelector.listSelector
+                    this._request.params.query.ctx = DataHelper._prepareContextGroups(dimensionSelector.listSelector
                         .selectedItems)
-                    this._request.params.query.valCtx = this._prepareValueContextGroups(
+                    this._request.params.query.valCtx = DataHelper._prepareValueContextGroups(
                         dimensionSelector.sourceSelector.selectedItems, dimensionSelector.localeSelector
                             .selectedItems);
 

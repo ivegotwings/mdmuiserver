@@ -62,7 +62,7 @@ Custom property | Description | Default
 				margin: 12px;
 				font-size: var(--default-font-size, 14px);
 				cursor: default;
-				@apply(--pebble-tree)
+				@apply(--pebble-tree);
 			}
 
 			iron-list {
@@ -123,14 +123,12 @@ Custom property | Description | Default
 			<rock-search-bar placeholder="Enter search text" query="{{searchKeyword}}"></rock-search-bar>
 		</template>
 		<ul>
-            <iron-list items="{{_nav}}" as="item" index-as="index">
-                <template>
-					<pebble-tree-node disabled="[[disabled]]" item-path$="[[index]]" default-child-depth="[[defaultChildDepth]]"  default-expand-depth ="[[defaultExpandDepth]]" node-data="{{item}}" selected-item="{{selectedItem}}"
+                <template is="dom-repeat" id="treeNodesList" items="{{_nav}}"  >
+					<pebble-tree-node disabled="[[disabled]]" item-path$="[[index]]" search-keyword="[[searchKeyword]]" default-child-depth="[[defaultChildDepth]]"  default-expand-depth ="[[defaultExpandDepth]]" node-data="{{item}}" selected-item="{{selectedItem}}"
 									  selected-items="{{selectedItems}}" indeterminate-items="{{indeterminateItems}}"  multi-select="[[multiSelect]]"
 									  selected-node="{{selectedNode}}" selected-nodes="{{selectedNodes}}"
-									  tree="[[tree]]" check-child-nodes="[[checkChildNodes]]" show-horizontal-divider="[[showHorizontalDivider]]" addable-levels="[[addableLevels]]"></pebble-tree-node>
+									  tree="[[tree]]" check-child-nodes="[[checkChildNodes]]" check-parent-nodes="[[checkParentNodes]]" addable-levels="[[addableLevels]]"></pebble-tree-node>
 				</template>
-			</iron-list>
 		</ul>
 	</template>
 </dom-module>
@@ -245,6 +243,13 @@ Custom property | Description | Default
           type:Boolean,
 		  value:false
 		},
+        /**
+         * Specifies whether parent elements are selected or not on selecting the child elements.
+         */
+        checkParentNodes:{
+            type:Boolean,
+            value:false
+        },
 		/**
 		* Indicates a reference to the tree.
 		*/
@@ -254,13 +259,6 @@ Custom property | Description | Default
 				return this;
             }
 		},
-        /**
-         * Specifies whether or not to show the horizental divider for the parent nodes.
-         */
-        showHorizontalDivider:{
-            type:Boolean,
-            value:false
-        },
         /**
          * Specifies the level at which add buttons are present so that the new child elements can be added. 
          * 
@@ -291,23 +289,24 @@ Custom property | Description | Default
     listeners:{
       'item-selected':'itemSelected'
 	},
+      /** Rerender the tree. */
+	  refreshTree:function () {
+          this.$$("#treeNodesList").render();
+      },
     /**
     * Fired when the search keyword is changed to call the filter on the `nav`.
     * You need to have debounce in place so that you don't do this on every single key down.
     *
     */
     _computedNav: function(navArr, searchKeyword) {
-      //Clear selection before updating the items
-      this.clearSelectedItems();
-      this.clearSelectedItem();
-
       if (searchKeyword === '') {
         this.set('_nav', this.data);
+        this.refreshTree();
         return;
       }
-
-      this.debounce('navBuild', function() {
+      this.debounce('_buildNav', function() {
         this.set('_nav', this._buildNav(navArr, searchKeyword));
+	    this.refreshTree();
       }, 50);
     },
 
@@ -316,35 +315,46 @@ Custom property | Description | Default
     * object that only contains the search query.
     *
     */
-    _buildNav: function(navArr, searchKeyword) {
-        var foundItems = [],
-        lowercaseArray;
-        for (var i = 0, len=navArr.length; i < len; i++) {
-          //build our initial object and populate it.
-          var currentObj = {};
-          currentObj.text = navArr[i].text;
-          currentObj.icon = navArr[i].icon;
-          currentObj.src = navArr[i].src;
-          currentObj.expanded = true;
-
-          //if the item has children (ie children), recurse and if another array with children is returned, insert that into the object.
+   _buildNav: function(navArr, searchKeyword) {
+        if(!navArr){
+            return [];
+		}
+        if(!searchKeyword || searchKeyword==""){
+            return navArr;
+        }
+        var foundItems=[];
+        for (var i = 0; i < navArr.length; i++) {
+		  var childMatch=false;
           if (navArr[i].children) {
-            var tempArr = this._buildNav(navArr[i].children, searchKeyword);
-            if (tempArr.length) {
-              currentObj['children'] = tempArr;
+              childMatch = this._checkChildMatch(navArr[i].children, searchKeyword);
             }
+          if (navArr[i].text.toLowerCase().indexOf(searchKeyword.toLowerCase()) != -1 || childMatch) {
+			   foundItems.push(navArr[i]);
           }
-
-          //lowercase both the search keyword, and link text, and compare - if there's a match, push it into the array.
-          if (navArr[i].text.toLowerCase().indexOf(searchKeyword.toLowerCase()) != -1 && !navArr[i].children || currentObj.children) {
-            foundItems.push(currentObj);
-          }
-          lowercaseArray=[];
         }
 
         //returns a rebuilt, filtered nav
         return foundItems;
     },
+      _checkChildMatch: function(navArr, searchKeyword) {
+		  if(!navArr){
+		      return false;
+		  }
+          var childMatch=false;
+          for (var i = 0; i < navArr.length; i++) {
+              if (navArr[i].text.toLowerCase().indexOf(searchKeyword.toLowerCase()) != -1) {
+                  return true;
+              } else {
+                  if (navArr[i].children) {
+                      childMatch = this._checkChildMatch(navArr[i].children, searchKeyword);
+                  }
+                  if (childMatch) {
+                      return true;
+                  }
+              }
+          }
+          return false;
+      },
 
     /**
      * Can be used to clear the selected item list and checkbox selection.
@@ -368,12 +378,6 @@ Custom property | Description | Default
           item.classList.remove('selected');
         }
     },
-
-      _resizeIronList : function() {
-          var ironList = Polymer.dom(this.root).node.querySelector("iron-list")
-              || Polymer.dom(this).node.querySelector("iron-list");
-          ironList.notifyResize();
-      },
       /**
        * Can be used to get the element from the given path in the tree.
        */
@@ -389,8 +393,13 @@ Custom property | Description | Default
        * Can be used to get the element's node from the given path in the tree.
        *     
        */
-	  getElementNodeByPath: function (path) {
-		  return Polymer.dom(this.root).querySelector("pebble-tree-node[item-path='" + path + "']") || this.querySelector("pebble-tree-node[item-path='" + path + "']")  ;
+	  getElementNodeByPath: function (path, node) {
+          if(node) {
+              return Polymer.dom(node.root).querySelector("pebble-tree-node[item-path='" + path + "']");
+          }
+          else {
+              return Polymer.dom(this.root).querySelector("pebble-tree-node[item-path='" + path + "']") || this.querySelector("pebble-tree-node[item-path='" + path + "']")  ;
+          }
       },
       /**
        * Can be used to get the parent's object for a given child node.
@@ -577,7 +586,7 @@ Custom property | Description | Default
                   return currentPath;
               } else{
                   if(nav[i].children){
-                      var res=this._checkvalue(value,nav[i].children,currentPath);
+                      var res=this._checkValue(value,nav[i].children,currentPath);
                       if(res!=currentPath){
                           return res;
                       }
