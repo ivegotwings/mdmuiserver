@@ -5,10 +5,11 @@ const jsonGraph = require('falcor-json-graph'),
     $error = jsonGraph.error,
     $atom = jsonGraph.atom;
 
-const arrayUnion = require('../common/utils/array-union'),
-    uuidV1 = require('uuid/v1');
+const   arrayRemove = require('../common/utils/array-remove'),
+        uuidV1 = require('uuid/v1');
 
 var sharedDataObjectFalcorUtil = require('../../../shared/dataobject-falcor-util');
+
 const CONST_ALL = sharedDataObjectFalcorUtil.CONST_ALL,
     CONST_ANY = sharedDataObjectFalcorUtil.CONST_ANY;
 
@@ -110,7 +111,9 @@ function createGetRequest(reqData) {
 
     var attrNames = reqData.attrNames;
     if (attrNames !== undefined && attrNames.length > 0) {
-        fields.attributes = attrNames;
+        var clonedAttrNames = sharedDataObjectFalcorUtil.cloneObject(attrNames);
+        arrayRemove(clonedAttrNames, 'properties');
+        fields.attributes = clonedAttrNames;
     }
 
     var relTypes = reqData.relTypes;
