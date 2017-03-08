@@ -1,0 +1,206 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../liquid-base-behavior/liquid-base-behavior.html">
+<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+<link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
+
+<!--
+`liquid-entity-model-composite-get`
+Boolean control
+
+@demo demo/index.html 
+-->
+<dom-module id="liquid-entity-model-composite-get">
+    <template>
+        <liquid-entity-model-get id="liquidEntityModelGet" verbose operation="getbyids" on-response="_onResponse" on-error="_onError"></liquid-entity-model-get>
+    </template>
+    <script>
+        (function () {
+            'use strict';
+
+            Polymer({
+                is: 'liquid-entity-model-composite-get',
+                behaviors: [RUFBehaviors.LiquidBaseBehavior],
+                attached: function () {
+                },
+                ready: function () {
+                },
+                properties: {
+                    dataIndex: {
+                        type: String,
+                        value: 'entityModel'
+                    },
+                    liquidEntityModelGet: {
+                        type: Object,
+                        value: function () {
+                            return this.$$('#liquidEntityModelGet');
+                        }
+                    },
+                    _basicModelRequestData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _basicModelResponseData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _displayModelRequestData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _displayModelResponseData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    }
+                },
+                generateRequest: function () {
+
+                    if (!this._validate(this.requestData)) {
+                        return;
+                    }
+
+                    this._prepareRequestObjects();
+
+                    // start liquid calls with basic model get..
+                    this._generateLiquidRequest('req-basic-model-get', this._basicModelRequestData);
+                },
+                _validate: function (reqData) {
+                    return true;
+                },
+                _prepareRequestObjects: function () {
+                    var reqData = this.requestData;
+                    var liqModelGet = this.liquidEntityModelGet;
+
+                    var utils = SharedUtils.DataObjectFalcorUtil;
+
+                    var basicModelReqData = this._basicModelRequestData = utils.cloneObject(reqData);
+                    var displayModelReqData = this._displayModelRequestData = utils.cloneObject(reqData);
+
+                    if (basicModelReqData.params && basicModelReqData.params.query) {
+                        var query = basicModelReqData.params.query;
+
+                        if (query.valCtx) {
+                            delete query.valCtx;
+                        }
+
+                        if (query.displayCtx) {
+                            delete query.displayCtx;
+                        }
+
+                        if (!query.filters) {
+                            query.filters = {};
+                        }
+
+                        query.filters.typesCriterion = ['entityManageModel', 'entityValidationModel', 'entityDefaultValueModel'];
+                    }
+
+                    if (displayModelReqData.params && displayModelReqData.params.query) {
+                        var query = displayModelReqData.params.query;
+
+                        if (query.valCtx) {
+                            delete query.valCtx;
+                        }
+
+                        query.ctx = [];
+
+                        if (query.displayCtx) {
+                            query.ctx = query.displayCtx;
+                        }
+
+                        if (!query.filters) {
+                            query.filters = {};
+                        }
+
+                        query.filters.typesCriterion = ['entityDisplayModel'];
+                    }
+                },
+                _generateLiquidRequest: function (requestId, requestData) {
+                    var liqModelGet = this.liquidEntityModelGet;
+
+                    liqModelGet.requestId = requestId;
+                    liqModelGet.requestData = requestData;
+
+                    liqModelGet.bubbles = false;
+
+                    liqModelGet.generateRequest();
+                },
+                _onResponse: function (e) {
+                    var request = e.detail.request;
+                    var reqId = request.requestId;
+                    var respnose = e.detail.response.content["entityModels"];
+
+                    if (reqId == "req-basic-model-get") {
+                        this._basicModelResponseData = respnose;
+                        this._generateLiquidRequest('req-disp-model-get', this._displayModelRequestData);
+                    }
+                    else if (reqId == "req-disp-model-get") {
+                        this._displayModelResponseData = respnose;
+                        this._handleResponse();
+                    }
+                },
+                _onError: function (e) {
+                    this._handleError(e);
+                },
+                _handleResponse: function () {
+                    var mergedCompositeModelData = this._createMergedCompositeModel();
+
+                    //todo: merge data here.
+
+                    var response = this._createSuccessResponse(mergedCompositeModelData);
+
+                    var eventDetail = {
+                        "request": { "requestData": this.requestData },
+                        "response": response
+                    };
+
+                    this.fire('response', eventDetail, { bubbles: this.bubbles });
+                    this.fire('liquid-response', eventDetail, { bubbles: this.bubbles });
+                },
+                _createMergedCompositeModel: function (resData) {
+                    var basicModels = this._basicModelResponseData;
+                    var displayModels = this._displayModelResponseData;
+
+                    var allModels = basicModels;
+                    allModels.push.apply(allModels, displayModels);
+
+                    var compositeModel = {};
+
+                    if (allModels && allModels.length > 0) {
+                        compositeModel = allModels[0];
+
+                        for (var i = 1; i < allModels.length; i++) {
+                            compositeModel = SharedUtils.DataObjectFalcorUtil.deepAssign(compositeModel, allModels[i]);
+                        }
+
+                        compositeModel.id = "entityCompositeModel_" + compositeModel.name;
+                        compositeModel["entityModelInfo"]["entityModelType"] = "entityCompositeModel";
+                    }
+
+                    return compositeModel;
+                },
+                _handleError: function (e) {
+                    var eventDetail = e.detail;
+
+                    this.fire('error', eventDetail, { bubbles: this.bubbles });
+                    this.fire('liquid-error', eventDetail, { bubbles: this.bubbles });
+                },
+                
+                _createSuccessResponse: function (data) {
+                    var clonedData = SharedUtils.DataObjectFalcorUtil.cloneObject(data);
+
+                    return {
+                        'status': 'success',
+                        'content': clonedData
+                    };
+                }
+            });
+        })();
+    </script>
+</dom-module>
