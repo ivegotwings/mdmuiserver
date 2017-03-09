@@ -11,7 +11,8 @@ Boolean control
 -->
 <dom-module id="liquid-entity-model-composite-get">
     <template>
-        <liquid-entity-model-get id="liquidEntityModelGet" verbose operation="getbyids" on-response="_onResponse" on-error="_onError"></liquid-entity-model-get>
+        <liquid-entity-model-get id="liquidEntityModelGet" $verbose="[[verbose]]" operation="getbyids" on-response="_onResponse"
+            on-error="_onError"></liquid-entity-model-get>
     </template>
     <script>
         (function () {
@@ -35,25 +36,7 @@ Boolean control
                             return this.$$('#liquidEntityModelGet');
                         }
                     },
-                    _basicModelRequestData: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-                    _basicModelResponseData: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-                    _displayModelRequestData: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-                    _displayModelResponseData: {
+                    localeCtx: {
                         type: Object,
                         value: function () {
                             return {};
@@ -66,60 +49,42 @@ Boolean control
                         return;
                     }
 
-                    this._prepareRequestObjects();
-
-                    // start liquid calls with basic model get..
-                    this._generateLiquidRequest('req-basic-model-get', this._basicModelRequestData);
-                },
-                _validate: function (reqData) {
-                    return true;
-                },
-                _prepareRequestObjects: function () {
                     var reqData = this.requestData;
                     var liqModelGet = this.liquidEntityModelGet;
 
                     var utils = SharedUtils.DataObjectFalcorUtil;
 
-                    var basicModelReqData = this._basicModelRequestData = utils.cloneObject(reqData);
-                    var displayModelReqData = this._displayModelRequestData = utils.cloneObject(reqData);
+                    var internalRequestData = utils.cloneObject(reqData);
 
-                    if (basicModelReqData.params && basicModelReqData.params.query) {
-                        var query = basicModelReqData.params.query;
+                    if (internalRequestData.params && internalRequestData.params.query) {
+                        var query = internalRequestData.params.query;
 
                         if (query.valCtx) {
                             delete query.valCtx;
                         }
 
-                        if (query.displayCtx) {
-                            delete query.displayCtx;
+                        if (!query.ctx) {
+                            query.ctx = [];
+                        }
+
+                        if (query.locale) {
+                            var localeCtx = { "locale": query.locale };
+                            this.localeCtx = localeCtx;
+                            query.ctx.push(localeCtx);
                         }
 
                         if (!query.filters) {
                             query.filters = {};
                         }
 
-                        query.filters.typesCriterion = ['entityManageModel', 'entityValidationModel', 'entityDefaultValueModel'];
+                        query.filters.typesCriterion = ['entityManageModel', 'entityValidationModel', 'entityDefaultValueModel', 'entityDisplayModel'];
                     }
 
-                    if (displayModelReqData.params && displayModelReqData.params.query) {
-                        var query = displayModelReqData.params.query;
-
-                        if (query.valCtx) {
-                            delete query.valCtx;
-                        }
-
-                        query.ctx = [];
-
-                        if (query.displayCtx) {
-                            query.ctx = query.displayCtx;
-                        }
-
-                        if (!query.filters) {
-                            query.filters = {};
-                        }
-
-                        query.filters.typesCriterion = ['entityDisplayModel'];
-                    }
+                    // start liquid calls with basic model get..
+                    this._generateLiquidRequest('req-basic-model-get', internalRequestData);
+                },
+                _validate: function (reqData) {
+                    return true;
                 },
                 _generateLiquidRequest: function (requestId, requestData) {
                     var liqModelGet = this.liquidEntityModelGet;
@@ -131,29 +96,233 @@ Boolean control
 
                     liqModelGet.generateRequest();
                 },
+                _mergeModels: function (response) {
+
+                    var allModels = response;
+
+                    var mergedModel = {};
+
+                    const deepAssign = SharedUtils.DataObjectFalcorUtil.deepAssign;
+
+                    var localeCtxGroup = { 'locale': this.requestData.params.query.locale };
+                    var mergedLocaleCtxItem = {};
+                    if (allModels && allModels.length > 0) {
+
+                        var manageModel = allModels.find(obj => obj.entityModelInfo.entityModelType == "entityManageModel");
+
+                        mergedModel = manageModel;
+                        
+                        for (var i = 0; i < allModels.length; i++) {
+                            var model = allModels[i];
+
+                            if (model.id != manageModel.id) {
+                                mergedModel = this._mergeDataObjects(mergedModel, model);
+
+                                var modelLocaleCtxItem = SharedUtils.DataObjectFalcorUtil.getCtxItem(model.data.ctxInfo, localeCtxGroup);
+
+                                if (modelLocaleCtxItem) {
+                                    mergedLocaleCtxItem = this._mergeCtxItems(mergedLocaleCtxItem, modelLocaleCtxItem, true);
+                                }
+                            }
+                        }
+
+                        mergedModel.id = "entityCompositeModel_" + mergedModel.name;
+                        mergedModel["entityModelInfo"]["entityModelType"] = "entityCompositeModel";
+                    }
+
+                    if(this.verbose) {
+                        console.log('default merged model ', JSON.stringify(mergedModel, null, 4));
+                        console.log('default merged locale ctx item ', JSON.stringify(mergedLocaleCtxItem, null, 4));
+                    }
+                    
+                    if (mergedModel && mergedModel.data && mergedLocaleCtxItem != {}) {
+
+                        var mergedData = mergedModel.data;
+
+                        var selfCtxItem = { 'attributes': mergedData.attributes, 'relationships': mergedData.relationships, 'properties': mergedData.properties };
+
+                        selfCtxItem = this._mergeCtxItems(selfCtxItem, mergedLocaleCtxItem, false);
+
+                        var mergedCtxInfo = mergedData.ctxInfo;
+
+                        if (mergedCtxInfo) {
+                            for (var j = 0; j < mergedCtxInfo.length; j++) {
+                                var ctxItem = mergedCtxInfo[j];
+                                ctxItem = this._mergeCtxItems(ctxItem, mergedLocaleCtxItem, false);
+                            }
+                        }
+                    }
+
+                    return mergedModel;
+                },
+                _mergeDataObjects: function (target, source) {
+
+                    const utils = SharedUtils.DataObjectFalcorUtil;
+
+                    var targetData = target.data;
+                    var targetCtxInfo = target.data.ctxInfo;
+
+                    var sourceData = source.data;
+                    var sourceCtxInfo = source.data.ctxInfo;
+
+                    var targetSelfCtxItem = { 'attributes': targetData.attributes, 'relationships': targetData.relationships, 'properties': targetData.properties };
+                    var sourceSelfCtxItem = { 'attributes': sourceData.attributes, 'relationships': sourceData.relationships, 'properties': sourceData.properties };
+
+                    targetSelfCtxItem = this._mergeCtxItems(targetSelfCtxItem, sourceSelfCtxItem, false);
+
+                    for (var i = 0; i < targetCtxInfo.length; i++) {
+                        var targetCtxItem = targetCtxInfo[i];
+                        var targetCtxGroup = targetCtxItem.ctxGroup;
+
+                        var sourceCtxItem = utils.getCtxItem(sourceCtxInfo, targetCtxGroup);
+
+                        if (sourceCtxItem) {
+                            targetCtxItem = this._mergeCtxItems(targetCtxItem, sourceCtxItem, false);
+                        }
+                    }
+
+                    return target;
+                },
+                _mergeRelationships: function (target, source, addMissing = false) {
+                    if (!target) {
+                        if (addMissing) {
+                            target = {};
+                        }
+                        else {
+                            return target;
+                        }
+                    }
+
+                    if (!source) {
+                        return target;
+                    }
+
+                    for (var targetObjKey in target) {
+                        var targetObj = target[targetObjKey];
+                        var sourceObj = source[targetObjKey];
+
+                        if (sourceObj) {
+                            targetObj = this._mergeArrays(targetObj, sourceObj, "id", true);
+                        }
+                    }
+
+                    if(addMissing) {
+                        for (var sourceObjKey in source) {
+                            var sourceObj = source[sourceObjKey];
+                            var targetObj = target[sourceObjKey];
+
+                            if (!targetObj) {
+                                target[sourceObjKey] = sourceObj;
+                            }
+                        }
+                    }
+                    
+                    return target;
+                },
+                _mergeCtxItems: function (target, source, addMissing = false) {
+
+                    var deepAssign = SharedUtils.DataObjectFalcorUtil.deepAssign;
+
+                    target.attributes = this._mergeObjects(target.attributes, source.attributes, addMissing);
+                    target.relationships = this._mergeRelationships(target.relationships, source.relationships, addMissing);
+                    target.properties = this._mergeObjects(target.properties, source.properties, true);
+
+                    return target;
+                },
+                _mergeObjects: function (target, source, addMissing = false) {
+
+                    const deepAssign = SharedUtils.DataObjectFalcorUtil.deepAssign;
+
+                    if (!target) {
+                        if (addMissing) {
+                            target = {};
+                        }
+                        else {
+                            return target;
+                        }
+                    }
+
+                    if (!source) {
+                        return target;
+                    }
+
+                    for (var targetObjKey in target) {
+                        var targetObj = target[targetObjKey];
+                        var sourceObj = source[targetObjKey];
+
+                        if (sourceObj) {
+                            targetObj = deepAssign(targetObj, sourceObj);
+                        }
+                    }
+
+                    if (addMissing) {
+                        for (var sourceObjKey in source) {
+                            var sourceObj = source[sourceObjKey];
+
+                            var targetObj = target[sourceObjKey];
+
+                            if (!targetObj) {
+                                target[sourceObjKey] = sourceObj;
+                            }
+                        }
+                    }
+
+                    return target;
+                },
+                _mergeArrays: function (target, source, identifierKey, addMissing = false) {
+
+                    const deepAssign = SharedUtils.DataObjectFalcorUtil.deepAssign;
+
+                    if (!target) {
+                        if (addMissing) {
+                            target = [];
+                        }
+                        else {
+                            return target;
+                        }
+                    }
+
+                    if (!source) {
+                        return target;
+                    }
+
+                    for (var targetObjIdx in target) {
+                        var targetObj = target[targetObjIdx];
+                        var sourceObj = source.find(obj => obj[identifierKey] == targetObj[identifierKey]);
+
+                        if (sourceObj) {
+                            targetObj = deepAssign(targetObj, sourceObj);
+                        }
+                    }
+
+                    if (addMissing) {
+                        for (var sourceObjIdx in source) {
+                            var sourceObj = source[sourceObjIdx];
+
+                            var targetObj = target.find(obj => obj.id == sourceObj.id);
+
+                            if (!targetObj) {
+                                target.push(sourceObj)
+                            }
+                        }
+                    }
+
+                    return target;
+                },
                 _onResponse: function (e) {
                     var request = e.detail.request;
                     var reqId = request.requestId;
-                    var respnose = e.detail.response.content["entityModels"];
+                    var response = e.detail.response.content["entityModels"];
 
-                    if (reqId == "req-basic-model-get") {
-                        this._basicModelResponseData = respnose;
-                        this._generateLiquidRequest('req-disp-model-get', this._displayModelRequestData);
-                    }
-                    else if (reqId == "req-disp-model-get") {
-                        this._displayModelResponseData = respnose;
-                        this._handleResponse();
-                    }
+                    this._handleResponse(response);
                 },
                 _onError: function (e) {
                     this._handleError(e);
                 },
-                _handleResponse: function () {
-                    var mergedCompositeModelData = this._createMergedCompositeModel();
+                _handleResponse: function (response) {
+                    var mergedModel = this._mergeModels(response);
 
-                    //todo: merge data here.
-
-                    var response = this._createSuccessResponse(mergedCompositeModelData);
+                    var response = this._createSuccessResponse(mergedModel);
 
                     var eventDetail = {
                         "request": { "requestData": this.requestData },
@@ -163,35 +332,12 @@ Boolean control
                     this.fire('response', eventDetail, { bubbles: this.bubbles });
                     this.fire('liquid-response', eventDetail, { bubbles: this.bubbles });
                 },
-                _createMergedCompositeModel: function (resData) {
-                    var basicModels = this._basicModelResponseData;
-                    var displayModels = this._displayModelResponseData;
-
-                    var allModels = basicModels;
-                    allModels.push.apply(allModels, displayModels);
-
-                    var compositeModel = {};
-
-                    if (allModels && allModels.length > 0) {
-                        compositeModel = allModels[0];
-
-                        for (var i = 1; i < allModels.length; i++) {
-                            compositeModel = SharedUtils.DataObjectFalcorUtil.deepAssign(compositeModel, allModels[i]);
-                        }
-
-                        compositeModel.id = "entityCompositeModel_" + compositeModel.name;
-                        compositeModel["entityModelInfo"]["entityModelType"] = "entityCompositeModel";
-                    }
-
-                    return compositeModel;
-                },
                 _handleError: function (e) {
                     var eventDetail = e.detail;
 
                     this.fire('error', eventDetail, { bubbles: this.bubbles });
                     this.fire('liquid-error', eventDetail, { bubbles: this.bubbles });
                 },
-                
                 _createSuccessResponse: function (data) {
                     var clonedData = SharedUtils.DataObjectFalcorUtil.cloneObject(data);
 

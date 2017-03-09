@@ -419,16 +419,28 @@ DataObjectFalcorUtil.createCtxItems = function (ctxKeys) {
     return ctxItems;
 };
 
-DataObjectFalcorUtil.getAttributesByCtx = function (entity, ctx) {
-    if (entity && entity.data && entity.data.ctxInfo && entity.data.ctxInfo.length) {
-        for (var i = 0; i < entity.data.ctxInfo.length; i++) {
-            var ctxData = entity.data.ctxInfo[i];
-            var compareResult = DataObjectFalcorUtil.compareCtx(ctxData.ctxGroup, ctx);
-            if (compareResult) {
-                return ctxData.attributes;
-            }
+DataObjectFalcorUtil.getCtxItem = function(ctxInfo, ctxGroup) {
+    for(var ctxItemId in ctxInfo) {
+        var ctxItem = ctxInfo[ctxItemId];
+
+        var compareResult = DataObjectFalcorUtil.compareCtx(ctxItem.ctxGroup, ctxGroup);
+
+        if(compareResult) {
+            return ctxItem;
         }
     }
+
+    return undefined;
+};
+
+DataObjectFalcorUtil.getAttributesByCtx = function (dataObject, ctxGroup) {
+    if (dataObject && dataObject.data && dataObject.data.ctxInfo && dataObject.data.ctxInfo.length) {
+        var ctxItem = DataObjectFalcorUtil.getCtxItem(dataObject.data.ctxInfo, ctxGroup);
+        if(ctxItem) {
+            return ctxItem.attributes;
+        }
+    }
+
     return {};
 };
 
@@ -466,7 +478,7 @@ DataObjectFalcorUtil.isObject = function (item) {
   return (item && typeof item === 'object' && !Array.isArray(item));
 }
 
-DataObjectFalcorUtil.deepAssign = function(...objs) {
+ DataObjectFalcorUtil.deepAssign = function(...objs) {
     if (objs.length < 2) {
         throw new Error('Need two or more objects to merge');
     }
