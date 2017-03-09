@@ -4,6 +4,7 @@ require('./array-concat');
 require('./array-contains');
 require('./array-flat-map');
 require('./array-map');
+require('./array-remove');
 require('./array-slice');
 require('./array-union');
 require('./getExpires');
