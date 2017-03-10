@@ -2,10 +2,13 @@
 <link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
 
 <link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 
 <link rel="import" href="../liquid-entity-get/liquid-entity-get.html">
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
+<link rel="import" href="../liquid-rest/liquid-rest.html">
 
 <link rel="import" href="../pebble-accordion/pebble-accordion.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
@@ -90,18 +93,23 @@ Can manage current extensions, create new extensions etc.
                 z-index: 1;
             }
         </style>
-        <liquid-entity-data-get id="entityGetData3" verbose operation="getbyids" request-id="req1" request-data={{_entityRequest}} 
-        last-response={{entities}} on-response="_onEntitiesReceived" on-error="_onEntityGetFailed"></liquid-entity-data-get>
+        <!--<liquid-entity-data-get id="getEntityData" verbose operation="getbyids"
+        request-data={{_entityRequest}} on-response="_onEntitiesReceived" on-error="_onEntityGetFailed"></liquid-entity-data-get>-->
+        <liquid-rest id="getEntityData" url="/pass-through/entitymanageservice/get" method="POST" 
+        request-data={{_entityRequest}} on-response="_onEntitiesReceived" on-error="_onEntityGetFailed"></liquid-rest>
         <pebble-accordion header-text="Extension Context" default-icon="expand-less" open-icon="expand-more">
             <div id="extensions-container">
                 <div id="tree-container" class="left">
-                    <span class="tree-heading">Container & Catagory Context</span>
+                    <span class="tree-heading">Container & Category Context</span>
                     <iron-ajax auto url="demo/entity-containers-data.json" handle-as="json" last-response="{{_containerData}}"></iron-ajax>
-                    <iron-ajax auto url="demo/entity-catagories-data.json" handle-as="json" last-response="{{_catagoriesData}}"></iron-ajax>
-                    <pebble-tree id="contextTree" data="{{_treeData}}" enable-search multi-select check-parent-nodes></pebble-tree>
+                    <iron-ajax auto url="demo/entity-categories-data.json" handle-as="json" last-response="{{_categoriesData}}"></iron-ajax>
+                    <pebble-tree id="contextTree" data="{{_treeData}}" enable-search multi-select></pebble-tree>
+                    <bedrock-pubsub event-name="tree-node-selected" handler="_treeNodeSelected" target-id=""></bedrock-pubsub>
                 </div>
                 <pebble-vertical-divider class="divider"></pebble-vertical-divider>
-                <div id="expansion-panel" class="right">
+                <div id="values-container" class="right">
+                    <bedrock-pubsub on-bedrock-event-list-mode-changed="_listModeChanged"></bedrock-pubsub>
+                    <div id="expansion-panel"></div>
                     <div id="buttonContainer" align="center">
                         <pebble-button id="cancel" class="action-button btn btn-secondary" button-text="Cancel" on-tap="_revertAll" elevation=1 raised></pebble-button>
                         <pebble-button id="save" class="action-button-focus dropdownText btn btn-success m-r-5" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
@@ -110,10 +118,8 @@ Can manage current extensions, create new extensions etc.
             </div>
         </pebble-accordion>
         <liquid-entity-get name="attributeModelGetService" request="{{_attributeModelRequest}}" response="{{_attributeModelResponse}}"></liquid-entity-get>
-        <liquid-entity-data-get id="attributeGetDataService" name="attributeGetDataService" operation="getbyids" request-data="{{_attributeRequest}}"
-            last-response="{{_attributeResponse}}" on-response="_onAttributeResponse"></liquid-entity-data-get>
-        <liquid-entity-data-save name="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}"
-                on-response="_onSaveResponse"></liquid-entity-data-save>
+        <liquid-entity-data-get id="attributeGetDataService" name="attributeGetDataService" operation="getbyids" request-data="{{_attributeRequest}}" last-response="{{_attributeResponse}}" on-response="_onAttributeResponse"></liquid-entity-data-get>
+        <liquid-entity-data-save name="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" on-response="_onSaveResponse"></liquid-entity-data-save>
     </template>
     <script>
         (function () {
@@ -122,6 +128,30 @@ Can manage current extensions, create new extensions etc.
             Polymer({
                 is: "rock-extension-manage",
                 properties: {
+                    /**
+                     * Indicates the context parameters for which the attribute data is managed.
+                     * JSON sample to be added here.
+                     */
+                    context: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    /**
+                     * Indicates the locale dimension for which the extensions are managed.
+                     */
+                    locale: {
+                        type: String,
+                        value: ""
+                    },
+                    /**
+                     * Indicates the source dimension for which the extensions are managed.
+                     */
+                    source: {
+                        type: String,
+                        value: ""
+                    },
                     /**
                      * Indictaes Id of the entity for which the extansions have to be managed.
                      */
@@ -138,7 +168,7 @@ Can manage current extensions, create new extensions etc.
                    attributeNames: {
                        type: Array,
                        value: function() { 
-                           return ["cpimProductName", "csapGenderDescriptionType", "cpimSkinType", "cpimShortDescription"]; 
+                           return []; 
                         }
                    },
                     /**
@@ -165,7 +195,7 @@ Can manage current extensions, create new extensions etc.
                         type: Array,
                         value: function() { return []; }
                     },
-                    _catagoriesData: {
+                    _categoriesData: {
                         type: Array,
                         value: function() { return []; }
                     },
@@ -181,40 +211,7 @@ Can manage current extensions, create new extensions etc.
                     */
                     _attributeRequest: {
                         type: Object,
-                        value: function () {
-                            return {
-                                "params": {
-                                    "query": {
-                                        "ctx": [{
-                                            "list": "",
-                                            "classification": ""
-                                        }],
-                                        "valCtx": [{
-                                            "source": "SAP",
-                                            "locale": "en-US"
-                                        }],
-                                        "id": "",
-                                        "filters": {
-                                            "attributesCriterion": [],
-                                            "relationshipsCriterion": [],
-                                            "typesCriterion": ["nart"]
-                                        }
-                                    },
-                                    "fields": {
-                                        "ctxTypes": [
-                                            "properties"
-                                        ],
-                                        "attributes": "",
-                                        "relationships": [
-                                        ]
-                                    },
-                                    "options": {
-                                        "totalRecords": 4,
-                                        "includeRequest": false
-                                    }
-                                }
-                            };
-                        }
+                        value: function () { return {}; }
                     },
                     /**
                      * Indicates the response object that is received from the data element for the attribute get request.
@@ -225,25 +222,45 @@ Can manage current extensions, create new extensions etc.
                             return {};
                         }
                     },
-                     _attributeValues: {
-                        type: Array,
-                        value: function () {
-                            return [];
-                        }
-                    },
                     _entityRequest: {
                         type: Object,
                         value: function() { return {}; }
                     },
+                    _isDirty: {
+                        type: Boolean,
+                        value: false
+                    },
                 },
                 observers: [
-                    '_entityDataChanged(_containerData, _catagoriesData)',
+                    '_contextChanged(context)',
+                    '_attributeNamesChanged(attributeNames)',
+                    '_entityDataChanged(_containerData, _categoriesData)',
                     '_attributeModelResponseChanged(_attributeModelResponse)'
                 ],
-                listeners:{
-                    'item-selected':'_treeItemSelected'
+                behaviors: [
+                    RUFBehaviors.UIBehavior
+                ],
+                _contextChanged: function(context) {
+                    if(context) {
+                        if(context.entityId) {
+                            this.entityId = context.entityId;
+                        }
+                        if(context.locale) {
+                            this.locale = context.locale;
+                        }
+                        if(context.source) {
+                            this.source = context.source;
+                        }
+                    }
                 },
-                _entityDataChanged: function(_containerData, _catagoriesData) {
+                _attributeNamesChanged: function(attributeNames) {
+                    var t = {
+                        action: "getAttributeModels",
+                        "attributeNames": this.attributeNames
+                    };
+                    this.set("_attributeModelRequest", t);
+                },
+                _entityDataChanged: function(_containerData, _categoriesData) {
                     if(_containerData && _containerData.length > 0) {
                         var treeData = [];
                         for(var i=0; i < _containerData.length; i++) {
@@ -255,12 +272,12 @@ Can manage current extensions, create new extensions etc.
                             };
                             treeData.push(nodeJson);
                         }
-                        if(_catagoriesData && _catagoriesData.length > 0) {
+                        if(_categoriesData && _categoriesData.length > 0) {
                             for(var i=0; i<treeData.length; i++) {
                                 var containerName = treeData[i].text;
-                                var catagories = this._getCatagoriesForContainer(_catagoriesData, containerName);
-                                if(catagories && catagories.length > 0) {
-                                    treeData[i]["children"] = catagories;
+                                var categories = this._getCategoriesForContainer(_categoriesData, containerName);
+                                if(categories && categories.length > 0) {
+                                    treeData[i]["children"] = categories;
                                 }
                             }
                             this._generateRequestForEntity();
@@ -268,26 +285,28 @@ Can manage current extensions, create new extensions etc.
                         this.set("_treeData", treeData);
                     }
                 },
-                _getCatagoriesForContainer: function(catagories, containerName) {
-                    if(catagories && catagories.length > 0) {
-                        var catagoriesJson = [];
-                        for(var i=0; i< catagories.length; i++) {
-                            var container = catagories[i].text;
+                _getCategoriesForContainer: function(categories, containerName) {
+                    if(categories && categories.length > 0) {
+                        var categoriesJson = [];
+                        for(var i=0; i< categories.length; i++) {
+                            var container = categories[i].text;
                             if(container == containerName) {
-                                catagoriesJson = catagories[i].children;
-                                return catagoriesJson;
+                                categoriesJson = categories[i].children;
+                                return categoriesJson;
                             }
                         }
                     }
                 },
                 _generateRequestForEntity: function() {
                     var req = {
-                            "objType": "entity",
                             "params": {
                                 "query": {
                                     "id": this.entityId,
                                     "filters": {
-                                        "typesCriterion": ["nart"]
+                                        "attributesCriterion": [],
+                                        "typesCriterion": [
+                                            "nart"
+                                        ]
                                     }
                                 },
                                 "fields": {
@@ -296,21 +315,19 @@ Can manage current extensions, create new extensions etc.
                                     ],
                                     "attributes": [
                                     ]
-                                },
-                                "options": {
-                                    "totalRecords": 1,
-                                    "includeRequest": false
                                 }
                             }
                         };
                         this.set("_entityRequest", req);
-                        this.$$("#entityGetData3").generateRequest();
+                        this.$$("#getEntityData").generateRequest();
                 },
                 _onEntitiesReceived: function(e) {
-                    var entities = e.detail.response;
-
-                    if(entities.data) {
-                        //this._transformEntityDataToTreeHeirarchy(entities.data);
+                    var response = e.detail.response;
+                    if(response) {
+                        var entities = response["entityOperationResponse"].entities;
+                    }
+                    if(entities && entities.data) {
+                        this.isTreeReady = true;
                         this._selectNodes(entities.data);
                     }
                 },
@@ -320,102 +337,89 @@ Can manage current extensions, create new extensions etc.
                         var ctxGroup = entityData.ctxInfo[i].ctxGroup;
                         var list = ctxGroup.list;
                         var classification = ctxGroup.classification;
-                        var catagories = classification.split("/");
-                        var catagoryValue = catagories[catagories.length - 1];
-                        var nodePath = treeElement.getElementPathByValue(catagoryValue);
-                        var paths = nodePath.split(".");
-                        var previousNode = undefined;
-                        var path="";
-                        for(var j=0; j<paths.length; j++) {
-                            path = path + paths[j];
-                            var node = treeElement.getElementNodeByPath(path, previousNode);
-                            if(node) {
-                                node.expanded = true;
-                                if(!node.nodeData.children) {
-                                    node.selectItem();
-                                }
-                            }
-                            previousNode = node;
-                            path = path + ".";
+                        var valuePath = list + "." + classification.replace(/\//g, ".");
+                        var node = treeElement.getElementNodeByPath(valuePath);
+                        if(node) {
+                            node.selectItem();
+                            node.selectAllParentNodes();
+                            node.expand();
+                            var context = this._getContextData(node);
+                            var categoryPath = context.categoryPath;
+                            var categoryPathValue = context.categoryPathValue;
+                            var ctxGroup = {
+                                "list": list,
+                                "classification": classification
+                            };
+                            this._attributeRequest.params.query.ctx.push(ctxGroup);
+                            this._createCardDiv(categoryPathValue);
+                            this._createAccordion(categoryPathValue, categoryPath);
                         }
                     }
+                    this._attributeRequest.params.query.id = this.entityId;
+                    this.$$("#attributeGetDataService").generateRequest();
                 },
                 _onEntityGetFailed: function(e) {
                     var message = e.detail.response;
                 },
-                _treeItemSelected: function(e) {
-                    if(e.detail.data) {
-                        var node = e.detail.data;
+                _treeNodeSelected: function(e, detail, sender) {
+                    if(detail && detail.data) {
+                        var node = detail.data;
+                        this._isDirty = true;
+                        this.isTreeReady = false;
+                        node.selectAllParentNodes();
                         this._transformItemIntoContext(node);
                         this.$.buttonContainer.style.display = "inline-block";
                     }
                 },
                 _transformItemIntoContext: function(node) {
-                    var children = node.nodeData.children;
-                    if(!children || children.length == 0) {
-                        var context = this._getContextData(node);
-                        var list = context.list;
-                        var classification = context.classification;
-                        var catagoryPath = context.catagoryPath;
-                        var catagoryPathValue = this._getCatagoryPathValue(classification);
-                        this._attributeRequest.params.query.ctx[0].list = list;
-                        this._attributeRequest.params.query.ctx[0].classification = classification;
-                        this._attributeRequest.params.query.id = this.entityId;
-                        this._createCardDiv(catagoryPathValue);
-                        this._createAccordion(catagoryPathValue, catagoryPath);
-                        var t = {
-                            action: "getAttributeModels",
-                            "attributeNames": this.attributeNames
-                        };
-                        this.set("_attributeModelRequest", t);
-                    }
+                    var context = this._getContextData(node);
+                    var list = context.list;
+                    var classification = context.classification;
+                    var categoryPath = context.categoryPath;
+                    var categoryPathValue = context.categoryPathValue;
+                    this._attributeRequest.params.query.ctx = [];
+                    var ctxGroup = {
+                            "list": list,
+                            "classification": classification
+                        }
+                    this._attributeRequest.params.query.ctx.push(ctxGroup);
+                    this._createCardDiv(categoryPathValue);
+                    this._createAccordion(categoryPathValue, categoryPath);
+                    this.$$("#attributeGetDataService").generateRequest();
                 },
                 _getContextData: function(selectedNode) {
                     var treeElement = this.$$("#contextTree");
-                    var nodePath = selectedNode.itemPath;
+                    var nodePath = selectedNode.valuePath;
                     var paths = nodePath.split(".");
                     var path = "";
                     var list = "";
                     var classification = "";
-                    var catagoryPath = "";
-                    var catagoryPathValue = "";
-                    var previousNode = undefined;
+                    var categoryPath = "";
                     for(var j=0; j<paths.length; j++) {
                         path = path + paths[j];
-                        var node = treeElement.getElementNodeByPath(path, previousNode);
-                        previousNode = node;
+                        var node = treeElement.getElementNodeByPath(path);
                         if(j == 0){
-                            catagoryPath = node.nodeData.text + " - ";
+                            categoryPath = node.nodeData.text + " - ";
                             list = node.nodeData.value;
                         }
                         else if(j== paths.length -1) {
-                            catagoryPath = catagoryPath + node.nodeData.text;
+                            categoryPath = categoryPath + node.nodeData.text;
                             classification = classification + node.nodeData.value;
                         }
                         else {
-                            catagoryPath = catagoryPath + node.nodeData.text + " >> ";
+                            categoryPath = categoryPath + node.nodeData.text + " >> ";
                             classification = classification + node.nodeData.value + "/";
                         }
                         path = path + ".";
                     }
-                    var catagoryPathValue = this._getCatagoryPathValue(classification);
+                    var categoryPathValue = list + "-" + classification.replace(/\//g, "-");
                     var contextJson = {
                         "list": list,
-                        "catagoryPath": catagoryPath,
-                        "catagoryPathValue": catagoryPathValue,
+                        "categoryPath": categoryPath,
+                        "categoryPathValue": categoryPathValue,
                         "classification": classification
                     };
                     return contextJson;
-                },
-                _getCatagoryPathValue: function(classification) {
-                    var catagories = classification.split("/");
-                    if(catagories && catagories.length > 0) {
-                        var catagoryPathValue="";
-                        for(var i=0; i<catagories.length; i++) {
-                            catagoryPathValue = catagoryPathValue + "-" + catagories[i];
-                        }
-                        return catagoryPathValue;
-                    } 
                 },
                 _attributeModelResponseChanged: function(_attributeModelResponse) {
                      if (_attributeModelResponse && _attributeModelResponse.returnValue &&
@@ -427,66 +431,119 @@ Can manage current extensions, create new extensions etc.
                                 attributeNames.push(attributeName);
                             }
                         }
-                        this._attributeRequest.params.fields.attributes = attributeNames;
-                        this.$$("#attributeGetDataService").generateRequest();
+                        var req = {
+                            "params": {
+                                "query": {
+                                    "ctx": [],
+                                    "valCtx": [{
+                                        "source": this.source,
+                                        "locale": this.locale
+                                    }],
+                                    "id": this.entityId,
+                                    "filters": {
+                                        "attributesCriterion": [],
+                                        "relationshipsCriterion": [],
+                                        "typesCriterion": ["nart"]
+                                    }
+                                },
+                                "fields": {
+                                    "ctxTypes": [
+                                        "properties"
+                                    ],
+                                    "attributes": attributeNames,
+                                    "relationships": [
+                                    ]
+                                },
+                                "options": {
+                                    "totalRecords": 1,
+                                    "includeRequest": false
+                                }
+                            }
+                        }
+                        this.set("_attributeRequest", req);
                     }
                 },
                  _onAttributeResponse: function (e) {
                     var _attributeResponse = e.detail.response;
                     var _attributeRequest = e.detail.request;
                     var values = [];
-                    var list = _attributeRequest.requestData.params.query.ctx[0].list;
-                    var classification = _attributeRequest.requestData.params.query.ctx[0].classification;
+                    var mode = "";
                     var dataContext = {
-                            "locale": "en-US",
+                            "locale": this.locale,
                             "time": "now",
-                            "source": "SAP",
-                            "list": list,
-                            "classification": classification                        
-                        };
-                    if (DataHelper.validateGetEntitiesResponse(_attributeResponse) 
-                        && DataHelper.validateGetAttributeModelsResponse(this._attributeModelResponse)) {
-                        
-                        var entity = DataHelper.findEntityById(_attributeResponse.content.entities, this.entityId);
-                        if(entity) {
-                            values = DataHelper.getAttributesInManageFormat(entity, this._attributeModelResponse.returnValue.attributeModels, dataContext);
-                            if(!_.isEmpty(values)){
-                                var catagoryPathValue = this._getCatagoryPathValue(classification);
-                                this._createAttributteList(catagoryPathValue, values);  
+                            "source": this.source,
+                            "list": "",
+                            "classification": ""                        
+                    };
+                    if(this.isTreeReady) {
+                        if (DataHelper.validateGetEntitiesResponse(_attributeResponse) 
+                            && DataHelper.validateGetAttributeModelsResponse(this._attributeModelResponse)) {
+                            
+                            var entity = DataHelper.findEntityById(_attributeResponse.content.entities,     this.entityId);
+                            if(entity) {
+                                for(var i=0; i< entity.data.ctxInfo.length; i++) {
+                                    var ctxGroup = entity.data.ctxInfo[i].ctxGroup;
+                                    dataContext.list = ctxGroup.list;
+                                    dataContext.classification = ctxGroup.classification;
+                                    var categoryPathValue = ctxGroup.list + "-" + 
+                                    ctxGroup.classification.replace(/\//g, "-");
+                                    values = DataHelper.getAttributesInManageFormat(entity, this._attributeModelResponse.returnValue.attributeModels, dataContext);
+                                    mode = "view";
+                                    this._createAttributeList(categoryPathValue, values, mode); 
+                                }
                             }
                         }
                     }
+                    else {
+                        var list = _attributeRequest.requestData.params.query.ctx[0].list;
+                        var classification = _attributeRequest.requestData.params.query.ctx[0].classification;
+                        dataContext.list = list;
+                        dataContext.classification = classification;
+                        var categoryPathValue = list + "-" + classification.replace(/\//g, "-");
+                        values = DataHelper.transformAttributesToManageFormat({}, this._attributeModelResponse.returnValue.attributeModels, dataContext);
+                        mode = "edit";
+                        this._createAttributeList(categoryPathValue, values, mode);
+                    }
                 },
-                _createCardDiv: function(catagoryPathValue) {
+                _createCardDiv: function(categoryPathValue) {
                     var divEl = document.createElement('div');
-                    divEl.setAttribute('id', 'card'+ catagoryPathValue);
+                    divEl.setAttribute('id', 'card-'+ categoryPathValue);
                     divEl.setAttribute('class', "card");
                     var expansionPanel = this.$$("#expansion-panel");
                     if(expansionPanel) {
-                        expansionPanel.appendChild(divEl);
+                        var cardEl = expansionPanel.querySelector("#"+ divEl.id);
+                        if(!cardEl) {
+                            expansionPanel.appendChild(divEl);
+                        }
                     }
                 },
-                _createAccordion: function(catagoryPathValue, catagoryPath) {
+                _createAccordion: function(categoryPathValue, categoryPath) {
                     var accordionEl = document.createElement('pebble-accordion');
-                    accordionEl.setAttribute('id', 'accordion' + catagoryPathValue);
-                    accordionEl.setAttribute('header-text', catagoryPath);
+                    accordionEl.setAttribute('id', 'accordion-' + categoryPathValue);
+                    accordionEl.setAttribute('header-text', categoryPath);
                     accordionEl.setAttribute('default-icon', 'expand-less');
                     accordionEl.setAttribute('open-icon', 'expand-more');
-                    var cardDiv = this.$$("#card"+ catagoryPathValue);
+                    var cardDiv = this.$$("#card-"+ categoryPathValue);
                     if(cardDiv){
-                        cardDiv.appendChild(accordionEl);
+                        var el = cardDiv.querySelector("#"+ accordionEl.id);
+                        if(!el) {
+                            cardDiv.appendChild(accordionEl);
+                        }
                     }
                 },
-                _createAttributteList: function(catagoryPathValue, attributes) {
+                _createAttributeList: function(categoryPathValue, attributes, mode) {
                     var attributeListEl = document.createElement('rock-attribute-list');
-                    attributeListEl.setAttribute('id', 'list'+ catagoryPathValue);
-                    attributeListEl.setAttribute('mode', 'view');
+                    attributeListEl.setAttribute('id', 'list-'+ categoryPathValue);
+                    attributeListEl.setAttribute('mode', mode);
                     attributeListEl.setAttribute('no-of-columns', 2);
                     attributeListEl.attributeValues = attributes;
                     attributeListEl.attributeModels = this._attributeModelResponse.returnValue.attributeModels;
-                    var accordion = this.$$("#accordion"+ catagoryPathValue);
+                    var accordion = this.$$("#accordion-"+ categoryPathValue);
                     if(accordion){
-                        accordion.appendChild(attributeListEl);
+                        var el = accordion.querySelector("#" + attributeListEl.id);
+                        if(!el) {
+                            accordion.appendChild(attributeListEl);
+                        }
                     }
                 },
                 _save: function(e) {
@@ -507,14 +564,13 @@ Can manage current extensions, create new extensions etc.
                     }
                 },
                 _onSaveResponse: function (e) {
-                    //generate request for extensions again
-                    this.$$("#entityGetData3").generateRequest();
+                    var saveResponse = e.detail.response;
+                    if(saveResponse.status == "success") {
+                        this._refresh();
+                    }
                 },
                 _revertAll: function(e) {
-                    //clear all tree items
-                    var treeElement = this.$$("#contextTree");
-                    treeElement.clearSelectedItems();
-                    this.$.buttonContainer.style.display = "none";
+                    this._refresh();
                 },
                 _getChangedContexts: function(selectedNodes) {
                     if(selectedNodes && selectedNodes.length > 0) {
@@ -523,7 +579,7 @@ Can manage current extensions, create new extensions etc.
                             var node = selectedNodes[i];
                             var context = this._getContextData(node);
                             var contextJson = {
-                                "contextPath": context.catagoryPathValue,
+                                "contextPath": context.categoryPathValue,
                                 "list": context.list,
                                 "classification": context.classification
                             };
@@ -537,22 +593,29 @@ Can manage current extensions, create new extensions etc.
                         var ctxInfo = [];
                         for(var i=0; i<contexts.length; i++) {
                             var context = contexts[i].contextPath;
-                            var attributeList = this.$$("#list"+ context);
+                            var attributeList = this.$$("#list-"+ context);
                             if(attributeList){
-                                var changedAttributeElements = attributeList.getChangedAttributeElements();
-                                if (changedAttributeElements == undefined || changedAttributeElements.length == 0) {
-                                    return;
+                                var changedAttributeElements;
+                                if(this.isTreeReady) {
+                                    changedAttributeElements = attributeList.getChangedAttributeElements();
                                 }
-                                var attributesJSON = [];
-                                for (var j = 0; j < changedAttributeElements.length; j++) {
-                                    var attributeElement = changedAttributeElements[j];
-                                    var attributeJSON = attributeElement.attributeObject;
-                                    attributesJSON.push(attributeJSON);
+                                else {
+                                    if(attributeList.mode == "edit") {
+                                        changedAttributeElements = Polymer.dom(attributeList).node.root.querySelectorAll('rock-attribute');
+                                    }
                                 }
-                                var ctxItem = {};
-                                ctxItem.ctxGroup = { "list": contexts[i].list, "classification": contexts[i].classification };
-                                ctxItem.attributes = DataHelper.transformAttributeFromUIFormat(attributesJSON);
-                                ctxInfo.push(ctxItem);
+                                if (changedAttributeElements && changedAttributeElements.length > 0) {
+                                    var attributesJSON = [];
+                                    for (var j = 0; j < changedAttributeElements.length; j++) {
+                                        var attributeElement = changedAttributeElements[j];
+                                        var attributeJSON = attributeElement.attributeObject;
+                                        attributesJSON.push(attributeJSON);
+                                    }
+                                    var ctxItem = {};
+                                    ctxItem.ctxGroup = { "list": contexts[i].list, "classification": contexts[i].classification };
+                                    ctxItem.attributes = DataHelper.transformAttributeFromUIFormat(attributesJSON);
+                                    ctxInfo.push(ctxItem);
+                                }
                             }
                         }
                         return ctxInfo;
@@ -566,18 +629,38 @@ Can manage current extensions, create new extensions etc.
 
                             var originalEntity = this._attributeResponse.content.entities[0];
                             for (var entityDataField in originalEntity) {
-                                if (entityDataField == "data") {
-                                    var contextualData = {};
-                                    contextualData.ctxInfo = ctxInfo;
-                                    entityData[entityDataField] = contextualData;
-                                } else {
-                                    entityData[entityDataField] = DataHelper.cloneObject(originalEntity[entityDataField]);
-                                }
+                                entityData[entityDataField] = DataHelper.cloneObject(originalEntity[entityDataField]);
                             }
+                            var contextualData = {};
+                            contextualData.ctxInfo = ctxInfo;
+                            entityData["data"] = contextualData;
                         }
                         return entityData;
                     }
-                }
+                },
+                _refresh: function() {
+                    var treeElement = this.$$("#contextTree");
+                    treeElement.clearSelectedItems();
+                    var expansionPanel = this.$$("#expansion-panel");
+                    while (expansionPanel.hasChildNodes()) {
+                      expansionPanel.removeChild(expansionPanel.lastChild);
+                    }
+                    this.$.buttonContainer.style.display = "none";
+                    treeElement.refreshTree();
+                    this.$$("#getEntityData").generateRequest();
+                },
+                _listModeChanged: function(e, detail, sender) {
+                    if(detail.mode=="edit") {
+                        this._isDirty = true;
+                        this.$.buttonContainer.style.display = "inline-block";
+                    }
+                },
+                /**
+                 * Can be used to get the elemet if it is dirty.
+                 */
+                getIsDirty: function () {
+                    return this._isDirty;
+                },
             });
         })();
     </script>
