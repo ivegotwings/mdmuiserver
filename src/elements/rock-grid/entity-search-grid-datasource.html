@@ -1,0 +1,102 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-grid-datasource-behavior/bedrock-grid-datasource-behavior.html">
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+
+<dom-module id="entity-search-grid-datasource">
+    <template>
+        <liquid-entity-data-get id="initiateSearchResult" operation="initiatesearch" request-data="[[request]]" last-response="{{_initSearchResponse}}"
+            exclude-in-progress></liquid-entity-data-get>
+        <liquid-entity-data-get id="getSearchResultDetail" operation="getsearchresultdetail" request-data="[[request]]" request-id="[[_initSearchResponse.content.requestId]]"
+            last-response="{{searchResultResponse}}" exclude-in-progress></liquid-entity-data-get>
+    </template>
+    <script>
+        Polymer({
+            is: 'entity-search-grid-datasource',
+            properties: {
+                _liquidInitSearchElement: {
+                    type: Object,
+                    value: function () {
+                        return {}
+                    }
+                },
+
+                _liquidGetSearchElement: {
+                    type: Object,
+                    value: function () {
+                        return {}
+                    }
+                },
+
+                _isRequestInitiated: {
+                    type: Boolean,
+                    value: false
+                },
+
+                _options: {
+                    type: Object,
+                    value: function () {
+                        return {}
+                    }
+                }
+            },
+
+            behaviors: [
+                RUFBehaviors.GridDataSourceBehavior
+            ],
+
+            ready: function () {
+                this._liquidInitSearchElement = Polymer.dom(this).node.$$(
+                    "liquid-entity-data-get[id='initiateSearchResult']");
+                this._liquidGetSearchElement = Polymer.dom(this).node.$$(
+                    "liquid-entity-data-get[id='getSearchResultDetail']");
+
+                this.dataSource = this._dataSource.bind(this);
+            },
+
+            _dataSource: function (options, success, error) {
+                // Bind Reponse Methods
+                this._oneTimeEvent(this._liquidInitSearchElement, 'response', this._onInitSearchResponse.bind(
+                    this));
+
+                this._oneTimeEvent(this._liquidGetSearchElement, 'response', this._onGetSearchResponse.bind(
+                    this, success, error));
+
+                // Set Options
+                this._options = options;
+
+                // Set Range
+                var requestOptions = this._prepareRequestOptions(this._options);
+                this.set("request.params.options", requestOptions);
+
+                // Initiate Request only for First Time.
+                if (!this._isRequestInitiated) {
+                    this._liquidInitSearchElement.generateRequest();
+                } else {
+                    this._liquidGetSearchElement.generateRequest();
+                }
+            },
+
+            _onInitSearchResponse: function () {
+                this._liquidGetSearchElement.generateRequest();
+                this._isRequestInitiated = true;
+            },
+
+            _onGetSearchResponse: function (success, error) {
+                if (this._lastPage < this._options.page) {
+                    // Format ResponseData
+                    var searchResults = this._formatResponse(this.searchResultResponse);
+                    if (typeof (searchResults) == 'undefined') {
+                        searchResults = [];
+                    }
+
+                    // UpdateCurrent RecordSize
+                    this._updateCurrentRecordSize(this._options, searchResults);
+
+                    // Invoke Callback
+                    success(searchResults);
+                }
+            }
+        });
+    </script>
+</dom-module>
