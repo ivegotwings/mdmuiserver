@@ -109,10 +109,11 @@
             }
 
             var isIdExists = requestData.params.query.id !== undefined || requestData.params.query.ids !== undefined;
+            var isNameExists = requestData.params.query.name !== undefined;
             var isCtxExists = requestData.params.query.ctx !== undefined && requestData.params.query.ctx.length > 0;
             var isTypeCriterionExists = requestData.params.query.filters !== undefined && requestData.params.query.filters.typesCriterion !== undefined && requestData.params.query.filters.typesCriterion.length > 0;
 
-            if (!(isIdExists || isCtxExists || isTypeCriterionExists)) {
+            if (!(isIdExists || isNameExists || isCtxExists || isTypeCriterionExists)) {
                 console.warn(mainMessage.format(': at least one must be present (ids, ctx, typesCriterion)'));
                 return false;
             }
@@ -124,8 +125,8 @@
 
             //operation based validation
             if (operation === 'getbyids') {
-                if (!isIdExists) {
-                    console.warn(mainMessage.format(': ids is mandatory for this operation'));
+                if (!(isIdExists || isNameExists)) {
+                    console.warn(mainMessage.format(': at least one of [id / ids / name] field is mandatory for this operation'));
                     return false;
                 }
             }
@@ -148,11 +149,23 @@
                 return;
             }
 
-            if ((!dataObjectIds || dataObjectIds.length == 0) && reqData.params && reqData.params.query && (reqData.params.query.id || reqData.params.query.ids)) {
-                if (reqData.params.query.id) {
-                    dataObjectIds.push(reqData.params.query.id);
-                } else if (reqData.params.query.ids) {
-                    dataObjectIds.push.apply(dataObjectIds, reqData.params.query.ids);
+            if ((!dataObjectIds || dataObjectIds.length == 0)) {
+                if (reqData.params && reqData.params.query && (reqData.params.query.id || reqData.params.query.ids)) {
+                    if (reqData.params.query.id) {
+                        dataObjectIds.push(reqData.params.query.id);
+                    } else if (reqData.params.query.ids) {
+                        dataObjectIds.push.apply(dataObjectIds, reqData.params.query.ids);
+                    }
+                }
+                else if (reqData.params && reqData.params.query && reqData.params.query.name) {
+                    if (reqData.params.query.filters && reqData.params.query.filters.typesCriterion) {
+                        var types = reqData.params.query.filters.typesCriterion;
+                        for(var i = 0; i < types.length; i++) {
+                            var type = types[i];
+                            var smartId = type + "_" + reqData.params.query.name;
+                            dataObjectIds.push(smartId);
+                        }
+                    }
                 }
             }
 
@@ -178,14 +191,33 @@
             var dataObjectFieldsPath = this._mergePathSets(basePath, [dataObjectFields]);
             paths.push(dataObjectFieldsPath);
 
-            var ctxKeys = utils.createCtxKeys(reqData.params.query.ctx);
+            var clonedCtx = [];
+
+            if(reqData.params && reqData.params.query && reqData.params.query.ctx && reqData.params.query.ctx.length > 0) {
+                clonedCtx = utils.cloneObject(reqData.params.query.ctx);
+            }
+            
+            clonedCtx.push(utils.getSelfCtx());
+
+            var ctxKeys = utils.createCtxKeys(clonedCtx);
             var valCtxKeys = utils.createCtxKeys(reqData.params.query.valCtx);
 
             var attrDetailPath = ['valCtxInfo', valCtxKeys, ['values', 'group', 'properties']];
 
+            var attrs = [];
+
             if (reqData.params.fields.attributes !== undefined && reqData.params.fields.attributes.length > 0) {
-                var attrs = reqData.params.fields.attributes;
-                this._arrayRemove(attrs, '_ALL'); //TODO: Fix this once we have logic to resolve ALL...
+                attrs.push.apply(attrs, reqData.params.fields.attributes);
+            }
+
+            // TODO:: how to solve this hack..
+            if (dataIndex == "entityModel") {
+                attrs.push('properties'); /// get ctx level properties as attribute named 'properties'.. this is cheating..
+            }
+
+            this._arrayRemove(attrs, '_ALL'); //TODO: Fix this once we have logic to resolve ALL...
+
+            if (attrs.length > 0) {
                 var path2 = this._mergePathSets(basePath, ['data', 'ctxInfo', ctxKeys, 'attributes', attrs], attrDetailPath);
                 paths.push(path2);
             }
@@ -213,7 +245,7 @@
                 if (relatedDataObjectAttrs.length > 0)
                     relToObjectPath_Attrs = this._mergePathSets(['relTo', 'data', 'ctxInfo', ctxKeys, 'attributes', relatedDataObjectAttrs], attrDetailPath);
 
-                var relFieldsPath = [['id', 'direction', 'operation', 'source', 'alias']];
+                var relFieldsPath = [['id', 'direction', 'operation', 'source', 'alias', 'properties']];
 
                 var self = this;
                 model.get(relIdCreatePath).then(function (responsePkg) {
@@ -230,7 +262,11 @@
                                 var ctxKey = ctxKeys[ctxKeyIdx];
                                 for (var relTypeIdx in relTypes) {
                                     var relType = relTypes[relTypeIdx];
-                                    var relIds = responseDataObjects[dataObjectId]['data']['ctxInfo'][ctxKey]['relationships'][relType]['relIds'];
+                                    var relIds = utils.getNestedObject(responseDataObjects[dataObjectId], ['data', 'ctxInfo', ctxKey, 'relationships', relType, 'relIds']);
+
+                                    if (!relIds) {
+                                        continue;
+                                    }
 
                                     var from = reqData.params.options && reqData.params.options.from !== undefined ? reqData.params.options.from : 0;
                                     var to = reqData.params.options && reqData.params.options.to !== undefined ? reqData.params.options.to : relIds.length - 1;
@@ -372,21 +408,21 @@
 
             return formattedDataObjects;
         },
-        _getDataObjectTypes: function(reqData) {
+        _getDataObjectTypes: function (reqData) {
             var dataObjectTypes = [];
-            if(reqData && reqData.params && reqData.params.query 
+            if (reqData && reqData.params && reqData.params.query
                 && reqData.params.query.filters && reqData.params.query.filters.typesCriterion
-                && reqData.params.query.filters.typesCriterion.length > 0 ) {
+                && reqData.params.query.filters.typesCriterion.length > 0) {
                 dataObjectTypes = reqData.params.query.filters.typesCriterion;
             }
-            
-            if(dataObjectTypes.length == 0) {
+
+            if (dataObjectTypes.length == 0) {
                 dataObjectTypes = [SharedUtils.DataObjectFalcorUtil.CONST_ALL];
             }
 
             return dataObjectTypes;
         },
-        _getDataObjects: function(rawResponsePkg, dataIndex) {
+        _getDataObjects: function (rawResponsePkg, dataIndex) {
             var pathKeys = this._pathKeys;
             var dataObjects = {};
             var dataByIndex = rawResponsePkg.json[pathKeys.root][this.dataIndex];

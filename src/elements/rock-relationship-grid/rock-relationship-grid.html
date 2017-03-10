@@ -306,7 +306,7 @@ The following JSON object is a sample of data which can be used to bind the grid
         float: left;
       }
     </style>
-    <template is="dom-repeat" items="{{relationshipTypeList}}" as="relationship" index-as="colIndex">
+    <template is="dom-repeat" items="{{relationshipTypeList}}" as="relationship" index-as="colIndex" notify-dom-change>
       <div id="relContainer_[[relationship]]">
         <pebble-accordion header-text="[[relationship]]" default-icon="expand-less" open-icon="expand-more">
           <div class="relation-name-container">
@@ -411,7 +411,10 @@ The following JSON object is a sample of data which can be used to bind the grid
 
           dataObject: {
             type: Object,
-            notify: true
+            notify: true,
+            value: function () {
+              return {};
+            }
           },
 
           relReq: {
@@ -575,10 +578,6 @@ The following JSON object is a sample of data which can be used to bind the grid
         _populateDataForGrid: function (respData) {
           var data = [];
           if (respData) {
-            if (this.dataObject == undefined && respData.content.entities && respData.content.entities.length >
-              0 && respData.content.entities[0].data) {
-              this.dataObject = respData;
-            }
 
             if (respData.content && respData.content.entities) {
               var entities = respData.content.entities;
@@ -587,14 +586,24 @@ The following JSON object is a sample of data which can be used to bind the grid
 
                 if (entityId) {
                   var entity = entities[0];
+                  if (this.dataObject && !this.dataObject["blankEntity"]) {
+                    this.dataObject["blankEntity"] = entity;
+                  }
+
                   if (entity && entity.data && entity.data.ctxInfo) {
                     entity.data.ctxInfo.forEach(function (item) {
                       if (item) {
                         var relationships = item.relationships;
-                        var relationshipTyleList = [];
+                        var relationshipTypeList = [];
                         if (relationships) {
                           var relationshipTypeName = Object.keys(relationships)[0];
                           var relatedEntities = relationships[relationshipTypeName];
+
+                          if (this.dataObject) {
+                            if (!this.dataObject[relationshipTypeName]) {
+                              this.dataObject[relationshipTypeName] = entity;
+                            }
+                          }
 
                           relatedEntities.forEach(function (relItem) {
                             if (relItem) {
@@ -880,7 +889,7 @@ The following JSON object is a sample of data which can be used to bind the grid
 
         _onEditMode: function (e) {
           this._hideAllRelationshipGrid(true);
-          
+
           this._currentRelationshipItem = e.path ? e.path[0].id : e.target.id;
           var relDiv = Polymer.dom(this).node.$$('div[id=relContainer_' + this._currentRelationshipItem + ']');
 
@@ -899,11 +908,23 @@ The following JSON object is a sample of data which can be used to bind the grid
 
           if (currentRelGrid) {
             var gridData = currentRelGrid.getData();
-            var entities = DataHelper.cloneObject(this.dataObject.content.entities);
-            var entity = entities[0];
+            var entity;
+
+            if (this.dataObject) {
+              if (this.dataObject[currentRel]) {
+                entity = this.dataObject[currentRel];
+              } else if (this.dataObject['blankEntity']) {
+                entity = this.dataObject['blankEntity'];
+              }
+            }
+
             var relationships = this._relationships;
 
             if (entity) {
+              if (!entity.data) {
+                entity.data = DataHelper.getEmptyRelationshipDataObject("productMaster",
+                  "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry", currentRel);
+              }
               var ctxInfo = entity.data.ctxInfo;
               if (ctxInfo) {
                 ctxInfo.forEach(function (item) {
@@ -917,7 +938,7 @@ The following JSON object is a sample of data which can be used to bind the grid
                     if (modifiedRelData) {
                       modifiedRelData.forEach(function (modItem) {
                         var key = "";
-                        var relObject = {};
+                        var relObject;
                         relationships.forEach(function (relItem) {
                           if (relItem.id.indexOf(modItem["Related Entity"]) >= 0) {
                             relObject = relItem;
@@ -959,7 +980,8 @@ The following JSON object is a sample of data which can be used to bind the grid
                           relationship.attributes = {};
 
                           if (relAndRelEntityAttributes) {
-                            relAndRelEntityAttributes.relationshipAttributes.forEach(function (relAttr) {
+                            relAndRelEntityAttributes.relationshipAttributes.forEach(function (
+                              relAttr) {
                               if (relAttr) {
                                 relationship.attributes[relAttr] = {};
                                 relationship.attributes[relAttr].values = [{
@@ -985,7 +1007,7 @@ The following JSON object is a sample of data which can be used to bind the grid
             }
 
             this._saveRequest = {
-              "entities": entities
+              "entities": [entity]
             };
 
             var liquidSave = this.$$("[name=attributeSaveDataService]");

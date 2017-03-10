@@ -25,7 +25,8 @@ var DFServiceBase = function (options) {
             method: "POST",
             headers: {
                 //"Content-type": "application/json",
-                "Cache-Control": "no-cache"
+                "Cache-Control": "no-cache",
+                "version" : 8.1
             },
             body: request,
             json: true,
