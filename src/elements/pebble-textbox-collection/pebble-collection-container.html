@@ -7,6 +7,7 @@
 <link rel="import" href="../pebble-icon/pebble-icon.html">
 <link rel="import" href="../pebble-icons/pebble-icons.html">
 <link rel="import" href="../pebble-popover/pebble-popover.html">
+<link rel="import" href="../pebble-tags/pebble-tags.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 
 <!--
@@ -33,9 +34,8 @@ Custom property | Description | Default
 `--line-with-icon-readonly` | Mixing for a line and dropdown icon section when readonly | {}
 `--text-collection-label` | Mixin applied to component label | {}
 `--tags-container` | Mixin applied to tags container | {}
-`--tag-content` | Mixin applied to tag content | {}
 `--tag-value` | Mixin applied to tag value | {}
-`--tag-close` | Mixin applied to tag close | {}
+`--tag-close-icon` | Mixin applied to tag close | {}
 `--text-collection-popover` | Mixin applied to tags collection popover | {}
 `--dropdown-icon` | Mixin applied to dropdown icon | {}
 
@@ -77,31 +77,21 @@ Custom property | Description | Default
                 @apply(--layout-horizontal);
                 @apply(--layout-wrap);
                 @apply(--tags-container);
-            }
-            .tag-content {
-                border: 1px solid #cacaca;
-                border-left: 4px solid #cacaca;
-                border-radius: 4px;
-                margin: 4px;
-                padding: 4px;                                
-                @apply(--layout-horizontal);
-                @apply(--tag-content);                
-            }
-            .tag-value {
+            }           
+
+            pebble-tags::shadow pebble-tag-item::shadow .tag-value {
                 text-transform: capitalize;
                 cursor: pointer;
                 @apply(--tag-value);
             }
-            :host([is-readonly]) .tag-value {
+            pebble-tags::shadow pebble-tag-item::shadow paper-icon-button {
+                padding: 0px;
+                height: 20px;
+                width: 20px;
+                @apply(--tag-close-icon)
+            }
+            :host([is-readonly]) pebble-tags::shadow pebble-tag-item::shadow .tag-value {
                 cursor: default;
-            }
-            .tag-close {
-                margin-left: 10px;
-                @apply(--tag-close);
-            }
-            .tag-close > pebble-icon {
-                --pebble-icon-width: 14px;
-                --pebble-icon-height: 14px;
             }
             pebble-icon {
                 cursor: pointer;
@@ -120,15 +110,10 @@ Custom property | Description | Default
         </style>
         <div class="text-collection-container">
             <div class="text-collection-label">[[label]]</div>
-            <div class="tags-container">                
-                <template is="dom-repeat" items="[[values]]">
-                    <div class="tag-content">
-                        <div class="tag-value" index$="[[index]]" on-tap="_onTapTag">[[item.value]]</div>                        
-                        <div class="tag-close" hidden$="[[isReadonly]]">
-                            <pebble-icon icon="pebble-md-icons:Clear" on-tap="_onTapRemove"></pebble-icon>
-                        </div>
-                    </div>
-                </template>                
+            <div class="tags-container">
+                <bedrock-pubsub event-name="tag-item-select" handler="_onTapTag"></bedrock-pubsub>
+                <!-- Disabled default edit to implement custom edit -->
+                <pebble-tags is-non-editable tags="{{values}}" display-limit="[[displayLimit]]"></pebble-tags>
             </div>            
             <div id="line-with-icon">
                  <pebble-icon hidden$="[[isReadonly]]" class="dropdown-icon" icon="arrow-drop-down" suffix on-tap="_onTapArrowIcon"></pebble-icon>
@@ -172,7 +157,21 @@ Custom property | Description | Default
                     isReadonly: {
                         type: Boolean,
                         value: false,
-                        reflectToAttribute: true
+                        reflectToAttribute: true,
+                        observer: '_onReadonlyChange'
+                    },
+
+                    /**
+                     * Indicates tags display limit
+                     */
+                    displayLimit: {
+                        type: Number,
+                        value: 5
+                    },
+
+                    _showMoreMessage: {
+                        type: Boolean,
+                        value: false
                     }
 
                 },
@@ -184,13 +183,13 @@ Custom property | Description | Default
                  * Can be used to add tag item
                  */
                 add: function(item){
-                    if(!this.isReadonly && !this.isExists(item))
+                    if(!this.isExists(item))
                     {
                         this.push('values', item);
 
                         this.async(function(){
                             this.$$('#tagPopover').refitPopover();
-                        });
+                        }, 10);
 
                         //Trigger add event
                         this.fireBedrockEvent("on-tag-add", item, { ignoreId: true });                    
@@ -203,15 +202,12 @@ Custom property | Description | Default
                 isExists: function(tag){
                     if(!tag)
                     {
-                        return;
+                        return false;
                     }
 
-                    for(var i = 0; i < this.values.length; i++)
+                    if(this._getTagIndex(tag) != -1)
                     {
-                        if(this.values[i].value == tag.value)
-                        {
-                            return true;
-                        }
+                        return true;
                     }
 
                     return false;
@@ -220,14 +216,19 @@ Custom property | Description | Default
                 /**
                  * Can be used to remove tag item
                  */
-                remove: function(item)
+                remove: function(tag)
                 {
-                    if(!this.isReadonly && item && this.isExists(item))
+                    if(tag)
                     {
-                        this.splice('values', this.values.indexOf(item), 1);
+                        var index = this._getTagIndex(tag);
 
-                        //Trigger remove event
-                        this.fireBedrockEvent("on-tag-remove", item, { ignoreId: true });
+                        if(index != -1)
+                        {
+                            this.splice('values', index, 1);
+
+                            //Trigger remove event
+                            this.fireBedrockEvent("on-tag-remove", tag, { ignoreId: true });
+                        }
                     }
                 },
 
@@ -255,10 +256,40 @@ Custom property | Description | Default
                 },                
 
                 _onTapTag: function(e){
-                    var selectedTag = { "item" : e.model.item, "index" : e.target.attributes['index'].value }; //Current edit item                    
+                    var selectedTag = { "index" : e.detail.index }; //Current edit item                    
                     this.fireBedrockEvent("on-tap-tag", selectedTag, { ignoreId: true });                   
-                }
+                },
 
+                _onReadonlyChange: function() {
+                    if(this.isReadonly)
+                    {
+                        this.$$('pebble-tags').disableDelete = true;
+                    }
+                    else
+                    {
+                        this.$$('pebble-tags').disableDelete = false;
+                    }
+                },
+
+                _getTagIndex: function(tag){
+                    var index = this.values.indexOf(tag);
+                    if(index == -1)
+                    {
+                        for(var i = 0; i < this.values.length; i++)
+                        {
+                            if(this.values[i].name.toLowerCase() == tag.name.toLowerCase())
+                            {
+                                return i;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        return index;
+                    }
+
+                    return -1; //Not find the tag
+                }
             });
         })();
     </script>
