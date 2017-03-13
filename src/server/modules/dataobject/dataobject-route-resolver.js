@@ -6,6 +6,7 @@ const jsonGraph = require('falcor-json-graph'),
     $atom = jsonGraph.atom;
 
 const   arrayRemove = require('../common/utils/array-remove'),
+        isEmpty = require('../common/utils/isEmpty'),
         uuidV1 = require('uuid/v1');
 
 var sharedDataObjectFalcorUtil = require('../../../shared/dataobject-falcor-util');
@@ -142,12 +143,19 @@ function createGetRequest(reqData) {
         filters.typesCriterion = reqData.dataObjectTypes;
     }
 
-    var query = {
-        ctx: ctxGroups,
-        valCtx: valCtxGroups,
-        filters: filters,
-        id: ''
-    };
+    var query = {'id': ''};
+
+    if(!isEmpty(ctxGroups)) {
+        query.ctx = ctxGroups;
+    }
+
+    if(!isEmpty(valCtxGroups)) {
+        query.valCtx = valCtxGroups;
+    }
+
+    if(!isEmpty(filters)) {
+        query.filters = filters;
+    }
 
     var params = {
         query: query,
