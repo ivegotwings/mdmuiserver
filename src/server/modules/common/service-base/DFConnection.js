@@ -10,6 +10,9 @@ DFConnection.prototype = {
     getServerUrl: function () {
         return rdfConnectionConfig.serverUrl;
     },
+    getHeaders: function () {
+        return rdfConnectionConfig.headers;
+    },
     getRequest: function () {
         return request;
     }
