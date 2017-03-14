@@ -558,12 +558,13 @@ The following JSON object is a config sample which configures the grid in all ab
 				<template is="dom-if" if="{{_isTabularMode(config.viewMode)}}">
 					<iron-data-table id="[[id]]" page-size="[[pageSize]]" size="[[gridDataSize]]" selection-enabled="[[selectionEnabled]]" multi-selection="[[config.tabular.settings.isMultiSelect]]"
 					    data-source="[[dataSource]]" items="{{data}}" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" sort-order="{{sortOrder}}">
+
 						<data-table-column name="Actions" hidden$="[[!_hasActions()]]">
 							<template>
 								<template is="dom-repeat" items="[[_actions()]]" as="col" index-as="colIndex">
-									<pebble-button class="actionButton" icon="[[_actionValue(colIndex)]]" on-tap="_fireActionEvent" item="[[item]]" index="[[colIndex]]"></pebble-button>
+									<pebble-button class="actionButton" icon="[[_actionValue(colIndex)]]" on-tap="_fireActionEvent" item="[[item]]" index="[[index]]" action-index="[[colIndex]]"></pebble-button>
 								</template>
-								<span id="error-circle[[item.id]]" class="error-circle" hidden item="[[item]]" on-tap="_openPopover" on-mouseenter="_openPopover"> </span>
+								<span id="error-circle[[index]]" class="error-circle" hidden item="[[item]]" index="[[index]]" on-tap="_openPopover" on-mouseenter="_openPopover"> </span>
 							</template>
 						</data-table-column>
 						<data-table-column name="Status" hidden$="[[!config.statusEnabled]]">
@@ -574,18 +575,19 @@ The following JSON object is a config sample which configures the grid in all ab
 						<template is="dom-repeat" items="[[config.tabular.columns]]" as="col" index-as="colIndex">
 							<data-table-column name="[[col.header]]" column-index="{{colIndex}}" filter-by$="[[_isFilterEnabled(col)]]" sort-by$="[[_isSortable(col)]]"
 							    icon="pebble-icons:Edit" column-object="[[col]]" model-object="{{_getAttributeModelObject(col)}}">
+
 								<template>
-									<template is="dom-if" if="[[_hasLinkTemplate(column.columnObject, item)]]">
+									<template is="dom-if" if="[[_hasLinkTemplate(column.columnObject, item)]]"  >
 										<a href$="[[_getLink(column.columnObject, item)]]">
-											<rock-attribute functional-mode="grid" id="row[[item.id]]col[[column.columnIndex]]" class="attribute" mode="{{_getViewMode(_mode,item)}}"
-											    attribute-model-object="{{column.modelObject}}" attribute-object="{{_getAttributeObject(item, column.columnIndex)}}"
-											    on-attribute-value-changed="_updateValue"></rock-attribute>
+											<rock-attribute functional-mode="grid" id="row[[index]]col[[column.columnIndex]]" class="attribute" mode="[[config.mode]]"
+											 attribute-model-object="{{column.modelObject}}" attribute-object="{{_getAttributeObject(item, column.columnIndex,index)}}"
+											 on-attribute-value-changed="_updateValue"></rock-attribute>
 										</a>
 									</template>
-									<template is="dom-if" if="[[!_hasLinkTemplate(column.columnObject, item)]]">
-										<rock-attribute functional-mode="grid" id="row[[item.id]]col[[column.columnIndex]]" class="attribute" mode="{{_getViewMode(_mode,item)}}"
-										    attribute-model-object="{{column.modelObject}}" attribute-object="{{_getAttributeObject(item, column.columnIndex)}}"
-										    on-attribute-value-changed="_updateValue"></rock-attribute>
+									<template is="dom-if" if="[[!_hasLinkTemplate(column.columnObject, item)]]" >
+										<rock-attribute functional-mode="grid" id="row[[index]]col[[column.columnIndex]]" class="attribute" mode="[[config.mode]]"
+										 attribute-model-object="{{column.modelObject}}" attribute-object="{{_getAttributeObject(item, column.columnIndex,index)}}"
+										 on-attribute-value-changed="_updateValue"></rock-attribute>
 									</template>
 								</template>
 							</data-table-column>
@@ -684,6 +686,9 @@ The following JSON object is a config sample which configures the grid in all ab
 					 */
 					config: {
 						type: Object,
+						value:function () {
+							return {}
+                        },
 						notify: true
 					},
 					/**
@@ -707,6 +712,9 @@ The following JSON object is a config sample which configures the grid in all ab
 					 */
 					dataSource: {
 						type: Object,
+						value:function () {
+							return {};
+                        },
 						notify: true
 					},
 					/**
@@ -798,11 +806,6 @@ The following JSON object is a config sample which configures the grid in all ab
 						type: Boolean,
 						value: false
 					},
-					_mode: {
-						type: String,
-						computed: '_getMode(config.mode)',
-						notify: true
-					},
 					_pageRange: {
 						value: ""
 					},
@@ -816,7 +819,7 @@ The following JSON object is a config sample which configures the grid in all ab
 				observers: [
 					'_calculatePageRange(recordSize, pageSize)',
 					'_computeTitle(config, data, recordSize, sortOrder, sortOrder.*)'
-				],
+                ],
 				listeners: {
 					'selecting-item': '_onSelectingItem',
 					'deselecting-item': '_onDeselectingItem',
@@ -827,13 +830,15 @@ The following JSON object is a config sample which configures the grid in all ab
 				},
 				_addNewRow: function () {
 					var newItem = {};
-					newItem.isEditable = true;
 					newItem.status = 'new';
 					newItem.errors = [];
-					var oldsize = this.data.length;
-					this.data.unshift(newItem);
+					var oldsize = this.recordSize;
+                    var data = this.getData();
+					data.unshift(newItem);
+                    this.data = data;
 					this._getIronDataTable()._sizeChanged(oldsize + 1, oldsize);
 					this._getIronDataTable()._resetData(this.dataSource);
+					this.editInline(0);
 				},
 				/**
 				 * Can be used to add the new rows to the grid.
@@ -841,13 +846,15 @@ The following JSON object is a config sample which configures the grid in all ab
 				addNewRows: function (noOfRows) {
 					for (var i = 0; i < noOfRows; i++) {
 						var newItem = {};
-						newItem.isEditable = true;
 						newItem.status = 'new';
 						this.data.unshift(newItem);
 					}
-					var oldsize = this.data.length;
-					this._getIronDataTable()._sizeChanged(oldsize + noOfRows, oldsize);
-					this._getIronDataTable()._resetData(this.dataSource);
+                    this.data = data;
+                    var ironDataTable = this._getIronDataTable();
+                    if (ironDataTable) {
+                        var oldSize = ironDataTable.size;
+                        ironDataTable.size = oldSize +noOfRows.length;
+                    }
 				},
 				addNewRecords: function (records) {
 					if (records && records.length > 0) {
@@ -1044,7 +1051,10 @@ The following JSON object is a config sample which configures the grid in all ab
 				 */
 				changeToEditMode: function () {
 					this.set('config.mode', "edit");
-					this._dataChanged();
+					var attrs= Polymer.dom(this.root).querySelectorAll('rock-attribute');
+					for(var i in attrs){
+					    attrs[i].mode="edit";
+					}
 				},
 				changeToReadMode: function () {
 					this.set('config.mode', "read");
@@ -1138,13 +1148,13 @@ The following JSON object is a config sample which configures the grid in all ab
 						return this._getAttributeModelMap(col.name);
 					}
 				},
-				_getAttributeObject: function (item, columnIndex) {
+				_getAttributeObject: function (item, columnIndex,index) {
 					var value = {
 						"value": this._columnValue(item, columnIndex)
 					};
 					if (this.config.tabular.columns.length == columnIndex + 1) {
 						this.async(function () {
-							this._updateError(item);
+							this._updateError(item,index);
 						})
 					}
 					return value;
@@ -1293,7 +1303,7 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 				},
 				_fireActionEvent: function (e) {
-					var action = this.config.tabular.settings.actions[e.currentTarget.index];
+					var action = this.config.tabular.settings.actions[e.currentTarget.actionIndex];
 					var eventName = action.eventName;
 					if (!eventName) {
 						if (action.name == 'delete') {
@@ -1305,7 +1315,7 @@ The following JSON object is a config sample which configures the grid in all ab
 						}
 					}
 					if (action.name == "edit") {
-						this.editInline(e.currentTarget.item);
+						this.editInline(e.currentTarget.index);
 						this._dataChanged();
 					}
 					this.fireBedrockEvent(eventName, e.currentTarget.item);
@@ -1319,19 +1329,10 @@ The following JSON object is a config sample which configures the grid in all ab
 				_actions: function () {
 					return this.config.tabular.settings.actions;
 				},
-				_getMode: function (mode) {
-					return mode;
-				},
-				_getViewMode: function (mode, item) {
-					if (item.isEditable) {
-						return "edit";
-					}
-					return mode;
-				},
-				_updateError: function (item) {
+				_updateError: function (item,index) {
 					var errors = [];
 					for (var i = 0; i < this.config.tabular.columns.length; i++) {
-						var attr = this.$$("#row" + item.id + "col" + i);
+						var attr = this.$$("#row" + index + "col" + i);
 						if (attr && attr.errors.length > 0) {
 							var error = {};
 							error.name = this.config.tabular.columns[i].name;
@@ -1341,12 +1342,7 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 					item.errors = errors;
 					var errorLength = errors.length;
-					var sp;
-					if (item.id) {
-						sp = this.$$("#error-circle" + item.id);
-					} else {
-						sp = this.$$("#error-circle");
-					}
+					var sp = this.$$("#error-circle" + index);
 					if (sp) {
 						if (errorLength) {
 							sp.hidden = false;
@@ -1359,27 +1355,26 @@ The following JSON object is a config sample which configures the grid in all ab
 				_openPopover: function (e) {
 					var sp = e.currentTarget;
 					var item = e.currentTarget.item;
+					var index = e.currentTarget.index;
 					var popover = this.$$("#errorPopover");
 					popover.positionTarget = sp;
-					popover.setAttribute("for", "error-circle" + item.id);
+					popover.setAttribute("for", "error-circle" + index);
 					popover.querySelector("pebble-error-list").errors = item.errors;
 					popover.show();
 				},
 				// Can be used to change a row's mode to the edit mode.
-				editInline: function (item) {
-					item.isEditable = true;
+				editInline: function (index) {
 					for (var i = 0; i < this.config.tabular.columns.length; i++) {
-						var attr = this.$$("#row" + item.id + "col" + i);
+						var attr = this.$$("#row" + index + "col" + i);
 						if (attr) {
 							attr.mode = 'edit';
 						}
 					}
 				},
 				// Can be used to change a row's mode to the read mode.
-				changeRowToViewMode: function (item) {
-					item.isEditable = false;
+				changeRowToViewMode: function (index) {
 					for (var i = 0; i < this.config.tabular.columns.length; i++) {
-						var attr = this.$$("#row" + item.id + "col" + i);
+						var attr = this.$$("#row" + index + "col" + i);
 						if (attr) {
 							attr.mode = 'read';
 						}
