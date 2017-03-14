@@ -7,6 +7,7 @@ var DFServiceBase = function (options) {
     var _dataConnection = new DFConnection();
     this._restRequest = _dataConnection.getRequest();
     this._serverUrl = _dataConnection.getServerUrl();
+    this._headers = _dataConnection.getHeaders();
 
     this.requestJson = async function (url, request) {
 
@@ -23,11 +24,7 @@ var DFServiceBase = function (options) {
         var options = {
             url: url,
             method: "POST",
-            headers: {
-                //"Content-type": "application/json",
-                "Cache-Control": "no-cache",
-                "version" : 8.1
-            },
+            headers: this._headers,
             body: request,
             json: true,
             simple: false,
