@@ -482,6 +482,10 @@ DataObjectFalcorUtil.createCtxItems = function (ctxKeys) {
             continue;
         }
 
+        if (isEmpty(ctxItem)) {
+            continue;
+        }
+
         var ctxItemFound = false;
         for (var j = 0; j < ctxItems.length; j++) {
             if (DataObjectFalcorUtil.compareCtx(ctxItems[j], ctxItem)) {
