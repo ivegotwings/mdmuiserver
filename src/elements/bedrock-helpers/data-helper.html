@@ -13,6 +13,74 @@
             return JSON.parse(JSON.stringify(o));
         };
 
+        DataHelper.transformAttributeModelToUIFormat = function(compositeModel, modelContext) {
+            var mergedAttributeModels = {};
+            //put default model as base
+            if(compositeModel.data && compositeModel.data.attributes) {
+                DataHelper._mergeObjects(mergedAttributeModels, compositeModel.data.attributes, true);
+            }
+            //apply ctx specific model on top of default
+            var specificCtxAttributeModels = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(compositeModel, modelContext);
+            DataHelper._mergeObjects(mergedAttributeModels, specificCtxAttributeModels, true);
+
+            this._fillModels(mergedAttributeModels);
+
+            //console.log(mergedAttributeModels);
+
+            return mergedAttributeModels;
+        },
+
+        DataHelper._fillModels = function(attributeModelObjects) {
+            for(var attributeName in attributeModelObjects) {
+                var model = attributeModelObjects[attributeName];
+                for(var prop in model.properties) {
+                    model[prop] = model.properties[prop];
+                }
+                model.name = attributeName;
+            }
+        },
+
+        DataHelper._mergeObjects= function (target, source, addMissing = false) {
+
+            const deepAssign = SharedUtils.DataObjectFalcorUtil.deepAssign;
+
+            if (!target) {
+                if (addMissing) {
+                    target = {};
+                }
+                else {
+                    return target;
+                }
+            }
+
+            if (!source) {
+                return target;
+            }
+
+            for (var targetObjKey in target) {
+                var targetObj = target[targetObjKey];
+                var sourceObj = source[targetObjKey];
+
+                if (sourceObj) {
+                    targetObj = deepAssign(targetObj, sourceObj);
+                }
+            }
+
+            if (addMissing) {
+                for (var sourceObjKey in source) {
+                    var sourceObj = source[sourceObjKey];
+
+                    var targetObj = target[sourceObjKey];
+
+                    if (!targetObj) {
+                        target[sourceObjKey] = sourceObj;
+                    }
+                }
+            }
+
+            return target;
+        },
+
         DataHelper.transformAttributeFromUIFormat = function (attributesJSON) {
             var attributes = {};
             for (var i = 0; i < attributesJSON.length; i++) {
@@ -70,30 +138,22 @@
         DataHelper.transformAttributesToManageFormat = function (attributes, attributeModels, valCtx) {
             var attributesInManageFormat = []; //our return value
 
-            for (var attributeGroupName in attributeModels) {
-                var attributeGroupJSON = {
-                    "name": attributeGroupName,
-                    "longName": attributeModels[attributeGroupName].longName,
-                    attributes: []
-                };
-                for (var attributeModelName in attributeModels[attributeGroupName]) {
-                    var attributeJSON = {};
-                    var attributeModel = attributeModels[attributeGroupName][attributeModelName];
-                    if (attributeModel.name) {
-                        var attribute = attributes[attributeModel.name];
-                        if (attribute && attribute.values) {
-                            attributeJSON = this._getCurrentValue(attribute.values, valCtx);
-                        }
-                        if (attributeJSON == undefined || !attributeJSON.hasOwnProperty('value')) {
-                            attributeJSON = this._getEmptyValue(valCtx);
-                        }
-                        attributeJSON.name = attributeModel.name;
-                        attributeGroupJSON.attributes.push(attributeJSON);
+            for (var attributeModelName in attributeModels) {
+                var attributeJSON = {};
+                var attributeModel = attributeModels[attributeModelName];
+                if (attributeModel.name) {
+                    var attribute = attributes[attributeModel.name];
+                    if (attribute && attribute.values) {
+                        attributeJSON = this._getCurrentValue(attribute.values, valCtx);
                     }
+                    if (attributeJSON == undefined || !attributeJSON.hasOwnProperty('value')) {
+                        attributeJSON = this._getEmptyValue(valCtx);
+                    }
+                    attributeJSON.name = attributeModel.name;
+                    attributesInManageFormat.push(attributeJSON);
                 }
-                attributesInManageFormat.push(attributeGroupJSON);
             }
-            //console.log(attributesData);
+            //console.log(attributesInManageFormat);
             return attributesInManageFormat;
         };
 
@@ -331,6 +391,7 @@
         DataHelper.validateGetEntitiesResponse = function (entitiesResponse) {
             if (entitiesResponse && entitiesResponse.content && entitiesResponse.content.entities &&
                 !_.isEmpty(entitiesResponse.content.entities)) {
+                
                 return true;
             }
             return false;
@@ -340,13 +401,23 @@
             if (attributeModelsResponse && attributeModelsResponse.returnValue &&
                 attributeModelsResponse.returnValue.attributeModels &&
                 !_.isEmpty(attributeModelsResponse.returnValue.attributeModels)) {
+                
                 return true;
             }
             return false;
         };
 
-        DataHelper._prepareContextGroups = function (lists, classification) {
-            if (!classification) {
+        DataHelper.validateGetAttributeModelsResponse_New = function (attributeModelsResponsee) {
+            if (attributeModelsResponsee && attributeModelsResponsee.content
+                && attributeModelsResponsee.content.entityModels && attributeModelsResponsee.content.entityModels.length > 0) {
+                
+                return true;
+            } 
+            return false;
+        };
+
+        DataHelper._prepareContextGroups=function (lists,classification) {
+            if(!classification){
                 classification = "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry";
             }
             if (lists && lists instanceof Array) {
