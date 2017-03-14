@@ -1,0 +1,104 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../bedrock-datasource-behavior/bedrock-datasource-behavior.html">
+
+<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+
+<dom-module id="entity-model-lov-datasource">
+    <template>
+        <liquid-entity-model-get id="initEntityModelSearch" operation="initiatesearch" request-data="{{request}}" last-response="{{_initEntityModelSearchResponse}}"
+            exclude-in-progress></liquid-entity-model-get>
+        <liquid-entity-model-get id="getEntityModelSearchResult" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[_initEntityModelSearchResponse.content.requestId]]"
+            last-response="{{getEntityModelSearchResponse}}" exclude-in-progress></liquid-entity-model-get>
+    </template>
+    <script>
+        Polymer({
+            is: 'entity-model-lov-datasource',
+            properties: {
+                _liquidInitSearchElement: {
+                    type: Object,
+                    value: function () {
+                        return {}
+                    }
+                },
+
+                _liquidGetSearchElement: {
+                    type: Object,
+                    value: function () {
+                        return {}
+                    }
+                },
+
+                _isResponseAttached: {
+                    type: Boolean,
+                    value: false
+                },
+
+                _isRequestInitiated: {
+                    type: Boolean,
+                    value: false
+                }
+            },
+
+            behaviors: [
+                RUFBehaviors.DataSourceBehavior
+            ],
+
+            ready: function () {
+                this._liquidInitSearchElement = Polymer.dom(this).node.$$(
+                    "liquid-entity-model-get[id='initEntityModelSearch']");
+                this._liquidGetSearchElement = Polymer.dom(this).node.$$(
+                    "liquid-entity-model-get[id='getEntityModelSearchResult']");
+
+                this.dataSource = this._dataSource.bind(this);
+            },
+
+            _dataSource: function (data, success, error) {
+                // Bind Reponse
+                if (!this._isResponseAttached) {
+                    this._liquidInitSearchElement.addEventListener('response', this._onInitSearchResponse.bind(
+                        this));
+                    this._liquidGetSearchElement.addEventListener('response', this._onGetSearchResponse.bind(
+                        this, success, error));
+                    this._isResponseAttached = true;
+                }
+
+                // Set Range
+                var from = data.page > 0 ? (data.page - 1) * data.pageSize : 0;
+                var to = data.page > 0 ? data.page * data.pageSize - 1 : 0;
+
+                var options = {
+                    "from": from,
+                    "to": to
+                };
+                this.set("request.params.options", options);
+
+                // Filter
+                var attributesCriterion = this.attributesCriterionBuilder(data.filter);
+
+                if (attributesCriterion && attributesCriterion.length > 0) {
+                    this.set("request.params.query.filters.attributesCriterion", attributesCriterion);
+                } else {
+                    this.set("request.params.query.filters.attributesCriterion", []);
+                }
+
+                // Initiate Request only for First Time.
+                if (!this._isRequestInitiated) {
+                    this._liquidInitSearchElement.generateRequest();
+                } else {
+                    this._liquidGetSearchElement.generateRequest();
+                }
+            },
+
+            _onInitSearchResponse: function () {
+                this._liquidGetSearchElement.generateRequest();
+                this._isRequestInitiated = true;
+            },
+
+            _onGetSearchResponse: function (success, error) {
+                if (typeof (this.dataFormatter) == 'function') {
+                    success(this.dataFormatter(this.getEntityModelSearchResponse));
+                }
+            }
+        });
+    </script>
+</dom-module>
