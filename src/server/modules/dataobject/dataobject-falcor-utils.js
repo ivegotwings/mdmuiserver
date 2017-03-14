@@ -99,9 +99,6 @@ function _buildAttributesResponse(attrs, attrNames, basePath) {
                 var valCtxItem = sharedDataObjectFalcorUtil.getOrCreate(valCtxItems, valCtxKey, {});
                 var values = sharedDataObjectFalcorUtil.getOrCreate(valCtxItem, 'values', []);
 
-                //TEMP: just pick last value..
-                values.length = 0;
-
                 values.push(val);
             }
 
