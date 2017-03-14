@@ -2,6 +2,7 @@
 
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-lov-behavior/bedrock-lov-behavior.html">
 
 <link rel="import" href="../pebble-lov/pebble-lov.html">
 
@@ -16,196 +17,54 @@
 <dom-module id="rock-entity-lov">
     <template>
         <entity-lov-datasource id="entityLovDataSource" request="{{_request}}" data-source="{{dataSource}}" data-formatter="{{_dataFormatter}}"
-            attributes-criterion-builder={{_attributesCriterionBuilder}}>
+            attributes-criterion-builder="{{_attributesCriterionBuilder}}">
         </entity-lov-datasource>
-        <pebble-lov id="entityLov" data-source="{{dataSource}}" page-size="8" external-data-source multi-select="[[multiSelect]]"
-            show-image="[[showImage]]" show-color="[[showColor]]" no-sub-title="[[noSubTitle]]"></pebble-lov>
+        <pebble-lov id="entityLov" data-source="{{dataSource}}" page-size="[[pageSize]]" multi-select="[[multiSelect]]" show-image="[[showImage]]"
+            show-color="[[showColor]]" no-sub-title="[[noSubTitle]]" show-action-buttons="[[showActionButtons]]" selected-item="{{selectedItem}}"
+            selected-items="{{selectedItems}}">
+        </pebble-lov>
     </template>
     <script>
         Polymer({
             is: 'rock-entity-lov',
             properties: {
-                _attributes: {
-                    type: Array,
-                    value: function () {
-                        return [];
-                    }
-                },
-                _lovAttributeMap: {
-                    type: Object,
-                    value: function () {
-                        return {
-                            "id": "id"
-                        };
-                    }
-                },
-                /*
-                 * Specifies whether or not multiple items is selected at once. When it is set to <b>true</b>, 
-                 * multiple items are selected at a time. In this case, selected is an array of currently selected items.
-                 * When it is set to <b>false</b>, only one item is selected at a time.
-                 */
-                multiSelect: {
-                    type: Boolean,
-                    value: false
-                },
-                /*
-                 * Indicates the attribute of an entity which will be used as title for the item
-                 */
-                titleField: {
-                    type: String,
-                    value: ""
-                },
-                /*
-                 * Indicates the attribute of an entity which will be used as subtitle for the item
-                 */
-                subTitleField: {
-                    type: String,
-                    value: ""
-                },
-                /*
-                 * Indicates the attribute of an entity which will be used as image for the item
-                 */
-                imageField: {
-                    type: String,
-                    value: ""
-                },
-                /*
-                 * Indicates the attribute of an entity which will be used as color for the item
-                 */
-                colorField: {
-                    type: String,
-                    value: ""
-                },
-                /* 
-                 * Specifies whether to hide sub title or not.
-                 */
-                noSubTitle: {
-                    type: Boolean,
-                    value: false
-                },
-                /* 
-                 * Specifies whether or not to show image with item text.
-                 */
-                showImage: {
-                    type: Boolean,
-                    value: false
-                },
-                /* 
-                 * Specifies whether to show color with item text or not
-                 */
-                showColor: {
-                    type: Boolean,
-                    value: false
-                },
-                /*
-                 * Indicates the context for which the entities are requested
-                 */
-                context: {
-                    type: Array,
-                    value: function () {
-                        return [{
-                            "list": "productMaster",
-                            "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
-                        }];
-                    }
-                },
-                /*
-                 * Indicates the valueContext for which the attributes are requested
-                 */
-                valueContext: {
-                    type: Array,
-                    value: function () {
-                        return [{
-                            "source": "SAP",
-                            "locale": "en-US"
-                        }];
-                    }
-                },
-                /*
-                 * Indicates the type of an entity request
-                 */
-                entityTypes: {
-                    type: Array,
-                    value: function () {
-                        return ["nart"];
-                    }
-                },
-                /**
-                 * Indicates liquid request object for data to be rendered in grid.
-                 */
-                _request: {
-                    type: Object,
-                    value: function () {
-                        return {
-                            "params": {
-                                "query": {
-                                    "ctx": [],
-                                    "valCtx": [],
-                                    "filters": {
-                                        "attributesCriterion": [],
-                                        "typesCriterion": []
-                                    }
-                                },
-                                "fields": {
-                                    "ctxTypes": [],
-                                    "attributes": []
-                                },
-                                "options": {
-                                    "from": 0,
-                                    "to": 0
-                                }
-                            }
-                        }
-                    }
-                },
-                _dataFormatter: {
-                    type: Object,
-                    value: function () {
-                        return this._getAttributeFormattedData.bind(this);
-                    }
-                },
-                _attributesCriterionBuilder: {
-                    type: Object,
-                    value: function () {
-                        return this._prepareAttributeCriteria.bind(this);
-                    }
-                }
+
             },
 
-            observers: [
-                '_prepareAttributeModels(titleField, subTitleField, imageField, colorField)'
+            behaviors: [
+                RUFBehaviors.LovBehavior
             ],
+
+            listeners: {
+                'entityLov.selection-changed': 'lovSelectionChanged'
+            },
 
             ready: function () {
                 this.set("_request.params.query.ctx", this.context);
                 this.set("_request.params.query.valCtx", this.valueContext);
+
+                this._attributesCriterionBuilder = this._prepareAttributesCriteria.bind(this);
                 this.set("_request.params.query.filters.typesCriterion", this.entityTypes);
 
                 if (this._attributes.length > 0) {
                     this.set("_request.params.fields.attributes", this._attributes);
                 }
+
+                if (this._relationships.length > 0) {
+                    this.set("_request.params.fields.relationships", this._relationships);
+                }
+
+                this._dataFormatter = this._getAttributeFormattedData.bind(this);
+
+                this._currentLovElement = this.$$("#entityLov");
             },
 
-            _prepareAttributeModels: function (titleField, subTitleField, imageField, colorField) {
-                if (this.titleField) {
-                    this.push('_attributes', this.titleField);
-                    this._lovAttributeMap.title = this.titleField;
+            lovSelectionChanged: function (event) {
+                var eventDetail = {
+                    name: "entity-lov-selection-changed",
+                    data: event.detail.item
                 }
-
-                if (this.subTitleField) {
-                    this.push('_attributes', this.subTitleField);
-                    this._lovAttributeMap.subtitle = this.subTitleField;
-                }
-
-                if (this.imageField) {
-                    this.push('_attributes', this.imageField);
-                    this._lovAttributeMap.image = this.imageField;
-                }
-
-                if (this.colorField) {
-                    this.push('_attributes', this.colorField);
-                    this._lovAttributeMap.color = this.colorField;
-                }
+                this.fireBedrockEvent(eventName, eventDetail);
             },
 
             _getAttributeFormattedData: function (data) {
@@ -218,14 +77,14 @@
                 return entities;
             },
 
-            _prepareAttributeCriteria: function (searchText) {
+            _prepareAttributesCriteria: function (searchText) {
                 if (searchText) {
                     var attributesCriterion = [];
                     var searchKey = new Object();
                     var searchValue = new Object();
                     searchValue.eq = searchText ? searchText : '';
 
-                    searchKey[this.titleField] = searchValue;
+                    searchKey[this.itemTitle] = searchValue;
                     attributesCriterion.push(searchKey);
                     return attributesCriterion
                 }
