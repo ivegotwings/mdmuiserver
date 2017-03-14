@@ -322,6 +322,84 @@ DataObjectFalcorUtil.mergeObjects = function (obj1, obj2) {
     return Object.assign(obj1, obj2);
 };
 
+DataObjectFalcorUtil.mergeObjectsNoOverride = function (target, source, addMissing = false) {
+
+    if (!target) {
+        if (addMissing) {
+            target = {};
+        }
+        else {
+            return target;
+        }
+    }
+
+    if (!source) {
+        return target;
+    }
+
+    for (var targetObjKey in target) {
+        var targetObj = target[targetObjKey];
+        var sourceObj = source[targetObjKey];
+
+        if (sourceObj) {
+            targetObj = DataObjectFalcorUtil.deepAssign(targetObj, sourceObj);
+        }
+    }
+
+    if (addMissing) {
+        for (var sourceObjKey in source) {
+            var sourceObj = source[sourceObjKey];
+
+            var targetObj = target[sourceObjKey];
+
+            if (!targetObj) {
+                target[sourceObjKey] = sourceObj;
+            }
+        }
+    }
+
+    return target;
+};
+
+DataObjectFalcorUtil.mergeArraysNoOverride = function (target, source, identifierKey, addMissing = false) {
+
+    if (!target) {
+        if (addMissing) {
+            target = [];
+        }
+        else {
+            return target;
+        }
+    }
+
+    if (!source) {
+        return target;
+    }
+
+    for (var targetObjIdx in target) {
+        var targetObj = target[targetObjIdx];
+        var sourceObj = source.find(obj => obj[identifierKey] == targetObj[identifierKey]);
+
+        if (sourceObj) {
+            targetObj = DataObjectFalcorUtil.deepAssign(targetObj, sourceObj);
+        }
+    }
+
+    if (addMissing) {
+        for (var sourceObjIdx in source) {
+            var sourceObj = source[sourceObjIdx];
+
+            var targetObj = target.find(obj => obj.id == sourceObj.id);
+
+            if (!targetObj) {
+                target.push(sourceObj)
+            }
+        }
+    }
+
+    return target;
+};
+
 DataObjectFalcorUtil.sortObject = function (object) {
     if (isEmpty(object)) {
         return object;
