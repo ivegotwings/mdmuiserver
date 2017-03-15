@@ -1,4 +1,5 @@
-{
+
+var allConfigs  = {
     "configs": [
         {
             "name": "main-app",
@@ -12,11 +13,11 @@
                     "security": {
                         "user": "",
                         "role": ""
-                    },
+                    }, 
                     "components": {
                         "pebble-actions": {
                             "config": {
-                                "title": "Create New Product",
+                                "title": "Create New3...",
                                 "actions": [
                                     {
                                         "name": "createProduct",
@@ -976,6 +977,58 @@
                                     ]
                                 }
                             }
+                        },
+                        "rock-saved-searches-tags": {
+                            "config": {
+                                "favourites": [
+                                    {
+                                        "name": "favourites",
+                                        "icon": "pebble-icons:Star",
+                                        "text": "",
+                                        "visible": true,
+                                        "eventName": "favourite-saved-search"
+                                    },
+                                    {
+                                        "name": "delete",
+                                        "icon": "pebble-icons:Delete",
+                                        "text": "",
+                                        "visible": true,
+                                        "eventName": "delete-saved-search"
+                                    }
+                                ],
+                                "my-searches": [
+                                    {
+                                        "name": "favourites",
+                                        "icon": "star-border",
+                                        "text": "",
+                                        "visible": true,
+                                        "eventName": "favourite-saved-search"
+                                    },
+                                    {
+                                        "name": "delete",
+                                        "icon": "pebble-icons:Delete",
+                                        "text": "",
+                                        "visible": true,
+                                        "eventName": "delete-saved-search"
+                                    }
+                                ],
+                                "shared-searches": [
+                                    {
+                                        "name": "favourites",
+                                        "icon": "pebble-icons:Star",
+                                        "text": "",
+                                        "visible": true,
+                                        "eventName": "favourite-saved-search"
+                                    },
+                                    {
+                                        "name": "delete",
+                                        "icon": "pebble-icons:Delete",
+                                        "text": "",
+                                        "visible": true,
+                                        "eventName": "delete-saved-search"
+                                    }
+                                ]
+                            }
                         }
                     }
                 },
@@ -1548,6 +1601,58 @@
                                     ]
                                 }
                             }
+                        },
+                        "rock-saved-searches-tags": {
+                            "config": {
+                                "favourites": [
+                                    {
+                                        "name": "favourites",
+                                        "icon": "pebble-icons:Star",
+                                        "text": "",
+                                        "visible": true,
+                                        "eventName": "favourite-saved-search"
+                                    },
+                                    {
+                                        "name": "delete",
+                                        "icon": "pebble-icons:Delete",
+                                        "text": "",
+                                        "visible": true,
+                                        "eventName": "delete-saved-search"
+                                    }
+                                ],
+                                "my-searches": [
+                                    {
+                                        "name": "favourites",
+                                        "icon": "star-border",
+                                        "text": "",
+                                        "visible": true,
+                                        "eventName": "favourite-saved-search"
+                                    },
+                                    {
+                                        "name": "delete",
+                                        "icon": "pebble-icons:Delete",
+                                        "text": "",
+                                        "visible": true,
+                                        "eventName": "delete-saved-search"
+                                    }
+                                ],
+                                "shared-searches": [
+                                    {
+                                        "name": "favourites",
+                                        "icon": "pebble-icons:Star",
+                                        "text": "",
+                                        "visible": true,
+                                        "eventName": "favourite-saved-search"
+                                    },
+                                    {
+                                        "name": "delete",
+                                        "icon": "pebble-icons:Delete",
+                                        "text": "",
+                                        "visible": true,
+                                        "eventName": "delete-saved-search"
+                                    }
+                                ]
+                            }
                         }
                     }
                 }
@@ -1741,7 +1846,54 @@
                                         "subtitle": "UK Website",
                                         "image": "/src/images/lookup-item.jpg"
                                     }
-                                ]
+                                ],
+                                "dimension-gridConfig": {
+                                    "viewMode": "Tabular",
+                                    "title": "",
+                                    "mode": "Read",
+                                    "header": {
+                                        "displayTitle": false,
+                                        "defaultValue": ""
+                                    },
+                                    "tabular": {
+                                        "settings": {
+                                            "isMultiSelect": true
+                                        },
+                                        "columns": [
+                                            {
+                                                "header": "Value",
+                                                "name": "Value",
+                                                "sortable": true,
+                                                "filterable": false,
+                                                "editType": "textbox"
+                                            },
+                                            {
+                                                "header": "Locale",
+                                                "name": "Locale",
+                                                "sortable": true,
+                                                "filterable": false
+                                            },
+                                            {
+                                                "header": "Context",
+                                                "name": "Context",
+                                                "sortable": false,
+                                                "filterable": false
+                                            },
+                                            {
+                                                "header": "Source",
+                                                "name": "Source",
+                                                "sortable": true,
+                                                "filterable": false
+                                            },
+                                            {
+                                                "header": "Time",
+                                                "name": "Time",
+                                                "sortable": false,
+                                                "filterable": false
+                                            }
+                                        ]
+                                    }
+                                }
                             }
                         },
                         "rock-entity-header": {
@@ -1998,6 +2150,30 @@
                                                         "webAttributes",
                                                         "logisticsSupplyChain",
                                                         "merchandising"
+                                                    ],
+                                                    "attributeNames": [
+                                                        "cpimProductName",
+                                                        "csapNartDescription",
+                                                        "csapDescriptionOfNart",
+                                                        "csapGenderDescriptionType",
+                                                        "csapGender",
+                                                        "cpimWebsiteEmotionalDescription",
+                                                        "cpimShortDescription",
+                                                        "cpimLongDescription",
+                                                        "cpimWarningText",
+                                                        "cpimConsumerNeed",
+                                                        "cpimCustomerWishDateOfDelivery",
+                                                        "cpimGiftWrapping",
+                                                        "cpimBacksideText",
+                                                        "cpimFrontsideText",
+                                                        "cpimInciText",
+                                                        "csapPropellantQuantity",
+                                                        "csapDangerousGoods",
+                                                        "csapDangerousGoodsDescription",
+                                                        "csapExpirationDatedProduct",
+                                                        "csapFranchiseRangeDescription",
+                                                        "csapFranchiseRanges",
+                                                        "cpimWebDiscount"
                                                     ]
                                                 }
                                             }
@@ -2282,21 +2458,447 @@
                                         "component": {
                                             "name": "rock-extension-manage",
                                             "path": "/src/elements/rock-extension-manage/rock-extension-manage.html",
-                                            "properties": {
-                                                "context": {
-                                                    "source": "SAP",
-                                                    "locale": "en-US"
-                                                },
-                                                "attribute-names": [
-                                                    "cpimProductName",
-                                                    "csapGenderDescriptionType",
-                                                    "cpimSkinType",
-                                                    "cpimShortDescription"
-                                                ]
-                                            }
+                                            "properties": {}
                                         }
                                     }
                                 ]
+                            }
+                        },
+                        "rock-entity-variant": {
+                            "config": {
+                                "variantGridConfig": {
+                                    "viewMode": "Tabular",
+                                    "title": "Variant Data Table",
+                                    "mode": "Read",
+                                    "schemaType": "attribute",
+                                    "tabular": {
+                                        "settings": {
+                                            "isMultiSelect": true,
+                                            "actions": [
+                                                {
+                                                    "name": "delete",
+                                                    "icon": "pebble-icons:Delete",
+                                                    "eventName": "delete-item"
+                                                },
+                                                {
+                                                    "name": "edit"
+                                                }
+                                            ]
+                                        },
+                                        "columns": [
+                                            {
+                                                "header": "Product Name",
+                                                "name": "cpimProductName",
+                                                "sortable": false,
+                                                "filterable": true
+                                            },
+                                            {
+                                                "header": "Nart Description",
+                                                "name": "csapDescriptionOfNart",
+                                                "sortable": false,
+                                                "filterable": false
+                                            },
+                                            {
+                                                "header": "Material Status Code",
+                                                "name": "csapMaterialStatusGlobal",
+                                                "sortable": false,
+                                                "filterable": false
+                                            },
+                                            {
+                                                "header": "Skin Type",
+                                                "name": "cpimSkinType",
+                                                "sortable": true,
+                                                "filterable": false
+                                            }
+                                        ]
+                                    },
+                                    "list": {
+                                        "settings": {
+                                            "isMultiSelect": true,
+                                            "actions": [
+                                                {
+                                                    "name": "delete",
+                                                    "icon": "pebble-icons:Delete",
+                                                    "eventName": "delete-item"
+                                                },
+                                                {
+                                                    "name": "edit",
+                                                    "icon": "pebble-md-icons:Edit",
+                                                    "eventName": "edit-item"
+                                                }
+                                            ]
+                                        },
+                                        "listItems": {
+                                            "image": "productImage",
+                                            "title": "longName",
+                                            "id": "id",
+                                            "fields": [
+                                                {
+                                                    "name": "productType",
+                                                    "label": "Product Type"
+                                                },
+                                                {
+                                                    "name": "description",
+                                                    "label": "Description",
+                                                    "noTrim": true
+                                                },
+                                                {
+                                                    "name": "isNew",
+                                                    "label": "isNew",
+                                                    "noTrim": true
+                                                },
+                                                {
+                                                    "name": "isApproved",
+                                                    "label": "isApproved",
+                                                    "noTrim": true
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "tile": {
+                                        "settings": {
+                                            "isMultiSelect": true,
+                                            "actions": [
+                                                {
+                                                    "name": "delete",
+                                                    "icon": "pebble-icons:Delete",
+                                                    "eventName": "delete-item"
+                                                },
+                                                {
+                                                    "name": "edit",
+                                                    "icon": "pebble-md-icons:Edit",
+                                                    "eventName": "edit-item"
+                                                }
+                                            ]
+                                        },
+                                        "tileItems": {
+                                            "image": "productImage",
+                                            "title": "longName",
+                                            "id": "id",
+                                            "fields": [
+                                                {
+                                                    "name": "productType",
+                                                    "label": "Product Type"
+                                                },
+                                                {
+                                                    "name": "description",
+                                                    "label": "Description"
+                                                }
+                                            ]
+                                        }
+                                    }
+                                },
+                                "variantDefinitionUI": {
+                                    "name": "ehd1",
+                                    "levels": [
+                                        {
+                                            "entityType": "choice",
+                                            "index": 1,
+                                            "optional": false,
+                                            "dimensionAttributes": [
+                                                {
+                                                    "sourceAttribute": "colors",
+                                                    "targetAttribute": "choiceColor",
+                                                    "optional": false
+                                                },
+                                                {
+                                                    "sourceAttribute": "materials",
+                                                    "targetAttribute": "choiceMaterial",
+                                                    "optional": true
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "entityType": "sku",
+                                            "index": 2,
+                                            "optional": false,
+                                            "dimensionAttributes": [
+                                                {
+                                                    "sourceAttribute": "primarySizes",
+                                                    "targetAttribute": "skuSize1",
+                                                    "optional": false
+                                                },
+                                                {
+                                                    "sourceAttribute": "secondarySizes",
+                                                    "targetAttribute": "skuSize2",
+                                                    "optional": true
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        },
+                        "rock-relationship-manage": {
+                            "config": {
+                                "billOfMaterial": {
+                                    "viewMode": "Tabular",
+                                    "mode": "Read",
+                                    "title": "Related Products",
+                                    "schemaType": "colModel",
+                                    "statusEnabled": true,
+                                    "tabular": {
+                                        "settings": {
+                                            "isMultiSelect": true,
+                                            "actions": [
+                                                {
+                                                    "name": "delete",
+                                                    "icon": "pebble-icons:Delete",
+                                                    "eventName": "delete-item"
+                                                }
+                                            ]
+                                        },
+                                        "columns": [
+                                            {
+                                                "header": "Related Entity",
+                                                "name": "Related Entity",
+                                                "sortable": true,
+                                                "filterable": false,
+                                                "editType": "",
+                                                "isRelatedEntityAttribute": false
+                                            },
+                                            {
+                                                "header": "Is Master",
+                                                "name": "rpimIsMaster",
+                                                "sortable": true,
+                                                "filterable": false,
+                                                "editType": "textbox",
+                                                "isRelatedEntityAttribute": false
+                                            },
+                                            {
+                                                "header": "Product Name",
+                                                "name": "cpimProductName",
+                                                "sortable": true,
+                                                "filterable": false,
+                                                "editType": "textbox",
+                                                "isRelatedEntityAttribute": true
+                                            },
+                                            {
+                                                "header": "Description Of Nart",
+                                                "name": "csapDescriptionOfNart",
+                                                "sortable": true,
+                                                "filterable": false,
+                                                "editType": "textbox",
+                                                "isRelatedEntityAttribute": true
+                                            }
+                                        ]
+                                    }
+                                },
+                                "crossSell": {
+                                    "viewMode": "Tabular",
+                                    "mode": "Read",
+                                    "title": "Related Products",
+                                    "schemaType": "colModel",
+                                    "statusEnabled": true,
+                                    "tabular": {
+                                        "settings": {
+                                            "isMultiSelect": true,
+                                            "actions": [
+                                                {
+                                                    "name": "delete",
+                                                    "icon": "pebble-icons:Delete",
+                                                    "eventName": "delete-item"
+                                                }
+                                            ]
+                                        },
+                                        "columns": [
+                                            {
+                                                "header": "Related Entity",
+                                                "name": "Related Entity",
+                                                "sortable": true,
+                                                "filterable": false,
+                                                "editType": "",
+                                                "isRelatedEntityAttribute": false
+                                            },
+                                            {
+                                                "header": "Status",
+                                                "name": "status",
+                                                "sortable": true,
+                                                "filterable": false,
+                                                "editType": "textbox",
+                                                "isRelatedEntityAttribute": false
+                                            },
+                                            {
+                                                "header": "Product Name",
+                                                "name": "cpimProductName",
+                                                "sortable": true,
+                                                "filterable": false,
+                                                "editType": "textbox",
+                                                "isRelatedEntityAttribute": true
+                                            },
+                                            {
+                                                "header": "Description Of Nart",
+                                                "name": "csapDescriptionOfNart",
+                                                "sortable": true,
+                                                "filterable": false,
+                                                "editType": "textbox",
+                                                "isRelatedEntityAttribute": true
+                                            }
+                                        ]
+                                    }
+                                },
+                                "accessories": {
+                                    "viewMode": "Tabular",
+                                    "mode": "Read",
+                                    "title": "Related Products",
+                                    "schemaType": "colModel",
+                                    "tabular": {
+                                        "settings": {
+                                            "isMultiSelect": true,
+                                            "actions": [
+                                                {
+                                                    "name": "delete",
+                                                    "icon": "pebble-icons:Delete",
+                                                    "eventName": "delete-item"
+                                                }
+                                            ]
+                                        },
+                                        "columns": [
+                                            {
+                                                "header": "Related Entity",
+                                                "name": "Related Entity",
+                                                "sortable": true,
+                                                "filterable": false,
+                                                "editType": "",
+                                                "isRelatedEntityAttribute": false
+                                            },
+                                            {
+                                                "header": "Status",
+                                                "name": "status",
+                                                "sortable": true,
+                                                "filterable": false,
+                                                "editType": "textbox",
+                                                "isRelatedEntityAttribute": false
+                                            },
+                                            {
+                                                "header": "Product Name",
+                                                "name": "cpimProductName",
+                                                "sortable": true,
+                                                "filterable": false,
+                                                "editType": "textbox",
+                                                "isRelatedEntityAttribute": true
+                                            },
+                                            {
+                                                "header": "Description Of Nart",
+                                                "name": "csapDescriptionOfNart",
+                                                "sortable": true,
+                                                "filterable": false,
+                                                "editType": "textbox",
+                                                "isRelatedEntityAttribute": true
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        },
+                        "rock-entity-todo": {
+                            "config": {
+                                "todos": [
+                                    {
+                                        "icon": {
+                                            "name": "pebble-xl-icons:Brand"
+                                        },
+                                        "data": {
+                                            "name": "extToCountry",
+                                            "label": "Extend to country",
+                                            "eventName": "todotap"
+                                        }
+                                    },
+                                    {
+                                        "icon": {
+                                            "name": "pebble-xl-icons:Channel"
+                                        },
+                                        "data": {
+                                            "name": "newChannel",
+                                            "label": "Introduce a new channel",
+                                            "eventName": "todotap"
+                                        }
+                                    },
+                                    {
+                                        "icon": {
+                                            "name": "pebble-xl-icons:Crosssell"
+                                        },
+                                        "data": {
+                                            "name": "crosssell",
+                                            "label": "Add new cross sell",
+                                            "eventName": "todotap"
+                                        }
+                                    },
+                                    {
+                                        "icon": {
+                                            "name": "pebble-xl-icons:Variants"
+                                        },
+                                        "data": {
+                                            "name": "variants",
+                                            "label": "Manage variants",
+                                            "eventName": "todotap"
+                                        }
+                                    },
+                                    {
+                                        "icon": {
+                                            "name": "pebble-xl-icons:Colors"
+                                        },
+                                        "data": {
+                                            "name": "colors",
+                                            "label": "Bulk edit colors",
+                                            "eventName": "todotap"
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        "rock-entity-tofix": {
+                            "config": {
+                                "completionPercentage": 65,
+                                "tofixes": [
+                                    {
+                                        "data": {
+                                            "name": "brandext",
+                                            "type": "error",
+                                            "label": "Brand Extension not available",
+                                            "eventName": "tofixtap"
+                                        }
+                                    },
+                                    {
+                                        "data": {
+                                            "name": "priceissue",
+                                            "type": "error",
+                                            "label": "Canada price not available",
+                                            "eventName": "tofixtap"
+                                        }
+                                    },
+                                    {
+                                        "data": {
+                                            "name": "msrpissue",
+                                            "type": "error",
+                                            "label": "Incorrect MSRP",
+                                            "eventName": "tofixtap"
+                                        }
+                                    },
+                                    {
+                                        "data": {
+                                            "name": "msrpissue",
+                                            "type": "warning",
+                                            "label": "Missing videos",
+                                            "eventName": "tofixtap"
+                                        }
+                                    },
+                                    {
+                                        "data": {
+                                            "name": "msrpissue",
+                                            "type": "information",
+                                            "label": "Missing videos",
+                                            "eventName": "tofixtap"
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        "rock-titlebar": {
+                            "config": {
+                                "image": "",
+                                "titleAttribute": "cpimProductName",
+                                "subtitleAttribute": "cpimShortDescription"
                             }
                         }
                     }
@@ -2390,6 +2992,908 @@
                                                 }
                                             }
                                         }
+                                    }
+                                ]
+                            }
+                        },
+                        "my-todo-summary-list": {
+                            "config": [
+                                {
+                                    "id": 1,
+                                    "name": "Create SPGR PV",
+                                    "numberOfTasks": 1037,
+                                    "workflow": "PV Workflow",
+                                    "unAssigned": 1007,
+                                    "assignedToMe": 30,
+                                    "status": "red",
+                                    "products": [
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": 2,
+                                    "name": "Start GBU Data Maintenance",
+                                    "numberOfTasks": 23,
+                                    "workflow": "PV Workflow",
+                                    "unAssigned": 23,
+                                    "assignedToMe": 0,
+                                    "status": "red",
+                                    "products": [
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": 3,
+                                    "name": "Assign GBU Media Assets",
+                                    "numberOfTasks": 26,
+                                    "workflow": "PV Workflow",
+                                    "unAssigned": 25,
+                                    "assignedToMe": 1,
+                                    "status": "red",
+                                    "products": [
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": 4,
+                                    "name": "Start MLU Data Maintenance",
+                                    "numberOfTasks": 34,
+                                    "workflow": "NART Workflow AT",
+                                    "unAssigned": 4,
+                                    "assignedToMe": 30,
+                                    "status": "orange",
+                                    "products": [
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": 5,
+                                    "name": "Assign Local Media Assets",
+                                    "numberOfTasks": 4,
+                                    "workflow": "NART Workflow AT",
+                                    "unAssigned": 4,
+                                    "assignedToMe": 0,
+                                    "status": "orange",
+                                    "products": [
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": 6,
+                                    "name": "Start MLU Data Maintenance",
+                                    "numberOfTasks": 6,
+                                    "workflow": "NART Workflow CH",
+                                    "unAssigned": 4,
+                                    "assignedToMe": 2,
+                                    "status": "green",
+                                    "products": [
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": 7,
+                                    "name": "Assign Local Media Assets",
+                                    "numberOfTasks": 74,
+                                    "workflow": "NART Workflow CH",
+                                    "unAssigned": 43,
+                                    "assignedToMe": 31,
+                                    "status": "green",
+                                    "products": [
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": 8,
+                                    "name": "Missing PackShot (Images)",
+                                    "numberOfTasks": 68,
+                                    "workflow": "Introduction SKU to spain",
+                                    "unAssigned": 42,
+                                    "assignedToMe": 26,
+                                    "status": "green",
+                                    "products": [
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": 9,
+                                    "name": "Activate SKU",
+                                    "numberOfTasks": 6,
+                                    "workflow": "Introduction SKU to spain",
+                                    "unAssigned": 4,
+                                    "assignedToMe": 2,
+                                    "status": "green",
+                                    "products": [
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        "my-todo-detail-view-list": {
+                            "config": [
+                                {
+                                    "id": 1,
+                                    "name": "Create SPGR PV",
+                                    "numberOfTasks": 1037,
+                                    "workflow": "PV Workflow",
+                                    "unAssigned": 1007,
+                                    "assignedToMe": 30,
+                                    "status": "red",
+                                    "products": [
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": 2,
+                                    "name": "Start GBU Data Maintenance",
+                                    "numberOfTasks": 23,
+                                    "workflow": "PV Workflow",
+                                    "unAssigned": 23,
+                                    "assignedToMe": 0,
+                                    "status": "red",
+                                    "products": [
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": 3,
+                                    "name": "Assign GBU Media Assets",
+                                    "numberOfTasks": 26,
+                                    "workflow": "PV Workflow",
+                                    "unAssigned": 25,
+                                    "assignedToMe": 1,
+                                    "status": "red",
+                                    "products": [
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": 4,
+                                    "name": "Start MLU Data Maintenance",
+                                    "numberOfTasks": 34,
+                                    "workflow": "NART Workflow AT",
+                                    "unAssigned": 4,
+                                    "assignedToMe": 30,
+                                    "status": "orange",
+                                    "products": [
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": 5,
+                                    "name": "Assign Local Media Assets",
+                                    "numberOfTasks": 4,
+                                    "workflow": "NART Workflow AT",
+                                    "unAssigned": 4,
+                                    "assignedToMe": 0,
+                                    "status": "orange",
+                                    "products": [
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": 6,
+                                    "name": "Start MLU Data Maintenance",
+                                    "numberOfTasks": 6,
+                                    "workflow": "NART Workflow CH",
+                                    "unAssigned": 4,
+                                    "assignedToMe": 2,
+                                    "status": "green",
+                                    "products": [
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": 7,
+                                    "name": "Assign Local Media Assets",
+                                    "numberOfTasks": 74,
+                                    "workflow": "NART Workflow CH",
+                                    "unAssigned": 43,
+                                    "assignedToMe": 31,
+                                    "status": "green",
+                                    "products": [
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": 8,
+                                    "name": "Missing PackShot (Images)",
+                                    "numberOfTasks": 68,
+                                    "workflow": "Introduction SKU to spain",
+                                    "unAssigned": 42,
+                                    "assignedToMe": 26,
+                                    "status": "green",
+                                    "products": [
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": 9,
+                                    "name": "Activate SKU",
+                                    "numberOfTasks": 6,
+                                    "workflow": "Introduction SKU to spain",
+                                    "unAssigned": 4,
+                                    "assignedToMe": 2,
+                                    "status": "green",
+                                    "products": [
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        },
+                                        {
+                                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
+                                            "id": 2283289,
+                                            "vendorName": "Aquaphor",
+                                            "categoryPath": "/Skin Care/Moisturizers",
+                                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        "rock-saved-searches-tags": {
+                            "config": {
+                                "favourites": [
+                                    {
+                                        "name": "favourites",
+                                        "icon": "pebble-icons:Star",
+                                        "text": "",
+                                        "visible": true,
+                                        "eventName": "favourite-saved-search"
+                                    },
+                                    {
+                                        "name": "delete",
+                                        "icon": "pebble-icons:Delete",
+                                        "text": "",
+                                        "visible": true,
+                                        "eventName": "delete-saved-search"
+                                    }
+                                ],
+                                "my-searches": [
+                                    {
+                                        "name": "favourites",
+                                        "icon": "star-border",
+                                        "text": "",
+                                        "visible": true,
+                                        "eventName": "favourite-saved-search"
+                                    },
+                                    {
+                                        "name": "delete",
+                                        "icon": "pebble-icons:Delete",
+                                        "text": "",
+                                        "visible": true,
+                                        "eventName": "delete-saved-search"
+                                    }
+                                ],
+                                "shared-searches": [
+                                    {
+                                        "name": "favourites",
+                                        "icon": "pebble-icons:Star",
+                                        "text": "",
+                                        "visible": true,
+                                        "eventName": "favourite-saved-search"
+                                    },
+                                    {
+                                        "name": "delete",
+                                        "icon": "pebble-icons:Delete",
+                                        "text": "",
+                                        "visible": true,
+                                        "eventName": "delete-saved-search"
                                     }
                                 ]
                             }
@@ -2487,6 +3991,220 @@
                     }
                 }
             ]
+        },
+        {
+            "name": "app-business-function",
+            "ctxInfo": [
+                {
+                    "tenant": "t1",
+                    "ctx": {
+                        "list": "productMaster",
+                        "entityType": "nart"
+                    },
+                    "security": {
+                        "user": "",
+                        "role": ""
+                    },
+                    "components": {
+                        "rock-wizard": {
+                            "config": {
+                                "stepperConfig": [
+                                    {
+                                        "index": "1",
+                                        "label": "",
+                                        "status": "inprogress"
+                                    },
+                                    {
+                                        "index": "2",
+                                        "label": "",
+                                        "status": ""
+                                    },
+                                    {
+                                        "index": "3",
+                                        "label": "",
+                                        "status": ""
+                                    }
+                                ],
+                                "name": "create-entity",
+                                "label": "Create Product",
+                                "steps": [
+                                    {
+                                        "name": "step-1-fill-initial-data",
+                                        "label": "Fill Data for New Entity",
+                                        "component": {
+                                            "name": "rock-entity-create",
+                                            "path": "/../../src/elements/rock-entity-create/rock-entity-create.html",
+                                            "properties": {
+                                                "import-profile-name": "Entity Import - RSExcel 2.0",
+                                                "attribute-names": [
+                                                    "cpimProductName",
+                                                    "csapDescriptionOfNart",
+                                                    "csapGenderDescriptionType",
+                                                    "cpimShortDescription",
+                                                    "cpimSkinType"
+                                                ]
+                                            }
+                                        },
+                                        "nextEvent": "onSave",
+                                        "skipEvent": "onCancel"
+                                    },
+                                    {
+                                        "name": "step-2-create-perspectives",
+                                        "label": "Create perspectives for New Entity",
+                                        "component": {
+                                            "name": "rock-entity-variant",
+                                            "path": "/../../src/elements/rock-entity-variant/rock-entity-variant.html",
+                                            "properties": {}
+                                        },
+                                        "nextEvent": "onComplete",
+                                        "skipEvent": "onCancel"
+                                    }
+                                ]
+                            }
+                        },
+                        "rock-variants-create-grid": {
+                            "config": {
+                                "createVariantsGridConfig": {
+                                    "viewMode": "Tabular",
+                                    "title": "Variant Data Table",
+                                    "mode": "Read",
+                                    "schemaType": "simple",
+                                    "tabular": {
+                                        "settings": {
+                                            "isMultiSelect": true,
+                                            "actions": [
+                                                {
+                                                    "name": "delete",
+                                                    "icon": "pebble-icons:Delete",
+                                                    "eventName": "delete-item"
+                                                }
+                                            ]
+                                        },
+                                        "columns": [
+                                            {
+                                                "header": "Entity",
+                                                "name": "Entity",
+                                                "sortable": false,
+                                                "filterable": false
+                                            },
+                                            {
+                                                "header": "Existing",
+                                                "name": "existing",
+                                                "sortable": false,
+                                                "filterable": false
+                                            },
+                                            {
+                                                "header": "Colors",
+                                                "name": "colors",
+                                                "sortable": false,
+                                                "filterable": false
+                                            },
+                                            {
+                                                "header": "Materials",
+                                                "name": "materials",
+                                                "sortable": false,
+                                                "filterable": false
+                                            },
+                                            {
+                                                "header": "Primary Sizes",
+                                                "name": "primarySizes",
+                                                "sortable": false,
+                                                "filterable": false
+                                            },
+                                            {
+                                                "header": "Secondary Sizes",
+                                                "name": "secondarySizes",
+                                                "sortable": false,
+                                                "filterable": false
+                                            }
+                                        ]
+                                    }
+                                },
+                                "variantDefinitionExternal": {
+                                    "levels": [
+                                        {
+                                            "entityType": "choice",
+                                            "index": 1,
+                                            "dimensions": [
+                                                {
+                                                    "sourceAttribute": "colors",
+                                                    "targetAttribute": "choiceColor",
+                                                    "optional": false
+                                                },
+                                                {
+                                                    "sourceAttribute": "materials",
+                                                    "targetAttribute": "choiceMaterial",
+                                                    "optional": false
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "entityType": "sku",
+                                            "index": 2,
+                                            "dimensions": [
+                                                {
+                                                    "sourceAttribute": "primarySizes",
+                                                    "targetAttribute": "skuSize1",
+                                                    "optional": false
+                                                },
+                                                {
+                                                    "sourceAttribute": "secondarySizes",
+                                                    "targetAttribute": "skuSize2",
+                                                    "optional": false
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "businessFunctionVariantsCreate": {
+                                    "stepperConfig": [
+                                        {
+                                            "index": "1",
+                                            "title": "Option Selection",
+                                            "status": "inprogress"
+                                        },
+                                        {
+                                            "index": "2",
+                                            "title": "Create Variants",
+                                            "status": ""
+                                        }
+                                    ],
+                                    "name": "create-variants",
+                                    "label": "Create Variants",
+                                    "steps": [
+                                        {
+                                            "name": "step-1-selection-option",
+                                            "label": "Select Options to create Skus",
+                                            "component": {
+                                                "name": "rock-variants-option-select",
+                                                "path": "/../../src/elements/rock-variants-option-select/rock-variants-option-select.html",
+                                                "properties": {}
+                                            },
+                                            "nextEvent": "onSave",
+                                            "skipEvent": "onCancel"
+                                        },
+                                        {
+                                            "name": "step-2-create-variants",
+                                            "label": "Create variants for a given entity",
+                                            "component": {
+                                                "name": "rock-variants-create-grid",
+                                                "path": "/../../src/elements/rock-variants-create-grid/rock-variants-create-grid.html",
+                                                "properties": {}
+                                            },
+                                            "nextEvent": "onComplete",
+                                            "skipEvent": "onCancel"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
         }
     ]
-}
+};
+
+module.exports = {
+    'allConfigs': allConfigs
+};

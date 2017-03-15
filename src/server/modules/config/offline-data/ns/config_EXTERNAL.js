@@ -1,4 +1,5 @@
-{
+
+var allConfigs  = {
     "configs": [
         {
             "name": "main-app",
@@ -12,11 +13,11 @@
                     "security": {
                         "user": "",
                         "role": ""
-                    },
+                    }, 
                     "components": {
                         "pebble-actions": {
                             "config": {
-                                "title": "Create New Product",
+                                "title": "Create New...",
                                 "actions": [
                                     {
                                         "name": "createProduct",
@@ -4202,4 +4203,8 @@
             ]
         }
     ]
-}
+};
+
+module.exports = {
+    'allConfigs': allConfigs
+};
