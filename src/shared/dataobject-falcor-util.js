@@ -462,6 +462,10 @@ DataObjectFalcorUtil.compareCtx = function (obj1, obj2) {
     return JSON.stringify(DataObjectFalcorUtil.sortObject(obj1)) == JSON.stringify(DataObjectFalcorUtil.sortObject(obj2));
 };
 
+DataObjectFalcorUtil.compareObjects = function(obj1, obj2) {
+    return JSON.stringify(DataObjectFalcorUtil.sortObject(obj1)) == JSON.stringify(DataObjectFalcorUtil.sortObject(obj2));    
+}
+
 DataObjectFalcorUtil.createCtxItem = function (ctxKey) {
     return JSON.parse(ctxKey);
 };
