@@ -88,7 +88,23 @@
                     var attributeValues = [];
                     //TODO: Review what to do with governance data  
                     delete attributeJSON.errors;
-                    attributeValues.push(attributeJSON);
+
+                    if (Array.isArray(attributeJSON.value)) //For collection
+                    {
+                        for (var j = 0; j < attributeJSON.value.length; j++) {
+                            if (attributeJSON.name) {
+                                attributeValues.push({
+                                    "name": attributeJSON.name,
+                                    "value": attributeJSON.value[j].name,
+                                    "source": attributeJSON.source,
+                                    "locale": attributeJSON.locale
+                                });
+                            }
+                        }
+                    } else {
+                        attributeValues.push(attributeJSON);
+                    }
+
                     attributes[attributeJSON.name] = {
                         "values": attributeValues
                     };
@@ -144,7 +160,7 @@
                 if (attributeModel.name) {
                     var attribute = attributes[attributeModel.name];
                     if (attribute && attribute.values) {
-                        attributeJSON = this._getCurrentValue(attribute.values, valCtx);
+                        attributeJSON = this._getCurrentValue(attribute.values, valCtx, attributeModel);
                     }
                     if (attributeJSON == undefined || !attributeJSON.hasOwnProperty('value')) {
                         attributeJSON = this._getEmptyValue(valCtx);
@@ -168,7 +184,8 @@
                         var attributeJSON = {};
                         var attribute = attributes[attributeModel.name];
                         if (attribute && attribute.values) {
-                            attributeJSON = this._getCurrentValue(attribute.values, valCtx);
+                            attributeJSON = this._getCurrentValue(attribute.values, valCtx,
+                                attributeModel);
                         }
                         if (attributeJSON == undefined || !attributeJSON.hasOwnProperty('value')) {
                             attributeJSON = this._getEmptyValue(valCtx);
@@ -192,7 +209,8 @@
                 var entitiesToBeRemoved = [];
                 for (var i = 0; i < entities.length; i++) {
                     if (typeof (entities[i]) == "object" && entities[i].data) {
-                        var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entities[i], ctx);
+                        var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entities[i],
+                            ctx);
                         entities[i].attributes = this.transformAttributesToGridFormat(attributes,
                             attributeModels, valCtx);
                     } else {
@@ -226,7 +244,8 @@
                             if (lovAttributeMap[key] == "id") {
                                 lovFormattedEntity[key] = entities[i].id;
                             } else {
-                                attributeValue = DataHelper.transformAttributesToLovFormat(entities[i].data
+                                attributeValue = DataHelper.transformAttributesToLovFormat(
+                                    entities[i].data
                                     .ctxInfo,
                                     lovAttributeMap[key]);
                                 lovFormattedEntity[key] = attributeValue.value;
@@ -324,18 +343,25 @@
             return true;
         }
 
-        DataHelper._getCurrentValue = function (values, valCtx) {
+        DataHelper._getCurrentValue = function (values, valCtx, model) {
+
+            if (model.displayType == "textbox" && model.isCollection) {
+                return this._getCurrentValues(values, valCtx, model);
+            }
+
             var value;
             if (values) {
                 for (var i = 0; i < values.length; i++) {
                     var currentValue = values[i];
                     //TODO: locale and source case is not matching for what is there in dimension selector and what is coming in data,
                     // need to find a better answer
-                    if (valCtx.locale && currentValue.locale && currentValue.locale.toLowerCase() != valCtx.locale
+                    if (valCtx.locale && currentValue.locale && currentValue.locale.toLowerCase() !=
+                        valCtx.locale
                         .toLowerCase()) {
                         continue;
                     }
-                    if (valCtx.source && currentValue.source && currentValue.source.toLowerCase() != valCtx.source
+                    if (valCtx.source && currentValue.source && currentValue.source.toLowerCase() !=
+                        valCtx.source
                         .toLowerCase()) {
                         continue;
                     }
@@ -345,6 +371,53 @@
                 }
             }
             return value;
+        };
+
+        DataHelper._getCurrentValues = function (values, valCtx, model) {
+
+            if (!(model.displayType == "textbox" && model.isCollection)) {
+                return;
+            }
+
+            var _values = [];
+            if (values) {
+                for (var i = 0; i < values.length; i++) {
+                    var currentValue = values[i];
+                    //TODO: locale and source case is not matching for what is there in dimension selector and what is coming in data,
+                    // need to find a better answer
+                    if (valCtx.locale && currentValue.locale && currentValue.locale.toLowerCase() !=
+                        valCtx.locale
+                        .toLowerCase()) {
+                        continue;
+                    }
+                    if (valCtx.source && currentValue.source && currentValue.source.toLowerCase() !=
+                        valCtx.source
+                        .toLowerCase()) {
+                        continue;
+                    }
+                    //TODO: compare for time?
+
+                    if (Array.isArray(currentValue.value)) //When save, already array, then no change
+                    {
+                        _values = _values.concat(currentValue.value);
+                    } else {
+                        _values.push(this._getTextCollectonSupportedFormat(currentValue));
+                    }
+                }
+            }
+
+            return {
+                "value": _values,
+                "source": valCtx.source,
+                "locale": valCtx.locale
+            }
+        };
+
+        DataHelper._getTextCollectonSupportedFormat = function (obj) {
+            return {
+                "name": obj.value,
+                "longName": obj.value
+            };
         };
 
         DataHelper._getEmptyValue = function (valCtx) {
@@ -358,8 +431,9 @@
 
         DataHelper.getParamValue = function (param) {
             var mainApp = document.querySelector('main-app');
-            if (mainApp && mainApp.pageRoute && mainApp.pageRoute.__queryParams && param in mainApp.pageRoute.__queryParams) {
-                  return mainApp.pageRoute.__queryParams[param];
+            if (mainApp && mainApp.pageRoute && mainApp.pageRoute.__queryParams && param in mainApp.pageRoute
+                .__queryParams) {
+                return mainApp.pageRoute.__queryParams[param];
             }
         };
 
@@ -417,7 +491,8 @@
 
         DataHelper.validateGetAttributeModelsResponse_New = function (attributeModelsResponsee) {
             if (attributeModelsResponsee && attributeModelsResponsee.content &&
-                attributeModelsResponsee.content.entityModels && attributeModelsResponsee.content.entityModels.length >
+                attributeModelsResponsee.content.entityModels && attributeModelsResponsee.content.entityModels
+                .length >
                 0) {
 
                 return true;
@@ -427,7 +502,8 @@
 
         DataHelper._prepareContextGroups = function (lists, classification) {
             if (!classification) {
-                classification = "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry";
+                classification =
+                    "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry";
             }
             if (lists && lists instanceof Array) {
                 var ctxGroup = [];
