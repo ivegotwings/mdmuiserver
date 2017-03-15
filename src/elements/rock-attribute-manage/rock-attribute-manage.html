@@ -4,9 +4,9 @@
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 
-<link rel="import" href="../liquid-entity-get/liquid-entity-get.html">
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
+<link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
@@ -44,22 +44,29 @@ It is responsible to get and save the attributes.
             }
             #buttonContainer {
                 position: fixed;
-                bottom: 55px;
+                bottom: 0;
+                padding: 20px 0;
+                background: rgba(255, 255, 255, 0.80);
+                left: 48px;
+                right: 30%;
                 display: none;
                 text-align: center;
+                border-top: 1px solid var(--default-border-color, #c1cad4);
+                z-index: 9999;
             }
         </style>
-        <rock-attribute-list show-group-name attribute-values="[[_attributeValues]]" attribute-models="[[_attributeModelResponse.returnValue.attributeModels]]"
+        <rock-attribute-list show-group-name$=[[showGroupName]] attribute-values="[[_attributeValues]]" attribute-models="[[_attributeModels]]"
             no-of-columns="[[noOfColumns]]" mode="{{mode}}"></rock-attribute-list>
-            <liquid-entity-data-get auto name="attributeGetDataService" operation="getbyids" request-data="{{_attributeRequest}}" last-response="{{_attributeResponse}}"></liquid-entity-data-get>
-            <!--<liquid-entity-get name="attributeGetService" request="{{_attributeRequest}}" response="{{_attributeResponse}}"></liquid-entity-get>-->
+            <liquid-entity-data-get name="attributeGetDataService" operation="getbyids" request-data="{{_attributeRequest}}" last-response="{{_attributeResponse}}"></liquid-entity-data-get>
             <liquid-entity-data-save name="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}"
                 on-response="_onSaveResponse"></liquid-entity-data-save>
-                <liquid-entity-get name="attributeModelGetService" request="{{_attributeModelRequest}}" response="{{_attributeModelResponse}}"></liquid-entity-get>
-                <div id="buttonContainer" align="center">
-                    <pebble-button id="cancel" class="button m-r-10" button-text="Cancel" on-tap="_revertAll" elevation=1 raised></pebble-button>
-                    <pebble-button id="save" class="focus m-r-10" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
-                </div>
+            <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{_attributeModelRequest}}"
+                on-response="_onCompositeModelGetResponse" >
+            </liquid-entity-model-composite-get>
+            <div id="buttonContainer" align="center">
+                <pebble-button id="cancel" class="button m-r-10" button-text="Cancel" on-tap="_revertAll" elevation=1 raised></pebble-button>
+                <pebble-button id="save" class="focus m-r-10" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
+            </div>
     </template>
     <script>
         (function () {
@@ -202,6 +209,16 @@ It is responsible to get and save the attributes.
                             return [];
                         }
                     },
+                    _attributeModels: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    showGroupName: {
+                        type: Boolean,
+                        value: false
+                    },
                     /**
                      * Specifies whether or not to write the logs.
                      */
@@ -212,8 +229,8 @@ It is responsible to get and save the attributes.
                 },
                 observers: [
                     '_attributeResponseChanged(_attributeResponse)',
-                    '_attributeModelResponseChanged(_attributeModelResponse, entityId)',
-                    '_contextChanged(context)',
+                    
+                    '_contextChanged(context, list)',
                     '_modeChanged(mode)'
                 ],
                 behaviors: [
@@ -228,35 +245,57 @@ It is responsible to get and save the attributes.
                         this.$.buttonContainer.style.display = "none";
                     }
                 },
-                _contextChanged: function (context) {
+                _contextChanged: function (context, list) {
                     if (this.verbose) {
                         console.log("_contextChanged context: " + JSON.stringify(context, null, 2));
                     }
 
-                    if (context && context.attributeGroups) {
+                    if (context && context.attributeNames) {
+                        var ctx = this._getCurrentCtx();
                         var t = {
-                            action: "getAttributeModels",
-                            "attributeGroups": context.attributeGroups
+                            "params": {
+                                "query": {
+                                    "ctx": [
+                                        ctx
+                                    ],
+                                    "locale": "en-US",
+                                    "name": "nart"
+                                },
+                                "fields": {
+                                    "ctxTypes": [
+                                        "properties"
+                                    ],
+                                    "attributes": context.attributeNames
+                                }
+                            }
                         };
                         this.set("_attributeModelRequest", t);
+                        var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
+                        if(liquidModelGet) {
+                            liquidModelGet.generateRequest();
+                        }
                     }
                 },
-                _attributeModelResponseChanged: function (_attributeModelResponse, entityId) {
+
+                //TODO: Improve this
+                _getCurrentCtx: function() {
+                    var ctx = {};
+                    ctx.list = this.list;
+                    return ctx;
+                },
+                _onCompositeModelGetResponse: function (e) {
                     if (this.verbose) {
                         console.log("_attributeModelResponseChanged _attributeModelResponse: " + JSON.stringify(
                             _attributeModelResponse, null, 2), +
                             " entityId: " + entityId);
                     }
 
-                    if (_attributeModelResponse && _attributeModelResponse.returnValue &&
-                        _attributeModelResponse.returnValue.attributeModels) {
-                        var attributeNames = [];
-                       for (var attributeGroupName in _attributeModelResponse.returnValue.attributeModels) {
-                            for (var attributeName in _attributeModelResponse.returnValue.attributeModels[
-                                attributeGroupName]) {
-                                attributeNames.push(attributeName);
-                            }
-                        }
+                    if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+
+                        var ctx = this._getCurrentCtx();                        
+                        this._attributeModels = DataHelper.transformAttributeModelToUIFormat(e.detail.response.content.entityModels[0], ctx);
+                        var attributeNames = Object.keys(this._attributeModels);
+                        
                         var req = {
                             "params": {
                                 "query": {
@@ -270,8 +309,6 @@ It is responsible to get and save the attributes.
                                     }],
                                     "id": this.entityId,
                                     "filters": {
-                                        "attributesCriterion": [],
-                                        "relationshipsCriterion": [],
                                         "typesCriterion": ["nart"]
                                     }
                                 },
@@ -279,9 +316,7 @@ It is responsible to get and save the attributes.
                                     "ctxTypes": [
                                         "properties"
                                     ],
-                                    "attributes": attributeNames,
-                                    "relationships": [
-                                    ]
+                                    "attributes": attributeNames
                                 },
                                 "options": {
                                     "totalRecords": 10,
@@ -290,6 +325,10 @@ It is responsible to get and save the attributes.
                             }
                         };
                         this.set("_attributeRequest", req);
+                        var liquidDataGet = this.$$("[name=attributeGetDataService]");
+                        if(liquidDataGet) {
+                            liquidDataGet.generateRequest();
+                        }
                     }
                 },
                 _attributeResponseChanged: function (_attributeResponse) {
@@ -307,21 +346,41 @@ It is responsible to get and save the attributes.
                         "classification": this.classification
                     };
                     if (DataHelper.validateGetEntitiesResponse(_attributeResponse)
-                        && DataHelper.validateGetAttributeModelsResponse(this._attributeModelResponse)) {
+                        && this._attributeModels) {
 
                         var entity = DataHelper.findEntityById(_attributeResponse.content.entities, this.entityId);
-                        if (entity) {
-                            values = DataHelper.getAttributesInManageFormat(entity, this._attributeModelResponse.returnValue.attributeModels, dataContext);
+                        if (entity && !_.isEmpty(entity)) {
+                            values = DataHelper.getAttributesInManageFormat(entity, this._attributeModels, dataContext);
 
                             //ToDo: read following through configuration to set rock title bar
                             //ToDo: this should happen from app-entity-manage
-                            if (values[0].attributes[0] && values[0].attributes[1]) {
-                                this._setTitleBar(values[0].attributes[0].value, values[0].attributes[1].value);
+                            if (values.length > 1) {
+                                this._setTitleBar(values[0].value, values[1].value);
                             }
                         }
                     }
+                    values = this._sortByViewName(values, this._attributeModels)
+
                     this._attributeValues = values;
                 },
+
+                _sortByViewName: function(values, models) {
+                    var sortedValues = [];
+                    var sortedModels = _.sortBy(models, function(o){return o.viewName});
+
+                    for(var i=0; i<sortedModels.length;i++){
+                        var model = sortedModels[i];
+                        for(var j=0;j < values.length; j++) {
+                            var value = values[j];
+                            if(value.name === model.name) {
+                                sortedValues.push(value);
+                            }
+                        }
+                    }
+
+                    return sortedValues;
+                },
+
                 _save: function () {
                     var mainApp = document.querySelector('#app');
 
