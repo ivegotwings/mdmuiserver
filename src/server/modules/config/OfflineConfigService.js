@@ -33,9 +33,9 @@ OfflineConfigService.prototype = {
         });
 
         var response = {
-            configOperationResponse: {
-                status: "success",
-                configs: configs
+            'configOperationResponse': {
+                'status': 'success',
+                'configs': configs
             }
         };
 

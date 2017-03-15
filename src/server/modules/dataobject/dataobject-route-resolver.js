@@ -262,11 +262,6 @@ async function processData(dataIndex, dataObjects, dataObjectAction, caller) {
         var dataObject = sharedDataObjectFalcorUtil.boxDataObject(dataObjects[dataObjectId], sharedDataObjectFalcorUtil.unboxJsonObject);
         //console.log('dataObject data', JSON.stringify(dataObject, null, 4));
 
-        //TODO: temporarily as RDF is still working on to make domain optional..
-        if (dataObject.entityInfo) {
-            dataObject.entityInfo.entityDomain = "thing";
-        }
-
         var apiRequestObj = { 'includeRequest': false, 'dataIndex': dataIndex };
         apiRequestObj[dataIndexInfo.name] = dataObject;
         //console.log('api request data for process dataObjects', JSON.stringify(apiRequestObj));
