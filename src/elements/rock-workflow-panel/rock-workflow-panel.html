@@ -33,7 +33,7 @@
                 --pebble-connected-badge-width: 30px;
                 --pebble-connected-badge-height: 30px;
                 --connectorLine-width: 2px;
-                --content-connectorLine-width: 9px;
+                --content-connectorLine-width: 2px;
                 --pebble-connected-badge-fontSize: 14px;
             }
             pebble-step-details {
@@ -90,60 +90,67 @@
             }
         </style>
         <liquid-rest id="entityStartWorkflow" url="/pass-through/entitygovernservice/startworkflow" 
-            method="POST" request-data={{_invokeWorkflowRequest}} last-response={{_invokeWorkflowResponse}} on-response="_onWorkflowReceived" on-error="_onWorkflowFailed"></liquid-rest>
-        <liquid-entity-model-get id="entityGetWorkflowDefinition" auto operation="getbyids" request-id="req1" request-data={{workflowDefinitionRequest}} 
+            method="POST" request-data={{_invokeWorkflowRequest}} last-response={{_invokeWorkflowResponse}} on-response="_onWfStartSuccess" on-error="_onWfStartFailure"></liquid-rest>
+        <liquid-entity-model-get id="entityGetWorkflowDefinition" operation="getbyids" request-id="req1" request-data={{workflowDefinitionRequest}} 
                 on-response="_onDefinitionReceived" on-error="_onDefinitionGetFailed"></liquid-entity-model-get>
-        <liquid-entity-govern-data-get id="entityGetRunningInstance" operation="getbyids" request-id="req2" request-data={{runningInstanceRequest}} 
-                on-response="_onRunningInstanceReceived" on-error="_onRunningInstanceGetFailed"></liquid-entity-govern-data-get>
-        <pebble-button id="invokeButton" raised class="workflowButton" 
-            button-text="invoke Workflow" on-tap="_invokeWorkflow"></pebble-button>
-        <pebble-accordion header-text="[[_workflowstepperData.workflowName]]" default-icon="chevron-right"        open-icon="expand-more">
-            <div id="workflow-description">
-                <!-- work flow description here-->
-                <span class="workflowtext">[[_getWorkFlowDescription(_workflowstepperData)]]</span>
-            </div>
-            <div id="workflow-stepper">
-                <!-- place stepper here-->
-                <pebble-stepper id="workflowStepper" stepper-config="[[_workflowstepperData]]">
-                    <template is="dom-repeat" items="[[_workflowstepperData.items]]" as="item">
-                        <pebble-step class="workflow-stepper" data="{{item}}">
-                            <div class="step-badge-content">
-                                <template is="dom-if" if="[[_userHasImage()]]">
-                                    <pebble-image-viewer class="user-image" shape="circle" sizing="contain" 
-                                        src="../../images/no-photo.jpg"></pebble-image-viewer>
-                                </template>
-                                <template is="dom-if" if="[[!_userHasImage()]]">
-                                    <span>[[item.index]]</span>
-                                </template>
-                            </div>
-                            <div class="step-details">
-                                <div id="step-description">
-                                    <span>[[item.stepDetails.description]]</span>
-                                </div>
-                                <template is="dom-if" if="[[_stepHasDetails(item.stepDetails)]]">
-                                    <div id="action-details">
+        <!--<liquid-entity-govern-data-get id="entityGetRunningInstance" operation="getbyids" request-id="req2" request-data={{runningInstanceRequest}} 
+                on-response="_onRunningInstanceReceived" on-error="_onRunningInstanceGetFailed"></liquid-entity-govern-data-get>-->
+        <liquid-rest id="entityGetRunningInstance" url="/pass-through/entitygovernservice/get"  
+            method="POST" request-data={{runningInstanceRequest}}
+            on-response="_onRunningInstanceReceived" on-error="_onRunningInstanceGetFailed"></liquid-rest>
+        <liquid-rest id="entityWfTransition" url="/pass-through/entitygovernservice/transitionWorkflow"  
+            method="POST" request-data={{_transitionRequest}}
+            on-response="_onTransitionSuccess" on-error="_onTransitionFailure"></liquid-rest>
+        <pebble-button id="invokeButton" raised class="iconButton btn btn-outline-primary m-r-5" 
+            button-text="Start Workflow" on-tap="_invokeWorkflow"></pebble-button>
+        <pebble-button id="refreshButton" raised class="iconButton btn btn-outline-primary m-r-5" icon="pebble-md-icons:ToolbarRefresh" on-tap="_refreshWorkflow"></pebble-button>
+        <template id="workflowsTemplate" is="dom-repeat" items="[[_workflowsData]]" as="_workflowstepperData">
+            <pebble-accordion header-text="[[_workflowstepperData.workflowName]]" default-icon="chevron-right" open-icon="expand-more">
+                <div id="workflow-description">
+                    <span class="workflowtext">[[_getWorkFlowDescription(_workflowstepperData)]]</span>
+                </div>
+                <div id="workflow-stepper">
+                    <pebble-stepper id="workflowStepper" stepper-config="[[_workflowstepperData]]">
+                        <template is="dom-repeat" items="[[_workflowstepperData.items]]" as="item">
+                            <pebble-step class="workflow-stepper" data="{{item}}">
+                                <div class="step-badge-content">
+                                    <template is="dom-if" if="[[_userHasImage()]]">
                                         <pebble-image-viewer class="user-image" shape="circle" sizing="contain" 
                                             src="../../images/no-photo.jpg"></pebble-image-viewer>
-                                        <span><a class="user" href="#">[[item.stepDetails.assignedUser]]</a>[[item.stepDetails.details]]</span>
-                                        <a class="view-changes" href="#">View all changes >></a>
-                                    </div>
-                                </template>
-                                <template is="dom-if" if="[[_isCommentsEnabled(item)]]">
-                                    <div id="step-comments">
-                                        <pebble-textarea id="stepComments" required="[[_isRequired(item.stepDetails)]]" autofocus label="ADD A COMMENT" disabled="[[_isDisabled(item)]]" invalid="{{invalid}}" error-message="Comments Required."></pebble-textarea>
-                                    </div>
-                                </template>
-                                 <div id="step-actions">
-                                    <template is="dom-repeat" items="[[item.stepDetails.actions]]" as="button">
-                                        <pebble-button class$="[[_getActionButtonClass(button)]]" raised disabled="[[_isDisabled(item)]]" icon="[[button.actionIcon]]" button-text="[[button.action]]" on-tap="_onStepActionTap" data="[[button.event]]"></pebble-button>
+                                    </template>
+                                    <template is="dom-if" if="[[!_userHasImage()]]">
+                                        <span>[[item.index]]</span>
                                     </template>
                                 </div>
-                            </div> 
-                        </pebble-step>
-                    </template>
-                </pebble-stepper>
-            </div>
-        </pebble-accordion>
+                                <div class="step-details">
+                                    <div id="step-description">
+                                        <span>[[item.stepDetails.description]]</span>
+                                    </div>
+                                    <template is="dom-if" if="[[_stepHasDetails(item.stepDetails)]]">
+                                        <div id="action-details">
+                                            <pebble-image-viewer class="user-image" shape="circle" sizing="contain" 
+                                                src="../../images/no-photo.jpg"></pebble-image-viewer>
+                                            <span><a class="user" href="#">[[item.stepDetails.assignedUser]]</a>[[item.stepDetails.details]]</span>
+                                            <a class="view-changes" href="#">View all changes >></a>
+                                        </div>
+                                    </template>
+                                    <template is="dom-if" if="[[_isCommentsEnabled(item)]]">
+                                        <div id="step-comments">
+                                            <pebble-textarea id="stepComments-[[item.id]]" required="[[_isRequired(item.stepDetails)]]" autofocus label="ADD A COMMENT" invalid="{{invalid}}" error-message="Comments Required." value="{{value}}"></pebble-textarea>
+                                        </div>
+                                        <div id="step-actions">
+                                            <template is="dom-repeat" items="[[item.stepDetails.actions]]" as="button">
+                                                <pebble-button class$="[[_getActionButtonClass(button)]]" raised icon="[[button.actionIcon]]" button-text="[[button.action]]" on-tap="_onStepActionTap" data="[[_getDataforButton(button, item.id)]]"></pebble-button>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </div> 
+                            </pebble-step>
+                        </template>
+                    </pebble-stepper>
+                </div>
+            </pebble-accordion>
+        </template>
     </template>
     <script>
         (function() {
@@ -152,6 +159,12 @@
             Polymer({
                 is: "rock-workflow-panel",
                 properties: {
+                     /**
+                     * Indictaes the identification of the entity for which the workflows are managed.
+                     */
+                    entityId: {
+                        type: String
+                    },
                     /**
                      * Indicates the context parameters for which the workflow has to be loaded.
                      * JSON sample to be added here.
@@ -168,9 +181,9 @@
                     _workflowName: {
                         type: String
                     },
-                    _workflowstepperData: {
-                        type: Object,
-                        value: function() { return {}; }
+                    _workflowsData: {
+                        type: Array,
+                        value: function() { return []; }
                     },
                     /*
                     * Indicates the request to fetch the workflow definition based on workflowId.
@@ -183,28 +196,25 @@
                                     "query": {
                                         "ctx": [
                                             {
-                                                "list": "workflowDefinitions"
+                                                "self": "self/newProductSetup_workflowDefinition"
                                             }
                                         ],
-                                        "id": "productCreationWorkflow_workflowDefinition",
+                                        "ids": [],
                                         "filters": {
-                                            "attributesCriterion": [],
                                             "typesCriterion": [
                                                 "workflowDefinition"
                                             ]
                                         }
                                     },
                                     "fields": {
-                                        "ctxTypes": [
-                                            "properties"
+                                        "properties": [
+                                            "_ALL"
                                         ],
                                         "attributes": [
                                             "workflows"
-                                        ],
-                                        "relationships": [
                                         ]
                                     }
-                                }
+                                }   
                             };
                         }
                     },
@@ -215,49 +225,46 @@
                         type: Object,
                         value: function () {
                             return {
-                                "params": {
-                                    "query": {
-                                        "ctx": [
-                                            {
-                                                "list": "productMaster",
-                                                "workflow":"productCreationWorkflow_workflowDefinition"
-                                            }
-                                        ],
-                                        "id": "e1",
-                                        "filters": {
-                                            "attributesCriterion": [],
-                                            "typesCriterion": [
-                                                "workflowRuntimeInstance"
-                                            ]
-                                        }
-                                    },
-                                    "fields": {
-                                        "ctxTypes": [
-                                            "properties"
-                                        ],
-                                        "attributes": [
-                                            "workflowInstanceId",
-                                            "status",
-                                            "startDateTime",
-                                            "endDateTime",
-                                            "activities"
-                                        ],
-                                        "relationships": [
+                            "params": {
+                                "query": {
+                                "ctx": [
+                                    {
+                                        "list": "productMaster"
+                                    }
+                                ],
+                                "id": "",
+                                "filters": {
+                                    "typesCriterion": [
+                                        "sku"
                                         ]
+                                    }
+                                },
+                                "fields": {
+                                    "ctxTypes": [
+                                        "properties"
+                                    ],
+                                    "attributes": [
+                                        "workflowInstanceId",
+                                        "status",
+                                        "startDateTime",
+                                        "endDateTime",
+                                        "activities"
+                                    ],
+                                    "relationships": [ "_ALL" ]
                                     }
                                 }
                             };
                         }
                     },
-                    _workflowDefinitionRespose: {
-                        type: Object,
-                        value: function() { return {}; }
-                    },
-                    _runningInstanceResponse: {
-                        type: Object,
-                        value: function() { return {}; }
-                    },
                      _invokeWorkflowRequest: {
+                        type: Object,
+                        value: function() { return {}; }
+                    },
+                    _runningInstances: {
+                        type: Array,
+                        value: function() { return []; }
+                    },
+                    _transitionRequest: {
                         type: Object,
                         value: function() { return {}; }
                     },
@@ -269,83 +276,105 @@
                     '_contextChanged(context)'
                 ],
                 _contextChanged: function(context) {
-                    if(context) {
-                        // context object will have entityid. Need to get workflow the given entity is part of
-                        // and give it here. Will be replaced once logic in place.
-                        this._workflowName = "productCreationWorkflow_workflowDefinition";
+                    if(context && context.entityId) {
+                        this.entityId = context.entityId;
+                        this.runningInstanceRequest.params.query.id = this.entityId;
+                        this.$$('#entityGetRunningInstance').generateRequest();
                     }
                 },
-                _generateRequest: function() {
-                    this.$$('#entityGetRunningInstance').generateRequest();
-                },
                 _onDefinitionReceived: function(e) {
-                    //console.log('wf definition received ', JSON.stringify(e.detail.response, null, 4));
-
                     var workflowDefinitionResponse = e.detail.response;
-                    this.set("_workflowDefinitionRespose", workflowDefinitionResponse);
-                    // generate request to get running instances
-                    this._generateRequest();
+                    if(workflowDefinitionResponse && workflowDefinitionResponse.content && workflowDefinitionResponse.content.entityModels && workflowDefinitionResponse.content.entityModels.length > 0) {
+                        var workflows = [];
+                        for(var i=0; i<workflowDefinitionResponse.content.entityModels.length; i++ ) {
+                            var entityModel = workflowDefinitionResponse.content.entityModels[i];
+                            var workflowId = entityModel.id;
+                            if(entityModel.data && entityModel.data && entityModel.data.attributes) {
+                                var wfAttributes = entityModel.data.attributes.workflows.group[0];
+                                var riAttributes = this._runningInstances[workflowId].attributes;
+                                var _stepperData = this._transformEntityResponseToStepperJson(wfAttributes, riAttributes, workflowId);
+                                workflows.push(_stepperData);
+                            }
+                        }
+                        this.set("_workflowsData", workflows);
+                        this.$$("#workflowsTemplate").render();
+                    }
                 },
                 _onDefinitionGetFailed: function (e) {
                     Polymer.Base._error('workflow definition get failed with error ', e.detail);
                 },
                 _onRunningInstanceReceived: function(e) {
-                    var runningInstanceResponse = e.detail.response;
-                    this.set("_runningInstanceResponse", runningInstanceResponse);
-                    var workflowstepperData = this._transformEntityResponseToStepperJson(this._workflowDefinitionRespose, this._runningInstanceResponse);
-                    this.set("_workflowstepperData", workflowstepperData);
+                    if(e.detail.response) {
+                        var runningInstanceResponse = e.detail.response.entityOperationResponse;
+                        if(runningInstanceResponse && runningInstanceResponse.entities && runningInstanceResponse.entities.length>0 && runningInstanceResponse.entities[0].data && runningInstanceResponse.entities[0].data.ctxInfo && 
+                        runningInstanceResponse.entities[0].data.ctxInfo.length > 0) {
+                            var ctxInfo = runningInstanceResponse.entities[0].data.ctxInfo;
+                            var workflowIds = [];
+                            var runningInstances = [];
+                            for(var i=0; i<ctxInfo.length; i++) {
+                                var ctxGroup = ctxInfo[i].ctxGroup;
+                                var workflowId = ctxGroup.workflow;
+                                workflowId = workflowId + "_workflowDefinition";
+                                var runtimeInstance = {
+                                    "id": workflowId,
+                                    "attributes": ctxInfo[i].attributes
+                                };
+                                runningInstances[workflowId] = {};
+                                runningInstances[workflowId] = runtimeInstance;
+                                workflowIds.push(workflowId);
+                            }
+                            this.set("_runningInstances", runningInstances)
+                            this.workflowDefinitionRequest.params.query.ids = workflowIds;
+                            this.$$("#entityGetWorkflowDefinition").generateRequest();
+                        }
+                    }
                 },
                 _onRunningInstanceGetFailed: function(e) {
                     Polymer.Base._error('running instance get failed with error ', e.detail);
                 },
-                _onWorkflowReceived: function(e) {
-                    var workflowResponse = e.detail.response;
-                    //modify request for wfdefinition and generate request for work definition get.
-                },
-                _onWorkflowFailed: function(e) {
-                    Polymer.Base._error('starting workflow failed with error ', e.detail);
-                },
-                _transformEntityResponseToStepperJson: function(workflowDefinition, runningInstance) {
-                    var runtimeInstanceId = "e1_workflow_runtimeinstance";
-                    if(workflowDefinition && workflowDefinition.content && workflowDefinition.content.entityModels
-                        && workflowDefinition.content.entityModels.length > 0
-                        && runningInstance && runningInstance.content && runningInstance.content.entities
-                        && runningInstance.content.entities.length > 0 ) {
-
-                            var riAttributes = runningInstance.content.entities[0].data.ctxInfo[0].attributes;
-                            var wfattributes = workflowDefinition.content.entityModels[0].data.ctxInfo[0].attributes.workflows.group[0];
+                _transformEntityResponseToStepperJson: function(wfAttributes, riAttributes, workflowId) {
+                    if(wfAttributes && riAttributes) {
                             var riActivities = riAttributes.activities;
-                            var wfActivities = wfattributes.activities;
+                            var wfActivities = wfAttributes.activities;
 
-                            var attributes = wfattributes;
-                            var i = 0;
-                            while(Object.keys(riAttributes)[i] && Object.keys(riAttributes)[i] != "activities") {
-                                var key = Object.keys(riAttributes)[i];
-                                attributes[key] = riAttributes[key];
-                                i++;
+                            var attributes = wfAttributes;
+                            var keys = Object.keys(riAttributes);
+                            for(var i=0; i< keys.length; i++) {
+                                var key = keys[i];
+                                if(key != "activities") {
+                                    attributes[key] = riAttributes[key];
+                                }
                             }
                             var activitiesJson = wfActivities;
+                            var riActivity = riActivities.group[0];
+                            var riActivityGuid = DataHelper.getFirstAttributeValue(riActivity.activityGuid);
+                            var riActivityStatus = DataHelper.getFirstAttributeValue(riActivity.status);
                             for(var i=0; i<activitiesJson.group.length; i++) {
                                 var wfActivity = activitiesJson.group[i];
-                                var wfActivityGuid = DataHelper.getFirstAttributeValue(wfActivity.activityGuid);
-                                for(var j=0; j<riActivities.group.length; j++) {
-                                    var riActivity = riActivities.group[j];
-                                    var riActivityGuid = DataHelper.getFirstAttributeValue(riActivity.activityGuid);
-                                    var riActivityStatus = DataHelper.getFirstAttributeValue(riActivity.status);
-                                    if(riActivityGuid == wfActivityGuid) {
-                                        riActivity["sequence"] = wfActivity["sequence"];
-                                        riActivity["activityName"] = wfActivity["activityName"];
-                                        riActivity["activityDescription"] = wfActivity["activityDescription"];
-                                        if(riActivityStatus == "Executing") {
-                                            riActivity["actions"] = wfActivity["actions"];
-                                        }
-                                        activitiesJson.group[i] = riActivity;
-                                    }
+                                var wfActivityGuid = DataHelper.getFirstAttributeValue(wfActivity.activityGuid);    
+                                if(riActivityGuid == wfActivityGuid) {
+                                    riActivity["sequence"] = wfActivity["sequence"];
+                                    riActivity["activityName"] = wfActivity["activityName"];
+                                    riActivity["activityDescription"] = wfActivity["activityDescription"];
+                                    riActivity["actions"] = wfActivity["actions"];
+                                    activitiesJson.group[i] = riActivity;
+                                    break;
+                                }
+                                else {
+                                    activitiesJson.group[i]["status"] = {
+                                        "values": [
+                                            {
+                                                "value": "Closed"
+                                            }
+                                        ]
+                                    };
+                                    activitiesJson.group[i].actions = {};
                                 }
                             }
                             attributes["activities"] = activitiesJson;
                             if(attributes) {
                                 var config = {
+                                    "workflowId": workflowId,
                                     "workflowName": DataHelper.getFirstAttributeValue(attributes.workflowName),
                                     "startDateTime": DataHelper.getFirstAttributeValue(attributes.startDateTime),
                                     "endDateTime": DataHelper.getFirstAttributeValue(attributes.endDateTime),
@@ -389,10 +418,10 @@
                 _getWorkFlowDescription: function(config) {
                     var description = "";
                     if(config) {
-                        if(config.startDateTime && config.endDateTime) {
-                            description = "The workflow started on " + this._formatDate(config.startDateTime) + " and completed by " + this._formatDate(config.endDateTime); 
+                        if(config.status == "Completed") {
+                            description = "The workflow completed on " + this._formatDate(config.endDateTime); 
                         }
-                        else if(config.startDateTime) {
+                        else if(config.status == "Executing") {
                             description = "The workflow started on " + this._formatDate(config.startDateTime) + " and should complete by " + this._getSLADate(config.startDateTime, 21) + " to complete SLA of 21 days."; 
                         }
                     }
@@ -407,59 +436,84 @@
                     return null;
                 },
                 _onStepActionTap: function(e) {
-                        var currentStepItem = this.$.workflowStepper.selectedItem;
+                        var data = e.target.data;
+                        var commentsEl = this.$$("#stepComments-"+data.id);
+                        var currentStepItem = this.$$("#workflowStepper").selectedItem;
+                        var stepComments = "";
+                        var curretStepDetails;
                         if(currentStepItem) {
                             var currentStepData = currentStepItem.data;
-                            var curretStepDetails = currentStepData.stepDetails;
-                            var stepComments = this.$$('#stepComments').value;
+                            curretStepDetails = currentStepData.stepDetails;
                         }
                         var isCommentsRequired;
                         if(curretStepDetails && curretStepDetails.actions && curretStepDetails.actions.length && curretStepDetails.actions.length >0 ) {
                             for(var i=0; i<curretStepDetails.actions.length; i++) {
                                 var action = curretStepDetails.actions[i];
                                 var actionName =action.event;
-                                if(actionName == e.target.data) {
+                                if(actionName == data.event) {
                                     var commentsMode = action.commentsMode;
-                                    if(commentsMode == "required") {
+                                    if(commentsMode == "Mendatory") {
                                         isCommentsRequired = true;
                                     }
                                     break;
                                 }
                             }
                         }
-                        if(isCommentsRequired && stepComments == "") {
-                            this.$$('#stepComments').invalid = true;
-                            return;
-                        }
-                        else {
-                            this.$$('#stepComments').invalid = false;
+                        if(commentsEl) {
+                            stepComments = commentsEl.value;
+                            if(isCommentsRequired && stepComments == "") {
+                                commentsEl.invalid = true;
+                                return;
+                            }
+                            else {
+                                commentsEl.invalid = false;
+                            }
                         }
                         var workflowTransitionRequestDataJson = {
                             "params": {
                                 "workflow": {
-                                    "workflowId": this._workflowName,
+                                    "workflowName": "newProductSetup",
                                     "activity": {
-                                        "activityId": currentStepData.id,
-                                        "action": e.target.data,
+                                        "activityName": currentStepData.title,
+                                        "action": data.event,
                                         "comment": stepComments
                                     }
                                 }
                             },
                             "entity": {
-                                "id": this.context.entityId,
-                                "name": "entityName",
+                                "id": this.entityId,
+                                "name": this.entityId,
                                 "entityInfo": {
-                                    "entityType": "nart"
+                                    "entityType": "sku"
+                                },
+                                "data": {
+                                    "ctxInfo": [
+                                        {
+                                            "ctxGroup": {
+                                                "list": "productMaster"
+                                            }
+                                        }
+                                    ]
                                 }
                             }
                         };
-                        //To Do: set this to a request object and generate request for activity action save liquid.
-                        //on response, need to refresh the workflow-panel
+                        this.set("_transitionRequest", workflowTransitionRequestDataJson);
+                        this.$$("#entityWfTransition").generateRequest();
+                },
+                _onTransitionSuccess: function(e) {
+                    var response = e.detail.response;
+                    console.log('transition response', JSON.stringify(response, null, 4));
+                    if(response) {
+                        this.$$('#entityGetRunningInstance').generateRequest();
+                    }
+                },
+                _onTransitionFailure: function(e) {
+                    Polymer.Base._error('workflow transition failed with error ', e.detail);
                 },
                 _getItemStatus: function(stepStatus) {
                     var status = DataHelper.getFirstAttributeValue(stepStatus);
                     if(status) {
-                        if(status == "Completed") {
+                        if(status == "Closed") {
                             return "completed";
                         }
                         else if(status == "Executing") {
@@ -481,21 +535,37 @@
                     var invokeWorflowRequest = {
                         "params": {
                             "workflow": {
-                                "workflowId": this._workflowName
+                                "workflowName": "newProductSetup"
                             }
                         },
                         "entity": {
-                            "id": this.context.entityId,
-                            "name": "entityName",
+                            "id": this.entityId,
+                            "name": this.entityId,
                             "entityInfo": {
-                                "entityType": "nart"
+                                "entityType": "sku"
+                            },
+                            "data": {
+                                "ctxInfo": [
+                                    {
+                                        "ctxGroup": {
+                                            "list": "productMaster"
+                                        }
+                                    }
+                                ]
                             }
                         }
                     };
-                    //To DO: set this object to a request object and generate request to invoke workflow for the entity.
-                    //on response generate request to get workflow-definition and so...
                     this.set("_invokeWorkflowRequest", invokeWorflowRequest);
                     this.$$("#entityStartWorkflow").generateRequest();
+                },
+                _onWfStartSuccess: function(e) {
+                    var response = e.detail.response;
+                    if(response) {
+                        this.$$('#entityGetRunningInstance').generateRequest();
+                    }
+                },
+                _onWfStartFailure: function(e) {
+                    Polymer.Base._error('starting workflow failed with error ', e.detail);
                 },
                 _userHasImage: function() {
                     //To DO: functionality to get assigned user of item, get user preferences what to show in
@@ -516,6 +586,9 @@
                         var itemDetailsJson = {};
                         var itemDescription = DataHelper.getFirstAttributeValue(currentActivity.activityDescription);
                         var assignedUser = DataHelper.getFirstAttributeValue(currentActivity.assignedUser);
+                        if(!assignedUser) {
+                            assignedUser = "cfadmin";
+                        }
                         var itemDetail = this._getItemDetail(currentActivity);
                         itemDetailsJson["description"] = itemDescription;
                         itemDetailsJson["assignedUser"] = assignedUser;
@@ -535,8 +608,8 @@
                     if(status == "Executing") {
                         itemDetail = "  was assigned task on " + this._formatDate(startDate) + " and should complete by " + this._getSLADate(startDate,21) + " to follow SLA of 21 Days.";
                     }
-                    if(status == "Completed") {
-                        itemDetail = "  " + '"' + lastAction + '"' + " on " + this._formatDate(endDate) + " met SLA of 3 days with comment " + comments;
+                    if(status == "Closed") {
+                        itemDetail = " completed step just a while ago."
                     }
                     return itemDetail;
                 },
@@ -546,18 +619,14 @@
                     return result;
                 },
                 _formatDate: function(date) {
-                    var result = new Date(date);
-                    result = moment(result).format('DD/MM/YYYY hh:mm A');
-                    return result;
+                    if(date) {
+                        var result = new Date(date);
+                        result = moment(result).format('DD/MM/YYYY hh:mm A');
+                        return result;
+                    }
                 },
                 _isCommentsEnabled: function(item) {
-                    if(item && item.stepDetails &&  item.stepDetails.actions && item.stepDetails.actions.length>0) {
-                        return true;
-                    }
-                    return false;
-                },
-                _isDisabled: function(item) {
-                    if(!item.status || item.status == "pending") {
+                    if(item && item.stepDetails &&  item.stepDetails.actions && item.stepDetails.actions.length>0 && item.status && item.status == "inprogress") {
                         return true;
                     }
                     return false;
@@ -573,7 +642,7 @@
                         && stepDetails.actions.group.length && stepDetails.actions.group.length >0 ) {
                         stepDetails.actions.group.forEach(function(action) {
                             var commentsMode = DataHelper.getFirstAttributeValue(action.commentsMode);
-                            if(commentsMode != "required") {
+                            if(commentsMode != "Mendatory") {
                                 return false;
                             }
                         });
@@ -589,6 +658,16 @@
                             return "action-button btn btn-secondary";
                         }
                     }
+                },
+                _getDataforButton: function(button, id) {
+                    var data = {
+                        "event": button.event,
+                        "id": id
+                    };
+                    return data;
+                },
+                _refreshWorkflow: function(e) {
+                    this.$$('#entityGetRunningInstance').generateRequest();
                 }       
             });
         })();
