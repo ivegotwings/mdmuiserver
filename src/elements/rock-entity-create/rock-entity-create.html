@@ -89,7 +89,7 @@
             <!-- label of the current step here -->
         </div>
         <div id="content-single-entity" hidden>
-            <rock-attribute-list attribute-values="[[_attributeValues]]" attribute-models="[[attributeModelResponse.returnValue.attributeModels]]"
+            <rock-attribute-list attribute-values="[[_attributeValues]]" attribute-models="[[_attributeModels]]"
             no-of-columns="3" mode="{{mode}}"></rock-attribute-list>
             <div id="content-actions" class="p-b-10" align="center" hidden>
             <pebble-button class="action-button btn btn-secondary m-r-5" id="skip" button-text="Cancel" raised on-tap="_onSkipTap"></pebble-button>
@@ -112,7 +112,8 @@
                 <bedrock-pubsub on-bedrock-event-pebble-file-upload-success="_onFileUploadSuccess"></bedrock-pubsub>
             </div>
         </div>
-        <liquid-entity-get name="attributeModelGetService" request="{{attributeModelRequest}}" response="{{attributeModelResponse}}"></liquid-entity-get>
+        <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}"
+                on-response="_onCompositeModelGetResponse" >
         <liquid-entity-data-save name="attributeSaveDataService" operation="create" request-data="{{_saveRequest}}"
                     last-response="{{_saveResponse}}" on-response="_onSaveResponse"></liquid-entity-data-save>
     </template>
@@ -152,9 +153,7 @@
                    attributeModelRequest: {
                         type: Object,
                         value: function () {
-                            return {
-                                action: "getAttributeModels"
-                            };
+                            return {};
                         }
                     },
                     /**
@@ -170,6 +169,12 @@
                         type: Array,
                         value: function () {
                             return [];
+                        }
+                    },
+                    _attributeModels: {
+                        type: Object,
+                        value: function () {
+                            return {};
                         }
                     },
                     _saveRequest: {
@@ -222,12 +227,7 @@
                     context: {
                         type: Object,
                         value: function() {
-                            return {
-                                "list": "productMaster",
-                                "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry",
-                                "locale": "en-US",
-                                "source": "SAP"
-                            };
+                            return {};
                         } 
                     }
                 },
@@ -235,30 +235,52 @@
                     RUFBehaviors.UIBehavior
                 ],
                 observers: [
-                    '_attributeModelResponseChanged(attributeModelResponse)',
-                    '_attributesChanged(attributeNames)'
+                    '_attributesChanged(attributeNames, context)'
                 ],
                 ready: function() {
                     this._showView("description");
                     this._showView("buttons");
                 },
-                _attributesChanged: function(attributeNames) {
-                    var t = {
-                            action: "getAttributeModels",
-                            "attributeNames": attributeNames
+                _attributesChanged: function(attributeNames, context) {
+                    if(attributeNames && attributeNames.length > 0 && !_.isEmpty(context))
+                    { 
+                        var ctx = this._getCurrentCtx();
+                        var t = {
+                            "params": {
+                                "query": {
+                                    "ctx": [
+                                        ctx
+                                    ],
+                                    "locale": this.context.locale,
+                                    "name": this.context.entityType
+                                },
+                                "fields": {
+                                    "ctxTypes": [
+                                        "properties"
+                                    ],
+                                    "attributes": attributeNames
+                                }
+                            }
                         };
-                    this.set("attributeModelRequest", t);
+                        this.set("attributeModelRequest", t);
+                        var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
+                        if(liquidModelGet) {
+                            liquidModelGet.generateRequest();
+                        }
+                    }
                 },
-                _attributeModelResponseChanged: function(attributeModelResponse) {
+                _onCompositeModelGetResponse: function (e) {
                     var values = [];
                     
-                    if (DataHelper.validateGetAttributeModelsResponse(attributeModelResponse)) {
+                    if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
                         
                         var valCtx = {
                             "locale": this.context.locale,
                             "source": this.context.source
                         };
-                        values = DataHelper.transformAttributesToManageFormat({}, attributeModelResponse.returnValue.attributeModels, valCtx);
+                        var ctx = this._getCurrentCtx();                        
+                        this._attributeModels = DataHelper.transformAttributeModelsToUIFormat(e.detail.response.content.entityModels[0], ctx);
+                        values = DataHelper.transformAttributesToManageFormat({}, this._attributeModels, valCtx);
                     }
                     this._attributeValues = values;
                 },
@@ -391,7 +413,7 @@
                     var entity = {
                         id: entityId,
                         entityInfo: {
-                            "entityType": "nart"
+                            "entityType": this.context.entityType
                         },
                         properties: {
                             "createdBy": "John Doe"
@@ -400,8 +422,7 @@
                             ctxInfo: [
                                 {
                                     "ctxGroup": {
-                                        "list": this.context.list,
-                                        "classification": this.context.classification
+                                        "list": this.context.list
                                     } ,
                                     "attributes" : attributes
                                 }
@@ -554,6 +575,11 @@
                         //Clear file upload
                         this.$$('pebble-file-upload').reset();
                     });
+                },
+                _getCurrentCtx: function() {
+                    var ctx = {};
+                    ctx.list = this.context.list;
+                    return ctx;
                 }
             });
         })();

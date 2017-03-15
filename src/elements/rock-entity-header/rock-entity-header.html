@@ -5,8 +5,8 @@
 
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 
-<link rel="import" href="../liquid-entity-get/liquid-entity-get.html">
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+<link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-image-viewer/pebble-image-viewer.html">
@@ -194,8 +194,8 @@ performed.
             </div>
         </div>
         <liquid-entity-data-get name="attributeGetDataService" operation="getbyids" request-data="{{headerAttributeRequest}}" last-response="{{headerAttributeResponse}}"></liquid-entity-data-get>
-        <!--<liquid-entity-get name="headerAttributeGetService" request="[[headerAttributeRequest]]" response="{{headerAttributeResponse}}"></liquid-entity-get>-->
-        <liquid-entity-get name="headerAttributeModelGetService" request="[[headerAttributeModelRequest]]" response="{{headerAttributeModelResponse}}"></liquid-entity-get>
+        <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{headerAttributeModelRequest}}"
+                on-response="_onCompositeModelGetResponse" >
     </template>
     <script>
         Polymer({
@@ -260,7 +260,6 @@ performed.
                     type: Object,
                     value: function () {
                         return {
-                            action: "getHeaderAttributeModels"
                         };
                     }
                 },
@@ -277,6 +276,12 @@ performed.
                     type: Array,
                     value: function () {
                         return [];
+                    }
+                },
+                _headerAttributeModels: {
+                    type: Object,
+                    value: function () {
+                        return {};
                     }
                 },
                 /**
@@ -320,7 +325,6 @@ performed.
             },
             observers: [
                 '_headerAttributeResponseChanged(headerAttributeResponse)',
-                '_headerAttributeModelResponseChanged(headerAttributeModelResponse)',
                 '_headerConfigChanged(headerConfig, locale, list, source, entityId)'
             ],
             _headerConfigChanged: function (headerConfig, locale, list, source) {
@@ -334,27 +338,47 @@ performed.
                             attributeNames.push(headerConfig[i].attributeName);
                         }
                     }
+                    var ctx = this._getCurrentCtx();
                     var t = {
-                        action: "getHeaderAttributeModels",
-                        "attributeNames": attributeNames
+                        "params": {
+                            "query": {
+                                "ctx": [
+                                    ctx
+                                ],
+                                "locale": "en-US",
+                                "name": "nart"
+                            },
+                            "fields": {
+                                "ctxTypes": [
+                                    "properties"
+                                ],
+                                "attributes": attributeNames
+                            }
+                        }
                     };
                     this.set("headerAttributeModelRequest", t);
+                    var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
+                    if(liquidModelGet) {
+                        liquidModelGet.generateRequest();
+                    }
                 }
             },
-            _headerAttributeModelResponseChanged: function (headerAttributeModelResponse) {
+            //TODO: Improve this
+            _getCurrentCtx: function() {
+                var ctx = {};
+                ctx.list = this.list;
+                return ctx;
+            },
+            _onCompositeModelGetResponse: function (e) {
                 if (this.verbose) {
                     console.log('entity header _headerAttributeModelResponseChanged ', JSON.stringify(
                         headerAttributeModelResponse, null, 2));
                 }
-                if (headerAttributeModelResponse && headerAttributeModelResponse.returnValue &&
-                    headerAttributeModelResponse.returnValue.attributeModels) {
-                    var attributeNames = [];
-                    for (var attributeGroupName in headerAttributeModelResponse.returnValue.attributeModels) {
-                        for (var attributeName in headerAttributeModelResponse.returnValue.attributeModels[
-                            attributeGroupName]) {
-                            attributeNames.push(attributeName);
-                        }
-                    }
+                if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+
+                    var ctx = this._getCurrentCtx();                        
+                    this._headerAttributeModels = DataHelper.transformAttributeModelsToUIFormat(e.detail.response.content.entityModels[0], ctx);
+                    var attributeNames = Object.keys(this._headerAttributeModels);
                     if (attributeNames.length > 0) {
                         var req = {
                             "params": {
@@ -407,25 +431,14 @@ performed.
                     "classification": this.classification
                 };
                 if (DataHelper.validateGetEntitiesResponse(headerAttributeResponse)
-                    && DataHelper.validateGetAttributeModelsResponse(this.headerAttributeModelResponse)) {
+                    && this._headerAttributeModels) {
 
                     var entity = DataHelper.findEntityById(headerAttributeResponse.content.entities, this.entityId);
                     if (entity) {
-                        var groupBasedAttributesData = DataHelper.getAttributesInManageFormat(entity, this.headerAttributeModelResponse.returnValue.attributeModels, dataContext);
-                        if (groupBasedAttributesData && groupBasedAttributesData.length) {
-                            for (var i = 0; i < groupBasedAttributesData.length; i++) {
-                                var attributeData = groupBasedAttributesData[i];
-                                if (attributeData.attributes && attributeData.attributes.length) {
-                                    for (var j = 0; j < attributeData.attributes.length; j++) {
-                                        attributesData.push(attributeData.attributes[j]);
-                                    }
-                                }
-                            }
-                        }
-                    }
-
+                        var attributesData = DataHelper.getAttributesInManageFormat(entity, this._headerAttributeModels, dataContext);
+                        this.set("_headerAttributeValues", attributesData);
+                   }
                 }
-                this.set("_headerAttributeValues", attributesData);
             },
             _getAttributeLabel: function (attributeModelResponse, attributeValue) {
                 var configItem = this._getConfigItem(this.headerConfig, attributeValue.name);
