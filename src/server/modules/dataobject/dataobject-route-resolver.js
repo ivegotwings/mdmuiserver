@@ -203,7 +203,7 @@ async function getSingle(dataObjectId, reqData) {
                 var dataObjectBasePath = mergePathSets(basePath, dataObjectType, pathKeys.byIds, dataObject.id);
 
                 if (dataObject.id == dataObjectId) {
-
+                    //console.log('building response...', JSON.stringify(dataObject, null, 2));
                     response.push.apply(response, buildResponse(dataObject, reqData, dataObjectBasePath));
                 }
             }
