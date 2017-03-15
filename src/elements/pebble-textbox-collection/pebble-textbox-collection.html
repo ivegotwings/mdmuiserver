@@ -25,6 +25,15 @@ Custom property | Description | Default
 `--text-collection-manage-tag-container` | Mixin applied to manage tag container | {}
 `--add-update-message` | Mixin applied to tag add/update message | {}
 `--add-icon-fill-color` | The color property for icon under tag manage container | `green`
+`--text-collection-container` | Mixin applied to component | {}
+`--line-with-icon` | Mixing for a line and dropdown icon section | {}
+`--line-with-icon-readonly` | Mixing for a line and dropdown icon section when readonly | {}
+`--text-collection-label` | Mixin applied to component label | {}
+`--tags-container` | Mixin applied to tags container | {}
+`--tag-value` | Mixin applied to tag value | {}
+`--tag-close-icon` | Mixin applied to tag close | {}
+`--text-collection-popover` | Mixin applied to tags collection popover | {}
+`--dropdown-icon` | Mixin applied to dropdown icon | {}
 
 @group rock Elements
 @element pebble-textbox-collection
@@ -40,7 +49,8 @@ Custom property | Description | Default
             }            
             .tag-container {
                 margin: 0 10px 0 10px;
-                width: 360px;                
+                width: 360px;
+                height: 60px;                
                 @apply(--text-collection-manage-tag-container);
             }
             .tag-container > pebble-textbox::shadow pebble-icon {
@@ -70,12 +80,11 @@ Custom property | Description | Default
     <bedrock-pubsub event-name="on-tap-tag" handler="_onTapTag"></bedrock-pubsub>
     <bedrock-pubsub event-name="on-popover-close" handler="_onPopoverClose"></bedrock-pubsub>
     <bedrock-pubsub event-name="on-popover-open" handler="_onPopoverOpen"></bedrock-pubsub>    
-    <pebble-collection-container label="[[label]]" values="{{values}}" is-readonly="[[isReadonly]]">
+    <pebble-collection-container label="[[label]]" values="{{values}}" is-readonly="[[isReadonly]]" display-limit="[[displayLimit]]">
         <div class="tag-container">
-            <pebble-textbox id='txtInputTag' label="[[_getLabel(_isEdit)]]" value="{{_tagInputText}}" on-keyup="_onEnter">
+            <pebble-textbox id='txtInputTag' label="[[_getLabel(_isEdit)]]" value="{{_tagInputText}}" on-keyup="_onEnter" show-error validation-errors="{{_validationErrors}}">
                 <pebble-icon icon="[[_getIcon(_isEdit)]]" suffix on-tap="_onTapIcon"></pebble-icon>
             </pebble-textbox>
-            <span class="message" hidden="[[!_showMessage]]">Already exists</span>
         </div>
     </pebble-collection-container>
                 
@@ -116,15 +125,17 @@ Custom property | Description | Default
                         value: false
                     },
 
+                    /**
+                     * Indicates tags display limit
+                     */
+                    displayLimit: {
+                        type: Number
+                    },
+
                     _tagInputText: {
                         type: String,
                         value: null
-                    },
-
-                    _showMessage: {
-                        type: Boolean,
-                        value: false
-                    },
+                    },                    
 
                     _currentEditTag: {
                         type: Object,
@@ -134,12 +145,39 @@ Custom property | Description | Default
                     _isEdit: {
                         type: Boolean,
                         value: false
+                    },
+
+                    _validationErrors: {
+                        type: Array,
+                        value: function(){ return[]; },
+                        notify: true
                     }
 
                 },
                 behaviors: [
                     RUFBehaviors.UIBehavior
                 ],
+
+                /**
+                 * Can be used to add tag to collection
+                 */
+                add: function(item){
+                    this._getCollectionContainer().add(item);
+                },
+
+                /**
+                 * Can be used to remove tag from collection
+                 */
+                remove: function(item){
+                    this._getCollectionContainer().remove(item);
+                },
+
+                /**
+                 * Can be used to know the tag exists or not
+                 */
+                isExists: function(item){
+                    return this._getCollectionContainer().isExists(item);
+                },
 
                 _getCollectionContainer: function(){
                     return ElementHelper.getElement(this, "pebble-collection-container");
@@ -162,8 +200,8 @@ Custom property | Description | Default
                     }
 
                     this._isEdit = true;
-                    this._currentEditTag = detail;
-                    this._tagInputText = this._currentEditTag.item.value;                    
+                    this._currentEditTag = {"item": this.values[detail.index], "index": detail.index};
+                    this._tagInputText = this.values[detail.index].name;                    
                     this._getCollectionContainer().openPopover();            
                 },
 
@@ -185,43 +223,57 @@ Custom property | Description | Default
                     return "add-circle";
                 },
                 
-                _onTapIcon: function() {
-                    if(!this._tagInputText || (this._tagInputText && !this._tagInputText.trim()) ){
-                            return;
+                _onTapIcon: function() {                    
+                    
+                    var _tagInputText = this._tagInputText ? this._tagInputText.trim() : this._tagInputText;
+
+                    if(!_tagInputText){
+                        this._raiseError('Required');
+                        return;
                     }
 
                     if(!this._isEdit)
                     {
-                        var item = {"value": this._tagInputText};
+                        var item = {"name": _tagInputText};
 
-                        if(this._getCollectionContainer().isExists(item))
-                        {
-                            this._showMessage = true;
+                        if(this.isExists(item))
+                        {   
+                            this._raiseError('Already exists');
                             return;
                         }
 
-                        this._getCollectionContainer().add(item);
+                        this.add(item);
                         this._reset();
                     }
                     else if(this._isEdit)
                     {
-                        if(!this._getCollectionContainer().isExists(this._currentEditTag.item))
+                        if(!this.isExists(this._currentEditTag.item))
                         {
                             return;
                         }
                         //If updated input is already exists
                         for(var i = 0; i < this.values.length; i++)
                         {
-                            if(i != this._currentEditTag.index && this.values[i].value == this._tagInputText)
+                            if(i != this._currentEditTag.index && this.values[i].name.toLowerCase() == _tagInputText.toLowerCase())
                             {
-                                this._showMessage = true;
+                                this._raiseError('Already exists');
                                 return;
                             }
                         }
 
-                        this.set('values.' + this._currentEditTag.index + '.value', this._tagInputText);
+                        this.set('values.' + this._currentEditTag.index + '.name', _tagInputText);
+                        this.set('values.' + this._currentEditTag.index + '.longName', _tagInputText);
                         this._getCollectionContainer().closePopover();
                     }                   
+                },
+
+                _raiseError: function(message){
+                    this._validationErrors = [];
+                    this.push('_validationErrors', message);
+
+                    var _validationErrors = this._validationErrors;
+                    this._validationErrors = [];
+                    this._validationErrors = _validationErrors;
                 },
 
                 _onEnter: function(e) {
@@ -231,8 +283,8 @@ Custom property | Description | Default
                 },
 
                 _reset: function(){
-                    this._tagInputText = '';                    
-                    this._showMessage = false;
+                    this._tagInputText = '';
+                    this._validationErrors = [];
                     this._isEdit = false;
                     this._currentEditTag = {};
                 },
