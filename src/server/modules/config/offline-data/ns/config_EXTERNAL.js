@@ -1,40 +1,39 @@
 
-var allConfigs  = {
+var allConfigs = {
     "configs": [
         {
             "name": "main-app",
             "ctxInfo": [
                 {
-                    "tenant": "t1",
+                    "tenant": "ns",
                     "ctx": {
-                        "list": "productMaster",
-                        "entityType": "nart"
+                        "list": "productMaster"
                     },
                     "security": {
                         "user": "",
                         "role": ""
-                    }, 
+                    },
                     "components": {
                         "pebble-actions": {
                             "config": {
                                 "title": "Create New...",
                                 "actions": [
                                     {
-                                        "name": "createProduct",
+                                        "name": "createStyle",
                                         "icon": "pebble-xl-icons:Product",
-                                        "text": "Product",
+                                        "text": "Style",
                                         "visible": true
                                     },
                                     {
-                                        "name": "createKit",
-                                        "icon": "pebble-xl-icons:Kit",
-                                        "text": "Kit",
-                                        "visible": true
-                                    },
-                                    {
-                                        "name": "createCustomer",
+                                        "name": "createSupplier",
                                         "icon": "pebble-xl-icons:Customer",
-                                        "text": "Customer",
+                                        "text": "Supplier",
+                                        "visible": true
+                                    },
+                                    {
+                                        "name": "createUPC",
+                                        "icon": "pebble-xl-icons:Kit",
+                                        "text": "UPC",
                                         "visible": true
                                     }
                                 ]
@@ -63,21 +62,6 @@ var allConfigs  = {
                                         "id": "e1"
                                     },
                                     "icon": "pebble-icons:Entities"
-                                },
-                                {
-                                    "name": "entity-create",
-                                    "title": "Entity Create",
-                                    "data_route": "entity-create",
-                                    "queryParams": {
-                                        "name": "createentity"
-                                    },
-                                    "icon": "pebble-icons:Entities"
-                                },
-                                {
-                                    "name": "gridDemo",
-                                    "title": "Grid Demo",
-                                    "data_route": "grid-demo",
-                                    "icon": "pebble-icons:ViewList"
                                 },
                                 {
                                     "name": "divider"
@@ -166,178 +150,9 @@ var allConfigs  = {
                         },
                         "tenant-config": {
                             "config": {
-                                "logoUrl": "../src/images/Beiersdorf-logo.svg",
+                                "logoUrl": "../src/images/Nordstrom-logo.svg",
                                 "tenantName": "Beiersdorf",
-                                "primaryColor": "#036bc3",
-                                "primaryLightColor": "#0bb2e8",
-                                "secondaryColor": "#364653"
-                            }
-                        }
-                    }
-                },
-                {
-                    "tenant": "t1",
-                    "ctx": {
-                        "list": "fall2016",
-                        "entityType": "nart"
-                    },
-                    "security": {
-                        "user": "",
-                        "role": ""
-                    },
-                    "components": {
-                        "pebble-actions": {
-                            "config": {
-                                "title": "Create New Product",
-                                "actions": [
-                                    {
-                                        "name": "createProduct",
-                                        "icon": "pebble-xl-icons:Product",
-                                        "text": "Product",
-                                        "visible": true
-                                    },
-                                    {
-                                        "name": "createKit",
-                                        "icon": "pebble-xl-icons:Kit",
-                                        "text": "Kit",
-                                        "visible": true
-                                    },
-                                    {
-                                        "name": "createCustomer",
-                                        "icon": "pebble-xl-icons:Customer",
-                                        "text": "Customer",
-                                        "visible": true
-                                    }
-                                ]
-                            }
-                        },
-                        "rock-navmenu": {
-                            "config": [
-                                {
-                                    "name": "dashboard",
-                                    "title": "Dashboard",
-                                    "data_route": "dashboard",
-                                    "icon": "pebble-icons:Dashboard",
-                                    "isLandingPage": true
-                                },
-                                {
-                                    "name": "entity-discovery",
-                                    "title": "Entity Search & Discovery",
-                                    "data_route": "entity-discovery",
-                                    "icon": "pebble-icons:SearchDb"
-                                },
-                                {
-                                    "name": "entity-manage",
-                                    "title": "Entity Manage",
-                                    "data_route": "entity-manage",
-                                    "queryParams": {
-                                        "id": "e1"
-                                    },
-                                    "icon": "pebble-icons:Entities"
-                                },
-                                {
-                                    "name": "entity-create",
-                                    "title": "Entity Create",
-                                    "data_route": "entity-create",
-                                    "queryParams": {
-                                        "name": "createentity"
-                                    },
-                                    "icon": "pebble-icons:Entities"
-                                },
-                                {
-                                    "name": "gridDemo",
-                                    "title": "Grid Demo",
-                                    "data_route": "grid-demo",
-                                    "icon": "pebble-icons:ViewList"
-                                },
-                                {
-                                    "name": "divider"
-                                }
-                            ]
-                        },
-                        "main-app-routes": {
-                            "dashboard": {
-                                "name": "dashboard",
-                                "title": "Dashboard",
-                                "data_route": "dashboard",
-                                "icon": "pebble-icons:Dashboard",
-                                "href": "/",
-                                "nonClosable": true,
-                                "nonMinimizable": true,
-                                "isLandingPage": true,
-                                "component": {
-                                    "name": "app-dashboard",
-                                    "path": "../../src/elements/app-dashboard/app-dashboard.html",
-                                    "properties": {
-                                        "mode": "edit"
-                                    }
-                                }
-                            },
-                            "entity-discovery": {
-                                "name": "entity-discovery",
-                                "title": "Entity Search & Discovery",
-                                "data_route": "entity-discovery",
-                                "icon": "pebble-icons:Search",
-                                "href": "/entity-discovery",
-                                "nonClosable": true,
-                                "nonMinimizable": true,
-                                "component": {
-                                    "name": "app-entity-discovery",
-                                    "path": "../../src/elements/app-entity-discovery/app-entity-discovery.html",
-                                    "properties": {}
-                                }
-                            },
-                            "entity-manage": {
-                                "name": "entity-manage",
-                                "title": "entity-manage",
-                                "data_route": "entity-manage",
-                                "icon": "pebble-icons:Entities",
-                                "href": "/entity-manage?id=e1",
-                                "component": {
-                                    "name": "app-entity-manage",
-                                    "path": "../../src/elements/app-entity-manage/app-entity-manage.html",
-                                    "properties": {}
-                                }
-                            },
-                            "entity-create": {
-                                "name": "entity-create",
-                                "title": "entity-create",
-                                "data_route": "entity-create",
-                                "icon": "pebble-icons:Entities",
-                                "href": "/entity-create",
-                                "component": {
-                                    "name": "app-business-function",
-                                    "path": "../../src/elements/app-business-function/app-business-function.html",
-                                    "properties": {
-                                        "name": "createentity",
-                                        "context": {
-                                            "entityType": "product"
-                                        }
-                                    }
-                                }
-                            },
-                            "grid-demo": {
-                                "name": "gridDemo",
-                                "title": "Grid Demo",
-                                "data_route": "grid-demo",
-                                "icon": "pebble-icons:ViewList",
-                                "href": "/griddemo",
-                                "nonClosable": true,
-                                "nonMinimizable": true,
-                                "component": {
-                                    "name": "demo-grid-element",
-                                    "path": "../../src/elements/rock-grid/demo/demo-grid-element.html",
-                                    "properties": {
-                                        "mode": "edit"
-                                    }
-                                }
-                            }
-                        },
-                        "tenant-config": {
-                            "config": {
-                                "logoUrl": "../src/images/Beiersdorf-logo.svg",
-                                "tenantName": "Beiersdorf",
-                                "primaryColor": "#036bc3",
+                                "primaryColor": "#000000",
                                 "primaryLightColor": "#0bb2e8",
                                 "secondaryColor": "#364653"
                             }
@@ -350,10 +165,9 @@ var allConfigs  = {
             "name": "app-entity-discovery",
             "ctxInfo": [
                 {
-                    "tenant": "t1",
+                    "tenant": "ns",
                     "ctx": {
-                        "list": "productMaster",
-                        "entityType": "nart"
+                        "list": "productMaster"
                     },
                     "security": {
                         "user": "",
@@ -364,123 +178,96 @@ var allConfigs  = {
                             "config": {
                                 "catalogSelector": {
                                     "visible": true,
-                                    "catalogItems": [
-                                        {
-                                            "id": 1,
-                                            "title": "UK Website",
-                                            "subtitle": "UK Website",
-                                            "value": "ukWebsiteData",
-                                            "image": ""
-                                        },
-                                        {
-                                            "id": 2,
-                                            "title": "Fall 2016",
-                                            "subtitle": "Fall 2016",
-                                            "value": "fall2016",
-                                            "image": ""
-                                        },
-                                        {
-                                            "id": 3,
-                                            "title": "Ecommerce",
-                                            "subtitle": "Ecommerce",
-                                            "value": "ecommerce",
-                                            "image": ""
-                                        },
-                                        {
-                                            "id": 4,
-                                            "title": "Master",
-                                            "subtitle": "Master",
-                                            "value": "productMaster",
-                                            "image": ""
+                                    "dataRequest": {
+                                        "params": {
+                                            "query": {
+                                                "filters": {
+                                                    "typesCriterion": [
+                                                        "list",
+                                                        "channel",
+                                                        "country"
+                                                    ]
+                                                }
+                                            },
+                                            "fields": {
+                                                "attributes": [
+                                                    "externalName"
+                                                ]
+                                            }
                                         }
-                                    ],
-                                    "selectedCatalogItems": [
+                                    },
+                                    "dataRequest": {
+                                        "params": {
+                                            "query": {
+                                                "filters": {
+                                                    "typesCriterion": [
+                                                        "locale",
+                                                        "channel",
+                                                        "country"
+                                                    ]
+                                                }
+                                            },
+                                            "fields": {
+                                                "attributes": [
+                                                    "externalName"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "defaultSelection": [
                                         {
-                                            "id": 4,
-                                            "title": "Master",
-                                            "subtitle": "Master",
-                                            "value": "productMaster",
-                                            "image": ""
+                                            "id": "productMaster"
                                         }
                                     ]
                                 },
                                 "sourceSelector": {
                                     "visible": true,
-                                    "sourceItems": [
-                                        {
-                                            "id": 1,
-                                            "title": "SAP",
-                                            "subtitle": "SAP",
-                                            "value": "SAP",
-                                            "image": ""
-                                        },
-                                        {
-                                            "id": 2,
-                                            "title": "PLM",
-                                            "subtitle": "PLM",
-                                            "value": "PLM",
-                                            "image": ""
-                                        },
-                                        {
-                                            "id": 3,
-                                            "title": "PIM",
-                                            "subtitle": "PIM",
-                                            "value": "PIM",
-                                            "image": ""
+                                    "dataRequest": {
+                                        "params": {
+                                            "query": {
+                                                "filters": {
+                                                    "typesCriterion": [
+                                                        "locale"
+                                                    ]
+                                                }
+                                            },
+                                            "fields": {
+                                                "attributes": [
+                                                    "externalName"
+                                                ]
+                                            }
                                         }
-                                    ],
-                                    "selectedSourceItems": [
+                                    },
+                                    "defaultSelection": [
                                         {
-                                            "id": 1,
-                                            "title": "SAP",
-                                            "subtitle": "SAP",
-                                            "value": "SAP",
-                                            "image": ""
+                                            "name": "internal"
                                         }
                                     ]
                                 },
                                 "dateSelector": {
-                                    "visible": true
+                                    "visible": false
                                 },
                                 "localeSelector": {
                                     "visible": true,
-                                    "localeItems": [
-                                        {
-                                            "id": 1,
-                                            "title": "German",
-                                            "subtitle": "Germany",
-                                            "value": "de-DE",
-                                            "image": ""
-                                        },
-                                        {
-                                            "id": 2,
-                                            "title": "United States",
-                                            "subtitle": "English",
-                                            "value": "en-US",
-                                            "image": ""
-                                        },
-                                        {
-                                            "id": 3,
-                                            "title": "Spain",
-                                            "subtitle": "Spanish",
-                                            "value": "es-ES",
-                                            "image": ""
-                                        },
-                                        {
-                                            "id": 4,
-                                            "title": "French",
-                                            "subtitle": "France",
-                                            "value": "fr-FR",
-                                            "image": ""
+                                    "dataRequest": {
+                                        "params": {
+                                            "query": {
+                                                "filters": {
+                                                    "typesCriterion": [
+                                                        "locale"
+                                                    ]
+                                                }
+                                            },
+                                            "fields": {
+                                                "attributes": [
+                                                    "externalName"
+                                                ]
+                                            }
                                         }
-                                    ],
-                                    "selectedLocaleItems": [
+                                    },
+                                    "defaultSelection": [
                                         {
-                                            "id": 2,
-                                            "title": "United States",
-                                            "subtitle": "English",
-                                            "value": "en-US",
-                                            "image": ""
+                                            "name": "en-US"
                                         }
                                     ]
                                 }
@@ -495,16 +282,16 @@ var allConfigs  = {
                                         "name": "Women's Sport Wear & Dresses",
                                         "icon": "pebble-icons:SavedSearch",
                                         "dimensions": {
-                                            "catalog": "MasterCatalog",
-                                            "Source": "pim",
-                                            "Locale": "locales/locale/en-US",
+                                            "catalog": "productMaster",
+                                            "Source": "internal",
+                                            "Locale": "en-US",
                                             "TimeSlice": "Now"
                                         },
                                         "searchQuery": "Lorem Ipsum",
                                         "searchTags": [
                                             {
-                                                "name": "cpimProductName",
-                                                "longName": "Product Name",
+                                                "name": "shortDescription",
+                                                "longName": "Short Description",
                                                 "displayType": "textBox",
                                                 "value": {
                                                     "eq": "Lorem"
@@ -515,65 +302,54 @@ var allConfigs  = {
                                 ],
                                 "my-searches": [
                                     {
-                                        "id": 2,
-                                        "shared": false,
-                                        "name": "Red Towels",
+                                        "id": 1,
+                                        "accesstype": "self",
+                                        "name": "Women's Sport Wear & Dresses",
                                         "icon": "pebble-icons:SavedSearch",
+                                        "shared": false,
                                         "dimensions": {
-                                            "catalog": "MasterCatalog",
-                                            "Source": "pim",
-                                            "Locale": "locales/locale/en-US",
+                                            "catalog": "productMaster",
+                                            "Source": "internal",
+                                            "Locale": "en-US",
                                             "TimeSlice": "Now"
                                         },
                                         "searchQuery": "Lorem Ipsum",
                                         "searchTags": [
                                             {
-                                                "name": "cpimProductName",
-                                                "longName": "Product Name",
+                                                "name": "shortDescription",
+                                                "longName": "Short Description",
                                                 "displayType": "textBox",
                                                 "value": {
-                                                    "eq": "Red"
-                                                }
-                                            },
-                                            {
-                                                "name": "csapDescriptionOfNart",
-                                                "longName": "Description of Nart",
-                                                "displayType": "textArea",
-                                                "value": {
-                                                    "eq": "Towel"
+                                                    "eq": "Lorem"
                                                 }
                                             }
                                         ]
-                                    },
-                                    {
-                                        "id": 3,
-                                        "shared": false,
-                                        "name": "Valentine Gifts",
-                                        "icon": "pebble-icons:SavedSearch",
-                                        "dimensions": {
-                                            "catalog": "MasterCatalog",
-                                            "Source": "pim",
-                                            "Locale": "locales/locale/en-US",
-                                            "TimeSlice": "Now"
-                                        },
-                                        "searchQuery": "Valentine",
-                                        "searchTags": []
                                     }
                                 ],
                                 "shared-searches": [
                                     {
-                                        "id": 4,
-                                        "shared": true,
-                                        "name": "Avengers Caps",
+                                        "id": 1,
+                                        "accesstype": "self",
+                                        "name": "Women's Sport Wear & Dresses",
                                         "icon": "pebble-icons:SavedSearch",
+                                        "shared": true,
                                         "dimensions": {
-                                            "catalog": "MasterCatalog",
-                                            "Source": "pim",
-                                            "Locale": "locales/locale/en-US",
+                                            "catalog": "productMaster",
+                                            "Source": "internal",
+                                            "Locale": "en-US",
                                             "TimeSlice": "Now"
                                         },
-                                        "searchQuery": "Hulk Captain America Iron Man Cap",
-                                        "searchTags": []
+                                        "searchQuery": "Lorem Ipsum",
+                                        "searchTags": [
+                                            {
+                                                "name": "shortDescription",
+                                                "longName": "Short Description",
+                                                "displayType": "textBox",
+                                                "value": {
+                                                    "eq": "Lorem"
+                                                }
+                                            }
+                                        ]
                                     }
                                 ]
                             }
@@ -602,37 +378,32 @@ var allConfigs  = {
                         "rock-search-filter": {
                             "config": [
                                 {
-                                    "name": "cpimProductName",
-                                    "longName": "Product Name",
+                                    "name": "shortDescription",
+                                    "longName": "Short Description",
                                     "displayType": "textBox"
                                 },
                                 {
-                                    "name": "csapDescriptionOfNart",
-                                    "longName": "Nart Description",
+                                    "name": "longDescription",
+                                    "longName": "Long Description",
                                     "value": "",
                                     "displayType": "textArea"
                                 },
+
                                 {
-                                    "name": "csapMaterialStatusGlobal",
-                                    "longName": "Material Status Code",
+                                    "name": "createDate",
+                                    "longName": "Creation Date",
                                     "value": "",
-                                    "displayType": "textArea"
+                                    "displayType": "dateTime"
                                 },
                                 {
-                                    "name": "cpimSkinType",
-                                    "longName": "Skin Type",
-                                    "value": "",
-                                    "displayType": "textArea"
-                                },
-                                {
-                                    "name": "numericExample",
-                                    "longName": "Numeric Example",
+                                    "name": "setupCost",
+                                    "longName": "Setup Cost",
                                     "displayType": "numeric"
                                 },
                                 {
-                                    "name": "dateRangeExample",
-                                    "longName": "Date Range Example",
-                                    "displayType": "dateTime"
+                                    "name": "gender",
+                                    "longName": "Gender",
+                                    "displayType": "dropDown"
                                 }
                             ]
                         },
@@ -648,27 +419,27 @@ var allConfigs  = {
                                     },
                                     "columns": [
                                         {
-                                            "header": "Product Name",
-                                            "name": "cpimProductName",
+                                            "header": "Short Description",
+                                            "name": "shortDescription",
                                             "sortable": false,
-                                            "filterable": true,
+                                            "filterable": false,
                                             "linkTemplate": "entity-manage?id={id}"
                                         },
                                         {
-                                            "header": "Nart Description",
-                                            "name": "csapDescriptionOfNart",
+                                            "header": "Long Description",
+                                            "name": "longDescription",
                                             "sortable": false,
                                             "filterable": false
                                         },
                                         {
-                                            "header": "Material Status Code",
-                                            "name": "csapMaterialStatusGlobal",
+                                            "header": "RMS Style ID",
+                                            "name": "rmsStyleId",
                                             "sortable": false,
                                             "filterable": false
                                         },
                                         {
-                                            "header": "Skin Type",
-                                            "name": "cpimSkinType",
+                                            "header": "Setup Cost",
+                                            "name": "setupCost",
                                             "sortable": true,
                                             "filterable": false
                                         }
@@ -691,28 +462,23 @@ var allConfigs  = {
                                         ]
                                     },
                                     "listItems": {
-                                        "image": "productImage",
-                                        "title": "longName",
+                                        "image": "productImageUrl",
+                                        "title": "shortDescription",
                                         "id": "id",
                                         "fields": [
                                             {
-                                                "name": "productType",
-                                                "label": "Product Type"
+                                                "name": "longDescription",
+                                                "label": "Long Description"
                                             },
                                             {
-                                                "name": "description",
-                                                "label": "Description",
+                                                "name": "setupCost",
+                                                "label": "Setup Cost",
                                                 "noTrim": true
                                             },
                                             {
-                                                "name": "isNew",
-                                                "label": "isNew",
-                                                "noTrim": true
-                                            },
-                                            {
-                                                "name": "isApproved",
-                                                "label": "isApproved",
-                                                "noTrim": true
+                                                "name": "createDate",
+                                                "label": "Create Date",
+                                                "noTrim": false
                                             }
                                         ]
                                     }
@@ -734,641 +500,19 @@ var allConfigs  = {
                                         ]
                                     },
                                     "tileItems": {
-                                        "image": "productImage",
-                                        "title": "longName",
+                                        "image": "productImageUrl",
+                                        "title": "shortDescription",
                                         "id": "id",
                                         "fields": [
                                             {
-                                                "name": "productType",
-                                                "label": "Product Type"
-                                            },
-                                            {
-                                                "name": "description",
-                                                "label": "Description"
-                                            }
-                                        ]
-                                    }
-                                }
-                            }
-                        },
-                        "rock-entity-quick-manage": {
-                            "config": {
-                                "rock-tabs": {
-                                    "scrollable": true,
-                                    "fitContainer": false,
-                                    "tabItems": [
-                                        {
-                                            "name": "attributes",
-                                            "title": "Attributes",
-                                            "enableDropdownMenu": true,
-                                            "selected": true,
-                                            "component": {
-                                                "name": "rock-attribute-manage",
-                                                "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                "properties": {
-                                                    "mode": "view",
-                                                    "no-of-columns": 1,
-                                                    "context": {
-                                                        "attributeGroups": [
-                                                            "coreAttributes",
-                                                            "webAttributes",
-                                                            "logisticsSupplyChain",
-                                                            "merchandising"
-                                                        ]
-                                                    }
-                                                }
-                                            },
-                                            "menuItems": [
-                                                {
-                                                    "name": "core-attributes",
-                                                    "icon": "icons:add-box",
-                                                    "title": "Core Attributes",
-                                                    "component": {
-                                                        "name": "rock-attribute-manage",
-                                                        "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                        "properties": {
-                                                            "locales": [
-                                                                {
-                                                                    "locale": "en-US",
-                                                                    "language": "English"
-                                                                }
-                                                            ],
-                                                            "source": "SAP",
-                                                            "list": "productMaster",
-                                                            "mode": "view",
-                                                            "no-of-columns": 1,
-                                                            "context": {
-                                                                "attributeGroups": [
-                                                                    "coreAttributes"
-                                                                ]
-                                                            }
-                                                        }
-                                                    }
-                                                },
-                                                {
-                                                    "name": "web-attributes",
-                                                    "title": "Web Attributes",
-                                                    "icon": "icons:add-box",
-                                                    "component": {
-                                                        "name": "rock-attribute-manage",
-                                                        "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                        "properties": {
-                                                            "locales": [
-                                                                {
-                                                                    "locale": "en-US",
-                                                                    "language": "English"
-                                                                }
-                                                            ],
-                                                            "source": "SAP",
-                                                            "list": "productMaster",
-                                                            "mode": "view",
-                                                            "no-of-columns": 1,
-                                                            "context": {
-                                                                "attributeGroups": [
-                                                                    "webAttributes"
-                                                                ]
-                                                            }
-                                                        }
-                                                    }
-                                                },
-                                                {
-                                                    "name": "logisticsSupplyChain",
-                                                    "title": "Logistics & Supply Chain",
-                                                    "icon": "icons:add-box",
-                                                    "component": {
-                                                        "name": "rock-attribute-manage",
-                                                        "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                        "properties": {
-                                                            "locales": [
-                                                                {
-                                                                    "locale": "en-US",
-                                                                    "language": "English"
-                                                                }
-                                                            ],
-                                                            "source": "SAP",
-                                                            "list": "productMaster",
-                                                            "mode": "view",
-                                                            "no-of-columns": 1,
-                                                            "context": {
-                                                                "attributeGroups": [
-                                                                    "logisticsSupplyChain"
-                                                                ]
-                                                            }
-                                                        }
-                                                    }
-                                                },
-                                                {
-                                                    "name": "merchandising",
-                                                    "title": "Merchandising",
-                                                    "icon": "icons:add-box",
-                                                    "component": {
-                                                        "name": "rock-attribute-manage",
-                                                        "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                        "properties": {
-                                                            "locales": [
-                                                                {
-                                                                    "locale": "en-US",
-                                                                    "language": "English"
-                                                                }
-                                                            ],
-                                                            "source": "SAP",
-                                                            "list": "productMaster",
-                                                            "mode": "view",
-                                                            "no-of-columns": 1,
-                                                            "context": {
-                                                                "attributeGroups": [
-                                                                    "merchandising"
-                                                                ]
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            ]
-                                        }
-                                    ]
-                                },
-                                "pebble-toolbar": {
-                                    "buttonItems": [
-                                        {
-                                            "buttons": [
-                                                {
-                                                    "name": "refresh",
-                                                    "icon": "pebble-md-icons:ToolbarRefresh",
-                                                    "text": "",
-                                                    "visible": true,
-                                                    "eventName": "refresh"
-                                                },
-                                                {
-                                                    "name": "moreActions",
-                                                    "icon": "pebble-md-icons:ToolbarMore",
-                                                    "text": "",
-                                                    "eventName": "moreActions",
-                                                    "buttons": [
-                                                        {
-                                                            "name": "add",
-                                                            "icon": "add-circle-outline",
-                                                            "text": "",
-                                                            "visible": true,
-                                                            "eventName": "add"
-                                                        },
-                                                        {
-                                                            "name": "delete",
-                                                            "icon": "delete-sweep",
-                                                            "text": "",
-                                                            "visible": true,
-                                                            "eventName": "delete"
-                                                        },
-                                                        {
-                                                            "name": "cut",
-                                                            "icon": "content-cut",
-                                                            "text": "",
-                                                            "visible": true,
-                                                            "eventName": "cut"
-                                                        }
-                                                    ]
-                                                }
-                                            ]
-                                        }
-                                    ]
-                                },
-                                "rock-entity-tofix": {
-                                    "completionPercentage": 65,
-                                    "tofixes": [
-                                        {
-                                            "data": {
-                                                "name": "brandext",
-                                                "type": "error",
-                                                "label": "Brand Extension not available",
-                                                "eventName": "tofixtap"
-                                            }
-                                        },
-                                        {
-                                            "data": {
-                                                "name": "priceissue",
-                                                "type": "error",
-                                                "label": "Canada price not available",
-                                                "eventName": "tofixtap"
-                                            }
-                                        },
-                                        {
-                                            "data": {
-                                                "name": "msrpissue",
-                                                "type": "error",
-                                                "label": "Incorrect MSRP",
-                                                "eventName": "tofixtap"
-                                            }
-                                        },
-                                        {
-                                            "data": {
-                                                "name": "msrpissue",
-                                                "type": "warning",
-                                                "label": "Missing videos",
-                                                "eventName": "tofixtap"
-                                            }
-                                        },
-                                        {
-                                            "data": {
-                                                "name": "msrpissue",
-                                                "type": "information",
-                                                "label": "Missing videos",
-                                                "eventName": "tofixtap"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        "rock-saved-searches-tags": {
-                            "config": {
-                                "favourites": [
-                                    {
-                                        "name": "favourites",
-                                        "icon": "pebble-icons:Star",
-                                        "text": "",
-                                        "visible": true,
-                                        "eventName": "favourite-saved-search"
-                                    },
-                                    {
-                                        "name": "delete",
-                                        "icon": "pebble-icons:Delete",
-                                        "text": "",
-                                        "visible": true,
-                                        "eventName": "delete-saved-search"
-                                    }
-                                ],
-                                "my-searches": [
-                                    {
-                                        "name": "favourites",
-                                        "icon": "star-border",
-                                        "text": "",
-                                        "visible": true,
-                                        "eventName": "favourite-saved-search"
-                                    },
-                                    {
-                                        "name": "delete",
-                                        "icon": "pebble-icons:Delete",
-                                        "text": "",
-                                        "visible": true,
-                                        "eventName": "delete-saved-search"
-                                    }
-                                ],
-                                "shared-searches": [
-                                    {
-                                        "name": "favourites",
-                                        "icon": "pebble-icons:Star",
-                                        "text": "",
-                                        "visible": true,
-                                        "eventName": "favourite-saved-search"
-                                    },
-                                    {
-                                        "name": "delete",
-                                        "icon": "pebble-icons:Delete",
-                                        "text": "",
-                                        "visible": true,
-                                        "eventName": "delete-saved-search"
-                                    }
-                                ]
-                            }
-                        }
-                    }
-                },
-                {
-                    "tenant": "t1",
-                    "ctx": {
-                        "list": "fall2016",
-                        "entityType": "nart"
-                    },
-                    "security": {
-                        "user": "",
-                        "role": ""
-                    },
-                    "components": {
-                        "rock-dimension-selector": {
-                            "catalogSelector": {
-                                "visible": true,
-                                "catalogItems": [
-                                    {
-                                        "id": 1,
-                                        "title": "UK Website",
-                                        "subtitle": "UK Website",
-                                        "value": "ukWebsiteData",
-                                        "image": ""
-                                    },
-                                    {
-                                        "id": 2,
-                                        "title": "Fall 2016",
-                                        "subtitle": "Fall 2016",
-                                        "value": "fall2016",
-                                        "image": ""
-                                    },
-                                    {
-                                        "id": 3,
-                                        "title": "Ecommerce",
-                                        "subtitle": "Ecommerce",
-                                        "value": "ecommerce",
-                                        "image": ""
-                                    },
-                                    {
-                                        "id": 4,
-                                        "title": "Master",
-                                        "subtitle": "Master",
-                                        "value": "productMaster",
-                                        "image": ""
-                                    }
-                                ],
-                                "selectedCatalogItems": [
-                                    {
-                                        "id": 4,
-                                        "title": "Master",
-                                        "subtitle": "Master",
-                                        "value": "productMaster",
-                                        "image": ""
-                                    }
-                                ]
-                            },
-                            "sourceSelector": {
-                                "visible": true,
-                                "sourceItems": [
-                                    {
-                                        "id": 1,
-                                        "title": "SAP",
-                                        "subtitle": "SAP",
-                                        "value": "SAP",
-                                        "image": ""
-                                    },
-                                    {
-                                        "id": 2,
-                                        "title": "PLM",
-                                        "subtitle": "PLM",
-                                        "value": "PLM",
-                                        "image": ""
-                                    },
-                                    {
-                                        "id": 3,
-                                        "title": "PIM",
-                                        "subtitle": "PIM",
-                                        "value": "PIM",
-                                        "image": ""
-                                    }
-                                ],
-                                "selectedSourceItems": [
-                                    {
-                                        "id": 1,
-                                        "title": "SAP",
-                                        "subtitle": "SAP",
-                                        "value": "SAP",
-                                        "image": ""
-                                    }
-                                ]
-                            },
-                            "dateSelector": {
-                                "visible": true
-                            },
-                            "localeSelector": {
-                                "visible": true,
-                                "localeItems": [
-                                    {
-                                        "id": 1,
-                                        "title": "German",
-                                        "subtitle": "Germany",
-                                        "value": "de-DE",
-                                        "image": ""
-                                    },
-                                    {
-                                        "id": 2,
-                                        "title": "United States",
-                                        "subtitle": "English",
-                                        "value": "en-US",
-                                        "image": ""
-                                    },
-                                    {
-                                        "id": 3,
-                                        "title": "Spain",
-                                        "subtitle": "Spanish",
-                                        "value": "es-ES",
-                                        "image": ""
-                                    },
-                                    {
-                                        "id": 4,
-                                        "title": "French",
-                                        "subtitle": "France",
-                                        "value": "fr-FR",
-                                        "image": ""
-                                    }
-                                ],
-                                "selectedLocaleItems": [
-                                    {
-                                        "id": 2,
-                                        "title": "United States",
-                                        "subtitle": "English",
-                                        "value": "en-US",
-                                        "image": ""
-                                    }
-                                ]
-                            }
-                        },
-                        "rock-saved-searches": {
-                            "config": {
-                                "favourites": [
-                                    {
-                                        "id": 1,
-                                        "name": "Women's Sport Wear & Dresses",
-                                        "icon": "pebble-icons:SavedSearch",
-                                        "accesstype": "self",
-                                        "dimensions": {
-                                            "catalog": "MasterCatalog",
-                                            "Source": "pim",
-                                            "Locale": "locales/locale/en-US",
-                                            "TimeSlice": "Now"
-                                        },
-                                        "searchQuery": "Lorem Ipsum",
-                                        "searchFilters": [
-                                            {
-                                                "name": "cpimProductName",
-                                                "longName": "Product Name",
-                                                "displayType": "textBox"
-                                            }
-                                        ],
-                                        "searchTags": [
-                                            {
-                                                "name": "cpimProductName",
-                                                "longName": "Product Name",
-                                                "displayType": "textBox",
-                                                "value": {
-                                                    "eq": "Lorem"
-                                                }
-                                            }
-                                        ]
-                                    }
-                                ],
-                                "my-searches": [],
-                                "shared-searches": []
-                            }
-                        },
-                        "pebble-actions": {
-                            "config": [
-                                {
-                                    "name": "extendToBrand",
-                                    "icon": "pebble-xl-icons:Brand",
-                                    "text": "Extend to Brand",
-                                    "visible": true,
-                                    "eventName": "action-extendtobrand"
-                                },
-                                {
-                                    "name": "addToChannel",
-                                    "icon": "pebble-xl-icons:Channel",
-                                    "text": "Introduce to New Channel",
-                                    "visible": true,
-                                    "eventName": "action-addnewchannel"
-                                }
-                            ]
-                        },
-                        "rock-search-filter": {
-                            "config": [
-                                {
-                                    "name": "cpimProductName",
-                                    "longName": "Product Name",
-                                    "displayType": "textBox"
-                                },
-                                {
-                                    "name": "csapDescriptionOfNart",
-                                    "longName": "Nart Description",
-                                    "value": "",
-                                    "displayType": "textArea"
-                                },
-                                {
-                                    "name": "csapMaterialStatusGlobal",
-                                    "longName": "Material Status Code",
-                                    "value": "",
-                                    "displayType": "textArea"
-                                },
-                                {
-                                    "name": "cpimSkinType",
-                                    "longName": "Skin Type",
-                                    "value": "",
-                                    "displayType": "textArea"
-                                },
-                                {
-                                    "name": "numericExample",
-                                    "longName": "Numeric Example",
-                                    "displayType": "numeric"
-                                },
-                                {
-                                    "name": "dateRangeExample",
-                                    "longName": "Date Range Example",
-                                    "displayType": "dateTime"
-                                }
-                            ]
-                        },
-                        "rock-entity-search-grid": {
-                            "config": {
-                                "viewMode": "Tabular",
-                                "title": "Search Results",
-                                "mode": "Read",
-                                "schemaType": "attribute",
-                                "tabular": {
-                                    "settings": {
-                                        "isMultiSelect": true
-                                    },
-                                    "columns": [
-                                        {
-                                            "header": "Product Name",
-                                            "name": "cpimProductName",
-                                            "sortable": false,
-                                            "filterable": true,
-                                            "linkTemplate": "entity-manage?id={id}"
-                                        },
-                                        {
-                                            "header": "Nart Description",
-                                            "name": "csapDescriptionOfNart",
-                                            "sortable": false,
-                                            "filterable": false
-                                        },
-                                        {
-                                            "header": "Material Status Code",
-                                            "name": "csapMaterialStatusGlobal",
-                                            "sortable": false,
-                                            "filterable": false
-                                        },
-                                        {
-                                            "header": "Skin Type",
-                                            "name": "cpimSkinType",
-                                            "sortable": true,
-                                            "filterable": false
-                                        }
-                                    ]
-                                },
-                                "list": {
-                                    "settings": {
-                                        "isMultiSelect": true,
-                                        "actions": [
-                                            {
-                                                "name": "delete",
-                                                "icon": "pebble-icons:Delete",
-                                                "eventName": "delete-item"
-                                            },
-                                            {
-                                                "name": "edit",
-                                                "icon": "pebble-md-icons:Edit",
-                                                "eventName": "edit-item"
-                                            }
-                                        ]
-                                    },
-                                    "listItems": {
-                                        "image": "productImage",
-                                        "title": "longName",
-                                        "id": "id",
-                                        "fields": [
-                                            {
-                                                "name": "productType",
-                                                "label": "Product Type"
-                                            },
-                                            {
-                                                "name": "description",
-                                                "label": "Description",
+                                                "name": "setupCost",
+                                                "label": "Setup Cost",
                                                 "noTrim": true
                                             },
                                             {
-                                                "name": "isNew",
-                                                "label": "isNew",
-                                                "noTrim": true
-                                            },
-                                            {
-                                                "name": "isApproved",
-                                                "label": "isApproved",
-                                                "noTrim": true
-                                            }
-                                        ]
-                                    }
-                                },
-                                "tile": {
-                                    "settings": {
-                                        "isMultiSelect": true,
-                                        "actions": [
-                                            {
-                                                "name": "delete",
-                                                "icon": "pebble-icons:Delete",
-                                                "eventName": "delete-item"
-                                            },
-                                            {
-                                                "name": "edit",
-                                                "icon": "pebble-md-icons:Edit",
-                                                "eventName": "edit-item"
-                                            }
-                                        ]
-                                    },
-                                    "tileItems": {
-                                        "image": "productImage",
-                                        "title": "longName",
-                                        "id": "id",
-                                        "fields": [
-                                            {
-                                                "name": "productType",
-                                                "label": "Product Type"
-                                            },
-                                            {
-                                                "name": "description",
-                                                "label": "Description"
+                                                "name": "createDate",
+                                                "label": "Create Date",
+                                                "noTrim": false
                                             }
                                         ]
                                     }
@@ -1662,10 +806,9 @@ var allConfigs  = {
             "name": "app-entity-manage",
             "ctxInfo": [
                 {
-                    "tenant": "t1",
+                    "tenant": "ns",
                     "ctx": {
-                        "list": "productMaster",
-                        "entityType": "nart"
+                        "list": "productMaster"
                     },
                     "security": {
                         "user": "",
@@ -1676,116 +819,96 @@ var allConfigs  = {
                             "config": {
                                 "catalogSelector": {
                                     "visible": true,
-                                    "catalogItems": [
-                                        {
-                                            "id": 1,
-                                            "title": "UK Website",
-                                            "subtitle": "UK Website",
-                                            "value": "ukWebsiteData",
-                                            "image": ""
-                                        },
-                                        {
-                                            "id": 2,
-                                            "title": "Fall 2016",
-                                            "subtitle": "Fall 2016",
-                                            "value": "fall2016",
-                                            "image": ""
-                                        },
-                                        {
-                                            "id": 3,
-                                            "title": "Ecommerce",
-                                            "subtitle": "Ecommerce",
-                                            "value": "ecommerce",
-                                            "image": ""
-                                        },
-                                        {
-                                            "id": 4,
-                                            "title": "Master",
-                                            "subtitle": "Master",
-                                            "value": "productMaster",
-                                            "image": ""
+                                    "dataRequest": {
+                                        "params": {
+                                            "query": {
+                                                "filters": {
+                                                    "typesCriterion": [
+                                                        "list",
+                                                        "channel",
+                                                        "country"
+                                                    ]
+                                                }
+                                            },
+                                            "fields": {
+                                                "attributes": [
+                                                    "externalName"
+                                                ]
+                                            }
                                         }
-                                    ],
-                                    "selectedCatalogItems": [
+                                    },
+                                    "dataRequest": {
+                                        "params": {
+                                            "query": {
+                                                "filters": {
+                                                    "typesCriterion": [
+                                                        "locale",
+                                                        "channel",
+                                                        "country"
+                                                    ]
+                                                }
+                                            },
+                                            "fields": {
+                                                "attributes": [
+                                                    "externalName"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "defaultSelection": [
                                         {
-                                            "id": 4,
-                                            "title": "Master",
-                                            "subtitle": "Master",
-                                            "value": "productMaster",
-                                            "image": ""
+                                            "id": "productMaster"
                                         }
                                     ]
                                 },
                                 "sourceSelector": {
                                     "visible": true,
-                                    "sourceItems": [
-                                        {
-                                            "id": 1,
-                                            "title": "SAP",
-                                            "subtitle": "SAP",
-                                            "value": "SAP",
-                                            "image": ""
-                                        },
-                                        {
-                                            "id": 2,
-                                            "title": "PLM",
-                                            "subtitle": "PLM",
-                                            "value": "PLM",
-                                            "image": ""
+                                    "dataRequest": {
+                                        "params": {
+                                            "query": {
+                                                "filters": {
+                                                    "typesCriterion": [
+                                                        "locale"
+                                                    ]
+                                                }
+                                            },
+                                            "fields": {
+                                                "attributes": [
+                                                    "externalName"
+                                                ]
+                                            }
                                         }
-                                    ],
-                                    "selectedSourceItems": [
+                                    },
+                                    "defaultSelection": [
                                         {
-                                            "id": 1,
-                                            "title": "SAP",
-                                            "subtitle": "SAP",
-                                            "value": "SAP",
-                                            "image": ""
+                                            "name": "internal"
                                         }
                                     ]
                                 },
                                 "dateSelector": {
-                                    "visible": true
+                                    "visible": false
                                 },
                                 "localeSelector": {
                                     "visible": true,
-                                    "localeItems": [
-                                        {
-                                            "id": 1,
-                                            "title": "German",
-                                            "subtitle": "Germany",
-                                            "value": "de-DE",
-                                            "image": ""
-                                        },
-                                        {
-                                            "id": 2,
-                                            "title": "United States",
-                                            "subtitle": "English",
-                                            "value": "en-US",
-                                            "image": ""
-                                        },
-                                        {
-                                            "id": 3,
-                                            "title": "Spain",
-                                            "subtitle": "Spanish",
-                                            "value": "es-ES",
-                                            "image": ""
-                                        },
-                                        {
-                                            "id": 4,
-                                            "title": "French",
-                                            "subtitle": "France",
-                                            "value": "fr-FR",
-                                            "image": ""
+                                    "dataRequest": {
+                                        "params": {
+                                            "query": {
+                                                "filters": {
+                                                    "typesCriterion": [
+                                                        "locale"
+                                                    ]
+                                                }
+                                            },
+                                            "fields": {
+                                                "attributes": [
+                                                    "externalName"
+                                                ]
+                                            }
                                         }
-                                    ],
-                                    "selectedLocaleItems": [
+                                    },
+                                    "defaultSelection": [
                                         {
-                                            "id": 2,
-                                            "title": "United States",
-                                            "subtitle": "English",
-                                            "value": "en-US",
-                                            "image": ""
+                                            "name": "en-US"
                                         }
                                     ]
                                 }
@@ -1900,33 +1023,23 @@ var allConfigs  = {
                             "config": {
                                 "headerConfig": [
                                     {
-                                        "attributeName": "cpimProductName",
-                                        "label": "Product Name",
-                                        "noTrim": false
-                                    },
-                                    {
-                                        "attributeName": "csapDescriptionOfNart",
-                                        "label": "Description",
-                                        "noTrim": false
-                                    },
-                                    {
-                                        "attributeName": "cpimShortDescription",
+                                        "attributeName": "shortDescription",
                                         "label": "Short Description",
                                         "noTrim": false
                                     },
                                     {
-                                        "attributeName": "cpimGiftWrapping",
-                                        "label": "Gift Wrapping",
+                                        "attributeName": "longDescription",
+                                        "label": "Long Description",
                                         "noTrim": false
                                     },
                                     {
-                                        "attributeName": "csapMaterialStatusGlobal",
-                                        "label": "Status Code",
+                                        "attributeName": "createDate",
+                                        "label": "Create Date",
                                         "noTrim": false
                                     },
                                     {
-                                        "attributeName": "cpimSkinType",
-                                        "label": "Skin Type",
+                                        "attributeName": "setupCost",
+                                        "label": "Setup Cost",
                                         "noTrim": false
                                     }
                                 ],
@@ -2142,40 +1255,7 @@ var allConfigs  = {
                                             "name": "rock-attribute-split-screen",
                                             "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                             "properties": {
-                                                "mode": "view",
-                                                "no-of-columns": 2,
-                                                "context": {
-                                                    "attributeGroups": [
-                                                        "coreAttributes",
-                                                        "webAttributes",
-                                                        "logisticsSupplyChain",
-                                                        "merchandising"
-                                                    ],
-                                                    "attributeNames": [
-                                                        "cpimProductName",
-                                                        "csapNartDescription",
-                                                        "csapDescriptionOfNart",
-                                                        "csapGenderDescriptionType",
-                                                        "csapGender",
-                                                        "cpimWebsiteEmotionalDescription",
-                                                        "cpimShortDescription",
-                                                        "cpimLongDescription",
-                                                        "cpimWarningText",
-                                                        "cpimConsumerNeed",
-                                                        "cpimCustomerWishDateOfDelivery",
-                                                        "cpimGiftWrapping",
-                                                        "cpimBacksideText",
-                                                        "cpimFrontsideText",
-                                                        "cpimInciText",
-                                                        "csapPropellantQuantity",
-                                                        "csapDangerousGoods",
-                                                        "csapDangerousGoodsDescription",
-                                                        "csapExpirationDatedProduct",
-                                                        "csapFranchiseRangeDescription",
-                                                        "csapFranchiseRanges",
-                                                        "cpimWebDiscount"
-                                                    ]
-                                                }
+                                                "defaultMenuItem": "all-attributes"
                                             }
                                         },
                                         "menuItems": [
@@ -2193,13 +1273,17 @@ var allConfigs  = {
                                                                 "language": "English"
                                                             }
                                                         ],
-                                                        "source": "SAP",
+                                                        "source": "internal",
                                                         "list": "productMaster",
                                                         "mode": "view",
                                                         "no-of-columns": 1,
                                                         "context": {
-                                                            "attributeGroups": [
-                                                                "coreAttributes"
+                                                            "attributeNames": [
+                                                                "shortDescription",
+                                                                "longDescription",
+                                                                "createDate",
+                                                                "setupCost",
+                                                                "gender"
                                                             ]
                                                         }
                                                     }
@@ -2302,8 +1386,8 @@ var allConfigs  = {
                                         },
                                         "menuItems": [
                                             {
-                                                "name": "accessories",
-                                                "title": "Accessories",
+                                                "name": "supplierVpn",
+                                                "title": "Supplier VPN",
                                                 "icon": "icons:cloud-upload",
                                                 "component": {
                                                     "name": "rock-relationship-split-screen",
@@ -2320,14 +1404,14 @@ var allConfigs  = {
                                                         "mode": "view",
                                                         "no-of-columns": 1,
                                                         "context": {
-                                                            "relationshipTypeName": "accessories"
+                                                            "relationshipTypeName": "supplierVpn"
                                                         }
                                                     }
                                                 }
                                             },
                                             {
-                                                "name": "cross-sell",
-                                                "title": "Cross Sell",
+                                                "name": "supplierUpc",
+                                                "title": "Supplier UPC",
                                                 "icon": "icons:cloud-upload",
                                                 "component": {
                                                     "name": "rock-relationship-split-screen",
@@ -2344,55 +1428,7 @@ var allConfigs  = {
                                                         "mode": "view",
                                                         "no-of-columns": 1,
                                                         "context": {
-                                                            "relationshipTypeName": "crossSell"
-                                                        }
-                                                    }
-                                                }
-                                            },
-                                            {
-                                                "name": "up-sell",
-                                                "title": "Up Sell",
-                                                "icon": "icons:cloud-upload",
-                                                "component": {
-                                                    "name": "rock-relationship-split-screen",
-                                                    "path": "/src/elements/rock-relationship-split-screen/rock-relationship-split-screen.html",
-                                                    "properties": {
-                                                        "locales": [
-                                                            {
-                                                                "locale": "en-US",
-                                                                "language": "English"
-                                                            }
-                                                        ],
-                                                        "source": "SAP",
-                                                        "list": "productMaster",
-                                                        "mode": "view",
-                                                        "no-of-columns": 1,
-                                                        "context": {
-                                                            "relationshipTypeName": "upsell"
-                                                        }
-                                                    }
-                                                }
-                                            },
-                                            {
-                                                "name": "kit-relation",
-                                                "title": "Kit Relation",
-                                                "icon": "icons:cloud-upload",
-                                                "component": {
-                                                    "name": "rock-relationship-split-screen",
-                                                    "path": "/src/elements/rock-relationship-split-screen/rock-relationship-split-screen.html",
-                                                    "properties": {
-                                                        "locales": [
-                                                            {
-                                                                "locale": "en-US",
-                                                                "language": "English"
-                                                            }
-                                                        ],
-                                                        "source": "SAP",
-                                                        "list": "productMaster",
-                                                        "mode": "view",
-                                                        "no-of-columns": 1,
-                                                        "context": {
-                                                            "relationshipTypeName": "kitrelation"
+                                                            "relationshipTypeName": "supplierUpc"
                                                         }
                                                     }
                                                 }
@@ -2427,16 +1463,6 @@ var allConfigs  = {
                                             {
                                                 "name": "menuItem3",
                                                 "title": "Business Condition3",
-                                                "icon": "icons:mail"
-                                            },
-                                            {
-                                                "name": "menuItem4",
-                                                "title": "Business Condition4",
-                                                "icon": "icons:mail"
-                                            },
-                                            {
-                                                "name": "menuItem5",
-                                                "title": "Business Condition5",
                                                 "icon": "icons:mail"
                                             }
                                         ]
@@ -2487,27 +1513,27 @@ var allConfigs  = {
                                         },
                                         "columns": [
                                             {
-                                                "header": "Product Name",
-                                                "name": "cpimProductName",
-                                                "sortable": false,
-                                                "filterable": true
-                                            },
-                                            {
-                                                "header": "Nart Description",
-                                                "name": "csapDescriptionOfNart",
+                                                "header": "Short Description",
+                                                "name": "shortDescription",
                                                 "sortable": false,
                                                 "filterable": false
                                             },
                                             {
-                                                "header": "Material Status Code",
-                                                "name": "csapMaterialStatusGlobal",
+                                                "header": "RMS SKU ID",
+                                                "name": "rmsSkuId",
                                                 "sortable": false,
                                                 "filterable": false
                                             },
                                             {
-                                                "header": "Skin Type",
-                                                "name": "cpimSkinType",
-                                                "sortable": true,
+                                                "header": "NRF Color Code",
+                                                "name": "nrfColorCode",
+                                                "sortable": false,
+                                                "filterable": false
+                                            },
+                                            {
+                                                "header": "NRF Size Code",
+                                                "name": "nrfSizeCode",
+                                                "sortable": false,
                                                 "filterable": false
                                             }
                                         ]
@@ -2597,7 +1623,7 @@ var allConfigs  = {
                                             "optional": false,
                                             "dimensionAttributes": [
                                                 {
-                                                    "sourceAttribute": "colors",
+                                                    "sourceAttribute": "colorAssignment",
                                                     "targetAttribute": "choiceColor",
                                                     "optional": false
                                                 },
@@ -2631,7 +1657,7 @@ var allConfigs  = {
                         },
                         "rock-relationship-manage": {
                             "config": {
-                                "billOfMaterial": {
+                                "supplierVpn": {
                                     "viewMode": "Tabular",
                                     "mode": "Read",
                                     "title": "Related Products",
@@ -2658,33 +1684,33 @@ var allConfigs  = {
                                                 "isRelatedEntityAttribute": false
                                             },
                                             {
-                                                "header": "Is Master",
-                                                "name": "rpimIsMaster",
+                                                "header": "Short Description",
+                                                "name": "shortDescription",
+                                                "sortable": true,
+                                                "filterable": false,
+                                                "editType": "textbox",
+                                                "isRelatedEntityAttribute": true
+                                            },
+                                            {
+                                                "header": "VPN",
+                                                "name": "vpn",
                                                 "sortable": true,
                                                 "filterable": false,
                                                 "editType": "textbox",
                                                 "isRelatedEntityAttribute": false
                                             },
                                             {
-                                                "header": "Product Name",
-                                                "name": "cpimProductName",
+                                                "header": "Primary",
+                                                "name": "primary",
                                                 "sortable": true,
                                                 "filterable": false,
-                                                "editType": "textbox",
-                                                "isRelatedEntityAttribute": true
-                                            },
-                                            {
-                                                "header": "Description Of Nart",
-                                                "name": "csapDescriptionOfNart",
-                                                "sortable": true,
-                                                "filterable": false,
-                                                "editType": "textbox",
+                                                "editType": "boolean",
                                                 "isRelatedEntityAttribute": true
                                             }
                                         ]
                                     }
                                 },
-                                "crossSell": {
+                                "supplierUpc": {
                                     "viewMode": "Tabular",
                                     "mode": "Read",
                                     "title": "Related Products",
@@ -2710,80 +1736,28 @@ var allConfigs  = {
                                                 "editType": "",
                                                 "isRelatedEntityAttribute": false
                                             },
-                                            {
-                                                "header": "Status",
-                                                "name": "status",
-                                                "sortable": true,
-                                                "filterable": false,
-                                                "editType": "textbox",
-                                                "isRelatedEntityAttribute": false
-                                            },
-                                            {
-                                                "header": "Product Name",
-                                                "name": "cpimProductName",
+                                            { 
+                                                "header": "Short Description",
+                                                "name": "shortDescription",
                                                 "sortable": true,
                                                 "filterable": false,
                                                 "editType": "textbox",
                                                 "isRelatedEntityAttribute": true
                                             },
                                             {
-                                                "header": "Description Of Nart",
-                                                "name": "csapDescriptionOfNart",
-                                                "sortable": true,
-                                                "filterable": false,
-                                                "editType": "textbox",
-                                                "isRelatedEntityAttribute": true
-                                            }
-                                        ]
-                                    }
-                                },
-                                "accessories": {
-                                    "viewMode": "Tabular",
-                                    "mode": "Read",
-                                    "title": "Related Products",
-                                    "schemaType": "colModel",
-                                    "tabular": {
-                                        "settings": {
-                                            "isMultiSelect": true,
-                                            "actions": [
-                                                {
-                                                    "name": "delete",
-                                                    "icon": "pebble-icons:Delete",
-                                                    "eventName": "delete-item"
-                                                }
-                                            ]
-                                        },
-                                        "columns": [
-                                            {
-                                                "header": "Related Entity",
-                                                "name": "Related Entity",
-                                                "sortable": true,
-                                                "filterable": false,
-                                                "editType": "",
-                                                "isRelatedEntityAttribute": false
-                                            },
-                                            {
-                                                "header": "Status",
-                                                "name": "status",
+                                                "header": "UPC",
+                                                "name": "upc",
                                                 "sortable": true,
                                                 "filterable": false,
                                                 "editType": "textbox",
                                                 "isRelatedEntityAttribute": false
                                             },
                                             {
-                                                "header": "Product Name",
-                                                "name": "cpimProductName",
+                                                "header": "Primary",
+                                                "name": "primary",
                                                 "sortable": true,
                                                 "filterable": false,
-                                                "editType": "textbox",
-                                                "isRelatedEntityAttribute": true
-                                            },
-                                            {
-                                                "header": "Description Of Nart",
-                                                "name": "csapDescriptionOfNart",
-                                                "sortable": true,
-                                                "filterable": false,
-                                                "editType": "textbox",
+                                                "editType": "boolean",
                                                 "isRelatedEntityAttribute": true
                                             }
                                         ]
@@ -2810,7 +1784,7 @@ var allConfigs  = {
                                         },
                                         "data": {
                                             "name": "newChannel",
-                                            "label": "Introduce a new channel",
+                                            "label": "Introduce to new channel",
                                             "eventName": "todotap"
                                         }
                                     },
@@ -2819,8 +1793,8 @@ var allConfigs  = {
                                             "name": "pebble-xl-icons:Crosssell"
                                         },
                                         "data": {
-                                            "name": "crosssell",
-                                            "label": "Add new cross sell",
+                                            "name": "addnewvpn",
+                                            "label": "Add new supplier vpn",
                                             "eventName": "todotap"
                                         }
                                     },
@@ -2897,8 +1871,8 @@ var allConfigs  = {
                         "rock-titlebar": {
                             "config": {
                                 "image": "",
-                                "titleAttribute": "cpimProductName",
-                                "subtitleAttribute": "cpimShortDescription"
+                                "titleAttribute": "shortDescription",
+                                "subtitleAttribute": "longDescription"
                             }
                         }
                     }
@@ -2909,10 +1883,9 @@ var allConfigs  = {
             "name": "app-dashboard",
             "ctxInfo": [
                 {
-                    "tenant": "t1",
+                    "tenant": "ns",
                     "ctx": {
-                        "list": "productMaster",
-                        "entityType": "nart"
+                        "list": "productMaster"
                     },
                     "security": {
                         "user": "",
@@ -3899,96 +2872,6 @@ var allConfigs  = {
                             }
                         }
                     }
-                },
-                {
-                    "tenant": "t1",
-                    "ctx": {
-                        "list": "fall2016",
-                        "entityType": "nart"
-                    },
-                    "security": {
-                        "user": "",
-                        "role": ""
-                    },
-                    "components": {
-                        "rock-saved-searches": {
-                            "config": {
-                                "favourites": [
-                                    {
-                                        "id": 1,
-                                        "name": "Women's Sport Wear & Dresses",
-                                        "icon": "pebble-icons:SavedSearch",
-                                        "accesstype": "self",
-                                        "dimensions": {
-                                            "catalog": "MasterCatalog",
-                                            "Source": "pim",
-                                            "Locale": "locales/locale/en-US",
-                                            "TimeSlice": "Now"
-                                        },
-                                        "searchQuery": "Lorem Ipsum",
-                                        "searchFilters": [
-                                            {
-                                                "name": "cpimProductName",
-                                                "longName": "Product Name",
-                                                "displayType": "textBox"
-                                            }
-                                        ],
-                                        "searchTags": [
-                                            {
-                                                "name": "cpimProductName",
-                                                "longName": "Product Name",
-                                                "displayType": "textBox",
-                                                "value": {
-                                                    "eq": "Lorem"
-                                                }
-                                            }
-                                        ]
-                                    }
-                                ],
-                                "my-searches": [],
-                                "shared-searches": []
-                            }
-                        },
-                        "rock-widget-panel": {
-                            "config": {
-                                "widgets": [
-                                    {
-                                        "name": "rock-my-todos",
-                                        "nonClosable": true,
-                                        "nonMaximizable": false,
-                                        "nonDraggable": false,
-                                        "iconButtons": "",
-                                        "config": {
-                                            "heading": "My To Do's",
-                                            "headerIcon": "pebble-lg-icons:MyToDoIcon",
-                                            "component": {
-                                                "name": "rock-my-todos",
-                                                "path": "/src/elements/rock-my-todos/rock-my-todos.html"
-                                            }
-                                        }
-                                    },
-                                    {
-                                        "name": "rock-saved-searches",
-                                        "nonClosable": true,
-                                        "nonMaximizable": false,
-                                        "nonDraggable": false,
-                                        "iconButtons": "",
-                                        "config": {
-                                            "heading": "Saved Searches",
-                                            "headerIcon": "pebble-lg-icons:SavedSearchmain",
-                                            "component": {
-                                                "name": "rock-saved-searches",
-                                                "path": "/src/elements/rock-saved-searches/rock-saved-searches.html",
-                                                "properties": {
-                                                    "view-mode": true
-                                                }
-                                            }
-                                        }
-                                    }
-                                ]
-                            }
-                        }
-                    }
                 }
             ]
         },
@@ -3996,10 +2879,9 @@ var allConfigs  = {
             "name": "app-business-function",
             "ctxInfo": [
                 {
-                    "tenant": "t1",
+                    "tenant": "ns",
                     "ctx": {
-                        "list": "productMaster",
-                        "entityType": "nart"
+                        "list": "productMaster"
                     },
                     "security": {
                         "user": "",
@@ -4026,7 +2908,7 @@ var allConfigs  = {
                                     }
                                 ],
                                 "name": "create-entity",
-                                "label": "Create Product",
+                                "label": "Create",
                                 "steps": [
                                     {
                                         "name": "step-1-fill-initial-data",
@@ -4036,12 +2918,12 @@ var allConfigs  = {
                                             "path": "/../../src/elements/rock-entity-create/rock-entity-create.html",
                                             "properties": {
                                                 "import-profile-name": "Entity Import - RSExcel 2.0",
-                                                "attribute-names": [
-                                                    "cpimProductName",
-                                                    "csapDescriptionOfNart",
-                                                    "csapGenderDescriptionType",
-                                                    "cpimShortDescription",
-                                                    "cpimSkinType"
+                                                "attributeNames": [
+                                                    "createDate",
+                                                    "shortDescription",
+                                                    "longDescription",
+                                                    "setupCost",
+                                                    "gender"
                                                 ]
                                             }
                                         },
