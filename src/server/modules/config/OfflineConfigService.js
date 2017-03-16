@@ -17,8 +17,8 @@ OfflineConfigService.prototype = {
         if (securityContext) {
             tenantId = securityContext.tenantId;
         }
-        var configUrl = "./offline-data/" + tenantId + "/config_EXTERNAL.json";
-        var offlineConfigsData = require(configUrl);
+        var configUrl = "./offline-data/" + tenantId + "/config_EXTERNAL.js";
+        var offlineConfigsData = require(configUrl).allConfigs;
 
         var configs = [];
 
@@ -33,9 +33,9 @@ OfflineConfigService.prototype = {
         });
 
         var response = {
-            configOperationResponse: {
-                status: "success",
-                configs: configs
+            'configOperationResponse': {
+                'status': 'success',
+                'configs': configs
             }
         };
 
