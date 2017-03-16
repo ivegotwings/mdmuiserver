@@ -804,6 +804,30 @@ var allConfigs  = {
                                                             "webAttributes",
                                                             "logisticsSupplyChain",
                                                             "merchandising"
+                                                        ],
+                                                        "attributeNames": [
+                                                            "cpimProductName",
+                                                            "csapNartDescription",
+                                                            "csapDescriptionOfNart",
+                                                            "csapGenderDescriptionType",
+                                                            "csapGender",
+                                                            "cpimWebsiteEmotionalDescription",
+                                                            "cpimShortDescription",
+                                                            "cpimLongDescription",
+                                                            "cpimWarningText",
+                                                            "cpimConsumerNeed",
+                                                            "cpimCustomerWishDateOfDelivery",
+                                                            "cpimGiftWrapping",
+                                                            "cpimBacksideText",
+                                                            "cpimFrontsideText",
+                                                            "cpimInciText",
+                                                            "csapPropellantQuantity",
+                                                            "csapDangerousGoods",
+                                                            "csapDangerousGoodsDescription",
+                                                            "csapExpirationDatedProduct",
+                                                            "csapFranchiseRangeDescription",
+                                                            "csapFranchiseRanges",
+                                                            "cpimWebDiscount"
                                                         ]
                                                     }
                                                 }
@@ -1428,6 +1452,30 @@ var allConfigs  = {
                                                             "webAttributes",
                                                             "logisticsSupplyChain",
                                                             "merchandising"
+                                                        ],
+                                                        "attributeNames": [
+                                                            "cpimProductName",
+                                                            "csapNartDescription",
+                                                            "csapDescriptionOfNart",
+                                                            "csapGenderDescriptionType",
+                                                            "csapGender",
+                                                            "cpimWebsiteEmotionalDescription",
+                                                            "cpimShortDescription",
+                                                            "cpimLongDescription",
+                                                            "cpimWarningText",
+                                                            "cpimConsumerNeed",
+                                                            "cpimCustomerWishDateOfDelivery",
+                                                            "cpimGiftWrapping",
+                                                            "cpimBacksideText",
+                                                            "cpimFrontsideText",
+                                                            "cpimInciText",
+                                                            "csapPropellantQuantity",
+                                                            "csapDangerousGoods",
+                                                            "csapDangerousGoodsDescription",
+                                                            "csapExpirationDatedProduct",
+                                                            "csapFranchiseRangeDescription",
+                                                            "csapFranchiseRanges",
+                                                            "cpimWebDiscount"
                                                         ]
                                                     }
                                                 }
