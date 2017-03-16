@@ -22,19 +22,43 @@ var allConfigs = {
                                         "name": "createStyle",
                                         "icon": "pebble-xl-icons:Product",
                                         "text": "Style",
-                                        "visible": true
+                                        "visible": true,
+                                        "dataRoute": "entity-create",
+                                        "dataContext": {
+                                            "source": "internal",
+                                            "locale": "en-US",
+                                            "list": "productMaster",
+                                            "classification": "_ALL",
+                                            "entityType": "style"
+                                        }
                                     },
                                     {
                                         "name": "createSupplier",
                                         "icon": "pebble-xl-icons:Customer",
                                         "text": "Supplier",
-                                        "visible": true
+                                        "visible": true,
+                                        "dataRoute": "entity-create",
+                                        "dataContext": {
+                                            "source": "internal",
+                                            "locale": "en-US",
+                                            "list": "productMaster",
+                                            "classification": "_ALL",
+                                            "entityType": "supplier"
+                                        }
                                     },
                                     {
                                         "name": "createUPC",
                                         "icon": "pebble-xl-icons:Kit",
                                         "text": "UPC",
-                                        "visible": true
+                                        "visible": true,
+                                        "dataRoute": "entity-create",
+                                        "dataContext": {
+                                            "source": "internal",
+                                            "locale": "en-US",
+                                            "list": "productMaster",
+                                            "classification": "_ALL",
+                                            "entityType": "upc"
+                                        }
                                     }
                                 ]
                             }
@@ -59,7 +83,8 @@ var allConfigs = {
                                     "title": "Entity Manage",
                                     "data_route": "entity-manage",
                                     "queryParams": {
-                                        "id": "e1"
+                                        "id": "e1",
+                                        "type": "nart"
                                     },
                                     "icon": "pebble-icons:Entities"
                                 },
@@ -106,7 +131,7 @@ var allConfigs = {
                                     "title": "entity-manage",
                                     "data_route": "entity-manage",
                                     "icon": "pebble-icons:Entities",
-                                    "href": "/entity-manage?id=e1",
+                                    "href": "/entity-manage?id=e1&type=nart",
                                     "component": {
                                         "name": "app-entity-manage",
                                         "path": "../../src/elements/app-entity-manage/app-entity-manage.html",
@@ -178,98 +203,99 @@ var allConfigs = {
                             "config": {
                                 "catalogSelector": {
                                     "visible": true,
-                                    "dataRequest": {
-                                        "params": {
-                                            "query": {
-                                                "filters": {
-                                                    "typesCriterion": [
-                                                        "list",
-                                                        "channel",
-                                                        "country"
-                                                    ]
-                                                }
-                                            },
-                                            "fields": {
-                                                "attributes": [
-                                                    "externalName"
-                                                ]
-                                            }
-                                        }
+                                    "catalogItems": [{
+                                        "id": 1,
+                                        "title": "Product Master",
+                                        "subtitle": "Product Master",
+                                        "value": "productMaster",
+                                        "image": ""
                                     },
-                                    "dataRequest": {
-                                        "params": {
-                                            "query": {
-                                                "filters": {
-                                                    "typesCriterion": [
-                                                        "locale",
-                                                        "channel",
-                                                        "country"
-                                                    ]
-                                                }
-                                            },
-                                            "fields": {
-                                                "attributes": [
-                                                    "externalName"
-                                                ]
-                                            }
-                                        }
+                                    {
+                                        "id": 2,
+                                        "title": "Web Catalog",
+                                        "subtitle": "Web Catalog",
+                                        "value": "webCatalog",
+                                        "image": ""
                                     },
-                                    "defaultSelection": [
-                                        {
-                                            "id": "productMaster"
-                                        }
-                                    ]
+                                    {
+                                        "id": 3,
+                                        "title": "U.S.A",
+                                        "subtitle": "U.S.A",
+                                        "value": "usa",
+                                        "image": ""
+                                    },
+                                    {
+                                        "id": 4,
+                                        "title": "Canada",
+                                        "subtitle": "Canada",
+                                        "value": "canada",
+                                        "image": ""
+                                    }
+                                    ],
+                                    "selectedCatalogItems": [{
+                                        "id": 1,
+                                        "title": "Product Master",
+                                        "subtitle": "Product Master",
+                                        "value": "productMaster",
+                                        "image": ""
+                                    }]
                                 },
                                 "sourceSelector": {
                                     "visible": true,
-                                    "dataRequest": {
-                                        "params": {
-                                            "query": {
-                                                "filters": {
-                                                    "typesCriterion": [
-                                                        "locale"
-                                                    ]
-                                                }
-                                            },
-                                            "fields": {
-                                                "attributes": [
-                                                    "externalName"
-                                                ]
-                                            }
-                                        }
-                                    },
-                                    "defaultSelection": [
-                                        {
-                                            "name": "internal"
-                                        }
-                                    ]
-                                },
-                                "dateSelector": {
-                                    "visible": false
+                                    "sourceItems": [{
+                                        "id": 1,
+                                        "title": "Internal Source",
+                                        "subtitle": "Internal Source",
+                                        "value": "internal",
+                                        "image": ""
+                                    }
+                                    ],
+                                    "selectedSourceItems": [{
+                                        "id": 1,
+                                        "title": "Internal source",
+                                        "subtitle": "Internal source",
+                                        "value": "internal",
+                                        "image": ""
+                                    }]
                                 },
                                 "localeSelector": {
                                     "visible": true,
-                                    "dataRequest": {
-                                        "params": {
-                                            "query": {
-                                                "filters": {
-                                                    "typesCriterion": [
-                                                        "locale"
-                                                    ]
-                                                }
-                                            },
-                                            "fields": {
-                                                "attributes": [
-                                                    "externalName"
-                                                ]
-                                            }
-                                        }
+                                    "localeItems": [{
+                                        "id": 1,
+                                        "title": "English - United States",
+                                        "subtitle": "English",
+                                        "value": "en-US",
+                                        "image": ""
                                     },
-                                    "defaultSelection": [
-                                        {
-                                            "name": "en-US"
-                                        }
-                                    ]
+                                    {
+                                        "id": 2,
+                                        "title": "German - Germany",
+                                        "subtitle": "Germany",
+                                        "value": "de-DE",
+                                        "image": ""
+                                    },
+                                    {
+                                        "id": 3,
+                                        "title": "French - France",
+                                        "subtitle": "French",
+                                        "value": "fr-FR",
+                                        "image": ""
+                                    },
+                                    {
+                                        "id": 4,
+                                        "title": "Spanish - Spain",
+                                        "subtitle": "Spanish",
+                                        "value": "es-SP",
+                                        "image": ""
+                                    }
+                                    ],
+                                    "selectedLocaleItems": [{
+                                        "id": 1,
+                                        "title": "English - United States",
+                                        "subtitle": "English",
+                                        "value": "en-US",
+                                        "image": ""
+                                    }]
                                 }
                             }
                         },
@@ -413,6 +439,10 @@ var allConfigs = {
                                 "title": "Search Results",
                                 "mode": "Read",
                                 "schemaType": "attribute",
+                                "dataRequest": {
+                                    "typesCriterion": ["style", "choice", "sku", "supplier"],
+                                    "attributes": ["shortDescription", "longDescription", "rmsStyleId", "setupCost", "gender"]
+                                },
                                 "tabular": {
                                     "settings": {
                                         "isMultiSelect": true
@@ -423,7 +453,7 @@ var allConfigs = {
                                             "name": "shortDescription",
                                             "sortable": false,
                                             "filterable": false,
-                                            "linkTemplate": "entity-manage?id={id}"
+                                            "linkTemplate": "entity-manage?id={id}&type={entityType}"
                                         },
                                         {
                                             "header": "Long Description",
@@ -542,6 +572,30 @@ var allConfigs = {
                                                             "webAttributes",
                                                             "logisticsSupplyChain",
                                                             "merchandising"
+                                                        ],
+                                                        "attributeNames": [
+                                                            "cpimProductName",
+                                                            "csapNartDescription",
+                                                            "csapDescriptionOfNart",
+                                                            "csapGenderDescriptionType",
+                                                            "csapGender",
+                                                            "cpimWebsiteEmotionalDescription",
+                                                            "cpimShortDescription",
+                                                            "cpimLongDescription",
+                                                            "cpimWarningText",
+                                                            "cpimConsumerNeed",
+                                                            "cpimCustomerWishDateOfDelivery",
+                                                            "cpimGiftWrapping",
+                                                            "cpimBacksideText",
+                                                            "cpimFrontsideText",
+                                                            "cpimInciText",
+                                                            "csapPropellantQuantity",
+                                                            "csapDangerousGoods",
+                                                            "csapDangerousGoodsDescription",
+                                                            "csapExpirationDatedProduct",
+                                                            "csapFranchiseRangeDescription",
+                                                            "csapFranchiseRanges",
+                                                            "cpimWebDiscount"
                                                         ]
                                                     }
                                                 }
@@ -819,98 +873,99 @@ var allConfigs = {
                             "config": {
                                 "catalogSelector": {
                                     "visible": true,
-                                    "dataRequest": {
-                                        "params": {
-                                            "query": {
-                                                "filters": {
-                                                    "typesCriterion": [
-                                                        "list",
-                                                        "channel",
-                                                        "country"
-                                                    ]
-                                                }
-                                            },
-                                            "fields": {
-                                                "attributes": [
-                                                    "externalName"
-                                                ]
-                                            }
-                                        }
+                                    "catalogItems": [{
+                                        "id": 1,
+                                        "title": "Product Master",
+                                        "subtitle": "Product Master",
+                                        "value": "productMaster",
+                                        "image": ""
                                     },
-                                    "dataRequest": {
-                                        "params": {
-                                            "query": {
-                                                "filters": {
-                                                    "typesCriterion": [
-                                                        "locale",
-                                                        "channel",
-                                                        "country"
-                                                    ]
-                                                }
-                                            },
-                                            "fields": {
-                                                "attributes": [
-                                                    "externalName"
-                                                ]
-                                            }
-                                        }
+                                    {
+                                        "id": 2,
+                                        "title": "Web Catalog",
+                                        "subtitle": "Web Catalog",
+                                        "value": "webCatalog",
+                                        "image": ""
                                     },
-                                    "defaultSelection": [
-                                        {
-                                            "id": "productMaster"
-                                        }
-                                    ]
+                                    {
+                                        "id": 3,
+                                        "title": "U.S.A",
+                                        "subtitle": "U.S.A",
+                                        "value": "usa",
+                                        "image": ""
+                                    },
+                                    {
+                                        "id": 4,
+                                        "title": "Canada",
+                                        "subtitle": "Canada",
+                                        "value": "canada",
+                                        "image": ""
+                                    }
+                                    ],
+                                    "selectedCatalogItems": [{
+                                        "id": 1,
+                                        "title": "Product Master",
+                                        "subtitle": "Product Master",
+                                        "value": "productMaster",
+                                        "image": ""
+                                    }]
                                 },
                                 "sourceSelector": {
                                     "visible": true,
-                                    "dataRequest": {
-                                        "params": {
-                                            "query": {
-                                                "filters": {
-                                                    "typesCriterion": [
-                                                        "locale"
-                                                    ]
-                                                }
-                                            },
-                                            "fields": {
-                                                "attributes": [
-                                                    "externalName"
-                                                ]
-                                            }
-                                        }
-                                    },
-                                    "defaultSelection": [
-                                        {
-                                            "name": "internal"
-                                        }
-                                    ]
-                                },
-                                "dateSelector": {
-                                    "visible": false
+                                    "sourceItems": [{
+                                        "id": 1,
+                                        "title": "Internal Source",
+                                        "subtitle": "Internal Source",
+                                        "value": "internal",
+                                        "image": ""
+                                    }
+                                    ],
+                                    "selectedSourceItems": [{
+                                        "id": 1,
+                                        "title": "Internal source",
+                                        "subtitle": "Internal source",
+                                        "value": "internal",
+                                        "image": ""
+                                    }]
                                 },
                                 "localeSelector": {
                                     "visible": true,
-                                    "dataRequest": {
-                                        "params": {
-                                            "query": {
-                                                "filters": {
-                                                    "typesCriterion": [
-                                                        "locale"
-                                                    ]
-                                                }
-                                            },
-                                            "fields": {
-                                                "attributes": [
-                                                    "externalName"
-                                                ]
-                                            }
-                                        }
+                                    "localeItems": [{
+                                        "id": 1,
+                                        "title": "English - United States",
+                                        "subtitle": "English",
+                                        "value": "en-US",
+                                        "image": ""
                                     },
-                                    "defaultSelection": [
-                                        {
-                                            "name": "en-US"
-                                        }
-                                    ]
+                                    {
+                                        "id": 2,
+                                        "title": "German - Germany",
+                                        "subtitle": "Germany",
+                                        "value": "de-DE",
+                                        "image": ""
+                                    },
+                                    {
+                                        "id": 3,
+                                        "title": "French - France",
+                                        "subtitle": "French",
+                                        "value": "fr-FR",
+                                        "image": ""
+                                    },
+                                    {
+                                        "id": 4,
+                                        "title": "Spanish - Spain",
+                                        "subtitle": "Spanish",
+                                        "value": "es-SP",
+                                        "image": ""
+                                    }
+                                    ],
+                                    "selectedLocaleItems": [{
+                                        "id": 1,
+                                        "title": "English - United States",
+                                        "subtitle": "English",
+                                        "value": "en-US",
+                                        "image": ""
+                                    }]
                                 }
                             }
                         },
@@ -1255,7 +1310,31 @@ var allConfigs = {
                                             "name": "rock-attribute-split-screen",
                                             "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                             "properties": {
-                                                "defaultMenuItem": "all-attributes"
+                                                "attributeGroups": [
+                                                    "coreAttributes",
+                                                    "webAttributes",
+                                                    "logisticsSupplyChain",
+                                                    "merchandising"
+                                                ],
+                                                "context": {
+                                                    "attributeNames": [
+                                                        "shortDescription",
+                                                        "longDescription",
+                                                        "createDate",
+                                                        "setupCost",
+                                                        "gender",
+                                                        "customerMaxOrderQty",
+                                                        "opReplenishmentIndicator",
+                                                        "opItemPlanningIndicator",
+                                                        "replenishmentIndicator",
+                                                        "forecastIndicator",
+                                                        "opForecastIndicator",
+                                                        "reserveStockIndicator",
+                                                        "ripIndicator",
+                                                        "apIndicator",
+                                                        "testAttribute"
+                                                    ]
+                                                }
                                             }
                                         },
                                         "menuItems": [
@@ -1276,22 +1355,126 @@ var allConfigs = {
                                                         "source": "internal",
                                                         "list": "productMaster",
                                                         "mode": "view",
-                                                        "no-of-columns": 1,
+                                                        "no-of-columns": 2,
                                                         "context": {
+                                                            "groupName": "Core Attributes",
                                                             "attributeNames": [
                                                                 "shortDescription",
                                                                 "longDescription",
                                                                 "createDate",
                                                                 "setupCost",
-                                                                "gender"
+                                                                "gender",
+                                                                "classDescription",
+                                                                "subclassDescription",
+                                                                "msrp"
                                                             ]
                                                         }
                                                     }
                                                 }
                                             },
                                             {
-                                                "name": "web-attributes",
-                                                "title": "Web Attributes",
+                                                "name": "buying",
+                                                "title": "Buying Attributes",
+                                                "icon": "icons:add-box",
+                                                "component": {
+                                                    "name": "rock-attribute-split-screen",
+                                                    "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
+                                                    "properties": {
+                                                        "locales": [
+                                                            {
+                                                                "locale": "en-US",
+                                                                "language": "English"
+                                                            }
+                                                        ],
+                                                        "source": "internal",
+                                                        "list": "productMaster",
+                                                        "mode": "view",
+                                                        "no-of-columns": 2,
+                                                        "context": {
+                                                            "groupName": "Buying Attributes",
+                                                            "attributeNames": [
+                                                                "customerMaxOrderQty",
+                                                                "opReplenishmentIndicator",
+                                                                "opItemPlanningIndicator",
+                                                                "replenishmentIndicator",
+                                                                "forecastIndicator",
+                                                                "opForecastIndicator",
+                                                                "reserveStockIndicator",
+                                                                "ripIndicator",
+                                                                "apIndicator",
+                                                                "testAttribute"
+                                                            ]
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            {
+                                                "name": "selling",
+                                                "title": "Selling Attributes",
+                                                "icon": "icons:add-box",
+                                                "component": {
+                                                    "name": "rock-attribute-split-screen",
+                                                    "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
+                                                    "properties": {
+                                                        "locales": [
+                                                            {
+                                                                "locale": "en-US",
+                                                                "language": "English"
+                                                            }
+                                                        ],
+                                                        "source": "internal",
+                                                        "list": "productMaster",
+                                                        "mode": "view",
+                                                        "no-of-columns": 3,
+                                                        "context": {
+                                                            "groupName": "Selling Attributes",
+                                                            "attributeNames": [
+                                                                "averageRepurchaseDays",
+                                                                "careInformation",
+                                                                "customerDeliveryRule",
+                                                                "customizationRequired",
+                                                                "customizationType",
+                                                                "depositRange",
+                                                                "dryingInstructions",
+                                                                "doNotSellReason",
+                                                                "eligibleSellingChannels",
+                                                                "fairMarketValue",
+                                                                "isMerchandise",
+                                                                "isSample",
+                                                                "itemTktOverPct",
+                                                                "itemTktPrintPoChg",
+                                                                "keySellingBenefits",
+                                                                "licensedProductType",
+                                                                "productAlert",
+                                                                "productOriginType",
+                                                                "promotionalProduct",
+                                                                "initialRedemptionPointsValue",
+                                                                "remindAutoFulfill",
+                                                                "specialTreatmentType",
+                                                                "taxCategory",
+                                                                "taxExempt",
+                                                                "washingInstructions",
+                                                                "msrp",
+                                                                "exclusivity",
+                                                                "isGiftWrapEligible",
+                                                                "warningsDisclaimers",
+                                                                "characterName",
+                                                                "teamName",
+                                                                "uniqueProductDistinctions",
+                                                                "sellingPackCount",
+                                                                "model",
+                                                                "commonAliases",
+                                                                "sellingMarket",
+                                                                "productLabel",
+                                                                "typeOfNonInvtMerchandise"
+                                                            ]
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            {
+                                                "name": "merchPlanning",
+                                                "title": "Merch Planning",
                                                 "icon": "icons:add-box",
                                                 "component": {
                                                     "name": "rock-attribute-split-screen",
@@ -1308,16 +1491,44 @@ var allConfigs = {
                                                         "mode": "view",
                                                         "no-of-columns": 3,
                                                         "context": {
-                                                            "attributeGroups": [
-                                                                "webAttributes"
+                                                            "groupName": "Merch Planning",
+                                                            "attributeNames": [
+                                                                "bottomsFitPlanning",
+                                                                "corpPricePlanning",
+                                                                "corpStylePlanning",
+                                                                "customerPlanning",
+                                                                "customerAssortmentPlanning",
+                                                                "deliveryPlanning",
+                                                                "deptColorPlanning",
+                                                                "deptFitPlanning",
+                                                                "deptPreferencePlanning",
+                                                                "deptPricePlanning",
+                                                                "deptStylePlanning",
+                                                                "eventPlanning",
+                                                                "fabricationPlanning",
+                                                                "fitPlanning",
+                                                                "functionPlanning",
+                                                                "genderPlanning",
+                                                                "genderSizePlanning",
+                                                                "itemCategoryPlanning",
+                                                                "mixOfBusinessPlanning",
+                                                                "occasionPlanning",
+                                                                "productCategoryPlanning",
+                                                                "productPricePlanning",
+                                                                "productSourcePlanning",
+                                                                "shadePlanning",
+                                                                "silhouettePlanning",
+                                                                "skinTypePlanning",
+                                                                "supplierRolePlanning",
+                                                                "tonePlanning"
                                                             ]
                                                         }
                                                     }
                                                 }
                                             },
                                             {
-                                                "name": "logisticsSupplyChain",
-                                                "title": "Logistics & Supply Chain",
+                                                "name": "priceAndRegulatory",
+                                                "title": "Price and Regulatory",
                                                 "icon": "icons:add-box",
                                                 "component": {
                                                     "name": "rock-attribute-split-screen",
@@ -1329,21 +1540,35 @@ var allConfigs = {
                                                                 "language": "English"
                                                             }
                                                         ],
-                                                        "source": "SAP",
+                                                        "source": "internal",
                                                         "list": "productMaster",
                                                         "mode": "view",
-                                                        "no-of-columns": 3,
+                                                        "no-of-columns": 2,
                                                         "context": {
-                                                            "attributeGroups": [
-                                                                "logisticsSupplyChain"
+                                                            "groupName": "Price and Regulatory",
+                                                            "attributeNames": [
+                                                                "bindingRuling",
+                                                                "currency",
+                                                                "customsDescription",
+                                                                "hts1",
+                                                                "excludeFromDiscount",
+                                                                "fishAndWildlife",
+                                                                "foodAndDrug",
+                                                                "hts2",
+                                                                "hts3",
+                                                                "hts4",
+                                                                "sentToBroker",
+                                                                "setupCost",
+                                                                "setupRetail",
+                                                                "umap"
                                                             ]
                                                         }
                                                     }
                                                 }
                                             },
                                             {
-                                                "name": "merchandising",
-                                                "title": "Merchandising",
+                                                "name": "selling",
+                                                "title": "Selling",
                                                 "icon": "icons:add-box",
                                                 "component": {
                                                     "name": "rock-attribute-split-screen",
@@ -1355,13 +1580,51 @@ var allConfigs = {
                                                                 "language": "English"
                                                             }
                                                         ],
-                                                        "source": "SAP",
+                                                        "source": "internal",
                                                         "list": "productMaster",
                                                         "mode": "view",
                                                         "no-of-columns": 3,
                                                         "context": {
-                                                            "attributeGroups": [
-                                                                "merchandising"
+                                                            "groupName": "Selling",
+                                                            "attributeNames": [
+                                                                "averageRepurchaseDays",
+                                                                "careInformation",
+                                                                "customerDeliveryRule",
+                                                                "customizationRequired",
+                                                                "customizationType",
+                                                                "depositRange",
+                                                                "dryingInstructions",
+                                                                "doNotSellReason",
+                                                                "eligibleSellingChannels",
+                                                                "fairMarketValue",
+                                                                "isMerchandise",
+                                                                "isSample",
+                                                                "itemTktOverPct",
+                                                                "itemTktPrintPoChg",
+                                                                "keySellingBenefits",
+                                                                "licensedProductType",
+                                                                "productAlert",
+                                                                "productOriginType",
+                                                                "promotionalProduct",
+                                                                "initialRedemptionPointsValue",
+                                                                "remindAutoFulfill",
+                                                                "specialTreatmentType",
+                                                                "taxCategory",
+                                                                "taxExempt",
+                                                                "washingInstructions",
+                                                                "msrp",
+                                                                "exclusivity",
+                                                                "isGiftWrapEligible",
+                                                                "warningsDisclaimers",
+                                                                "characterName",
+                                                                "teamName",
+                                                                "uniqueProductDistinctions",
+                                                                "sellingPackCount",
+                                                                "model",
+                                                                "commonAliases",
+                                                                "sellingMarket",
+                                                                "productLabel",
+                                                                "typeOfNonInvtMerchandise"
                                                             ]
                                                         }
                                                     }
@@ -1497,6 +1760,9 @@ var allConfigs = {
                                     "title": "Variant Data Table",
                                     "mode": "Read",
                                     "schemaType": "attribute",
+                                    "dataRequest": {
+                                        "relatedEntityAttributes": ["shortDescription", "rmsSkuId", "nrfColorCode", "nrfSizeCode"]
+                                    },
                                     "tabular": {
                                         "settings": {
                                             "isMultiSelect": true,
@@ -1705,7 +1971,7 @@ var allConfigs = {
                                                 "sortable": true,
                                                 "filterable": false,
                                                 "editType": "boolean",
-                                                "isRelatedEntityAttribute": true
+                                                "isRelatedEntityAttribute": false
                                             }
                                         ]
                                     }
@@ -1736,7 +2002,7 @@ var allConfigs = {
                                                 "editType": "",
                                                 "isRelatedEntityAttribute": false
                                             },
-                                            { 
+                                            {
                                                 "header": "Short Description",
                                                 "name": "shortDescription",
                                                 "sortable": true,
@@ -2918,7 +3184,7 @@ var allConfigs = {
                                             "path": "/../../src/elements/rock-entity-create/rock-entity-create.html",
                                             "properties": {
                                                 "import-profile-name": "Entity Import - RSExcel 2.0",
-                                                "attributeNames": [
+                                                "attribute-names": [
                                                     "createDate",
                                                     "shortDescription",
                                                     "longDescription",

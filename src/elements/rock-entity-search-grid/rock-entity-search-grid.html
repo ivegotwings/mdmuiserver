@@ -3,7 +3,6 @@
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 
-<link rel="import" href="../liquid-entity-get/liquid-entity-get.html">
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 
 <link rel="import" href="../rock-grid/rock-grid.html">
@@ -23,12 +22,12 @@ It filters the data as per filter criteria.
         }
     </style>
     <template>
-        <liquid-entity-get auto name="attributeModelGetService" request="{{attributeModelRequest}}" response="{{attributeModelResponse}}"></liquid-entity-get>
+        <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
         <entity-search-grid-datasource id="searchGrid" request="{{request}}" data-formatter="{{dataFormatter}}" current-record-size="{{size}}"
             total-records="{{totalRecords}}" data-source="{{dataSource}}"></entity-search-grid-datasource>
         <rock-grid id="entityGrid" data-source="{{dataSource}}" data-source-id="searchGrid" record-size="{{totalRecords}}" config="{{gridConfig}}"
-            grid-data-size="{{size}}" attribute-models="{{attributeModelResponse.returnValue.attributeModels}}" page-size="[[pageSize]]"
-            selected-item="{{selectedItem}}" selected-items="{{selectedItems}}"></rock-grid>
+            grid-data-size="{{size}}" attribute-models="{{attributeModels}}" page-size="[[pageSize]]" selected-item="{{selectedItem}}"
+            selected-items="{{selectedItems}}"></rock-grid>
     </template>
 
     <script>
@@ -48,7 +47,6 @@ It filters the data as per filter criteria.
                         type: Object,
                         value: function () {
                             return {
-                                action: "getAttributeModels"
                             };
                         }
                     },
@@ -59,7 +57,8 @@ It filters the data as per filter criteria.
                         type: Object,
                         value: function () {
                             return {};
-                        }
+                        },
+                        observer: "_onGridConfigChange"
                     },
                     /**
                      * Specifies the request object to initiate the search.
@@ -70,17 +69,11 @@ It filters the data as per filter criteria.
                             return {
                                 "params": {
                                     "query": {
-                                        "ctx": [{
-                                            "list": "productMaster",
-                                            "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
-                                        }],
-                                        "valCtx": [{
-                                            "source": "SAP",
-                                            "locale": "en-US"
-                                        }],
+                                        "ctx": [],
+                                        "valCtx": [],
                                         "filters": {
                                             "attributesCriterion": [],
-                                            "typesCriterion": ["nart"]
+                                            "typesCriterion": []
                                         }
                                     },
                                     "fields": {
@@ -88,10 +81,6 @@ It filters the data as per filter criteria.
                                             "properties"
                                         ],
                                         "attributes": [
-                                            "cpimProductName",
-                                            "csapDescriptionOfNart",
-                                            "csapMaterialStatusGlobal",
-                                            "cpimSkinType"
                                         ]
                                     },
                                     "options": {
@@ -140,11 +129,10 @@ It filters the data as per filter criteria.
                         }
                     },
 
-                    _attributeModelRequest: {
+                    attributeModels: {
                         type: Object,
                         value: function () {
                             return {
-                                action: "getAttributeModels"
                             }
                         }
                     },
@@ -186,36 +174,90 @@ It filters the data as per filter criteria.
                         value: [],
                         notify: true
                     }
-
                 },
 
                 observers: [
-
                 ],
 
                 behaviors: [
                     RUFBehaviors.UIBehavior
                 ],
 
+                _onGridConfigChange: function () {
+                    var dataRequest = {};
+
+                    if (!(this.gridConfig && this.gridConfig.dataRequest)) {
+                        return;
+                    }
+
+                    var attrNames = this.gridConfig.dataRequest.attributes;
+                    var typesCriterion = this.gridConfig.dataRequest.typesCriterion;
+                    var firstEntityType = undefined;
+
+                    if (typesCriterion && typesCriterion.length > 0) {
+                        firstEntityType = typesCriterion[0]; // TODO:: how to get attribute models for multiple entity types
+                    }
+
+                    var ctx = this._getCurrentCtx();
+                    this.set("request.params.query.filters.typesCriterion", typesCriterion);
+                    this.set("request.params.fields.attributes", attrNames);
+                    var req = {
+                        "params": {
+                            "query": {
+                                "ctx": [
+                                    ctx
+                                ],
+                                "locale": this.dimensions.locales[0].value,
+                                "name": firstEntityType
+                            },
+                            "fields": {
+                                "ctxTypes": [
+                                    "properties"
+                                ],
+                                "attributes": attrNames
+                            }
+                        }
+                    };
+
+                    this.set("attributeModelRequest", req);
+                    var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
+                    if (liquidModelGet) {
+                        liquidModelGet.generateRequest();
+                    }
+
+                },
+                _getCurrentCtx: function () {
+                    var ctxItem = {};
+                    ctxItem.list = this.dimensions.lists[0].value;
+                    ctxItem.classification = '_ALL';
+                    return ctxItem;
+                },
+
+                _onCompositeModelGetResponse: function (e) {
+                    if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+                        var ctx = this._getCurrentCtx();
+                        this.attributeModels = DataHelper.transformAttributeModelsToUIFormat(e.detail.response.content.entityModels[0], ctx);
+                    }
+                },
+
                 _searchResultFiltersChanged: function (currentFilters) {
                     this.set("request.params.query.filters", currentFilters);
                 },
-
 
                 _getAttributeFormattedData: function (data) {
                     var dataArray = [];
                     if (data && data.content) {
                         var entities = data.content.entities;
-                        if (entities) {
+                        if (entities && entities.length > 0) {
+
                             var dataContext = {
                                 "list": this.dimensions.lists[0].value,
-                                "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry",
+                                "classification": "_ALL",
                                 "source": this.dimensions.sources[0].value,
                                 "time": "now",
                                 "locale": this.dimensions.locales[0].value
                             };
-                            DataHelper.transformEntitySchemaForGrid(entities, this.attributeModelResponse
-                                .returnValue.attributeModels, dataContext);
+                            DataHelper.transformEntitySchemaForGrid(entities, this.attributeModels, dataContext);
                         }
                     }
                     return entities;
@@ -223,14 +265,14 @@ It filters the data as per filter criteria.
 
                 _loadSearchResultsByDimension: function () {
                     var grid = Polymer.dom(this).node.$$('rock-grid');
-                    var dataSource = Polymer.dom(this).node.$$('entity-search-grid-datasource');                    
+                    var dataSource = Polymer.dom(this).node.$$('entity-search-grid-datasource');
 
                     if (dataSource && grid && this.dimensions) {
                         this.request.params.query.ctx = this._prepareContextGroups(this.dimensions.lists)
                         this.request.params.query.valCtx = this._prepareValueContextGroups(this.dimensions
                             .sources, this.dimensions.locales);
 
-                        dataSource.resetDataSource();                        
+                        dataSource.resetDataSource();
                         grid.reRenderGrid();
                     }
                 },
@@ -256,7 +298,7 @@ It filters the data as per filter criteria.
                         }
                         this.request.params.fields.all.exists = this.searchQuery;
 
-                        dataSource.resetDataSource();                        
+                        dataSource.resetDataSource();
                         grid.reRenderGrid();
                     }
                 },
@@ -268,8 +310,7 @@ It filters the data as per filter criteria.
                         for (var i = 0; i < lists.length; i++) {
                             var ctxInfoObject = new Object();
                             ctxInfoObject.list = lists[i].value;
-                            ctxInfoObject.classification =
-                                "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry";
+                            ctxInfoObject.classification = "_ALL";
                             ctxGroup.push(ctxInfoObject);
                         }
 
