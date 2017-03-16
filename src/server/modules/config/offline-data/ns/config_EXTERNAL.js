@@ -18,19 +18,43 @@ var allConfigs = {
                                     "name": "createStyle",
                                     "icon": "pebble-xl-icons:Product",
                                     "text": "Style",
-                                    "visible": true
+                                    "visible": true,
+                                    "dataRoute": "entity-create",
+                                    "dataContext": {
+                                        "source": "internal",
+                                        "locale": "en-US",
+                                        "list": "productMaster",
+                                        "classification": "_ALL",
+                                        "entityType": "style"
+                                    }
                                 },
                                 {
                                     "name": "createSupplier",
                                     "icon": "pebble-xl-icons:Customer",
                                     "text": "Supplier",
-                                    "visible": true
+                                    "visible": true,
+                                    "dataRoute": "entity-create",
+                                    "dataContext": {
+                                        "source": "internal",
+                                        "locale": "en-US",
+                                        "list": "productMaster",
+                                        "classification": "_ALL",
+                                        "entityType": "supplier"
+                                    }
                                 },
                                 {
                                     "name": "createUPC",
                                     "icon": "pebble-xl-icons:Kit",
                                     "text": "UPC",
-                                    "visible": true
+                                    "visible": true,
+                                    "dataRoute": "entity-create",
+                                    "dataContext": {
+                                        "source": "internal",
+                                        "locale": "en-US",
+                                        "list": "productMaster",
+                                        "classification": "_ALL",
+                                        "entityType": "upc"
+                                    }
                                 }
                             ]
                         }
@@ -54,7 +78,8 @@ var allConfigs = {
                                 "title": "Entity Manage",
                                 "data_route": "entity-manage",
                                 "queryParams": {
-                                    "id": "e1"
+                                    "id": "e1",
+                                    "type": "nart"
                                 },
                                 "icon": "pebble-icons:Entities"
                             },
@@ -101,7 +126,7 @@ var allConfigs = {
                                 "title": "entity-manage",
                                 "data_route": "entity-manage",
                                 "icon": "pebble-icons:Entities",
-                                "href": "/entity-manage?id=e1",
+                                "href": "/entity-manage?id=e1&type=nart",
                                 "component": {
                                     "name": "app-entity-manage",
                                     "path": "../../src/elements/app-entity-manage/app-entity-manage.html",
@@ -392,6 +417,10 @@ var allConfigs = {
                             "title": "Search Results",
                             "mode": "Read",
                             "schemaType": "attribute",
+                            "dataRequest": {
+                                "typesCriterion": ["style", "choice", "sku", "supplier"],
+                                "attributes": ["shortDescription", "longDescription", "rmsStyleId", "setupCost", "gender"]
+                            },
                             "tabular": {
                                 "settings": {
                                     "isMultiSelect": true
@@ -401,7 +430,7 @@ var allConfigs = {
                                         "name": "shortDescription",
                                         "sortable": false,
                                         "filterable": false,
-                                        "linkTemplate": "entity-manage?id={id}"
+                                        "linkTemplate": "entity-manage?id={id}&type={entityType}"
                                     },
                                     {
                                         "header": "Long Description",
@@ -1421,6 +1450,9 @@ var allConfigs = {
                                 "title": "Variant Data Table",
                                 "mode": "Read",
                                 "schemaType": "attribute",
+                                "dataRequest": {
+                                    "relatedEntityAttributes": ["shortDescription", "rmsSkuId", "nrfColorCode", "nrfSizeCode"]
+                                },
                                 "tabular": {
                                     "settings": {
                                         "isMultiSelect": true,
@@ -2795,7 +2827,14 @@ var allConfigs = {
                                                 "longDescription",
                                                 "setupCost",
                                                 "gender"
-                                            ]
+                                            ],
+                                            "context": {
+                                                "source": "internal",
+                                                "locale": "en-US",
+                                                "list": "productMaster",
+                                                "classification": "_ALL",
+                                                "entityType": "nart"
+                                            }
                                         }
                                     },
                                     "nextEvent": "onSave",
