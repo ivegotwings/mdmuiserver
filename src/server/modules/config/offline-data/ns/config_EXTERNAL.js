@@ -1355,7 +1355,7 @@ var allConfigs = {
                                                         "source": "internal",
                                                         "list": "productMaster",
                                                         "mode": "view",
-                                                        "no-of-columns": 1,
+                                                        "no-of-columns": 2,
                                                         "context": {
                                                             "groupName": "Core Attributes",
                                                             "attributeNames": [
@@ -1363,7 +1363,10 @@ var allConfigs = {
                                                                 "longDescription",
                                                                 "createDate",
                                                                 "setupCost",
-                                                                "gender"
+                                                                "gender",
+                                                                "classDescription",
+                                                                "subclassDescription",
+                                                                "msrp"
                                                             ]
                                                         }
                                                     }
