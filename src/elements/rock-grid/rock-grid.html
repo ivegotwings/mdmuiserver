@@ -1159,11 +1159,8 @@ The following JSON object is a config sample which configures the grid in all ab
 						"colModel") {
 						cellData = gridData[columnName];
 					} else if (this.config.schemaType == "attribute") {
-						for (var key in gridData.attributes) {
-							if (gridData.attributes[key].hasOwnProperty(columnName)) {
-								cellData = gridData.attributes[key][columnName].value;
-								break;
-							}
+						if (gridData.attributes.hasOwnProperty(columnName)) {
+							cellData = gridData.attributes[columnName].value;
 						}
 					}
 					if (cellData != undefined) {
@@ -1190,9 +1187,15 @@ The following JSON object is a config sample which configures the grid in all ab
 						if (!col.displayType) {
 							col.displayType = col.editType;
 						}
+
 						return col;
 					} else if (this.config.schemaType == "attribute" || this.config.schemaType == "colModel") {
-						return this._getAttributeModelMap(col.name);
+						if(this.attributeModels[col.name]) {
+							return this.attributeModels[col.name];
+						}
+						else {
+							return {};
+						}
 					}
 				},
 				_getAttributeObject: function (item, columnIndex,index) {
@@ -1204,6 +1207,7 @@ The following JSON object is a config sample which configures the grid in all ab
 							this._updateError(item,index);
 						})
 					}
+
 					return value;
 				},
 				_isFilterEnabled: function (col) {
@@ -1214,10 +1218,10 @@ The following JSON object is a config sample which configures the grid in all ab
 				},
 				_dataIsNotNull: function (config, attributeModels) {
 					var result = typeof (config) == "object";
-					if (result && (config.schemaType == "attribute" || config.schemaType == "colModel") && Object.keys(
-							attributeModels).length == 0) {
+					if (result && (config.schemaType == "attribute" || config.schemaType == "colModel") && Object.keys(attributeModels).length == 0) {
 						result = false;
 					}
+
 					return result;
 				},
 				_onRefresh: function (e) {
@@ -1249,22 +1253,6 @@ The following JSON object is a config sample which configures the grid in all ab
 				},
 				_onCollapsingItem: function (e) {
 					this.fireBedrockEvent("grid-collapsing-item", e.detail);
-				},
-				_getAttributeModelMap: function (name) {
-					if (this.attributeModels) {
-						if (this._attributeModelMap == undefined) {
-							this._attributeModelMap = {};
-							for (var key in this.attributeModels) {
-								for (var attrKey in this.attributeModels[key]) {
-									if (attrKey != "name") {
-										this._attributeModelMap[attrKey] = this.attributeModels[key][attrKey];
-									}
-								}
-							}
-						}
-						return this._attributeModelMap[name];
-					}
-					return {};
 				},
 				_dataChanged: function () {
 					//TO-DO will get changed
@@ -1312,24 +1300,19 @@ The following JSON object is a config sample which configures the grid in all ab
 						this._updateRowStatus(item, status);
 
 					} else if (this.config.schemaType == "attribute") {
-						for (var key in item.attributes) {
-							if (item.attributes[key].hasOwnProperty(columnName)) {
-								if (item.attributes[key][columnName]._originalValue || item.attributes[key][columnName]._originalValue ==
-									"") {
-									if (item.attributes[key][columnName]._originalValue != value) {
-										status = "update";
-									} else {
-										status = "read";
-									}
-								} else {
-									item.attributes[key][columnName]._originalValue = item[columnName] ? item[columnName] : "";
+						if (item.attributes.hasOwnProperty(columnName)) {
+							if (item.attributes[columnName]._originalValue || item.attributes[columnName]._originalValue == "") {
+								if (item.attributes[columnName]._originalValue != value) {
 									status = "update";
+								} else {
+									status = "read";
 								}
-								item.attributes[key][columnName].value = value;
-								this._updateRowStatus(item, status);
-
-								break;
+							} else {
+								item.attributes[columnName]._originalValue = item[columnName] ? item[columnName] : "";
+								status = "update";
 							}
+							item.attributes[columnName].value = value;
+							this._updateRowStatus(item, status);
 						}
 					}
 
@@ -1427,18 +1410,6 @@ The following JSON object is a config sample which configures the grid in all ab
 						}
 					}
 				},
-				_getAttributeFormattedData: function (data, opts) {
-					//tranform method needs data context, what do we pass here?
-					var dataContext = {
-						"list": "productMaster",
-						"classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry",
-						"source": "SAP",
-						"time": "now",
-						"locale": "en-US"
-					};
-					DataHelper.transformEntitySchemaForGrid(data, this.attributeModels);
-					return data;
-				},
 				_gridDataLoad: function () {
 					if (this.data) {
 						this.gridDataSize = this.recordSize = this.data.length;
@@ -1471,12 +1442,9 @@ The following JSON object is a config sample which configures the grid in all ab
 							}, this);
 
 						} else if (this.config.schemaType == "attribute") {
-							for (var key in element.attributes) {
-								for (var attrKey in element.attributes[key]) {
-									if (element.attributes[key][attrKey]._originalValue || element.attributes[key][attrKey]._originalValue ==
-										"") {
-										element.attributes[key][attrKey].value = element.attributes[key][attrKey]._originalValue;
-									}
+							for (var attrKey in element.attributes) {
+								if (element.attributes[attrKey]._originalValue || element.attributes[attrKey]._originalValue == "") {
+									element.attributes[attrKey].value = element.attributes[attrKey]._originalValue;
 								}
 							}
 						}
@@ -1524,6 +1492,9 @@ The following JSON object is a config sample which configures the grid in all ab
 							var attrName = match.replace("{", "").replace("}", "");
 							if (attrName.toLowerCase() == "id") {
 								return item.id;
+							}
+							if (attrName.toLowerCase() == "entityType") {
+								return item.entityType;
 							}
 							var colModels = _this.config.tabular.columns;
 							var index = -1;

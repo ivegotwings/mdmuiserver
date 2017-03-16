@@ -4120,14 +4120,7 @@ var allConfigs  = {
                                                     "csapGenderDescriptionType",
                                                     "cpimShortDescription",
                                                     "cpimSkinType"
-                                                ],
-                                                "context": {
-                                                    "source": "SAP",
-                                                    "locale": "en-US",
-                                                    "list": "productMaster",
-                                                    "classification": "_ALL",
-                                                    "entityType": "nart"
-                                                }
+                                                ]
                                             }
                                         },
                                         "nextEvent": "onSave",

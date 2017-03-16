@@ -15,10 +15,12 @@
 
         DataHelper.transformAttributeModelsToUIFormat = function(compositeModel, modelContext) {
             var mergedAttributeModels = {};
+            
             //put default model as base
             if(compositeModel.data && compositeModel.data.attributes) {
                 DataHelper._mergeObjects(mergedAttributeModels, compositeModel.data.attributes, true);
             }
+
             //apply ctx specific model on top of default
             var specificCtxAttributeModels = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(compositeModel, modelContext);
             DataHelper._mergeObjects(mergedAttributeModels, specificCtxAttributeModels, true);
@@ -78,6 +80,10 @@
                 }
 
                 return target;
+            },
+
+            DataHelper.getRelationshipsByCtx = function(entityModel, modelContext) {
+                return SharedUtils.DataObjectFalcorUtil.getRelationshipsByCtx(entityModel, modelContext);
             },
 
             DataHelper.transformAttributeFromUIFormat = function (attributesJSON) {
@@ -144,9 +150,14 @@
         };
 
         DataHelper.getAttributesInManageFormat = function (entity, attributeModels, dataContext) {
-            if (!entity || !entity.data) {
+            if (!entity) {
                 return {};
             }
+
+            if(!entity.data) {
+                entity.data = {};
+            }
+
             var ctx = DataHelper.prepareCtx(dataContext);
             var valCtx = DataHelper.prepareValCtx(dataContext);
 
@@ -178,26 +189,24 @@
         };
 
         DataHelper.transformAttributesToGridFormat = function (attributes, attributeModels, valCtx) {
-            var attributesData = {}; //our return value
+            
+            var attributesData = {};
 
-            for (var attributeGroupName in attributeModels) {
-                var attributeValueData = {};
-                for (var attributeModelName in attributeModels[attributeGroupName]) {
-                    var attributeModel = attributeModels[attributeGroupName][attributeModelName];
-                    if (attributeModel.name) {
-                        var attributeJSON = {};
-                        var attribute = attributes[attributeModel.name];
-                        if (attribute && attribute.values) {
-                            attributeJSON = this._getCurrentValue(attribute.values, valCtx,
-                                attributeModel);
-                        }
-                        if (attributeJSON == undefined || !attributeJSON.hasOwnProperty('value')) {
-                            attributeJSON = this._getEmptyValue(valCtx);
-                        }
+            for (var attributeModelName in attributeModels) {
+                var attributeModel = attributeModels[attributeModelName];
+                if (attributeModel.name) {
+                    var attributeJSON = {};
+                    var attribute = attributes[attributeModel.name];
 
-                        attributeValueData[attributeModel.name] = attributeJSON;
+                    if (attribute && attribute.values) {
+                        attributeJSON = this._getCurrentValue(attribute.values, valCtx, attributeModel);
                     }
-                    attributesData[attributeGroupName] = attributeValueData;
+
+                    if (attributeJSON == undefined || !attributeJSON.hasOwnProperty('value')) {
+                        attributeJSON = this._getEmptyValue(valCtx);
+                    }
+
+                    attributesData[attributeModel.name] = attributeJSON;
                 }
             }
 
@@ -212,11 +221,11 @@
             if (entities && entities.length) {
                 var entitiesToBeRemoved = [];
                 for (var i = 0; i < entities.length; i++) {
-                    if (typeof (entities[i]) == "object" && entities[i].data) {
-                        var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entities[i],
-                            ctx);
-                        entities[i].attributes = this.transformAttributesToGridFormat(attributes,
-                            attributeModels, valCtx);
+                    var entity = entities[i];
+                    if (typeof (entity) == "object" && entity.data) {
+                        entity.entityType = entity.entityInfo && entity.entityInfo.entityType ? entity.entityInfo.entityType : "";
+                        var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, ctx);
+                        entity.attributes = this.transformAttributesToGridFormat(attributes, attributeModels, valCtx);
                     } else {
                         //if the array has a bad item (non-entity, or entity with no data) then mark it for delete
                         entitiesToBeRemoved.push(entities[i].id);
@@ -359,14 +368,10 @@
                     var currentValue = values[i];
                     //TODO: locale and source case is not matching for what is there in dimension selector and what is coming in data,
                     // need to find a better answer
-                    if (valCtx.locale && currentValue.locale && currentValue.locale.toLowerCase() !=
-                        valCtx.locale
-                        .toLowerCase()) {
+                    if (valCtx.locale && currentValue.locale && currentValue.locale.toLowerCase() != valCtx.locale.toLowerCase()) {
                         continue;
                     }
-                    if (valCtx.source && currentValue.source && currentValue.source.toLowerCase() !=
-                        valCtx.source
-                        .toLowerCase()) {
+                    if (valCtx.source && currentValue.source && currentValue.source.toLowerCase() != valCtx.source.toLowerCase()) {
                         continue;
                     }
                     //TODO: compare for time?
@@ -374,29 +379,28 @@
                     break;
                 }
             }
+
             return value;
         };
 
         DataHelper._getCurrentValues = function (values, valCtx, model) {
-
+        
             if (!(model.displayType == "textbox" && model.isCollection)) {
                 return;
             }
 
             var _values = [];
+
             if (values) {
                 for (var i = 0; i < values.length; i++) {
+
                     var currentValue = values[i];
                     //TODO: locale and source case is not matching for what is there in dimension selector and what is coming in data,
                     // need to find a better answer
-                    if (valCtx.locale && currentValue.locale && currentValue.locale.toLowerCase() !=
-                        valCtx.locale
-                        .toLowerCase()) {
+                    if (valCtx.locale && currentValue.locale && currentValue.locale.toLowerCase() != valCtx.locale.toLowerCase()) {
                         continue;
                     }
-                    if (valCtx.source && currentValue.source && currentValue.source.toLowerCase() !=
-                        valCtx.source
-                        .toLowerCase()) {
+                    if (valCtx.source && currentValue.source && currentValue.source.toLowerCase() != valCtx.source.toLowerCase()) {
                         continue;
                     }
                     //TODO: compare for time?
@@ -507,7 +511,7 @@
         DataHelper._prepareContextGroups = function (lists, classification) {
             if (!classification) {
                 classification =
-                    "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry";
+                    "_ALL";
             }
             if (lists && lists instanceof Array) {
                 var ctxGroup = [];

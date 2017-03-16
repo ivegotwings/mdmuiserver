@@ -530,6 +530,17 @@ DataObjectFalcorUtil.getAttributesByCtx = function (dataObject, ctxGroup) {
     return {};
 };
 
+DataObjectFalcorUtil.getRelationshipsByCtx = function (dataObject, ctxGroup) {
+    if (dataObject && dataObject.data && dataObject.data.ctxInfo && dataObject.data.ctxInfo.length) {
+        var ctxItem = DataObjectFalcorUtil.getCtxItem(dataObject.data.ctxInfo, ctxGroup);
+        if(ctxItem) {
+            return ctxItem.relationships;
+        }
+    }
+
+    return {};
+};
+
 DataObjectFalcorUtil.cloneObject = function (obj) {
     var clonedObj = {};
 
