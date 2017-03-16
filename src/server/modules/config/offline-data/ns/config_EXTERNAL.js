@@ -151,7 +151,7 @@ var allConfigs = {
                         "tenant-config": {
                             "config": {
                                 "logoUrl": "../src/images/Nordstrom-logo.svg",
-                                "tenantName": "Beiersdorf",
+                                "tenantName": "Nordstrom",
                                 "primaryColor": "#000000",
                                 "primaryLightColor": "#0bb2e8",
                                 "secondaryColor": "#364653"
