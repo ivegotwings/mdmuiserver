@@ -55,7 +55,7 @@ It is responsible to get and save the attributes.
                 z-index: 9999;
             }
         </style>
-        <rock-attribute-list show-group-name$=[[showGroupName]] attribute-values="[[_attributeValues]]" attribute-models="[[_attributeModels]]"
+        <rock-attribute-list show-group-name$=[[showGroupName]] group-name="[[groupName]]" attribute-values="[[_attributeValues]]" attribute-models="[[_attributeModels]]"
             no-of-columns="[[noOfColumns]]" mode="{{mode}}"></rock-attribute-list>
             <liquid-entity-data-get name="attributeGetDataService" operation="getbyids" request-data="{{_attributeRequest}}" last-response="{{_attributeResponse}}"></liquid-entity-data-get>
             <liquid-entity-data-save name="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}"
@@ -117,7 +117,15 @@ It is responsible to get and save the attributes.
                      * Indictaes the identification of the entity for which the attributes are managed.
                      */
                     entityId: {
-                        type: String
+                        type: String,
+                        value: ""
+                    },
+                     /**
+                     * Indictaes the identification of the entity type for which the attributes are managed.
+                     */
+                    entityType: {
+                        type: String,
+                        value: ""
                     },
                     /**
                      * Indicates the locale dimension for which the attributes are managed.
@@ -138,7 +146,7 @@ It is responsible to get and save the attributes.
                      */
                     classification: {
                         type: String,
-                        value: "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
+                        value: "_ALL"
                     },
                     /**
                      * Indicates the source dimension for which the attributes are managed.
@@ -219,6 +227,10 @@ It is responsible to get and save the attributes.
                         type: Boolean,
                         value: false
                     },
+                    groupName: {
+                        type: String,
+                        value: "My Attributes"
+                    },
                     /**
                      * Specifies whether or not to write the logs.
                      */
@@ -229,8 +241,7 @@ It is responsible to get and save the attributes.
                 },
                 observers: [
                     '_attributeResponseChanged(_attributeResponse)',
-                    
-                    '_contextChanged(context, list)',
+                    '_contextChanged(context, list, entityType, source, classification)',
                     '_modeChanged(mode)'
                 ],
                 behaviors: [
@@ -245,12 +256,14 @@ It is responsible to get and save the attributes.
                         this.$.buttonContainer.style.display = "none";
                     }
                 },
-                _contextChanged: function (context, list) {
+                _contextChanged: function (context, list, entityType, source, classification) {
                     if (this.verbose) {
                         console.log("_contextChanged context: " + JSON.stringify(context, null, 2));
                     }
 
-                    if (context && context.attributeNames) {
+                    if (context && context.attributeNames && entityType) {
+                        this.groupName = context.groupName != undefined ? context.groupName : this.groupName;
+
                         var ctx = this._getCurrentCtx();
                         var t = {
                             "params": {
@@ -258,8 +271,8 @@ It is responsible to get and save the attributes.
                                     "ctx": [
                                         ctx
                                     ],
-                                    "locale": "en-US",
-                                    "name": "nart"
+                                    "locale": this.locale,
+                                    "name": this.entityType
                                 },
                                 "fields": {
                                     "ctxTypes": [
@@ -281,13 +294,12 @@ It is responsible to get and save the attributes.
                 _getCurrentCtx: function() {
                     var ctx = {};
                     ctx.list = this.list;
+                    ctx.classification = this.classification;
                     return ctx;
                 },
                 _onCompositeModelGetResponse: function (e) {
                     if (this.verbose) {
-                        console.log("_attributeModelResponseChanged _attributeModelResponse: " + JSON.stringify(
-                            _attributeModelResponse, null, 2), +
-                            " entityId: " + entityId);
+                        console.log("_attributeModelResponseChanged _attributeModelResponse: " + JSON.stringify(_attributeModelResponse, null, 2), +" entityId: " + entityId);
                     }
 
                     if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
@@ -299,17 +311,16 @@ It is responsible to get and save the attributes.
                         var req = {
                             "params": {
                                 "query": {
-                                    "ctx": [{
-                                        "list": this.list,
-                                        "classification": this.classification
-                                    }],
+                                    "ctx": [
+                                        ctx
+                                    ],
                                     "valCtx": [{
                                         "source": this.source,
                                         "locale": this.locale
                                     }],
                                     "id": this.entityId,
                                     "filters": {
-                                        "typesCriterion": ["nart"]
+                                        "typesCriterion": [this.entityType]
                                     }
                                 },
                                 "fields": {
@@ -425,7 +436,7 @@ It is responsible to get and save the attributes.
                                 var contextualData = {};
                                 contextualData.ctxInfo = [];
                                 var ctxItem = {};
-                                ctxItem.ctxGroup = { "list": this.list, "classification": this.classification };
+                                ctxItem.ctxGroup = this._getCurrentCtx();
                                 ctxItem.attributes = DataHelper.transformAttributeFromUIFormat(attributesJSON);
                                 contextualData.ctxInfo.push(ctxItem);
                                 entityData[entityDataField] = contextualData;
