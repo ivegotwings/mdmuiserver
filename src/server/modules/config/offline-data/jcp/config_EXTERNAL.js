@@ -18,19 +18,43 @@ var allConfigs = {
                                     "name": "createSKU",
                                     "icon": "pebble-xl-icons:Product",
                                     "text": "SKU",
-                                    "visible": true
+                                    "visible": true,
+                                    "dataRoute": "entity-create",
+                                    "dataContext": {
+                                        "source": "internal",
+                                        "locale": "en-US",
+                                        "list": "productMaster",
+                                        "classification": "_ALL",
+                                        "entityType": "sku"
+                                    }
                                 },
                                 {
                                     "name": "createKit",
                                     "icon": "pebble-xl-icons:Kit",
                                     "text": "PDP",
-                                    "visible": true
+                                    "visible": true,
+                                    "dataRoute": "entity-create",
+                                    "dataContext": {
+                                        "source": "internal",
+                                        "locale": "en-US",
+                                        "list": "productMaster",
+                                        "classification": "_ALL",
+                                        "entityType": "pdp"
+                                    }
                                 },
                                 {
                                     "name": "createSupplier",
                                     "icon": "pebble-xl-icons:Customer",
                                     "text": "Create Suplier",
-                                    "visible": true
+                                    "visible": true,
+                                    "dataRoute": "entity-create",
+                                    "dataContext": {
+                                        "source": "internal",
+                                        "locale": "en-US",
+                                        "list": "productMaster",
+                                        "classification": "_ALL",
+                                        "entityType": "supplier"
+                                    }
                                 }
                             ]
                         }
@@ -55,15 +79,6 @@ var allConfigs = {
                                 "data_route": "entity-manage",
                                 "queryParams": {
                                     "id": "e1"
-                                },
-                                "icon": "pebble-icons:Entities"
-                            },
-                            {
-                                "name": "entity-create",
-                                "title": "Entity Create",
-                                "data_route": "entity-create",
-                                "queryParams": {
-                                    "name": "createentity"
                                 },
                                 "icon": "pebble-icons:Entities"
                             },
@@ -315,7 +330,7 @@ var allConfigs = {
                                 }]
                             }],
                             "my-searches": [{
-                                "id": 1,
+                                "id": 2,
                                 "accesstype": "self",
                                 "name": "Mens Shoes",
                                 "icon": "pebble-icons:SavedSearch",
@@ -337,7 +352,7 @@ var allConfigs = {
                                 }]
                             }],
                             "shared-searches": [{
-                                "id": 1,
+                                "id": 3,
                                 "accesstype": "self",
                                 "name": "Women's Sport Wear & Dresses",
                                 "icon": "pebble-icons:SavedSearch",
@@ -445,7 +460,7 @@ var allConfigs = {
                     },
                     "rock-entity-search-grid": {
                         "config": {
-                            "viewMode": "list",
+                            "viewMode": "Tabular",
                             "title": "Search Results",
                             "mode": "Read",
                             "schemaType": "attribute",
@@ -570,139 +585,62 @@ var allConfigs = {
                                         "name": "rock-attribute-manage",
                                         "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
                                         "properties": {
-                                            "mode": "view",
-                                            "no-of-columns": 1,
-                                            "context": {
-                                                "attributeGroups": [
-                                                    "coreAttributes",
-                                                    "webAttributes",
-                                                    "logisticsSupplyChain",
-                                                    "merchandising"
-                                                ],
-                                                "attributeNames": [
-                                                    "cpimProductName",
-                                                    "csapNartDescription",
-                                                    "csapDescriptionOfNart",
-                                                    "csapGenderDescriptionType",
-                                                    "csapGender",
-                                                    "cpimWebsiteEmotionalDescription",
-                                                    "cpimShortDescription",
-                                                    "cpimLongDescription",
-                                                    "cpimWarningText",
-                                                    "cpimConsumerNeed",
-                                                    "cpimCustomerWishDateOfDelivery",
-                                                    "cpimGiftWrapping",
-                                                    "cpimBacksideText",
-                                                    "cpimFrontsideText",
-                                                    "cpimInciText",
-                                                    "csapPropellantQuantity",
-                                                    "csapDangerousGoods",
-                                                    "csapDangerousGoodsDescription",
-                                                    "csapExpirationDatedProduct",
-                                                    "csapFranchiseRangeDescription",
-                                                    "csapFranchiseRanges",
-                                                    "cpimWebDiscount"
-                                                ]
-                                            }
-                                        }
+                                                    "attributeGroups": [
+                                                        "coreAttributes"
+                                                    ],
+                                                    "context": {
+                                                        "attributeNames": [
+                                                            "displayname",
+                                                            "description",					
+                                                            "enddate",
+                                                            "startdate",
+                                                            "stuscd",
+                                                            "orin",
+                                                            "productid",
+                                                            "onlineonly",
+                                                            "shortnm",
+                                                            "chnlcd",
+                                                            "trukitmin",
+                                                            "whseclasscd",
+                                                            "drctshprstrid",
+                                                            "disposalfeeid",
+                                                            "willcallrstrid",
+                                                            "questionalordqy"
+                                                        ]
+                                                    }
+                                                }
                                     },
                                     "menuItems": [{
-                                            "name": "core-attributes",
-                                            "icon": "icons:add-box",
-                                            "title": "Core Attributes",
-                                            "component": {
-                                                "name": "rock-attribute-manage",
-                                                "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                "properties": {
-                                                    "locales": [{
-                                                        "locale": "en-US",
-                                                        "language": "English"
-                                                    }],
-                                                    "source": "SAP",
-                                                    "list": "productMaster",
-                                                    "mode": "view",
-                                                    "no-of-columns": 1,
-                                                    "context": {
-                                                        "attributeGroups": [
-                                                            "coreAttributes"
-                                                        ]
+                                                    "name": "core-attributes",
+                                                    "icon": "icons:add-box",
+                                                    "title": "Core Attributes",
+                                                    "component": {
+                                                        "name": "rock-attribute-manage",
+                                                        "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
+                                                        "properties": {
+                                                            "locales": [{
+                                                                    "locale": "en-US",
+                                                                    "language": "English"
+                                                                }
+                                                            ],
+                                                            "source": "SAP",
+                                                            "list": "productMaster",
+                                                            "mode": "view",
+                                                            "no-of-columns": 1,
+                                                            "context": {
+                                                                "groupName": "Core Attributes",
+                                                                "attributeNames": [
+                                                                    "displayname",
+                                                                    "description",					
+                                                                    "enddate",
+                                                                    "startdate",
+                                                                    "stuscd"
+                                                                ]
+                                                            }
+                                                        }
                                                     }
-                                                }
-                                            }
-                                        },
-                                        {
-                                            "name": "web-attributes",
-                                            "title": "Web Attributes",
-                                            "icon": "icons:add-box",
-                                            "component": {
-                                                "name": "rock-attribute-manage",
-                                                "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                "properties": {
-                                                    "locales": [{
-                                                        "locale": "en-US",
-                                                        "language": "English"
-                                                    }],
-                                                    "source": "SAP",
-                                                    "list": "productMaster",
-                                                    "mode": "view",
-                                                    "no-of-columns": 1,
-                                                    "context": {
-                                                        "attributeGroups": [
-                                                            "webAttributes"
-                                                        ]
-                                                    }
-                                                }
-                                            }
-                                        },
-                                        {
-                                            "name": "logisticsSupplyChain",
-                                            "title": "Logistics & Supply Chain",
-                                            "icon": "icons:add-box",
-                                            "component": {
-                                                "name": "rock-attribute-manage",
-                                                "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                "properties": {
-                                                    "locales": [{
-                                                        "locale": "en-US",
-                                                        "language": "English"
-                                                    }],
-                                                    "source": "SAP",
-                                                    "list": "productMaster",
-                                                    "mode": "view",
-                                                    "no-of-columns": 1,
-                                                    "context": {
-                                                        "attributeGroups": [
-                                                            "logisticsSupplyChain"
-                                                        ]
-                                                    }
-                                                }
-                                            }
-                                        },
-                                        {
-                                            "name": "merchandising",
-                                            "title": "Merchandising",
-                                            "icon": "icons:add-box",
-                                            "component": {
-                                                "name": "rock-attribute-manage",
-                                                "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                "properties": {
-                                                    "locales": [{
-                                                        "locale": "en-US",
-                                                        "language": "English"
-                                                    }],
-                                                    "source": "SAP",
-                                                    "list": "productMaster",
-                                                    "mode": "view",
-                                                    "no-of-columns": 1,
-                                                    "context": {
-                                                        "attributeGroups": [
-                                                            "merchandising"
-                                                        ]
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    ]
+                                                }                                                
+                                            ]
                                 }]
                             },
                             "pebble-toolbar": {
@@ -1214,8 +1152,7 @@ var allConfigs = {
                                     "name": "summary",
                                     "title": "Summary",
                                     "enableDropdownMenu": false,
-                                    "selected": true,
-                                    "component": {
+                                     "component": {
                                         "name": "rock-entity-summary",
                                         "path": "/src/elements/rock-entity-summary/rock-entity-summary.html",
                                         "properties": {}
@@ -1225,33 +1162,71 @@ var allConfigs = {
                                     "name": "attributes",
                                     "title": "Attributes",
                                     "enableDropdownMenu": true,
+                                    "selected": true,
                                     "component": {
                                         "name": "rock-attribute-split-screen",
                                         "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                         "properties": {
                                             "attributeGroups": [
-                                                "allAttributes",
-                                                "productFeatures",
-                                                "logisticsSupplyChain",
-                                                "merchandising"
+                                                "coreAttributes",
+                                                "buying",
+                                                "selling"
                                             ],
                                             "context": {
                                                 "attributeNames": [
-                                                    "shortDescription",
-                                                    "longDescription",
-                                                    "createDate",
-                                                    "setupCost",
-                                                    "gender",
-                                                    "customerMaxOrderQty",
-                                                    "opReplenishmentIndicator",
-                                                    "opItemPlanningIndicator",
-                                                    "replenishmentIndicator",
-                                                    "forecastIndicator",
-                                                    "opForecastIndicator",
-                                                    "reserveStockIndicator",
-                                                    "ripIndicator",
-                                                    "apIndicator",
-                                                    "testAttribute"
+                                                    "creationdate",
+                                                    "startdate",
+                                                    "enddate",
+                                                    "displayname",
+                                                    "description",
+                                                    "stuscd",
+                                                    "orin",
+                                                    "productid",
+                                                    "skuid",
+                                                    "categoryid",
+                                                    "longdescription",
+                                                    "onlineonly",
+                                                    "shortnm",
+                                                    "chnlcd",
+                                                    "trukitmin",
+                                                    "whseclasscd",
+                                                    "drctshprstrid",
+                                                    "disposalfeeid",
+                                                    "willcallrstrid",
+                                                    "questionalordqy",
+                                                    "lottypcd",
+                                                    "skutype",
+                                                    "skunb",
+                                                    "rtlskunb",
+                                                    "hidedsplin",
+                                                    "skuqy",
+                                                    "barcodecd",
+                                                    "whitegloveddlvryin",
+                                                    "styletx",
+                                                    "lotselntypcd",
+                                                    "noncontntlprepaidcd",
+                                                    "contntlprepaidcd",
+                                                    "unusualdmdqy",
+                                                    "mlblitmin",
+                                                    "prodlengthnb",
+                                                    "prodheightnb",
+                                                    "prodwtnb",
+                                                    "prodwidthnb",
+                                                    "cmrclcarrcd",
+                                                    "noncmrclcarrcd",
+                                                    "sabrixcommoditycd",
+                                                    "pgmtypcd",
+                                                    "spclin",
+                                                    "parantheticam",
+                                                    "willcallfsin",
+                                                    "intlshippablein",
+                                                    "mfrnm",
+                                                    "origcntrycd",
+                                                    "szunittx",
+                                                    "sephorain",
+                                                    "isrecyclablein",
+                                                    "modelnb",
+                                                    "frnin"
                                                 ]
                                             }
                                         }
@@ -1567,6 +1542,25 @@ var allConfigs = {
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "rock-attribute-manage":{
+                        "config": {
+                            "messageCodeMapping":{
+                                "Req001":"Required",
+                                "MinLen001":"MIN_LENGTH",
+                                "MaxLen001":"MAX_LENGTH",
+                                "AlVal001":"ALLOWED_VALUES",
+                                "Prec001":"Precision",
+                                "Range001": "RANGE_FROM_INCLUSIVE" ,
+                                "Range002":"RANGE_TO_INCLUSIVE" ,
+                                "Range003":"RANGE_FROM_EXCLUSIVE"  ,
+                                "Range004": "RANGE_TO_EXCLUSIVE"  ,
+                                "Range005":"RANGE_TO_INCLUSIVE_FROM_EXCLUSIVE" ,
+                                "Range006":"RANGE_TO_INCLUSIVE_FROM_INCLUSIVE"  ,
+                                "Range007":"RANGE_TO_EXCLUSIVE_FROM_EXCLUSIVE"  ,
+                                "Range008":"RANGE_TO_EXCLUSIVE_FROM_INCLUSIVE"
+                            }
                         }
                     },
                     "rock-entity-variant": {
@@ -1935,7 +1929,7 @@ var allConfigs = {
                                 }]
                             }],
                             "my-searches": [{
-                                "id": 1,
+                                "id": 2,
                                 "accesstype": "self",
                                 "name": "Mens Shoes",
                                 "icon": "pebble-icons:SavedSearch",
@@ -1957,7 +1951,7 @@ var allConfigs = {
                                 }]
                             }],
                             "shared-searches": [{
-                                "id": 1,
+                                "id": 3,
                                 "accesstype": "self",
                                 "name": "Women's Sport Wear & Dresses",
                                 "icon": "pebble-icons:SavedSearch",
@@ -2735,26 +2729,16 @@ var allConfigs = {
                                         "properties": {
                                             "import-profile-name": "Entity Import - RSExcel 2.0",
                                             "attribute-names": [
-                                                "createDate",
-                                                "shortDescription",
-                                                "longDescription",
-                                                "setupCost",
-                                                "gender"
+                                                "skuid",
+                                                "skutype",
+                                                "displayname",
+                                                "description",
+                                                "startdate",
+                                                "enddate"
                                             ]
                                         }
                                     },
                                     "nextEvent": "onSave",
-                                    "skipEvent": "onCancel"
-                                },
-                                {
-                                    "name": "step-2-create-perspectives",
-                                    "label": "Create perspectives for New Entity",
-                                    "component": {
-                                        "name": "rock-entity-variant",
-                                        "path": "/../../src/elements/rock-entity-variant/rock-entity-variant.html",
-                                        "properties": {}
-                                    },
-                                    "nextEvent": "onComplete",
                                     "skipEvent": "onCancel"
                                 }
                             ]
