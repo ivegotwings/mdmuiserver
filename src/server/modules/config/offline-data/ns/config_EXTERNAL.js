@@ -572,6 +572,30 @@ var allConfigs = {
                                                             "webAttributes",
                                                             "logisticsSupplyChain",
                                                             "merchandising"
+                                                        ],
+                                                        "attributeNames": [
+                                                            "cpimProductName",
+                                                            "csapNartDescription",
+                                                            "csapDescriptionOfNart",
+                                                            "csapGenderDescriptionType",
+                                                            "csapGender",
+                                                            "cpimWebsiteEmotionalDescription",
+                                                            "cpimShortDescription",
+                                                            "cpimLongDescription",
+                                                            "cpimWarningText",
+                                                            "cpimConsumerNeed",
+                                                            "cpimCustomerWishDateOfDelivery",
+                                                            "cpimGiftWrapping",
+                                                            "cpimBacksideText",
+                                                            "cpimFrontsideText",
+                                                            "cpimInciText",
+                                                            "csapPropellantQuantity",
+                                                            "csapDangerousGoods",
+                                                            "csapDangerousGoodsDescription",
+                                                            "csapExpirationDatedProduct",
+                                                            "csapFranchiseRangeDescription",
+                                                            "csapFranchiseRanges",
+                                                            "cpimWebDiscount"
                                                         ]
                                                     }
                                                 }
@@ -1331,7 +1355,7 @@ var allConfigs = {
                                                         "source": "internal",
                                                         "list": "productMaster",
                                                         "mode": "view",
-                                                        "no-of-columns": 1,
+                                                        "no-of-columns": 2,
                                                         "context": {
                                                             "groupName": "Core Attributes",
                                                             "attributeNames": [
@@ -1339,7 +1363,10 @@ var allConfigs = {
                                                                 "longDescription",
                                                                 "createDate",
                                                                 "setupCost",
-                                                                "gender"
+                                                                "gender",
+                                                                "classDescription",
+                                                                "subclassDescription",
+                                                                "msrp"
                                                             ]
                                                         }
                                                     }
@@ -1665,6 +1692,30 @@ var allConfigs = {
                                                         "no-of-columns": 1,
                                                         "context": {
                                                             "relationshipTypeName": "supplierUpc"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            {
+                                                "name": "isChildOf",
+                                                "title": "Is Child Of",
+                                                "icon": "icons:cloud-upload",
+                                                "component": {
+                                                    "name": "rock-relationship-split-screen",
+                                                    "path": "/src/elements/rock-relationship-split-screen/rock-relationship-split-screen.html",
+                                                    "properties": {
+                                                        "locales": [
+                                                            {
+                                                                "locale": "en-US",
+                                                                "language": "English"
+                                                            }
+                                                        ],
+                                                        "source": "SAP",
+                                                        "list": "productMaster",
+                                                        "mode": "view",
+                                                        "no-of-columns": 1,
+                                                        "context": {
+                                                            "relationshipTypeName": "isChildOf"
                                                         }
                                                     }
                                                 }
@@ -1997,6 +2048,43 @@ var allConfigs = {
                                                 "sortable": true,
                                                 "filterable": false,
                                                 "editType": "boolean",
+                                                "isRelatedEntityAttribute": true
+                                            }
+                                        ]
+                                    }
+                                },
+                                "isChildOf": {
+                                    "viewMode": "Tabular",
+                                    "mode": "Read",
+                                    "title": "Related Products",
+                                    "schemaType": "colModel",
+                                    "statusEnabled": true,
+                                    "tabular": {
+                                        "settings": {
+                                            "isMultiSelect": true,
+                                            "actions": [
+                                                {
+                                                    "name": "delete",
+                                                    "icon": "pebble-icons:Delete",
+                                                    "eventName": "delete-item"
+                                                }
+                                            ]
+                                        },
+                                        "columns": [
+                                            {
+                                                "header": "Related Entity",
+                                                "name": "Related Entity",
+                                                "sortable": true,
+                                                "filterable": false,
+                                                "editType": "",
+                                                "isRelatedEntityAttribute": false
+                                            },
+                                            {
+                                                "header": "Short Description",
+                                                "name": "shortDescription",
+                                                "sortable": true,
+                                                "filterable": false,
+                                                "editType": "textbox",
                                                 "isRelatedEntityAttribute": true
                                             }
                                         ]
