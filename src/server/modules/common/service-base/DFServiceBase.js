@@ -11,7 +11,7 @@ var DFServiceBase = function (options) {
 
     this.requestJson = async function (url, request) {
 
-        var tenantId = 't1';
+        var tenantId = 'ns';
 
         var securityContext = executionContext.getSecurityContext();
 
