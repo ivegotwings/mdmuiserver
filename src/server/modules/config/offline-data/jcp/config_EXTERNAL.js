@@ -74,13 +74,13 @@ var allConfigs = {
                                 "name": "manageModel",
                                 "title": "Manage Data Model",
                                 "data_route": "manage-model",
-                                "icon": "pebble-icons:DataModelDb"
+                                "icon": "pebble-icons:DatamodelDb"
                             },
                             {
                                 "name": "integrationManage",
                                 "title": "Manage Integrations",
                                 "data_route": "manage-integration",
-                                "icon": "pebble-icons:IntegrationsDb"
+                                "icon": "pebble-icons:IntegrationDb"
                             },
                             {
                                 "name": "divider"
@@ -1230,8 +1230,8 @@ var allConfigs = {
                                         "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                         "properties": {
                                             "attributeGroups": [
-                                                "coreAttributes",
-                                                "webAttributes",
+                                                "allAttributes",
+                                                "productFeatures",
                                                 "logisticsSupplyChain",
                                                 "merchandising"
                                             ],
@@ -1257,7 +1257,7 @@ var allConfigs = {
                                         }
                                     },
                                     "menuItems": [{
-                                            "name": "core-attributes",
+                                            "name": "coreAttributes",
                                             "icon": "icons:add-box",
                                             "title": "Core Attributes",
                                             "component": {
@@ -1275,14 +1275,17 @@ var allConfigs = {
                                                     "context": {
                                                         "groupName": "Core Attributes",
                                                         "attributeNames": [
-                                                            "shortDescription",
-                                                            "longDescription",
-                                                            "createDate",
-                                                            "setupCost",
-                                                            "gender",
-                                                            "classDescription",
-                                                            "subclassDescription",
-                                                            "msrp"
+                                                            "creationdate",
+                                                            "startdate",
+                                                            "enddate",
+                                                            "displayname",
+                                                            "description",
+                                                            "stuscd",
+                                                            "orin",
+                                                            "productid",
+                                                            "skuid",
+                                                            "categoryid",
+                                                            "longdescription"
                                                         ]
                                                     }
                                                 }
@@ -1307,16 +1310,22 @@ var allConfigs = {
                                                     "context": {
                                                         "groupName": "Buying Attributes",
                                                         "attributeNames": [
-                                                            "customerMaxOrderQty",
-                                                            "opReplenishmentIndicator",
-                                                            "opItemPlanningIndicator",
-                                                            "replenishmentIndicator",
-                                                            "forecastIndicator",
-                                                            "opForecastIndicator",
-                                                            "reserveStockIndicator",
-                                                            "ripIndicator",
-                                                            "apIndicator",
-                                                            "testAttribute"
+                                                            "onlineonly",
+                                                            "shortnm",
+                                                            "chnlcd",
+                                                            "trukitmin",
+                                                            "whseclasscd",
+                                                            "drctshprstrid",
+                                                            "disposalfeeid",
+                                                            "willcallrstrid",
+                                                            "questionalordqy",
+                                                            "lottypcd",
+                                                            "skutype",
+                                                            "skunb",
+                                                            "rtlskunb",
+                                                            "hidedsplin",
+                                                            "skuqy",
+                                                            "barcodecd"
                                                         ]
                                                     }
                                                 }
@@ -1341,44 +1350,32 @@ var allConfigs = {
                                                     "context": {
                                                         "groupName": "Selling Attributes",
                                                         "attributeNames": [
-                                                            "averageRepurchaseDays",
-                                                            "careInformation",
-                                                            "customerDeliveryRule",
-                                                            "customizationRequired",
-                                                            "customizationType",
-                                                            "depositRange",
-                                                            "dryingInstructions",
-                                                            "doNotSellReason",
-                                                            "eligibleSellingChannels",
-                                                            "fairMarketValue",
-                                                            "isMerchandise",
-                                                            "isSample",
-                                                            "itemTktOverPct",
-                                                            "itemTktPrintPoChg",
-                                                            "keySellingBenefits",
-                                                            "licensedProductType",
-                                                            "productAlert",
-                                                            "productOriginType",
-                                                            "promotionalProduct",
-                                                            "initialRedemptionPointsValue",
-                                                            "remindAutoFulfill",
-                                                            "specialTreatmentType",
-                                                            "taxCategory",
-                                                            "taxExempt",
-                                                            "washingInstructions",
-                                                            "msrp",
-                                                            "exclusivity",
-                                                            "isGiftWrapEligible",
-                                                            "warningsDisclaimers",
-                                                            "characterName",
-                                                            "teamName",
-                                                            "uniqueProductDistinctions",
-                                                            "sellingPackCount",
-                                                            "model",
-                                                            "commonAliases",
-                                                            "sellingMarket",
-                                                            "productLabel",
-                                                            "typeOfNonInvtMerchandise"
+                                                            "whitegloveddlvryin",
+                                                            "styletx",
+                                                            "lotselntypcd",
+                                                            "noncontntlprepaidcd",
+                                                            "contntlprepaidcd",
+                                                            "unusualdmdqy",
+                                                            "mlblitmin",
+                                                            "prodlengthnb",
+                                                            "prodheightnb",
+                                                            "prodwtnb",
+                                                            "prodwidthnb",
+                                                            "cmrclcarrcd",
+                                                            "noncmrclcarrcd",
+                                                            "sabrixcommoditycd",
+                                                            "pgmtypcd",
+                                                            "spclin",
+                                                            "parantheticam",
+                                                            "willcallfsin",
+                                                            "intlshippablein",
+                                                            "mfrnm",
+                                                            "origcntrycd",
+                                                            "szunittx",
+                                                            "sephorain",
+                                                            "isrecyclablein",
+                                                            "modelnb",
+                                                            "frnin"
                                                         ]
                                                     }
                                                 }
@@ -1403,42 +1400,34 @@ var allConfigs = {
                                                     "context": {
                                                         "groupName": "Merch Planning",
                                                         "attributeNames": [
-                                                            "bottomsFitPlanning",
-                                                            "corpPricePlanning",
-                                                            "corpStylePlanning",
-                                                            "customerPlanning",
-                                                            "customerAssortmentPlanning",
-                                                            "deliveryPlanning",
-                                                            "deptColorPlanning",
-                                                            "deptFitPlanning",
-                                                            "deptPreferencePlanning",
-                                                            "deptPricePlanning",
-                                                            "deptStylePlanning",
-                                                            "eventPlanning",
-                                                            "fabricationPlanning",
-                                                            "fitPlanning",
-                                                            "functionPlanning",
-                                                            "genderPlanning",
-                                                            "genderSizePlanning",
-                                                            "itemCategoryPlanning",
-                                                            "mixOfBusinessPlanning",
-                                                            "occasionPlanning",
-                                                            "productCategoryPlanning",
-                                                            "productPricePlanning",
-                                                            "productSourcePlanning",
-                                                            "shadePlanning",
-                                                            "silhouettePlanning",
-                                                            "skinTypePlanning",
-                                                            "supplierRolePlanning",
-                                                            "tonePlanning"
+                                                            "color",
+                                                            "length",
+                                                            "width",
+                                                            "sleeve",
+                                                            "size",
+                                                            "waist",
+                                                            "cup",
+                                                            "chest",
+                                                            "necksize",
+                                                            "inseam",
+                                                            "patternname",
+                                                            "pdbcolorfamily",
+                                                            "letterornumber",
+                                                            "alphacharacter",
+                                                            "pattern",
+                                                            "woodfinish",
+                                                            "colorfamily",
+                                                            "minorcolorfamily",
+                                                            "pdbcolor",
+                                                            "numericvalue"
                                                         ]
                                                     }
                                                 }
                                             }
                                         },
                                         {
-                                            "name": "priceAndRegulatory",
-                                            "title": "Price and Regulatory",
+                                            "name": "seoAttributes",
+                                            "title": "SEO Attributes",
                                             "icon": "icons:add-box",
                                             "component": {
                                                 "name": "rock-attribute-split-screen",
@@ -1453,30 +1442,29 @@ var allConfigs = {
                                                     "mode": "view",
                                                     "no-of-columns": 2,
                                                     "context": {
-                                                        "groupName": "Price and Regulatory",
+                                                        "groupName": "SEO Attributes",
                                                         "attributeNames": [
-                                                            "bindingRuling",
-                                                            "currency",
-                                                            "customsDescription",
-                                                            "hts1",
-                                                            "excludeFromDiscount",
-                                                            "fishAndWildlife",
-                                                            "foodAndDrug",
-                                                            "hts2",
-                                                            "hts3",
-                                                            "hts4",
-                                                            "sentToBroker",
-                                                            "setupCost",
-                                                            "setupRetail",
-                                                            "umap"
+                                                            "seotagtx",
+                                                            "seodsplnm",
+                                                            "canonicalurl",
+                                                            "disableadsin",
+                                                            "disablegoogleadsensein",
+                                                            "ncldseotagin",
+                                                            "shortnm",
+                                                            "medialtrcd",
+                                                            "mediayrid",
+                                                            "hidein",
+                                                            "prodreviewtx",
+                                                            "feathdrtx",
+                                                            "featquotetx"
                                                         ]
                                                     }
                                                 }
                                             }
                                         },
                                         {
-                                            "name": "selling",
-                                            "title": "Selling",
+                                            "name": "copy",
+                                            "title": "Copy and Description",
                                             "icon": "icons:add-box",
                                             "component": {
                                                 "name": "rock-attribute-split-screen",
@@ -1491,46 +1479,15 @@ var allConfigs = {
                                                     "mode": "view",
                                                     "no-of-columns": 3,
                                                     "context": {
-                                                        "groupName": "Selling",
+                                                        "groupName": "Copy and Description",
                                                         "attributeNames": [
-                                                            "averageRepurchaseDays",
-                                                            "careInformation",
-                                                            "customerDeliveryRule",
-                                                            "customizationRequired",
-                                                            "customizationType",
-                                                            "depositRange",
-                                                            "dryingInstructions",
-                                                            "doNotSellReason",
-                                                            "eligibleSellingChannels",
-                                                            "fairMarketValue",
-                                                            "isMerchandise",
-                                                            "isSample",
-                                                            "itemTktOverPct",
-                                                            "itemTktPrintPoChg",
-                                                            "keySellingBenefits",
-                                                            "licensedProductType",
-                                                            "productAlert",
-                                                            "productOriginType",
-                                                            "promotionalProduct",
-                                                            "initialRedemptionPointsValue",
-                                                            "remindAutoFulfill",
-                                                            "specialTreatmentType",
-                                                            "taxCategory",
-                                                            "taxExempt",
-                                                            "washingInstructions",
-                                                            "msrp",
-                                                            "exclusivity",
-                                                            "isGiftWrapEligible",
-                                                            "warningsDisclaimers",
-                                                            "characterName",
-                                                            "teamName",
-                                                            "uniqueProductDistinctions",
-                                                            "sellingPackCount",
-                                                            "model",
-                                                            "commonAliases",
-                                                            "sellingMarket",
-                                                            "productLabel",
-                                                            "typeOfNonInvtMerchandise"
+                                                            "longcpytx",
+                                                            "secondarycpytx",
+                                                            "insprtnlcpytx",
+                                                            "alsoinstrin",
+                                                            "promotionalimcntntid",
+                                                            "ratingreviewid",
+                                                            "swatchimct"
                                                         ]
                                                     }
                                                 }
@@ -2062,7 +2019,8 @@ var allConfigs = {
                         }
                     },
                     "my-todo-summary-list": {
-                        "config": [{
+                        "config": [
+                            {
                                 "id": 1,
                                 "name": "New SKUs to Submit",
                                 "numberOfTasks": 1037,
@@ -2373,7 +2331,8 @@ var allConfigs = {
                         ]
                     },
                     "my-todo-detail-view-list": {
-                        "config": [{
+                        "config": [
+                            {
                                 "id": 1,
                                 "name": "New SKUs to Submit",
                                 "numberOfTasks": 1037,
