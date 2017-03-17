@@ -550,57 +550,45 @@ var allConfigs = {
                             }
                         },
                         "rock-entity-quick-manage": {
-                            "config": {
-                                "rock-tabs": {
-                                    "scrollable": true,
-                                    "fitContainer": false,
-                                    "tabItems": [
-                                        {
-                                            "name": "attributes",
-                                            "title": "Attributes",
-                                            "enableDropdownMenu": true,
-                                            "selected": true,
-                                            "component": {
-                                                "name": "rock-attribute-manage",
-                                                "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                "properties": {
-                                                    "mode": "view",
-                                                    "no-of-columns": 1,
+                        "config": {
+                            "rock-tabs": {
+                                "scrollable": true,
+                                "fitContainer": false,
+                                "tabItems": [
+                                    {
+                                    "name": "attributes",
+                                    "title": "Attributes",
+                                    "enableDropdownMenu": true,
+                                    "selected": true,
+                                    "component": {
+                                        "name": "rock-attribute-manage",
+                                        "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
+                                        "properties": {
+                                                    "attributeGroups": [
+                                                        "coreAttributes"
+                                                    ],
                                                     "context": {
-                                                        "attributeGroups": [
-                                                            "coreAttributes",
-                                                            "webAttributes",
-                                                            "logisticsSupplyChain",
-                                                            "merchandising"
-                                                        ],
                                                         "attributeNames": [
-                                                            "cpimProductName",
-                                                            "csapNartDescription",
-                                                            "csapDescriptionOfNart",
-                                                            "csapGenderDescriptionType",
-                                                            "csapGender",
-                                                            "cpimWebsiteEmotionalDescription",
-                                                            "cpimShortDescription",
-                                                            "cpimLongDescription",
-                                                            "cpimWarningText",
-                                                            "cpimConsumerNeed",
-                                                            "cpimCustomerWishDateOfDelivery",
-                                                            "cpimGiftWrapping",
-                                                            "cpimBacksideText",
-                                                            "cpimFrontsideText",
-                                                            "cpimInciText",
-                                                            "csapPropellantQuantity",
-                                                            "csapDangerousGoods",
-                                                            "csapDangerousGoodsDescription",
-                                                            "csapExpirationDatedProduct",
-                                                            "csapFranchiseRangeDescription",
-                                                            "csapFranchiseRanges",
-                                                            "cpimWebDiscount"
+                                                            "shortDescription",
+                                                            "longDescription",
+                                                            "createDate",
+                                                            "setupCost",
+                                                            "gender",
+                                                            "customerMaxOrderQty",
+                                                            "opReplenishmentIndicator",
+                                                            "opItemPlanningIndicator",
+                                                            "replenishmentIndicator",
+                                                            "forecastIndicator",
+                                                            "opForecastIndicator",
+                                                            "reserveStockIndicator",
+                                                            "ripIndicator",
+                                                            "apIndicator",
+                                                            "testAttribute"
                                                         ]
                                                     }
                                                 }
-                                            },
-                                            "menuItems": [
+                                    },
+                                    "menuItems": [
                                                 {
                                                     "name": "core-attributes",
                                                     "icon": "icons:add-box",
@@ -620,167 +608,92 @@ var allConfigs = {
                                                             "mode": "view",
                                                             "no-of-columns": 1,
                                                             "context": {
-                                                                "attributeGroups": [
-                                                                    "coreAttributes"
+                                                                "groupName": "Core Attributes",
+                                                                "attributeNames": [
+                                                                    "shortDescription",
+                                                                    "longDescription",
+                                                                    "createDate",
+                                                                    "setupCost"
                                                                 ]
                                                             }
                                                         }
                                                     }
-                                                },
-                                                {
-                                                    "name": "web-attributes",
-                                                    "title": "Web Attributes",
-                                                    "icon": "icons:add-box",
-                                                    "component": {
-                                                        "name": "rock-attribute-manage",
-                                                        "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                        "properties": {
-                                                            "locales": [
-                                                                {
-                                                                    "locale": "en-US",
-                                                                    "language": "English"
-                                                                }
-                                                            ],
-                                                            "source": "SAP",
-                                                            "list": "productMaster",
-                                                            "mode": "view",
-                                                            "no-of-columns": 1,
-                                                            "context": {
-                                                                "attributeGroups": [
-                                                                    "webAttributes"
-                                                                ]
-                                                            }
-                                                        }
-                                                    }
-                                                },
-                                                {
-                                                    "name": "logisticsSupplyChain",
-                                                    "title": "Logistics & Supply Chain",
-                                                    "icon": "icons:add-box",
-                                                    "component": {
-                                                        "name": "rock-attribute-manage",
-                                                        "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                        "properties": {
-                                                            "locales": [
-                                                                {
-                                                                    "locale": "en-US",
-                                                                    "language": "English"
-                                                                }
-                                                            ],
-                                                            "source": "SAP",
-                                                            "list": "productMaster",
-                                                            "mode": "view",
-                                                            "no-of-columns": 1,
-                                                            "context": {
-                                                                "attributeGroups": [
-                                                                    "logisticsSupplyChain"
-                                                                ]
-                                                            }
-                                                        }
-                                                    }
-                                                },
-                                                {
-                                                    "name": "merchandising",
-                                                    "title": "Merchandising",
-                                                    "icon": "icons:add-box",
-                                                    "component": {
-                                                        "name": "rock-attribute-manage",
-                                                        "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                        "properties": {
-                                                            "locales": [
-                                                                {
-                                                                    "locale": "en-US",
-                                                                    "language": "English"
-                                                                }
-                                                            ],
-                                                            "source": "SAP",
-                                                            "list": "productMaster",
-                                                            "mode": "view",
-                                                            "no-of-columns": 1,
-                                                            "context": {
-                                                                "attributeGroups": [
-                                                                    "merchandising"
-                                                                ]
-                                                            }
-                                                        }
-                                                    }
-                                                }
+                                                }                                                
                                             ]
-                                        }
-                                    ]
-                                },
-                                "pebble-toolbar": {
-                                    "buttonItems": [
+                                }]
+                            },
+                            "pebble-toolbar": {
+                                "buttonItems": [
+                                    {
+                                    "buttons": [
                                         {
+                                            "name": "refresh",
+                                            "icon": "pebble-md-icons:ToolbarRefresh",
+                                            "text": "",
+                                            "visible": true,
+                                            "eventName": "refresh"
+                                        },
+                                        {
+                                            "name": "moreActions",
+                                            "icon": "pebble-md-icons:ToolbarMore",
+                                            "text": "",
+                                            "eventName": "moreActions",
                                             "buttons": [
                                                 {
-                                                    "name": "refresh",
-                                                    "icon": "pebble-md-icons:ToolbarRefresh",
+                                                    "name": "add",
+                                                    "icon": "add-circle-outline",
                                                     "text": "",
                                                     "visible": true,
-                                                    "eventName": "refresh"
+                                                    "eventName": "add"
                                                 },
                                                 {
-                                                    "name": "moreActions",
-                                                    "icon": "pebble-md-icons:ToolbarMore",
+                                                    "name": "delete",
+                                                    "icon": "delete-sweep",
                                                     "text": "",
-                                                    "eventName": "moreActions",
-                                                    "buttons": [
-                                                        {
-                                                            "name": "add",
-                                                            "icon": "add-circle-outline",
-                                                            "text": "",
-                                                            "visible": true,
-                                                            "eventName": "add"
-                                                        },
-                                                        {
-                                                            "name": "delete",
-                                                            "icon": "delete-sweep",
-                                                            "text": "",
-                                                            "visible": true,
-                                                            "eventName": "delete"
-                                                        },
-                                                        {
-                                                            "name": "cut",
-                                                            "icon": "content-cut",
-                                                            "text": "",
-                                                            "visible": true,
-                                                            "eventName": "cut"
-                                                        }
-                                                    ]
+                                                    "visible": true,
+                                                    "eventName": "delete"
+                                                },
+                                                {
+                                                    "name": "cut",
+                                                    "icon": "content-cut",
+                                                    "text": "",
+                                                    "visible": true,
+                                                    "eventName": "cut"
                                                 }
                                             ]
                                         }
                                     ]
-                                },
-                                "rock-entity-tofix": {
-                                    "completionPercentage": 65,
-                                    "tofixes": [
-                                        {
-                                            "data": {
-                                                "name": "brandext",
-                                                "type": "error",
-                                                "label": "Brand Extension not available",
-                                                "eventName": "tofixtap"
-                                            }
-                                        },
-                                        {
-                                            "data": {
-                                                "name": "priceissue",
-                                                "type": "error",
-                                                "label": "Canada price not available",
-                                                "eventName": "tofixtap"
-                                            }
-                                        },
-                                        {
-                                            "data": {
-                                                "name": "msrpissue",
-                                                "type": "error",
-                                                "label": "Incorrect MSRP",
-                                                "eventName": "tofixtap"
-                                            }
-                                        },
-                                        {
+                                }
+                              ]
+                            },
+                            "rock-entity-tofix": {
+                                "completionPercentage": 65,
+                                "tofixes": [
+                                    {
+                                        "data": {
+                                            "name": "brandext",
+                                            "type": "error",
+                                            "label": "Brand Extension not available",
+                                            "eventName": "tofixtap"
+                                        }
+                                    },
+                                    {
+                                        "data": {
+                                            "name": "priceissue",
+                                            "type": "error",
+                                            "label": "Canada price not available",
+                                            "eventName": "tofixtap"
+                                        }
+                                    },
+                                    {
+                                        "data": {
+                                            "name": "msrpissue",
+                                            "type": "error",
+                                            "label": "Incorrect MSRP",
+                                            "eventName": "tofixtap"
+                                        }
+                                    },
+                                    {
                                             "data": {
                                                 "name": "msrpissue",
                                                 "type": "warning",
@@ -796,10 +709,10 @@ var allConfigs = {
                                                 "eventName": "tofixtap"
                                             }
                                         }
-                                    ]
-                                }
+                                ]
                             }
-                        },
+                        }
+                    },
                         "rock-saved-searches-tags": {
                             "config": {
                                 "favourites": [
