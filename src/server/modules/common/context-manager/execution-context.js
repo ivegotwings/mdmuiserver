@@ -1,7 +1,7 @@
 const contextService = require('request-context');
 
 function createSecurityContext(req) {
-    var tid = req.header('tid');
+    var tid = req.headers['tid'];
 
     var securityContext = { 'user': req.query.user, 'role': req.query.role, 'tenantId': tid };
     contextService.set('executionContext:securityContext', securityContext);
