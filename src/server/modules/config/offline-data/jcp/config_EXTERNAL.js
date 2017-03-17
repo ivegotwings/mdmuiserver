@@ -445,7 +445,7 @@ var allConfigs = {
                     },
                     "rock-entity-search-grid": {
                         "config": {
-                            "viewMode": "list",
+                            "viewMode": "Tabular",
                             "title": "Search Results",
                             "mode": "Read",
                             "schemaType": "attribute",
@@ -1214,8 +1214,7 @@ var allConfigs = {
                                     "name": "summary",
                                     "title": "Summary",
                                     "enableDropdownMenu": false,
-                                    "selected": true,
-                                    "component": {
+                                     "component": {
                                         "name": "rock-entity-summary",
                                         "path": "/src/elements/rock-entity-summary/rock-entity-summary.html",
                                         "properties": {}
@@ -1225,6 +1224,7 @@ var allConfigs = {
                                     "name": "attributes",
                                     "title": "Attributes",
                                     "enableDropdownMenu": true,
+                                    "selected": true,
                                     "component": {
                                         "name": "rock-attribute-split-screen",
                                         "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
