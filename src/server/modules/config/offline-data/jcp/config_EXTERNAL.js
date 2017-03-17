@@ -330,7 +330,7 @@ var allConfigs = {
                             }]
                         }],
                         "my-searches": [{
-                            "id": 1,
+                            "id": 2,
                             "accesstype": "self",
                             "name": "Mens Shoes",
                             "icon": "pebble-icons:SavedSearch",
@@ -352,7 +352,7 @@ var allConfigs = {
                             }]
                         }],
                         "shared-searches": [{
-                            "id": 1,
+                            "id": 3,
                             "accesstype": "self",
                             "name": "Women's Sport Wear & Dresses",
                             "icon": "pebble-icons:SavedSearch",
@@ -1925,7 +1925,7 @@ var allConfigs = {
                             }]
                         }],
                         "my-searches": [{
-                            "id": 1,
+                            "id": 2,
                             "accesstype": "self",
                             "name": "Mens Shoes",
                             "icon": "pebble-icons:SavedSearch",
@@ -1947,7 +1947,7 @@ var allConfigs = {
                             }]
                         }],
                         "shared-searches": [{
-                            "id": 1,
+                            "id": 3,
                             "accesstype": "self",
                             "name": "Women's Sport Wear & Dresses",
                             "icon": "pebble-icons:SavedSearch",

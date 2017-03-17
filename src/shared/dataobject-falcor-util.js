@@ -21,10 +21,10 @@ DataObjectFalcorUtil.getPathKeys = function () {
             },
             "entityGovernData": {
                 "name": "entityGovernData",
-                "typeInfo": "entityGovernInfo",
-                "typeName": "entityGovernType",
+                "typeInfo": "entityInfo",
+                "typeName": "entityType",
                 "collectionName": "entities",
-                "responseObjectName": "entityGovernOperationResponse"
+                "responseObjectName": "entityOperationResponse"
             },
             "entityModel": {
                 "name": "entityModel",
