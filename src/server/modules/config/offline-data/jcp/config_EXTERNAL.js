@@ -570,139 +570,62 @@ var allConfigs = {
                                         "name": "rock-attribute-manage",
                                         "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
                                         "properties": {
-                                            "mode": "view",
-                                            "no-of-columns": 1,
-                                            "context": {
-                                                "attributeGroups": [
-                                                    "coreAttributes",
-                                                    "webAttributes",
-                                                    "logisticsSupplyChain",
-                                                    "merchandising"
-                                                ],
-                                                "attributeNames": [
-                                                    "cpimProductName",
-                                                    "csapNartDescription",
-                                                    "csapDescriptionOfNart",
-                                                    "csapGenderDescriptionType",
-                                                    "csapGender",
-                                                    "cpimWebsiteEmotionalDescription",
-                                                    "cpimShortDescription",
-                                                    "cpimLongDescription",
-                                                    "cpimWarningText",
-                                                    "cpimConsumerNeed",
-                                                    "cpimCustomerWishDateOfDelivery",
-                                                    "cpimGiftWrapping",
-                                                    "cpimBacksideText",
-                                                    "cpimFrontsideText",
-                                                    "cpimInciText",
-                                                    "csapPropellantQuantity",
-                                                    "csapDangerousGoods",
-                                                    "csapDangerousGoodsDescription",
-                                                    "csapExpirationDatedProduct",
-                                                    "csapFranchiseRangeDescription",
-                                                    "csapFranchiseRanges",
-                                                    "cpimWebDiscount"
-                                                ]
-                                            }
-                                        }
+                                                    "attributeGroups": [
+                                                        "coreAttributes"
+                                                    ],
+                                                    "context": {
+                                                        "attributeNames": [
+                                                            "displayname",
+                                                            "description",					
+                                                            "enddate",
+                                                            "startdate",
+                                                            "stuscd",
+                                                            "orin",
+                                                            "productid",
+                                                            "onlineonly",
+                                                            "shortnm",
+                                                            "chnlcd",
+                                                            "trukitmin",
+                                                            "whseclasscd",
+                                                            "drctshprstrid",
+                                                            "disposalfeeid",
+                                                            "willcallrstrid",
+                                                            "questionalordqy"
+                                                        ]
+                                                    }
+                                                }
                                     },
                                     "menuItems": [{
-                                            "name": "core-attributes",
-                                            "icon": "icons:add-box",
-                                            "title": "Core Attributes",
-                                            "component": {
-                                                "name": "rock-attribute-manage",
-                                                "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                "properties": {
-                                                    "locales": [{
-                                                        "locale": "en-US",
-                                                        "language": "English"
-                                                    }],
-                                                    "source": "SAP",
-                                                    "list": "productMaster",
-                                                    "mode": "view",
-                                                    "no-of-columns": 1,
-                                                    "context": {
-                                                        "attributeGroups": [
-                                                            "coreAttributes"
-                                                        ]
+                                                    "name": "core-attributes",
+                                                    "icon": "icons:add-box",
+                                                    "title": "Core Attributes",
+                                                    "component": {
+                                                        "name": "rock-attribute-manage",
+                                                        "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
+                                                        "properties": {
+                                                            "locales": [{
+                                                                    "locale": "en-US",
+                                                                    "language": "English"
+                                                                }
+                                                            ],
+                                                            "source": "SAP",
+                                                            "list": "productMaster",
+                                                            "mode": "view",
+                                                            "no-of-columns": 1,
+                                                            "context": {
+                                                                "groupName": "Core Attributes",
+                                                                "attributeNames": [
+                                                                    "displayname",
+                                                                    "description",					
+                                                                    "enddate",
+                                                                    "startdate",
+                                                                    "stuscd"
+                                                                ]
+                                                            }
+                                                        }
                                                     }
-                                                }
-                                            }
-                                        },
-                                        {
-                                            "name": "web-attributes",
-                                            "title": "Web Attributes",
-                                            "icon": "icons:add-box",
-                                            "component": {
-                                                "name": "rock-attribute-manage",
-                                                "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                "properties": {
-                                                    "locales": [{
-                                                        "locale": "en-US",
-                                                        "language": "English"
-                                                    }],
-                                                    "source": "SAP",
-                                                    "list": "productMaster",
-                                                    "mode": "view",
-                                                    "no-of-columns": 1,
-                                                    "context": {
-                                                        "attributeGroups": [
-                                                            "webAttributes"
-                                                        ]
-                                                    }
-                                                }
-                                            }
-                                        },
-                                        {
-                                            "name": "logisticsSupplyChain",
-                                            "title": "Logistics & Supply Chain",
-                                            "icon": "icons:add-box",
-                                            "component": {
-                                                "name": "rock-attribute-manage",
-                                                "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                "properties": {
-                                                    "locales": [{
-                                                        "locale": "en-US",
-                                                        "language": "English"
-                                                    }],
-                                                    "source": "SAP",
-                                                    "list": "productMaster",
-                                                    "mode": "view",
-                                                    "no-of-columns": 1,
-                                                    "context": {
-                                                        "attributeGroups": [
-                                                            "logisticsSupplyChain"
-                                                        ]
-                                                    }
-                                                }
-                                            }
-                                        },
-                                        {
-                                            "name": "merchandising",
-                                            "title": "Merchandising",
-                                            "icon": "icons:add-box",
-                                            "component": {
-                                                "name": "rock-attribute-manage",
-                                                "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                "properties": {
-                                                    "locales": [{
-                                                        "locale": "en-US",
-                                                        "language": "English"
-                                                    }],
-                                                    "source": "SAP",
-                                                    "list": "productMaster",
-                                                    "mode": "view",
-                                                    "no-of-columns": 1,
-                                                    "context": {
-                                                        "attributeGroups": [
-                                                            "merchandising"
-                                                        ]
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    ]
+                                                }                                                
+                                            ]
                                 }]
                             },
                             "pebble-toolbar": {
