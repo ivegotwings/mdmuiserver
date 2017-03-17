@@ -804,6 +804,30 @@ var allConfigs  = {
                                                             "webAttributes",
                                                             "logisticsSupplyChain",
                                                             "merchandising"
+                                                        ],
+                                                        "attributeNames": [
+                                                            "cpimProductName",
+                                                            "csapNartDescription",
+                                                            "csapDescriptionOfNart",
+                                                            "csapGenderDescriptionType",
+                                                            "csapGender",
+                                                            "cpimWebsiteEmotionalDescription",
+                                                            "cpimShortDescription",
+                                                            "cpimLongDescription",
+                                                            "cpimWarningText",
+                                                            "cpimConsumerNeed",
+                                                            "cpimCustomerWishDateOfDelivery",
+                                                            "cpimGiftWrapping",
+                                                            "cpimBacksideText",
+                                                            "cpimFrontsideText",
+                                                            "cpimInciText",
+                                                            "csapPropellantQuantity",
+                                                            "csapDangerousGoods",
+                                                            "csapDangerousGoodsDescription",
+                                                            "csapExpirationDatedProduct",
+                                                            "csapFranchiseRangeDescription",
+                                                            "csapFranchiseRanges",
+                                                            "cpimWebDiscount"
                                                         ]
                                                     }
                                                 }
@@ -1428,6 +1452,30 @@ var allConfigs  = {
                                                             "webAttributes",
                                                             "logisticsSupplyChain",
                                                             "merchandising"
+                                                        ],
+                                                        "attributeNames": [
+                                                            "cpimProductName",
+                                                            "csapNartDescription",
+                                                            "csapDescriptionOfNart",
+                                                            "csapGenderDescriptionType",
+                                                            "csapGender",
+                                                            "cpimWebsiteEmotionalDescription",
+                                                            "cpimShortDescription",
+                                                            "cpimLongDescription",
+                                                            "cpimWarningText",
+                                                            "cpimConsumerNeed",
+                                                            "cpimCustomerWishDateOfDelivery",
+                                                            "cpimGiftWrapping",
+                                                            "cpimBacksideText",
+                                                            "cpimFrontsideText",
+                                                            "cpimInciText",
+                                                            "csapPropellantQuantity",
+                                                            "csapDangerousGoods",
+                                                            "csapDangerousGoodsDescription",
+                                                            "csapExpirationDatedProduct",
+                                                            "csapFranchiseRangeDescription",
+                                                            "csapFranchiseRanges",
+                                                            "cpimWebDiscount"
                                                         ]
                                                     }
                                                 }
@@ -2492,6 +2540,25 @@ var allConfigs  = {
                                         }
                                     }
                                 ]
+                            }
+                        },
+                        "rock-attribute-manage":{
+                            "config": {
+                                "messageCodeMapping":{
+                                    "Req001":"Required",
+                                    "MinLen001":"MIN_LENGTH",
+                                    "MaxLen001":"MAX_LENGTH",
+                                    "AlVal001":"ALLOWED_VALUES",
+                                    "Prec001":"Precision",
+                                    "Range001": "RANGE_FROM_INCLUSIVE" ,
+                                    "Range002":"RANGE_TO_INCLUSIVE" ,
+                                    "Range003":"RANGE_FROM_EXCLUSIVE"  ,
+                                    "Range004": "RANGE_TO_EXCLUSIVE"  ,
+                                    "Range005":"RANGE_TO_INCLUSIVE_FROM_EXCLUSIVE" ,
+                                    "Range006":"RANGE_TO_INCLUSIVE_FROM_INCLUSIVE"  ,
+                                    "Range007":"RANGE_TO_EXCLUSIVE_FROM_EXCLUSIVE"  ,
+                                    "Range008":"RANGE_TO_EXCLUSIVE_FROM_INCLUSIVE"
+                                }
                             }
                         },
                         "rock-entity-variant": {
@@ -4072,14 +4139,7 @@ var allConfigs  = {
                                                     "csapGenderDescriptionType",
                                                     "cpimShortDescription",
                                                     "cpimSkinType"
-                                                ],
-                                                "context": {
-                                                    "source": "SAP",
-                                                    "locale": "en-US",
-                                                    "list": "productMaster",
-                                                    "classification": "_ALL",
-                                                    "entityType": "nart"
-                                                }
+                                                ]
                                             }
                                         },
                                         "nextEvent": "onSave",

@@ -44,7 +44,6 @@
             #dimensionContainer {
                 align-self: center;
                 -webkit-align-self: center; /* Safari 7.0+ */
-                width: 100%;
             }
             
             rock-search-filter::shadow paper-menu-button paper-menu {
@@ -198,42 +197,6 @@
                             return {};
                         }
                     },
-                    _request: {
-                        type: Object,
-                        value: function () {
-                            return {
-                                "params": {
-                                    "query": {
-                                        "ctx": [],
-                                        "valCtx": [{
-                                            "source": '',
-                                            "locale": ''
-                                        }],
-                                        "filters": {
-                                            "attributesCriterion": [],
-                                            "typesCriterion": ["nart"]
-                                        }
-                                    },
-                                    "fields": {
-                                        "ctxTypes": [
-                                            "properties"
-                                        ],
-                                        "attributes": [
-                                            "cpimProductName",
-                                            "csapDescriptionOfNart",
-                                            "csapMaterialStatusGlobal",
-                                            "cpimSkinType"
-                                        ],
-                                        "relationships": []
-                                    },
-                                    "options": {
-                                        "from": 0,
-                                        "to": 9
-                                    }
-                                }
-                            };
-                        }
-                    },
                     _searchResponse: {
                         type: Object,
                         value: undefined,
@@ -256,11 +219,6 @@
                         notify: true,
                         computed: 'getConfig("rock-saved-searches")',
                         observer: '_savedSeachesChanged'
-                    },
-                    _currentPage: {
-                        type: Number,
-                        value: 0,
-                        observer: "_currentPageChanged"
                     },
                     _configRequest: {
                         type: Object,
@@ -375,7 +333,7 @@
                     if(this._quickManageEnabled)
                     {
                         this._selectedEntity = detail.item;
-                        this._generateContext(detail.item.id);                        
+                        this._generateContext(detail.item.id, detail.item.entityType);                        
                         this._getSearchGrid().clearSelection();
 
                         this.async(function(){
@@ -406,7 +364,7 @@
                         this._selectedEntity = selectedItem;                        
                         if(selectedItem)
                         {                            
-                            this._generateContext(selectedItem.id);
+                            this._generateContext(selectedItem.id, selectedItem.entityType);
                             grid.clearSelection(); //Clear current selection
                             grid.selectItem(selectedItem); //Select item
                             this._currentIndex = this._getSearchGrid().getSelectedItemIndex();
@@ -442,7 +400,7 @@
                             if(gridData[index].attributes)
                             {
                                 this._selectedEntity = gridData[index];
-                                this._generateContext(gridData[index].id);
+                                this._generateContext(gridData[index].id, gridData[index].entityType);
                                 this._currentIndex = index;
                                 grid.clearSelection();
                                 grid.selectItem(gridData[index]);
@@ -476,18 +434,7 @@
 
                     return false;
                 },
-                _currentPageChanged: function (currentPage) {
-                    if (currentPage > 0) {
-                        var from = (currentPage * 9) + currentPage;
-                        var to = currentPage + (currentPage * 9 + 9);
-                        var options = {
-                            "from": from,
-                            "to": to
-                        };
-                        this.set("request.params.options", options);
-                    }
-                },
-                _generateContext: function(id){
+                _generateContext: function(id, entityType){
                     if(this._selectedDimensions &&
                        this._selectedDimensions.lists.length > 0 &&
                        this._selectedDimensions.sources.length > 0 &&
@@ -497,7 +444,8 @@
                                         "list": this._selectedDimensions.lists[0].value,
                                         "source": this._selectedDimensions.sources[0].value,
                                         "locale": this._selectedDimensions.locales[0].value,
-                                        "entityId": id
+                                        "entityId": id,
+                                        "entityType": entityType
                                     };
                     }
                 },
@@ -506,9 +454,7 @@
                 _loadSavedSearch: function (e, detail, sender) {
                     if (detail) {
                         this._savedSearchId = detail.id;
-                        document.querySelector("main-app").set('pageRoute.__queryParams', { "_savedSearchId": detail.id.toString() });
-                        var savedSearch = this._getSavedSearches(this._savedSearches, this._savedSearchId);
-                        this._populateHeaderControls(savedSearch);
+                        document.querySelector("main-app").set('pageRoute.__queryParams', { "_savedSearchId": detail.id.toString()});
                     }
                 },
 
@@ -671,14 +617,12 @@
                         if (searchBarElement) {
                             searchBarElement.query = savedSearch.searchQuery;
                         }
-
                         // search filter info
                         var searchFilter = this.$$("#searchFilter");
                         if (searchFilter) {
                             searchFilter.filters = savedSearch.searchFilters;
                             searchFilter.tags = savedSearch.searchTags;
                         }
-
                         // dimensionselector info
                         var dimensionSelector = this.$.dimensionSelector;
                         if (dimensionSelector) {
@@ -692,48 +636,20 @@
                                 dimensionSelector.selectedLocales = savedSearch.dimensions.selectedLocales;
                             }
                         }
-
                         var rockSavedSearchElement = this.$$("#rockSavedSearch");
                         if (rockSavedSearchElement) {
                             rockSavedSearchElement.buttonText = savedSearch.name;
                         }
-
-                        this._loadSearchResults();
-                    }
-                },
-                _loadSearchResults: function (savedSearch) {
-                    // search input info
-                    var searchQuery = this.$$("#searchBar").query;
-                    if (searchQuery) {
-                        if (!this._request.params.fields.all) {
-                            this._request.params.fields.all = {};
-                        }
-                        this._request.params.fields.all.exists = searchQuery;
-                    }
-
-                    // search filter info
-                    var searchTags = this.$$("#searchFilter").tags;
-                    var attrCond = {};
-                    if (searchTags && searchTags.length > 0) {
-                        for (var i = 0; i < searchTags.length; i++) {
-                            var attrCond = {};
-                            attrCond[searchTags[i].name] = searchTags[i].value;
-                            this.push('_request.params.query.filters.attributesCriterion', attrCond);
+                        this._searchQuery= savedSearch.searchQuery;
+                        this._selectedSearchFilters=[];
+                        for(var i=0;i<searchFilter.tags.length;i++){
+                            var attr={};
+                            attr[searchFilter.tags[i].name]=searchFilter.tags[i].value;
+                            this.push('_selectedSearchFilters',attr);
                         }
                     }
-
-                    // dimensionselector info
-                    var dimensionSelector = this.$.dimensionSelector;
-                    this._request.params.query.ctx = DataHelper._prepareContextGroups(dimensionSelector.listSelector
-                        .selectedItems)
-                    this._request.params.query.valCtx = DataHelper._prepareValueContextGroups(
-                        dimensionSelector.sourceSelector.selectedItems, dimensionSelector.localeSelector
-                            .selectedItems);
-
-                    var req = this._request;
-                    this._request = undefined;
-                    this._request = req;
                 },
+
                 _searchResponseChanged: function (_searchResponse) {
                     if (!_searchResponse || !_searchResponse.content || _searchResponse.content.totalRecords ==
                         0) {

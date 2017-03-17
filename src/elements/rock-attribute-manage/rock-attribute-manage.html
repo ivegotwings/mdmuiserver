@@ -5,6 +5,7 @@
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+<link rel="import" href="../liquid-entity-govern-data-get/liquid-entity-govern-data-get.html">
 <link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 
@@ -55,9 +56,12 @@ It is responsible to get and save the attributes.
                 z-index: 9999;
             }
         </style>
-        <rock-attribute-list show-group-name$=[[showGroupName]] attribute-values="[[_attributeValues]]" attribute-models="[[_attributeModels]]"
-            no-of-columns="[[noOfColumns]]" mode="{{mode}}"></rock-attribute-list>
+        <liquid-config-get auto id="getManageAppConfig" operation="getconfigs" request-id="getManageAppConfig" request-data="{{_configRequest}}"
+                           last-response="{{applicationConfig}}"></liquid-config-get>
+        <rock-attribute-list show-group-name$=[[showGroupName]] group-name="[[groupName]]" attribute-values="[[_attributeValues]]" attribute-models="[[_attributeModels]]"
+            no-of-columns="[[noOfColumns]]" mode="{{mode}}" attribute-messages="{{_attributeMessages}}"></rock-attribute-list>
             <liquid-entity-data-get name="attributeGetDataService" operation="getbyids" request-data="{{_attributeRequest}}" last-response="{{_attributeResponse}}"></liquid-entity-data-get>
+            <liquid-entity-govern-data-get verbose id="attributeGetMessageService"  operation="getbyids" request-data={{_attributeMessageRequest}}  on-response="_onAttributesMessageReceived" on-error="_onEntityGetFailed"></liquid-entity-govern-data-get>
             <liquid-entity-data-save name="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}"
                 on-response="_onSaveResponse"></liquid-entity-data-save>
             <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{_attributeModelRequest}}"
@@ -117,7 +121,15 @@ It is responsible to get and save the attributes.
                      * Indictaes the identification of the entity for which the attributes are managed.
                      */
                     entityId: {
-                        type: String
+                        type: String,
+                        value: ""
+                    },
+                     /**
+                     * Indictaes the identification of the entity type for which the attributes are managed.
+                     */
+                    entityType: {
+                        type: String,
+                        value: ""
                     },
                     /**
                      * Indicates the locale dimension for which the attributes are managed.
@@ -138,7 +150,7 @@ It is responsible to get and save the attributes.
                      */
                     classification: {
                         type: String,
-                        value: "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
+                        value: "_ALL"
                     },
                     /**
                      * Indicates the source dimension for which the attributes are managed.
@@ -219,18 +231,52 @@ It is responsible to get and save the attributes.
                         type: Boolean,
                         value: false
                     },
+                    groupName: {
+                        type: String,
+                        value: "My Attributes"
+                    },
                     /**
                      * Specifies whether or not to write the logs.
                      */
                     verbose: {
                         type: Boolean,
                         value: false
+                    },
+                    /**
+                     * Indicates the attribute value objects which renders the attributes.
+                     * JSON sample to be added here.
+                     */
+                    _attributeMessages: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _configRequest: {
+                        type: Object,
+                        value: function () {
+                            return {
+                                "apps": [
+                                    "app-entity-manage"
+                                ],
+                                "tenantId": this.tenantId,
+                                "security": {
+                                    "user": "user1",
+                                    "role": "role1"
+                                },
+                                "ctx": []
+                            };
+                        },
+                        notify: true
+                    },
+                    messageCodeMapping:{
+                        type:Object,
+                        computed: "getConfig('rock-attribute-manage', '', 'messageCodeMapping', 'app-entity-manage')"
                     }
                 },
                 observers: [
                     '_attributeResponseChanged(_attributeResponse)',
-                    
-                    '_contextChanged(context, list)',
+                    '_contextChanged(context, list, entityType, source, classification)',
                     '_modeChanged(mode)'
                 ],
                 behaviors: [
@@ -245,12 +291,14 @@ It is responsible to get and save the attributes.
                         this.$.buttonContainer.style.display = "none";
                     }
                 },
-                _contextChanged: function (context, list) {
+                _contextChanged: function (context, list, entityType, source, classification) {
                     if (this.verbose) {
                         console.log("_contextChanged context: " + JSON.stringify(context, null, 2));
                     }
 
-                    if (context && context.attributeNames) {
+                    if (context && context.attributeNames && entityType) {
+                        this.groupName = context.groupName != undefined ? context.groupName : this.groupName;
+
                         var ctx = this._getCurrentCtx();
                         var t = {
                             "params": {
@@ -258,8 +306,8 @@ It is responsible to get and save the attributes.
                                     "ctx": [
                                         ctx
                                     ],
-                                    "locale": "en-US",
-                                    "name": "nart"
+                                    "locale": this.locale,
+                                    "name": this.entityType
                                 },
                                 "fields": {
                                     "ctxTypes": [
@@ -281,13 +329,12 @@ It is responsible to get and save the attributes.
                 _getCurrentCtx: function() {
                     var ctx = {};
                     ctx.list = this.list;
+                    ctx.classification = this.classification;
                     return ctx;
                 },
                 _onCompositeModelGetResponse: function (e) {
                     if (this.verbose) {
-                        console.log("_attributeModelResponseChanged _attributeModelResponse: " + JSON.stringify(
-                            _attributeModelResponse, null, 2), +
-                            " entityId: " + entityId);
+                        console.log("_attributeModelResponseChanged _attributeModelResponse: " + JSON.stringify(_attributeModelResponse, null, 2), +" entityId: " + entityId);
                     }
 
                     if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
@@ -299,17 +346,16 @@ It is responsible to get and save the attributes.
                         var req = {
                             "params": {
                                 "query": {
-                                    "ctx": [{
-                                        "list": this.list,
-                                        "classification": this.classification
-                                    }],
+                                    "ctx": [
+                                        ctx
+                                    ],
                                     "valCtx": [{
                                         "source": this.source,
                                         "locale": this.locale
                                     }],
                                     "id": this.entityId,
                                     "filters": {
-                                        "typesCriterion": ["nart"]
+                                        "typesCriterion": [this.entityType]
                                     }
                                 },
                                 "fields": {
@@ -329,7 +375,58 @@ It is responsible to get and save the attributes.
                         if(liquidDataGet) {
                             liquidDataGet.generateRequest();
                         }
+                        var messageReq=DataHelper.cloneObject(req);
+                        delete  messageReq.params.query.valCtx;
+                        this.set("_attributeMessageRequest", messageReq);
+                        this.$.attributeGetMessageService.generateRequest();
                     }
+                },
+                _onAttributesMessageReceived:function (e) {
+                    var res=e.detail.response;
+                    var values = [];
+                    var dataContext = {
+                        "locale": this.locale,
+                        "time": "now",
+                        "source": this.source,
+                        "list": this.list,
+                        "classification": this.classification
+                    };
+                    var entity = DataHelper.findEntityById(res.content.entities, this.entityId);
+                    if (!entity || !entity.data) {
+                        this._attributeMessages={};
+                        return ;
+                    }
+                    var ctx = DataHelper.prepareCtx(dataContext);
+                    var valCtx = DataHelper.prepareValCtx(dataContext);
+                    var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, ctx);
+                    for(var i in attributes){
+                        var messageCodes=this._getMessageCodes(attributes[i]);
+                        var messages=this.getMessagesFromCodes(messageCodes);
+                        var attr={};
+                        attr[i]=messages;
+                        this.push('_attributeMessages',attr);
+                    }
+                },
+                _getMessageCodes:function (attribute) {
+                    var messageCodes=[];
+                    var properties=attribute.properties;
+                    if(properties){
+                        var messages=properties.messages;
+                        for(var i in messages){
+                            messageCodes.push(messages[i].messageCode);
+                        }
+                    }
+                    return messageCodes;
+                },
+                getMessagesFromCodes:function (messageCodes) {
+                    var messages=[];
+                    for(var i in messageCodes){
+                        var mes= this.messageCodeMapping[messageCodes[i]];
+                        if(mes){
+                            messages.push(mes);
+                        }
+                    }
+                    return messages;
                 },
                 _attributeResponseChanged: function (_attributeResponse) {
                     if (this.verbose) {
@@ -425,7 +522,7 @@ It is responsible to get and save the attributes.
                                 var contextualData = {};
                                 contextualData.ctxInfo = [];
                                 var ctxItem = {};
-                                ctxItem.ctxGroup = { "list": this.list, "classification": this.classification };
+                                ctxItem.ctxGroup = this._getCurrentCtx();
                                 ctxItem.attributes = DataHelper.transformAttributeFromUIFormat(attributesJSON);
                                 contextualData.ctxInfo.push(ctxItem);
                                 entityData[entityDataField] = contextualData;
