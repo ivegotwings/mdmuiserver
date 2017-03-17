@@ -1175,6 +1175,8 @@ var allConfigs = {
                                     "context": {
                                         "attributeNames": [
                                             "creationdate",
+                                            "length",
+                                            "width",
                                             "startdate",
                                             "enddate",
                                             "displayname",
