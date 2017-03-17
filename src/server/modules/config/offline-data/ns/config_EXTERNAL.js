@@ -1777,6 +1777,25 @@ var allConfigs = {
                                 ]
                             }
                         },
+                        "rock-attribute-manage":{
+                            "config": {
+                                "messageCodeMapping":{
+                                    "Req001":"Required",
+                                    "MinLen001":"MIN_LENGTH",
+                                    "MaxLen001":"MAX_LENGTH",
+                                    "AlVal001":"ALLOWED_VALUES",
+                                    "Prec001":"Precision",
+                                    "Range001": "RANGE_FROM_INCLUSIVE" ,
+                                    "Range002":"RANGE_TO_INCLUSIVE" ,
+                                    "Range003":"RANGE_FROM_EXCLUSIVE"  ,
+                                    "Range004": "RANGE_TO_EXCLUSIVE"  ,
+                                    "Range005":"RANGE_TO_INCLUSIVE_FROM_EXCLUSIVE" ,
+                                    "Range006":"RANGE_TO_INCLUSIVE_FROM_INCLUSIVE"  ,
+                                    "Range007":"RANGE_TO_EXCLUSIVE_FROM_EXCLUSIVE"  ,
+                                    "Range008":"RANGE_TO_EXCLUSIVE_FROM_INCLUSIVE"
+                                }
+                            }
+                        },
                         "rock-entity-variant": {
                             "config": {
                                 "variantGridConfig": {
@@ -1950,7 +1969,7 @@ var allConfigs = {
                                 "supplierVpn": {
                                     "viewMode": "Tabular",
                                     "mode": "Read",
-                                    "title": "Related Products",
+                                    "title": "Supplier VPN",
                                     "schemaType": "colModel",
                                     "statusEnabled": true,
                                     "tabular": {
@@ -2003,7 +2022,7 @@ var allConfigs = {
                                 "supplierUpc": {
                                     "viewMode": "Tabular",
                                     "mode": "Read",
-                                    "title": "Related Products",
+                                    "title": "Supplier UPC",
                                     "schemaType": "colModel",
                                     "statusEnabled": true,
                                     "tabular": {
@@ -2056,7 +2075,7 @@ var allConfigs = {
                                 "isChildOf": {
                                     "viewMode": "Tabular",
                                     "mode": "Read",
-                                    "title": "Related Products",
+                                    "title": "Variants",
                                     "schemaType": "colModel",
                                     "statusEnabled": true,
                                     "tabular": {
