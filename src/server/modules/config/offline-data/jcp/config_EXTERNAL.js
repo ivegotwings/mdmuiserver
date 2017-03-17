@@ -74,13 +74,13 @@ var allConfigs = {
                                 "name": "manageModel",
                                 "title": "Manage Data Model",
                                 "data_route": "manage-model",
-                                "icon": "pebble-icons:DataModelDb"
+                                "icon": "pebble-icons:DatamodelDb"
                             },
                             {
                                 "name": "integrationManage",
                                 "title": "Manage Integrations",
                                 "data_route": "manage-integration",
-                                "icon": "pebble-icons:IntegrationsDb"
+                                "icon": "pebble-icons:IntegrationDb"
                             },
                             {
                                 "name": "divider"
@@ -2019,7 +2019,8 @@ var allConfigs = {
                         }
                     },
                     "my-todo-summary-list": {
-                        "config": [{
+                        "config": [
+                            {
                                 "id": 1,
                                 "name": "New SKUs to Submit",
                                 "numberOfTasks": 1037,
@@ -2330,7 +2331,8 @@ var allConfigs = {
                         ]
                     },
                     "my-todo-detail-view-list": {
-                        "config": [{
+                        "config": [
+                            {
                                 "id": 1,
                                 "name": "New SKUs to Submit",
                                 "numberOfTasks": 1037,
