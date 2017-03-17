@@ -3,7 +3,6 @@
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="improt" href="../bedrock-helpers/data-helper.html">
-<link rel="import" href="../liquid-entity-get/liquid-entity-get.html">
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
 <link rel="import" href="../pebble-horizontal-divider/pebble-horizontal-divider.html">
@@ -38,10 +37,13 @@ It renders the list of attributes based on the specified relationship type.
                 width: 75%;
             }
         </style>
-        <liquid-entity-get name="attributeModelGetService" request="{{_attributeModelRequest}}" response="{{_attributeModelResponse}}"></liquid-entity-get>
+        <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{_attributeModelRequest}}" on-response="_onCompositeModelGetResponse">
+        </liquid-entity-model-composite-get>
+        
         <rock-relationship-grid id="entityRelationshipGrid" relationship-type="[[context.relationshipTypeName]]" rel-req="[[requestObj]]"
-            relationship-grid-config="{{relationshipGridConfigs}}" attribute-models="[[_attributeModelResponse.returnValue.attributeModels]]"
+            relationship-grid-config="{{relationshipGridConfigs}}" attribute-models="[[_attributeModels]]"
             page-size="100" dimensions="[[_dimensions]]"></rock-relationship-grid>
+        
         <bedrock-pubsub event-name="grid-selecting-item" handler="onSelectingGridItem" target-id="entityRelationshipGrid"></bedrock-pubsub>
     </template>
     <script>
@@ -70,6 +72,12 @@ It renders the list of attributes based on the specified relationship type.
                      * Indictaes the identification of the entity for which the attributes are managed.
                      */
                     entityId: {
+                        type: String
+                    },
+                     /**
+                     * Indictaes the identification of the entity for which the attributes are managed.
+                     */
+                    entityType: {
                         type: String
                     },
                     /**
@@ -102,7 +110,12 @@ It renders the list of attributes based on the specified relationship type.
                             return {};
                         }
                     },
-
+                    _attributeModels: {
+                        type: Object,
+                        value: function() {
+                            return {};
+                        }
+                    },
                     _dimensions: {
                         type: Object,
                         value: function () {
@@ -123,14 +136,21 @@ It renders the list of attributes based on the specified relationship type.
                     this.relationshipGridConfigs = this.getParentAppConfig('rock-relationship-manage');
                 },
 
+                //TODO: Improve this
+                _getCurrentCtx: function() {
+                    var ctx = {};
+                    ctx.list = this.list;
+                    ctx.classification = "_ALL";
+                    return ctx;
+                },
+
                 _prepareRequest: function (config) {
+                    var ctx = this._getCurrentCtx();
+
                     var req = {
                         "params": {
                             "query": {
-                                "ctx": [{
-                                    "list": this.list,
-                                    "classification": "nivea/niveaBodyCare/niveaBody/nbodyEssential/nbody/ess/nourishingMilkDry"
-                                }],
+                                "ctx": [ctx],
                                 "valCtx": [{
                                     "source": this.source,
                                     "locale": this.locale
@@ -139,7 +159,7 @@ It renders the list of attributes based on the specified relationship type.
                                 "filters": {
                                     "attributesCriterion": [],
                                     "relationshipsCriterion": [],
-                                    "typesCriterion": ["nart"]
+                                    "typesCriterion": [this.entityType]
                                 }
                             },
                             "fields": {
@@ -156,22 +176,68 @@ It renders the list of attributes based on the specified relationship type.
                             }
                         }
                     };
-
-                    var attributeNames = this._getAllAttributeNames(config);
-
-                    this._attributeModelRequest = {
-                        action: "getAttributeModels",
-                        "attributeNames": attributeNames
-                    };
-
+                    
                     this.requestObj = req;
+                    
                     this._dimensions = {
                         "source": this.source,
                         "locale": this.locale,
                         "list": this.list
                     }
-                },
 
+                    var attributeNames = this._getAllAttributeNames(config);
+
+                    this._initiateAttributeModelRequest(attributeNames);
+                },
+                _initiateAttributeModelRequest: function(attributeNames) {
+                    var ctx = this._getCurrentCtx();
+
+                    var t = {
+                        "params": {
+                            "query": {
+                                "ctx": [
+                                    ctx
+                                ],
+                                "locale": this.locale,
+                                "name": this.entityType
+                            },
+                            "fields": {
+                                "ctxTypes": [
+                                    "properties"
+                                ],
+                                "attributes": attributeNames
+                            }
+                        }
+                    };
+
+                    this.set("_attributeModelRequest", t);
+
+                    var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
+
+                    if(liquidModelGet) {
+                        liquidModelGet.generateRequest();
+                    }
+                },
+                _onCompositeModelGetResponse: function (e) {
+                    if (this.verbose) {
+                        console.log("_attributeModelResponseChanged _attributeModelResponse: " + JSON.stringify(_attributeModelResponse, null, 2), +" entityId: " + this.entityId);
+                    }
+
+                    if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+                        var ctx = this._getCurrentCtx();                        
+
+                        var compositeModel = e.detail.response.content.entityModels[0];
+
+                        //WORK HERE>>
+                        //var relationshipModels = DataHelper.getRelationshipsByCtx(compositeModel, ctx);
+
+                        // if(relationshipModels) {
+
+                        // }
+
+                        this._attributeModels = DataHelper.transformAttributeModelsToUIFormat(compositeModel, ctx);
+                    }
+                },
                 _getAllAttributeNames: function (config) {
                     var attributes = [];
                     if (config) {

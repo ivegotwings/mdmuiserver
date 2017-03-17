@@ -17,25 +17,49 @@ var allConfigs  = {
                     "components": {
                         "pebble-actions": {
                             "config": {
-                                "title": "Create New...",
+                                "title": "Create New Product",
                                 "actions": [
                                     {
                                         "name": "createProduct",
                                         "icon": "pebble-xl-icons:Product",
                                         "text": "Product",
-                                        "visible": true
+                                        "visible": true,
+                                        "dataRoute": "entity-create",
+                                        "dataContext": {
+                                            "source": "SAP",
+                                            "locale": "en-US",
+                                            "list": "productMaster",
+                                            "classification": "_ALL",
+                                            "entityType": "nart"
+                                        }
                                     },
                                     {
                                         "name": "createKit",
                                         "icon": "pebble-xl-icons:Kit",
                                         "text": "Kit",
-                                        "visible": true
+                                        "visible": true,
+                                        "dataRoute": "entity-create",
+                                        "dataContext": {
+                                            "source": "SAP",
+                                            "locale": "en-US",
+                                            "list": "productMaster",
+                                            "classification": "_ALL",
+                                            "entityType": "kit"
+                                        }
                                     },
                                     {
                                         "name": "createCustomer",
                                         "icon": "pebble-xl-icons:Customer",
                                         "text": "Customer",
-                                        "visible": true
+                                        "visible": true,
+                                        "dataRoute": "entity-create",
+                                        "dataContext": {
+                                            "source": "SAP",
+                                            "locale": "en-US",
+                                            "list": "productMaster",
+                                            "classification": "_ALL",
+                                            "entityType": "customer"
+                                        }
                                     }
                                 ]
                             }
@@ -61,15 +85,6 @@ var allConfigs  = {
                                     "data_route": "entity-manage",
                                     "queryParams": {
                                         "id": "e1"
-                                    },
-                                    "icon": "pebble-icons:Entities"
-                                },
-                                {
-                                    "name": "entity-create",
-                                    "title": "Entity Create",
-                                    "data_route": "entity-create",
-                                    "queryParams": {
-                                        "name": "createentity"
                                     },
                                     "icon": "pebble-icons:Entities"
                                 },
@@ -256,15 +271,6 @@ var allConfigs  = {
                                     "data_route": "entity-manage",
                                     "queryParams": {
                                         "id": "e1"
-                                    },
-                                    "icon": "pebble-icons:Entities"
-                                },
-                                {
-                                    "name": "entity-create",
-                                    "title": "Entity Create",
-                                    "data_route": "entity-create",
-                                    "queryParams": {
-                                        "name": "createentity"
                                     },
                                     "icon": "pebble-icons:Entities"
                                 },
@@ -798,6 +804,30 @@ var allConfigs  = {
                                                             "webAttributes",
                                                             "logisticsSupplyChain",
                                                             "merchandising"
+                                                        ],
+                                                        "attributeNames": [
+                                                            "cpimProductName",
+                                                            "csapNartDescription",
+                                                            "csapDescriptionOfNart",
+                                                            "csapGenderDescriptionType",
+                                                            "csapGender",
+                                                            "cpimWebsiteEmotionalDescription",
+                                                            "cpimShortDescription",
+                                                            "cpimLongDescription",
+                                                            "cpimWarningText",
+                                                            "cpimConsumerNeed",
+                                                            "cpimCustomerWishDateOfDelivery",
+                                                            "cpimGiftWrapping",
+                                                            "cpimBacksideText",
+                                                            "cpimFrontsideText",
+                                                            "cpimInciText",
+                                                            "csapPropellantQuantity",
+                                                            "csapDangerousGoods",
+                                                            "csapDangerousGoodsDescription",
+                                                            "csapExpirationDatedProduct",
+                                                            "csapFranchiseRangeDescription",
+                                                            "csapFranchiseRanges",
+                                                            "cpimWebDiscount"
                                                         ]
                                                     }
                                                 }
@@ -1422,6 +1452,30 @@ var allConfigs  = {
                                                             "webAttributes",
                                                             "logisticsSupplyChain",
                                                             "merchandising"
+                                                        ],
+                                                        "attributeNames": [
+                                                            "cpimProductName",
+                                                            "csapNartDescription",
+                                                            "csapDescriptionOfNart",
+                                                            "csapGenderDescriptionType",
+                                                            "csapGender",
+                                                            "cpimWebsiteEmotionalDescription",
+                                                            "cpimShortDescription",
+                                                            "cpimLongDescription",
+                                                            "cpimWarningText",
+                                                            "cpimConsumerNeed",
+                                                            "cpimCustomerWishDateOfDelivery",
+                                                            "cpimGiftWrapping",
+                                                            "cpimBacksideText",
+                                                            "cpimFrontsideText",
+                                                            "cpimInciText",
+                                                            "csapPropellantQuantity",
+                                                            "csapDangerousGoods",
+                                                            "csapDangerousGoodsDescription",
+                                                            "csapExpirationDatedProduct",
+                                                            "csapFranchiseRangeDescription",
+                                                            "csapFranchiseRanges",
+                                                            "cpimWebDiscount"
                                                         ]
                                                     }
                                                 }
@@ -4066,14 +4120,7 @@ var allConfigs  = {
                                                     "csapGenderDescriptionType",
                                                     "cpimShortDescription",
                                                     "cpimSkinType"
-                                                ],
-                                                "context": {
-                                                    "source": "SAP",
-                                                    "locale": "en-US",
-                                                    "list": "productMaster",
-                                                    "classification": "_ALL",
-                                                    "entityType": "nart"
-                                                }
+                                                ]
                                             }
                                         },
                                         "nextEvent": "onSave",
