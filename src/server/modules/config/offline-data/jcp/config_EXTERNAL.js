@@ -29,7 +29,21 @@ var allConfigs = {
                                     }
                                 },
                                 {
-                                    "name": "createKit",
+                                    "name": "createLot",
+                                    "icon": "pebble-xl-icons:Product",
+                                    "text": "Lot",
+                                    "visible": true,
+                                    "dataRoute": "entity-create",
+                                    "dataContext": {
+                                        "source": "internal",
+                                        "locale": "en-US",
+                                        "list": "productMaster",
+                                        "classification": "_ALL",
+                                        "entityType": "lot"
+                                    }
+                                },
+                                {
+                                    "name": "createPP",
                                     "icon": "pebble-xl-icons:Kit",
                                     "text": "PDP",
                                     "visible": true,
@@ -39,13 +53,27 @@ var allConfigs = {
                                         "locale": "en-US",
                                         "list": "productMaster",
                                         "classification": "_ALL",
-                                        "entityType": "pdp"
+                                        "entityType": "productPresentation"
+                                    }
+                                },
+                                {
+                                    "name": "createEns",
+                                    "icon": "pebble-xl-icons:Kit",
+                                    "text": "Ensemble",
+                                    "visible": true,
+                                    "dataRoute": "entity-create",
+                                    "dataContext": {
+                                        "source": "internal",
+                                        "locale": "en-US",
+                                        "list": "productMaster",
+                                        "classification": "_ALL",
+                                        "entityType": "ensemble"
                                     }
                                 },
                                 {
                                     "name": "createSupplier",
                                     "icon": "pebble-xl-icons:Customer",
-                                    "text": "Create Suplier",
+                                    "text": "Suplier",
                                     "visible": true,
                                     "dataRoute": "entity-create",
                                     "dataContext": {
@@ -585,62 +613,60 @@ var allConfigs = {
                                         "name": "rock-attribute-manage",
                                         "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
                                         "properties": {
-                                                    "attributeGroups": [
-                                                        "coreAttributes"
-                                                    ],
-                                                    "context": {
-                                                        "attributeNames": [
-                                                            "displayname",
-                                                            "description",					
-                                                            "enddate",
-                                                            "startdate",
-                                                            "stuscd",
-                                                            "orin",
-                                                            "productid",
-                                                            "onlineonly",
-                                                            "shortnm",
-                                                            "chnlcd",
-                                                            "trukitmin",
-                                                            "whseclasscd",
-                                                            "drctshprstrid",
-                                                            "disposalfeeid",
-                                                            "willcallrstrid",
-                                                            "questionalordqy"
-                                                        ]
-                                                    }
-                                                }
+                                            "attributeGroups": [
+                                                "coreAttributes"
+                                            ],
+                                            "context": {
+                                                "attributeNames": [
+                                                    "displayname",
+                                                    "description",
+                                                    "enddate",
+                                                    "startdate",
+                                                    "stuscd",
+                                                    "orin",
+                                                    "productid",
+                                                    "onlineonly",
+                                                    "shortnm",
+                                                    "chnlcd",
+                                                    "trukitmin",
+                                                    "whseclasscd",
+                                                    "drctshprstrid",
+                                                    "disposalfeeid",
+                                                    "willcallrstrid",
+                                                    "questionalordqy"
+                                                ]
+                                            }
+                                        }
                                     },
                                     "menuItems": [{
-                                                    "name": "core-attributes",
-                                                    "icon": "icons:add-box",
-                                                    "title": "Core Attributes",
-                                                    "component": {
-                                                        "name": "rock-attribute-manage",
-                                                        "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                        "properties": {
-                                                            "locales": [{
-                                                                    "locale": "en-US",
-                                                                    "language": "English"
-                                                                }
-                                                            ],
-                                                            "source": "SAP",
-                                                            "list": "productMaster",
-                                                            "mode": "view",
-                                                            "no-of-columns": 1,
-                                                            "context": {
-                                                                "groupName": "Core Attributes",
-                                                                "attributeNames": [
-                                                                    "displayname",
-                                                                    "description",					
-                                                                    "enddate",
-                                                                    "startdate",
-                                                                    "stuscd"
-                                                                ]
-                                                            }
-                                                        }
-                                                    }
-                                                }                                                
-                                            ]
+                                        "name": "core-attributes",
+                                        "icon": "icons:add-box",
+                                        "title": "Core Attributes",
+                                        "component": {
+                                            "name": "rock-attribute-manage",
+                                            "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
+                                            "properties": {
+                                                "locales": [{
+                                                    "locale": "en-US",
+                                                    "language": "English"
+                                                }],
+                                                "source": "SAP",
+                                                "list": "productMaster",
+                                                "mode": "view",
+                                                "no-of-columns": 1,
+                                                "context": {
+                                                    "groupName": "Core Attributes",
+                                                    "attributeNames": [
+                                                        "displayname",
+                                                        "description",
+                                                        "enddate",
+                                                        "startdate",
+                                                        "stuscd"
+                                                    ]
+                                                }
+                                            }
+                                        }
+                                    }]
                                 }]
                             },
                             "pebble-toolbar": {
@@ -1152,7 +1178,7 @@ var allConfigs = {
                                     "name": "summary",
                                     "title": "Summary",
                                     "enableDropdownMenu": false,
-                                     "component": {
+                                    "component": {
                                         "name": "rock-entity-summary",
                                         "path": "/src/elements/rock-entity-summary/rock-entity-summary.html",
                                         "properties": {}
@@ -1544,22 +1570,22 @@ var allConfigs = {
                             ]
                         }
                     },
-                    "rock-attribute-manage":{
+                    "rock-attribute-manage": {
                         "config": {
-                            "messageCodeMapping":{
-                                "Req001":"Required",
-                                "MinLen001":"MIN_LENGTH",
-                                "MaxLen001":"MAX_LENGTH",
-                                "AlVal001":"ALLOWED_VALUES",
-                                "Prec001":"Precision",
-                                "Range001": "RANGE_FROM_INCLUSIVE" ,
-                                "Range002":"RANGE_TO_INCLUSIVE" ,
-                                "Range003":"RANGE_FROM_EXCLUSIVE"  ,
-                                "Range004": "RANGE_TO_EXCLUSIVE"  ,
-                                "Range005":"RANGE_TO_INCLUSIVE_FROM_EXCLUSIVE" ,
-                                "Range006":"RANGE_TO_INCLUSIVE_FROM_INCLUSIVE"  ,
-                                "Range007":"RANGE_TO_EXCLUSIVE_FROM_EXCLUSIVE"  ,
-                                "Range008":"RANGE_TO_EXCLUSIVE_FROM_INCLUSIVE"
+                            "messageCodeMapping": {
+                                "Req001": "Required",
+                                "MinLen001": "MIN_LENGTH",
+                                "MaxLen001": "MAX_LENGTH",
+                                "AlVal001": "ALLOWED_VALUES",
+                                "Prec001": "Precision",
+                                "Range001": "RANGE_FROM_INCLUSIVE",
+                                "Range002": "RANGE_TO_INCLUSIVE",
+                                "Range003": "RANGE_FROM_EXCLUSIVE",
+                                "Range004": "RANGE_TO_EXCLUSIVE",
+                                "Range005": "RANGE_TO_INCLUSIVE_FROM_EXCLUSIVE",
+                                "Range006": "RANGE_TO_INCLUSIVE_FROM_INCLUSIVE",
+                                "Range007": "RANGE_TO_EXCLUSIVE_FROM_EXCLUSIVE",
+                                "Range008": "RANGE_TO_EXCLUSIVE_FROM_INCLUSIVE"
                             }
                         }
                     },
@@ -2013,8 +2039,7 @@ var allConfigs = {
                         }
                     },
                     "my-todo-summary-list": {
-                        "config": [
-                            {
+                        "config": [{
                                 "id": 1,
                                 "name": "New SKUs to Submit",
                                 "numberOfTasks": 1037,
@@ -2325,8 +2350,7 @@ var allConfigs = {
                         ]
                     },
                     "my-todo-detail-view-list": {
-                        "config": [
-                            {
+                        "config": [{
                                 "id": 1,
                                 "name": "New SKUs to Submit",
                                 "numberOfTasks": 1037,
@@ -2721,27 +2745,29 @@ var allConfigs = {
                             "name": "create-entity",
                             "label": "Create",
                             "steps": [{
-                                    "name": "step-1-fill-initial-data",
-                                    "label": "Fill Data for New Entity",
-                                    "component": {
-                                        "name": "rock-entity-create",
-                                        "path": "/../../src/elements/rock-entity-create/rock-entity-create.html",
-                                        "properties": {
-                                            "import-profile-name": "Entity Import - RSExcel 2.0",
-                                            "attribute-names": [
-                                                "skuid",
-                                                "skutype",
-                                                "displayname",
-                                                "description",
-                                                "startdate",
-                                                "enddate"
-                                            ]
-                                        }
-                                    },
-                                    "nextEvent": "onSave",
-                                    "skipEvent": "onCancel"
-                                }
-                            ]
+                                "name": "step-1-fill-initial-data",
+                                "label": "Fill Data for New Entity",
+                                "component": {
+                                    "name": "rock-entity-create",
+                                    "path": "/../../src/elements/rock-entity-create/rock-entity-create.html",
+                                    "properties": {
+                                        "import-profile-name": "Entity Import - RSExcel 2.0",
+                                        "attribute-names": [
+                                            "skuid",
+                                            "productid",
+                                            "skutype",
+                                            "lottype",
+                                            "displayname",
+                                            "description",
+                                            "stuscd",
+                                            "startdate",
+                                            "enddate"
+                                        ]
+                                    }
+                                },
+                                "nextEvent": "onSave",
+                                "skipEvent": "onCancel"
+                            }]
                         }
                     },
                     "rock-variants-create-grid": {
