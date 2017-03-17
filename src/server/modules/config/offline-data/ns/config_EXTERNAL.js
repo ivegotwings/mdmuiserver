@@ -1950,7 +1950,7 @@ var allConfigs = {
                                 "supplierVpn": {
                                     "viewMode": "Tabular",
                                     "mode": "Read",
-                                    "title": "Related Products",
+                                    "title": "Supplier VPN",
                                     "schemaType": "colModel",
                                     "statusEnabled": true,
                                     "tabular": {
@@ -2003,7 +2003,7 @@ var allConfigs = {
                                 "supplierUpc": {
                                     "viewMode": "Tabular",
                                     "mode": "Read",
-                                    "title": "Related Products",
+                                    "title": "Supplier UPC",
                                     "schemaType": "colModel",
                                     "statusEnabled": true,
                                     "tabular": {
@@ -2056,7 +2056,7 @@ var allConfigs = {
                                 "isChildOf": {
                                     "viewMode": "Tabular",
                                     "mode": "Read",
-                                    "title": "Related Products",
+                                    "title": "Variants",
                                     "schemaType": "colModel",
                                     "statusEnabled": true,
                                     "tabular": {
