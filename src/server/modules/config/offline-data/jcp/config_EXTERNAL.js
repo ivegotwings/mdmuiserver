@@ -18,19 +18,43 @@ var allConfigs = {
                                     "name": "createSKU",
                                     "icon": "pebble-xl-icons:Product",
                                     "text": "SKU",
-                                    "visible": true
+                                    "visible": true,
+                                    "dataRoute": "entity-create",
+                                    "dataContext": {
+                                        "source": "internal",
+                                        "locale": "en-US",
+                                        "list": "productMaster",
+                                        "classification": "_ALL",
+                                        "entityType": "sku"
+                                    }
                                 },
                                 {
                                     "name": "createKit",
                                     "icon": "pebble-xl-icons:Kit",
                                     "text": "PDP",
-                                    "visible": true
+                                    "visible": true,
+                                    "dataRoute": "entity-create",
+                                    "dataContext": {
+                                        "source": "internal",
+                                        "locale": "en-US",
+                                        "list": "productMaster",
+                                        "classification": "_ALL",
+                                        "entityType": "pdp"
+                                    }
                                 },
                                 {
                                     "name": "createSupplier",
                                     "icon": "pebble-xl-icons:Customer",
                                     "text": "Create Suplier",
-                                    "visible": true
+                                    "visible": true,
+                                    "dataRoute": "entity-create",
+                                    "dataContext": {
+                                        "source": "internal",
+                                        "locale": "en-US",
+                                        "list": "productMaster",
+                                        "classification": "_ALL",
+                                        "entityType": "supplier"
+                                    }
                                 }
                             ]
                         }
@@ -55,15 +79,6 @@ var allConfigs = {
                                 "data_route": "entity-manage",
                                 "queryParams": {
                                     "id": "e1"
-                                },
-                                "icon": "pebble-icons:Entities"
-                            },
-                            {
-                                "name": "entity-create",
-                                "title": "Entity Create",
-                                "data_route": "entity-create",
-                                "queryParams": {
-                                    "name": "createentity"
                                 },
                                 "icon": "pebble-icons:Entities"
                             },
@@ -1153,28 +1168,65 @@ var allConfigs = {
                                         "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                         "properties": {
                                             "attributeGroups": [
-                                                "allAttributes",
-                                                "productFeatures",
-                                                "logisticsSupplyChain",
-                                                "merchandising"
+                                                "coreAttributes",
+                                                "buying",
+                                                "selling"
                                             ],
                                             "context": {
                                                 "attributeNames": [
-                                                    "shortDescription",
-                                                    "longDescription",
-                                                    "createDate",
-                                                    "setupCost",
-                                                    "gender",
-                                                    "customerMaxOrderQty",
-                                                    "opReplenishmentIndicator",
-                                                    "opItemPlanningIndicator",
-                                                    "replenishmentIndicator",
-                                                    "forecastIndicator",
-                                                    "opForecastIndicator",
-                                                    "reserveStockIndicator",
-                                                    "ripIndicator",
-                                                    "apIndicator",
-                                                    "testAttribute"
+                                                    "creationdate",
+                                                    "startdate",
+                                                    "enddate",
+                                                    "displayname",
+                                                    "description",
+                                                    "stuscd",
+                                                    "orin",
+                                                    "productid",
+                                                    "skuid",
+                                                    "categoryid",
+                                                    "longdescription",
+                                                    "onlineonly",
+                                                    "shortnm",
+                                                    "chnlcd",
+                                                    "trukitmin",
+                                                    "whseclasscd",
+                                                    "drctshprstrid",
+                                                    "disposalfeeid",
+                                                    "willcallrstrid",
+                                                    "questionalordqy",
+                                                    "lottypcd",
+                                                    "skutype",
+                                                    "skunb",
+                                                    "rtlskunb",
+                                                    "hidedsplin",
+                                                    "skuqy",
+                                                    "barcodecd",
+                                                    "whitegloveddlvryin",
+                                                    "styletx",
+                                                    "lotselntypcd",
+                                                    "noncontntlprepaidcd",
+                                                    "contntlprepaidcd",
+                                                    "unusualdmdqy",
+                                                    "mlblitmin",
+                                                    "prodlengthnb",
+                                                    "prodheightnb",
+                                                    "prodwtnb",
+                                                    "prodwidthnb",
+                                                    "cmrclcarrcd",
+                                                    "noncmrclcarrcd",
+                                                    "sabrixcommoditycd",
+                                                    "pgmtypcd",
+                                                    "spclin",
+                                                    "parantheticam",
+                                                    "willcallfsin",
+                                                    "intlshippablein",
+                                                    "mfrnm",
+                                                    "origcntrycd",
+                                                    "szunittx",
+                                                    "sephorain",
+                                                    "isrecyclablein",
+                                                    "modelnb",
+                                                    "frnin"
                                                 ]
                                             }
                                         }
@@ -2677,26 +2729,16 @@ var allConfigs = {
                                         "properties": {
                                             "import-profile-name": "Entity Import - RSExcel 2.0",
                                             "attribute-names": [
-                                                "createDate",
-                                                "shortDescription",
-                                                "longDescription",
-                                                "setupCost",
-                                                "gender"
+                                                "skuid",
+                                                "skutype",
+                                                "displayname",
+                                                "description",
+                                                "startdate",
+                                                "enddate"
                                             ]
                                         }
                                     },
                                     "nextEvent": "onSave",
-                                    "skipEvent": "onCancel"
-                                },
-                                {
-                                    "name": "step-2-create-perspectives",
-                                    "label": "Create perspectives for New Entity",
-                                    "component": {
-                                        "name": "rock-entity-variant",
-                                        "path": "/../../src/elements/rock-entity-variant/rock-entity-variant.html",
-                                        "properties": {}
-                                    },
-                                    "nextEvent": "onComplete",
                                     "skipEvent": "onCancel"
                                 }
                             ]
