@@ -3256,17 +3256,6 @@ var allConfigs = {
                                         },
                                         "nextEvent": "onSave",
                                         "skipEvent": "onCancel"
-                                    },
-                                    {
-                                        "name": "step-2-create-perspectives",
-                                        "label": "Create perspectives for New Entity",
-                                        "component": {
-                                            "name": "rock-entity-variant",
-                                            "path": "/../../src/elements/rock-entity-variant/rock-entity-variant.html",
-                                            "properties": {}
-                                        },
-                                        "nextEvent": "onComplete",
-                                        "skipEvent": "onCancel"
                                     }
                                 ]
                             }
