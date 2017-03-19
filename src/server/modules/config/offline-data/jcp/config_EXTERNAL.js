@@ -1561,7 +1561,9 @@ var allConfigs = {
                             "Range005": "RANGE_TO_INCLUSIVE_FROM_EXCLUSIVE",
                             "Range006": "RANGE_TO_INCLUSIVE_FROM_INCLUSIVE",
                             "Range007": "RANGE_TO_EXCLUSIVE_FROM_EXCLUSIVE",
-                            "Range008": "RANGE_TO_EXCLUSIVE_FROM_INCLUSIVE"
+                            "Range008": "RANGE_TO_EXCLUSIVE_FROM_INCLUSIVE",
+                            "133311": "Length should be greater than Width",
+                            "133312": "Width should be less than Length"
                         }
                     }
                 },
