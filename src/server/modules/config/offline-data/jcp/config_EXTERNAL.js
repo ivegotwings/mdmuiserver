@@ -1174,6 +1174,7 @@ var allConfigs = {
                                     ],
                                     "context": {
                                         "attributeNames": [
+                                            "color",
                                             "creationdate",
                                             "length",
                                             "width",
