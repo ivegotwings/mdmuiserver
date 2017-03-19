@@ -45,7 +45,7 @@ var allConfigs = {
                                 {
                                     "name": "createPP",
                                     "icon": "pebble-xl-icons:Kit",
-                                    "text": "PDP",
+                                    "text": "PP",
                                     "visible": true,
                                     "dataRoute": "entity-create",
                                     "dataContext": {
