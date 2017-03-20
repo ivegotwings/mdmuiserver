@@ -585,62 +585,60 @@ var allConfigs = {
                                         "name": "rock-attribute-manage",
                                         "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
                                         "properties": {
-                                                    "attributeGroups": [
-                                                        "coreAttributes"
-                                                    ],
-                                                    "context": {
-                                                        "attributeNames": [
-                                                            "displayname",
-                                                            "description",					
-                                                            "enddate",
-                                                            "startdate",
-                                                            "stuscd",
-                                                            "orin",
-                                                            "productid",
-                                                            "onlineonly",
-                                                            "shortnm",
-                                                            "chnlcd",
-                                                            "trukitmin",
-                                                            "whseclasscd",
-                                                            "drctshprstrid",
-                                                            "disposalfeeid",
-                                                            "willcallrstrid",
-                                                            "questionalordqy"
-                                                        ]
-                                                    }
-                                                }
+                                            "attributeGroups": [
+                                                "coreAttributes"
+                                            ],
+                                            "context": {
+                                                "attributeNames": [
+                                                    "displayname",
+                                                    "description",
+                                                    "enddate",
+                                                    "startdate",
+                                                    "stuscd",
+                                                    "orin",
+                                                    "productid",
+                                                    "onlineonly",
+                                                    "shortnm",
+                                                    "chnlcd",
+                                                    "trukitmin",
+                                                    "whseclasscd",
+                                                    "drctshprstrid",
+                                                    "disposalfeeid",
+                                                    "willcallrstrid",
+                                                    "questionalordqy"
+                                                ]
+                                            }
+                                        }
                                     },
                                     "menuItems": [{
-                                                    "name": "core-attributes",
-                                                    "icon": "icons:add-box",
-                                                    "title": "Core Attributes",
-                                                    "component": {
-                                                        "name": "rock-attribute-manage",
-                                                        "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                        "properties": {
-                                                            "locales": [{
-                                                                    "locale": "en-US",
-                                                                    "language": "English"
-                                                                }
-                                                            ],
-                                                            "source": "SAP",
-                                                            "list": "productMaster",
-                                                            "mode": "view",
-                                                            "no-of-columns": 1,
-                                                            "context": {
-                                                                "groupName": "Core Attributes",
-                                                                "attributeNames": [
-                                                                    "displayname",
-                                                                    "description",					
-                                                                    "enddate",
-                                                                    "startdate",
-                                                                    "stuscd"
-                                                                ]
-                                                            }
-                                                        }
-                                                    }
-                                                }                                                
-                                            ]
+                                        "name": "core-attributes",
+                                        "icon": "icons:add-box",
+                                        "title": "Core Attributes",
+                                        "component": {
+                                            "name": "rock-attribute-manage",
+                                            "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
+                                            "properties": {
+                                                "locales": [{
+                                                    "locale": "en-US",
+                                                    "language": "English"
+                                                }],
+                                                "source": "SAP",
+                                                "list": "productMaster",
+                                                "mode": "view",
+                                                "no-of-columns": 1,
+                                                "context": {
+                                                    "groupName": "Core Attributes",
+                                                    "attributeNames": [
+                                                        "displayname",
+                                                        "description",
+                                                        "enddate",
+                                                        "startdate",
+                                                        "stuscd"
+                                                    ]
+                                                }
+                                            }
+                                        }
+                                    }]
                                 }]
                             },
                             "pebble-toolbar": {
@@ -1152,7 +1150,7 @@ var allConfigs = {
                                     "name": "summary",
                                     "title": "Summary",
                                     "enableDropdownMenu": false,
-                                     "component": {
+                                    "component": {
                                         "name": "rock-entity-summary",
                                         "path": "/src/elements/rock-entity-summary/rock-entity-summary.html",
                                         "properties": {}
@@ -1174,7 +1172,10 @@ var allConfigs = {
                                             ],
                                             "context": {
                                                 "attributeNames": [
+                                                    "color",
                                                     "creationdate",
+                                                    "length",
+                                                    "width",
                                                     "startdate",
                                                     "enddate",
                                                     "displayname",
@@ -1544,22 +1545,24 @@ var allConfigs = {
                             ]
                         }
                     },
-                    "rock-attribute-manage":{
+                    "rock-attribute-manage": {
                         "config": {
-                            "messageCodeMapping":{
-                                "Req001":"Required",
-                                "MinLen001":"MIN_LENGTH",
-                                "MaxLen001":"MAX_LENGTH",
-                                "AlVal001":"ALLOWED_VALUES",
-                                "Prec001":"Precision",
-                                "Range001": "RANGE_FROM_INCLUSIVE" ,
-                                "Range002":"RANGE_TO_INCLUSIVE" ,
-                                "Range003":"RANGE_FROM_EXCLUSIVE"  ,
-                                "Range004": "RANGE_TO_EXCLUSIVE"  ,
-                                "Range005":"RANGE_TO_INCLUSIVE_FROM_EXCLUSIVE" ,
-                                "Range006":"RANGE_TO_INCLUSIVE_FROM_INCLUSIVE"  ,
-                                "Range007":"RANGE_TO_EXCLUSIVE_FROM_EXCLUSIVE"  ,
-                                "Range008":"RANGE_TO_EXCLUSIVE_FROM_INCLUSIVE"
+                            "messageCodeMapping": {
+                                "Req001": "Required",
+                                "MinLen001": "MIN_LENGTH",
+                                "MaxLen001": "MAX_LENGTH",
+                                "AlVal001": "ALLOWED_VALUES",
+                                "Prec001": "Precision",
+                                "Range001": "RANGE_FROM_INCLUSIVE",
+                                "Range002": "RANGE_TO_INCLUSIVE",
+                                "Range003": "RANGE_FROM_EXCLUSIVE",
+                                "Range004": "RANGE_TO_EXCLUSIVE",
+                                "Range005": "RANGE_TO_INCLUSIVE_FROM_EXCLUSIVE",
+                                "Range006": "RANGE_TO_INCLUSIVE_FROM_INCLUSIVE",
+                                "Range007": "RANGE_TO_EXCLUSIVE_FROM_EXCLUSIVE",
+                                "Range008": "RANGE_TO_EXCLUSIVE_FROM_INCLUSIVE",
+                                "133311": "Length should be greater than Width",
+                                "133312": "Width should be less than Length"
                             }
                         }
                     },
@@ -1724,60 +1727,10 @@ var allConfigs = {
                     },
                     "rock-relationship-manage": {
                         "config": {
-                            "isChildOf": {
-                                "viewMode": "Tabular",
-                                "mode": "Read",
-                                "title": "Related Products",
-                                "schemaType": "colModel",
-                                "statusEnabled": true,
-                                "tabular": {
-                                    "settings": {
-                                        "isMultiSelect": true,
-                                        "actions": [{
-                                            "name": "delete",
-                                            "icon": "pebble-icons:Delete",
-                                            "eventName": "delete-item"
-                                        }]
-                                    },
-                                    "columns": [{
-                                        "header": "Related Entity",
-                                        "name": "Related Entity",
-                                        "sortable": true,
-                                        "filterable": false,
-                                        "editType": "",
-                                        "isRelatedEntityAttribute": false
-                                    }]
-                                }
-                            },
                             "productPresentationToLot": {
                                 "viewMode": "Tabular",
                                 "mode": "Read",
-                                "title": "Related Products",
-                                "schemaType": "colModel",
-                                "statusEnabled": true,
-                                "tabular": {
-                                    "settings": {
-                                        "isMultiSelect": true,
-                                        "actions": [{
-                                            "name": "delete",
-                                            "icon": "pebble-icons:Delete",
-                                            "eventName": "delete-item"
-                                        }]
-                                    },
-                                    "columns": [{
-                                        "header": "Related Entity",
-                                        "name": "Related Entity",
-                                        "sortable": true,
-                                        "filterable": false,
-                                        "editType": "",
-                                        "isRelatedEntityAttribute": false
-                                    }]
-                                }
-                            },
-                            "isChildOf": {
-                                "viewMode": "Tabular",
-                                "mode": "Read",
-                                "title": "Related Products",
+                                "title": "Product Presentation To Lot",
                                 "schemaType": "colModel",
                                 "statusEnabled": true,
                                 "tabular": {
@@ -1798,11 +1751,59 @@ var allConfigs = {
                                             "isRelatedEntityAttribute": false
                                         },
                                         {
-                                            "header": "Short Description",
-                                            "name": "shortDescription",
+                                            "header": "Descriptioin",
+                                            "name": "discription",
                                             "sortable": true,
                                             "filterable": false,
-                                            "editType": "textbox",
+                                            "editType": "",
+                                            "isRelatedEntityAttribute": true
+                                        }, {
+                                            "header": "Display Name",
+                                            "name": "displayname",
+                                            "sortable": true,
+                                            "filterable": false,
+                                            "editType": "",
+                                            "isRelatedEntityAttribute": true
+                                        }
+                                    ]
+                                }
+                            },
+                            "isChildOf": {
+                                "viewMode": "Tabular",
+                                "mode": "Read",
+                                "title": "Is Child Of",
+                                "schemaType": "colModel",
+                                "statusEnabled": true,
+                                "tabular": {
+                                    "settings": {
+                                        "isMultiSelect": true,
+                                        "actions": [{
+                                            "name": "delete",
+                                            "icon": "pebble-icons:Delete",
+                                            "eventName": "delete-item"
+                                        }]
+                                    },
+                                    "columns": [{
+                                            "header": "Related Entity",
+                                            "name": "Related Entity",
+                                            "sortable": true,
+                                            "filterable": false,
+                                            "editType": "",
+                                            "isRelatedEntityAttribute": false
+                                        },
+                                        {
+                                            "header": "Descriptioin",
+                                            "name": "discription",
+                                            "sortable": true,
+                                            "filterable": false,
+                                            "editType": "",
+                                            "isRelatedEntityAttribute": true
+                                        }, {
+                                            "header": "Short NM",
+                                            "name": "shortnm",
+                                            "sortable": true,
+                                            "filterable": false,
+                                            "editType": "",
                                             "isRelatedEntityAttribute": true
                                         }
                                     ]
@@ -2013,8 +2014,7 @@ var allConfigs = {
                         }
                     },
                     "my-todo-summary-list": {
-                        "config": [
-                            {
+                        "config": [{
                                 "id": 1,
                                 "name": "New SKUs to Submit",
                                 "numberOfTasks": 1037,
@@ -2325,8 +2325,7 @@ var allConfigs = {
                         ]
                     },
                     "my-todo-detail-view-list": {
-                        "config": [
-                            {
+                        "config": [{
                                 "id": 1,
                                 "name": "New SKUs to Submit",
                                 "numberOfTasks": 1037,
@@ -2721,27 +2720,28 @@ var allConfigs = {
                             "name": "create-entity",
                             "label": "Create",
                             "steps": [{
-                                    "name": "step-1-fill-initial-data",
-                                    "label": "Fill Data for New Entity",
-                                    "component": {
-                                        "name": "rock-entity-create",
-                                        "path": "/../../src/elements/rock-entity-create/rock-entity-create.html",
-                                        "properties": {
-                                            "import-profile-name": "Entity Import - RSExcel 2.0",
-                                            "attribute-names": [
-                                                "skuid",
-                                                "skutype",
-                                                "displayname",
-                                                "description",
-                                                "startdate",
-                                                "enddate"
-                                            ]
-                                        }
-                                    },
-                                    "nextEvent": "onSave",
-                                    "skipEvent": "onCancel"
-                                }
-                            ]
+                                "name": "step-1-fill-initial-data",
+                                "label": "Fill Data for New Entity",
+                                "component": {
+                                    "name": "rock-entity-create",
+                                    "path": "/../../src/elements/rock-entity-create/rock-entity-create.html",
+                                    "properties": {
+                                        "import-profile-name": "Entity Import - RSExcel 2.0",
+                                        "attribute-names": [
+                                            "skuid",
+                                            "productid",
+                                            "lottype",
+                                            "skutype",
+                                            "displayname",
+                                            "description",
+                                            "startdate",
+                                            "enddate"
+                                        ]
+                                    }
+                                },
+                                "nextEvent": "onSave",
+                                "skipEvent": "onCancel"
+                            }]
                         }
                     },
                     "rock-variants-create-grid": {
