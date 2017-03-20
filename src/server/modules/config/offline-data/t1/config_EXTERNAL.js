@@ -2,7 +2,7 @@ var allConfigs = {
     "configs": [{
             "name": "main-app",
             "ctxInfo": [{
-                "tenant": "jcp",
+                "tenant": "t1",
                 "ctx": {
                     "list": "productMaster"
                 },
@@ -213,9 +213,9 @@ var allConfigs = {
                     },
                     "tenant-config": {
                         "config": {
-                            "logoUrl": "../src/images/jcpenney_logo.svg",
-                            "tenantName": "JCPenney",
-                            "primaryColor": "#D71921",
+                            "logoUrl": "../src/images/QA_logo.gif",
+                            "tenantName": "QA",
+                            "primaryColor": "#1CCAD5",
                             "primaryLightColor": "#0bb2e8",
                             "secondaryColor": "#364653"
                         }
