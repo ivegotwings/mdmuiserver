@@ -17,6 +17,7 @@
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 <link rel="import" href="../pebble-icons/pebble-icons.html">
 <link rel="import" href="../pebble-popover/pebble-popover.html">
+<link rel="import" href="../rock-entity-combo-box/rock-entity-combo-box.html">
 
 <link rel="import" href="pebble-error-list.html">
 <!--
@@ -155,24 +156,35 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                 </div>
                 <template is="dom-if" if="[[_isEditMode(mode)]]">
                     <div class$="[[_getAttributeEditClass(changed)]]">
+                        <!-- LOV -->
+                        <template is="dom-if" if="[[_isLOV(attributeModelObject)]]">
+                            <rock-entity-combo-box id="combo-box" item-id="name" item-title="name" item-sub-title="name"
+                                label="[[attributeModelObject.externalName]]"
+                                multi-select$="[[attributeModelObject.isCollection]]"
+                                context='[[_getLOVInfo(attributeModelObject, "context")]]' 
+                                value-context='[[_getLOVInfo(attributeModelObject, "valueContext")]]' 
+                                entity-types='[[attributeModelObject.referenceEntityTypes]]'>
+							</rock-entity-combo-box>
+                        </template>
+                        <!-- DROPDOWN -->
                         <!-- TEXTAREA -->
-                        <template is="dom-if" if="[[_isTextArea(attributeModelObject.displayType)]]">
+                        <template is="dom-if" if="[[_isTextArea(attributeModelObject)]]">
                             <pebble-textarea id="input" validation-errors="{{validationErrors}}" label="{{attributeModelObject.externalName}}" value="{{attributeObject.value}}"
                                 maxlength="[[attributeModelObject.maxLength]]" invalid="{{invalid}}"></pebble-textarea>
                         </template>
                         <!-- DROPDOWN -->
-                        <template is="dom-if" if="[[_isDropDown(attributeModelObject.displayType)]]">
+                        <template is="dom-if" if="[[_isDropDown(attributeModelObject)]]">
                             <pebble-dropdown id="input" label="{{attributeModelObject.externalName}}" items="{{attributeModelObject.allowedValues}}" selected-value="{{attributeObject.value}}"
                                 invalid="{{invalid}}">
                                 </pebble-dropdown>
                         </template>
                         <!-- BOOLEAN -->
-                        <template is="dom-if" if="[[_isBoolean(attributeModelObject.displayType)]]">
+                        <template is="dom-if" if="[[_isBoolean(attributeModelObject)]]">
                             <pebble-boolean id="input" label="[[attributeModelObject.externalName]]" value="{{attributeObject.value}}" invalid="{{invalid}}"
                                 true-text="[[_isNullOrEmpty(attributeModelObject.trueText, 'TRUE')]]" false-text="[[_isNullOrEmpty(attributeModelObject.falseText,'FALSE')]]"></pebble-boolean>
                         </template>
                         <!-- DATE -->
-                        <template is="dom-if" if="[[_isDate(attributeModelObject.displayType)]]">
+                        <template is="dom-if" if="[[_isDate(attributeModelObject)]]">
                             <div id="mainDiv" class="datetimepicker-container">
                                 <div id="dateTextboxContainer" style="width:250px;">
                                     <pebble-textbox id="txtDate" label="{{attributeModelObject.externalName}}" value="{{attributeObject.value}}" picker-id="datePicker"
@@ -186,7 +198,7 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                             <pebble-datetime-picker-overlay id="datePicker" for="txtDate" value="{{attributeObject.value}}" picker-type="date"></pebble-datetime-picker-overlay>
                         </template>
                         <!-- DATETIME -->
-                        <template is="dom-if" if="[[_isDateTime(attributeModelObject.displayType)]]">
+                        <template is="dom-if" if="[[_isDateTime(attributeModelObject)]]">
                             <div id="mainDiv" class="datetimepicker-container">
                                 <div id="dateTimeTextboxContainer" style="width:250px;">
                                     <pebble-textbox id="txtDateTime" label="{{attributeModelObject.externalName}}" value="{{attributeObject.value}}" picker-id="dateTimePicker"
@@ -430,25 +442,28 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                         return displayType === "textbox" && !model.isCollection;
                     } else {
                         return displayType === "textbox" && !model.isCollection ||
-                            (!this._isTextArea(displayType) && !this._isDropDown(displayType) && !this._isBoolean(
-                                displayType) && !this._isDate(displayType) && !this._isDateTime(
-                                    displayType) && !this._isTextboxCollection(model));
+                            (!this._isTextArea(model) && !this._isDropDown(model) && !this._isBoolean(
+                                model) && !this._isDate(model) && !this._isDateTime(
+                                    model) && !this._isTextboxCollection(model) && !this._isLOV(model));
                     }
                 },
-                _isTextArea: function (displayType) {
-                    return displayType === "textarea";
+                _isTextArea: function (model) {
+                    return model.displayType === "textarea";
                 },
-                _isDropDown: function (displayType) {
-                    return displayType === "dropdown";
+                _isLOV: function (model) {
+                    return model.displayType === "referenceList";
                 },
-                _isBoolean: function (displayType) {
-                    return displayType === "boolean";
+                _isDropDown: function (model) {
+                    return model.displayType === "dropdown";
                 },
-                _isDate: function (displayType) {
-                    return displayType === "date";
+                _isBoolean: function (model) {
+                    return model.displayType === "boolean";
                 },
-                _isDateTime: function (displayType) {
-                    return displayType === "datetime";
+                _isDate: function (model) {
+                    return model.displayType === "date";
+                },
+                _isDateTime: function (model) {
+                    return model.displayType === "datetime";
                 },
                 _isTextboxCollection: function (model) {
                     return model.displayType === "textbox" && model.isCollection;
@@ -533,6 +548,42 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                 },
                 _isGrid: function (functionalMode) {
                     return functionalMode == "grid";
+                },
+                //TODO: this did not work for entityTypes, need to check why
+                _getLOVInfo: function(attributeModel, name) {
+                    var info = [];
+                    if(name == 'entityTypes') {
+                        //find from manage model, looks like this:
+                        // "referenceInfo": [
+                        //      {
+                        //          "relationshipName": "hasReferenceTo",
+                        //          "entityInfo": [
+                        //              {
+                        //                  "entityType": "color"
+                        //              }
+                        //          ]
+                        //      }
+                        // ]
+                        if(attributeModel.referenceInfo) {
+                            for(var i=0; i<attributeModel.referenceInfo.length; i++) {
+                                var refInfo = attributeModel.referenceInfo[i];
+                                if(refInfo.relationshipName == 'hasReferenceTo' && refInfo.entityInfo) {
+                                    for(var j=0; j<refInfo.entityInfo.length; j++) {
+                                        var refEntityInfo = refInfo.entityInfo[j];
+                                        if(refEntityInfo.entityType) {
+                                            info.push(refEntityInfo.entityType)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else if(name == "context") {
+                        //dont have it here right now... should be the current context of entity manage/attribute manage
+                    } else if(name == "valueContext") {
+                        //dont have it here right now... should be the current value context of entity manage/attribute manage
+                    }
+
+                    return info;
                 }
             });
         })();
