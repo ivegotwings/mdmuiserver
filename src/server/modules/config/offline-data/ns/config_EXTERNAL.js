@@ -641,14 +641,14 @@ var allConfigs = {
                                             "buttons": [
                                                 {
                                                     "name": "add",
-                                                    "icon": "add-circle-outline",
+                                                    "icon": "pebble-sm-icons:Add",
                                                     "text": "",
                                                     "visible": true,
                                                     "eventName": "add"
                                                 },
                                                 {
                                                     "name": "delete",
-                                                    "icon": "delete-sweep",
+                                                    "icon": "pebble-md-cions:Delete",
                                                     "text": "",
                                                     "visible": true,
                                                     "eventName": "delete"
@@ -1058,14 +1058,14 @@ var allConfigs = {
                                                     "buttons": [
                                                         {
                                                             "name": "add",
-                                                            "icon": "add-circle-outline",
+                                                            "icon": "pebble-sm-icons:Add",
                                                             "text": "",
                                                             "visible": true,
                                                             "eventName": "add"
                                                         },
                                                         {
                                                             "name": "delete",
-                                                            "icon": "delete-sweep",
+                                                            "icon": "pebble-md-icons:Delete",
                                                             "text": "",
                                                             "visible": true,
                                                             "eventName": "delete"
