@@ -597,7 +597,11 @@ DataObjectFalcorUtil.isObject = function (item) {
                     value.forEach((sourceItem, itemIndex) => {
                         if (itemIndex < targetArray.length) {
                             const targetItem = targetArray[itemIndex];
-
+                            if(!Object.is) {
+                                Object.is = function(firstObj, secondObj) {
+                                    return DataObjectFalcorUtil.compareObjects(firstObj, secondObj);
+                                };
+                            }
                             if (Object.is(targetItem, sourceItem)) {
                                 return;
                             }
