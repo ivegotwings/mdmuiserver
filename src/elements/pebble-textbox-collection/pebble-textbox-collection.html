@@ -77,10 +77,10 @@ Custom property | Description | Default
         </style>
 
     <bedrock-pubsub event-name="on-tap-arrow-icon" handler="_onTapArrowIcon"></bedrock-pubsub>
-    <bedrock-pubsub event-name="on-tap-tag" handler="_onTapTag"></bedrock-pubsub>
+    <bedrock-pubsub event-name="on-tap-tag" handler="_onTapTag"></bedrock-pubsub>    
     <bedrock-pubsub event-name="on-popover-close" handler="_onPopoverClose"></bedrock-pubsub>
     <bedrock-pubsub event-name="on-popover-open" handler="_onPopoverOpen"></bedrock-pubsub>    
-    <pebble-collection-container label="[[label]]" values="{{values}}" is-readonly="[[isReadonly]]" display-limit="[[displayLimit]]">
+    <pebble-collection-container label="[[label]]" values="{{_tags}}" is-readonly="[[isReadonly]]" display-limit="[[displayLimit]]">
         <div class="tag-container">
             <pebble-textbox id='txtInputTag' label="[[_getLabel(_isEdit)]]" value="{{_tagInputText}}" on-keyup="_onEnter" show-error validation-errors="{{_validationErrors}}">
                 <pebble-icon icon="[[_getIcon(_isEdit)]]" suffix on-tap="_onTapIcon"></pebble-icon>
@@ -107,6 +107,16 @@ Custom property | Description | Default
                             return [];
                         },
                         notify: true
+                    },
+
+                    /**
+                     * Indicates tag items
+                     */
+                    _tags: {
+                        type:Array,
+                        value:function () {
+                            return [];
+                        }
                     },
 
                     /**
@@ -157,6 +167,12 @@ Custom property | Description | Default
                 behaviors: [
                     RUFBehaviors.UIBehavior
                 ],
+                observers: [
+                    '_onValuesChange(values)'
+                ],
+                listeners: {
+                    'tag-item-remove': '_onTagRemove'
+                },
 
                 /**
                  * Can be used to add tag to collection
@@ -177,6 +193,16 @@ Custom property | Description | Default
                  */
                 isExists: function(item){
                     return this._getCollectionContainer().isExists(item);
+                },
+
+                //On values change, apply to tags
+                _onValuesChange: function(){
+                    this._tags = [];
+                    for(var i = 0; i < this.values.length; i++)
+                    {
+                        var item = {"name": this.values[i], "longName": this.values[i], "color": "#d2d7dd"};
+                        this.push('_tags', item)
+                    }
                 },
 
                 _getCollectionContainer: function(){
@@ -200,8 +226,8 @@ Custom property | Description | Default
                     }
 
                     this._isEdit = true;
-                    this._currentEditTag = {"item": this.values[detail.index], "index": detail.index};
-                    this._tagInputText = this.values[detail.index].name;                    
+                    this._currentEditTag = {"item": this._tags[detail.index], "index": detail.index};
+                    this._tagInputText = this._tags[detail.index].name;                    
                     this._getCollectionContainer().openPopover();            
                 },
 
@@ -243,6 +269,12 @@ Custom property | Description | Default
                         }
 
                         this.add(item);
+
+                        //Add to values
+                        this.push('values', item.name)
+                        this.notifyPath("values", this.values.slice());
+                        
+
                         this._reset();
                     }
                     else if(this._isEdit)
@@ -252,19 +284,34 @@ Custom property | Description | Default
                             return;
                         }
                         //If updated input is already exists
-                        for(var i = 0; i < this.values.length; i++)
+                        for(var i = 0; i < this._tags.length; i++)
                         {
-                            if(i != this._currentEditTag.index && this.values[i].name.toLowerCase() == _tagInputText.toLowerCase())
+                            if(i != this._currentEditTag.index && this._tags[i].name.toLowerCase() == _tagInputText.toLowerCase())
                             {
                                 this._raiseError('Already exists');
                                 return;
                             }
                         }
 
-                        this.set('values.' + this._currentEditTag.index + '.name', _tagInputText);
-                        this.set('values.' + this._currentEditTag.index + '.longName', _tagInputText);
+                        this.set('_tags.' + this._currentEditTag.index + '.name', _tagInputText);
+                        this.set('_tags.' + this._currentEditTag.index + '.longName', _tagInputText);
+
+                        //Update to values here
+                        this.set('values.' + this._currentEditTag.index, _tagInputText);
+                        this.notifyPath("values", this.values.slice());
+
                         this._getCollectionContainer().closePopover();
                     }                   
+                },
+
+                _onTagRemove: function(e, detail, sender){
+                    if(this.values.indexOf(detail.name) != -1)
+                    {
+                        var index = this.values.indexOf(detail.name);
+
+                        this.splice('values', index, 1);
+                        this.notifyPath("values", this.values.slice());
+                    }
                 },
 
                 _raiseError: function(message){
