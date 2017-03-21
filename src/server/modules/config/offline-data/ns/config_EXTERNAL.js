@@ -655,7 +655,7 @@ var allConfigs = {
                                                 },
                                                 {
                                                     "name": "cut",
-                                                    "icon": "content-cut",
+                                                    "icon": "pebble-md-icons:Cut",
                                                     "text": "",
                                                     "visible": true,
                                                     "eventName": "cut"
@@ -1072,7 +1072,7 @@ var allConfigs = {
                                                         },
                                                         {
                                                             "name": "cut",
-                                                            "icon": "content-cut",
+                                                            "icon": "pebble-md-icons:Cut",
                                                             "text": "",
                                                             "visible": true,
                                                             "eventName": "cut"
