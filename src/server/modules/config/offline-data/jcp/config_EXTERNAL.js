@@ -1748,7 +1748,8 @@ var allConfigs = {
                                     "sortable": true,
                                     "filterable": false,
                                     "editType": "",
-                                    "isRelatedEntityAttribute": false
+                                    "isRelatedEntityAttribute": false,
+                                    "linkTemplate": "entity-manage?id={id}&type={entityType}"
                                 },
                                 {
                                     "header": "status",
@@ -1790,7 +1791,8 @@ var allConfigs = {
                                     "sortable": true,
                                     "filterable": false,
                                     "editType": "",
-                                    "isRelatedEntityAttribute": false
+                                    "isRelatedEntityAttribute": false,
+                                    "linkTemplate": "entity-manage?id={id}&type={entityType}"
                                 },
                                 {
                                     "header": "Descriptioin",
