@@ -192,61 +192,87 @@ var allConfigs = {
                     "role": ""
                 },
                 "components": {
-                    "rock-dimension-selector": {
-                        "config": {
-                            "catalogSelector": {
-                                "visible": true,
-                                "context": [{
-                                    "self": "self"
-                                }],
-                                "typesCriterion": ["list", "channel", "country"],
-                                "fields": {
-                                    "title": "externalName",
-                                    "subtitle": "",
-                                    "image": "",
-                                    "icon": "",
-                                    "value": "externalName"
-                                },
-                                "selectedCatalogItems": [{
-                                    "id": 1,
-                                }]
+                    "rock-dimension-selector": [{
+                            "title": "Channel/Country",
+                            "visible": true,
+                            "context": [{
+                                "self": "self"
+                            }],
+                            "typesCriterion": ["channel", "country"],
+                            "fields": {
+                                "id": "id",
+                                "title": "id",
+                                "subtitle": "",
+                                "image": "",
+                                "icon": "",
+                                "value": ""
                             },
-                            "sourceSelector": {
-                                "visible": true,
-                                "context": [{
-                                    "self": "self"
-                                }],
-                                "typesCriterion": ["source"],
-                                "fields": {
-                                    "title": "externalName",
-                                    "subtitle": "",
-                                    "image": "",
-                                    "icon": "",
-                                    "value": "externalName"
-                                },
-                                "selectedSourceItems": [{
-                                    "value": "internal"
-                                }]
+                            "selectedItem": {
+                                "id": "webCatalog",
+                                "type": "channel"
+                            }
+                        },
+                        {
+                            "title": "Region",
+                            "visible": true,
+                            "context": [{
+                                "self": "self"
+                            }],
+                            "typesCriterion": ["region"],
+                            "fields": {
+                                "id": "id",
+                                "title": "id",
+                                "subtitle": "",
+                                "image": "",
+                                "icon": "",
+                                "value": ""
                             },
-                            "localeSelector": {
-                                "visible": true,
-                                "context": [{
-                                    "self": "self"
-                                }],
-                                "typesCriterion": ["locale"],
-                                "fields": {
-                                    "title": "externalName",
-                                    "subtitle": "",
-                                    "image": "",
-                                    "icon": "",
-                                    "value": "externalName"
-                                },
-                                "selectedLocaleItems": [{
-                                    "value": "en-US"
-                                }]
+                            "selectedItem": {
+                                "id": "south",
+                                "type": "region"
+                            }
+                        },
+                        {
+                            "title": "Source",
+                            "visible": true,
+                            "context": [{
+                                "self": "self"
+                            }],
+                            "typesCriterion": ["source"],
+                            "fields": {
+                                "id": "id",
+                                "title": "id",
+                                "subtitle": "",
+                                "image": "",
+                                "icon": "",
+                                "value": ""
+                            },
+                            "selectedItem": {
+                                "id": "internal",
+                                "type": "source"
+                            }
+                        },
+                        {
+                            "title": "Locale",
+                            "visible": true,
+                            "context": [{
+                                "self": "self"
+                            }],
+                            "typesCriterion": ["locale"],
+                            "fields": {
+                                "id": "id",
+                                "title": "id",
+                                "subtitle": "",
+                                "image": "",
+                                "icon": "",
+                                "value": ""
+                            },
+                            "selectedItem": {
+                                "id": "en-US",
+                                "type": "source"
                             }
                         }
-                    },
+                    ],
                     "rock-saved-searches": {
                         "config": {
                             "favourites": [{
