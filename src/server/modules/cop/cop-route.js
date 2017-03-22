@@ -12,6 +12,7 @@ const copService = new COPService(options);
 var COPRouter = function (app) {
     app.post('/cop/transform', async function (req, res) {
         var response = await copService.transform(req);
+        //console.log('cop response:', JSON.stringify(response, null, 2));
         res.status(200).send(response);
 
     });
