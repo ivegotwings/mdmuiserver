@@ -1751,12 +1751,12 @@ var allConfigs = {
                                             "isRelatedEntityAttribute": false
                                         },
                                         {
-                                            "header": "Descriptioin",
-                                            "name": "discription",
+                                            "header": "status",
+                                            "name": "status",
                                             "sortable": true,
                                             "filterable": false,
                                             "editType": "",
-                                            "isRelatedEntityAttribute": true
+                                            "isRelatedEntityAttribute": false
                                         }, {
                                             "header": "Display Name",
                                             "name": "displayname",
@@ -1768,10 +1768,10 @@ var allConfigs = {
                                     ]
                                 }
                             },
-                            "isChildOf": {
+                            "productPresentationToImage": {
                                 "viewMode": "Tabular",
                                 "mode": "Read",
-                                "title": "Is Child Of",
+                                "title": "Product Presentation To Image",
                                 "schemaType": "colModel",
                                 "statusEnabled": true,
                                 "tabular": {
