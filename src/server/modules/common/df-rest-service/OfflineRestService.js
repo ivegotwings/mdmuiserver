@@ -108,6 +108,9 @@ OfflineRestService.prototype = {
                         if(filteredObj != null) {
                             outputJson[responseObjName][outputCollectionName].push(filteredObj);
                         }
+                        else {
+                            console.log('item not found in offline-data for requested filterval:', filterVal);
+                        }
                     }
                     else {
                         outputJson[responseObjName][outputCollectionName] = collectionData;

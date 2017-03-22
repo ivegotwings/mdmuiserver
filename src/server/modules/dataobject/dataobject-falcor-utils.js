@@ -212,9 +212,9 @@ function _buildJsonDataResponse(jsonData, basePath) {
         return response;
     }
      
-    response.push(mergeAndCreatePath(basePath, $atom(jsonData)));
+    response.push(createPath(basePath, $atom(jsonData)));
 
-    //console.log('attr response: ', JSON.stringify(response));
+    //console.log('json data response: ', JSON.stringify(response));
     return response;
 }
 
@@ -237,14 +237,14 @@ function buildResponse(dataObject, reqData, basePath) {
         response.push.apply(response, _buildFieldsResponse(dataObject, reqData, basePath));
     }
 
-    if (!(isEmpty(reqData.attrNames) && isEmpty(reqData.relTypes))) {
+    if (!(isEmpty(reqData.attrNames) && isEmpty(reqData.relTypes) && reqData.operation != "getJsonData")) {
 
         if (isEmpty(dataObject.data)) { return response; }
 
         var data = dataObject.data;
     
         //add data level attrs, rels and props as self context item in falcor response..
-        if (data.attributes || data.relationships || data.properties) {
+        if (data.attributes || data.relationships || data.properties || data.jsonData) {
             var ctxInfo = sharedDataObjectFalcorUtil.getOrCreate(data, "ctxInfo", []);
 
             var selfCtxItem = {
@@ -288,7 +288,7 @@ function buildResponse(dataObject, reqData, basePath) {
                 }
             }
             
-            if(!isEmpty(ctxInfoItem.jsonData)) {
+            if(reqData.operation == "getJsonData" && !isEmpty(ctxInfoItem.jsonData)) {
                 var jsonDataBasePath = mergePathSets(ctxBasePath, ['jsonData']);
                 response.push.apply(response, _buildJsonDataResponse(ctxInfoItem.jsonData, jsonDataBasePath));
             }
