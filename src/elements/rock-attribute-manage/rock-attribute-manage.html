@@ -47,9 +47,7 @@ It is responsible to get and save the attributes.
                 position: fixed;
                 bottom: 0;
                 padding: 20px 0;
-                background: rgba(255, 255, 255, 0.80);
-                left: 48px;
-                right: 30%;
+                background: rgba(255, 255, 255, 0.80);                
                 display: none;
                 text-align: center;
                 border-top: 1px solid var(--default-border-color, #c1cad4);
@@ -61,7 +59,7 @@ It is responsible to get and save the attributes.
         <rock-attribute-list show-group-name$=[[showGroupName]] group-name="[[groupName]]" attribute-values="[[_attributeValues]]" attribute-models="[[_attributeModels]]"
             no-of-columns="[[noOfColumns]]" mode="{{mode}}" attribute-messages="{{_attributeMessages}}"></rock-attribute-list>
             <liquid-entity-data-get name="attributeGetDataService" operation="getbyids" request-data="{{_attributeRequest}}" last-response="{{_attributeResponse}}"></liquid-entity-data-get>
-            <liquid-entity-govern-data-get verbose id="attributeGetMessageService"  operation="getbyids" request-data={{_attributeMessageRequest}}  on-response="_onAttributesMessageReceived" on-error="_onEntityGetFailed"></liquid-entity-govern-data-get>
+            <liquid-entity-govern-data-get  id="attributeGetMessageService"  operation="getbyids" request-data={{_attributeMessageRequest}}  on-response="_onAttributesMessageReceived" on-error="_onEntityGetFailed"></liquid-entity-govern-data-get>
             <liquid-entity-data-save name="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}"
                 on-response="_onSaveResponse"></liquid-entity-data-save>
             <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{_attributeModelRequest}}"
@@ -247,9 +245,9 @@ It is responsible to get and save the attributes.
                      * JSON sample to be added here.
                      */
                     _attributeMessages: {
-                        type: Array,
+                        type: Object,
                         value: function () {
-                            return [];
+                            return {};
                         }
                     },
                     _configRequest: {
@@ -276,7 +274,7 @@ It is responsible to get and save the attributes.
                 },
                 observers: [
                     '_attributeResponseChanged(_attributeResponse)',
-                    '_contextChanged(context, list, entityType, source, classification)',
+                    '_contextChanged(context, list, entityType, source, classification, entityId)',
                     '_modeChanged(mode)'
                 ],
                 behaviors: [
@@ -371,17 +369,21 @@ It is responsible to get and save the attributes.
                             }
                         };
                         this.set("_attributeRequest", req);
+                        var messageReq=DataHelper.cloneObject(req);
+                        delete  messageReq.params.query.valCtx;
+                        this.set("_attributeMessageRequest", messageReq);
+                        var liquidGovernGet=this.$.attributeGetMessageService;
+                        if(liquidGovernGet) {
+                            liquidGovernGet.generateRequest();
+                        }
                         var liquidDataGet = this.$$("[name=attributeGetDataService]");
                         if(liquidDataGet) {
                             liquidDataGet.generateRequest();
                         }
-                        var messageReq=DataHelper.cloneObject(req);
-                        delete  messageReq.params.query.valCtx;
-                        this.set("_attributeMessageRequest", messageReq);
-                        this.$.attributeGetMessageService.generateRequest();
                     }
                 },
                 _onAttributesMessageReceived:function (e) {
+                    this._attributeMessages={};
                     var res=e.detail.response;
                     var values = [];
                     var dataContext = {
@@ -399,20 +401,22 @@ It is responsible to get and save the attributes.
                     var ctx = DataHelper.prepareCtx(dataContext);
                     var valCtx = DataHelper.prepareValCtx(dataContext);
                     var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, ctx);
+                    var attrMessages = {};
                     for(var i in attributes){
                         var messageCodes=this._getMessageCodes(attributes[i]);
                         var messages=this.getMessagesFromCodes(messageCodes);
-                        var attr={};
-                        attr[i]=messages;
-                        this.push('_attributeMessages',attr);
+                        if(messages && messages.length) {
+                            attrMessages[i] = messages;
+                        }
                     }
+                    this.set('_attributeMessages', attrMessages);
                 },
                 _getMessageCodes:function (attribute) {
                     var messageCodes=[];
                     var properties=attribute.properties;
-                    if(properties){
-                        var messages=properties.messages;
-                        for(var i in messages){
+                    if (properties) {
+                        var messages = properties.messages;
+                        for (var i in messages) {
                             messageCodes.push(messages[i].messageCode);
                         }
                     }
@@ -424,6 +428,8 @@ It is responsible to get and save the attributes.
                         var mes= this.messageCodeMapping[messageCodes[i]];
                         if(mes){
                             messages.push(mes);
+                        } else{
+                            messages.push("Error with Code: "+messageCodes[i])
                         }
                     }
                     return messages;
@@ -555,6 +561,10 @@ It is responsible to get and save the attributes.
                             'rock-attribute-list');
                         attributeList.resetChanged();
                         liquidGet.generateRequest();
+                    }
+                    var liquidGovernGet=this.$.attributeGetMessageService;
+                    if(liquidGovernGet) {
+                        liquidGovernGet.generateRequest();
                     }
                     mainApp.toastText = "Attribute Data saved successfully!!";
                     var toastElement = mainApp.$$("#pebbleAppToast");

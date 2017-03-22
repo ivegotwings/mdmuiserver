@@ -71,7 +71,9 @@ Custom property | Description | Default
         </style>
         <bedrock-pubsub event-name="on-tap-arrow-icon" handler="_onTapArrowIcon"></bedrock-pubsub>
         <pebble-collection-container label="[[label]]" values="{{values}}" is-readonly="[[isReadonly]]"  display-limit="[[displayLimit]]">
-            <pebble-lov id="lov" items="{{items}}" multi-select="[[multiSelect]]" no-sub-title="[[noSubTitle]]" show-action-buttons="[[showActionButtons]]" show-image="[[showImage]]"  show-color="[[showColor]]" on-selection-changed="_lovSelectionChanged">
+            <pebble-lov id="lov" data-source="{{dataSource}}" items="{{items}}" multi-select="[[multiSelect]]" no-sub-title="[[noSubTitle]]" 
+            show-action-buttons="[[showActionButtons]]" show-image="[[showImage]]"  show-color="[[showColor]]" 
+            selected-items="{{_lovSelectedItems}}" selected-item="{{_lovSelectedItem}}" on-selection-changed="_lovSelectionChanged">
             </pebble-lov>
         </pebble-collection-container>        
     </template>
@@ -170,12 +172,24 @@ Custom property | Description | Default
                             return [];
                         }
                     },
+                    selectedIds: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        },
+                        notify: true
+                    },
+                    selectedId: {
+                        type: String,
+                        value: "",
+                        notify: true
+                    },
 
                     /*
                      * Indicates the currently selected item when multiSelection is false.
                      * It indicates null if no item is selected.
                      */
-                    selectedItem: {
+                    _lovSelectedItem: {
                         type: Object,
                         value: function () {
                             return {};
@@ -186,14 +200,13 @@ Custom property | Description | Default
                     /*
                      * Indicates an array that contains the selected items when the  multiselection is true.
                      */
-                    selectedItems: {
+                    _lovSelectedItems: {
                         type: Array,
                         value: function () {
                             return [];
                         },
                         notify: true
                     }
-
                 },
 
                 behaviors: [
@@ -205,8 +218,8 @@ Custom property | Description | Default
                 },
 
                 observers: [
-                   '_onSelectedItemsChange(selectedItems)',
-                   '_onSelectedItemChange(selectedItem)', 
+                   '_onSelectedIdsChange(selectedIds)',
+                   '_onSelectedIdChange(selectedId)'
                 ],
 
                  _getCollectionContainer: function() {
@@ -242,18 +255,47 @@ Custom property | Description | Default
                     if(!this.multiSelect) {
                         this.splice('values',0,1);
                         var _color = e.detail.item.color ? e.detail.item.color : '#d2d7dd'; //If null apply default color
-                        this.add({"name": e.detail.item.title, "color": _color});
+                        this.add({"name": e.detail.item.id, "color": _color});
                         this._getCollectionContainer().closePopover();
+                        this.set('selectedId', e.detail.item.id);
                     } else {
                         var item = e.detail.item;
-                        if(this.selectedItems.indexOf(item) == -1) {
+                        if(this._lovSelectedItems.indexOf(item) == -1) {
+                            var indexToRemove = -1;
                             for(var i = 0; i < this.values.length; i++){
-                                if(this.values[i].name == item.title) {
-                                    this.splice('values', i, 1);
+                                if(this.values[i].name == item.id) {
+                                    indexToRemove = i;
                                 }
                             }
+                            if(indexToRemove > -1) {
+                                //this.splice('values', indexToRemove, 1);
+                                var _values = this.values;
+                                this.values = [];
+                                _values.splice(indexToRemove, 1);
+                                this.values = _values;
+                            }
+                            indexToRemove = -1;
+                            for(var i = 0; i < this.selectedIds.length; i++){
+                                if(this.selectedIds[i] == item.id) {
+                                    indexToRemove = i;
+                                }
+                            }
+                            if(indexToRemove > -1) {
+                                //this.splice('selectedIds', indexToRemove, 1);
+                                var _selectedIds = this.selectedIds;
+                                this.selectedIds = [];
+                                _selectedIds.splice(indexToRemove, 1);
+                                this.selectedIds = _selectedIds;
+                            }
                         } else {
-                            this.add({"name": item.title, "color": item.color});
+                            this.add({"name": item.id, "color": "#d2d7dd"});
+                            //this.push('selectedIds', item.id);
+                            //this.selectedIds = this._pushHack(this.selectedIds, item.id);
+                            //TODO: tried couple of things, see above... nothing worked!
+                            var _selectedIds = this.selectedIds;
+                            this.selectedIds = [];
+                            _selectedIds.push(item.id);
+                            this.selectedIds = _selectedIds;
                         }
                     };
                     this.fire('selection-changed');
@@ -261,36 +303,89 @@ Custom property | Description | Default
 
                 _tagItemRemoved:function (e,detail) {
                     if(!this.multiSelect) {
-                        this.selectedItem = {};
+                        this._lovSelectedItem = {};
+                        this.selectedId = "";
                     } else {
-                        for(var i = 0; i < this.selectedItems.length; i++) {
-                            if(this.selectedItems[i].title == detail.name) {
-                                this.splice('selectedItems', i, 1);
-                                var _selectedItems = this.selectedItems;
-                                this.selectedItems = [];
-                                this.selectedItems = _selectedItems;
+                        var indexToRemove = -1;
+                        for(var i = 0; i < this.selectedIds.length; i++) {
+                            if(this.selectedIds[i] == detail.name) {
+                                indexToRemove = i;
+                                break;
                             }
+                        }
+                        if(indexToRemove > -1) {
+                            this.splice('selectedIds', indexToRemove, 1);
+                            var _selectedIds = this.selectedIds;
+                            this.selectedIds = [];
+                            this.selectedIds = _selectedIds;
+                        }
+                        indexToRemove = -1;
+                        for(var i = 0; i < this._lovSelectedItems.length; i++) {
+                            if(this._lovSelectedItems[i].id == detail.name) {
+                                indexToRemove = i;
+                                break;
+                            }
+                        }
+                        if(indexToRemove > -1) {
+                            this.splice('selectedItems', indexToRemove, 1);
+                            var _selectedItems = this._lovSelectedItems;
+                            this._lovSelectedItems = [];
+                            this._lovSelectedItems = _selectedItems;
                         }
                     }
                 },
 
-                _onSelectedItemsChange: function(){
-                    this.$$('pebble-lov').selectedItems = [];
-                    this.$$('pebble-lov').selectedItems = this.selectedItems;
+                // _onSelectedItemsChange: function(){
+                //     this.$$('pebble-lov').selectedItems = [];
+                //     this.$$('pebble-lov').selectedItems = this._lovSelectedItems;
                     
-                    for(var i = 0; i < this.selectedItems.length; i++)
+                //     for(var i = 0; i < this._lovSelectedItems.length; i++)
+                //     {
+                //         //this.add({"name": this._lovSelectedItems[i], "color": "#d2d7dd"});
+                //         this.add({"name": this._lovSelectedItems[i].title, "color": this._lovSelectedItems[i].color});
+                //     }
+                // },
+
+                // _onSelectedItemChange: function(){                    
+                //     this.$$('pebble-lov').selectedItem = this._lovSelectedItem;
+
+                //     if(this._lovSelectedItem.title)
+                //     {
+                //         //this.add({"name": this._lovSelectedItems[i], "color": "#d2d7dd"});
+                //         this.add({"name": this._lovSelectedItem.title, "color": this._lovSelectedItem.color});
+                //     }
+                // },
+
+                 _onSelectedIdsChange: function(){
+
+                    var tempSelectedItems = [];
+                    for(var i = 0; i < this.selectedIds.length; i++)
                     {
-                        this.add({"name": this.selectedItems[i].title, "color": this.selectedItems[i].color});
+                        //this.add({"name": this._lovSelectedItems[i], "color": "#d2d7dd"});
+                        this.add({"name": this.selectedIds[i], "color": "#d2d7dd"});
+                        tempSelectedItems.push({ "id": this.selectedIds[i], "title": this.selectedIds[i]});
+                    }
+
+
+                    this._lovSelectedItems = [];
+                    this._lovSelectedItems = tempSelectedItems;
+                },
+
+                _onSelectedIdChange: function(){                    
+
+                    if(this.selectedId)
+                    {
+                        this.set('selectedItem', { "id": this.selectedId, "title": this.selectedId });
+                        //this.add({"name": this._lovSelectedItems[i], "color": "#d2d7dd"});
+                        this.add({"name": this.selectedId, "color": "#d2d7dd"});
                     }
                 },
 
-                _onSelectedItemChange: function(){                    
-                    this.$$('pebble-lov').selectedItem = this.selectedItem;
-
-                    if(this.selectedItem.title)
-                    {
-                        this.add({"name": this.selectedItem.title, "color": this.selectedItem.color});
-                    }
+                _pushHack: function(array, newItem) {
+                    var temp = array;
+                    array = [];
+                    temp.push(newItem);
+                    return temp;
                 }
             });
         })();
