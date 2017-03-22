@@ -35,6 +35,14 @@ var DataObjectRouterBase = Router.createClass([
         get: async (pathSet) => await resolver.getByIds(pathSet, "getRelAttrsByActual")
     },
     {
+        route: "root[{keys:dataIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].data.getContexts",
+        call: async (pathSet) => await resolver.getByIds(pathSet, "getContexts")
+    },
+    {
+        route: "root[{keys:dataIndexes}][{keys:dataObjectTypes}].byIds[{keys:dataObjectIds}].data.ctxInfo[{keys:ctxKeys}].jsonData",
+        get: async (pathSet) => await resolver.getByIds(pathSet, "getJsonData")
+    },
+    {
         route: "root[{keys:dataIndexes}][{keys:dataObjectTypes}].create",
         call: async (callPath, args) => await resolver.create(callPath, args, "create")
     },
