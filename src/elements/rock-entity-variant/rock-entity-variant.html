@@ -79,9 +79,10 @@
             }
         </style>
         <div class="container">
+            <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-response="_onCompositeModelGetResponse" exclude-in-progress></liquid-entity-model-composite-get>
             <liquid-config-get auto id="getManageAppConfig" operation="getconfigs" request-id="getManageAppConfig" request-data="{{_configRequest}}"
-                last-response="{{applicationConfig}}"></liquid-config-get>
-            <liquid-entity-data-get auto id="getTreeData" operation="getbyids" request-data="[[_getTreeRequest(entityId)]]" last-response="{{remoteTreeData}}">
+                               last-response="{{applicationConfig}}"></liquid-config-get>
+            <liquid-entity-data-get auto id="getTreeData" operation="getbyids" request-data="[[_getTreeRequest(entityId,entityType)]]" last-response="{{remoteTreeData}}">
             </liquid-entity-data-get>
             <liquid-entity-data-get id="getChildrenData" operation="getbyids" last-response="{{childrenData}}" on-response="_populateChildrenData">
             </liquid-entity-data-get>
@@ -95,15 +96,13 @@
                 <pebble-button class="btn btn-primary m-r-10 m-t-10 pull-right" button-text="Variant Configurator" on-tap="_openVariantDialog"></pebble-button>
                 <rock-business-function-dialog id="bFDialog" config="{{getConfig('rock-entity-variant', '', 'businessFunctionVariantsCreate', 'app-entity-manage')}}"></rock-business-function-dialog>
                 <div class="grid-container">
-                    <liquid-entity-get auto name="attributeModelGetService" request="{{attributeModelRequest}}" response="{{attributeModelResponse}}"></liquid-entity-get>
-                    <!--IE11 fix commented for now need to re-look at it-->
-                    <!--<template is="dom-if" if="[[_gridRequestAdded(gridRequest,gridConfig)]]">-->
+                    <template is="dom-if" if="[[_gridRequestAdded(gridRequest,gridConfig)]]">
                     <entity-variant-grid-datasource id="gridSource" request="[[gridRequest]]" total-records="{{totalRecords}}" current-record-size="{{size}}"
                         data-source="{{dataSource}}" data-formatter="{{dataFormatter}}"></entity-variant-grid-datasource>
                     <rock-grid id="grid" data-source="{{dataSource}}" data-source-id="gridSource" config="{{getConfig('rock-entity-variant', '', 'variantGridConfig', 'app-entity-manage')}}"
-                        page-size="10" record-size="{{totalRecords}}" grid-data-size="{{size}}" attribute-models="[[attributeModelResponse.returnValue.attributeModels]]"></rock-grid>
+                        page-size="15" record-size="{{totalRecords}}" grid-data-size="{{size}}" attribute-models="[[_attributeModels]]"></rock-grid>
                     <bedrock-pubsub event-name="grid-edit-item" handler="_onGridEdit" target-id="grid"></bedrock-pubsub>
-                    <!--</template>-->
+                    </template>
                 </div>
                 <div class="action-container" hidden="[[!isEditMode]]">
                     <pebble-button class="pageRange btn btn-secondary" button-text="Cancel" on-tap="_cancelAction" noink raised></pebble-button>
@@ -222,9 +221,7 @@
                     attributeModelRequest: {
                         type: Object,
                         value: function () {
-                            return {
-                                action: "getAttributeModels"
-                            };
+                            return {};
                         }
                     },
                     /**
@@ -240,10 +237,8 @@
 
                     variantConfig: {
                         type: Object,
-                        value: function () { return {}; },
                         computed: "getConfig('rock-entity-variant', '', 'variantDefinitionUI', 'app-entity-manage')"
                     },
-
                     _configRequest: {
                         type: Object,
                         value: function () {
@@ -266,6 +261,7 @@
                     RUFBehaviors.UIBehavior
                 ],
                 observers: [
+                    '_onGridConfigChange(gridConfig,entityType)',
                     '_editModeChanged(gridConfig.mode)'
                 ],
                 listeners: {
@@ -320,7 +316,7 @@
                 _treeNodeExpanded: function (e) {
                     this.parent = e.detail;
                     if (!this.parent.nodeData.children || this.parent.nodeData.children.length == 0) {
-                        this._getChildren(e.detail.nodeData.value);
+                        this._getChildren(e.detail.nodeData.value,e.detail.nodeData.type);
                     }
                 },
 
@@ -340,7 +336,11 @@
                                 "valCtx": [
                                     { "locale": this.locale, "source": this.source }
                                 ],
-                                "ids": []
+                                "ids": [],
+                                "filters": {
+                                    "attributesCriterion": [],
+                                    "typesCriterion": []
+                                }
                             },
                             "fields": {
                                 "ctxTypes": [
@@ -359,19 +359,22 @@
                         req.params.query.ids = [];
                         this.selectedItems.forEach(function (item) {
                             req.params.query.ids.push(item.value);
+                            req.params.query.filters.typesCriterion.push(item.type);
                         });
                     }
                     if (this.indeterminateItems && this.indeterminateItems.length > 0) {
                         this.indeterminateItems.forEach(function (item) {
                             req.params.query.ids.push(item.value);
+                            req.params.query.filters.typesCriterion.push(item.type);
                         });
                     }
                     if (req.params.query.ids.length == 0) {
                         req.params.query.ids = [""];
                     }
-                    this.gridConfig.tabular.columns.forEach(function (column) {
-                        req.params.fields.attributes.push(column.name);
-                    });
+                    req.params.fields.attributes=this.gridConfig.dataRequest.attributes;
+//                    this.gridConfig.tabular.columns.forEach(function (column) {
+//                        req.params.fields.attributes.push(column.name);
+//                    });
                     return req;
                 },
                 _selectedItemsChanged: function () {
@@ -442,7 +445,13 @@
                                 "valCtx": [
                                     { "locale": this.locale, "source": this.source }
                                 ],
-                                "id": id
+                                "id": id,
+                                "filters": {
+                                    "attributesCriterion": [],
+                                    "typesCriterion": [
+                                        type
+                                    ]
+                                }
                             },
                             "fields": {
                                 "ctxTypes": [
@@ -452,7 +461,7 @@
                                     "isChildOf"
                                 ],
                                 relatedEntityAttributes: [
-                                    this.gridConfig.dataRequest.relatedEntityAttributes
+
                                 ]
                             },
                             "options": {
@@ -493,6 +502,7 @@
                                         relatedEntity["value"] = relationshipEntity.relTo.id;
                                         //TODO if entity name is present in data text should be entity name and not entity id
                                         relatedEntity["text"] = relationshipEntity.relTo.id;
+                                        relatedEntity["type"] = relationshipEntity.relTo.entityInfo.entityType;
                                         data.push(relatedEntity);
                                     }
                                 });
@@ -524,7 +534,7 @@
                             var entities = respData.content.entities;
                             var entity = entities[0];
                             var entityId = entity.id;
-                            treeData = [{ "text": entityId, "value": entityId, children: [] }];
+                            treeData = [{ "text": entityId, "value": entityId,"type": this.entityType, children: [] }];
                             var data = this._getRelatedEntitiesData(entity);
                             treeData[0].children = data;
                         }
@@ -577,7 +587,7 @@
                                 "locale": this.locale
                             };
 
-                            DataHelper.transformEntitySchemaForGrid(entities, this.attributeModelResponse.returnValue.attributeModels, dataContext);
+                            DataHelper.transformEntitySchemaForGrid(entities, this._attributeModels, dataContext);
                         }
                     }
                     
@@ -598,6 +608,49 @@
                         "entity-type": this.entityType,
                     };
                     this.$$("#bFDialog").open();
+                },
+                _onGridConfigChange: function () {
+                    if (!(this.gridConfig && this.gridConfig.dataRequest)) {
+                        return;
+                    }
+                    var attrNames = this.gridConfig.dataRequest.attributes;
+                    var req = {
+                        "params": {
+                            "query": {
+                                "ctx": [
+                                    {
+                                        "list": this.list,
+                                        "classification": this.classification
+                                    }
+                                ],
+                                filters:{
+                                    "typesCriterion":[this.entityType]
+                                },
+                                "locale": this.locale,
+                                "name": this.entityType
+                            },
+                            "fields": {
+                                "ctxTypes": [
+                                    "properties"
+                                ],
+                                "attributes": attrNames
+                            }
+                        }
+                    };
+                    this.set("attributeModelRequest", req);
+                    var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
+                    if (liquidModelGet) {
+                        liquidModelGet.generateRequest();
+                    }
+                },
+                _onCompositeModelGetResponse: function (e) {
+                    if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+                        var ctx = {
+                            "list": this.list,
+                            "classification": this.classification
+                        };
+                        this._attributeModels = DataHelper.transformAttributeModelsToUIFormat(e.detail.response.content.entityModels[0], ctx);
+                    }
                 }
             })
         })();
