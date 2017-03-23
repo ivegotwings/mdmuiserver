@@ -1,4 +1,7 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+
 <link rel="import" href="../liquid-base-falcor-behavior/liquid-base-falcor-behavior.html">
 <link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
 <!--
@@ -30,7 +33,7 @@
             _pathKeys: {
                 type: Object,
                 value: function () {
-                    return this._getDataObjectPathKeys();
+                    return this._getPathKeys();
                 }
             }
         },
@@ -140,183 +143,40 @@
             return true;
         },
         _callGetByIds: function (model, request, basePath) {
-            var reqData = request.requestData,
-                dataObjectIds = [];
+            var reqData = request.requestData;
 
             var utils = SharedUtils.DataObjectFalcorUtil;
 
-            if (reqData === undefined || reqData.params === undefined) {
-                return;
-            }
-
-            if ((!dataObjectIds || dataObjectIds.length == 0)) {
-                if (reqData.params && reqData.params.query && (reqData.params.query.id || reqData.params.query.ids)) {
-                    if (reqData.params.query.id) {
-                        dataObjectIds.push(reqData.params.query.id);
-                    } else if (reqData.params.query.ids) {
-                        dataObjectIds.push.apply(dataObjectIds, reqData.params.query.ids);
-                    }
-                }
-                else if (reqData.params && reqData.params.query && reqData.params.query.name) {
-                    if (reqData.params.query.filters && reqData.params.query.filters.typesCriterion) {
-                        var types = reqData.params.query.filters.typesCriterion;
-                        for(var i = 0; i < types.length; i++) {
-                            var type = types[i];
-                            var smartId = reqData.params.query.name + "_" + type;
-                            dataObjectIds.push(smartId);
-                        }
-                    }
-                }
-            }
-
-            if (this.verbose) {
-                this.log('Request for get data objects call...request: ', reqData, ' ...dataObjectIds: ', dataObjectIds, ' ...base path: ', basePath);
-            }
-
-            if (!basePath && (!dataObjectIds || dataObjectIds.length == 0)) {
-                throw "Cannot find dataObjectIds for get request";
-                return;
-            }
+            basePath = this._getDataObjectBasePath(reqData, basePath);
 
             var paths = [];
             var pathKeys = this._pathKeys;
             var dataIndex = this.dataIndex;
             var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
-            var dataObjectTypes = this._getDataObjectTypes(reqData);
-
-            basePath = basePath === undefined ? [pathKeys.root, dataIndex, dataObjectTypes, pathKeys.byIds, dataObjectIds] : basePath;
-
+            
             var dataObjectFields = ['id', 'name', 'version', dataIndexInfo.typeInfo, 'properties'];
 
             var dataObjectFieldsPath = this._mergePathSets(basePath, [dataObjectFields]);
             paths.push(dataObjectFieldsPath);
 
-            var clonedCtx = [];
-
-            if(reqData.params && reqData.params.query && reqData.params.query.ctx && reqData.params.query.ctx.length > 0) {
-                clonedCtx = utils.cloneObject(reqData.params.query.ctx);
-            }
-            
-            clonedCtx.push(utils.getSelfCtx());
-
-            var ctxKeys = utils.createCtxKeys(clonedCtx);
+            var ctxKeys = this._getCtxKeys(reqData);
             var valCtxKeys = utils.createCtxKeys(reqData.params.query.valCtx);
 
-            var attrDetailPath = ['valCtxInfo', valCtxKeys, ['values', 'group', 'properties']];
-
-            var attrs = [];
-
-            if (reqData.params.fields.attributes !== undefined && reqData.params.fields.attributes.length > 0) {
-                attrs.push.apply(attrs, reqData.params.fields.attributes);
+            var attributesPath = this._getAttributesPath(reqData, basePath, ctxKeys, valCtxKeys);
+            if(attributesPath) {
+                paths.push(attributesPath);
             }
 
-            // TODO:: how to solve this hack..
-            if (dataIndex == "entityModel") {
-                attrs.push('properties'); /// get ctx level properties as attribute named 'properties'.. this is cheating..
-            }
-
-            this._arrayRemove(attrs, '_ALL'); //TODO: Fix this once we have logic to resolve ALL...
-
-            if (attrs.length > 0) {
-                var path2 = this._mergePathSets(basePath, ['data', 'ctxInfo', ctxKeys, 'attributes', attrs], attrDetailPath);
-                paths.push(path2);
+            var jsonDataPath = this._getJsonDataPath(reqData, basePath, ctxKeys);
+            if(jsonDataPath) {
+                paths.push(jsonDataPath);
             }
 
             var relTypes = reqData.params.fields.relationships === undefined ? [] : reqData.params.fields.relationships;
-            this._arrayRemove(relTypes, '_ALL'); //TODO: Fix this once we have logic to resolve ALL...
+            DataHelper.arrayRemove(relTypes, '_ALL'); //TODO: Fix this once we have logic to resolve ALL...
 
             if (relTypes.length > 0) {
-                var relAttrNames = reqData.params.fields.relationshipAttributes === undefined ? [] : reqData.params.fields.relationshipAttributes;
-                this._arrayRemove(relAttrNames, '_ALL'); //TODO: Fix this once we have logic to resolve ALL...
-
-                var relatedDataObjectAttrs = reqData.params.fields.relatedEntityAttributes === undefined ? [] : reqData.params.fields.relatedEntityAttributes;
-                this._arrayRemove(relatedDataObjectAttrs, '_ALL'); //TODO: Fix this once we have logic to resolve ALL...
-
-                var relIdCreatePath = this._mergePathSets(basePath, ['data', 'ctxInfo', ctxKeys, 'relationships', relTypes, 'relIds']);
-
-                var relAttrsPath = [];
-                if (relAttrNames.length > 0) {
-                    var relAttrsPath = this._mergePathSets(['attributes', relAttrNames], attrDetailPath);
-                }
-
-                var relToObjectPath_Fields = this._mergePathSets(['relTo'], [dataObjectFields]);
-
-                var relToObjectPath_Attrs = [];
-                if (relatedDataObjectAttrs.length > 0)
-                    relToObjectPath_Attrs = this._mergePathSets(['relTo', 'data', 'ctxInfo', ctxKeys, 'attributes', relatedDataObjectAttrs], attrDetailPath);
-
-                var relFieldsPath = [['id', 'direction', 'operation', 'source', 'alias', 'properties']];
-
-                var self = this;
-                model.get(relIdCreatePath).then(function (responsePkg) {
-                    //this.log('rel get call res ', JSON.stringify(responsePkg, null, 4));
-
-                    var relDetailGetPaths = [];
-
-                    if (responsePkg !== undefined) {
-                        for (var dataObjectIdIdx in dataObjectIds) {
-                            var dataObjectId = dataObjectIds[dataObjectIdIdx];
-                            var responseDataObjects = self._getDataObjects(responsePkg, self.dataIndex);
-
-                            for (var ctxKeyIdx in ctxKeys) {
-                                var ctxKey = ctxKeys[ctxKeyIdx];
-                                for (var relTypeIdx in relTypes) {
-                                    var relType = relTypes[relTypeIdx];
-                                    var relIds = utils.getNestedObject(responseDataObjects[dataObjectId], ['data', 'ctxInfo', ctxKey, 'relationships', relType, 'relIds']);
-
-                                    if (!relIds) {
-                                        continue;
-                                    }
-
-                                    var from = reqData.params.options && reqData.params.options.from !== undefined ? reqData.params.options.from : 0;
-                                    var to = reqData.params.options && reqData.params.options.to !== undefined ? reqData.params.options.to : relIds.length - 1;
-
-                                    if (from == -1) {
-                                        from = 0;
-                                    }
-                                    else if (from >= relIds.length) {
-                                        from = -1;
-                                    }
-
-                                    if (to >= relIds.length) {
-                                        to = relIds.length - 1;
-                                    }
-
-                                    if (from != -1) {
-                                        var filteredRelIds = relIds.slice(from, to + 1);
-                                        var relBasePath = self._mergePathSets(basePath, ['data', 'ctxInfo', ctxKey, 'relationships', relType, 'rels', filteredRelIds]);
-
-                                        //must have paths for eachrel..rel fields and relTo with only fields..
-                                        relDetailGetPaths.push(self._mergePathSets(relBasePath, relFieldsPath));
-                                        relDetailGetPaths.push(self._mergePathSets(relBasePath, relToObjectPath_Fields));
-
-                                        //rel attrs..only if requested...
-                                        if (relAttrsPath.length > 0) {
-                                            relDetailGetPaths.push(self._mergePathSets(relBasePath, relAttrsPath));
-                                        }
-
-                                        //related entity attrs..only if requested...
-                                        if (relToObjectPath_Attrs.length > 0) {
-                                            relDetailGetPaths.push(self._mergePathSets(relBasePath, relToObjectPath_Attrs));
-                                        }
-                                    }
-                                    else {
-                                        throw "requested range is not available for relationships";
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if (relDetailGetPaths.length > 0) {
-                        paths.push.apply(paths, relDetailGetPaths);
-                    }
-
-                    if (paths.length > 0) {
-                        var getWithRelResponsePromise = self._makeFalcorGetCall(model, paths);
-                        return self._handleModelResponse(request, getWithRelResponsePromise);
-                    }
-                });
+                return this._callGetRelationships(model, paths, request, basePath, ctxKeys, valCtxKeys, relTypes, dataObjectFields);
             }
             else {
                 return this._makeFalcorGetCall(model, paths);
@@ -396,6 +256,55 @@
             var pathKeys = this._pathKeys;
             return model.get([pathKeys.root, this.dataIndex, pathKeys.searchResults, reqId, pathKeys.searchResultItems, [{ 'from': from, 'to': to }]]);
         },
+        _callGetRelationships: function (model, paths, request, basePath, ctxKeys, valCtxKeys, relTypes, dataObjectFields) {
+            var reqData = request.requestData;
+
+            var relAttrNames = reqData.params.fields.relationshipAttributes === undefined ? [] : reqData.params.fields.relationshipAttributes;
+            
+            DataHelper.arrayRemove(relAttrNames, '_ALL'); //TODO: Fix this once we have logic to resolve ALL...
+
+            var relatedDataObjectAttrs = reqData.params.fields.relatedEntityAttributes === undefined ? [] : reqData.params.fields.relatedEntityAttributes;
+            DataHelper.arrayRemove(relatedDataObjectAttrs, '_ALL'); //TODO: Fix this once we have logic to resolve ALL...
+
+            var relIdCreatePath = this._mergePathSets(basePath, ['data', 'ctxInfo', ctxKeys, 'relationships', relTypes, 'relIds']);
+
+            var attrDetailPath = this._getAttributeDetailPath(valCtxKeys);
+
+            var relAttrsPath = [];
+            if (relAttrNames.length > 0) {
+                var relAttrsPath = this._mergePathSets(['attributes', relAttrNames], attrDetailPath);
+            }
+
+            var relToObjectPath_Fields = this._mergePathSets(['relTo'], [dataObjectFields]);
+
+            var relToObjectPath_Attrs = [];
+            if (relatedDataObjectAttrs.length > 0)
+                relToObjectPath_Attrs = this._mergePathSets(['relTo', 'data', 'ctxInfo', ctxKeys, 'attributes', relatedDataObjectAttrs], attrDetailPath);
+
+            var self = this;
+            
+            model.get(relIdCreatePath).then(function (responsePkg) {
+                //this.log('rel get call res ', JSON.stringify(responsePkg, null, 4));
+
+                if(responsePkg !== undefined) {
+                    var relDetailGetPaths = self._getRelationshipDetailPaths(responsePkg, self, reqData, basePath, ctxKeys, valCtxKeys, relTypes, relAttrsPath, relToObjectPath_Fields, relToObjectPath_Attrs);
+
+                    if (relDetailGetPaths.length > 0) {
+                        paths.push.apply(paths, relDetailGetPaths);
+                    }
+                }
+                
+                if (paths.length > 0) {
+                    var getWithRelResponsePromise = self._makeFalcorGetCall(model, paths);
+                    return self._handleModelResponse(request, getWithRelResponsePromise);
+                }
+                else {
+                    return {}; // no falcor call needed..
+                }
+            });
+
+            return {};
+        },
         _formatData: function (dataIndex, dataObjects) {
             var utils = SharedUtils.DataObjectFalcorUtil;
             var formattedDataObjects = [];
@@ -407,6 +316,157 @@
             }
 
             return formattedDataObjects;
+        },
+        _getDataObjectBasePath: function(reqData, basePath) {
+            var dataObjectIds = [];
+            var utils = SharedUtils.DataObjectFalcorUtil;
+
+            if (reqData === undefined || reqData.params === undefined) {
+                return;
+            }
+
+            if (basePath === undefined) {
+                if (reqData.params && reqData.params.query && (reqData.params.query.id || reqData.params.query.ids)) {
+                    if (reqData.params.query.id) {
+                        dataObjectIds.push(reqData.params.query.id);
+                    } else if (reqData.params.query.ids) {
+                        dataObjectIds.push.apply(dataObjectIds, reqData.params.query.ids);
+                    }
+                }
+                else if (reqData.params && reqData.params.query && reqData.params.query.name) {
+                    if (reqData.params.query.filters && reqData.params.query.filters.typesCriterion) {
+                        var types = reqData.params.query.filters.typesCriterion;
+                        for(var i = 0; i < types.length; i++) {
+                            var type = types[i];
+                            var smartId = reqData.params.query.name + "_" + type;
+                            dataObjectIds.push(smartId);
+                        }
+                    }
+                }
+            }
+
+            if (this.verbose) {
+                this.log('Request for get data objects call...request: ', reqData, ' ...dataObjectIds: ', dataObjectIds, ' ...base path: ', basePath);
+            }
+
+            var dataObjectTypes = this._getDataObjectTypes(reqData);
+            basePath = basePath === undefined ? [pathKeys.root, this.dataIndex, dataObjectTypes, this._pathKeys.byIds, dataObjectIds] : basePath;
+
+            return basePath;
+        },
+        _getCtxKeys: function (reqData) {
+            var clonedCtx = [];
+
+            var utils = SharedUtils.DataObjectFalcorUtil;
+
+            if(reqData.params && reqData.params.query && reqData.params.query.ctx && reqData.params.query.ctx.length > 0) {
+                clonedCtx = utils.cloneObject(reqData.params.query.ctx);
+            }
+            
+            clonedCtx.push(utils.getSelfCtx());
+
+            return utils.createCtxKeys(clonedCtx);
+        },
+        _getAttributesPath: function(reqData, basePath, ctxKeys, valCtxKeys) {
+
+            var attributesPath = undefined;
+
+            var attrDetailPath = attrDetailPath = this._getAttributeDetailPath(valCtxKeys);
+            
+            var attrs = [];
+
+            if (reqData.params.fields.attributes !== undefined && reqData.params.fields.attributes.length > 0) {
+                attrs.push.apply(attrs, reqData.params.fields.attributes);
+            }
+
+            // TODO:: how to solve this hack..
+            if (this.dataIndex == "entityModel") {
+                attrs.push('properties'); /// get ctx level properties as attribute named 'properties'.. this is cheating..
+            }
+
+            DataHelper.arrayRemove(attrs, '_ALL'); //TODO: Fix this once we have logic to resolve ALL...
+
+            if (attrs.length > 0) {
+                attributesPath = this._mergePathSets(basePath, ['data', 'ctxInfo', ctxKeys, 'attributes', attrs], attrDetailPath);
+            }
+
+            return attributesPath;
+        },
+        _getJsonDataPath: function(reqData, basePath, ctxKeys) {
+            if (reqData.params.fields.jsonData) {
+                return this._mergePathSets(basePath, ['data', 'ctxInfo', ctxKeys], ['jsonData']);
+            }
+            else {
+                return undefined;
+            }
+        },
+        _getAttributeDetailPath: function(valCtxKeys) {
+            return ['valCtxInfo', valCtxKeys, ['values', 'group', 'properties']];
+        },
+        _getRelationshipDetailPaths: function(relIdsResponsePkg, self, reqData, basePath, ctxKeys, valCtxKeys, relTypes, relAttrsPath, relToObjectPath_Fields, relToObjectPath_Attrs) {
+            var relDetailGetPaths = [];
+
+            var utils = SharedUtils.DataObjectFalcorUtil;
+
+            var relFieldsPath = [['id', 'direction', 'operation', 'source', 'alias', 'properties']];
+
+            if (relIdsResponsePkg !== undefined) {
+                var resDataObjects = self._getDataObjects(relIdsResponsePkg, self.dataIndex);
+
+                for (var dataObjectIdIdx in resDataObjects) {
+                    var resDataObject = resDataObjects[dataObjectIdIdx];
+                    
+                    for (var ctxKeyIdx in ctxKeys) {
+                        var ctxKey = ctxKeys[ctxKeyIdx];
+                        for (var relTypeIdx in relTypes) {
+                            var relType = relTypes[relTypeIdx];
+                            var relIds = utils.getNestedObject(resDataObject, ['data', 'ctxInfo', ctxKey, 'relationships', relType, 'relIds']);
+
+                            if (!relIds) {
+                                continue;
+                            }
+
+                            var from = reqData.params.options && reqData.params.options.from !== undefined ? reqData.params.options.from : 0;
+                            var to = reqData.params.options && reqData.params.options.to !== undefined ? reqData.params.options.to : relIds.length - 1;
+
+                            if (from == -1) {
+                                from = 0;
+                            }
+                            else if (from >= relIds.length) {
+                                from = -1;
+                            }
+
+                            if (to >= relIds.length) {
+                                to = relIds.length - 1;
+                            }
+
+                            if (from != -1) {
+                                var filteredRelIds = relIds.slice(from, to + 1);
+                                var relBasePath = self._mergePathSets(basePath, ['data', 'ctxInfo', ctxKey, 'relationships', relType, 'rels', filteredRelIds]);
+
+                                //must have paths for eachrel..rel fields and relTo with only fields..
+                                relDetailGetPaths.push(self._mergePathSets(relBasePath, relFieldsPath));
+                                relDetailGetPaths.push(self._mergePathSets(relBasePath, relToObjectPath_Fields));
+
+                                //rel attrs..only if requested...
+                                if (relAttrsPath.length > 0) {
+                                    relDetailGetPaths.push(self._mergePathSets(relBasePath, relAttrsPath));
+                                }
+
+                                //related entity attrs..only if requested...
+                                if (relToObjectPath_Attrs.length > 0) {
+                                    relDetailGetPaths.push(self._mergePathSets(relBasePath, relToObjectPath_Attrs));
+                                }
+                            }
+                            else {
+                                throw "requested range is not available for relationships";
+                            }
+                        }
+                    }
+                }
+            }
+
+            return relDetailGetPaths;
         },
         _getDataObjectTypes: function (reqData) {
             var dataObjectTypes = [];
@@ -446,17 +506,7 @@
         _makeFalcorGetCall: function (model, paths) {
             return model.get.apply(model, paths);
         },
-        _arrayRemove: function (arr, val) {
-            var index = -1;
-
-            index = arr.indexOf(val);
-
-            while (index >= 0) {
-                arr.splice(index, 1);
-                index = arr.indexOf(val);
-            }
-        },
-        _getDataObjectPathKeys: function () {
+        _getPathKeys: function () {
             return SharedUtils.DataObjectFalcorUtil.getPathKeys();
         },
         log: function () {
