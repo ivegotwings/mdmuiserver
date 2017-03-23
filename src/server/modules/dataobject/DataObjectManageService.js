@@ -32,7 +32,7 @@ DataObjectManageService.prototype = {
         };
 
         if(request.dataIndex == "entityData") {
-            return "entitymanageservice";
+            return "entityservice";
         }
         else if(request.dataIndex == "entityGovernData") {
             return "entitygovernservice";
@@ -41,10 +41,10 @@ DataObjectManageService.prototype = {
             return "entitymodelservice";
         }
          else if(request.dataIndex == "config") {
-            return "configservice";
+            return "configurationservice";
         }
         else {
-            return "entitymanageservice";
+            return "entityservice";
         }
     }
 };
