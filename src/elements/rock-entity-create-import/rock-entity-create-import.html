@@ -1,0 +1,386 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+
+<link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
+<link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
+
+<link rel="import" href="../rock-grid/rock-grid.html">
+
+<link rel="import" href="../pebble-file-upload/pebble-file-upload.html">
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../pebble-icons/pebble-icons.html">
+<link rel="import" href="../pebble-icon/pebble-icon.html">
+<dom-module id="rock-entity-create-import">
+    <template>
+        <style include="pebble-styles-shared">
+            .placeHolder {
+                width: 880px;
+                height: 400px;
+                margin: 0 auto;
+                box-shadow: 0 0 10px 0 var(--cloudy-blue-color, #c1cad4);
+                position: relative;
+            }
+            
+            #multiEntityUpperGrid::shadow iron-data-table {
+                height: 135px;
+            }
+            
+            #upperGridHeader {
+                font-size: 12px;
+                margin: 10px;
+            }
+        </style>
+        <div id="content-entity-import" hidden>
+            <div class="placeHolder p-10">
+                <p class="title">Download a system template or just upload an existing data file</p>
+                <!-- screen for import -->
+                <pebble-file-upload accept="application/msword, application/vnd.ms-excel, application/vnd.ms-powerpoint,
+                    text/plain, application/pdf, image/*" target="/file-upload"></pebble-file-upload>
+                <bedrock-pubsub on-bedrock-event-pebble-file-upload-success="_onFileUploadSuccess"></bedrock-pubsub>
+            </div>
+        </div>
+        <div id="content-multiple-entity" hidden>
+            <!-- screen for multi entity create function- probably grid -->
+            <iron-ajax auto url="config\gridConfig.json" handle-as="json" last-response="{{_gridConfig}}"></iron-ajax>
+            <div id="upperGridHeader"><b>[[attributeNames.length]] Attributes</b> ([[_managedAttrs]] Managed, [[_mappedAttrs]] Mapped, [[_newAttrs]]
+                New). Last Updated on <b>[[_currentDateTime.date]]</b> at <b>[[_currentDateTime.time]]</b></div>
+            <rock-grid id="multiEntityUpperGrid" page-size="2" no-header></rock-grid>
+            <bedrock-pubsub on-bedrock-event-save-item="_onSaveItem"></bedrock-pubsub>
+        </div>
+    </template>
+     <script>
+            (function () {
+                'use strict';
+
+                Polymer({
+                    is: "rock-entity-create-import",
+
+                    properties: {
+                        /**
+                         * Indicates the names of the attributes that are rendered while creating a single entity.
+                         */
+                        attributeNames: {
+                            type: Array,
+                            value: function() {
+                                return [];
+                            }
+                        },
+                        /**
+                         * Indicates the mode in which the attributes are rendered.
+                         */
+                        mode: {
+                            type: String,
+                            value: "edit",
+                            notify: true
+                        },
+                        /**
+                         * Specifies the request object for attribute model request.
+                         */
+                        attributeModelRequest: {
+                            type: Object,
+                            value: function() {
+                                return {};
+                            }
+                        },
+                        /**
+                         * Specifies the response object for attribute models.
+                         */
+                        attributeModelResponse: {
+                            type: Object,
+                            value: function() {
+                                return {};
+                            }
+                        },
+                        /**
+                         * Specifies the source in which entity has to be created.
+                         */
+                        source: {
+                            type: String
+                        },
+                        /**
+                         * Specifies the locale in which entity has to be created.
+                         */
+                        locale: {
+                            type: String
+                        },
+                        /**
+                         * Specifies the list in which entity has to be created.
+                         */
+                        list: {
+                            type: String
+                        },
+                        /**
+                         * Specifies the classification in which entity has to be created.
+                         */
+                        classification: {
+                            type: String
+                        },
+                        /**
+                         * Specifies the type of the entity to be created.
+                         */
+                        entityType: {
+                            type: String
+                        },
+                        context: {
+                            type: Object,
+                            value: function() {
+                                return {};
+                            }
+                        },
+                        _attributeValues: {
+                            type: Array,
+                            value: function() {
+                                return [];
+                            }
+                        },
+                        _gridConfig: {
+                            type: Object,
+                            value: function() {
+                                return {};
+                            }
+                        },
+                        _gridData: {
+                            type: Array,
+                            value: function() {
+                                return [];
+                            }
+                        },
+                        _managedAttrs: {
+                            type: Number,
+                            value: 0
+                        },
+                        _mappedAttrs: {
+                            type: Number,
+                            value: 0
+                        },
+                        _newAttrs: {
+                            type: Number,
+                            value: 0
+                        },
+                        _currentDateTime: {
+                            type: Object,
+                            value: function() {
+                                return {};
+                            }
+                        },
+                        context: {
+                            type: Object,
+                            value: function() {
+                                return {};
+                            }
+                        }
+                    },
+                    observers: [
+                        '_contextChanged(attributeNames, context)'
+                    ],
+                    behaviors: [
+                        RUFBehaviors.UIBehavior
+                    ],
+                    ready: function() {
+                        this._prepareContext();
+                        this._showView("entity-import");
+                    },
+                    _prepareContext: function() {
+                        this.source = DataHelper.getParamValue("source");
+                        this.locale = DataHelper.getParamValue("locale");
+                        this.list = DataHelper.getParamValue("list");
+                        this.classification = DataHelper.getParamValue("classification");
+                        this.entityType = DataHelper.getParamValue("entityType");
+                        var context = {
+                            "list": this.list,
+                            "source": this.source,
+                            "locale": this.locale,
+                            "classification": this.classification,
+                            "entityType": this.entityType
+                        };
+                        this.set("context", context);
+                    },
+                    _getCurrentCtx: function() {
+                        var ctxItem = {};
+                        ctxItem.list = this.list;
+                        ctxItem.classification = this.classification;
+                        return ctxItem;
+                    },
+                    _contextChanged: function(attributeNames, context) {
+                        if (attributeNames && attributeNames.length > 0) {
+                            var ctxGroup = this._getCurrentCtx();
+                            var t = {
+                                "params": {
+                                    "query": {
+                                        "ctx": [
+                                            ctxGroup
+                                        ],
+                                        "locale": this.locale,
+                                        "name": this.entityType
+                                    },
+                                    "fields": {
+                                        "ctxTypes": [
+                                            "properties"
+                                        ],
+                                        "attributes": attributeNames
+                                    }
+                                }
+                            };
+                            this.set("attributeModelRequest", t);
+                            var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
+                            if (liquidModelGet) {
+                                liquidModelGet.generateRequest();
+                            }
+                        }
+                    },
+                    _onCompositeModelGetResponse: function(e) {
+                        var values = [];
+
+                        if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+
+                            var valCtx = {
+                                "locale": this.locale,
+                                "source": this.source
+                            };
+
+                            var ctxGroup = this._getCurrentCtx();
+                            this._attributeModels = DataHelper.transformAttributeModelsToUIFormat(e.detail.response.content.entityModels[0], ctxGroup);
+                            values = DataHelper.transformAttributesToManageFormat({}, this._attributeModels, valCtx);
+                        }
+                        this._attributeValues = values;
+                    },
+                     _showView: function(viewName) {
+                        if (viewName) {
+                            var contentView = this.$$("#content-" + viewName);
+                            if (contentView) {
+                                contentView.removeAttribute("hidden");
+                            }
+                        }
+                    },
+
+                    _hideView: function(viewName) {
+                        if (viewName) {
+                            var contentView = this.$$("#content-" + viewName);
+                            if (contentView) {
+                                contentView.setAttribute("hidden", "");
+                            }
+                        }
+                    },
+                    _populateMultiEntityUpperGrid: function() {
+                        //Fetch the attributes from COP and pass to this.attributeNames
+                        //Based on attributeNames change, attributeModelRequest will be set
+                        //Using attributeModelGetServiceFetch, attribute models will be provided
+
+                        //Prepare grid configuration and data based on COP and Liquid details                    
+                        this._prepareMultiEntityUpperGridConfiguration();
+                        this._prepareMultiEntityUpperGridData();
+                        this._prepareUpperGridHeader();
+
+                        //Set config and data to grid
+                        this.$$('#multiEntityUpperGrid').config = this._gridConfig;
+                        this.$$('#multiEntityUpperGrid').data = this._gridData;
+
+                        this.async(function() {
+                            var gridTable = this.$$('#multiEntityUpperGrid').$$('#pebbleGridContainer').querySelector('iron-data-table');
+                            var firstRow = gridTable.querySelectorAll('data-table-row')[1];
+                            var secondRow = gridTable.querySelectorAll('data-table-row')[2];
+
+                            // Section start, will be removed this logic once rock-grid updated
+                            var firstRowButtons = firstRow.querySelectorAll('pebble-button');
+                            if (firstRowButtons.length > 0) {
+                                firstRowButtons[0].remove();
+                                firstRowButtons[1].remove();
+                            }
+                            // Section end
+
+                            firstRow.querySelectorAll('data-table-cell')[1].style['font-weight'] = 'bold';
+                            secondRow.querySelectorAll('data-table-cell')[1].style['font-weight'] = 'bold';
+
+                            // Attributes matched from managed list is black
+                            // Attributes matched from inferred list is green
+                            // Attributes are not matched (new), then red                        
+
+                        }, 100);
+                    },
+
+                    _prepareMultiEntityUpperGridConfiguration: function() {
+                        this._gridConfig.tabular.columns.push({
+                            "header": "Mapping",
+                            "name": "mapping"
+                        });
+                        for (var idx = 0; idx < this.attributeNames.length; idx++) {
+                            this._gridConfig.tabular.columns.push({
+                                "header": "Column " + (idx + 1),
+                                "name": this.attributeNames[idx],
+                                "displayType": "textbox"
+                            });
+                        }
+                    },
+
+                    _prepareMultiEntityUpperGridData: function() {
+                        this._gridData = []; //Clear the data
+                        var gridRow = {};
+                        gridRow["id"] = 1;
+                        gridRow["mapping"] = "Excel column name";
+                        //First row
+                        for (var idx = 0; idx < this.attributeNames.length; idx++) {
+                            gridRow[this.attributeNames[idx]] = this.attributeNames[idx];
+                        }
+                        this._gridData.push(gridRow);
+
+                        gridRow = {};
+                        gridRow["id"] = 2;
+                        gridRow["mapping"] = "Mapped attribute name";
+
+                        //Second row - Capture the details from data model 
+                        for (var idx = 0; idx < this.attributeNames.length; idx++) {
+                            if (this._findAttribute(this.attributeNames[idx])) {
+                                this._mappedAttrs++;
+                                gridRow[this.attributeNames[idx]] = this._findAttribute(this.attributeNames[idx]).name;
+                            } else {
+                                this._newAttrs++;
+                            }
+                        }
+                        this._gridData.push(gridRow);
+
+                        //Current Datetime
+                        var datetime = new Date();
+                        this._currentDateTime = {
+                            "date": moment(datetime).format('MM/DD/YYYY'),
+                            "time": moment(datetime).format('hh:mm A')
+                        }
+                    },
+
+                    _findAttribute: function(attribute) {
+                        for (var i = 0; i < this._attributeValues.length; i++) {
+                            for (var j = 0; j < this._attributeValues[i].attributes.length; j++) {
+                                if (this._attributeValues[i].attributes[j].name == attribute) {
+                                    return this._attributeValues[i].attributes[j];
+                                }
+                            }
+                        }
+                    },
+
+                    _prepareUpperGridHeader: function() {
+                        //Total managed attributes                    
+                        for (var i = 0; i < this._attributeValues.length; i++) {
+                            this._managedAttrs = this._managedAttrs + this._attributeValues[i].attributes.length;
+                        }
+                    },
+
+                    _onSaveItem: function(e, details, sender) {
+                        //Save logic comes here
+                    },
+
+                    _onFileUploadSuccess: function(e, details, sender) {
+                        this._hideView("entity-import");
+                        this._showView("multiple-entity");
+                        this._populateMultiEntityUpperGrid();
+
+                        this.async(function() {
+                            //Clear file upload
+                            this.$$('pebble-file-upload').reset();
+                        });
+                    }
+                });
+            })();
+        </script>
+</dom-module>

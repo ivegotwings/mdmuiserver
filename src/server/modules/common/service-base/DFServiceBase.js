@@ -7,6 +7,9 @@ var DFServiceBase = function (options) {
     var _dataConnection = new DFConnection();
     this._restRequest = _dataConnection.getRequest();
     this._serverUrl = _dataConnection.getServerUrl();
+    if(options.serverType == 'cop') {
+        this._serverUrl = _dataConnection.getCOPServerUrl();
+    }
     this._headers = _dataConnection.getHeaders();
 
     this.requestJson = async function (url, request) {
