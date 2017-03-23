@@ -218,10 +218,10 @@ async function getSingle(dataObjectId, reqData) {
     return response;
 }
 
-async function getByIds(pathSet, caller) {
+async function getByIds(pathSet, operation) {
     /*
     */
-    //console.log('---------------------' , caller, ' dataObjectsById call pathset requested:', pathSet, ' caller:', caller);
+    //console.log('---------------------' , operation, ' dataObjectsById call pathset requested:', pathSet, ' operation:', operation);
     const reqData = {
         'dataIndex': pathSet.dataIndexes[0],
         'dataObjectTypes': pathSet.dataObjectTypes,
@@ -235,7 +235,7 @@ async function getByIds(pathSet, caller) {
         'relFields': pathSet.relFields === undefined ? [] : pathSet.relFields,
         'valCtxKeys': pathSet.valCtxKeys === undefined ? [] : pathSet.valCtxKeys,
         'valFields': pathSet.valFields === undefined ? [] : pathSet.valFields,
-        'caller': caller
+        'operation': operation
     }
 
     var response = [];
@@ -250,8 +250,8 @@ async function getByIds(pathSet, caller) {
     return response;
 }
 
-async function processData(dataIndex, dataObjects, dataObjectAction, caller) {
-    //console.log(dataObjectAction, caller);
+async function processData(dataIndex, dataObjects, dataObjectAction, operation) {
+    //console.log(dataObjectAction, operation);
 
     var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
     var response = [];
@@ -290,7 +290,7 @@ async function processData(dataIndex, dataObjects, dataObjectAction, caller) {
                 'relAttrNames': [CONST_ALL],
                 'relFields': [CONST_ALL],
                 'valFields': [CONST_ALL],
-                'caller': caller
+                'operation': operation
             };
 
             var dataObjectType = dataObject[dataIndexInfo.typeInfo][dataIndexInfo.typeName];
@@ -303,7 +303,7 @@ async function processData(dataIndex, dataObjects, dataObjectAction, caller) {
     return response;
 }
 
-async function create(callPath, args, caller) {
+async function create(callPath, args, operation) {
 
     var jsonEnvelope = args[0];
     var dataIndex = callPath.dataIndexes[0];
@@ -323,25 +323,25 @@ async function create(callPath, args, caller) {
         }
     }
 
-    return processData(dataIndex, dataObjects, "create", caller);
+    return processData(dataIndex, dataObjects, "create", operation);
 }
 
-async function update(callPath, args, caller) {
+async function update(callPath, args, operation) {
 
     var jsonEnvelope = args[0];
     var dataIndex = callPath.dataIndexes[0];
     var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
     var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
 
-    return processData(dataIndex, dataObjects, "update", caller);
+    return processData(dataIndex, dataObjects, "update", operation);
 }
 
-async function deleteDataObjects(callPath, args, caller) {
+async function deleteDataObjects(callPath, args, operation) {
 
     var jsonEnvelope = args[0];
     var dataIndex = callPath.dataIndexes[0];
     var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][pathKeys.byIds];
-    return processData(dataIndex, dataObjects, "delete", caller);
+    return processData(dataIndex, dataObjects, "delete", operation);
 }
 
 module.exports = {
