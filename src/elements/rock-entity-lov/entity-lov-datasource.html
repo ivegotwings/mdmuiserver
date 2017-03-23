@@ -6,9 +6,9 @@
 <dom-module id="entity-lov-datasource">
     <template>
         <liquid-entity-data-get id="initGetEntitySearch" operation="initiatesearch" request-data="{{request}}" last-response="{{_initGetEntitySearchResponse}}"
-            exclude-in-progress></liquid-entity-data-get>
+                                on-error="_onGetSearchError"   exclude-in-progress></liquid-entity-data-get>
         <liquid-entity-data-get id="getEntitySearchResults" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[_initGetEntitySearchResponse.content.requestId]]"
-            last-response="{{getEntitySearchResultsResponse}}" exclude-in-progress></liquid-entity-data-get>
+            last-response="{{getEntitySearchResultsResponse}}" on-error="_onGetSearchError" exclude-in-progress></liquid-entity-data-get>
     </template>
     <script>
         Polymer({
@@ -59,14 +59,24 @@
                         this));
                     this._liquidGetSearchElement.addEventListener('response', this._onGetSearchResponse.bind(
                         this, success, error));
+//                    this._liquidGetSearchElement.addEventListener('error', this._onGetSearchError.bind(
+//                        this, success, error));
+                    this._error=error;
                     this._isResponseAttached = true;
                 }
+                var keywordsCriterion;
+                if(this.keywordsCriterionBuilder && this.keywordsCriterionBuilder instanceof Function) {
+                    // Filter
+                     keywordsCriterion = this.keywordsCriterionBuilder(data.filter);
+                }
 
-                 // Filter
-                var keywordsCriterion = this.keywordsCriterionBuilder(data.filter);
+                if (keywordsCriterion) {
+                    this.set("request.params.query.filters.keywordsCriterion", keywordsCriterion);
+                } else {
+                    delete this.request.params.query.filters.keywordsCriterion;
+                }
 
-                var utils = SharedUtils.DataObjectFalcorUtil;
-                if(!utils.compareObjects(keywordsCriterion, this.request.params.query.filters.keywordsCriterion)) {
+                if(this._checkIfRequestChanged()) {
                     this._isRequestInitiated = false;
                     data.page = 1;
                 }
@@ -81,11 +91,6 @@
                 };
                 this.set("request.params.options", options);
 
-                if (keywordsCriterion) {
-                    this.set("request.params.query.filters.keywordsCriterion", keywordsCriterion);
-                } else {
-                    delete this.request.params.query.filters.keywordsCriterion;
-                }
 
                 // Initiate Request only for First Time.
                 if (!this._isRequestInitiated) {
@@ -96,6 +101,7 @@
             },
 
             _onInitSearchResponse: function () {
+                this._lastRequest=this.request;
                 this._liquidGetSearchElement.generateRequest();
                 this._isRequestInitiated = true;
             },
@@ -104,6 +110,30 @@
                 if (typeof(this.dataFormatter) == 'function') {
                     success(this.dataFormatter(this.getEntitySearchResultsResponse));
                 }
+            },
+            _onGetSearchError: function () {
+                    this._error();
+            },
+            _checkIfRequestChanged:function () {
+                var utils = SharedUtils.DataObjectFalcorUtil;
+                var requestFilterExists=false;
+                var lastRequestFilterExists=false;
+                if(this.request && this.request.params && this.request.params.query.filters){
+                    requestFilterExists=true;
+                }
+                if(this._lastRequest && this._lastRequest.params && this._lastRequest.params.query.filters){
+                    lastRequestFilterExists=true;
+                }
+                if(requestFilterExists !=lastRequestFilterExists){
+                    return true;
+                }
+                if(!utils.compareObjects( this.request.params.query.filters.keywordsCriterion, this._lastRequest.params.query.filters.keywordsCriterion)) {
+                    return true;
+                }
+                if(!utils.compareObjects( this.request.params.query.filters.typesCriterion, this._lastRequest.params.query.filters.typesCriterion)) {
+                    return true;
+                }
+                return false;
             }
         });
     </script>
