@@ -1921,8 +1921,8 @@ var allConfigs = {
                                                 },
                                                 "columns": [
                                                     {
-                                                        "header": "Status",
-                                                        "name": "status",
+                                                        "header": "Existing",
+                                                        "name": "existing",
                                                         "sortable": false,
                                                         "filterable": false
                                                     }
