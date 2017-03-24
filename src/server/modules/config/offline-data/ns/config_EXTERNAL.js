@@ -1912,7 +1912,7 @@ var allConfigs = {
                                             "schemaType": "simple",
                                             "tabular": {
                                                 "settings": {
-                                                    "isMultiSelect": true,
+                                                    "isMultiSelect": false,
                                                     "actions": [{
                                                         "name": "delete",
                                                         "icon": "pebble-icons:Delete",
