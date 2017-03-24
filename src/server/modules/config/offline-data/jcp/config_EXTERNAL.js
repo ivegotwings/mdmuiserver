@@ -1541,7 +1541,17 @@ var allConfigs = {
                                 "path": "/src/elements/app-entity-discovery/app-entity-discovery.html",
                                 "properties": {}
                             }
-                        }
+                        },
+                            {
+                                "name": "entity-family",
+                                "title": "Entity Family",
+                                "enableDropdownMenu": false,
+                                "component": {
+                                    "name": "rock-entity-variant",
+                                    "path": "/src/elements/rock-entity-variant/rock-entity-variant.html",
+                                    "properties": {}
+                                }
+                            }
                         ]
                     }
                 },
@@ -1706,6 +1716,71 @@ var allConfigs = {
                                     ]
                                 }
                             ]
+                        },"businessFunctionVariantsCreate": {
+                            "stepperConfig": [{
+                                "index": "1",
+                                "title": "Option Selection",
+                                "status": "inprogress"
+                            },
+                                {
+                                    "index": "2",
+                                    "title": "Create Variants",
+                                    "status": ""
+                                }
+                            ],
+                            "name": "create-variants",
+                            "label": "Create Variants",
+                            "steps": [{
+                                "name": "step-1-selection-option",
+                                "label": "Select Options to create Skus",
+                                "component": {
+                                    "name": "rock-variants-option-select",
+                                    "path": "/../../src/elements/rock-variants-option-select/rock-variants-option-select.html",
+                                    "properties": {}
+                                },
+                                "nextEvent": "onSave",
+                                "skipEvent": "onCancel"
+                            },
+                                {
+                                    "name": "step-2-create-variants",
+                                    "label": "Create variants for a given entity",
+                                    "component": {
+                                        "name": "rock-variants-create-grid",
+                                        "path": "/../../src/elements/rock-variants-create-grid/rock-variants-create-grid.html",
+                                        "properties": {}
+                                    },
+                                    "nextEvent": "onComplete",
+                                    "skipEvent": "onCancel"
+                                }
+                            ]
+                        },
+                        "rock-variants-create-grid": {
+                            "config": {
+                                "createVariantsGridConfig": {
+                                    "viewMode": "Tabular",
+                                    "title": "Variant Data Table",
+                                    "mode": "Read",
+                                    "schemaType": "simple",
+                                    "tabular": {
+                                        "settings": {
+                                            "isMultiSelect": false,
+                                            "actions": [{
+                                                "name": "delete",
+                                                "icon": "pebble-icons:Delete",
+                                                "eventName": "delete-item"
+                                            }]
+                                        },
+                                        "columns": [
+                                            {
+                                                "header": "Existing",
+                                                "name": "existing",
+                                                "sortable": false,
+                                                "filterable": false
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
                         }
                     }
                 },

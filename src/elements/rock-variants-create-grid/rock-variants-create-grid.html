@@ -28,7 +28,7 @@
                                  on-response="_onGetResponse">
         </liquid-entity-data-get>
         <liquid-entity-data-save name="attributeSaveDataService" operation="create" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}"
-                                 ></liquid-entity-data-save>
+                                 on-response="_onSaveResponse"           ></liquid-entity-data-save>
         <liquid-entity-data-save name="attributeUpdateDataService" operation="update" request-data="{{_updateRequest}}"
                                  on-response="_onSaveResponse"></liquid-entity-data-save>
         <rock-grid title="Variant Options" id="variantGrid" data="{{data}}" config="{{gridConfig}}"
@@ -113,7 +113,7 @@
                     ],
                     ready:function () {
                         this.gridConfig=this.getParentAppConfig('rock-entity-variant','rock-variants-create-grid','createVariantsGridConfig');
-                        this.variantDefinition=this.getParentAppConfig('rock-entity-variant', 'rock-variants-create-grid', 'variantDefinitionUI');
+                        this.variantDefinition=this.getParentAppConfig('rock-entity-variant', '', 'variantDefinitionUI');
                     },
                     observers:[
                         '_onDefinitionRender(variantDefinition,entityId,entityType,gridConfig)'
@@ -161,24 +161,43 @@
                             }
                         }
                     },
+                    _getCtx:function () {
+                        var ctx={};
+                        if(this.classification){
+                            ctx["classification"]=this.classification;
+                        }
+                        if(this.list){
+                            ctx["list"]=this.list;
+                        }
+                        return ctx;
+                    },
+                    _getValCtx:function () {
+                        var valCtx={};
+                        if(this.locale){
+                            valCtx["locale"]=this.locale;
+                        }
+                        if(this.source){
+                            valCtx["source"]=this.source;
+                        }
+                        return valCtx;
+                    },
                     _getGridRequest: function (id, type,index) {
                         var attributes=this._attributesIndexMapping[index];
                         var relatedAttributes=[];
                         if(index<this.leafEntityDetails.index){
                             relatedAttributes=this._attributesIndexMapping[index+1];
                         }
+                        var ctx=this._getCtx();
+                        var valCtx=this._getValCtx();
                         var req = {
                             "params": {
                                 "query": {
                                     "ctx": [
-                                        {
-                                            "classification": this.classification,
-                                            "list": this.list
-                                        }
+                                        ctx
                                     ],
                                     "valCtx": [
-                                        { "locale": this.locale, "source": this.source }
-                                    ],
+                                            valCtx
+                                        ],
                                     "filters": {
                                         "typesCriterion": [this.entityType]
                                     },
@@ -208,7 +227,7 @@
                     _getRelatedEntities: function (entity) {
                         var relatedEntities=[];
                         if (entity && entity.data && entity.data.ctxInfo) {
-                            var ctx = {"list":this.list,"classification":this.classification};
+                            var ctx=this._getCtx();
                             var relationshipsList;
                             for (var i = 0; i < entity.data.ctxInfo.length; i++) {
                                 var ctxData = entity.data.ctxInfo[i];
@@ -234,12 +253,8 @@
                     _getAttributeValues: function (entity) {
                         this.attributeValues = [];
                         var text = "";
-                        var ctx = {"list": this.list, "classification": this.classification}
-                        var valCtx =  {
-                            "source": this.source,
-                            "time": "now",
-                            "locale": this.locale
-                        };
+                        var ctx=this._getCtx();
+                        var valCtx=this._getValCtx();
                         if (entity.data) {
                             var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, ctx);
                             var totalVariantsCount = 1;
@@ -329,7 +344,7 @@
                     _onSaveTap: function (e) {
                         var source=this.source;
                         var locale=this.locale;
-                        var ctx= {"list": this.list, "classification": this.classification};
+                        var ctx=this._getCtx();
                         var level1Details=this._variantLevels[1];
                         var level1TargetAttrs=level1Details.targetAttributes;
                         this._entitiesToBeUpdated=[];
@@ -369,22 +384,20 @@
                                 this._relateToLevel1Entity(attributes, id);
                             }
                         }
-                        this._saveRequest = {
-                            "entities": entities
-                        };
-                        var liquidSave = this.$$("[name=attributeSaveDataService]");
-                        if (liquidSave && entities.length) {
-                            liquidSave.generateRequest();
+                        this._totalSaveRequests=0;
+                        this._currentSaveRequests=0;
+                        if(entities.length){
+                            this._totalSaveRequests++;
                         }
-
                         var level1Ids=[];
+                        var level1Entities=[];
                         if(this.leafEntityDetails.index==2){
                             var level1Entities=this._getLevel1Entities();
                             this._saveRequest = {
                                 "entities": level1Entities
                             };
-                            if (liquidSave && level1Entities.length) {
-                                liquidSave.generateRequest();
+                            if (level1Entities.length) {
+                                this._totalSaveRequests++;
                             }
                             level1Ids=level1Entities.map(function (entity) {
                                 return entity.id;
@@ -394,24 +407,66 @@
                                 return entity.id;
                             });
                         }
+                        if(this._entitiesToBeUpdated.length){
+                            this._totalSaveRequests++;
+                        }
+                        if(level1Ids.length) {
+                            this._totalSaveRequests++;
+                            var parentEntityRels = this._makeChildOfRelationshipsArray(level1Ids, level1Details.entityType);
+                            this._parentEntity.data = {
+                                ctxInfo: [{
+                                    "ctxGroup": ctx,
+                                    "relationships": {
+                                        "isChildOf": parentEntityRels
+                                    }
+                                }]
+                            };
+                        }
 
-
-                        var parentEntityRels=this._makeChildOfRelationshipsArray(level1Ids,level1Details.entityType);
-                        this._parentEntity.data={
-                            ctxInfo: [{
-                                "ctxGroup":ctx,
-                                "relationships":{
-                                    "isChildOf": parentEntityRels
-                                }
-                            }]
-                        };
-                        this._entitiesToBeUpdated.push(this._parentEntity);
-                        this._updateRequest = {
-                            "entities": this._entitiesToBeUpdated
-                        };
+                        var liquidSave = this.$$("[name=attributeSaveDataService]");
+                        if (liquidSave) {
+                            if(entities.length) {
+                                liquidSave.requestData={
+                                    "entities": entities
+                                };
+                                liquidSave.generateRequest();
+                            }
+                            if(level1Entities.length) {
+                                liquidSave.requestData={
+                                    "entities": level1Entities
+                                };
+                                liquidSave.generateRequest();
+                            }
+                        }
                         var liquidUpdate = this.$$("[name=attributeUpdateDataService]");
                         if (liquidUpdate) {
-                            liquidUpdate.generateRequest();
+                            if(this._entitiesToBeUpdated.length) {
+                                liquidUpdate.requestData={
+                                    "entities": this._entitiesToBeUpdated
+                                };
+                                liquidUpdate.generateRequest();
+                            }
+                            if(level1Ids.length) {
+                                liquidUpdate.requestData={
+                                    "entities": [this._parentEntity]
+                                };
+                                liquidUpdate.generateRequest();
+                            }
+                        }
+                        if(this._totalSaveRequests==0){
+                            var mainApp = document.querySelector('#app');
+                            mainApp.toastText = "No changes to save";
+                            var toastElement = mainApp.$$("#pebbleAppToast");
+                            toastElement.toastType = "information";
+                            toastElement.heading = "information";
+                            toastElement.autoClose = true;
+                            toastElement.show();
+                            var eventName = "onComplete";
+                            var eventDetail = {
+                                name: eventName,
+                                data: this.selectedOptions
+                            };
+                            this.fireBedrockEvent(eventName, eventDetail, {ignoreId: true});
                         }
                     },
                     _makeChildOfRelationshipsArray:function (ids,childEntityType) {
@@ -446,12 +501,22 @@
                         return rels;
                     },
                     _onSaveResponse:function () {
-                        var eventName = "onComplete";
-                        var eventDetail = {
-                            name: eventName,
-                            data: this.selectedOptions
-                        };
-                        this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                        this._currentSaveRequests++;
+                        if(this._totalSaveRequests==this._currentSaveRequests) {
+                            var mainApp = document.querySelector('#app');
+                            mainApp.toastText = "Variants Saved";
+                            var toastElement = mainApp.$$("#pebbleAppToast");
+                            toastElement.toastType = "success";
+                            toastElement.heading = "Success";
+                            toastElement.autoClose = true;
+                            toastElement.show();
+                            var eventName = "onComplete";
+                            var eventDetail = {
+                                name: eventName,
+                                data: this.selectedOptions
+                            };
+                            this.fireBedrockEvent(eventName, eventDetail, {ignoreId: true});
+                        }
                     },
                     _relateToLevel1Entity:function (attributes,id) {
                         var utils = SharedUtils.DataObjectFalcorUtil;
@@ -471,7 +536,7 @@
                     },
                     _getLevel1Entities:function () {
                         var utils = SharedUtils.DataObjectFalcorUtil;
-                        var ctx= {"list": this.list, "classification": this.classification};
+                        var ctx=this._getCtx();
                         var presentEntities=[];
                         if(this.entities.hasOwnProperty(1)) {
                             presentEntities=this.entities[1];
@@ -550,7 +615,7 @@
                                 },
                                 "data": {
                                     ctxInfo: [{
-                                        "ctxGroup": {"list": this.list, "classification": this.classification},
+                                        "ctxGroup": ctx,
                                         "attributes": attrs,
                                         "relationships":{
                                             "isChildOf": rels
