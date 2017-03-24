@@ -1690,37 +1690,21 @@ var allConfigs = {
                         "variantDefinitionUI": {
                             "name": "ehd1",
                             "levels": [{
-                                "entityType": "choice",
-                                "index": 1,
-                                "optional": false,
-                                "dimensionAttributes": [{
-                                    "sourceAttribute": "colorAssignment",
-                                    "targetAttribute": "choiceColor",
-                                    "optional": false
-                                },
-                                {
-                                    "sourceAttribute": "materials",
-                                    "targetAttribute": "choiceMaterial",
-                                    "optional": true
+                                    "entityType": "sku",
+                                    "index": 1,
+                                    "optional": false,
+                                    "dimensionAttributes": [{
+                                            "sourceAttribute": "color",
+                                            "targetAttribute": "color",
+                                            "optional": false
+                                        },
+                                        {
+                                            "sourceAttribute": "size",
+                                            "targetAttribute": "size",
+                                            "optional": true
+                                        }
+                                    ]
                                 }
-                                ]
-                            },
-                            {
-                                "entityType": "sku",
-                                "index": 2,
-                                "optional": false,
-                                "dimensionAttributes": [{
-                                    "sourceAttribute": "primarySizes",
-                                    "targetAttribute": "skuSize1",
-                                    "optional": false
-                                },
-                                {
-                                    "sourceAttribute": "secondarySizes",
-                                    "targetAttribute": "skuSize2",
-                                    "optional": true
-                                }
-                                ]
-                            }
                             ]
                         }
                     }
