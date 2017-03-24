@@ -193,107 +193,103 @@ var allConfigs = {
                 },
                 "components": {
                     "rock-dimension-selector": {
-                        "config": [{
-                                "id": "list",
-                                "title": "Channel/Country",
-                                "icon": "pebble-lg-icons:Source",
+                        "config": {
+                            "catalogSelector": {
                                 "visible": true,
-                                "dataRequest": {
-                                    "params": {
-                                        "query": {
-                                            "filters": {
-                                                "typesCriterion": [
-                                                    "country", "channel"
-                                                ]
-                                            }
-                                        }
+                                "catalogItems": [{
+                                        "id": 1,
+                                        "title": "Product Master",
+                                        "subtitle": "Product Master",
+                                        "value": "productMaster",
+                                        "image": ""
+                                    },
+                                    {
+                                        "id": 2,
+                                        "title": "Web Catalog",
+                                        "subtitle": "Web Catalog",
+                                        "value": "webCatalog",
+                                        "image": ""
+                                    },
+                                    {
+                                        "id": 3,
+                                        "title": "U.S.A",
+                                        "subtitle": "U.S.A",
+                                        "value": "usa",
+                                        "image": ""
+                                    },
+                                    {
+                                        "id": 4,
+                                        "title": "Canada",
+                                        "subtitle": "Canada",
+                                        "value": "canada",
+                                        "image": ""
                                     }
-                                },
-                                "dataMappings": {
-                                    "id": "id",
-                                    "title": "id",
-                                    "subtitle": "",
-                                    "image": "",
-                                    "icon": ""
-                                },
-                                "selectedId": "productMaster"
+                                ],
+                                "selectedCatalogItems": [{
+                                    "id": 1,
+                                    "title": "Product Master",
+                                    "subtitle": "Product Master",
+                                    "value": "productMaster",
+                                    "image": ""
+                                }]
                             },
-                            {
-                                "id": "region",
-                                "title": "Region",
+                            "sourceSelector": {
                                 "visible": true,
-                                "icon": "pebble-lg-icons:Source",
-                                "dataRequest": {
-                                    "params": {
-                                        "query": {
-                                            "filters": {
-                                                "typesCriterion": [
-                                                    "source"
-                                                ]
-                                            }
-                                        }
-                                    }
-                                },
-                                "dataMappings": {
-                                    "id": "id",
-                                    "title": "id",
-                                    "subtitle": "",
-                                    "image": "",
-                                    "icon": ""
-                                },
-                                "selectedId": "productMaster"
+                                "sourceItems": [{
+                                    "id": 1,
+                                    "title": "Internal Source",
+                                    "subtitle": "Internal Source",
+                                    "value": "internal",
+                                    "image": ""
+                                }],
+                                "selectedSourceItems": [{
+                                    "id": 1,
+                                    "title": "Internal source",
+                                    "subtitle": "Internal source",
+                                    "value": "internal",
+                                    "image": ""
+                                }]
                             },
-                            {
-                                "id": "source",
-                                "title": "Source",
+                            "localeSelector": {
                                 "visible": true,
-                                "icon": "pebble-lg-icons:Source",
-                                "dataRequest": {
-                                    "params": {
-                                        "query": {
-                                            "filters": {
-                                                "typesCriterion": [
-                                                    "source"
-                                                ]
-                                            }
-                                        }
+                                "localeItems": [{
+                                        "id": 1,
+                                        "title": "English - United States",
+                                        "subtitle": "English",
+                                        "value": "en-US",
+                                        "image": ""
+                                    },
+                                    {
+                                        "id": 2,
+                                        "title": "German - Germany",
+                                        "subtitle": "Germany",
+                                        "value": "de-DE",
+                                        "image": ""
+                                    },
+                                    {
+                                        "id": 3,
+                                        "title": "French - France",
+                                        "subtitle": "French",
+                                        "value": "fr-FR",
+                                        "image": ""
+                                    },
+                                    {
+                                        "id": 4,
+                                        "title": "Spanish - Spain",
+                                        "subtitle": "Spanish",
+                                        "value": "es-SP",
+                                        "image": ""
                                     }
-                                },
-                                "dataMappings": {
-                                    "id": "id",
-                                    "title": "id",
-                                    "subtitle": "",
-                                    "image": "",
-                                    "icon": ""
-                                },
-                                "selectedId": "sap"
-                            },
-                            {
-                                "id": "locale",
-                                "title": "Locale",
-                                "visible": true,
-                                "icon": "pebble-lg-icons:Language",
-                                "dataRequest": {
-                                    "params": {
-                                        "query": {
-                                            "filters": {
-                                                "typesCriterion": [
-                                                    "source"
-                                                ]
-                                            }
-                                        }
-                                    }
-                                },
-                                "dataMappings": {
-                                    "id": "id",
-                                    "title": "id",
-                                    "subtitle": "",
-                                    "image": "",
-                                    "icon": ""
-                                },
-                                "selectedId": "en-US"
+                                ],
+                                "selectedLocaleItems": [{
+                                    "id": 1,
+                                    "title": "English - United States",
+                                    "subtitle": "English",
+                                    "value": "en-US",
+                                    "image": ""
+                                }]
                             }
-                        ]
+                        }
                     },
                     "rock-saved-searches": {
                         "config": {
@@ -540,139 +536,58 @@ var allConfigs = {
                                         "name": "rock-attribute-manage",
                                         "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
                                         "properties": {
-                                            "mode": "view",
-                                            "no-of-columns": 1,
+                                            "attributeGroups": [
+                                                "coreAttributes"
+                                            ],
                                             "context": {
-                                                "attributeGroups": [
-                                                    "coreAttributes",
-                                                    "webAttributes",
-                                                    "logisticsSupplyChain",
-                                                    "merchandising"
-                                                ],
                                                 "attributeNames": [
-                                                    "cpimProductName",
-                                                    "csapNartDescription",
-                                                    "csapDescriptionOfNart",
-                                                    "csapGenderDescriptionType",
-                                                    "csapGender",
-                                                    "cpimWebsiteEmotionalDescription",
-                                                    "cpimShortDescription",
-                                                    "cpimLongDescription",
-                                                    "cpimWarningText",
-                                                    "cpimConsumerNeed",
-                                                    "cpimCustomerWishDateOfDelivery",
-                                                    "cpimGiftWrapping",
-                                                    "cpimBacksideText",
-                                                    "cpimFrontsideText",
-                                                    "cpimInciText",
-                                                    "csapPropellantQuantity",
-                                                    "csapDangerousGoods",
-                                                    "csapDangerousGoodsDescription",
-                                                    "csapExpirationDatedProduct",
-                                                    "csapFranchiseRangeDescription",
-                                                    "csapFranchiseRanges",
-                                                    "cpimWebDiscount"
+                                                    "shortDescription",
+                                                    "longDescription",
+                                                    "createDate",
+                                                    "setupCost",
+                                                    "gender",
+                                                    "customerMaxOrderQty",
+                                                    "opReplenishmentIndicator",
+                                                    "opItemPlanningIndicator",
+                                                    "replenishmentIndicator",
+                                                    "forecastIndicator",
+                                                    "opForecastIndicator",
+                                                    "reserveStockIndicator",
+                                                    "ripIndicator",
+                                                    "apIndicator",
+                                                    "testAttribute"
                                                 ]
                                             }
                                         }
                                     },
                                     "menuItems": [{
-                                            "name": "core-attributes",
-                                            "icon": "icons:add-box",
-                                            "title": "Core Attributes",
-                                            "component": {
-                                                "name": "rock-attribute-manage",
-                                                "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                "properties": {
-                                                    "locales": [{
-                                                        "locale": "en-US",
-                                                        "language": "English"
-                                                    }],
-                                                    "source": "SAP",
-                                                    "list": "productMaster",
-                                                    "mode": "view",
-                                                    "no-of-columns": 1,
-                                                    "context": {
-                                                        "attributeGroups": [
-                                                            "coreAttributes"
-                                                        ]
-                                                    }
-                                                }
-                                            }
-                                        },
-                                        {
-                                            "name": "web-attributes",
-                                            "title": "Web Attributes",
-                                            "icon": "icons:add-box",
-                                            "component": {
-                                                "name": "rock-attribute-manage",
-                                                "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                "properties": {
-                                                    "locales": [{
-                                                        "locale": "en-US",
-                                                        "language": "English"
-                                                    }],
-                                                    "source": "SAP",
-                                                    "list": "productMaster",
-                                                    "mode": "view",
-                                                    "no-of-columns": 1,
-                                                    "context": {
-                                                        "attributeGroups": [
-                                                            "webAttributes"
-                                                        ]
-                                                    }
-                                                }
-                                            }
-                                        },
-                                        {
-                                            "name": "logisticsSupplyChain",
-                                            "title": "Logistics & Supply Chain",
-                                            "icon": "icons:add-box",
-                                            "component": {
-                                                "name": "rock-attribute-manage",
-                                                "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                "properties": {
-                                                    "locales": [{
-                                                        "locale": "en-US",
-                                                        "language": "English"
-                                                    }],
-                                                    "source": "SAP",
-                                                    "list": "productMaster",
-                                                    "mode": "view",
-                                                    "no-of-columns": 1,
-                                                    "context": {
-                                                        "attributeGroups": [
-                                                            "logisticsSupplyChain"
-                                                        ]
-                                                    }
-                                                }
-                                            }
-                                        },
-                                        {
-                                            "name": "merchandising",
-                                            "title": "Merchandising",
-                                            "icon": "icons:add-box",
-                                            "component": {
-                                                "name": "rock-attribute-manage",
-                                                "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                "properties": {
-                                                    "locales": [{
-                                                        "locale": "en-US",
-                                                        "language": "English"
-                                                    }],
-                                                    "source": "SAP",
-                                                    "list": "productMaster",
-                                                    "mode": "view",
-                                                    "no-of-columns": 1,
-                                                    "context": {
-                                                        "attributeGroups": [
-                                                            "merchandising"
-                                                        ]
-                                                    }
+                                        "name": "core-attributes",
+                                        "icon": "icons:add-box",
+                                        "title": "Core Attributes",
+                                        "component": {
+                                            "name": "rock-attribute-manage",
+                                            "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
+                                            "properties": {
+                                                "locales": [{
+                                                    "locale": "en-US",
+                                                    "language": "English"
+                                                }],
+                                                "source": "SAP",
+                                                "list": "productMaster",
+                                                "mode": "view",
+                                                "no-of-columns": 1,
+                                                "context": {
+                                                    "groupName": "Core Attributes",
+                                                    "attributeNames": [
+                                                        "shortDescription",
+                                                        "longDescription",
+                                                        "createDate",
+                                                        "setupCost"
+                                                    ]
                                                 }
                                             }
                                         }
-                                    ]
+                                    }]
                                 }]
                             },
                             "pebble-toolbar": {
@@ -691,21 +606,21 @@ var allConfigs = {
                                             "eventName": "moreActions",
                                             "buttons": [{
                                                     "name": "add",
-                                                    "icon": "add-circle-outline",
+                                                    "icon": "pebble-sm-icons:Add",
                                                     "text": "",
                                                     "visible": true,
                                                     "eventName": "add"
                                                 },
                                                 {
                                                     "name": "delete",
-                                                    "icon": "delete-sweep",
+                                                    "icon": "pebble-md-cions:Delete",
                                                     "text": "",
                                                     "visible": true,
                                                     "eventName": "delete"
                                                 },
                                                 {
                                                     "name": "cut",
-                                                    "icon": "content-cut",
+                                                    "icon": "pebble-md-icons:Cut",
                                                     "text": "",
                                                     "visible": true,
                                                     "eventName": "cut"
@@ -829,53 +744,97 @@ var allConfigs = {
                         "config": {
                             "catalogSelector": {
                                 "visible": true,
-                                "context": [{
-                                    "self": "self"
-                                }],
-                                "typesCriterion": ["list", "channel", "country"],
-                                "fields": {
-                                    "title": "externalName",
-                                    "subtitle": "",
-                                    "image": "",
-                                    "icon": "",
-                                    "value": "externalName"
-                                },
+                                "catalogItems": [{
+                                        "id": 1,
+                                        "title": "Product Master",
+                                        "subtitle": "Product Master",
+                                        "value": "productMaster",
+                                        "image": ""
+                                    },
+                                    {
+                                        "id": 2,
+                                        "title": "Web Catalog",
+                                        "subtitle": "Web Catalog",
+                                        "value": "webCatalog",
+                                        "image": ""
+                                    },
+                                    {
+                                        "id": 3,
+                                        "title": "U.S.A",
+                                        "subtitle": "U.S.A",
+                                        "value": "usa",
+                                        "image": ""
+                                    },
+                                    {
+                                        "id": 4,
+                                        "title": "Canada",
+                                        "subtitle": "Canada",
+                                        "value": "canada",
+                                        "image": ""
+                                    }
+                                ],
                                 "selectedCatalogItems": [{
                                     "id": 1,
+                                    "title": "Product Master",
+                                    "subtitle": "Product Master",
+                                    "value": "productMaster",
+                                    "image": ""
                                 }]
                             },
                             "sourceSelector": {
                                 "visible": true,
-                                "context": [{
-                                    "self": "self"
+                                "sourceItems": [{
+                                    "id": 1,
+                                    "title": "Internal Source",
+                                    "subtitle": "Internal Source",
+                                    "value": "internal",
+                                    "image": ""
                                 }],
-                                "typesCriterion": ["source"],
-                                "fields": {
-                                    "title": "externalName",
-                                    "subtitle": "",
-                                    "image": "",
-                                    "icon": "",
-                                    "value": "externalName"
-                                },
                                 "selectedSourceItems": [{
-                                    "value": "internal"
+                                    "id": 1,
+                                    "title": "Internal source",
+                                    "subtitle": "Internal source",
+                                    "value": "internal",
+                                    "image": ""
                                 }]
                             },
                             "localeSelector": {
                                 "visible": true,
-                                "context": [{
-                                    "self": "self"
-                                }],
-                                "typesCriterion": ["locale"],
-                                "fields": {
-                                    "title": "externalName",
-                                    "subtitle": "",
-                                    "image": "",
-                                    "icon": "",
-                                    "value": "externalName"
-                                },
+                                "localeItems": [{
+                                        "id": 1,
+                                        "title": "English - United States",
+                                        "subtitle": "English",
+                                        "value": "en-US",
+                                        "image": ""
+                                    },
+                                    {
+                                        "id": 2,
+                                        "title": "German - Germany",
+                                        "subtitle": "Germany",
+                                        "value": "de-DE",
+                                        "image": ""
+                                    },
+                                    {
+                                        "id": 3,
+                                        "title": "French - France",
+                                        "subtitle": "French",
+                                        "value": "fr-FR",
+                                        "image": ""
+                                    },
+                                    {
+                                        "id": 4,
+                                        "title": "Spanish - Spain",
+                                        "subtitle": "Spanish",
+                                        "value": "es-SP",
+                                        "image": ""
+                                    }
+                                ],
                                 "selectedLocaleItems": [{
-                                    "value": "en-US"
+                                    "id": 1,
+                                    "title": "English - United States",
+                                    "subtitle": "English",
+                                    "value": "en-US",
+                                    "image": ""
                                 }]
                             }
                         }
@@ -1048,21 +1007,21 @@ var allConfigs = {
                                             "eventName": "moreActions",
                                             "buttons": [{
                                                     "name": "add",
-                                                    "icon": "add-circle-outline",
+                                                    "icon": "pebble-sm-icons:Add",
                                                     "text": "",
                                                     "visible": true,
                                                     "eventName": "add"
                                                 },
                                                 {
                                                     "name": "delete",
-                                                    "icon": "delete-sweep",
+                                                    "icon": "pebble-md-icons:Delete",
                                                     "text": "",
                                                     "visible": true,
                                                     "eventName": "delete"
                                                 },
                                                 {
                                                     "name": "cut",
-                                                    "icon": "content-cut",
+                                                    "icon": "pebble-md-icons:Cut",
                                                     "text": "",
                                                     "visible": true,
                                                     "eventName": "cut"
@@ -1653,6 +1612,25 @@ var allConfigs = {
                             ]
                         }
                     },
+                    "rock-attribute-manage": {
+                        "config": {
+                            "messageCodeMapping": {
+                                "Req001": "Required",
+                                "MinLen001": "MIN_LENGTH",
+                                "MaxLen001": "MAX_LENGTH",
+                                "AlVal001": "ALLOWED_VALUES",
+                                "Prec001": "Precision",
+                                "Range001": "RANGE_FROM_INCLUSIVE",
+                                "Range002": "RANGE_TO_INCLUSIVE",
+                                "Range003": "RANGE_FROM_EXCLUSIVE",
+                                "Range004": "RANGE_TO_EXCLUSIVE",
+                                "Range005": "RANGE_TO_INCLUSIVE_FROM_EXCLUSIVE",
+                                "Range006": "RANGE_TO_INCLUSIVE_FROM_INCLUSIVE",
+                                "Range007": "RANGE_TO_EXCLUSIVE_FROM_EXCLUSIVE",
+                                "Range008": "RANGE_TO_EXCLUSIVE_FROM_INCLUSIVE"
+                            }
+                        }
+                    },
                     "rock-entity-variant": {
                         "config": {
                             "variantGridConfig": {
@@ -1661,7 +1639,7 @@ var allConfigs = {
                                 "mode": "Read",
                                 "schemaType": "attribute",
                                 "dataRequest": {
-                                    "relatedEntityAttributes": ["shortDescription", "rmsSkuId", "nrfColorCode", "nrfSizeCode"]
+                                    "attributes": ["shortDescription", "rmsSkuId", "nrfColorCode", "nrfSizeCode"]
                                 },
                                 "tabular": {
                                     "settings": {
@@ -1781,34 +1759,110 @@ var allConfigs = {
                                         "index": 1,
                                         "optional": false,
                                         "dimensionAttributes": [{
-                                                "sourceAttribute": "colorAssignment",
-                                                "targetAttribute": "choiceColor",
-                                                "optional": false
-                                            },
-                                            {
-                                                "sourceAttribute": "materials",
-                                                "targetAttribute": "choiceMaterial",
-                                                "optional": true
-                                            }
-                                        ]
+                                            "sourceAttribute": "evColors",
+                                            "targetAttribute": "evColor",
+                                            "optional": false
+                                        }]
                                     },
                                     {
                                         "entityType": "sku",
                                         "index": 2,
                                         "optional": false,
                                         "dimensionAttributes": [{
-                                                "sourceAttribute": "primarySizes",
-                                                "targetAttribute": "skuSize1",
-                                                "optional": false
+                                            "sourceAttribute": "evSizes",
+                                            "targetAttribute": "evSize",
+                                            "optional": false
+                                        }]
+                                    }
+                                ]
+                            },
+                            "businessFunctionVariantsCreate": {
+                                "stepperConfig": [{
+                                        "index": "1",
+                                        "title": "Option Selection",
+                                        "status": "inprogress"
+                                    },
+                                    {
+                                        "index": "2",
+                                        "title": "Create Variants",
+                                        "status": ""
+                                    }
+                                ],
+                                "name": "create-variants",
+                                "label": "Create Variants",
+                                "steps": [{
+                                        "name": "step-1-selection-option",
+                                        "label": "Select Options to create Skus",
+                                        "component": {
+                                            "name": "rock-variants-option-select",
+                                            "path": "/../../src/elements/rock-variants-option-select/rock-variants-option-select.html",
+                                            "properties": {}
+                                        },
+                                        "nextEvent": "onSave",
+                                        "skipEvent": "onCancel"
+                                    },
+                                    {
+                                        "name": "step-2-create-variants",
+                                        "label": "Create variants for a given entity",
+                                        "component": {
+                                            "name": "rock-variants-create-grid",
+                                            "path": "/../../src/elements/rock-variants-create-grid/rock-variants-create-grid.html",
+                                            "properties": {}
+                                        },
+                                        "nextEvent": "onComplete",
+                                        "skipEvent": "onCancel"
+                                    }
+                                ]
+                            },
+                            "rock-variants-create-grid": {
+                                "config": {
+                                    "createVariantsGridConfig": {
+                                        "viewMode": "Tabular",
+                                        "title": "Variant Data Table",
+                                        "mode": "Read",
+                                        "schemaType": "simple",
+                                        "tabular": {
+                                            "settings": {
+                                                "isMultiSelect": true,
+                                                "actions": [{
+                                                    "name": "delete",
+                                                    "icon": "pebble-icons:Delete",
+                                                    "eventName": "delete-item"
+                                                }]
+                                            },
+                                            "columns": [{
+                                                "header": "Status",
+                                                "name": "status",
+                                                "sortable": false,
+                                                "filterable": false
+                                            }]
+                                        }
+                                    },
+                                    "variantDefinitionUI": {
+                                        "name": "ehd1",
+                                        "levels": [{
+                                                "entityType": "choice",
+                                                "index": 1,
+                                                "optional": false,
+                                                "dimensionAttributes": [{
+                                                    "sourceAttribute": "evColors",
+                                                    "targetAttribute": "evColor",
+                                                    "optional": false
+                                                }]
                                             },
                                             {
-                                                "sourceAttribute": "secondarySizes",
-                                                "targetAttribute": "skuSize2",
-                                                "optional": true
+                                                "entityType": "sku",
+                                                "index": 2,
+                                                "optional": false,
+                                                "dimensionAttributes": [{
+                                                    "sourceAttribute": "evSizes",
+                                                    "targetAttribute": "evSize",
+                                                    "optional": false
+                                                }]
                                             }
                                         ]
                                     }
-                                ]
+                                }
                             }
                         }
                     },
@@ -1817,7 +1871,7 @@ var allConfigs = {
                             "supplierVpn": {
                                 "viewMode": "Tabular",
                                 "mode": "Read",
-                                "title": "Related Products",
+                                "title": "Supplier VPN",
                                 "schemaType": "colModel",
                                 "statusEnabled": true,
                                 "tabular": {
@@ -1867,7 +1921,7 @@ var allConfigs = {
                             "supplierUpc": {
                                 "viewMode": "Tabular",
                                 "mode": "Read",
-                                "title": "Related Products",
+                                "title": "Supplier UPC",
                                 "schemaType": "colModel",
                                 "statusEnabled": true,
                                 "tabular": {
@@ -1917,7 +1971,7 @@ var allConfigs = {
                             "isChildOf": {
                                 "viewMode": "Tabular",
                                 "mode": "Read",
-                                "title": "Related Products",
+                                "title": "Variants",
                                 "schemaType": "colModel",
                                 "statusEnabled": true,
                                 "tabular": {
@@ -3058,37 +3112,25 @@ var allConfigs = {
                             "name": "create-entity",
                             "label": "Create",
                             "steps": [{
-                                    "name": "step-1-fill-initial-data",
-                                    "label": "Fill Data for New Entity",
-                                    "component": {
-                                        "name": "rock-entity-create",
-                                        "path": "/../../src/elements/rock-entity-create/rock-entity-create.html",
-                                        "properties": {
-                                            "import-profile-name": "Entity Import - RSExcel 2.0",
-                                            "attribute-names": [
-                                                "createDate",
-                                                "shortDescription",
-                                                "longDescription",
-                                                "setupCost",
-                                                "gender"
-                                            ]
-                                        }
-                                    },
-                                    "nextEvent": "onSave",
-                                    "skipEvent": "onCancel"
+                                "name": "step-1-fill-initial-data",
+                                "label": "Fill Data for New Entity",
+                                "component": {
+                                    "name": "rock-entity-create",
+                                    "path": "/../../src/elements/rock-entity-create/rock-entity-create.html",
+                                    "properties": {
+                                        "import-profile-name": "Entity Import - RSExcel 2.0",
+                                        "attribute-names": [
+                                            "createDate",
+                                            "shortDescription",
+                                            "longDescription",
+                                            "setupCost",
+                                            "gender"
+                                        ]
+                                    }
                                 },
-                                {
-                                    "name": "step-2-create-perspectives",
-                                    "label": "Create perspectives for New Entity",
-                                    "component": {
-                                        "name": "rock-entity-variant",
-                                        "path": "/../../src/elements/rock-entity-variant/rock-entity-variant.html",
-                                        "properties": {}
-                                    },
-                                    "nextEvent": "onComplete",
-                                    "skipEvent": "onCancel"
-                                }
-                            ]
+                                "nextEvent": "onSave",
+                                "skipEvent": "onCancel"
+                            }]
                         }
                     },
                     "rock-variants-create-grid": {

@@ -32,6 +32,13 @@ DataObjectFalcorUtil.getPathKeys = function () {
                 "typeName": "entityModelType",
                 "collectionName": "entityModels",
                 "responseObjectName": "entityModelOperationResponse"
+            },
+            "config": {
+                "name": "config",
+                "typeInfo": "configObjectInfo",
+                "typeName": "configObjectType",
+                "collectionName": "configObjects",
+                "responseObjectName": "configOperationResponse"
             }
         }
     };
@@ -191,6 +198,10 @@ DataObjectFalcorUtil.transformToExternal = function (dataObject) {
                     delete transCtxInfoItem.attributes.properties;
                 }
 
+                if (enCtxInfo.jsonData) {
+                    transCtxInfoItem.jsonData = enCtxInfo.jsonData;
+                }
+
                 if (ctxGroup.self) {
                     selfCtxItem = transCtxInfoItem;
                 }
@@ -207,6 +218,7 @@ DataObjectFalcorUtil.transformToExternal = function (dataObject) {
             transData.attributes = selfCtxItem.attributes;
             transData.relationships = selfCtxItem.relationships;
             transData.properties = selfCtxItem.properties;
+            transData.jsonData = selfCtxItem.jsonData;
         }
 
         transDataObject.data = transData;
@@ -462,8 +474,8 @@ DataObjectFalcorUtil.compareCtx = function (obj1, obj2) {
     return JSON.stringify(DataObjectFalcorUtil.sortObject(obj1)) == JSON.stringify(DataObjectFalcorUtil.sortObject(obj2));
 };
 
-DataObjectFalcorUtil.compareObjects = function(obj1, obj2) {
-    return JSON.stringify(DataObjectFalcorUtil.sortObject(obj1)) == JSON.stringify(DataObjectFalcorUtil.sortObject(obj2));    
+DataObjectFalcorUtil.compareObjects = function (obj1, obj2) {
+    return JSON.stringify(DataObjectFalcorUtil.sortObject(obj1)) == JSON.stringify(DataObjectFalcorUtil.sortObject(obj2));
 }
 
 DataObjectFalcorUtil.createCtxItem = function (ctxKey) {
@@ -505,13 +517,13 @@ DataObjectFalcorUtil.createCtxItems = function (ctxKeys) {
     return ctxItems;
 };
 
-DataObjectFalcorUtil.getCtxItem = function(ctxInfo, ctxGroup) {
-    for(var ctxItemId in ctxInfo) {
+DataObjectFalcorUtil.getCtxItem = function (ctxInfo, ctxGroup) {
+    for (var ctxItemId in ctxInfo) {
         var ctxItem = ctxInfo[ctxItemId];
 
         var compareResult = DataObjectFalcorUtil.compareCtx(ctxItem.ctxGroup, ctxGroup);
 
-        if(compareResult) {
+        if (compareResult) {
             return ctxItem;
         }
     }
@@ -522,7 +534,7 @@ DataObjectFalcorUtil.getCtxItem = function(ctxInfo, ctxGroup) {
 DataObjectFalcorUtil.getAttributesByCtx = function (dataObject, ctxGroup) {
     if (dataObject && dataObject.data && dataObject.data.ctxInfo && dataObject.data.ctxInfo.length) {
         var ctxItem = DataObjectFalcorUtil.getCtxItem(dataObject.data.ctxInfo, ctxGroup);
-        if(ctxItem) {
+        if (ctxItem) {
             return ctxItem.attributes;
         }
     }
@@ -533,7 +545,7 @@ DataObjectFalcorUtil.getAttributesByCtx = function (dataObject, ctxGroup) {
 DataObjectFalcorUtil.getRelationshipsByCtx = function (dataObject, ctxGroup) {
     if (dataObject && dataObject.data && dataObject.data.ctxInfo && dataObject.data.ctxInfo.length) {
         var ctxItem = DataObjectFalcorUtil.getCtxItem(dataObject.data.ctxInfo, ctxGroup);
-        if(ctxItem) {
+        if (ctxItem) {
             return ctxItem.relationships;
         }
     }
@@ -559,23 +571,23 @@ DataObjectFalcorUtil.objectHasKeys = function (obj, keys) {
 DataObjectFalcorUtil.getNestedObject = function (obj, keys) {
     var next = keys.shift();
 
-    if(obj !== undefined) {
-    
+    if (obj !== undefined) {
+
         var obj = obj[next];
-    
+
         if (obj !== undefined && keys.length) {
             obj = DataObjectFalcorUtil.getNestedObject(obj, keys);
         }
     }
-    
+
     return obj;
 };
 
 DataObjectFalcorUtil.isObject = function (item) {
-  return (item && typeof item === 'object' && !Array.isArray(item));
-}
+    return (item && typeof item === 'object' && !Array.isArray(item));
+};
 
- DataObjectFalcorUtil.deepAssign = function(...objs) {
+DataObjectFalcorUtil.deepAssign = function (...objs) {
     if (objs.length < 2) {
         throw new Error('Need two or more objects to merge');
     }
