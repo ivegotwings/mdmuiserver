@@ -192,87 +192,109 @@ var allConfigs = {
                     "role": ""
                 },
                 "components": {
-                    "rock-dimension-selector": [{
-                            "title": "Channel/Country",
-                            "visible": true,
-                            "context": [{
-                                "self": "self"
-                            }],
-                            "typesCriterion": ["channel", "country"],
-                            "fields": {
-                                "id": "id",
-                                "title": "id",
-                                "subtitle": "",
-                                "image": "",
-                                "icon": "",
-                                "value": ""
+                    "rock-dimension-selector": {
+                        "config": [{
+                                "id": "list",
+                                "title": "Channel/Country",
+                                "icon": "pebble-lg-icons:Source",
+                                "visible": true,
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "filters": {
+                                                "typesCriterion": [
+                                                    "country", "channel"
+                                                ]
+                                            }
+                                        }
+                                    }
+                                },
+                                "dataMappings": {
+                                    "id": "id",
+                                    "title": "id",
+                                    "subtitle": "",
+                                    "image": "",
+                                    "icon": ""
+                                },
+                                "selectedId": "productMaster"
                             },
-                            "selectedItem": {
-                                "id": "webCatalog",
-                                "type": "channel"
-                            }
-                        },
-                        {
-                            "title": "Region",
-                            "visible": true,
-                            "context": [{
-                                "self": "self"
-                            }],
-                            "typesCriterion": ["region"],
-                            "fields": {
-                                "id": "id",
-                                "title": "id",
-                                "subtitle": "",
-                                "image": "",
-                                "icon": "",
-                                "value": ""
+                            {
+                                "id": "region",
+                                "title": "Region",
+                                "visible": true,
+                                "icon": "pebble-lg-icons:Source",
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "filters": {
+                                                "typesCriterion": [
+                                                    "source"
+                                                ]
+                                            }
+                                        }
+                                    }
+                                },
+                                "dataMappings": {
+                                    "id": "id",
+                                    "title": "id",
+                                    "subtitle": "",
+                                    "image": "",
+                                    "icon": ""
+                                },
+                                "selectedId": "productMaster"
                             },
-                            "selectedItem": {
-                                "id": "south",
-                                "type": "region"
-                            }
-                        },
-                        {
-                            "title": "Source",
-                            "visible": true,
-                            "context": [{
-                                "self": "self"
-                            }],
-                            "typesCriterion": ["source"],
-                            "fields": {
-                                "id": "id",
-                                "title": "id",
-                                "subtitle": "",
-                                "image": "",
-                                "icon": "",
-                                "value": ""
+                            {
+                                "id": "source",
+                                "title": "Source",
+                                "visible": true,
+                                "icon": "pebble-lg-icons:Source",
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "filters": {
+                                                "typesCriterion": [
+                                                    "source"
+                                                ]
+                                            }
+                                        }
+                                    }
+                                },
+                                "dataMappings": {
+                                    "id": "id",
+                                    "title": "id",
+                                    "subtitle": "",
+                                    "image": "",
+                                    "icon": ""
+                                },
+                                "selectedId": "sap"
                             },
-                            "selectedItem": {
-                                "id": "internal",
-                                "type": "source"
+                            {
+                                "id": "locale",
+                                "title": "Locale",
+                                "visible": true,
+                                "icon": "pebble-lg-icons:Language",
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "filters": {
+                                                "typesCriterion": [
+                                                    "source"
+                                                ]
+                                            }
+                                        }
+                                    }
+                                },
+                                "dataMappings": {
+                                    "id": "id",
+                                    "title": "id",
+                                    "subtitle": "",
+                                    "image": "",
+                                    "icon": ""
+                                },
+                                "selectedId": "en-US"
                             }
-                        },
-                        {
-                            "title": "Locale",
-                            "visible": true,
-                            "context": [{
-                                "self": "self"
-                            }],
-                            "typesCriterion": ["locale"],
-                            "fields": {
-                                "id": "id",
-                                "title": "id",
-                                "subtitle": "",
-                                "image": "",
-                                "icon": "",
-                                "value": ""
-                            },
-                            "selectedItem": {
-                                "id": "en-US",
-                                "type": "source"
-                            }
-                        }
-                    ],
+                        ]
+                    },
                     "rock-saved-searches": {
                         "config": {
                             "favourites": [{
