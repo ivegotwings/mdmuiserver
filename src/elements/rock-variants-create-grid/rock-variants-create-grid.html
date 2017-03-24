@@ -1,5 +1,6 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
@@ -18,16 +19,21 @@
 <dom-module id="rock-variants-create-grid">
     <template>
         <style include="pebble-styles-shared"></style>
-        <p>You select <b>{{_attributesCountText}}</b> as possible options. We have created <b>[[totalVariants]]</b> potential
+        <p>You select <b>{{_attributesCountText}}</b> as possible options. We have created <b>[[totalVariantsCount]]</b> potential
             [[leafEntityDetails.entityType]] options for you. All new [[leafEntityDetails.entityType]]s in the list below will be created unless you
             want to delete the [[leafEntityDetails.entityType]]s from this list.
         </p>
         <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-response="_onCompositeModelGetResponse" exclude-in-progress></liquid-entity-model-composite-get>
         <liquid-entity-data-get  id="getData" operation="getbyids" request-data="[[_request]]" last-response="{{remoteData}}"
-            on-response="_onGetResponse">
+                                 on-response="_onGetResponse">
         </liquid-entity-data-get>
+        <liquid-entity-data-save name="attributeSaveDataService" operation="create" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}"
+                                 ></liquid-entity-data-save>
+        <liquid-entity-data-save name="attributeUpdateDataService" operation="update" request-data="{{_updateRequest}}"
+                                 on-response="_onSaveResponse"></liquid-entity-data-save>
         <rock-grid title="Variant Options" id="variantGrid" data="{{data}}" config="{{gridConfig}}"
-             page-size="15"></rock-grid>
+                   page-size="15"></rock-grid>
+        <bedrock-pubsub event-name="delete-item" handler="_onGridDelete" target-id="variantGrid"></bedrock-pubsub>
         <div id="content-actions" align="center">
             <pebble-button class="action-button btn btn-secondary" id="skip" button-text="Cancel" raised on-tap="_onCancelTap"></pebble-button>
             <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="next" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
@@ -39,375 +45,629 @@
             'use strict';
 
             Polymer({
-                is: 'rock-variants-create-grid',
-                properties: {
-                    /**
-                    * Indicates the identification of the entity for which the variants are shown.
-                    */
-                    entityId: {
-                        type: String
-                    },
-                    /**
-                     * Indicates the locale dimension for which the attributes are managed.
-                     */
-                    locale: {
-                        type: String
-                    },
-                    /**
-                     * Indictaes the list for which the attributes are managed.
-                     */
-                    list: {
-                        type: String
-                    },
-                    /**
-                     * Indictaes the classification for which the attributes are managed.
-                     */
-                    classification: {
-                        type: String,
-                        value: "_ALL"
-                    },
-                    /**
-                     * Indictaes the source dimension for which the attributes are managed.
-                     */
-                    source: {
-                        type: String
-                    },
-                    /**
-                     * Specifies the configuration object that to be passed to grid.
-                     */
-                    gridConfig: {
-                        type: Object,
-                        value: function () {
-                            return {};
+                    is: 'rock-variants-create-grid',
+                    properties: {
+                        /**
+                         * Indicates the identification of the entity for which the variants are shown.
+                         */
+                        entityId: {
+                            type: String
+                        },
+                        /**
+                         * Indicates the locale dimension for which the attributes are managed.
+                         */
+                        locale: {
+                            type: String
+                        },
+                        /**
+                         * Indictaes the list for which the attributes are managed.
+                         */
+                        list: {
+                            type: String
+                        },
+                        /**
+                         * Indictaes the classification for which the attributes are managed.
+                         */
+                        classification: {
+                            type: String,
+                            value: "_ALL"
+                        },
+                        /**
+                         * Indictaes the source dimension for which the attributes are managed.
+                         */
+                        source: {
+                            type: String
+                        },
+                        /**
+                         * Specifies the configuration object that to be passed to grid.
+                         */
+                        gridConfig: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        // List of attributes present in variant definition
+                        attributesList: {
+                            type: Array
+                        },
+                        variantDefinition: {
+                            type: Object
+                        },
+                        _currentIndex: {
+                            type: Number,
+                            value: 0
+                        },
+                        //List of leaf entities which are child of parent entity
+                        leafEntities: {
+                            type: Array
+                        },
+                        //Total possible number of variants
+                        totalVariantsCount: {
+                            type: Number,
+                            value: 1
                         }
                     },
-                    // List of attributes present in variant definition
-                    attributesList: {
-                        type: Array
+                    behaviors: [
+                        RUFBehaviors.UIBehavior
+                    ],
+                    ready:function () {
+                        this.gridConfig=this.getParentAppConfig('rock-entity-variant','rock-variants-create-grid','createVariantsGridConfig');
+                        this.variantDefinition=this.getParentAppConfig('rock-entity-variant', 'rock-variants-create-grid', 'variantDefinitionUI');
                     },
-                    variantDefinition: {
-                        type: Object
-                    },
-                    _currentIndex: {
-                        type: Number,
-                        value: 0
-                    },
-                    //List of leaf entities which are child of parent entity
-                    leafEntities: {
-                        type: Array,
-                        observer: '_leafEntitiesChanged'
-                    },
-                    //Total possible number of variants
-                    totalVariants: {
-                        type: Number,
-                        value: 1
-                    }
-                },
-                behaviors: [
-                    RUFBehaviors.UIBehavior
-                ],
-                ready:function () {
-                    this.gridConfig=this.getParentAppConfig('rock-entity-variant','rock-variants-create-grid','createVariantsGridConfig');
-                    this.variantDefinition=this.getParentAppConfig('rock-entity-variant', 'rock-variants-create-grid', 'variantDefinitionUI');
-                },
-                observers:[
-                    '_onDefinitionRender(variantDefinition,entityId,entityType,gridConfig)'
-                ],
-                _onDefinitionRender: function () {
-                    var sourceAttrs = [];
-                    var targetAttrs = [];
-                    var medAttrs = [];
-                    var leafEntity;
-                    var max = 0;
-                    if (this.variantDefinition && this.variantDefinition.levels) {
-                        this.variantDefinition.levels.forEach(function (level) {
-                            if (level.index > max) {
-                                max = level.index;
-                                leafEntity = {index: level.index, entityType: level.entityType};
-                            }
-                            for (var i = 0; i < level.dimensionAttributes.length; i++) {
-                                sourceAttrs.push(level.dimensionAttributes[i].sourceAttribute);
-                                targetAttrs.push(level.dimensionAttributes[i].targetAttribute);
-                                if (level.index == 1) {
-                                    medAttrs.push(level.dimensionAttributes[i].targetAttribute);
-                                } else if (level.index == 2) {
-                                    medAttrs.push(level.dimensionAttributes[i].sourceAttribute);
+                    observers:[
+                        '_onDefinitionRender(variantDefinition,entityId,entityType,gridConfig)'
+                    ],
+                    _onDefinitionRender: function () {
+                        var sourceAttrs = [];
+                        var targetAttrs = [];
+                        var medAttrs = [];
+                        var leafEntity;
+                        var max = 0;
+                        var variantLevels={};
+                        variantLevels[0]={"entityType":this.entityType};
+                        if (this.variantDefinition && this.variantDefinition.levels) {
+                            this.variantDefinition.levels.forEach(function (level) {
+                                if (level.index > max) {
+                                    max = level.index;
+                                    leafEntity = {index: level.index, entityType: level.entityType};
                                 }
-                            }
-                        });
-                        this.attributesIndexMapping = [sourceAttrs, medAttrs, targetAttrs];
-                        this.attributesList = sourceAttrs;
-                        this.targetAttributesList = targetAttrs;
-                        var columns=this.targetAttributesList.map(function (attribute) {
-                           return {"header":attribute,"name":attribute}
-                        });
-                        this.gridConfig.tabular.columns=this.gridConfig.tabular.columns.concat(columns);
-                        this.leafEntityDetails = leafEntity;
-                        this._getAttributeModels(this.variantDefinition);
-                        var liquidGet = this.$.getData;
-                        this._request = this._getGridRequest(this.entityId, this.entityType, 0);
-                        if (liquidGet) {
-                            liquidGet.generateRequest();
-                        }
-                    }
-                },
-                _getGridRequest: function (id, type,index) {
-                    var attributes=this.attributesIndexMapping[index];
-                    var relatedAttributes=[];
-                    if(index<this.leafEntityDetails.index){
-                      relatedAttributes=this.attributesIndexMapping[index+1];
-                    }
-                    var req = {
-                        "params": {
-                            "query": {
-                                "ctx": [
-                                    {
-                                        "classification": this.classification,
-                                        "list": this.list
+                                variantLevels[level.index]={"entityType": level.entityType,"sourceAttributes":[],"targetAttributes":[]};
+                                for (var i = 0; i < level.dimensionAttributes.length; i++) {
+                                    variantLevels[level.index].sourceAttributes.push(level.dimensionAttributes[i].sourceAttribute);
+                                    variantLevels[level.index].targetAttributes.push(level.dimensionAttributes[i].targetAttribute);
+                                    sourceAttrs.push(level.dimensionAttributes[i].sourceAttribute);
+                                    targetAttrs.push(level.dimensionAttributes[i].targetAttribute);
+                                    if (level.index == 1) {
+                                        medAttrs.push(level.dimensionAttributes[i].targetAttribute);
+                                    } else if (level.index == 2) {
+                                        medAttrs.push(level.dimensionAttributes[i].sourceAttribute);
                                     }
-                                ],
-                                "valCtx": [
-                                    { "locale": this.locale, "source": this.source }
-                                ],
-                                "filters": {
-                                    "typesCriterion": [this.entityType]
+                                }
+                            });
+                            this._variantLevels=variantLevels;
+                            this._attributesIndexMapping=[sourceAttrs,medAttrs,targetAttrs];
+                            this.attributesList = sourceAttrs;
+                            this.targetAttributesList = targetAttrs;
+                            var columns=this.targetAttributesList.map(function (attribute) {
+                                return {"header":attribute,"name":attribute}
+                            });
+                            this.gridConfig.tabular.columns=this.gridConfig.tabular.columns.concat(columns);
+                            this.leafEntityDetails = leafEntity;
+                            var liquidGet = this.$.getData;
+                            this._request = this._getGridRequest(this.entityId, this.entityType, 0);
+                            if (liquidGet) {
+                                liquidGet.generateRequest();
+                            }
+                        }
+                    },
+                    _getGridRequest: function (id, type,index) {
+                        var attributes=this._attributesIndexMapping[index];
+                        var relatedAttributes=[];
+                        if(index<this.leafEntityDetails.index){
+                            relatedAttributes=this._attributesIndexMapping[index+1];
+                        }
+                        var req = {
+                            "params": {
+                                "query": {
+                                    "ctx": [
+                                        {
+                                            "classification": this.classification,
+                                            "list": this.list
+                                        }
+                                    ],
+                                    "valCtx": [
+                                        { "locale": this.locale, "source": this.source }
+                                    ],
+                                    "filters": {
+                                        "typesCriterion": [this.entityType]
+                                    },
+                                    "id": id
                                 },
-                                "id": id
-                            },
-                            "fields": {
-                                "ctxTypes": [
-                                    "properties"
-                                ],
-                                relationships: [
-                                    "isChildOf"
-                                ],
-                                relatedEntityAttributes: relatedAttributes,
-                                attributes: attributes
-                            }
-                        }
-                    };
-                    if (id instanceof Array) {
-                        delete req.params.query.id;
-                        req.params.query.ids = id;
-                    }
-                    if (type) {
-                        req.params.query.filters.typesCriterion = [type];
-                    }
-                    return req;
-                },
-                _getRelatedEntities: function (entity) {
-                    var relatedEntities=[];
-                    if (entity && entity.data && entity.data.ctxInfo) {
-                        var ctx = {"list":this.list,"classification":this.classification};
-                        var relationshipsList;
-                        for (var i = 0; i < entity.data.ctxInfo.length; i++) {
-                            var ctxData = entity.data.ctxInfo[i];
-                            var compareResult = DataObjectFalcorUtil.compareCtx(ctxData.ctxGroup, ctx);
-                            if (compareResult) {
-                                relationshipsList = ctxData.relationships;
-                                break;
-                            }
-                        }
-                        if (relationshipsList) {
-                            var isChildRelationshipEntities = relationshipsList["isChildOf"];
-                            if (isChildRelationshipEntities) {
-                                isChildRelationshipEntities.forEach(function (relationshipEntity) {
-                                    if (relationshipEntity.relTo) {
-                                        relatedEntities.push(relationshipEntity.relTo);
-                                    }
-                                });
-                            }
-                        }
-                    }
-                    return relatedEntities;
-                },
-                _getAttributeValues: function (entity) {
-                    var dataContext = {
-                        "list": this.list,
-                        "classification": this.classification,
-                        "source": this.source,
-                        "time": "now",
-                        "locale": this.locale
-                    };
-                    this.attributeValues = [];
-                    var text = "";
-                    if (entity.data) {
-                        var ctx = DataHelper.prepareCtx(dataContext);
-                        var valCtx = DataHelper.prepareValCtx(dataContext);
-                        var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, ctx);
-                        var totalVariants = 1;
-                        for (var i = 0; i < this.attributesList.length; i++) {
-                            var attribute = attributes[this.attributesList[i]];
-                            if (attribute && attribute.values) {
-                                var values = DataHelper.getAttributeValues(attribute.values, valCtx);
-                                this.push('attributeValues', {
-                                    "name": this.attributesList[i],
-                                    "values": values
-                                });
-                                totalVariants = totalVariants * values.length;
-                                text += values.length + " " + this.attributesList[i] + " and";
-                            }
-                        }
-                    }
-                    this._attributesCountText = text.substring(0, text.lastIndexOf("and"));
-                    this.totalVariants = totalVariants;
-
-                },
-                _onGetResponse: function (e) {
-                    var respData = e.detail.response;
-                    var index;
-                    if (respData) {
-                        if (respData.content && respData.content.entities) {
-                            var relatedEntities=[];
-                            var entities = respData.content.entities;
-                            if(entities[0].entityInfo.entityType==this.entityType){
-                                var entity = entities[0];
-                                this._getAttributeValues(entity);
-                                relatedEntities = this._getRelatedEntities(entity);
-                            } else{
-                                for (var i = 0; i < entities.length; i++) {
-                                    var entity = entities[i];
-                                    var relEnts = this._getRelatedEntities(entity);
-                                    relatedEntities = relatedEntities.concat(relEnts);
+                                "fields": {
+                                    "ctxTypes": [
+                                        "properties"
+                                    ],
+                                    relationships: [
+                                        "isChildOf"
+                                    ],
+                                    relatedEntityAttributes: relatedAttributes,
+                                    attributes: attributes
                                 }
                             }
-                            if(relatedEntities.length) {
-                                var type = relatedEntities[0].entityInfo.entityType;
-                                if (relatedEntities[0].entityInfo.entityType == this.leafEntityDetails.entityType) {
-                                    this.leafEntities = relatedEntities;
-                                    return;
-                                } else {
-                                    if (!this.entities) {
-                                        this.entities = {};
+                        };
+                        if (id instanceof Array) {
+                            delete req.params.query.id;
+                            req.params.query.ids = id;
+                        }
+                        if (type) {
+                            req.params.query.filters.typesCriterion = [type];
+                        }
+                        return req;
+                    },
+                    _getRelatedEntities: function (entity) {
+                        var relatedEntities=[];
+                        if (entity && entity.data && entity.data.ctxInfo) {
+                            var ctx = {"list":this.list,"classification":this.classification};
+                            var relationshipsList;
+                            for (var i = 0; i < entity.data.ctxInfo.length; i++) {
+                                var ctxData = entity.data.ctxInfo[i];
+                                var compareResult = DataObjectFalcorUtil.compareCtx(ctxData.ctxGroup, ctx);
+                                if (compareResult) {
+                                    relationshipsList = ctxData.relationships;
+                                    break;
+                                }
+                            }
+                            if (relationshipsList) {
+                                var isChildRelationshipEntities = relationshipsList["isChildOf"];
+                                if (isChildRelationshipEntities) {
+                                    isChildRelationshipEntities.forEach(function (relationshipEntity) {
+                                        if (relationshipEntity.relTo) {
+                                            relatedEntities.push(relationshipEntity.relTo);
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                        return relatedEntities;
+                    },
+                    _getAttributeValues: function (entity) {
+                        this.attributeValues = [];
+                        var text = "";
+                        var ctx = {"list": this.list, "classification": this.classification}
+                        var valCtx =  {
+                            "source": this.source,
+                            "time": "now",
+                            "locale": this.locale
+                        };
+                        if (entity.data) {
+                            var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, ctx);
+                            var totalVariantsCount = 1;
+                            this._parentEntityAttributes=attributes;
+                            if(attributes) {
+                                for (var i = 0; i < this.attributesList.length; i++) {
+                                    var attribute = attributes[this.attributesList[i]];
+                                    if (attribute && attribute.values) {
+                                        var values = DataHelper.getAttributeValues(attribute.values, valCtx);
+                                        this.push('attributeValues', {
+                                            "name": this.attributesList[i],
+                                            "values": values
+                                        });
+                                        totalVariantsCount = totalVariantsCount * values.length;
+                                        text += values.length + " " + this.attributesList[i] + " and";
                                     }
-                                    for (var i = 0; i < this.variantDefinition.levels.length; i++) {
-                                        if (this.variantDefinition.levels[i].entityType == relatedEntities[0].entityInfo.entityType) {
-                                            this.entities[this.variantDefinition.levels[i].index] = relatedEntities;
-                                            index=this.variantDefinition.levels[i].index;
-                                            break;
+                                }
+                            }
+                        }
+                        this._attributesCountText = text.substring(0, text.lastIndexOf("and"));
+                        this.totalVariantsCount = totalVariantsCount;
+                    },
+                    _onGetResponse: function (e) {
+                        var respData = e.detail.response;
+                        var index;
+                        if (respData) {
+                            if (respData.content && respData.content.entities) {
+                                var relatedEntities=[];
+                                var entities = respData.content.entities;
+                                if(entities[0].entityInfo.entityType==this.entityType){
+                                    var entity = entities[0];
+                                    this._parentEntity=entity;
+                                    this._getAttributeValues(entity);
+                                    relatedEntities = this._getRelatedEntities(entity);
+                                } else{
+                                    for (var i = 0; i < entities.length; i++) {
+                                        var entity = entities[i];
+                                        var relEnts = this._getRelatedEntities(entity);
+                                        relatedEntities = relatedEntities.concat(relEnts);
+                                    }
+                                }
+                                if(relatedEntities.length) {
+                                    var type = relatedEntities[0].entityInfo.entityType;
+                                    if (relatedEntities[0].entityInfo.entityType == this.leafEntityDetails.entityType) {
+                                        this.leafEntities = relatedEntities;
+                                        this._leafEntitiesChanged();
+                                        return;
+                                    } else {
+                                        if (!this.entities) {
+                                            this.entities = {};
+                                        }
+                                        for (var i = 0; i < this.variantDefinition.levels.length; i++) {
+                                            if (this.variantDefinition.levels[i].entityType == relatedEntities[0].entityInfo.entityType) {
+                                                this.entities[this.variantDefinition.levels[i].index] = relatedEntities;
+                                                index=this.variantDefinition.levels[i].index;
+                                                break;
+                                            }
                                         }
                                     }
+                                    var ids = relatedEntities.map(function (ent) {
+                                        return ent.id;
+                                    });
+                                    if (ids.length > 0) {
+                                        this._request = this._getGridRequest(ids, type,index);
+                                        this.$.getData.generateRequest();
+                                    }
+                                } else {
+                                    this.leafEntities = [];
+                                    this._leafEntitiesChanged();
                                 }
-                                var ids = relatedEntities.map(function (ent) {
-                                    return ent.id;
-                                });
-                                if (ids.length > 0) {
-                                    this._request = this._getGridRequest(ids, type,index);
-                                    this.$.getData.generateRequest();
-                                }
-                            } else {
-                                this.leafEntities = [];
                             }
                         }
-                    }
-                },
-                _onCancelTap: function (e) {
-                    //raise event with name given for onbackAction in configuration
-                    var eventName = "onCancel";
-                    var eventDetail = {
-                        name: eventName
-                    };
-                    this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
-                },
-                _onSaveTap: function (e) {
-                    var eventName = "onComplete";
-                    var eventDetail = {
-                        name: eventName,
-                        data: this.selectedOptions
-                    };
-                    this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
-                },
-                _leafEntitiesChanged: function () {
-                    var data = [];
-                    var n = this.attributeValues.length;
-                    var nameArray = [];
-                    var valuesArray = [];
-                    for (var i = 0; i < n; i++) {
-                        nameArray.push(this.attributeValues[i].name);
-                        valuesArray.push(this.attributeValues[i].values);
-                    }
-                    var combinations = this.getAllCombinations(valuesArray);
-                    for (var i = 0; i < this.totalVariants; i++) {
-                        data[i] = {};
-                        for (var j = 0; j < nameArray.length; j++) {
-                            data[i][nameArray[j]] = combinations[i][j];
-                            data[i]["status"] = "New";
-                        }
-                    }
-                    //TODO take this.leafEntities and replace those combinations with the present entities data
-                    this.data = data;
-                },
-                // Function to get all combinations of multiple arrays
-                getAllCombinations: function (arraysToCombine) {
-                    var divisors = [];
-                    for (var i = arraysToCombine.length - 1; i >= 0; i--) {
-                        divisors[i] = divisors[i + 1] ? divisors[i + 1] * arraysToCombine[i + 1].length : 1;
-                    }
-                    function getPermutation(n, arraysToCombine) {
-                        var result = [],
-                            curArray;
-                        for (var i = 0; i < arraysToCombine.length; i++) {
-                            curArray = arraysToCombine[i];
-                            result.push(curArray[Math.floor(n / divisors[i]) % curArray.length]);
-                        }
-                        return result;
-                    }
-                    var numPerms = arraysToCombine[0].length;
-                    for (var i = 1; i < arraysToCombine.length; i++) {
-                        numPerms *= arraysToCombine[i].length;
-                    }
-                    var combinations = [];
-                    for (var i = 0; i < numPerms; i++) {
-                        combinations.push(getPermutation(i, arraysToCombine));
-                    }
-                    return combinations;
-                },
-                _getAttributeModels:function (variantDefinition) {
-                    if (!variantDefinition || !Object.keys(variantDefinition).length) {
-                        return;
-                    }
-                    var types=this.variantDefinition.levels.map(function (level) {
-                        return level.entityType;
-                    });
-                    types.unshift(this.entityType);
-                    var req = {
-                        "params": {
-                            "query": {
-                                "ctx": [{
-                                    "list": this.list,
-                                    "classification": this.classification
-                                }
-                                ],
-                                "locale": this.locale,
-                                "name": this.leafEntityDetails.entityType,
-                                "filters": {
-                                    "typesCriterion": [types]
-                                }
-                            },
-                            "fields": {
-                                "ctxTypes": [
-                                    "properties"
-                                ],
-                                "attributes": this.targetAttributesList
-                            }
-                        }
-                    };
-                    this.set("attributeModelRequest", req);
-                    var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
-                    if (liquidModelGet) {
-                        liquidModelGet.generateRequest();
-                    }
-                },
-                _onCompositeModelGetResponse: function (e) {
-                    if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
-                        var ctx = {
-                            "list": this.list,
-                            "classification": this.classification
+                    },
+                    _onCancelTap: function (e) {
+                        //raise event with name given for onbackAction in configuration
+                        var eventName = "onCancel";
+                        var eventDetail = {
+                            name: eventName
                         };
-                        this._attributeModels = DataHelper.transformAttributeModelsToUIFormat(e.detail.response.content.entityModels[0], ctx);
+                        this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                    },
+                    _getRandomString: function() {
+                        var x = 2147483648;
+                        return Math.floor(Math.random() * x).toString(36) +
+                            Math.abs(Math.floor(Math.random() * x) ^ new Date().getTime()).toString(36);
+                    },
+                    _onSaveTap: function (e) {
+                        var source=this.source;
+                        var locale=this.locale;
+                        var ctx= {"list": this.list, "classification": this.classification};
+                        var level1Details=this._variantLevels[1];
+                        var level1TargetAttrs=level1Details.targetAttributes;
+                        this._entitiesToBeUpdated=[];
+                        this.level1Combinations=[];
+                        var entities=[];
+                        for(var i in this.data) {
+                            if (this.data[i]["existing"] != "New") {
+                                continue;
+                            }
+                            var attributes = {};
+                            var id = this._getRandomString();
+                            id += this.data[i][this.targetAttributesList[0]];
+                            for (var x = 0; x < this.targetAttributesList.length; x++) {
+                                var values = [
+                                    {
+                                        "source": source,
+                                        "locale": locale,
+                                        "value": this.data[i][this.targetAttributesList[x]]
+                                    }];
+                                attributes[this.targetAttributesList[x]] = {"values": values};
+                            }
+                            var entity = {
+                                "id": id,
+                                "entityInfo": {
+                                    "entityType": this.leafEntityDetails.entityType
+                                },
+                                "data": {
+                                    ctxInfo: [{
+                                        "ctxGroup": ctx,
+                                        "attributes": attributes
+                                    }]
+                                },
+                                properties: {}
+                            };
+                            entities.push(entity);
+                            if(this.leafEntityDetails.index==2) {
+                                this._relateToLevel1Entity(attributes, id);
+                            }
+                        }
+                        this._saveRequest = {
+                            "entities": entities
+                        };
+                        var liquidSave = this.$$("[name=attributeSaveDataService]");
+                        if (liquidSave && entities.length) {
+                            liquidSave.generateRequest();
+                        }
+
+                        var level1Ids=[];
+                        if(this.leafEntityDetails.index==2){
+                            var level1Entities=this._getLevel1Entities();
+                            this._saveRequest = {
+                                "entities": level1Entities
+                            };
+                            if (liquidSave && level1Entities.length) {
+                                liquidSave.generateRequest();
+                            }
+                            level1Ids=level1Entities.map(function (entity) {
+                                return entity.id;
+                            });
+                        } else{
+                            level1Ids=entities.map(function (entity) {
+                                return entity.id;
+                            });
+                        }
+
+
+                        var parentEntityRels=this._makeChildOfRelationshipsArray(level1Ids,level1Details.entityType);
+                        this._parentEntity.data={
+                            ctxInfo: [{
+                                "ctxGroup":ctx,
+                                "relationships":{
+                                    "isChildOf": parentEntityRels
+                                }
+                            }]
+                        };
+                        this._entitiesToBeUpdated.push(this._parentEntity);
+                        this._updateRequest = {
+                            "entities": this._entitiesToBeUpdated
+                        };
+                        var liquidUpdate = this.$$("[name=attributeUpdateDataService]");
+                        if (liquidUpdate) {
+                            liquidUpdate.generateRequest();
+                        }
+                    },
+                    _makeChildOfRelationshipsArray:function (ids,childEntityType) {
+                        var rels=[];
+                        for(var i in ids){
+                            var rel= {
+                                "id": "Rel"+this._getRandomString(),
+                                "direction": "both",
+                                "source": "internal",
+                                "operation": "composition",
+                                "attributes": {
+                                    "shortDescription": {
+                                        "alias": "Short Description",
+                                        "values": [
+                                            {
+                                                "value": "Child Attributes",
+                                                "source": "internal",
+                                                "locale": "en-US"
+                                            }
+                                        ]
+                                    }
+                                },
+                                "relTo": {
+                                    "id": ids[i],
+                                    "entityInfo": {
+                                        "entityType": childEntityType
+                                    }
+                                }
+                            };
+                            rels.push(rel);
+                        }
+                        return rels;
+                    },
+                    _onSaveResponse:function () {
+                        var eventName = "onComplete";
+                        var eventDetail = {
+                            name: eventName,
+                            data: this.selectedOptions
+                        };
+                        this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                    },
+                    _relateToLevel1Entity:function (attributes,id) {
+                        var utils = SharedUtils.DataObjectFalcorUtil;
+                        var level1Details=this._variantLevels[1];
+                        var targetAttrs=level1Details.targetAttributes;
+                        var comb={};
+                        for(var i in targetAttrs){
+                            comb[targetAttrs[i]]=attributes[targetAttrs[i]];
+                        }
+                        for(var x in this.level1Combinations){
+                            if(utils.compareObjects(comb,this.level1Combinations[x].attributes)){
+                                this.level1Combinations[x].ids.push(id);
+                                return;
+                            }
+                        }
+                        this.level1Combinations.push({"ids":[id],"attributes":comb});
+                    },
+                    _getLevel1Entities:function () {
+                        var utils = SharedUtils.DataObjectFalcorUtil;
+                        var ctx= {"list": this.list, "classification": this.classification};
+                        var presentEntities=[];
+                        if(this.entities.hasOwnProperty(1)) {
+                            presentEntities=this.entities[1];
+                        }
+                        var entities=[];
+                        var level1Details=this._variantLevels[1];
+                        var sourceAttrs=level1Details.sourceAttributes;
+                        var targetAttrs=level1Details.targetAttributes;
+                        var attributes=this._parentEntityAttributes;
+                        for(var i in attributes){
+                            var index=sourceAttrs.indexOf(i);
+                            if(index>-1) {
+                                delete attributes[i];
+                            }
+                        }
+                        for(var x in this.level1Combinations){
+                            var comb=this.level1Combinations[x];
+                            var attrs=DataHelper.cloneObject(attributes);
+                            for(var key in comb.attributes){
+                                attrs[key]=comb.attributes[key];
+                            }
+                            var id = this._getRandomString();
+                            var rels=[];
+                            for(var i in comb.ids){
+                                var rel= {
+                                    "id": "Rel"+this._getRandomString(),
+                                    "direction": "both",
+                                    "source": "internal",
+                                    "operation": "composition",
+                                    "alias": level1Details.entityType,
+                                    "attributes": {
+                                        "shortDescription": {
+                                            "alias": "Short Description",
+                                            "values": [
+                                                {
+                                                    "value": "Child Attributes",
+                                                    "source": "internal",
+                                                    "locale": "en-US"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "relTo": {
+                                        "id": comb.ids[i],
+                                        "entityInfo": {
+                                            "entityType": this.leafEntityDetails.entityType
+                                        }
+                                    }
+                                };
+                                rels.push(rel);
+                            }
+                            var matched=false;
+                            for(var p in presentEntities){
+                                var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(presentEntities[p], ctx);
+                                if(utils.compareObjects(attributes,attrs)){
+                                    matched=true;
+                                    presentEntities[p].data= {
+                                        ctxInfo: [{
+                                            "ctxGroup":ctx,
+                                            "relationships":{
+                                                "isChildOf": rels
+                                            }
+                                        }]
+                                    };
+                                    this._entitiesToBeUpdated.push(presentEntities[p]);
+                                    break;
+                                }
+                            }
+                            if(matched){
+                                continue;
+                            }
+                            var entity = {
+                                "id": id,
+                                "entityInfo": {
+                                    "entityType": level1Details.entityType
+                                },
+                                "data": {
+                                    ctxInfo: [{
+                                        "ctxGroup": {"list": this.list, "classification": this.classification},
+                                        "attributes": attrs,
+                                        "relationships":{
+                                            "isChildOf": rels
+                                        }
+                                    }]
+                                },
+                                properties: {}
+                            };
+                            entities.push(entity);
+                        }
+                        return entities;
+                    },
+                _leafEntitiesChanged: function () {
+                var data = [];
+                var n = this.attributeValues.length;
+                var nameArray = [];
+                var valuesArray = [];
+                for (var i = 0; i < n; i++) {
+                    nameArray.push(this.attributeValues[i].name);
+                    valuesArray.push(this.attributeValues[i].values);
+                }
+                if(!nameArray.length){
+                    return;
+                }
+                var variantDefinition=this.variantDefinition;
+                var targetNameArray=nameArray.map(function (name) {
+                    for(var x=0;x<variantDefinition.levels.length;x++){
+                        var level=variantDefinition.levels[x];
+                        for (var i = 0; i < level.dimensionAttributes.length; i++) {
+                            if (level.dimensionAttributes[i].sourceAttribute == name) {
+                                return level.dimensionAttributes[i].targetAttribute;
+                            }
+                        }
                     }
-                },
-            });
+                });
+                var combinations = this.getAllCombinations(valuesArray);
+                for (var i = 0; i < combinations.length; i++) {
+                    data[i] = {};
+                    for (var j = 0; j < targetNameArray.length; j++) {
+                        data[i][targetNameArray[j]] = combinations[i][j];
+                    }
+                }
+                var presentData=[];
+                for(var i=0;i< this.leafEntities.length;i++){
+                    var attrValues=this.getValueForAttributes(this.leafEntities[i],targetNameArray);
+                    var index=data.map(function (element) {return JSON.stringify(element)})
+                        .indexOf(JSON.stringify(attrValues));
+                    if(index>-1){
+                        data.splice(index,1);
+                        attrValues['existing']='Existing';
+                        presentData.push(attrValues);
+                    }
+                }
+                for(var j=0;j<data.length;j++){
+                    data[j]['existing'] ='New';
+                }
+                this.data = data.concat(presentData);
+            },
+            getValueForAttributes:function (entity,attributeNames) {
+                var dataContext = {
+                    "list": this.list,
+                    "classification": this.classification,
+                    "source": this.source,
+                    "time": "now",
+                    "locale": this.locale
+                };
+                var attributeValues = {};
+                if (entity.data) {
+                    var ctx = DataHelper.prepareCtx(dataContext);
+                    var valCtx = DataHelper.prepareValCtx(dataContext);
+                    var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, ctx);
+                    if(attributes) {
+                        for (var i = 0; i < attributeNames.length; i++) {
+                            var attribute = attributes[attributeNames[i]];
+                            if (attribute && attribute.values) {
+                                var values = DataHelper.getAttributeValues(attribute.values, valCtx);
+                                attributeValues[attributeNames[i]]=values[0];
+                            }
+                        }
+                    }
+                }
+                return attributeValues;
+            },
+
+            // Function to get all combinations of multiple arrays
+            getAllCombinations: function (arraysToCombine) {
+                var divisors = [];
+                for (var i = arraysToCombine.length - 1; i >= 0; i--) {
+                    divisors[i] = divisors[i + 1] ? divisors[i + 1] * arraysToCombine[i + 1].length : 1;
+                }
+                function getPermutation(n, arraysToCombine) {
+                    var result = [],
+                        curArray;
+                    for (var i = 0; i < arraysToCombine.length; i++) {
+                        curArray = arraysToCombine[i];
+                        result.push(curArray[Math.floor(n / divisors[i]) % curArray.length]);
+                    }
+                    return result;
+                }
+                var numPerms = arraysToCombine[0].length;
+                for (var i = 1; i < arraysToCombine.length; i++) {
+                    numPerms *= arraysToCombine[i].length;
+                }
+                var combinations = [];
+                for (var i = 0; i < numPerms; i++) {
+                    combinations.push(getPermutation(i, arraysToCombine));
+                }
+                return combinations;
+            },
+            _onGridDelete: function (e, detail, sender) {
+                if(detail.existing=="New") {
+                    var index=this.data.indexOf(detail);
+                    this.splice('data', index,1);
+                }
+                this.$.variantGrid._gridDataLoad();
+            },
+        });
         })();
     </script>
 </dom-module>
