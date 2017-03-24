@@ -27,7 +27,7 @@ COPService.prototype = {
                     "createdBy": "user",
                     "createdDate": "2016-07-16T18:33:52.412-07:00",
                     "filename": "",
-                    "encoding": "base64",
+                    "encoding": "Base64",
                     "profileId": "d75a63f9-ed4f-4b6e-9973-8743396b61c0",
                     "profileName": "ExcelToRdpMapping.profile"
                 },
