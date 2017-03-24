@@ -1689,27 +1689,24 @@ var allConfigs = {
                         },
                         "variantDefinitionUI": {
                             "name": "ehd1",
-                            "levels": [
-                                {
+                            "levels": [{
                                     "entityType": "sku",
                                     "index": 1,
                                     "optional": false,
-                                    "dimensionAttributes": [
-                                        {
-                                            "sourceAttribute": "evSizes",
-                                            "targetAttribute": "evSize",
+                                    "dimensionAttributes": [{
+                                            "sourceAttribute": "color",
+                                            "targetAttribute": "color",
                                             "optional": false
                                         },
                                         {
-                                            "sourceAttribute": "evColors",
-                                            "targetAttribute": "evColor",
-                                            "optional": false
+                                            "sourceAttribute": "size",
+                                            "targetAttribute": "size",
+                                            "optional": true
                                         }
                                     ]
                                 }
                             ]
-                        },
-                        "businessFunctionVariantsCreate": {
+                        },"businessFunctionVariantsCreate": {
                             "stepperConfig": [{
                                 "index": "1",
                                 "title": "Option Selection",
@@ -1796,7 +1793,6 @@ var allConfigs = {
                                     ]
                                 }
                             }
-                        }
                     }
                 },
                 "rock-relationship-manage": {

@@ -7,7 +7,11 @@ var DFServiceBase = function (options) {
     var _dataConnection = new DFConnection();
     this._restRequest = _dataConnection.getRequest();
     this._serverUrl = _dataConnection.getServerUrl();
+    if(options.serverType == 'cop') {
+        this._serverUrl = _dataConnection.getCOPServerUrl();
+    }
     this._headers = _dataConnection.getHeaders();
+    this._timeout - _dataConnection.getTimeout();
 
     this.requestJson = async function (url, request) {
 
@@ -28,7 +32,7 @@ var DFServiceBase = function (options) {
             body: request,
             json: true,
             simple: false,
-            timeout:2000
+            timeout: this._timeout
         };
 
         //console.log('RDP call: ', JSON.stringify(options, null, 4));
