@@ -1541,7 +1541,17 @@ var allConfigs = {
                                 "path": "/src/elements/app-entity-discovery/app-entity-discovery.html",
                                 "properties": {}
                             }
-                        }
+                        },
+                            {
+                                "name": "entity-family",
+                                "title": "Entity Family",
+                                "enableDropdownMenu": false,
+                                "component": {
+                                    "name": "rock-entity-variant",
+                                    "path": "/src/elements/rock-entity-variant/rock-entity-variant.html",
+                                    "properties": {}
+                                }
+                            }
                         ]
                     }
                 },
@@ -1769,30 +1779,9 @@ var allConfigs = {
                                             }
                                         ]
                                     }
-                                },
-                                "variantDefinitionUI": {
-                                    "name": "ehd1",
-                                    "levels": [
-                                        {
-                                            "entityType": "sku",
-                                            "index": 2,
-                                            "optional": false,
-                                            "dimensionAttributes": [
-                                                {
-                                                    "sourceAttribute": "evSizes",
-                                                    "targetAttribute": "evSize",
-                                                    "optional": false
-                                                },
-                                                {
-                                                    "sourceAttribute": "evColors",
-                                                    "targetAttribute": "evColor",
-                                                    "optional": false
-                                                }
-                                            ]
-                                        }
-                                    ]
                                 }
                             }
+                        }
                     }
                 },
                 "rock-relationship-manage": {
