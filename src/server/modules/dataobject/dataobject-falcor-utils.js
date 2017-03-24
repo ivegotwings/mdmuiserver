@@ -105,7 +105,7 @@ function _buildAttributesResponse(attrs, attrNames, basePath) {
             for (var valCtxKey in valCtxItems) {
                 var valCtxItem = valCtxItems[valCtxKey];
                 //console.log('valCtxItem.values', JSON.stringify(valCtxItem.values));
-                response.push(mergeAndCreatePath(basePath, [attrKey, 'valCtxInfo', valCtxKey, 'values'], $atom(valCtxItem.values)));
+                response.push(mergeAndCreatePath(basePath, [attrKey, 'valContexts', valCtxKey, 'values'], $atom(valCtxItem.values)));
             }
         }
 
@@ -113,13 +113,13 @@ function _buildAttributesResponse(attrs, attrNames, basePath) {
             var valCtxItem = { 'source': CONST_ANY, 'locale': CONST_ANY }; //TODO: How to find out val ctx keys from the flat list of values object..??
             var valCtxKey = sharedDataObjectFalcorUtil.createCtxKey(valCtxItem);
             //console.log('attr group', JSON.stringify(attr.group));
-            response.push(mergeAndCreatePath(basePath, [attrKey, 'valCtxInfo', valCtxKey, 'group'], $atom(attr.group)));
+            response.push(mergeAndCreatePath(basePath, [attrKey, 'valContexts', valCtxKey, 'group'], $atom(attr.group)));
         }
 
         if (attr.properties) {
             var valCtxItem = { 'source': CONST_ANY, 'locale': CONST_ANY }; //TODO: How to find out val ctx keys from the flat list of values object..??
             var valCtxKey = sharedDataObjectFalcorUtil.createCtxKey(valCtxItem);
-            response.push(mergeAndCreatePath(basePath, [attrKey, 'valCtxInfo', valCtxKey, 'properties'], $atom(attr.properties)));
+            response.push(mergeAndCreatePath(basePath, [attrKey, 'valContexts', valCtxKey, 'properties'], $atom(attr.properties)));
         }
     }
 
@@ -137,14 +137,14 @@ function _buildRelationshipsResponse(rels, reqData, basePath) {
     var relTypeKeys = _getKeyNames(rels, reqData.relTypes);
 
     for (let relTypeKey of relTypeKeys) {
-        var relTypeInfo = rels[relTypeKey];
+        var relTypeData = rels[relTypeKey];
 
-        if (!isEmpty(relTypeInfo)) {
+        if (!isEmpty(relTypeData)) {
             var relBasePath = mergePathSets(basePath, [relTypeKey]);
             var relIds = [];
 
-            for (var relKey in relTypeInfo) {
-                var rel = relTypeInfo[relKey];
+            for (var relKey in relTypeData) {
+                var rel = relTypeData[relKey];
                 rel.id = _createRelUniqueId(rel);
 
                 if (reqRelIds && reqRelIds.length > 0 && !arrayContains(reqRelIds, rel.id)) {
@@ -173,8 +173,6 @@ function _buildRelationshipDetailsResponse(enRel, reqData, basePath) {
 
     var relBasePath = mergePathSets(basePath, ["rels", enRel.id]);
 
-    var dataIndexInfo = pathKeys.dataIndexInfo[reqData.dataIndex];
-
     var dataObjectsByIdBasePath = [pathKeys.root, reqData.dataIndex];
     //TODO:: NOT using input relFields yet..
     //var relFieldKeys = _getKeyNames(enRel, reqData.relFields);
@@ -192,7 +190,7 @@ function _buildRelationshipDetailsResponse(enRel, reqData, basePath) {
             }
         }
         else if (relFieldKey == "relTo") {
-            var dataObjectType = enRel[relFieldKey][dataIndexInfo.typeInfo][dataIndexInfo.typeName];
+            var dataObjectType = enRel[relFieldKey].type;
             var dataObjectsByIdPath = mergePathSets(dataObjectsByIdBasePath, dataObjectType, pathKeys.byIds);
             response.push(mergeAndCreatePath(relBasePath, relFieldKey, $ref(mergePathSets(dataObjectsByIdPath, [enRel[relFieldKey].id]))));
         }
@@ -245,31 +243,31 @@ function buildResponse(dataObject, reqData, basePath) {
     
         //add data level attrs, rels and props as self context item in falcor response..
         if (data.attributes || data.relationships || data.properties || data.jsonData) {
-            var ctxInfo = sharedDataObjectFalcorUtil.getOrCreate(data, "ctxInfo", []);
+            var contexts = sharedDataObjectFalcorUtil.getOrCreate(data, "contexts", []);
 
             var selfCtxItem = {
-                'ctxGroup': sharedDataObjectFalcorUtil.getSelfCtx(),
+                'context': sharedDataObjectFalcorUtil.getSelfCtx(),
                 'attributes': data.attributes,
                 'relationships': data.relationships,
                 'properties': data.properties,
                 'jsonData' : data.jsonData
             }
 
-            ctxInfo.push(selfCtxItem);
+            contexts.push(selfCtxItem);
         }
 
-        for (let ctxInfoItem of data.ctxInfo) {
-            var ctxGroup = ctxInfoItem.ctxGroup;
+        for (let contextItem of data.contexts) {
+            var currContext = contextItem.context;
 
-            var ctxKey = sharedDataObjectFalcorUtil.createCtxKey(ctxGroup);
-            var ctxBasePath = mergePathSets(basePath, ['data', 'ctxInfo', ctxKey]);
+            var ctxKey = sharedDataObjectFalcorUtil.createCtxKey(currContext);
+            var ctxBasePath = mergePathSets(basePath, ['data', 'contexts', ctxKey]);
 
-            var attrs = ctxInfoItem.attributes;
+            var attrs = contextItem.attributes;
 
             if (!isEmpty(reqData.attrNames)) {
                 
-                if (!isEmpty(ctxInfoItem.properties) && reqData.attrNames.indexOf('properties') >= 0) {
-                    _addCtxPropertiesToAttributes(attrs, reqData.attrNames, ctxInfoItem.properties);
+                if (!isEmpty(contextItem.properties) && reqData.attrNames.indexOf('properties') >= 0) {
+                    _addCtxPropertiesToAttributes(attrs, reqData.attrNames, contextItem.properties);
                 }
 
                 if (!isEmpty(attrs)) {
@@ -281,16 +279,16 @@ function buildResponse(dataObject, reqData, basePath) {
 
             //console.log('relTypes', JSON.stringify(reqData.relTypes));
             if (!isEmpty(reqData.relTypes)) {
-                var rels = ctxInfoItem.relationships;
+                var rels = contextItem.relationships;
                 if (!isEmpty(rels)) {
                     var relsBasePath = mergePathSets(ctxBasePath, ['relationships']);
                     response.push.apply(response, _buildRelationshipsResponse(rels, reqData, relsBasePath));
                 }
             }
             
-            if(reqData.operation == "getJsonData" && !isEmpty(ctxInfoItem.jsonData)) {
+            if(reqData.operation == "getJsonData" && !isEmpty(contextItem.jsonData)) {
                 var jsonDataBasePath = mergePathSets(ctxBasePath, ['jsonData']);
-                response.push.apply(response, _buildJsonDataResponse(ctxInfoItem.jsonData, jsonDataBasePath));
+                response.push.apply(response, _buildJsonDataResponse(contextItem.jsonData, jsonDataBasePath));
             }
         }
     }

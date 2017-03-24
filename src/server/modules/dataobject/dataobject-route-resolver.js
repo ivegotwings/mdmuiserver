@@ -67,7 +67,7 @@ async function initiateSearch(callPath, args) {
             totalRecords = dataObjects.length;
             for (let dataObject of dataObjects) {
                 if (dataObject.id !== undefined) {
-                    var dataObjectType = dataObject[dataIndexInfo.typeInfo][dataIndexInfo.typeName];
+                    var dataObjectType = dataObject.type;
                     var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds];
                     response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [dataObject.id]))));
                 }
@@ -103,8 +103,8 @@ async function getSearchResultDetail(pathSet) {
 
 function createGetRequest(reqData) {
 
-    var ctxGroups = sharedDataObjectFalcorUtil.createCtxItems(reqData.ctxKeys);
-    var valCtxGroups = sharedDataObjectFalcorUtil.createCtxItems(reqData.valCtxKeys);
+    var contexts = sharedDataObjectFalcorUtil.createCtxItems(reqData.ctxKeys);
+    var valContexts = sharedDataObjectFalcorUtil.createCtxItems(reqData.valCtxKeys);
 
     var fields = {
         ctxTypes: ["properties"]
@@ -145,12 +145,12 @@ function createGetRequest(reqData) {
 
     var query = {'id': ''};
 
-    if(!isEmpty(ctxGroups)) {
-        query.ctx = ctxGroups;
+    if(!isEmpty(contexts)) {
+        query.ctx = contexts;
     }
 
-    if(!isEmpty(valCtxGroups)) {
-        query.valCtx = valCtxGroups;
+    if(!isEmpty(valContexts)) {
+        query.valCtx = valContexts;
     }
 
     if(!isEmpty(filters)) {
@@ -199,7 +199,7 @@ async function getSingle(dataObjectId, reqData) {
 
         if (dataObjects !== undefined) {
             for (let dataObject of dataObjects) {
-                var dataObjectType = dataObject[dataIndexInfo.typeInfo][dataIndexInfo.typeName];
+                var dataObjectType = dataObject.type;
                 var dataObjectBasePath = mergePathSets(basePath, dataObjectType, pathKeys.byIds, dataObject.id);
 
                 if (dataObject.id == dataObjectId) {
@@ -293,7 +293,7 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation) 
                 'operation': operation
             };
 
-            var dataObjectType = dataObject[dataIndexInfo.typeInfo][dataIndexInfo.typeName];
+            var dataObjectType = dataObject.type;
             var dataObjectBasePath = mergePathSets(basePath, dataObjectType, pathKeys.byIds, dataObjectId);
             response.push.apply(response, buildResponse(dataObject, reqData, dataObjectBasePath));
         }
