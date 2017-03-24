@@ -1689,39 +1689,113 @@ var allConfigs = {
                         },
                         "variantDefinitionUI": {
                             "name": "ehd1",
-                            "levels": [{
-                                "entityType": "choice",
-                                "index": 1,
-                                "optional": false,
-                                "dimensionAttributes": [{
-                                    "sourceAttribute": "colorAssignment",
-                                    "targetAttribute": "choiceColor",
-                                    "optional": false
-                                },
+                            "levels": [
                                 {
-                                    "sourceAttribute": "materials",
-                                    "targetAttribute": "choiceMaterial",
-                                    "optional": true
+                                    "entityType": "sku",
+                                    "index": 1,
+                                    "optional": false,
+                                    "dimensionAttributes": [
+                                        {
+                                            "sourceAttribute": "evSizes",
+                                            "targetAttribute": "evSize",
+                                            "optional": false
+                                        },
+                                        {
+                                            "sourceAttribute": "evColors",
+                                            "targetAttribute": "evColor",
+                                            "optional": false
+                                        }
+                                    ]
                                 }
-                                ]
-                            },
-                            {
-                                "entityType": "sku",
-                                "index": 2,
-                                "optional": false,
-                                "dimensionAttributes": [{
-                                    "sourceAttribute": "primarySizes",
-                                    "targetAttribute": "skuSize1",
-                                    "optional": false
-                                },
-                                {
-                                    "sourceAttribute": "secondarySizes",
-                                    "targetAttribute": "skuSize2",
-                                    "optional": true
-                                }
-                                ]
-                            }
                             ]
+                        },
+                        "businessFunctionVariantsCreate": {
+                            "stepperConfig": [{
+                                "index": "1",
+                                "title": "Option Selection",
+                                "status": "inprogress"
+                            },
+                                {
+                                    "index": "2",
+                                    "title": "Create Variants",
+                                    "status": ""
+                                }
+                            ],
+                            "name": "create-variants",
+                            "label": "Create Variants",
+                            "steps": [{
+                                "name": "step-1-selection-option",
+                                "label": "Select Options to create Skus",
+                                "component": {
+                                    "name": "rock-variants-option-select",
+                                    "path": "/../../src/elements/rock-variants-option-select/rock-variants-option-select.html",
+                                    "properties": {}
+                                },
+                                "nextEvent": "onSave",
+                                "skipEvent": "onCancel"
+                            },
+                                {
+                                    "name": "step-2-create-variants",
+                                    "label": "Create variants for a given entity",
+                                    "component": {
+                                        "name": "rock-variants-create-grid",
+                                        "path": "/../../src/elements/rock-variants-create-grid/rock-variants-create-grid.html",
+                                        "properties": {}
+                                    },
+                                    "nextEvent": "onComplete",
+                                    "skipEvent": "onCancel"
+                                }
+                            ]
+                        },
+                        "rock-variants-create-grid": {
+                            "config": {
+                                "createVariantsGridConfig": {
+                                    "viewMode": "Tabular",
+                                    "title": "Variant Data Table",
+                                    "mode": "Read",
+                                    "schemaType": "simple",
+                                    "tabular": {
+                                        "settings": {
+                                            "isMultiSelect": false,
+                                            "actions": [{
+                                                "name": "delete",
+                                                "icon": "pebble-icons:Delete",
+                                                "eventName": "delete-item"
+                                            }]
+                                        },
+                                        "columns": [
+                                            {
+                                                "header": "Existing",
+                                                "name": "existing",
+                                                "sortable": false,
+                                                "filterable": false
+                                            }
+                                        ]
+                                    }
+                                },
+                                "variantDefinitionUI": {
+                                    "name": "ehd1",
+                                    "levels": [
+                                        {
+                                            "entityType": "sku",
+                                            "index": 2,
+                                            "optional": false,
+                                            "dimensionAttributes": [
+                                                {
+                                                    "sourceAttribute": "evSizes",
+                                                    "targetAttribute": "evSize",
+                                                    "optional": false
+                                                },
+                                                {
+                                                    "sourceAttribute": "evColors",
+                                                    "targetAttribute": "evColor",
+                                                    "optional": false
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
                         }
                     }
                 },
