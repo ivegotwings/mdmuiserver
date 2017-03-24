@@ -61,7 +61,7 @@
                 font-size: var(--default-font-size, 14px);		                  
                 text-align: center;
                 color:var(--palette-steel-grey, #75808b);
-              }		              }
+              }	
         </style>
         <iron-ajax auto url="config\gridConfig.json" handle-as="json" last-response="{{_gridConfig}}"></iron-ajax>
         <liquid-rest id="copTransform" url="/cop/transform" 
@@ -91,7 +91,7 @@
             <bedrock-pubsub on-bedrock-event-save-item="_onSaveItem"></bedrock-pubsub>
         </div>
         <div id="content-entities-grid" hidden>
-            <rock-grid id="entitiesGrid" config="{{_gridConfig}}" data="{{_gridData}}" page-size="10" no-header></rock-grid>
+            <rock-grid id="entitiesGrid" data="{{_gridData}}" page-size="10" no-header></rock-grid>
         </div>
         <div id="content-actions" class="p-b-10" align="center" hidden>
             <pebble-button class="action-button btn btn-secondary m-r-5" id="skip" button-text="Cancel" raised on-tap="_onSkipTap"></pebble-button>
@@ -240,6 +240,14 @@
                         },
                         _fileName: {
                             type: String
+                        },
+                        _currentBatchNumber: {
+                            type: Number,
+                            value: 0
+                        },
+                        _batchSize: {
+                            type: Number,
+                            value: 10
                         }
                     },
                     observers: [
@@ -523,6 +531,7 @@
                         }
                     },
                     _onSaveTap: function(e) {
+                        this._disableActions();
                         //get all entities from grid and process save
                         var gridData = this.$$("#entitiesGrid").data;
                         var dataContext = {
@@ -533,9 +542,10 @@
                                 "locale": this.locale,
                                 "entityType": this.entityType
                             };
-                        var entities = DataHelper.TransformGridDataToEntitiesSchema(gridData, dataContext, this._attributeModels);
+                        this._entities = DataHelper.TransformGridDataToEntitiesSchema(gridData, dataContext, this._attributeModels);
+                        var batchEntities = this._getNextBatch(this._entities, this._currentBatchNumber,  this._batchSize);
                         this._saveRequest = {
-                            "entities": entities
+                            "entities": batchEntities
                         };
                         var liquidSave = this.$$("[name=entitiesSaveDataService]");
                         if (liquidSave) {
@@ -543,13 +553,29 @@
                         }
                     },
                     _onSaveResponse: function(e) {
-                        var eventName = "onSave";
-                        var eventDetail = {
-                            name: eventName
+                        this._currentBatchNumber++;
+                        var batchEntities = this._getNextBatch(this._entities, this._currentBatchNumber,  this._batchSize);
+                        if(batchEntities && batchEntities.length > 0) {
+                            this._saveRequest = {
+                                "entities": batchEntities
+                            };
+                            var liquidSave = this.$$("[name=entitiesSaveDataService]");
+                            if (liquidSave) {
+                                liquidSave.generateRequest();
+                            }
+                        } else {
+                            this._showSuccessToast();
+                            var eventName = "onSave";
+                            var eventDetail = {
+                                name: eventName
+                            }
+                            this.async(function() {
+                                this.fireBedrockEvent(eventName, eventDetail, {
+                                    ignoreId: true
+                                });
+                            }, 1000);
                         }
-                        this.fireBedrockEvent(eventName, eventDetail, {
-                            ignoreId: true
-                        });
+                        
                     },
                     _onSkipTap: function(e) {
                         //raise event with name given for onbackAction in configuration
@@ -568,6 +594,33 @@
                         if(parentEl && parentEl.hideCreateButtons) {
                             parentEl.hideCreateButtons();
                         }
+                    },
+                    _getNextBatch: function(entities, currentBatchNumber, batchSize) {
+                        var start = currentBatchNumber*batchSize;
+                        var end = ((currentBatchNumber+1)*batchSize) - 1;
+                        if(start > entities.length) { 
+                            return; 
+                        }
+                        if(end > entities.length) { 
+                            end = entities.length - 1; 
+                        } 
+                        return entities.slice(start, end+1);
+                    },
+                    _showSuccessToast: function() {
+                        var mainApp = document.querySelector('#app');
+                        mainApp.toastText = this._entities.length + " entities saved successfully!!";
+                        var toastElement = mainApp.$$("#pebbleAppToast");
+                        toastElement.toastType = "success";
+                        toastElement.heading = "Success";
+                        toastElement.autoClose = true;
+
+                        toastElement.show();
+                    },
+                    _disableActions: function() {
+                        var saveButton = this.$$("#skip");
+                        var cancelButton = this.$$("#skip")
+                        saveButton.setAttribute("disabled", true);
+                        cancelButton.setAttribute("disabled", true);
                     }
                 });
             })();
