@@ -198,6 +198,7 @@ var allConfigs = {
                                 "title": "Channel",
                                 "icon": "pebble-lg-icons:Source",
                                 "visible": true,
+                                "dataRequestType": "entity",
                                 "dataRequest": {
                                     "params": {
                                         "query": {
@@ -228,6 +229,7 @@ var allConfigs = {
                                 "title": "Source",
                                 "icon": "pebble-lg-icons:Source",
                                 "visible": true,
+                                "dataRequestType": "entity-model",
                                 "dataRequest": {
                                     "params": {
                                         "query": {
@@ -258,6 +260,7 @@ var allConfigs = {
                                 "title": "Locale",
                                 "icon": "pebble-lg-icons:Language",
                                 "visible": true,
+                                "dataRequestType": "entity-model",
                                 "dataRequest": {
                                     "params": {
                                         "query": {
@@ -740,6 +743,7 @@ var allConfigs = {
                                 "title": "Channel",
                                 "icon": "pebble-lg-icons:Source",
                                 "visible": true,
+                                "dataRequestType": "entity",
                                 "dataRequest": {
                                     "params": {
                                         "query": {
@@ -770,6 +774,7 @@ var allConfigs = {
                                 "title": "Source",
                                 "icon": "pebble-lg-icons:Source",
                                 "visible": true,
+                                "dataRequestType": "entity-model",
                                 "dataRequest": {
                                     "params": {
                                         "query": {
@@ -800,6 +805,7 @@ var allConfigs = {
                                 "title": "Locale",
                                 "icon": "pebble-lg-icons:Language",
                                 "visible": true,
+                                "dataRequestType": "entity-model",
                                 "dataRequest": {
                                     "params": {
                                         "query": {
