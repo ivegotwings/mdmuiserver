@@ -1,8 +1,9 @@
-var socketio = require('socket.io');
-var api = require('./api/NotificationManager');
+var socketIo = require('socket.io');
+var api = require('./api/notification-manager');
+var userManager = require('../users/user-management');
 
 function initSockets(server) {
-    var io = socketio.listen(server, {origins:'*:*'});
+    var io = socketIo.listen(server, {origins:'*:*'});
     
     var users = [];
     var connections = [];
@@ -12,17 +13,20 @@ function initSockets(server) {
 
     io.sockets.on('connection', function(socket) {
 
-        connections.push(socket);
-        console.log('Connected: %s sockets Connected %s', connections.length, socket.id);
-        
+        //Connected
+        socket.on('connected', function(userId) {
+            connections.push(socket);
+            console.log('Connected: %s sockets Connected %s', connections.length, socket.id);
+        });
+                
         //Disconnect
         socket.on('disconnect', function(data){
             
-            if(users.length)
+            if(socket.userName)
             {
-                users.splice(users.indexOf(socket.userName), 1);
-                updateUsernames();
+                userManager.removeConnectionIdByUser(socket.userName, socket.id);
             }
+            
             connections.splice(connections.indexOf(socket), 1);
 
             console.log('Disconnected: %s sockets Connected', connections.length);
@@ -31,17 +35,17 @@ function initSockets(server) {
         //Send Message
         socket.on('send message', function(data, user){
             
-            var currentuserSocketIds = [];
+            var currentUserSocketIds = [];
 
             if(user)
             {               
                 userConnectionId.forEach(function(element) {
                     if(element.user == user) {
-                        currentuserSocketIds.push(element.socketId);
+                        currentUserSocketIds.push(element.socketId);
                     }
                 }, this);
 
-                currentuserSocketIds.forEach(function(id){
+                currentUserSocketIds.forEach(function(id){
                     io.to(id).emit('new message', data);
                 }, this);
             }
@@ -52,23 +56,11 @@ function initSockets(server) {
         });
 
         //New user
-        socket.on('send user', function(data, callback) {
-            callback(true); // needs to be removed after full integration.
-            socket.userName = data;
-            users.push(socket.userName);
-            
-            userConnectionId.push({
-                socketId: socket.id,
-                user: socket.userName
-            });
-            
-            updateUsernames();
+        socket.on('send user', function(userId) {
+            socket.userName = userId;
+            userManager.addUserConnectionIds(userId, socket.id);
         });
 
-        function updateUsernames(){
-
-            io.sockets.emit('get users', users);
-        }
     });
 };
 

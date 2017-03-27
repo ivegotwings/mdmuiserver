@@ -1,5 +1,5 @@
 var clientIO = require("socket.io-client");
-var config = require("../Config");
+var config = require("../config");
 
 var path = config.clientConfig.host + ":" + config.clientConfig.port;
 
