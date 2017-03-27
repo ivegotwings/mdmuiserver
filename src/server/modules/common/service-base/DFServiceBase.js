@@ -16,11 +16,13 @@ var DFServiceBase = function (options) {
     this.requestJson = async function (url, request) {
 
         var tenantId = 'jcp';
+        var userId = 'admin';
 
         var securityContext = executionContext.getSecurityContext();
 
         if(securityContext && securityContext.tenantId) {
             tenantId = securityContext.tenantId;
+            userId = 'admin';
         }
         
         url = this._serverUrl + '/' + tenantId + '/api' + url ;
