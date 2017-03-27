@@ -16,7 +16,7 @@ var allConfigs = {
                     "components": {
                         "pebble-actions": {
                             "config": {
-                                "title": "Create New...",
+                                "title": "Create",
                                 "actions": [
                                     {
                                         "name": "createStyle",
