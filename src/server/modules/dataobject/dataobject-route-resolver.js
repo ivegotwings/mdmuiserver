@@ -106,6 +106,9 @@ function createGetRequest(reqData) {
     var contexts = sharedDataObjectFalcorUtil.createCtxItems(reqData.ctxKeys);
     var valContexts = sharedDataObjectFalcorUtil.createCtxItems(reqData.valCtxKeys);
 
+    var selfContext = {'self': 'self'};
+    contexts.push(selfContext);
+    
     var fields = {
         ctxTypes: ["properties"]
     };

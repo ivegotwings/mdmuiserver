@@ -105,6 +105,7 @@ async function getConfigComponentNames(pathSet) {
         }
     }
 
+    //console.log(JSON.stringify(response, null, 4));
     return response;
 }
 
