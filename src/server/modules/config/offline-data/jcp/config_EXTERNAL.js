@@ -377,7 +377,7 @@ var allConfigs = {
                 },
                 "pebble-actions": {
                     "config": {
-                        "title": "",
+                        "title": "Create",
                         "actions": [{
                             "name": "createProductPresentation",
                             "icon": "pebble-xl-icons:Brand",
