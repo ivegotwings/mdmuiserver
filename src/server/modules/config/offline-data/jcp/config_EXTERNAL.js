@@ -1290,10 +1290,6 @@ var allConfigs = {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
-                                        "locales": [{
-                                            "locale": "en-US",
-                                            "language": "English"
-                                        }],
                                         "source": "internal",
                                         "list": "productMaster",
                                         "mode": "view",
@@ -1325,10 +1321,6 @@ var allConfigs = {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
-                                        "locales": [{
-                                            "locale": "en-US",
-                                            "language": "English"
-                                        }],
                                         "source": "internal",
                                         "list": "productMaster",
                                         "mode": "view",
@@ -1365,10 +1357,6 @@ var allConfigs = {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
-                                        "locales": [{
-                                            "locale": "en-US",
-                                            "language": "English"
-                                        }],
                                         "source": "internal",
                                         "list": "productMaster",
                                         "mode": "view",
@@ -1415,10 +1403,6 @@ var allConfigs = {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
-                                        "locales": [{
-                                            "locale": "en-US",
-                                            "language": "English"
-                                        }],
                                         "source": "SAP",
                                         "list": "productMaster",
                                         "mode": "view",
@@ -1459,10 +1443,6 @@ var allConfigs = {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
-                                        "locales": [{
-                                            "locale": "en-US",
-                                            "language": "English"
-                                        }],
                                         "source": "internal",
                                         "list": "productMaster",
                                         "mode": "view",
@@ -1496,10 +1476,6 @@ var allConfigs = {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
-                                        "locales": [{
-                                            "locale": "en-US",
-                                            "language": "English"
-                                        }],
                                         "source": "internal",
                                         "list": "productMaster",
                                         "mode": "view",
