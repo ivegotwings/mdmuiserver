@@ -1220,7 +1220,7 @@ var allConfigs = {
                                         "buying",
                                         "selling"
                                     ],
-                                    "context": {
+                                    "config-context": {
                                         "attributeNames": [
                                             "color",
                                             "creationdate",
@@ -1277,7 +1277,8 @@ var allConfigs = {
                                             "sephorain",
                                             "isrecyclablein",
                                             "modelnb",
-                                            "frnin"
+                                            "frnin",
+                                            "webDiscount"
                                         ]
                                     }
                                 }
@@ -1292,7 +1293,7 @@ var allConfigs = {
                                     "properties": {
                                         "mode": "view",
                                         "no-of-columns": 2,
-                                        "context": {
+                                        "config-context": {
                                             "groupName": "Core Attributes",
                                             "attributeNames": [
                                                 "creationdate",
@@ -1305,7 +1306,8 @@ var allConfigs = {
                                                 "productid",
                                                 "skuid",
                                                 "categoryid",
-                                                "longdescription"
+                                                "longdescription",
+                                                "webDiscount"
                                             ]
                                         }
                                     }
@@ -1321,7 +1323,7 @@ var allConfigs = {
                                     "properties": {
                                         "mode": "view",
                                         "no-of-columns": 2,
-                                        "context": {
+                                        "config-context": {
                                             "groupName": "Buying Attributes",
                                             "attributeNames": [
                                                 "onlineonly",
@@ -1355,7 +1357,7 @@ var allConfigs = {
                                     "properties": {
                                         "mode": "view",
                                         "no-of-columns": 3,
-                                        "context": {
+                                        "config-context": {
                                             "groupName": "Selling Attributes",
                                             "attributeNames": [
                                                 "whitegloveddlvryin",
