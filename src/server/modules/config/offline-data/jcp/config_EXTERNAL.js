@@ -827,7 +827,7 @@ var allConfigs = {
                             }
                         },
                         "dataMappings": {
-                            "id": "id",
+                            "id": "name",
                             "title": "name",
                             "subtitle": "",
                             "image": "",
@@ -858,7 +858,7 @@ var allConfigs = {
                             }
                         },
                         "dataMappings": {
-                            "id": "id",
+                            "id": "name",
                             "title": "name",
                             "subtitle": "",
                             "image": "",
@@ -889,7 +889,7 @@ var allConfigs = {
                             }
                         },
                         "dataMappings": {
-                            "id": "id",
+                            "id": "name",
                             "title": "name",
                             "subtitle": "",
                             "image": "",
@@ -999,11 +999,6 @@ var allConfigs = {
                             "noTrim": false
                         },
                         {
-                            "attributeName": "webDiscount",
-                            "label": "Web Discount",
-                            "noTrim": false
-                        },
-                        {
                             "attributeName": "stuscd",
                             "label": "Status Code",
                             "noTrim": false
@@ -1014,8 +1009,8 @@ var allConfigs = {
                             "noTrim": false
                         },
                         {
-                            "attributeName": "enddate",
-                            "label": "End Date",
+                            "attributeName": "webDiscount",
+                            "label": "Web Discount",
                             "noTrim": false
                         },
                         {

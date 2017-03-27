@@ -9,7 +9,9 @@ var DataObjectManageService = function (options) {
 DataObjectManageService.prototype = {
     get: async function (request) {
         var serviceName = this._getServiceName(request);
-        //console.log('get entity RDP call: ', JSON.stringify(request));
+        // console.log('------------------' + serviceName + '------------------------------');
+        // console.log('get entity RDP call: ', JSON.stringify(request));
+        // console.log('-----------------------------------------------------------------\n\n');
         return this.post(serviceName + "/get", request);
     },
     create: async function (request) {
