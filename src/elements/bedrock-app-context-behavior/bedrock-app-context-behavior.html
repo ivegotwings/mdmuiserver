@@ -1,20 +1,31 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-externalref-falcor/bedrock-externalref-falcor.html">
 
 <script>
     /*
-    * @demo demo/index.html
-    * @polymerBehavior RUFBehaviors.AppContextBehavior
-    */
+     * @demo demo/index.html
+     * @polymerBehavior RUFBehaviors.AppContextBehavior
+     */
     var RUFBehaviors = RUFBehaviors || {};
-    
+
     RUFBehaviors.AppContextBehavior = {
-        attached: function () { },
-        ready: function () { 
-            this._setDefaultContexts();
+        attached: function () {
+            var eventName = 'rock-dimension-selector-data-changed-' + this.id;
+            var dimensionSelectors = this.$$("rock-dimension-selector");
+            if (dimensionSelectors) {
+                if (dimensionSelectors.length) {
+                    for (var i = 0; i < dimensionSelectors.length; i++) {
+                        this.listen(dimensionSelectors[i], eventName, '_onDimensionsChanged');
+                    }
+                } else {
+                    this.listen(dimensionSelectors, eventName, '_onDimensionsChanged');
+                }
+            }
         },
-        listeners: {
-            'rock-dimension-selector-data-changed': '_onDimensionsChanged',
+        ready: function () {
+            this._setDefaultContexts();
         },
         properties: {
             contextData: {
@@ -52,60 +63,78 @@
         },
         _setDefaultContexts: function () {
             //TODO:: this default context should be either come form dimension selector or from user pref
-            var valueContexts = [{'locale': 'en-US', 'source': 'internal'}];
+            var valueContexts = [{
+                'locale': 'en-US',
+                'source': 'internal'
+            }];
             this.updateContext(this.CONTEXT_TYPE_VALUE, valueContexts);
         },
-        _onDimensionsChanged: function(e) {
+        _onDimensionsChanged: function (e) {
             var newDimensions = e.detail.dimensions;
             this._updateFromDimensionSelector(newDimensions);
         },
-        _updateFromDimensionSelector: function(newDimensions) {
-            if(!newDimensions) {
+        _updateFromDimensionSelector: function (newDimensions) {
+            if (!newDimensions) {
                 return;
             }
-            
+
             var selDataContextsFlat = {};
             var selValContextsFlat = {};
+            var self = this;
 
             // scope out data contexts vs val contexts
-            for(var i = 0; i < newDimensions.length; i++) {
-                var selectedDimensionData = newDimensions[i];
-                
-                var dimName = Object.keys(selectedDimensionData)[0];
-                var dimValues = selectedDimensionData[dimName];
+            Object.keys(newDimensions).map(function (dimName) {
 
-                if(this._valContextKeys.indexOf(dimName) > -1) { // is this val context?
+                var dimValues = newDimensions[dimName];
+
+                if (self._valContextKeys.indexOf(dimName) > -1) { // is this val context?
                     selValContextsFlat[dimName] = dimValues;
-                }
-                else {
+                } else {
                     selDataContextsFlat[dimName] = dimValues;
-                }   
-            }
+                }
+            });
 
-            if(!this._isNullOrEmpty(selDataContextsFlat)) {
+            // Note: Needs Clarification
+            // for(var i = 0; i < newDimensions.length; i++) {
+            //     var selectedDimensionData = newDimensions[i];
+
+            //     var dimName = Object.keys(selectedDimensionData)[0];
+            //     var dimValues = selectedDimensionData[dimName];
+
+            //     if(this._valContextKeys.indexOf(dimName) > -1) { // is this val context?
+            //         selValContextsFlat[dimName] = dimValues;
+            //     }
+            //     else {
+            //         selDataContextsFlat[dimName] = dimValues;
+            //     }   
+            // }
+
+            if (!_.isNull(selDataContextsFlat) && !_.isEmpty(selDataContextsFlat)) {
                 this.contextData[this.CONTEXT_TYPE_DATA] = _.createCartesianObjects(selDataContextsFlat);
             }
 
-            if(!this._isNullOrEmpty(selValContextsFlat)) {
+            if (!_.isNull(selValContextsFlat) && !_.isEmpty(selValContextsFlat)) {
                 this.contextData[this.CONTEXT_TYPE_VALUE] = _.createCartesianObjects(selValContextsFlat);
             }
 
             this._publishChangeEvent();
         },
-        _publishChangeEvent: function() {
+        _publishChangeEvent: function () {
             var contextChangedEvent = {
-                'detail': {
-                    'contextData': this.contextData
-                }
+                'contextData': this.contextData
             };
 
-            ComponentHelper.fireBedrockEvent("app-context-changed", contextChangedEvent, null, this);
+            if (this.id != "") {
+                ComponentHelper.fireBedrockEvent("app-context-changed", contextChangedEvent, {
+                    ignoreId: true
+                }, this);
+            }
         },
-        updateContext: function(contextType, contexts) {
+        updateContext: function (contextType, contexts) {
             this.contextData[contextType] = contexts;
             this._publishChangeEvent();
         },
-        getContexts: function(contextType) {
+        getContexts: function (contextType) {
             return this.contextData[contextType] !== undefined ? this.contextData[contextType] : [];
         },
         getDataContexts: function () {
@@ -117,13 +146,13 @@
         getValueContexts: function () {
             return this.getContexts(this.CONTEXT_TYPE_VALUE);
         },
-        getUserContexts: function() {
+        getUserContexts: function () {
             return this.getContexts(this.CONTEXT_TYPE_USER);
         },
-        getAppInstanceContexts : function() {
+        getAppInstanceContexts: function () {
             return this.getContexts(this.CONTEXT_TYPE_APP_INSTANCE);
         },
-        getConfigContexts: function() {
+        getConfigContexts: function () {
             var configContexts = _.createCartesianObjects(this._contextData);
             return configContexts;
         }

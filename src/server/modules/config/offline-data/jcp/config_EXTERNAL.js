@@ -255,14 +255,14 @@ var allConfigs = {
                         },
                         "dataMappings": {
                             "id": "id",
-                            "title": "id",
+                            "title": "title",
                             "subtitle": "",
                             "image": "",
                             "icon": "",
                             "type": ["channel"]
                         },
                         "selectedItem": {
-                            "id": "",
+                            "id": "webCatalog",
                             "type": "channel"
                         },
                         "default": ""
@@ -286,7 +286,7 @@ var allConfigs = {
                         },
                         "dataMappings": {
                             "id": "id",
-                            "title": "id",
+                            "title": "name",
                             "subtitle": "",
                             "image": "",
                             "icon": "",
@@ -317,7 +317,7 @@ var allConfigs = {
                         },
                         "dataMappings": {
                             "id": "id",
-                            "title": "id",
+                            "title": "name",
                             "subtitle": "",
                             "image": "",
                             "icon": "",
@@ -828,14 +828,14 @@ var allConfigs = {
                         },
                         "dataMappings": {
                             "id": "id",
-                            "title": "id",
+                            "title": "name",
                             "subtitle": "",
                             "image": "",
                             "icon": "",
                             "type": ["channel"]
                         },
                         "selectedItem": {
-                            "id": "",
+                            "id": "webCatalog",
                             "type": "channel"
                         },
                         "default": ""
@@ -859,7 +859,7 @@ var allConfigs = {
                         },
                         "dataMappings": {
                             "id": "id",
-                            "title": "id",
+                            "title": "name",
                             "subtitle": "",
                             "image": "",
                             "icon": "",
@@ -890,7 +890,7 @@ var allConfigs = {
                         },
                         "dataMappings": {
                             "id": "id",
-                            "title": "id",
+                            "title": "name",
                             "subtitle": "",
                             "image": "",
                             "icon": "",
@@ -1290,8 +1290,6 @@ var allConfigs = {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
-                                        "source": "internal",
-                                        "list": "productMaster",
                                         "mode": "view",
                                         "no-of-columns": 2,
                                         "context": {
@@ -1321,8 +1319,6 @@ var allConfigs = {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
-                                        "source": "internal",
-                                        "list": "productMaster",
                                         "mode": "view",
                                         "no-of-columns": 2,
                                         "context": {
@@ -1357,8 +1353,6 @@ var allConfigs = {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
-                                        "source": "internal",
-                                        "list": "productMaster",
                                         "mode": "view",
                                         "no-of-columns": 3,
                                         "context": {
@@ -1403,8 +1397,6 @@ var allConfigs = {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
-                                        "source": "SAP",
-                                        "list": "productMaster",
                                         "mode": "view",
                                         "no-of-columns": 3,
                                         "context": {
@@ -1443,8 +1435,6 @@ var allConfigs = {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
-                                        "source": "internal",
-                                        "list": "productMaster",
                                         "mode": "view",
                                         "no-of-columns": 2,
                                         "context": {
@@ -1476,8 +1466,6 @@ var allConfigs = {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
-                                        "source": "internal",
-                                        "list": "productMaster",
                                         "mode": "view",
                                         "no-of-columns": 3,
                                         "context": {
