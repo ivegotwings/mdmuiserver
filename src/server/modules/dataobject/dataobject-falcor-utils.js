@@ -93,7 +93,7 @@ function _buildAttributesResponse(attrs, attrNames, basePath) {
                 var source = val.source === undefined ? CONST_ANY : val.source;
                 var locale = val.locale === undefined ? CONST_ANY : val.locale;
 
-                var valCtxItem = { 'source': source, 'locale': locale }; //TODO: Here, source and locale are hard coded... How to find out val ctx keys from the flat list of values object..??
+                var valCtxItem = { 'source': source, 'locale': locale }; //TODO: Here, source and locale are hard coded... How to find out val contexts keys from the flat list of values object..??
                 var valCtxKey = sharedDataObjectFalcorUtil.createCtxKey(valCtxItem);
 
                 var valCtxItem = sharedDataObjectFalcorUtil.getOrCreate(valCtxItems, valCtxKey, {});
@@ -110,14 +110,14 @@ function _buildAttributesResponse(attrs, attrNames, basePath) {
         }
 
         if (attr.group) {
-            var valCtxItem = { 'source': CONST_ANY, 'locale': CONST_ANY }; //TODO: How to find out val ctx keys from the flat list of values object..??
+            var valCtxItem = { 'source': CONST_ANY, 'locale': CONST_ANY }; //TODO: How to find out val contexts keys from the flat list of values object..??
             var valCtxKey = sharedDataObjectFalcorUtil.createCtxKey(valCtxItem);
             //console.log('attr group', JSON.stringify(attr.group));
             response.push(mergeAndCreatePath(basePath, [attrKey, 'valContexts', valCtxKey, 'group'], $atom(attr.group)));
         }
 
         if (attr.properties) {
-            var valCtxItem = { 'source': CONST_ANY, 'locale': CONST_ANY }; //TODO: How to find out val ctx keys from the flat list of values object..??
+            var valCtxItem = { 'source': CONST_ANY, 'locale': CONST_ANY }; //TODO: How to find out val contexts keys from the flat list of values object..??
             var valCtxKey = sharedDataObjectFalcorUtil.createCtxKey(valCtxItem);
             response.push(mergeAndCreatePath(basePath, [attrKey, 'valContexts', valCtxKey, 'properties'], $atom(attr.properties)));
         }

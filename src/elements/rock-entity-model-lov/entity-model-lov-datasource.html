@@ -1,8 +1,6 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="../bedrock-datasource-behavior/bedrock-datasource-behavior.html">
 
-<link rel="import" href="../bedrock-externalref-falcor/bedrock-externalref-falcor.html">
-
 <link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
 
 <dom-module id="entity-model-lov-datasource">
@@ -65,10 +63,18 @@
                 }
 
                 // Filter
-                var keywordsCriterion = this.keywordsCriterionBuilder(data.filter);
+                var keywordsCriterion;
+                if (this.keywordsCriterionBuilder && this.keywordsCriterionBuilder instanceof Function) {
+                    keywordsCriterion = this.keywordsCriterionBuilder(data.filter);
+                }
 
-                var utils = SharedUtils.DataObjectFalcorUtil;
-                if(!utils.compareObjects(keywordsCriterion, this.request.params.query.filters.keywordsCriterion)) {
+                if (keywordsCriterion) {
+                    this.set("request.params.query.filters.keywordsCriterion", keywordsCriterion);
+                } else {
+                    delete this.request.params.query.filters.keywordsCriterion;
+                }
+
+                if (this._checkIfRequestChanged()) {
                     this._isRequestInitiated = false;
                     data.page = 1;
                 }
@@ -98,14 +104,47 @@
             },
 
             _onInitSearchResponse: function () {
+                this._lastRequest = this.request;
                 this._liquidGetSearchElement.generateRequest();
                 this._isRequestInitiated = true;
             },
 
             _onGetSearchResponse: function (success, error) {
                 if (typeof (this.dataFormatter) == 'function') {
-                    success(this.dataFormatter(this.getEntityModelSearchResponse));
+                    if (this.getEntityModelSearchResponse.status === "success") {
+                        success(this.dataFormatter(this.getEntityModelSearchResponse));
+                    } else {
+                        error();
+                    }
                 }
+            },
+
+            _onGetSearchError: function () {
+                this._error();
+            },
+
+            _checkIfRequestChanged: function () {
+                var utils = SharedUtils.DataObjectFalcorUtil;
+                var requestFilterExists = false;
+                var lastRequestFilterExists = false;
+                if (this.request && this.request.params && this.request.params.query.filters) {
+                    requestFilterExists = true;
+                }
+                if (this._lastRequest && this._lastRequest.params && this._lastRequest.params.query.filters) {
+                    lastRequestFilterExists = true;
+                }
+                if (requestFilterExists != lastRequestFilterExists) {
+                    return true;
+                }
+                if (!utils.compareObjects(this.request.params.query.filters.keywordsCriterion, this._lastRequest
+                        .params.query.filters.keywordsCriterion)) {
+                    return true;
+                }
+                if (!utils.compareObjects(this.request.params.query.filters.typesCriterion, this._lastRequest
+                        .params.query.filters.typesCriterion)) {
+                    return true;
+                }
+                return false;
             }
         });
     </script>

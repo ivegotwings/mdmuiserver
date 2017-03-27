@@ -15,7 +15,7 @@ var ConfigRouterBase = Router.createClass([
     //     get: async (pathSet) => await resolver.getConfigs(pathSet)
     // },
     {
-        route: "configs.tenants[{keys:tenants}].roles[{keys:roles}].users[{keys:users}].apps[{keys:apps}].components[{keys:components}].ctx[{keys:ctxKeys}].config",
+        route: "configs.tenants[{keys:tenants}].roles[{keys:roles}].users[{keys:users}].apps[{keys:apps}].components[{keys:components}].contexts[{keys:ctxKeys}].config",
         get: async (pathSet) => await resolver.getConfigs(pathSet)
     }
 ]);

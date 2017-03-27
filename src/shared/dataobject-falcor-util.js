@@ -485,7 +485,7 @@ DataObjectFalcorUtil.createCtxItems = function (ctxKeys) {
         var ctxKey = ctxKeys[i];
         var ctxItem = DataObjectFalcorUtil.createCtxItem(ctxKey);
 
-        //skip self ctx..
+        //skip self contexts..
         if (ctxItem.self) {
             continue;
         }

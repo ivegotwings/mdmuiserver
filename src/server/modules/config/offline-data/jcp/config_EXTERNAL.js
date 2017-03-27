@@ -236,75 +236,100 @@ var allConfigs = {
             },
             "components": {
                 "rock-dimension-selector": {
-                    "config": {
-                        "catalogSelector": {
-                            "visible": true,
-                            "catalogItems": [{
-                                "id": 1,
-                                "title": "Product Master",
-                                "subtitle": "Product Master",
-                                "value": "productMaster",
-                                "image": ""
-                            },
-                            {
-                                "id": 2,
-                                "title": "Web Catalog",
-                                "subtitle": "Web Catalog",
-                                "value": "webCatalog",
-                                "image": ""
+                    "config": [{
+                        "id": "channel",
+                        "title": "Channel",
+                        "icon": "pebble-lg-icons:Source",
+                        "visible": true,
+                        "dataRequestType": "entity",
+                        "dataRequest": {
+                            "params": {
+                                "query": {
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "channel"
+                                        ]
+                                    }
+                                }
                             }
-                            ],
-                            "selectedCatalogItems": [{
-                                "id": 1,
-                                "title": "Product Master",
-                                "subtitle": "Product Master",
-                                "value": "productMaster",
-                                "image": ""
-                            }]
                         },
-                        "sourceSelector": {
-                            "visible": true,
-                            "sourceItems": [{
-                                "id": 1,
-                                "title": "Internal Source",
-                                "subtitle": "Internal Source",
-                                "value": "internal",
-                                "image": ""
-                            }],
-                            "selectedSourceItems": [{
-                                "id": 1,
-                                "title": "Internal source",
-                                "subtitle": "Internal source",
-                                "value": "internal",
-                                "image": ""
-                            }]
+                        "dataMappings": {
+                            "id": "id",
+                            "title": "id",
+                            "subtitle": "",
+                            "image": "",
+                            "icon": "",
+                            "type": ["channel"]
                         },
-                        "localeSelector": {
-                            "visible": true,
-                            "localeItems": [{
-                                "id": 1,
-                                "title": "English - United States",
-                                "subtitle": "English",
-                                "value": "en-US",
-                                "image": ""
-                            },
-                            {
-                                "id": 2,
-                                "title": "Spanish - Spain",
-                                "subtitle": "Spanish",
-                                "value": "es-SP",
-                                "image": ""
+                        "selectedItem": {
+                            "id": "",
+                            "type": "channel"
+                        },
+                        "default": ""
+                    },
+                    {
+                        "id": "source",
+                        "title": "Source",
+                        "icon": "pebble-lg-icons:Source",
+                        "visible": true,
+                        "dataRequestType": "entity-model",
+                        "dataRequest": {
+                            "params": {
+                                "query": {
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "source"
+                                        ]
+                                    }
+                                }
                             }
-                            ],
-                            "selectedLocaleItems": [{
-                                "id": 1,
-                                "title": "English - United States",
-                                "subtitle": "English",
-                                "value": "en-US",
-                                "image": ""
-                            }]
-                        }
+                        },
+                        "dataMappings": {
+                            "id": "id",
+                            "title": "id",
+                            "subtitle": "",
+                            "image": "",
+                            "icon": "",
+                            "type": ["source"]
+                        },
+                        "selectedItem": {
+                            "id": "internal",
+                            "type": "source"
+                        },
+                        "default": ""
+                    },
+                    {
+                        "id": "locale",
+                        "title": "Locale",
+                        "icon": "pebble-lg-icons:Language",
+                        "visible": true,
+                        "dataRequestType": "entity-model",
+                        "dataRequest": {
+                            "params": {
+                                "query": {
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "locale"
+                                        ]
+                                    }
+                                }
+                            }
+                        },
+                        "dataMappings": {
+                            "id": "id",
+                            "title": "id",
+                            "subtitle": "",
+                            "image": "",
+                            "icon": "",
+                            "type": ["locale"]
+                        },
+                        "selectedItem": {
+                            "id": "en-US",
+                            "type": "locale"
+                        },
+                        "default": ""
                     }
+                    ]
                 },
                 "rock-saved-searches": {
                     "config": {
@@ -784,75 +809,100 @@ var allConfigs = {
             },
             "components": {
                 "rock-dimension-selector": {
-                    "config": {
-                        "catalogSelector": {
-                            "visible": true,
-                            "catalogItems": [{
-                                "id": 1,
-                                "title": "Product Master",
-                                "subtitle": "Product Master",
-                                "value": "productMaster",
-                                "image": ""
-                            },
-                            {
-                                "id": 2,
-                                "title": "Web Catalog",
-                                "subtitle": "Web Catalog",
-                                "value": "webCatalog",
-                                "image": ""
+                    "config": [{
+                        "id": "channel",
+                        "title": "Channel",
+                        "icon": "pebble-lg-icons:Source",
+                        "visible": true,
+                        "dataRequestType": "entity",
+                        "dataRequest": {
+                            "params": {
+                                "query": {
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "channel"
+                                        ]
+                                    }
+                                }
                             }
-                            ],
-                            "selectedCatalogItems": [{
-                                "id": 1,
-                                "title": "Product Master",
-                                "subtitle": "Product Master",
-                                "value": "productMaster",
-                                "image": ""
-                            }]
                         },
-                        "sourceSelector": {
-                            "visible": true,
-                            "sourceItems": [{
-                                "id": 1,
-                                "title": "Internal Source",
-                                "subtitle": "Internal Source",
-                                "value": "internal",
-                                "image": ""
-                            }],
-                            "selectedSourceItems": [{
-                                "id": 1,
-                                "title": "Internal source",
-                                "subtitle": "Internal source",
-                                "value": "internal",
-                                "image": ""
-                            }]
+                        "dataMappings": {
+                            "id": "id",
+                            "title": "id",
+                            "subtitle": "",
+                            "image": "",
+                            "icon": "",
+                            "type": ["channel"]
                         },
-                        "localeSelector": {
-                            "visible": true,
-                            "localeItems": [{
-                                "id": 1,
-                                "title": "English - United States",
-                                "subtitle": "English",
-                                "value": "en-US",
-                                "image": ""
-                            },
-                            {
-                                "id": 2,
-                                "title": "Spanish - Spain",
-                                "subtitle": "Spanish",
-                                "value": "es-SP",
-                                "image": ""
+                        "selectedItem": {
+                            "id": "",
+                            "type": "channel"
+                        },
+                        "default": ""
+                    },
+                    {
+                        "id": "source",
+                        "title": "Source",
+                        "icon": "pebble-lg-icons:Source",
+                        "visible": true,
+                        "dataRequestType": "entity-model",
+                        "dataRequest": {
+                            "params": {
+                                "query": {
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "source"
+                                        ]
+                                    }
+                                }
                             }
-                            ],
-                            "selectedLocaleItems": [{
-                                "id": 1,
-                                "title": "English - United States",
-                                "subtitle": "English",
-                                "value": "en-US",
-                                "image": ""
-                            }]
-                        }
+                        },
+                        "dataMappings": {
+                            "id": "id",
+                            "title": "id",
+                            "subtitle": "",
+                            "image": "",
+                            "icon": "",
+                            "type": ["source"]
+                        },
+                        "selectedItem": {
+                            "id": "internal",
+                            "type": "source"
+                        },
+                        "default": ""
+                    },
+                    {
+                        "id": "locale",
+                        "title": "Locale",
+                        "icon": "pebble-lg-icons:Language",
+                        "visible": true,
+                        "dataRequestType": "entity-model",
+                        "dataRequest": {
+                            "params": {
+                                "query": {
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "locale"
+                                        ]
+                                    }
+                                }
+                            }
+                        },
+                        "dataMappings": {
+                            "id": "id",
+                            "title": "id",
+                            "subtitle": "",
+                            "image": "",
+                            "icon": "",
+                            "type": ["locale"]
+                        },
+                        "selectedItem": {
+                            "id": "en-US",
+                            "type": "locale"
+                        },
+                        "default": ""
                     }
+                    ]
                 },
                 "rock-dimension-grid": {
                     "config": {

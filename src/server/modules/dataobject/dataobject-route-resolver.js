@@ -146,11 +146,11 @@ function createGetRequest(reqData) {
     var query = {'id': ''};
 
     if(!isEmpty(contexts)) {
-        query.ctx = contexts;
+        query.contexts = contexts;
     }
 
     if(!isEmpty(valContexts)) {
-        query.valCtx = valContexts;
+        query.valueContexts = valContexts;
     }
 
     if(!isEmpty(filters)) {

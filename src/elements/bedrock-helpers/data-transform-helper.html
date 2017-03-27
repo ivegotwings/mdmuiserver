@@ -1,0 +1,92 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
+<link rel="import" href="data-helper.html">
+<link rel="import" href="context-helper.html">
+
+<script>
+    DataTransformHelper = {};
+
+    (function () {
+
+        DataTransformHelper.transformAttributeModels = function (compositeModel, contextData) {
+            var dataContexts = ContextHelper.getDataContexts(contextData);
+
+            var mergedAttributeModels = {};
+
+            //put default model as base
+            if (compositeModel.data && compositeModel.data.attributes) {
+                DataHelper._mergeObjects(mergedAttributeModels, compositeModel.data.attributes, true);
+            }
+
+            for(var i = 0; i < dataContexts.length; i++) {
+                var dataContext = dataContexts[i];
+                //apply contexts specific model on top of default
+                var specificCtxAttributeModels = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(compositeModel, dataContext);
+                DataHelper._mergeObjects(mergedAttributeModels, specificCtxAttributeModels, true);
+            }
+            
+            this._fillModels(mergedAttributeModels);
+
+            //console.log(mergedAttributeModels);
+
+            return mergedAttributeModels;
+        };
+
+        DataHelper.transformAttributesToManageFormat = function (entity, attributeModels, contextData) {
+            var dataContexts = ContextHelper.getDataContexts(contextData);
+            var valueContexts = ContextHelper.getValueContexts(contextData);
+            var firstValContext = ContextHelper.getFirstValueContext(contextData);
+
+            var attributesInManageFormat = []; //our return value
+
+            for(var i = 0; i < dataContexts.length; i++) {
+                var dataContext = dataContexts[i];
+
+                var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, dataContext);
+                
+                for (var attributeModelName in attributeModels) {
+
+                    var attributeJSON = {};
+                    var attributeModel = attributeModels[attributeModelName];
+
+                    if (attributeModel.name) {
+                        var attribute = attributes[attributeModel.name];
+                        if (attribute && attribute.values) {
+                            attributeJSON = DataHelper._getCurrentValue(attribute.values, firstValContext, attributeModel);
+                            if (attributeJSON != undefined && attributeJSON.hasOwnProperty('invalidValue')) {
+                                attributeJSON["value"] = attributeJSON.invalidValue;
+                            }
+                        }
+
+                        if (attributeJSON == undefined || !attributeJSON.hasOwnProperty('value')) {
+                            attributeJSON = DataHelper._getEmptyValue(firstValContext);
+                        }
+
+                        attributeJSON.name = attributeModel.name;
+                        attributesInManageFormat.push(attributeJSON);
+                    }
+                }
+            }
+            
+            //console.log(attributesInManageFormat);
+            return attributesInManageFormat;
+        };
+
+        DataHelper._fillModels = function (attributeModelObjects) {
+            for (var attributeName in attributeModelObjects) {
+                var model = attributeModelObjects[attributeName];
+                for (var prop in model.properties) {
+                    model[prop] = model.properties[prop];
+                }
+                if (model.displayType != 'referenceList') {
+                    model.displayType = this._getDisplayType(model.dataType);
+                } else {
+                    model.referenceEntityTypes = DataHelper._getEntityTypesForLov(model);
+                }
+                model.name = attributeName;
+            }
+        };
+
+    })();
+
+</script>
