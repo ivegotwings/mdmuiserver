@@ -999,6 +999,11 @@ var allConfigs = {
                             "noTrim": false
                         },
                         {
+                            "attributeName": "webDiscount",
+                            "label": "Web Discount",
+                            "noTrim": false
+                        },
+                        {
                             "attributeName": "stuscd",
                             "label": "Status Code",
                             "noTrim": false
