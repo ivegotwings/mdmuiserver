@@ -1,7 +1,8 @@
 'use strict';
 
 var fileUpload = require('express-fileupload'),
-    fs = require('fs');
+    fs = require('fs'),
+    uuidV1 = require('uuid/v1');
 
 module.exports = function(app) {
     app.use(fileUpload());
@@ -18,15 +19,17 @@ module.exports = function(app) {
             }
             var file = req.files.file;
             var fileName = file.name;
+            var newFileName = fileName + '__' + uuidV1();
 
-            file.mv('./upload/' + fileName, function (err) {
+            file.mv('./upload/' + newFileName, function (err) {
                 if (err) {
                     res.status(500).send(err);
                 }
                 else {
-                    res.status(200).send('{success: true}');
+                    res.status(200).send({"success": true, "fileName": newFileName});
                 }
             });
         }
     );
+
 };

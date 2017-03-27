@@ -45,6 +45,9 @@ configRoute(app);
 var passThroughRoute = require('../modules/pass-through/pass-through-route');
 passThroughRoute(app);
 
+var copRoute = require('../modules/cop/cop-route');
+copRoute(app);
+
 var fileUploadRoute = require('../modules/file-upload/file-upload-route');
 fileUploadRoute(app);
 

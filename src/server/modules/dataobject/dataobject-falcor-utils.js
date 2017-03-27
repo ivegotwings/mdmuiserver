@@ -131,7 +131,7 @@ function _buildRelationshipsResponse(rels, reqData, basePath) {
     var response = [];
 
     var reqRelIds = reqData.relIds,
-        caller = reqData.caller;
+        operation = reqData.operation;
 
     //console.log('rels', JSON.stringify(rels)); 
     var relTypeKeys = _getKeyNames(rels, reqData.relTypes);
@@ -153,12 +153,12 @@ function _buildRelationshipsResponse(rels, reqData, basePath) {
 
                 relIds.push(rel.id);
 
-                if (caller !== "getRelIdOnly") {
+                if (operation !== "getRelIdOnly") {
                     response.push.apply(response, _buildRelationshipDetailsResponse(rel, reqData, relBasePath));
                 }
             }
 
-            if (caller === "getRelIdOnly") {
+            if (operation === "getRelIdOnly") {
                 response.push(mergeAndCreatePath(relBasePath, ["relIds"], $atom(relIds)));
             }
         }
@@ -204,6 +204,20 @@ function _buildRelationshipDetailsResponse(enRel, reqData, basePath) {
     return response;
 }
 
+function _buildJsonDataResponse(jsonData, basePath) {
+    //console.log('reqAttrNames ', attrNames);
+    var response = [];
+
+    if (isEmpty(jsonData)) {
+        return response;
+    }
+     
+    response.push(createPath(basePath, $atom(jsonData)));
+
+    //console.log('json data response: ', JSON.stringify(response));
+    return response;
+}
+
 function _addCtxPropertiesToAttributes(attrs, attrNames, properties) {
     var ctxProperties = {
         'properties': properties
@@ -223,14 +237,14 @@ function buildResponse(dataObject, reqData, basePath) {
         response.push.apply(response, _buildFieldsResponse(dataObject, reqData, basePath));
     }
 
-    if (!(isEmpty(reqData.attrNames) && isEmpty(reqData.relTypes))) {
+    if (!(isEmpty(reqData.attrNames) && isEmpty(reqData.relTypes) && reqData.operation != "getJsonData")) {
 
         if (isEmpty(dataObject.data)) { return response; }
 
         var data = dataObject.data;
     
         //add data level attrs, rels and props as self context item in falcor response..
-        if (data.attributes || data.relationships || data.properties) {
+        if (data.attributes || data.relationships || data.properties || data.jsonData) {
             var ctxInfo = sharedDataObjectFalcorUtil.getOrCreate(data, "ctxInfo", []);
 
             var selfCtxItem = {
@@ -238,6 +252,7 @@ function buildResponse(dataObject, reqData, basePath) {
                 'attributes': data.attributes,
                 'relationships': data.relationships,
                 'properties': data.properties,
+                'jsonData' : data.jsonData
             }
 
             ctxInfo.push(selfCtxItem);
@@ -271,6 +286,11 @@ function buildResponse(dataObject, reqData, basePath) {
                     var relsBasePath = mergePathSets(ctxBasePath, ['relationships']);
                     response.push.apply(response, _buildRelationshipsResponse(rels, reqData, relsBasePath));
                 }
+            }
+            
+            if(reqData.operation == "getJsonData" && !isEmpty(ctxInfoItem.jsonData)) {
+                var jsonDataBasePath = mergePathSets(ctxBasePath, ['jsonData']);
+                response.push.apply(response, _buildJsonDataResponse(ctxInfoItem.jsonData, jsonDataBasePath));
             }
         }
     }
