@@ -14,7 +14,6 @@ var allConfigs = {
                     "pebble-actions": {
                         "config": {
                             "title": "Create New",
-                            "title": "Create New",
                             "actions": [{
                                     "name": "createSKU",
                                     "icon": "pebble-xl-icons:Product",
