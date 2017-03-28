@@ -1,5 +1,7 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="../../../bower_components/iron-demo-helpers/demo-pages-shared-styles.html">
+
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="improt" href="../bedrock-helpers/data-helper.html">
@@ -37,16 +39,16 @@ It renders the list of attributes based on the specified relationship type.
                 bottom: 0px;
                 width: 75%;
             }
-
+            
             #messageCard {
                 text-align: center;
             }
         </style>
 
-        <rock-relationship-grid id="entityRelationshipGrid" relationship-type="[[context.relationshipTypeName]]" rel-req="[[requestObj]]"
-            relationship-grid-configs="{{_relationshipGridConfigs}}" page-size="100" dimensions="[[_dimensions]]"></rock-relationship-grid>
+        <rock-relationship-grid id="entityRelationshipGrid" relationship-type="[[configContext.relationshipTypeName]]" rel-req="[[requestObj]]"
+            relationship-grid-configs="{{_relationshipGridConfigs}}" page-size="100" context-data="[[context-data]]"></rock-relationship-grid>
         <div id="messageCard" hidden="[[_isMessageAvailable]]">
-            
+
         </div>
         <bedrock-pubsub event-name="grid-selecting-item" handler="onSelectingGridItem" target-id="entityRelationshipGrid"></bedrock-pubsub>
     </template>
@@ -58,9 +60,15 @@ It renders the list of attributes based on the specified relationship type.
                 is: "rock-relationship-manage",
 
                 properties: {
-                    context: {
+                    contextData: {
                         type: Object,
                         value: function () {
+                            return {};
+                        }
+                    },
+                    configContext: {
+                        type: Object,
+                        value: function() {
                             return {};
                         }
                     },
@@ -69,36 +77,6 @@ It renders the list of attributes based on the specified relationship type.
                         value: function () {
                             return {};
                         }
-                    },
-                    /**
-                     * Indicates the identification of the entity for which the attributes are managed.
-                     */
-                    entityId: {
-                        type: String
-                    },
-                    /**
-                    * Indicates the identification of the entity for which the attributes are managed.
-                    */
-                    entityType: {
-                        type: String
-                    },
-                    /**
-                     * Indicates the locale dimension for which the attributes are managed.
-                     */
-                    locale: {
-                        type: String
-                    },
-                    /**
-                     * Indicates the list for which the attributes are managed.
-                     */
-                    list: {
-                        type: String
-                    },
-                    /**
-                     * Indicates the source dimension for which the attributes are managed.
-                     */
-                    source: {
-                        type: String
                     },
                     relationshipGridConfigs: {
                         type: Object,
@@ -145,51 +123,55 @@ It renders the list of attributes based on the specified relationship type.
                 },
 
                 observers: [
-                    'initiateRelationshipManage(relationshipGridConfigs)'
+                    'initiateRelationshipManage(relationshipGridConfigs, contextData.Contexts)'
                 ],
 
                 behaviors: [
-                    RUFBehaviors.UIBehavior
+                    RUFBehaviors.UIBehavior,
+                    RUFBehaviors.ComponentContextBehavior
                 ],
                 _tracker: [],
                 ready: function () {
                     this.relationshipGridConfigs = this.getParentAppConfig('rock-relationship-manage');
                 },
 
-                initiateRelationshipManage: function (config) {
+                initiateRelationshipManage: function (config, contextData) {
                     this._tracker = [];
-                    if (this.relationshipGridConfigs) {
-                        Object.keys(this.relationshipGridConfigs).forEach(function (relType) {
-                            if (relType) {
-                                var columns = this.relationshipGridConfigs[relType].tabular.columns;
-                                if (columns) {
-                                    var relatedEntityAttributes = [];
-                                    var relationshipAttributes = [];
 
-                                    columns.forEach(function (col) {
-                                        if (col && col.name != "Related Entity") {
-                                            if (col.isRelatedEntityAttribute) {
-                                                relatedEntityAttributes.push(col.name);
-                                            } else {
-                                                relationshipAttributes.push(col.name);
-                                            }
-                                        }
-                                    }, this);
-
-                                    this._relationshipTypeAndAttributes[relType] = {
-                                        'relationshipAttributes': relationshipAttributes,
-                                        'relatedEntityAttributes': relatedEntityAttributes
-                                    }
-
-                                    this._relConfig[relType] = {};
-                                    this._relConfig[relType].gridConfig = this.relationshipGridConfigs[relType];
-                                    this._initiateRelationshipModelRequest(relType, relationshipAttributes);
-                                }
-                            }
-                        }, this);
-
-                        this._prepareRequest();
+                    if (_.isEmpty(this.relationshipGridConfigs) || _.isEmpty(this.contextData)) {
+                        return;
                     }
+
+                    Object.keys(this.relationshipGridConfigs).forEach(function (relType) {
+                        if (relType) {
+                            var columns = this.relationshipGridConfigs[relType].tabular.columns;
+                            if (columns) {
+                                var relatedEntityAttributes = [];
+                                var relationshipAttributes = [];
+
+                                columns.forEach(function (col) {
+                                    if (col && col.name != "Related Entity") {
+                                        if (col.isRelatedEntityAttribute) {
+                                            relatedEntityAttributes.push(col.name);
+                                        } else {
+                                            relationshipAttributes.push(col.name);
+                                        }
+                                    }
+                                }, this);
+
+                                this._relationshipTypeAndAttributes[relType] = {
+                                    'relationshipAttributes': relationshipAttributes,
+                                    'relatedEntityAttributes': relatedEntityAttributes
+                                }
+
+                                this._relConfig[relType] = {};
+                                this._relConfig[relType].gridConfig = this.relationshipGridConfigs[relType];
+                                this._initiateRelationshipModelRequest(relType, relationshipAttributes);
+                            }
+                        }
+                    }, this);
+
+                    this._prepareRequest();
                 },
                 //TODO: Improve this
                 _getCurrentCtx: function () {
@@ -201,68 +183,24 @@ It renders the list of attributes based on the specified relationship type.
                 _prepareRequest: function () {
                     var contexts = this._getCurrentCtx();
 
-                    var req = {
-                        "params": {
-                            "query": {
-                                "contexts": [contexts],
-                                "valueContexts": [{
-                                    "source": this.source,
-                                    "locale": this.locale
-                                }],
-                                "id": this.entityId,
-                                "filters": {
-                                    "attributesCriterion": [],
-                                    "relationshipsCriterion": [],
-                                    "typesCriterion": [this.entityType]
-                                }
-                            },
-                            "fields": {
-                                "ctxTypes": [
-                                    "properties"
-                                ],
-                                "relationships": [],
-                                "relationshipAttributes": [],
-                                "relatedEntityAttributes": []
-                            },
-                            "options": {
-                                "from": 0,
-                                "to": 0
-                            }
-                        }
-                    };
-
-                    this.requestObj = req;
-
-                    this._dimensions = {
-                        "source": this.source,
-                        "locale": this.locale,
-                        "list": this.list
-                    }
+                    this.requestObj = DataRequestHelper.createEntityGetRequest(this.contextData);
                 },
                 _initiateRelationshipModelRequest: function (relationshipType, relationshipAttributes) {
                     var currContext = this._getCurrentCtx();
                     var liquidElement = document.createElement("liquid-entity-model-composite-get");
                     liquidElement.name = relationshipType;
 
-                    var req = {
-                        "params": {
-                            "query": {
-                                "contexts": [currContext],
-                                "locale": "en-US",
-                                "name": this.entityType
-                            },
-                            "fields": {
-                                "ctxTypes": [
-                                    "properties"
-                                ],
-                                "relationships": [relationshipType],
-                                "relationshipAttributes": relationshipAttributes
-                            }
-                        }
-                    };
+                    var itemContext = this.getFirstItemContext();
+
+                    itemContext.attributeNames = [];
+                    itemContext.relationships = [relationshipType];
+                    itemContext.relationshipAttributes = relationshipAttributes;
+
+                    var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+
                     this._tracker.push(relationshipType);
-                    liquidElement.requestData = req;
-                    liquidElement.addEventListener("response", this._onRelationshipModelGetResponse.bind(this));
+                    liquidElement.requestData = compositeModelGetRequest;
+                    liquidElement.addEventListener("entity-model-composite-get-response", this._onRelationshipModelGetResponse.bind(this));
                     liquidElement.generateRequest();
                 },
                 _onRelationshipModelGetResponse: function (e) {
@@ -274,84 +212,90 @@ It renders the list of attributes based on the specified relationship type.
                         var compositeModel = e.detail.response.content.entityModels[0];
 
                         if (relType && compositeModel && compositeModel.data) {
-                            var ctxData = compositeModel.data.contexts;
+                            var relationships = compositeModel.data.relationships;
 
-                            if (ctxData) {
-                                ctxData.forEach(function (ctxItem) {
-                                    var relationships = ctxItem.relationships;
+                            if (relationships && relationships[relType]) {
+                                var rel = relationships[relType] && relationships[relType].length ? relationships[relType][0] : undefined;
 
-                                    if (relationships && relationships[relType]) {
-                                        var rel = relationships[relType] && relationships[relType].length ? relationships[relType][0] : undefined;
-
-                                        if (rel) {
-                                            if (this._relConfig[relType]) {
-                                                this._relConfig[relType].relatedEntityModel = {};
-                                                this._relConfig[relType].relatedEntityModel.relatedEntityAttributeModels = {};
-                                                this._relConfig[relType].relationshipAttributeModels = {};
-                                            }
-
-                                            var relatedEntityInfo = [];
-
-                                            if (rel.properties && Object.keys(rel.properties).length) {
-                                                relatedEntityInfo = rel.properties.relatedEntityInfo;
-                                                if (relatedEntityInfo && relatedEntityInfo.length) {
-                                                    this._relConfig[relType].relatedEntityModel.relatedEntityContexts = relatedEntityInfo;
-                                                }
-
-                                                if (rel.attributes) {
-                                                    var relData = {};
-                                                    relData.data = {};
-                                                    relData.data.attributes = rel.attributes;
-
-                                                    this._relConfig[relType].relationshipAttributeModels = DataHelper.transformAttributeModelsToUIFormat(relData, this._getCurrentCtx());;
-                                                }
-
-                                                if (this._relationshipTypeAndAttributes[relType]) {
-                                                    var relatedEntityAttributes = this._relationshipTypeAndAttributes[relType].relatedEntityAttributes;
-
-                                                    if (relatedEntityAttributes && relatedEntityAttributes.length) {
-                                                        //Initiate attr model get
-                                                        this._initiateAttributeModelRequest(relType, relatedEntityInfo, relatedEntityAttributes);
-                                                    } else {
-                                                        this._relConfig[relType].relatedEntityModel.relatedEntityAttributeModels = {};
-                                                        DataHelper.arrayRemove(this._tracker, relType);
-                                                        if (this._tracker.length == 0) {
-                                                            this._relationshipGridConfigs = this._relConfig;
-                                                        }
-                                                    }
-                                                }
-
-
-                                            }
-                                        }
+                                if (rel) {
+                                    if (this._relConfig[relType]) {
+                                        this._relConfig[relType].relatedEntityModel = {};
+                                        this._relConfig[relType].relatedEntityModel.relatedEntityAttributeModels = {};
+                                        this._relConfig[relType].relationshipAttributeModels = {};
                                     }
 
-                                }, this);
+                                    var relatedEntityInfo = [];
+
+                                    if (rel.properties && Object.keys(rel.properties).length) {
+                                        relatedEntityInfo = rel.properties.relatedEntityInfo;
+                                        if (relatedEntityInfo && relatedEntityInfo.length) {
+                                            this._relConfig[relType].relatedEntityModel.relatedEntityContexts = relatedEntityInfo;
+                                        }
+
+                                        if (rel.attributes) {
+                                            var relData = {};
+                                            relData.data = {};
+                                            relData.data.attributes = rel.attributes;
+
+                                            this._relConfig[relType].relationshipAttributeModels = DataHelper.transformAttributeModelsToUIFormat(relData, this._getCurrentCtx());;
+                                        }
+
+                                        if (this._relationshipTypeAndAttributes[relType]) {
+                                            var relatedEntityAttributes = this._relationshipTypeAndAttributes[relType].relatedEntityAttributes;
+
+                                            if (relatedEntityAttributes && relatedEntityAttributes.length) {
+                                                //Initiate attr model get
+                                                this._initiateAttributeModelRequest(relType, relatedEntityInfo, relatedEntityAttributes);
+                                            } else {
+                                                this._relConfig[relType].relatedEntityModel.relatedEntityAttributeModels = {};
+                                                DataHelper.arrayRemove(this._tracker, relType);
+                                                if (this._tracker.length == 0) {
+                                                    this._relationshipGridConfigs = this._relConfig;
+                                                }
+                                            }
+                                        }
+
+
+                                    }
+                                }
                             }
                         } else {
                             DataHelper.arrayRemove(this._tracker, relType);
+
+                            if(this._relConfig[relType]) {
+                                delete this._relConfig[relType];
+                            }
+
                             //TODO: Needs to change it with proper component
                             if (this._tracker.length == 0) {
                                 this._isMessageAvailable = false;
                                 var messageDiv = Polymer.dom(this).node.$.messageCard;
-                                if(messageDiv) {
+                                if (messageDiv) {
                                     messageDiv.textContent = "Relationships are not configured for current entity type: " + this.entityType;
                                 }
                             }
                         }
                     }
                 },
-                _initiateAttributeModelRequest: function (relationshipType, relatedEntityInfo, relatedEntityAttributes) {
+                _initiateAttributeModelRequest: function (relationshipType, relatedEntityContexts, relatedEntityAttributes) {
                     var contexts = this._getCurrentCtx();
                     var liquidElement = document.createElement("liquid-entity-model-composite-get");
                     liquidElement.name = relationshipType;
 
                     var ids = [];
 
-                    if (relatedEntityInfo && relatedEntityInfo.length) {
-                        relatedEntityInfo.forEach(function (relEntity) {
-                            if (relEntity && relEntity.relEntityType) {
-                                ids.push(relEntity.relEntityType + "_entityManageModel");
+                    var typesCriterion = [];
+                    var contexts = [];
+
+                    if (relatedEntityContexts) {
+                        relatedEntityContexts.forEach(function (relContext) {
+                            if (relContext) {
+                                ids.push(relContext.relEntityType + "_entityManageModel");
+                                if (relContext.relContexts) {
+                                    relContext.relContexts.forEach(function (ctxItem) {
+                                        contexts.push(ctxItem);
+                                    }, this);
+                                }
                             }
                         }, this);
                     }
@@ -359,7 +303,7 @@ It renders the list of attributes based on the specified relationship type.
                     var req = {
                         "params": {
                             "query": {
-                                "contexts": [contexts],
+                                "contexts": contexts,
                                 "locale": this.locale,
                                 "ids": ids
                             },
@@ -373,7 +317,7 @@ It renders the list of attributes based on the specified relationship type.
                     };
 
                     liquidElement.requestData = req;
-                    liquidElement.addEventListener("response", this._onRelatedEntityAttributeModelGetResponse.bind(this));
+                    liquidElement.addEventListener("entity-model-composite-get-response", this._onRelatedEntityAttributeModelGetResponse.bind(this));
                     liquidElement.generateRequest();
                 },
                 _onRelatedEntityAttributeModelGetResponse: function (e) {
