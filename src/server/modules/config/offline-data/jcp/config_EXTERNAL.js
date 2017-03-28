@@ -520,7 +520,7 @@ var allConfigs = {
                                 "name": "displayname",
                                 "sortable": false,
                                 "filterable": false,
-                                "linkTemplate": "entity-manage?id={id}&type={entityType}"
+                                "linkTemplate": "entity-manage?id={id}&type={type}"
                             },
                             {
                                 "header": "Entity Description",
