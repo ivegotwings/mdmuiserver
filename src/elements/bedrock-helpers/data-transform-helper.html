@@ -45,6 +45,10 @@
 
             if(entity && entity.data && entity.data.attributes) {
                 dataAttributes = DataMergeHelper.mergeAttributes(dataAttributes, entity.data.attributes, true);
+                for(var attrKey in dataAttributes) {
+                    var dataAttr = dataAttributes[attrKey];
+                    dataAttr.self = 1;
+                }
             }
 
             if(dataContexts.length > 0) {
@@ -63,6 +67,84 @@
             
             //console.log(attributesInManageFormat);
             return outputData;
+        };
+
+        DataTransformHelper.prepareEntityForAttributesSave = function (entity, attributesJSON, contextData) {
+            var firstDataContext = ContextHelper.getFirstDataContext(contextData);
+            var firstValueContext = ContextHelper.getFirstValueContext(contextData);
+
+            var attributesInSaveFormat = []; //our return value
+            var dataAttributes = {};
+            var firstContextAttributes = {};
+
+            var outputData = [];
+
+            for (var i = 0; i < attributesJSON.length; i++) {
+                var attributeJSON = attributesJSON[i];
+                var attr = this._createAttributeInstance(attributeJSON, firstValueContext);
+                
+                if(attributeJSON.self) {
+                    dataAttributes[attributeJSON.name] = attr;
+                }
+                else {
+                    firstContextAttributes[attributeJSON.name] = attr;
+                }
+            }
+
+            var newEntity = {};
+
+            for (var entityDataField in entity) {
+                if (entityDataField == "data") {
+                    var entityContextItem = SharedUtils.DataObjectFalcorUtil.getCtxItem(entity.data.contexts, firstDataContext);
+                    var newContextualData = {};
+                    newContextualData.contexts = [];
+                    var newCtxItem = {};
+                    newCtxItem.context = firstDataContext;
+                    newCtxItem.attributes = firstContextAttributes;
+                    newContextualData.contexts.push(newCtxItem);
+                    newEntity[entityDataField] = newContextualData;
+                } else {
+                    newEntity[entityDataField] = DataHelper.cloneObject(entity[entityDataField]);
+                }
+            }
+
+            return newEntity;
+        };
+        
+        DataTransformHelper._createAttributeInstance = function (attributeJSON, valueContext) {
+            var attributeValues = []; 
+            delete attributeJSON.errors;
+            if (Array.isArray(attributeJSON.value)) {
+                for (var j = 0; j < attributeJSON.value.length; j++) {
+                    if (attributeJSON.name) {
+                        var attributeValue = {
+                            "name": attributeJSON.name, 
+                            "value": attributeJSON.value[j].name ? attributeJSON.value[j].name : attributeJSON.value[j]
+                        };
+
+                        this._populateValueContext(attributeValue, valueContext);
+
+                        attributeValues.push(attributeValue);
+                    }
+                }
+            } else {
+                var attributeValue = {
+                            "name": attributeJSON.name, 
+                            "value": attributeJSON.value
+                        };
+                
+                this._populateValueContext(attributeValue, valueContext);
+
+                attributeValues.push(attributeValue);
+            }
+
+            return { "values": attributeValues };
+        };
+
+        DataTransformHelper._populateValueContext = function (val, valueContext) {
+            for(var valueContextField in valueContext) {
+                val[valueContextField] = valueContext[valueContextField];
+            }
         };
 
         DataTransformHelper._transformAttributes = function(attributes, attributeModels, valueContext) { 
