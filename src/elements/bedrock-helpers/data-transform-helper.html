@@ -35,13 +35,13 @@
         DataTransformHelper.transformAttributesToManageFormat = function (entity, attributeModels, contextData) {
             var dataContexts = ContextHelper.getDataContexts(contextData);
             var valueContexts = ContextHelper.getValueContexts(contextData);
-            var firstValContext = ContextHelper.getFirstValueContext(contextData);
+            var firstValueContext = ContextHelper.getFirstValueContext(contextData);
 
             var attributesInManageFormat = []; //our return value
 
             var dataAttributes = {};
 
-            var outputData = [];
+            var finalTransformedAttributes = [];
 
             if(entity && entity.data && entity.data.attributes) {
                 dataAttributes = DataMergeHelper.mergeAttributes(dataAttributes, entity.data.attributes, true);
@@ -58,15 +58,41 @@
                     var ctxAttributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, dataContext);
                     var mergedAttributes = DataMergeHelper.mergeAttributes(dataAttributes, ctxAttributes, true);
 
-                    outputData = this._transformAttributes(mergedAttributes, attributeModels, firstValContext);
+                    finalTransformedAttributes = this._transformAttributes(mergedAttributes, attributeModels, firstValueContext);
                 }    
             }
             else {
-                outputData = this._transformAttributes(dataAttributes, attributeModels, firstValContext);
+                finalTransformedAttributes = this._transformAttributes(dataAttributes, attributeModels, firstValueContext);
             }
             
             //console.log(attributesInManageFormat);
-            return outputData;
+            return finalTransformedAttributes;
+        };
+
+        DataTransformHelper.transformAttributesToGridFormat = function (entities, attributeModels, contextData) {
+            if (entities && entities.length) {
+                var entitiesToBeRemoved = [];
+                for (var i = 0; i < entities.length; i++) {
+                    var entity = entities[i];
+                    if (typeof (entity) == "object" && entity.data) {
+                        entity.attributes = DataTransformHelper.transformAttributesToManageFormat(entity, attributeModels, contextData);
+                    } else {
+                        //if the array has a bad item (non-entity, or entity with no data) then mark it for delete
+                        entitiesToBeRemoved.push(entities[i].id);
+                    }
+                }
+
+                // Todo.. Find a better solution and create a private function
+                // Ask Jimmy .... Is this really required?
+                entitiesToBeRemoved.forEach(function (entityToBeRemoved) {
+                    for (var i = 0; i < entities.length; i++) {
+                        if (entities[i].id === entityToBeRemoved) {
+                            var currentEntity = entities[i];
+                            entities.splice(currentEntity, 1);
+                        }
+                    }
+                });
+            }
         };
 
         DataTransformHelper.prepareEntityForAttributesSave = function (entity, attributesJSON, contextData) {
@@ -147,12 +173,10 @@
                 newData.contexts = [newCtxItem];
             }
 
-            newEntity.data = newContextualData;
             newEntity.id = entityId;
             newEntity.type = entityType;
-            newEntity.properties = {
-                "createdBy" : createdBy
-            }
+            newEntity.data = newData;
+            newEntity.properties = { "createdBy" : createdBy };
             
             return newEntity;
         };
