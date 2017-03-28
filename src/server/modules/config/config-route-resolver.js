@@ -47,15 +47,15 @@ async function getConfigs(pathSet) {
     
     //console.log(JSON.stringify(res, null, 4));
 
-    if (res !== undefined && res.configOperationResponse !== undefined && res.configOperationResponse.status == "success") {
+    if (res !== undefined && res.response !== undefined && res.response.status == "success") {
         //console.log('response from api', JSON.stringify(res));
 
-        if (res.configOperationResponse.configs !== undefined) {
-            res.configOperationResponse.configs.forEach(function(config) {
+        if (res.response.configs !== undefined) {
+            res.response.configs.forEach(function(config) {
                 //console.log("config: ", JSON.stringify(config, null, 2));
                 var appPath = mergePathSets(basePathSet, config.name);
-                if(config.ctxInfo && config.ctxInfo.length > 0) {
-                    var configComponents = config.ctxInfo[0].components;
+                if(config.contexts && config.contexts.length > 0) {
+                    var configComponents = config.contexts[0].components;
                     //console.log('configComponents: ', JSON.stringify(configComponents, null, 2));
                     request.components.forEach(function(componentName) { 
                         //console.log('componentName ', componentName, ' ', componentName in configComponents);
@@ -88,11 +88,11 @@ async function getConfigComponentNames(pathSet) {
 
     var res = await configService.getConfigComponentNames(request);
 
-    if (res !== undefined && res.configOperationResponse !== undefined && res.configOperationResponse.status == "success") {
+    if (res !== undefined && res.response !== undefined && res.response.status == "success") {
         //console.log('response from api', JSON.stringify(res));
 
-        if (res.configOperationResponse.configs !== undefined) {
-            for (let config of res.configOperationResponse.configs) {
+        if (res.response.configs !== undefined) {
+            for (let config of res.response.configs) {
                 if(config.components) {
                     var componentNames = config.components;
                     //console.log("config: ", JSON.stringify(config, null, 2));
@@ -105,6 +105,7 @@ async function getConfigComponentNames(pathSet) {
         }
     }
 
+    //console.log(JSON.stringify(response, null, 4));
     return response;
 }
 
