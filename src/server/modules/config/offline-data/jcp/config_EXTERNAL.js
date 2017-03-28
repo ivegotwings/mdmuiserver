@@ -2911,6 +2911,32 @@ var allConfigs = {
                 }
             }
         }]
+    },
+    {
+        "name": "user-store",
+        "ctxInfo": [{
+            "tenant": "jcp",
+            "ctx": {
+                "list": ""
+            },
+            "security": {
+                "user": "",
+                "role": ""
+            },
+            "components": {
+                "user-config": {
+                    "config": {
+                        "users": [
+                            {
+                                "userName": "jcp",
+                                "password": "jcp",
+                                "roles": "vendor"
+                            }
+                        ]
+                    }
+                }
+            }
+        }]
     }
     ]
 };
