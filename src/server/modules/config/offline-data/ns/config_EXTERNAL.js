@@ -3257,6 +3257,32 @@ var allConfigs = {
                     }
                 }
             }]
+        },
+        {
+        "name": "user-store",
+        "ctxInfo": [{
+            "tenant": "ns",
+            "ctx": {
+                "list": ""
+            },
+            "security": {
+                "user": "",
+                "role": ""
+            },
+            "components": {
+                "user-config": {
+                    "config": {
+                        "users": [
+                            {
+                                "userName": "ns",
+                                "password": "ns",
+                                "roles": "vendor"
+                            }
+                        ]
+                    }
+                }
+            }
+            }]
         }
     ]
 };
