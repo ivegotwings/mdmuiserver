@@ -272,8 +272,8 @@ var allConfigs = {
                             }
                         },
                         "dataMappings": {
-                            "id": "id",
-                            "title": "title",
+                            "id": "name",
+                            "title": "name",
                             "subtitle": "",
                             "image": "",
                             "icon": "",
@@ -303,7 +303,7 @@ var allConfigs = {
                             }
                         },
                         "dataMappings": {
-                            "id": "id",
+                            "id": "name",
                             "title": "name",
                             "subtitle": "",
                             "image": "",
@@ -334,7 +334,7 @@ var allConfigs = {
                             }
                         },
                         "dataMappings": {
-                            "id": "id",
+                            "id": "name",
                             "title": "name",
                             "subtitle": "",
                             "image": "",
@@ -631,7 +631,7 @@ var allConfigs = {
                                         "attributeGroups": [
                                             "coreAttributes"
                                         ],
-                                        "context": {
+                                        "config-context": {
                                             "attributeNames": [
                                                 "displayname",
                                                 "description",
