@@ -37,67 +37,68 @@
             return mergedAttributeModels;
         };
 
-        DataTransformHelper.transformAttributesToManageFormat = function (entity, attributeModels, contextData) {
-            var dataContexts = ContextHelper.getDataContexts(contextData);
+        DataTransformHelper.transformAttributes = function (entity, attributeModels, contextData, outputSchema) {
+            var firstDataContext = ContextHelper.getFirstDataContext(contextData);
             var valueContexts = ContextHelper.getValueContexts(contextData);
             var firstValueContext = ContextHelper.getFirstValueContext(contextData);
 
-            var attributesInManageFormat = []; //our return value
-
-            var dataAttributes = {};
-
-            var finalTransformedAttributes = [];
+            var mergedAttributes = {};
 
             if(entity && entity.data && entity.data.attributes) {
-                dataAttributes = DataMergeHelper.mergeAttributes(dataAttributes, entity.data.attributes, true);
-                for(var attrKey in dataAttributes) {
-                    var dataAttr = dataAttributes[attrKey];
+                mergedAttributes = DataMergeHelper.mergeAttributes(mergedAttributes, entity.data.attributes, true);
+                
+                for(var attrKey in mergedAttributes) {
+                    var dataAttr = mergedAttributes[attrKey];
                     dataAttr.selfContext = 1;
                 }
             }
 
-            if(dataContexts.length > 0) {
-                for(var i = 0; i < dataContexts.length; i++) {
-                    var dataContext = dataContexts[i];
-
-                    var ctxAttributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, dataContext);
-                    var mergedAttributes = DataMergeHelper.mergeAttributes(dataAttributes, ctxAttributes, true);
-
-                    finalTransformedAttributes.push.apply(finalTransformedAttributes, this._transformAttributesToManageFormat(mergedAttributes, attributeModels, firstValueContext));
+            if(firstDataContext) {
+                var ctxAttributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, firstDataContext);
+                if(!_.isEmpty(ctxAttributes)) {
+                    mergedAttributes = DataMergeHelper.mergeAttributes(mergedAttributes, ctxAttributes, true);
                 }
-            }
-            else {
-                finalTransformedAttributes = this._transformAttributesToManageFormat(dataAttributes, attributeModels, firstValueContext);
             }
             
-            //console.log(attributesInManageFormat);
-            return finalTransformedAttributes;
+            var transformedAttributes = this._transformAttributes(mergedAttributes, attributeModels, firstValueContext);
+
+            var outputData = undefined;
+        
+            if(outputSchema == "array") {
+                //manage returns output as array...instead of keyed attributes
+                outputData = _.map(transformedAttributes, function(value, index) { return value; });
+            }
+            else {
+                outputData = transformedAttributes;
+            }
+
+            //console.log(outputData);
+            return outputData;
         };
 
-        DataTransformHelper.transformAttributesToGridFormat = function (entities, attributeModels, contextData) {
-            if (entities && entities.length) {
+        DataTransformHelper.transformEntitiesToGridFormat = function (entities, attributeModels, contextData) {
+            var transformedEntities = [];
+
+            if (entities && entities.length > 0) {
                 var entitiesToBeRemoved = [];
+                
                 for (var i = 0; i < entities.length; i++) {
                     var entity = entities[i];
-                    if (typeof (entity) == "object" && entity.data) {
-                        entity.attributes = DataTransformHelper.transformAttributesToManageFormat(entity, attributeModels, contextData);
-                    } else {
-                        //if the array has a bad item (non-entity, or entity with no data) then mark it for delete
-                        entitiesToBeRemoved.push(entities[i].id);
+                    
+                    var transformedAttributes = {};
+                    if (entity && entity.data) {
+                        transformedAttributes = DataTransformHelper.transformAttributes(entity, attributeModels, contextData, "objects");
                     }
-                }
 
-                // Todo.. Find a better solution and create a private function
-                // Ask Jimmy .... Is this really required?
-                entitiesToBeRemoved.forEach(function (entityToBeRemoved) {
-                    for (var i = 0; i < entities.length; i++) {
-                        if (entities[i].id === entityToBeRemoved) {
-                            var currentEntity = entities[i];
-                            entities.splice(currentEntity, 1);
-                        }
-                    }
-                });
+                    delete entity.data;
+
+                    var transformedEntity = DataHelper.cloneObject(entity);
+                    transformedEntity.attributes = transformedAttributes;
+                    transformedEntities.push(transformedEntity);
+                }
             }
+
+            return transformedEntities;
         };
 
         DataTransformHelper.prepareEntityForAttributesSave = function (entity, attributesJSON, contextData) {
@@ -215,8 +216,8 @@
             return { "values": attributeValues };
         };
 
-        DataTransformHelper._transformAttributesToManageFormat = function(attributes, attributeModels, valueContext) { 
-            var outputData = [];
+        DataTransformHelper._transformAttributes = function(attributes, attributeModels, valueContext) { 
+            var transformedAttributes = {};
 
             for (var attributeModelName in attributeModels) {
                 var attributeJSON = {};
@@ -237,11 +238,11 @@
 
                     attributeJSON.selfContext = attributeModel.selfContext;
                     attributeJSON.name = attributeModel.name;
-                    outputData.push(attributeJSON);
+                    transformedAttributes[attributeModel.name] = attributeJSON;
                 }
             }
 
-            return outputData;
+            return transformedAttributes;
         };
 
         DataTransformHelper._fillModels = function (attributeModelObjects) {
