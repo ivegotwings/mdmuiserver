@@ -1,7 +1,11 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 
-<link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/context-helper.html">
+<link rel="import" href="../bedrock-helpers/data-request-helper.html">
+<link rel="import" href="../bedrock-helpers/data-transform-helper.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
@@ -23,9 +27,9 @@ It filters the data as per filter criteria.
         }
     </style>
     <template>
-        <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
-        <entity-search-grid-datasource id="searchGrid" request="{{request}}" data-formatter="{{dataFormatter}}" current-record-size="{{size}}"
-            total-records="{{totalRecords}}" data-source="{{dataSource}}"></entity-search-grid-datasource>
+        <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
+        <entity-search-grid-datasource id="searchGrid" request="{{request}}" data-source="{{dataSource}}" data-formatter="{{dataFormatter}}"
+            current-record-size="{{size}}" total-records="{{totalRecords}}"></entity-search-grid-datasource>
         <rock-grid id="entityGrid" data-source="{{dataSource}}" data-source-id="searchGrid" record-size="{{totalRecords}}" config="{{gridConfig}}"
             grid-data-size="{{size}}" attribute-models="{{attributeModels}}" page-size="[[pageSize]]" selected-item="{{selectedItem}}"
             selected-items="{{selectedItems}}"></rock-grid>
@@ -39,16 +43,18 @@ It filters the data as per filter criteria.
                 is: 'rock-entity-search-grid',
                 properties: {
                     /**
-                    * Indicates the request object that is passed to the data element to retrive the attribute model data.
-                    Sample: { 
-                                action: "getAttributeModels" 
-                            }
-                    */
+                     * Indicates the request object that is passed to the data element to retrive the attribute model data.
+                     */
                     attributeModelRequest: {
                         type: Object,
                         value: function () {
-                            return {
-                            };
+                            return {};
+                        }
+                    },
+                    contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
                         }
                     },
                     /**
@@ -63,6 +69,7 @@ It filters the data as per filter criteria.
                     },
                     /**
                      * Specifies the request object to initiate the search.
+                     * Note: Create Empty Object.... Ask Vishal
                      */
                     request: {
                         type: Object,
@@ -81,8 +88,7 @@ It filters the data as per filter criteria.
                                         "ctxTypes": [
                                             "properties"
                                         ],
-                                        "attributes": [
-                                        ]
+                                        "attributes": []
                                     },
                                     "options": {
                                         "from": 0,
@@ -91,14 +97,6 @@ It filters the data as per filter criteria.
                                 }
                             };
                         }
-                    },
-                    /**
-                     * Specifies all dimensions that are selected in the dimension selector.
-                     */
-                    dimensions: {
-                        type: Object,
-                        notify: true,
-                        observer: '_loadSearchResultsByDimension'
                     },
                     /**
                      * Specifies the filters that are used to filter the search.
@@ -133,8 +131,7 @@ It filters the data as per filter criteria.
                     attributeModels: {
                         type: Object,
                         value: function () {
-                            return {
-                            }
+                            return {}
                         }
                     },
 
@@ -177,11 +174,9 @@ It filters the data as per filter criteria.
                     }
                 },
 
-                observers: [
-                ],
-
                 behaviors: [
-                    RUFBehaviors.UIBehavior
+                    RUFBehaviors.UIBehavior,
+                    RUFBehaviors.ComponentContextBehavior
                 ],
 
                 _onGridConfigChange: function () {
@@ -191,7 +186,7 @@ It filters the data as per filter criteria.
                         return;
                     }
 
-                    var attrNames = this.gridConfig.dataRequest.attributes;
+                    var attributeNames = this.gridConfig.dataRequest.attributes;
                     var typesCriterion = this.gridConfig.dataRequest.typesCriterion;
                     var firstEntityType = undefined;
 
@@ -199,45 +194,27 @@ It filters the data as per filter criteria.
                         firstEntityType = typesCriterion[0]; // TODO:: how to get attribute models for multiple entity types
                     }
 
-                    var contexts = this._getCurrentCtx();
-                    this.set("request.params.query.filters.typesCriterion", typesCriterion);
-                    this.set("request.params.fields.attributes", attrNames);
-                    var req = {
-                        "params": {
-                            "query": {
-                                "contexts": [
-                                    contexts
-                                ],
-                                "locale": this.dimensions.locales[0].value,
-                                "name": firstEntityType
-                            },
-                            "fields": {
-                                "ctxTypes": [
-                                    "properties"
-                                ],
-                                "attributes": attrNames
-                            }
-                        }
+                    var itemContext = {
+                        'type': firstEntityType,
                     };
 
-                    this.set("attributeModelRequest", req);
+                    itemContext.attributeNames = attributeNames;
+                    this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+
+                    var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(
+                        this.contextData);
+
+                    this.set("attributeModelRequest", compositeModelGetRequest);
                     var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
                     if (liquidModelGet) {
                         liquidModelGet.generateRequest();
                     }
-
-                },
-                _getCurrentCtx: function () {
-                    var ctxItem = {};
-                    //ctxItem.list = this.dimensions.lists[0].value;
-                    ctxItem.classification = '_ALL';
-                    return ctxItem;
                 },
 
                 _onCompositeModelGetResponse: function (e) {
                     if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
-                        var contexts = this._getCurrentCtx();
-                        this.attributeModels = DataHelper.transformAttributeModelsToUIFormat(e.detail.response.content.entityModels[0], contexts);
+                        this.attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response
+                            .content.entityModels[0], this.contextData);
                     }
                 },
 
@@ -251,31 +228,11 @@ It filters the data as per filter criteria.
                         var entities = data.content.entities;
                         if (entities && entities.length > 0) {
 
-                            var dataContext = {
-                                "list": this.dimensions.lists[0].value,
-                                "classification": "_ALL",
-                                "source": this.dimensions.sources[0].value,
-                                "time": "now",
-                                "locale": this.dimensions.locales[0].value
-                            };
-                            DataHelper.transformEntitySchemaForGrid(entities, this.attributeModels, dataContext);
+                            DataHelper.transformEntitySchemaForGrid(entities, this.attributeModels,
+                                this.contextData);
                         }
                     }
                     return entities;
-                },
-
-                _loadSearchResultsByDimension: function () {
-                    var grid = Polymer.dom(this).node.$$('rock-grid');
-                    var dataSource = Polymer.dom(this).node.$$('entity-search-grid-datasource');
-
-                    if (dataSource && grid && this.dimensions) {
-                        this.request.params.query.contexts = this._prepareContextGroups(this.dimensions.lists)
-                        this.request.params.query.valueContexts = this._prepareValueContextGroups(this.dimensions
-                            .sources, this.dimensions.locales);
-
-                        dataSource.resetDataSource();
-                        grid.reRenderGrid();
-                    }
                 },
 
                 _loadSearchResultsByFilters: function () {
@@ -297,56 +254,22 @@ It filters the data as per filter criteria.
                         if (!this.request.params.query) {
                             this.request.params.query = {};
                         }
-                       
+
                         if (!this.request.params.query.filters) {
                             this.request.params.query.filters = {};
                         }
-                       
-                       if(this.searchQuery && this.searchQuery != "") {
-                            this.request.params.query.filters.keywordsCriterion =
-                            {
-                                "keywords":  this.searchQuery,
+
+                        if (this.searchQuery && this.searchQuery != "") {
+                            this.request.params.query.filters.keywordsCriterion = {
+                                "keywords": this.searchQuery,
                                 "operator": "and"
                             }
-                       } else {
-                           delete this.request.params.query.filters.keywordsCriterion;
-                       }
+                        } else {
+                            delete this.request.params.query.filters.keywordsCriterion;
+                        }
 
                         dataSource.resetDataSource();
                         grid.reRenderGrid();
-                    }
-                },
-
-                _prepareContextGroups: function (lists) {
-                    if (lists && lists instanceof Array) {
-                        var contexts = [];
-
-                        for (var i = 0; i < lists.length; i++) {
-                            var ctxObject = new Object();
-                            ctxObject.list = lists[i].value;
-                            ctxObject.classification = "_ALL";
-                            contexts.push(ctxObject);
-                        }
-
-                        return contexts;
-                    }
-                },
-
-                _prepareValueContextGroups: function (sources, locales) {
-                    var valContexts = [];
-
-                    if (sources && locales && sources instanceof Array && locales instanceof Array) {
-                        for (var i = 0; i < sources.length; i++) {
-                            for (var j = 0; j < locales.length; j++) {
-
-                                var valContextObject = new Object();
-                                valContextObject.source = sources[i].value;
-                                valContextObject.locale = locales[j].value;
-                                valContexts.push(valContextObject);
-                            }
-                        }
-
-                        return valContexts;
                     }
                 },
 
@@ -358,7 +281,16 @@ It filters the data as per filter criteria.
                  * Can be used to reload the grid.
                  */
                 reloadGrid: function () {
-                    this._getEntityGrid().reRenderGrid();
+                    var dataSource = Polymer.dom(this).node.$$('entity-search-grid-datasource');
+
+                    if (this.dataSource) {
+                        var itemContext = this.getFirstItemContext();
+                        itemContext.type = this.gridConfig.dataRequest.typesCriterion;
+                        this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+
+                        this.request = DataRequestHelper.createEntityGetRequest(this.contextData);
+                        this._getEntityGrid().reRenderGrid();
+                    }
                 },
 
                 /**
