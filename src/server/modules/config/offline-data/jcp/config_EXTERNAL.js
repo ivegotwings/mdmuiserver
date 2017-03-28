@@ -20,12 +20,18 @@ var allConfigs = {
                             "text": "SKU",
                             "visible": true,
                             "dataRoute": "entity-create",
-                            "dataContext": {
-                                "source": "internal",
-                                "locale": "en-US",
-                                "list": "productMaster",
-                                "classification": "_ALL",
-                                "entityType": "sku"
+                            "contextData": {
+                                "itemContext": {
+                                    "type": "sku"
+                                },
+                                "valueContext": {
+                                    "source": "internal",
+                                    "locale": "en-US"
+                                },
+                                "context": {
+                                    "channel": "webCatalog",
+                                    "classification": "_ALL"
+                                }
                             }
                         },
                         {
@@ -34,12 +40,18 @@ var allConfigs = {
                             "text": "PDP",
                             "visible": true,
                             "dataRoute": "entity-create",
-                            "dataContext": {
-                                "source": "internal",
-                                "locale": "en-US",
-                                "list": "productMaster",
-                                "classification": "_ALL",
-                                "entityType": "pdp"
+                            "contextData": {
+                                "itemContext": {
+                                    "type": "pdp"
+                                },
+                                "valueContext": {
+                                    "source": "internal",
+                                    "locale": "en-US"
+                                },
+                                "context": {
+                                    "channel": "productMaster",
+                                    "classification": "_ALL"
+                                }
                             }
                         },
                         {
@@ -48,12 +60,18 @@ var allConfigs = {
                             "text": "Create Suplier",
                             "visible": true,
                             "dataRoute": "entity-create",
-                            "dataContext": {
-                                "source": "internal",
-                                "locale": "en-US",
-                                "list": "productMaster",
-                                "classification": "_ALL",
-                                "entityType": "supplier"
+                            "contextData": {
+                                "itemContext": {
+                                    "type": "supplier"
+                                },
+                                "valueContext": {
+                                    "source": "internal",
+                                    "locale": "en-US"
+                                },
+                                "context": {
+                                    "channel": "productMaster",
+                                    "classification": "_ALL"
+                                }
                             }
                         }
                         ]
