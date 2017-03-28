@@ -1,8 +1,9 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
-<link rel="import" href="data-helper.html">
-<link rel="import" href="context-helper.html">
-<link rel="import" href="data-merge-helper.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/attribute-helper.html">
+<link rel="import" href="../bedrock-helpers/context-helper.html">
+<link rel="import" href="../bedrock-helpers/data-merge-helper.html">
 
 <script>
     DataTransformHelper = {};
@@ -17,6 +18,10 @@
             //put default model as base
             if (compositeModel.data && compositeModel.data.attributes) {
                 mergedAttributeModels = DataMergeHelper.mergeAttributes(mergedAttributeModels, compositeModel.data.attributes, true);
+                for(var attrKey in mergedAttributeModels) {
+                    var dataAttrModel = mergedAttributeModels[attrKey];
+                    dataAttrModel.selfContext = 1;
+                }
             }
 
             for(var i = 0; i < dataContexts.length; i++) {
@@ -47,7 +52,7 @@
                 dataAttributes = DataMergeHelper.mergeAttributes(dataAttributes, entity.data.attributes, true);
                 for(var attrKey in dataAttributes) {
                     var dataAttr = dataAttributes[attrKey];
-                    dataAttr.self = 1;
+                    dataAttr.selfContext = 1;
                 }
             }
 
@@ -58,11 +63,11 @@
                     var ctxAttributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, dataContext);
                     var mergedAttributes = DataMergeHelper.mergeAttributes(dataAttributes, ctxAttributes, true);
 
-                    finalTransformedAttributes = this._transformAttributes(mergedAttributes, attributeModels, firstValueContext);
-                }    
+                    finalTransformedAttributes.push.apply(finalTransformedAttributes, this._transformAttributesToManageFormat(mergedAttributes, attributeModels, firstValueContext));
+                }
             }
             else {
-                finalTransformedAttributes = this._transformAttributes(dataAttributes, attributeModels, firstValueContext);
+                finalTransformedAttributes = this._transformAttributesToManageFormat(dataAttributes, attributeModels, firstValueContext);
             }
             
             //console.log(attributesInManageFormat);
@@ -109,7 +114,7 @@
                 var attributeJSON = attributesJSON[i];
                 var attr = this._createAttributeInstance(attributeJSON, firstValueContext);
                 
-                if(attributeJSON.self) {
+                if(attributeJSON.selfContext) {
                     dataAttributes[attributeJSON.name] = attr;
                 }
                 else {
@@ -119,16 +124,24 @@
 
             var newEntity = {};
 
+            var newData = {'contexts': []};
+            
+            if(!_.isEmpty(dataAttributes)) {
+                newData.attributes = dataAttributes;
+            }
+
+            if(!_.isEmpty(firstContextAttributes)) {
+                var entityContextItem = SharedUtils.DataObjectFalcorUtil.getCtxItem(entity.data.contexts, firstDataContext);
+                var newContexts = {};
+                var newCtxItem = {};
+                newCtxItem.context = firstDataContext;
+                newCtxItem.attributes = firstContextAttributes;
+                newData.contexts.push(newCtxItem);
+            }
+
             for (var entityDataField in entity) {
-                if (entityDataField == "data") {
-                    var entityContextItem = SharedUtils.DataObjectFalcorUtil.getCtxItem(entity.data.contexts, firstDataContext);
-                    var newContextualData = {};
-                    newContextualData.contexts = [];
-                    var newCtxItem = {};
-                    newCtxItem.context = firstDataContext;
-                    newCtxItem.attributes = firstContextAttributes;
-                    newContextualData.contexts.push(newCtxItem);
-                    newEntity[entityDataField] = newContextualData;
+                if (entityDataField == "data") {       
+                    newEntity[entityDataField] = newData;
                 } else {
                     newEntity[entityDataField] = DataHelper.cloneObject(entity[entityDataField]);
                 }
@@ -151,7 +164,7 @@
                 var attributeJSON = attributesJSON[i];
                 var attr = this._createAttributeInstance(attributeJSON, firstValueContext);
                 
-                if(attributeJSON.self) {
+                if(attributeJSON.selfContext) {
                     dataAttributes[attributeJSON.name] = attr;
                 }
                 else {
@@ -187,37 +200,22 @@
             if (Array.isArray(attributeJSON.value)) {
                 for (var j = 0; j < attributeJSON.value.length; j++) {
                     if (attributeJSON.name) {
-                        var attributeValue = {
-                            "name": attributeJSON.name, 
-                            "value": attributeJSON.value[j].name ? attributeJSON.value[j].name : attributeJSON.value[j]
-                        };
-
-                        this._populateValueContext(attributeValue, valueContext);
-
+                        var attributeValue = { "value": attributeJSON.value[j].name ? attributeJSON.value[j].name : attributeJSON.value[j] };
+                        AttributeHelper.populateValueContext(attributeValue, valueContext);
                         attributeValues.push(attributeValue);
                     }
                 }
             } else {
-                var attributeValue = {
-                            "name": attributeJSON.name, 
-                            "value": attributeJSON.value
-                        };
+                var attributeValue = { "value": attributeJSON.value };
                 
-                this._populateValueContext(attributeValue, valueContext);
-
+                AttributeHelper.populateValueContext(attributeValue, valueContext);
                 attributeValues.push(attributeValue);
             }
 
             return { "values": attributeValues };
         };
 
-        DataTransformHelper._populateValueContext = function (val, valueContext) {
-            for(var valueContextField in valueContext) {
-                val[valueContextField] = valueContext[valueContextField];
-            }
-        };
-
-        DataTransformHelper._transformAttributes = function(attributes, attributeModels, valueContext) { 
+        DataTransformHelper._transformAttributesToManageFormat = function(attributes, attributeModels, valueContext) { 
             var outputData = [];
 
             for (var attributeModelName in attributeModels) {
@@ -227,16 +225,17 @@
                 if (attributeModel.name) {
                     var attribute = attributes[attributeModel.name];
                     if (attribute && attribute.values) {
-                        attributeJSON = DataHelper._getCurrentValue(attribute.values, valueContext, attributeModel);
+                        attributeJSON = AttributeHelper.getCurrentValue(attribute.values, valueContext, attributeModel);
                         if (attributeJSON != undefined && attributeJSON.hasOwnProperty('invalidValue')) {
                             attributeJSON["value"] = attributeJSON.invalidValue;
                         }
                     }
 
                     if (attributeJSON == undefined || !attributeJSON.hasOwnProperty('value')) {
-                        attributeJSON = DataHelper._getEmptyValue(valueContext);
+                        attributeJSON = AttributeHelper.getEmptyValue(valueContext);
                     }
 
+                    attributeJSON.selfContext = attributeModel.selfContext;
                     attributeJSON.name = attributeModel.name;
                     outputData.push(attributeJSON);
                 }
@@ -252,7 +251,7 @@
                     model[prop] = model.properties[prop];
                 }
                 if (model.displayType != 'referenceList') {
-                    model.displayType = DataHelper._getDisplayType(model.dataType);
+                    model.displayType = AttributeHelper.getDisplayType(model.dataType);
                 } else {
                     model.referenceEntityTypes = DataHelper._getEntityTypesForLov(model);
                 }
