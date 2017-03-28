@@ -550,20 +550,20 @@ var allConfigs = {
                             }
                         },
                         "rock-entity-quick-manage": {
-                        "config": {
-                            "rock-tabs": {
-                                "scrollable": true,
-                                "fitContainer": false,
-                                "tabItems": [
-                                    {
-                                    "name": "attributes",
-                                    "title": "Attributes",
-                                    "enableDropdownMenu": true,
-                                    "selected": true,
-                                    "component": {
-                                        "name": "rock-attribute-manage",
-                                        "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                        "properties": {
+                            "config": {
+                                "rock-tabs": {
+                                    "scrollable": true,
+                                    "fitContainer": false,
+                                    "tabItems": [
+                                        {
+                                            "name": "attributes",
+                                            "title": "Attributes",
+                                            "enableDropdownMenu": true,
+                                            "selected": true,
+                                            "component": {
+                                                "name": "rock-attribute-manage",
+                                                "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
+                                                "properties": {
                                                     "attributeGroups": [
                                                         "coreAttributes"
                                                     ],
@@ -587,8 +587,8 @@ var allConfigs = {
                                                         ]
                                                     }
                                                 }
-                                    },
-                                    "menuItems": [
+                                            },
+                                            "menuItems": [
                                                 {
                                                     "name": "core-attributes",
                                                     "icon": "icons:add-box",
@@ -618,82 +618,82 @@ var allConfigs = {
                                                             }
                                                         }
                                                     }
-                                                }                                                
+                                                }
                                             ]
-                                }]
-                            },
-                            "pebble-toolbar": {
-                                "buttonItems": [
-                                    {
-                                    "buttons": [
+                                        }]
+                                },
+                                "pebble-toolbar": {
+                                    "buttonItems": [
                                         {
-                                            "name": "refresh",
-                                            "icon": "pebble-md-icons:ToolbarRefresh",
-                                            "text": "",
-                                            "visible": true,
-                                            "eventName": "refresh"
-                                        },
-                                        {
-                                            "name": "moreActions",
-                                            "icon": "pebble-md-icons:ToolbarMore",
-                                            "text": "",
-                                            "eventName": "moreActions",
                                             "buttons": [
                                                 {
-                                                    "name": "add",
-                                                    "icon": "pebble-sm-icons:Add",
+                                                    "name": "refresh",
+                                                    "icon": "pebble-md-icons:ToolbarRefresh",
                                                     "text": "",
                                                     "visible": true,
-                                                    "eventName": "add"
+                                                    "eventName": "refresh"
                                                 },
                                                 {
-                                                    "name": "delete",
-                                                    "icon": "pebble-md-cions:Delete",
+                                                    "name": "moreActions",
+                                                    "icon": "pebble-md-icons:ToolbarMore",
                                                     "text": "",
-                                                    "visible": true,
-                                                    "eventName": "delete"
-                                                },
-                                                {
-                                                    "name": "cut",
-                                                    "icon": "pebble-md-icons:Cut",
-                                                    "text": "",
-                                                    "visible": true,
-                                                    "eventName": "cut"
+                                                    "eventName": "moreActions",
+                                                    "buttons": [
+                                                        {
+                                                            "name": "add",
+                                                            "icon": "pebble-sm-icons:Add",
+                                                            "text": "",
+                                                            "visible": true,
+                                                            "eventName": "add"
+                                                        },
+                                                        {
+                                                            "name": "delete",
+                                                            "icon": "pebble-md-cions:Delete",
+                                                            "text": "",
+                                                            "visible": true,
+                                                            "eventName": "delete"
+                                                        },
+                                                        {
+                                                            "name": "cut",
+                                                            "icon": "pebble-md-icons:Cut",
+                                                            "text": "",
+                                                            "visible": true,
+                                                            "eventName": "cut"
+                                                        }
+                                                    ]
                                                 }
                                             ]
                                         }
                                     ]
-                                }
-                              ]
-                            },
-                            "rock-entity-tofix": {
-                                "completionPercentage": 65,
-                                "tofixes": [
-                                    {
-                                        "data": {
-                                            "name": "brandext",
-                                            "type": "error",
-                                            "label": "Brand Extension not available",
-                                            "eventName": "tofixtap"
-                                        }
-                                    },
-                                    {
-                                        "data": {
-                                            "name": "priceissue",
-                                            "type": "error",
-                                            "label": "Canada price not available",
-                                            "eventName": "tofixtap"
-                                        }
-                                    },
-                                    {
-                                        "data": {
-                                            "name": "msrpissue",
-                                            "type": "error",
-                                            "label": "Incorrect MSRP",
-                                            "eventName": "tofixtap"
-                                        }
-                                    },
-                                    {
+                                },
+                                "rock-entity-tofix": {
+                                    "completionPercentage": 65,
+                                    "tofixes": [
+                                        {
+                                            "data": {
+                                                "name": "brandext",
+                                                "type": "error",
+                                                "label": "Brand Extension not available",
+                                                "eventName": "tofixtap"
+                                            }
+                                        },
+                                        {
+                                            "data": {
+                                                "name": "priceissue",
+                                                "type": "error",
+                                                "label": "Canada price not available",
+                                                "eventName": "tofixtap"
+                                            }
+                                        },
+                                        {
+                                            "data": {
+                                                "name": "msrpissue",
+                                                "type": "error",
+                                                "label": "Incorrect MSRP",
+                                                "eventName": "tofixtap"
+                                            }
+                                        },
+                                        {
                                             "data": {
                                                 "name": "msrpissue",
                                                 "type": "warning",
@@ -709,10 +709,10 @@ var allConfigs = {
                                                 "eventName": "tofixtap"
                                             }
                                         }
-                                ]
+                                    ]
+                                }
                             }
-                        }
-                    },
+                        },
                         "rock-saved-searches-tags": {
                             "config": {
                                 "favourites": [
@@ -1690,22 +1690,22 @@ var allConfigs = {
                                 ]
                             }
                         },
-                        "rock-attribute-manage":{
+                        "rock-attribute-manage": {
                             "config": {
-                                "messageCodeMapping":{
-                                    "Req001":"Required",
-                                    "MinLen001":"MIN_LENGTH",
-                                    "MaxLen001":"MAX_LENGTH",
-                                    "AlVal001":"ALLOWED_VALUES",
-                                    "Prec001":"Precision",
-                                    "Range001": "RANGE_FROM_INCLUSIVE" ,
-                                    "Range002":"RANGE_TO_INCLUSIVE" ,
-                                    "Range003":"RANGE_FROM_EXCLUSIVE"  ,
-                                    "Range004": "RANGE_TO_EXCLUSIVE"  ,
-                                    "Range005":"RANGE_TO_INCLUSIVE_FROM_EXCLUSIVE" ,
-                                    "Range006":"RANGE_TO_INCLUSIVE_FROM_INCLUSIVE"  ,
-                                    "Range007":"RANGE_TO_EXCLUSIVE_FROM_EXCLUSIVE"  ,
-                                    "Range008":"RANGE_TO_EXCLUSIVE_FROM_INCLUSIVE"
+                                "messageCodeMapping": {
+                                    "Req001": "Required",
+                                    "MinLen001": "MIN_LENGTH",
+                                    "MaxLen001": "MAX_LENGTH",
+                                    "AlVal001": "ALLOWED_VALUES",
+                                    "Prec001": "Precision",
+                                    "Range001": "RANGE_FROM_INCLUSIVE",
+                                    "Range002": "RANGE_TO_INCLUSIVE",
+                                    "Range003": "RANGE_FROM_EXCLUSIVE",
+                                    "Range004": "RANGE_TO_EXCLUSIVE",
+                                    "Range005": "RANGE_TO_INCLUSIVE_FROM_EXCLUSIVE",
+                                    "Range006": "RANGE_TO_INCLUSIVE_FROM_INCLUSIVE",
+                                    "Range007": "RANGE_TO_EXCLUSIVE_FROM_EXCLUSIVE",
+                                    "Range008": "RANGE_TO_EXCLUSIVE_FROM_INCLUSIVE"
                                 }
                             }
                         },
@@ -1871,11 +1871,11 @@ var allConfigs = {
                                         "title": "Option Selection",
                                         "status": "inprogress"
                                     },
-                                        {
-                                            "index": "2",
-                                            "title": "Create Variants",
-                                            "status": ""
-                                        }
+                                    {
+                                        "index": "2",
+                                        "title": "Create Variants",
+                                        "status": ""
+                                    }
                                     ],
                                     "name": "create-variants",
                                     "label": "Create Variants",
@@ -1890,17 +1890,17 @@ var allConfigs = {
                                         "nextEvent": "onSave",
                                         "skipEvent": "onCancel"
                                     },
-                                        {
-                                            "name": "step-2-create-variants",
-                                            "label": "Create variants for a given entity",
-                                            "component": {
-                                                "name": "rock-variants-create-grid",
-                                                "path": "/../../src/elements/rock-variants-create-grid/rock-variants-create-grid.html",
-                                                "properties": {}
-                                            },
-                                            "nextEvent": "onComplete",
-                                            "skipEvent": "onCancel"
-                                        }
+                                    {
+                                        "name": "step-2-create-variants",
+                                        "label": "Create variants for a given entity",
+                                        "component": {
+                                            "name": "rock-variants-create-grid",
+                                            "path": "/../../src/elements/rock-variants-create-grid/rock-variants-create-grid.html",
+                                            "properties": {}
+                                        },
+                                        "nextEvent": "onComplete",
+                                        "skipEvent": "onCancel"
+                                    }
                                     ]
                                 },
                                 "rock-variants-create-grid": {
@@ -3416,6 +3416,32 @@ var allConfigs = {
                     }
                 }
             ]
+        },
+        {
+            "name": "user-store",
+            "ctxInfo": [{
+                "tenant": "ns",
+                "ctx": {
+                    "list": ""
+                },
+                "security": {
+                    "user": "",
+                    "role": ""
+                },
+                "components": {
+                    "user-config": {
+                        "config": {
+                            "users": [
+                                {
+                                    "userName": "ns",
+                                    "password": "ns",
+                                    "roles": "vendor"
+                                }
+                            ]
+                        }
+                    }
+                }
+            }]
         }
     ]
 };
