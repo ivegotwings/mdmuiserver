@@ -557,7 +557,6 @@ var allConfigs = {
                                             }
                                         }
                                     },
-<<<<<<< HEAD
                                     "menuItems": [{
                                         "name": "core-attributes",
                                         "icon": "icons:add-box",
@@ -612,183 +611,20 @@ var allConfigs = {
                                                 {
                                                     "name": "delete",
                                                     "icon": "pebble-md-cions:Delete",
-=======
-                                    "listItems": {
-                                        "image": "productImageUrl",
-                                        "title": "shortDescription",
-                                        "id": "id",
-                                        "fields": [
-                                            {
-                                                "name": "longDescription",
-                                                "label": "Long Description"
-                                            },
-                                            {
-                                                "name": "setupCost",
-                                                "label": "Setup Cost",
-                                                "noTrim": true
-                                            },
-                                            {
-                                                "name": "createDate",
-                                                "label": "Create Date",
-                                                "noTrim": false
-                                            }
-                                        ]
-                                    }
-                                },
-                                "tile": {
-                                    "settings": {
-                                        "isMultiSelect": true,
-                                        "actions": [
-                                            {
-                                                "name": "delete",
-                                                "icon": "pebble-icons:Delete",
-                                                "eventName": "delete-item"
-                                            },
-                                            {
-                                                "name": "edit",
-                                                "icon": "pebble-md-icons:Edit",
-                                                "eventName": "edit-item"
-                                            }
-                                        ]
-                                    },
-                                    "tileItems": {
-                                        "image": "productImageUrl",
-                                        "title": "shortDescription",
-                                        "id": "id",
-                                        "fields": [
-                                            {
-                                                "name": "setupCost",
-                                                "label": "Setup Cost",
-                                                "noTrim": true
-                                            },
-                                            {
-                                                "name": "createDate",
-                                                "label": "Create Date",
-                                                "noTrim": false
-                                            }
-                                        ]
-                                    }
-                                }
-                            }
-                        },
-                        "rock-entity-quick-manage": {
-                            "config": {
-                                "rock-tabs": {
-                                    "scrollable": true,
-                                    "fitContainer": false,
-                                    "tabItems": [
-                                        {
-                                            "name": "attributes",
-                                            "title": "Attributes",
-                                            "enableDropdownMenu": true,
-                                            "selected": true,
-                                            "component": {
-                                                "name": "rock-attribute-manage",
-                                                "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                "properties": {
-                                                    "attributeGroups": [
-                                                        "coreAttributes"
-                                                    ],
-                                                    "context": {
-                                                        "attributeNames": [
-                                                            "shortDescription",
-                                                            "longDescription",
-                                                            "createDate",
-                                                            "setupCost",
-                                                            "gender",
-                                                            "customerMaxOrderQty",
-                                                            "opReplenishmentIndicator",
-                                                            "opItemPlanningIndicator",
-                                                            "replenishmentIndicator",
-                                                            "forecastIndicator",
-                                                            "opForecastIndicator",
-                                                            "reserveStockIndicator",
-                                                            "ripIndicator",
-                                                            "apIndicator",
-                                                            "testAttribute"
-                                                        ]
-                                                    }
-                                                }
-                                            },
-                                            "menuItems": [
-                                                {
-                                                    "name": "core-attributes",
-                                                    "icon": "icons:add-box",
-                                                    "title": "Core Attributes",
-                                                    "component": {
-                                                        "name": "rock-attribute-manage",
-                                                        "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
-                                                        "properties": {
-                                                            "locales": [
-                                                                {
-                                                                    "locale": "en-US",
-                                                                    "language": "English"
-                                                                }
-                                                            ],
-                                                            "source": "SAP",
-                                                            "list": "productMaster",
-                                                            "mode": "view",
-                                                            "no-of-columns": 1,
-                                                            "context": {
-                                                                "groupName": "Core Attributes",
-                                                                "attributeNames": [
-                                                                    "shortDescription",
-                                                                    "longDescription",
-                                                                    "createDate",
-                                                                    "setupCost"
-                                                                ]
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            ]
-                                        }]
-                                },
-                                "pebble-toolbar": {
-                                    "buttonItems": [
-                                        {
-                                            "buttons": [
-                                                {
-                                                    "name": "refresh",
-                                                    "icon": "pebble-md-icons:ToolbarRefresh",
->>>>>>> 61247363f07aeb731717c6037a120d08458c2a24
                                                     "text": "",
                                                     "visible": true,
-                                                    "eventName": "refresh"
+                                                    "eventName": "delete"
                                                 },
                                                 {
-                                                    "name": "moreActions",
-                                                    "icon": "pebble-md-icons:ToolbarMore",
+                                                    "name": "cut",
+                                                    "icon": "pebble-md-icons:Cut",
                                                     "text": "",
-                                                    "eventName": "moreActions",
-                                                    "buttons": [
-                                                        {
-                                                            "name": "add",
-                                                            "icon": "pebble-sm-icons:Add",
-                                                            "text": "",
-                                                            "visible": true,
-                                                            "eventName": "add"
-                                                        },
-                                                        {
-                                                            "name": "delete",
-                                                            "icon": "pebble-md-cions:Delete",
-                                                            "text": "",
-                                                            "visible": true,
-                                                            "eventName": "delete"
-                                                        },
-                                                        {
-                                                            "name": "cut",
-                                                            "icon": "pebble-md-icons:Cut",
-                                                            "text": "",
-                                                            "visible": true,
-                                                            "eventName": "cut"
-                                                        }
-                                                    ]
+                                                    "visible": true,
+                                                    "eventName": "cut"
                                                 }
                                             ]
                                         }
                                     ]
-<<<<<<< HEAD
                                 }]
                             },
                             "rock-entity-tofix": {
@@ -824,97 +660,6 @@ var allConfigs = {
                                             "label": "Missing videos",
                                             "eventName": "tofixtap"
                                         }
-=======
-                                },
-                                "rock-entity-tofix": {
-                                    "completionPercentage": 65,
-                                    "tofixes": [
-                                        {
-                                            "data": {
-                                                "name": "brandext",
-                                                "type": "error",
-                                                "label": "Brand Extension not available",
-                                                "eventName": "tofixtap"
-                                            }
-                                        },
-                                        {
-                                            "data": {
-                                                "name": "priceissue",
-                                                "type": "error",
-                                                "label": "Canada price not available",
-                                                "eventName": "tofixtap"
-                                            }
-                                        },
-                                        {
-                                            "data": {
-                                                "name": "msrpissue",
-                                                "type": "error",
-                                                "label": "Incorrect MSRP",
-                                                "eventName": "tofixtap"
-                                            }
-                                        },
-                                        {
-                                            "data": {
-                                                "name": "msrpissue",
-                                                "type": "warning",
-                                                "label": "Missing videos",
-                                                "eventName": "tofixtap"
-                                            }
-                                        },
-                                        {
-                                            "data": {
-                                                "name": "msrpissue",
-                                                "type": "information",
-                                                "label": "Missing videos",
-                                                "eventName": "tofixtap"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        "rock-saved-searches-tags": {
-                            "config": {
-                                "favourites": [
-                                    {
-                                        "name": "favourites",
-                                        "icon": "pebble-icons:Star",
-                                        "text": "",
-                                        "visible": true,
-                                        "eventName": "favourite-saved-search"
-                                    },
-                                    {
-                                        "name": "delete",
-                                        "icon": "pebble-icons:Delete",
-                                        "text": "",
-                                        "visible": true,
-                                        "eventName": "delete-saved-search"
-                                    }
-                                ],
-                                "my-searches": [
-                                    {
-                                        "name": "favourites",
-                                        "icon": "star-border",
-                                        "text": "",
-                                        "visible": true,
-                                        "eventName": "favourite-saved-search"
-                                    },
-                                    {
-                                        "name": "delete",
-                                        "icon": "pebble-icons:Delete",
-                                        "text": "",
-                                        "visible": true,
-                                        "eventName": "delete-saved-search"
-                                    }
-                                ],
-                                "shared-searches": [
-                                    {
-                                        "name": "favourites",
-                                        "icon": "pebble-icons:Star",
-                                        "text": "",
-                                        "visible": true,
-                                        "eventName": "favourite-saved-search"
->>>>>>> 61247363f07aeb731717c6037a120d08458c2a24
                                     },
                                     {
                                         "data": {
@@ -2062,7 +1807,6 @@ var allConfigs = {
                                         "skipEvent": "onCancel"
                                     }
                                 ]
-<<<<<<< HEAD
                             },
                             "rock-variants-create-grid": {
                                 "config": {
@@ -2075,44 +1819,6 @@ var allConfigs = {
                                             "settings": {
                                                 "isMultiSelect": true,
                                                 "actions": [{
-=======
-                            }
-                        },
-                        "rock-attribute-manage": {
-                            "config": {
-                                "messageCodeMapping": {
-                                    "Req001": "Required",
-                                    "MinLen001": "MIN_LENGTH",
-                                    "MaxLen001": "MAX_LENGTH",
-                                    "AlVal001": "ALLOWED_VALUES",
-                                    "Prec001": "Precision",
-                                    "Range001": "RANGE_FROM_INCLUSIVE",
-                                    "Range002": "RANGE_TO_INCLUSIVE",
-                                    "Range003": "RANGE_FROM_EXCLUSIVE",
-                                    "Range004": "RANGE_TO_EXCLUSIVE",
-                                    "Range005": "RANGE_TO_INCLUSIVE_FROM_EXCLUSIVE",
-                                    "Range006": "RANGE_TO_INCLUSIVE_FROM_INCLUSIVE",
-                                    "Range007": "RANGE_TO_EXCLUSIVE_FROM_EXCLUSIVE",
-                                    "Range008": "RANGE_TO_EXCLUSIVE_FROM_INCLUSIVE"
-                                }
-                            }
-                        },
-                        "rock-entity-variant": {
-                            "config": {
-                                "variantGridConfig": {
-                                    "viewMode": "Tabular",
-                                    "title": "Variant Data Table",
-                                    "mode": "Read",
-                                    "schemaType": "attribute",
-                                    "dataRequest": {
-                                        "attributes": ["shortDescription", "rmsSkuId", "nrfColorCode", "nrfSizeCode"]
-                                    },
-                                    "tabular": {
-                                        "settings": {
-                                            "isMultiSelect": true,
-                                            "actions": [
-                                                {
->>>>>>> 61247363f07aeb731717c6037a120d08458c2a24
                                                     "name": "delete",
                                                     "icon": "pebble-icons:Delete",
                                                     "eventName": "delete-item"
@@ -2221,7 +1927,6 @@ var allConfigs = {
                                             "eventName": "delete-item"
                                         }]
                                     },
-<<<<<<< HEAD
                                     "columns": [{
                                             "header": "Related Entity",
                                             "name": "Related Entity",
@@ -2254,38 +1959,6 @@ var allConfigs = {
                                             "editType": "boolean",
                                             "isRelatedEntityAttribute": true
                                         }
-=======
-                                    {
-                                        "index": "2",
-                                        "title": "Create Variants",
-                                        "status": ""
-                                    }
-                                    ],
-                                    "name": "create-variants",
-                                    "label": "Create Variants",
-                                    "steps": [{
-                                        "name": "step-1-selection-option",
-                                        "label": "Select Options to create Skus",
-                                        "component": {
-                                            "name": "rock-variants-option-select",
-                                            "path": "/../../src/elements/rock-variants-option-select/rock-variants-option-select.html",
-                                            "properties": {}
-                                        },
-                                        "nextEvent": "onSave",
-                                        "skipEvent": "onCancel"
-                                    },
-                                    {
-                                        "name": "step-2-create-variants",
-                                        "label": "Create variants for a given entity",
-                                        "component": {
-                                            "name": "rock-variants-create-grid",
-                                            "path": "/../../src/elements/rock-variants-create-grid/rock-variants-create-grid.html",
-                                            "properties": {}
-                                        },
-                                        "nextEvent": "onComplete",
-                                        "skipEvent": "onCancel"
-                                    }
->>>>>>> 61247363f07aeb731717c6037a120d08458c2a24
                                     ]
                                 }
                             },
@@ -3583,35 +3256,32 @@ var allConfigs = {
                         }
                     }
                 }
-<<<<<<< HEAD
-=======
-            ]
+            }]
         },
         {
-            "name": "user-store",
-            "ctxInfo": [{
-                "tenant": "ns",
-                "ctx": {
-                    "list": ""
-                },
-                "security": {
-                    "user": "",
-                    "role": ""
-                },
-                "components": {
-                    "user-config": {
-                        "config": {
-                            "users": [
-                                {
-                                    "userName": "ns",
-                                    "password": "ns",
-                                    "roles": "vendor"
-                                }
-                            ]
-                        }
+        "name": "user-store",
+        "ctxInfo": [{
+            "tenant": "ns",
+            "ctx": {
+                "list": ""
+            },
+            "security": {
+                "user": "",
+                "role": ""
+            },
+            "components": {
+                "user-config": {
+                    "config": {
+                        "users": [
+                            {
+                                "userName": "ns",
+                                "password": "ns",
+                                "roles": "vendor"
+                            }
+                        ]
                     }
                 }
->>>>>>> 61247363f07aeb731717c6037a120d08458c2a24
+            }
             }]
         }
     ]
