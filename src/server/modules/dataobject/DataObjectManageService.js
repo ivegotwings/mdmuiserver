@@ -9,17 +9,23 @@ var DataObjectManageService = function (options) {
 DataObjectManageService.prototype = {
     get: async function (request) {
         var serviceName = this._getServiceName(request);
-        //console.log('get entity RDP call: ', JSON.stringify(request));
+        // console.log('------------------' + serviceName + '------------------------------');
+        // console.log('GET CALL: ', JSON.stringify(request));
+        // console.log('-----------------------------------------------------------------\n\n');
         return this.post(serviceName + "/get", request);
     },
     create: async function (request) {
         var serviceName = this._getServiceName(request);
-        //console.log('create entity RDP call: ', JSON.stringify(request));
+        // console.log('------------------' + serviceName + '------------------------------');
+        // console.log('CREATE CALL: ', JSON.stringify(request));
+        // console.log('-----------------------------------------------------------------\n\n');
         return this.post(serviceName + "/create", request);
     },
     update: async function (request) {
         var serviceName = this._getServiceName(request);
-        //console.log('update entity RDP call: ', JSON.stringify(request));
+        // console.log('------------------' + serviceName + '------------------------------');
+        // console.log('UPDATE CALL: ', JSON.stringify(request));
+        // console.log('-----------------------------------------------------------------\n\n');
         return this.post(serviceName + "/update", request);
     },
     deleteDataObjects: async function (request) {
@@ -32,7 +38,7 @@ DataObjectManageService.prototype = {
         };
 
         if(request.dataIndex == "entityData") {
-            return "entitymanageservice";
+            return "entityservice";
         }
         else if(request.dataIndex == "entityGovernData") {
             return "entitygovernservice";
@@ -41,10 +47,10 @@ DataObjectManageService.prototype = {
             return "entitymodelservice";
         }
          else if(request.dataIndex == "config") {
-            return "configservice";
+            return "configurationservice";
         }
         else {
-            return "entitymanageservice";
+            return "entityservice";
         }
     }
 };

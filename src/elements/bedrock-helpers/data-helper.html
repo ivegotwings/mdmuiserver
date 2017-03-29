@@ -2,6 +2,8 @@
 `bedrock-helpers` Represents a bunch of helpers that any bedrock, pebble, rock or app can use. 
 -->
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-helpers/context-helper.html">
 <link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
 
 <!--<script type="text/javascript" src="data-helper.js" />-->
@@ -215,15 +217,15 @@
                 entity.data = {};
             }
 
-            var ctx = DataHelper.prepareCtx(dataContext);
-            var valCtx = DataHelper.prepareValCtx(dataContext);
+            var contexts = DataHelper.prepareCtx(dataContext);
+            var valueContexts = DataHelper.prepareValCtx(dataContext);
 
-            var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, ctx);
+            var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, contexts);
 
-            return DataHelper.transformAttributesToManageFormat(attributes, attributeModels, valCtx);
+            return DataHelper.transformAttributesToManageFormat(attributes, attributeModels, valueContexts);
         };
 
-        DataHelper.transformAttributesToManageFormat = function (attributes, attributeModels, valCtx) {
+        DataHelper.transformAttributesToManageFormat = function (attributes, attributeModels, valueContexts) {
             var attributesInManageFormat = []; //our return value
 
             for (var attributeModelName in attributeModels) {
@@ -232,13 +234,13 @@
                 if (attributeModel.name) {
                     var attribute = attributes[attributeModel.name];
                     if (attribute && attribute.values) {
-                        attributeJSON = this._getCurrentValue(attribute.values, valCtx, attributeModel);
+                        attributeJSON = this._getCurrentValue(attribute.values, valueContexts, attributeModel);
                         if (attributeJSON != undefined && attributeJSON.hasOwnProperty('invalidValue')) {
                             attributeJSON["value"] = attributeJSON.invalidValue;
                         }
                     }
                     if (attributeJSON == undefined || !attributeJSON.hasOwnProperty('value')) {
-                        attributeJSON = this._getEmptyValue(valCtx);
+                        attributeJSON = this._getEmptyValue(valueContexts);
                     }
                     attributeJSON.name = attributeModel.name;
                     attributesInManageFormat.push(attributeJSON);
@@ -248,7 +250,7 @@
             return attributesInManageFormat;
         };
 
-        DataHelper.transformAttributesToGridFormat = function (attributes, attributeModels, valCtx) {
+        DataHelper.transformAttributesToGridFormat = function (attributes, attributeModels, valueContexts) {
 
             var attributesData = {};
 
@@ -259,11 +261,11 @@
                     var attribute = attributes[attributeModel.name];
 
                     if (attribute && attribute.values) {
-                        attributeJSON = this._getCurrentValue(attribute.values, valCtx, attributeModel);
+                        attributeJSON = this._getCurrentValue(attribute.values, valueContexts, attributeModel);
                     }
 
-                    if (attributeJSON == undefined || !attributeJSON.hasOwnProperty('value')) {
-                        attributeJSON = this._getEmptyValue(valCtx);
+                    if (attributeJSON == undefined) {
+                        attributeJSON = this._getEmptyValue(valueContexts);
                     }
 
                     attributesData[attributeModel.name] = attributeJSON;
@@ -273,21 +275,20 @@
             return attributesData;
         };
 
-        DataHelper.transformEntitySchemaForGrid = function (entities, attributeModels, dataContext) {
+        DataHelper.transformEntitySchemaForGrid = function (entities, attributeModels, contextData) {
 
-            var ctx = DataHelper.prepareCtx(dataContext);
-            var valCtx = DataHelper.prepareValCtx(dataContext);
+            var firstDataContext = ContextHelper.getFirstDataContext(contextData);
+            var firstValueContext = ContextHelper.getFirstValueContext(contextData);
 
             if (entities && entities.length) {
                 var entitiesToBeRemoved = [];
                 for (var i = 0; i < entities.length; i++) {
                     var entity = entities[i];
                     if (typeof (entity) == "object" && entity.data) {
-                        entity.entityType = entity.entityInfo && entity.entityInfo.entityType ? entity.entityInfo
-                            .entityType : "";
-                        var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, ctx);
+                        var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity,
+                            firstDataContext);
                         entity.attributes = this.transformAttributesToGridFormat(attributes, attributeModels,
-                            valCtx);
+                            firstValueContext);
                     } else {
                         //if the array has a bad item (non-entity, or entity with no data) then mark it for delete
                         entitiesToBeRemoved.push(entities[i].id);
@@ -333,7 +334,7 @@
 
                                 if (typeof (entityTypes !== "undefined" && entityTypes instanceof Array)) {
                                     for (j = 0; j < entityTypes.length; j++) {
-                                        if (entityTypes[j] === entities[i].entityInfo.entityType) {
+                                        if (entityTypes[j] === entities[i].type) {
                                             formattedEntity[columnName] = entityTypes[j];
                                         }
                                     }
@@ -371,11 +372,11 @@
             return formattedEntities;
         };
 
-        DataHelper._transformEntityAttributesForLovSchema = function (ctxInfo, attributeName) {
+        DataHelper._transformEntityAttributesForLovSchema = function (contexts, attributeName) {
             var attributeValueObject = {};
 
-            for (var i = 0; i < ctxInfo.length; i++) {
-                var attributes = ctxInfo[i].attributes
+            for (var i = 0; i < contexts.length; i++) {
+                var attributes = contexts[i].attributes
 
                 Object.keys(attributes).map(function (key) {
                     if (key == attributeName && attributes[key].values) {
@@ -411,7 +412,7 @@
 
                                 if (typeof (entityTypes !== "undefined" && entityTypes instanceof Array)) {
                                     for (j = 0; j < entityTypes.length; j++) {
-                                        if (entityTypes[j] === entityModels[i].entityModelInfo.entityModelType) {
+                                        if (entityTypes[j] === entityModels[i].type) {
                                             formattedEntityModel[columnName] = entityTypes[j];
                                         }
                                     }
@@ -420,9 +421,11 @@
                             } else {
                                 var data = entityModels[i].data;
                                 if (typeof (data) !== "undefined") {
+
                                     attributeValue = DataHelper._transformEntityAttributesForLovSchema(
                                         data.ctxInfo, lovColumnNameValueCollection[columnName]);
                                     formattedEntityModel[columnName] = attributeValue.value;
+
                                 }
                             }
                         });
@@ -482,10 +485,10 @@
             return true;
         };
 
-        DataHelper._getCurrentValue = function (values, valCtx, model) {
+        DataHelper._getCurrentValue = function (values, valueContexts, model) {
 
             if ((model.displayType == "textbox" || model.displayType == "referenceList") && model.isCollection) {
-                return this._getCurrentValues(values, valCtx, model);
+                return this._getCurrentValues(values, valueContexts, model);
             }
 
             var value;
@@ -511,7 +514,7 @@
             return value;
         };
 
-        DataHelper._getCurrentValues = function (values, valCtx, model) {
+        DataHelper._getCurrentValues = function (values, valueContexts, model) {
 
             if (!((model.displayType == "textbox" || model.displayType == "referenceList") && model.isCollection)) {
                 return;
@@ -549,8 +552,8 @@
 
             return {
                 "value": _values,
-                "source": valCtx.source,
-                "locale": valCtx.locale
+                "source": valueContexts.source,
+                "locale": valueContexts.locale
             }
         };
 
@@ -561,12 +564,12 @@
             };
         };
 
-        DataHelper._getEmptyValue = function (valCtx) {
+        DataHelper._getEmptyValue = function (valueContexts) {
             return {
                 "value": "",
-                "locale": valCtx.locale,
-                "time": valCtx.time,
-                "source": valCtx.source
+                "locale": valueContexts.locale,
+                "time": valueContexts.time,
+                "source": valueContexts.source
             };
         };
 
@@ -655,45 +658,46 @@
 
         DataHelper._prepareContextGroups = function (lists, classification) {
             if (!classification) {
-                classification =
-                    "_ALL";
+                classification = "_ALL";
             }
+
             if (lists && lists instanceof Array) {
-                var ctxGroup = [];
+                var contexts = [];
                 for (var i = 0; i < lists.length; i++) {
-                    var ctxInfoObject = {};
-                    ctxInfoObject.list = lists[i].value;
-                    ctxInfoObject.classification = classification;
-                    ctxGroup.push(ctxInfoObject);
+                    var ctxContextObject = {};
+                    ctxContextObject.list = lists[i].value;
+                    ctxContextObject.classification = classification;
+                    context.push(ctxContextObject);
                 }
-                return ctxGroup;
+
+                return contexts;
             }
         };
 
         DataHelper._prepareValueContextGroups = function (sources, locales) {
-            var valueCtxGroup = [];
+            var valContexts = [];
             if (sources && locales && sources instanceof Array && locales instanceof Array) {
                 for (var i = 0; i < sources.length; i++) {
                     for (var j = 0; j < locales.length; j++) {
-                        var valueCtxInfoObject = {};
-                        valueCtxInfoObject.source = sources[i].value;
-                        valueCtxInfoObject.locale = locales[j].value;
-                        valueCtxGroup.push(valueCtxInfoObject);
+                        var valContextObject = {};
+                        valContextObject.source = sources[i].value;
+                        valContextObject.locale = locales[j].value;
+                        valContexts.push(valContextObject);
                     }
                 }
-                return valueCtxGroup;
+                return valContexts;
             }
         };
 
         DataHelper.getEmptyRelationshipDataObject = function (list, classification, relationship) {
-            var ctxGroup = {};
+
             var relationships = {};
 
             relationships[relationship] = [];
 
             return {
-                "ctxInfo": [{
-                    "ctxGroup": {
+                "contexts": [{
+                    "context": {
                         "classification": classification,
                         "list": list
                     },
@@ -728,7 +732,8 @@
             }
         };
 
-        DataHelper.getAttributeValues = function (values, valCtx) {
+
+        DataHelper.getAttributeValues = function (values, valueContexts) {
             var _values = [];
             if (values) {
                 for (var i = 0; i < values.length; i++) {
@@ -752,17 +757,17 @@
             return _values;
         };
 
-         DataHelper.getAttributeNamesFromEntities = function(entities) {
-            var loopThroughLength = entities.length;// ToDO: should come from config.
+        DataHelper.getAttributeNamesFromEntities = function (entities) {
+            var loopThroughLength = entities.length; // ToDO: should come from config.
             var attributeNames = [];
-            for(var i=0; i< loopThroughLength; i++) {
-                if(entities[i]) {
+            for (var i = 0; i < loopThroughLength; i++) {
+                if (entities[i]) {
                     var entity = entities[i];
-                    var attributes = entity.data.ctxInfo[0].attributes;
+                    var attributes = entity.data.contexts[0].attributes;
                     var keys = Object.keys(attributes);
-                    if(keys && keys.length > 0) {
-                        for(var j=0; j<keys.length; j++) {
-                            if(attributeNames.indexOf(keys[j]) == -1) {
+                    if (keys && keys.length > 0) {
+                        for (var j = 0; j < keys.length; j++) {
+                            if (attributeNames.indexOf(keys[j]) == -1) {
                                 attributeNames.push(keys[j]);
                             }
                         }
@@ -772,17 +777,17 @@
             return attributeNames;
         };
 
-        DataHelper.TransformGridDataToEntitiesSchema = function(data, dataContext, attributeModels) {
+        DataHelper.TransformGridDataToEntitiesSchema = function (data, dataContext, attributeModels) {
             var entities = [];
-            if(data && data.length > 0) {
-                for(var i=0; i<data.length; i++) {
+            if (data && data.length > 0) {
+                for (var i = 0; i < data.length; i++) {
                     var rowData = data[i];
                     var keys = Object.keys(rowData);
                     var attributesJson = [];
-                    if(keys && keys.length > 0) {
-                        for(var j=0; j<keys.length; j++) {
+                    if (keys && keys.length > 0) {
+                        for (var j = 0; j < keys.length; j++) {
                             var key = keys[j];
-                            if(attributeModels[key]) {
+                            if (attributeModels[key]) {
                                 var attribute = {
                                     "name": key,
                                     "value": rowData[key],
@@ -796,15 +801,13 @@
                     }
                     var entity = {
                         id: rowData.id,
-                        entityInfo: {
-                            entityType: dataContext.entityType
-                        },
+                        type: dataContext.entityType,
                         properties: {
-                                "createdBy": "John Doe"
+                            "createdBy": "John Doe"
                         },
                         data: {
-                            ctxInfo: [{
-                                "ctxGroup": {
+                            contexts: [{
+                                "context": {
                                     "list": dataContext.list,
                                     "classification": dataContext.classification
                                 },

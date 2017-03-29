@@ -1,0 +1,160 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-externalref-falcor/bedrock-externalref-falcor.html">
+
+<script>
+    /*
+     * @demo demo/index.html
+     * @polymerBehavior RUFBehaviors.AppContextBehavior
+     */
+    var RUFBehaviors = RUFBehaviors || {};
+
+    RUFBehaviors.AppContextBehavior = {
+        attached: function () {
+            //We cannot addd <bedrock-pubsub... component in the behavior hence we need to listen event dynamically by accessing the element directly..
+            // Someday, we should find way to get bedrock event hook without dealing with control directly...
+            var eventName = 'rock-dimension-selector-data-changed-' + this.id;
+            var dimensionSelectors = this.$$("rock-dimension-selector");
+            if (dimensionSelectors) {
+                if (dimensionSelectors.length) {
+                    for (var i = 0; i < dimensionSelectors.length; i++) {
+                        this.listen(dimensionSelectors[i], eventName, '_onDimensionsChanged');
+                    }
+                } else {
+                    this.listen(dimensionSelectors, eventName, '_onDimensionsChanged');
+                }
+            }
+        },
+        ready: function () {
+            this._setDefaultContexts();
+        },
+        properties: {
+            contextData: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            _valContextKeys: {
+                type: Object,
+                value: function () {
+                    return ['source', 'locale'];
+                }
+            },
+            CONTEXT_TYPE_DATA: {
+                type: String,
+                value: 'Contexts'
+            },
+            CONTEXT_TYPE_VALUE: {
+                type: String,
+                value: 'ValContexts'
+            },
+            CONTEXT_TYPE_ITEM: {
+                type: String,
+                value: 'ItemContexts'
+            },
+            CONTEXT_TYPE_APP_INSTANCE: {
+                type: String,
+                value: 'AppInstanceContexts'
+            },
+            CONTEXT_TYPE_USER: {
+                type: String,
+                value: 'UserContexts'
+            }
+        },
+        _setDefaultContexts: function () {
+            
+            // var defDataContexts = [{'classification': '_ALL'}];
+
+            // this.contextData[this.CONTEXT_TYPE_DATA] = defDataContexts;
+
+            // //TODO:: this default context should be either come form dimension selector or from user pref
+            // var defValueContexts = [{
+            //     'locale': 'en-US',
+            //     'source': 'internal'
+            // }];
+
+            // this.contextData[this.CONTEXT_TYPE_VALUE] = defValueContexts;
+        },
+        _onDimensionsChanged: function (e) {
+            var newDimensions = e.detail.dimensions;
+            this._updateFromDimensionSelector(newDimensions);
+        },
+        _updateFromDimensionSelector: function (newDimensions) {
+            if (!newDimensions) {
+                return;
+            }
+
+            var selDataContextsFlat = {};
+            var selValContextsFlat = {};
+            var self = this;
+
+            // scope out data contexts vs val contexts
+            Object.keys(newDimensions).map(function (dimName) {
+
+                var dimValues = newDimensions[dimName];
+
+                if (self._valContextKeys.indexOf(dimName) > -1) { // is this val context?
+                    selValContextsFlat[dimName] = dimValues;
+                } else {
+                    selDataContextsFlat[dimName] = dimValues;
+                }
+            });
+
+            //TODO:: UI needs to start supporting classification selection as part of dimension selector..till then system would run only for classification as "_ALL"
+            if(!selDataContextsFlat['classification']) {
+                selDataContextsFlat['classification'] = ['_ALL'];
+            }
+
+            if (!_.isNull(selDataContextsFlat) && !_.isEmpty(selDataContextsFlat)) {
+                this.contextData[this.CONTEXT_TYPE_DATA] = _.createCartesianObjects(selDataContextsFlat);
+            }
+
+            if (!_.isNull(selValContextsFlat) && !_.isEmpty(selValContextsFlat)) {
+                this.contextData[this.CONTEXT_TYPE_VALUE] = _.createCartesianObjects(selValContextsFlat);
+            }
+
+            this._publishChangeEvent();
+        },
+        _publishChangeEvent: function () {
+            var contextChangedEvent = {
+                'contextData': this.contextData
+            };
+
+            // Id check is done to make sure we fire event only after host element is ready with all its rendering...
+            if (this.id != "") {
+                ComponentHelper.fireBedrockEvent("app-context-changed", contextChangedEvent, {
+                    ignoreId: true
+                }, this);
+            }
+        },
+        updateContext: function (contextType, contexts) {
+            this.contextData[contextType] = contexts;
+            this._publishChangeEvent();
+        },
+        getContexts: function (contextType) {
+            return this.contextData[contextType] !== undefined ? this.contextData[contextType] : [];
+        },
+        getDataContexts: function () {
+            return this.getContexts(this.CONTEXT_TYPE_DATA);
+        },
+        getItemContexts: function () {
+            return this.getContexts(this.CONTEXT_TYPE_ITEM);
+        },
+        getValueContexts: function () {
+            return this.getContexts(this.CONTEXT_TYPE_VALUE);
+        },
+        getUserContexts: function () {
+            return this.getContexts(this.CONTEXT_TYPE_USER);
+        },
+        getAppInstanceContexts: function () {
+            return this.getContexts(this.CONTEXT_TYPE_APP_INSTANCE);
+        },
+        getConfigContexts: function () {
+            var configContexts = _.createCartesianObjects(this._contextData);
+            return configContexts;
+        }
+    };
+
+</script>
