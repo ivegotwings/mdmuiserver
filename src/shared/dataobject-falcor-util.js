@@ -49,18 +49,38 @@ DataObjectFalcorUtil.boxDataObject = function (dataObject, boxOp) {
 
     for (var dataObjectFieldKey in dataObject) {
         if (dataObjectFieldKey === "data") {
-            var modContexts = [];
-            if (dataObject && dataObject.data && dataObject.data.contexts) {
-                for (var i = 0; i < dataObject.data.contexts.length; i++) {
-                    var ctxItem = dataObject.data.contexts[i];
-                    var modAttrs = DataObjectFalcorUtil.boxAttributesData(ctxItem.attributes, boxOp);
-                    var modRelationships = DataObjectFalcorUtil.boxRelationshipsData(ctxItem.relationships, boxOp);
+            if(dataObject && dataObject.data) {
+                var data = dataObejct.data;
+                var modData = {};
 
-                    modContexts.push({ "context": ctxItem.context, "attributes": modAttrs, "relationships": modRelationships });
+                if(data.attributes) {
+                    modData.attributes = DataObjectFalcorUtil.boxAttributesData(data.attributes, boxOp);
                 }
-            }
-            modDataObject.data = { 'contexts': modContexts };
 
+                if(data.relationships) {
+                    modData.relationships = DataObjectFalcorUtil.boxRelationshipsData(data.relationships, boxOp);
+                }
+
+                if(data.properties) {
+                    modData.properties = boxOp(data.properties);
+                }
+
+                if (data.contexts) {
+                    var modContexts = [];
+                    for (var i = 0; i < data.contexts.length; i++) {
+                        var ctxItem = data.contexts[i];
+                        var modAttrs = DataObjectFalcorUtil.boxAttributesData(ctxItem.attributes, boxOp);
+                        var modRelationships = DataObjectFalcorUtil.boxRelationshipsData(ctxItem.relationships, boxOp);
+                        var modProperties = boxOp(ctxItem.properties);
+
+                        modContexts.push({ "context": ctxItem.context, "attributes": modAttrs, "relationships": modRelationships, "properties": modProperties });
+                    }
+
+                    modData.contexts = modContexts;
+                }
+
+                modDataObject.data = modData;
+            }
         }
         else {
             if (!isEmpty(dataObject[dataObjectFieldKey])) {
@@ -92,6 +112,11 @@ DataObjectFalcorUtil.boxAttributesData = function (attrs, boxOp) {
         }
 
         modAttr.values = boxOp(modAttr.values);
+        
+        if(modAttr.properties) {
+            modAttr.properties = boxOp(modAttr.properties);
+        }
+
         modAttrs[attrId] = modAttr;
     }
 

@@ -224,6 +224,20 @@ function _addCtxPropertiesToAttributes(attrs, attrNames, properties) {
     attrs['properties'] = ctxProperties;
 }
 
+function formatDataObjectForSave(dataObject) {
+    if(isEmpty(dataObject.name)) {
+        delete dataObject.name;
+    }
+
+    if(isEmpty(dataObject.version)) {
+        delete dataObject.version;
+    }
+
+    if(isEmpty(dataObject.properties)) {
+        delete dataObject.properties;
+    }
+}
+
 function buildResponse(dataObject, reqData, basePath) {
     var response = [];
 
@@ -298,6 +312,7 @@ function buildResponse(dataObject, reqData, basePath) {
 
 module.exports = {
     buildResponse: buildResponse,
+    formatDataObjectForSave: formatDataObjectForSave,
     createPath: createPath,
     mergeAndCreatePath: mergeAndCreatePath,
     mergePathSets: mergePathSets,

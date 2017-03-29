@@ -1,7 +1,7 @@
 var allConfigs = {
     "configs": [{
             "name": "main-app",
-            "ctxInfo": [{
+            "contexts": [{
                 "tenant": "ns",
                 "ctx": {
                     "list": "productMaster"
@@ -182,7 +182,7 @@ var allConfigs = {
         },
         {
             "name": "app-entity-discovery",
-            "ctxInfo": [{
+            "contexts": [{
                 "tenant": "ns",
                 "ctx": {
                     "list": "productMaster"
@@ -727,7 +727,7 @@ var allConfigs = {
         },
         {
             "name": "app-entity-manage",
-            "ctxInfo": [{
+            "contexts": [{
                 "tenant": "ns",
                 "ctx": {
                     "list": "productMaster"
@@ -2111,7 +2111,7 @@ var allConfigs = {
         },
         {
             "name": "app-dashboard",
-            "ctxInfo": [{
+            "contexts": [{
                 "tenant": "ns",
                 "ctx": {
                     "list": "productMaster"
@@ -3075,7 +3075,7 @@ var allConfigs = {
         },
         {
             "name": "app-business-function",
-            "ctxInfo": [{
+            "contexts": [{
                 "tenant": "ns",
                 "ctx": {
                     "list": "productMaster"
@@ -3260,7 +3260,7 @@ var allConfigs = {
         },
         {
         "name": "user-store",
-        "ctxInfo": [{
+        "contexts": [{
             "tenant": "ns",
             "ctx": {
                 "list": ""

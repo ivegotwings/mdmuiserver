@@ -21,6 +21,7 @@ const futil = require('./dataobject-falcor-utils');
 
 const createPath = futil.createPath,
     buildResponse = futil.buildResponse,
+    formatDataObjectForSave = futil.formatDataObjectForSave,
     mergeAndCreatePath = futil.mergeAndCreatePath,
     mergePathSets = futil.mergePathSets,
     pathKeys = futil.pathKeys;
@@ -262,7 +263,8 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation) 
     var basePath = [pathKeys.root, dataIndex];
 
     for (var dataObjectId in dataObjects) {
-        var dataObject = sharedDataObjectFalcorUtil.boxDataObject(dataObjects[dataObjectId], sharedDataObjectFalcorUtil.unboxJsonObject);
+        var dataObject = dataObjects[dataObjectId];
+        formatDataObjectForSave(dataObject);
         //console.log('dataObject data', JSON.stringify(dataObject, null, 4));
 
         var apiRequestObj = { 'includeRequest': false, 'dataIndex': dataIndex };
