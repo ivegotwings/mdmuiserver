@@ -2920,7 +2920,7 @@ var allConfigs = {
     },
     {
         "name": "user-store",
-        "ctxInfo": [{
+        "contexts": [{
             "tenant": "jcp",
             "ctx": {
                 "list": ""
