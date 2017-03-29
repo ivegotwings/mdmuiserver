@@ -116,7 +116,7 @@
                         this.variantDefinition=this.getParentAppConfig('rock-entity-variant', '', 'variantDefinitionUI');
                     },
                     observers:[
-                        '_onDefinitionRender(variantDefinition,entityId,entityType,gridConfig)'
+                        '_onDefinitionRender(variantDefinition,entityId,entityType,gridConfig,attributesList)'
                     ],
                     _onDefinitionRender: function () {
                         var sourceAttrs = [];
@@ -146,8 +146,10 @@
                                 }
                             });
                             this._variantLevels=variantLevels;
-                            this._attributesIndexMapping=[sourceAttrs,medAttrs,targetAttrs];
-                            this.attributesList = sourceAttrs;
+                            if(!this.attributesList || !this.attributesList.length) {
+                                this.attributesList = sourceAttrs;
+                            }
+                            this._attributesIndexMapping=[this.attributesList,medAttrs,targetAttrs];
                             this.targetAttributesList = targetAttrs;
                             var columns=this.targetAttributesList.map(function (attribute) {
                                 return {"header":attribute,"name":attribute}
@@ -385,19 +387,17 @@
                             }
                         }
                         this._totalSaveRequests=0;
-                        this._currentSaveRequests=0;
+                        this._currentSaveRequest=0;
+                        this._saveRequests=[];
                         if(entities.length){
-                            this._totalSaveRequests++;
+                            this._updateSaveRequestDetails(entities,"save");
                         }
                         var level1Ids=[];
                         var level1Entities=[];
                         if(this.leafEntityDetails.index==2){
                             var level1Entities=this._getLevel1Entities();
-                            this._saveRequest = {
-                                "entities": level1Entities
-                            };
                             if (level1Entities.length) {
-                                this._totalSaveRequests++;
+                                this._updateSaveRequestDetails(level1Entities,"save");
                             }
                             level1Ids=level1Entities.map(function (entity) {
                                 return entity.id;
@@ -408,10 +408,9 @@
                             });
                         }
                         if(this._entitiesToBeUpdated.length){
-                            this._totalSaveRequests++;
+                            this._updateSaveRequestDetails(this._entitiesToBeUpdated,"update");
                         }
                         if(level1Ids.length) {
-                            this._totalSaveRequests++;
                             var parentEntityRels = this._makeChildOfRelationshipsArray(level1Ids, level1Details.entityType);
                             this._parentEntity.data = {
                                 ctxInfo: [{
@@ -421,38 +420,9 @@
                                     }
                                 }]
                             };
+                            this._updateSaveRequestDetails(this._parentEntity,"update");
                         }
 
-                        var liquidSave = this.$$("[name=attributeSaveDataService]");
-                        if (liquidSave) {
-                            if(entities.length) {
-                                liquidSave.requestData={
-                                    "entities": entities
-                                };
-                                liquidSave.generateRequest();
-                            }
-                            if(level1Entities.length) {
-                                liquidSave.requestData={
-                                    "entities": level1Entities
-                                };
-                                liquidSave.generateRequest();
-                            }
-                        }
-                        var liquidUpdate = this.$$("[name=attributeUpdateDataService]");
-                        if (liquidUpdate) {
-                            if(this._entitiesToBeUpdated.length) {
-                                liquidUpdate.requestData={
-                                    "entities": this._entitiesToBeUpdated
-                                };
-                                liquidUpdate.generateRequest();
-                            }
-                            if(level1Ids.length) {
-                                liquidUpdate.requestData={
-                                    "entities": [this._parentEntity]
-                                };
-                                liquidUpdate.generateRequest();
-                            }
-                        }
                         if(this._totalSaveRequests==0){
                             var mainApp = document.querySelector('#app');
                             mainApp.toastText = "No changes to save";
@@ -467,7 +437,23 @@
                                 data: this.selectedOptions
                             };
                             this.fireBedrockEvent(eventName, eventDetail, {ignoreId: true});
+                        } else{
+                            var requestObject=this._saveRequests[this._currentSaveRequest];
+                            var liquidSave = this.$$("[name=attributeSaveDataService]");
+                            if (liquidSave) {
+                                liquidSave.requestData=requestObject.request;
+                                liquidSave.generateRequest();
+                            }
                         }
+                    },
+                    _updateSaveRequestDetails:function (entities,type) {
+                        this._totalSaveRequests++;
+                        this._saveRequests.push({
+                            "request":{
+                                "entities": entities
+                            },
+                            "type":type
+                        });
                     },
                     _makeChildOfRelationshipsArray:function (ids,childEntityType) {
                         var rels=[];
@@ -502,7 +488,7 @@
                     },
                     _onSaveResponse:function () {
                         this._currentSaveRequests++;
-                        if(this._totalSaveRequests==this._currentSaveRequests) {
+                        if(this._totalSaveRequests==this._currentSaveRequest) {
                             var mainApp = document.querySelector('#app');
                             mainApp.toastText = "Variants Saved";
                             var toastElement = mainApp.$$("#pebbleAppToast");
@@ -516,6 +502,21 @@
                                 data: this.selectedOptions
                             };
                             this.fireBedrockEvent(eventName, eventDetail, {ignoreId: true});
+                        } else{
+                            var requestObject=this._saveRequests[this._currentSaveRequest];
+                            if(requestObject.type=="save"){
+                                var liquidSave = this.$$("[name=attributeSaveDataService]");
+                                if (liquidSave) {
+                                    liquidSave.requestData=requestObject.request;
+                                    liquidSave.generateRequest();
+                                }
+                            } else {
+                                var liquidUpdate = this.$$("[name=attributeUpdateDataService]");
+                                if (liquidUpdate) {
+                                    liquidUpdate.requestData = requestObject.request;
+                                    liquidUpdate.generateRequest();
+                                }
+                            }
                         }
                     },
                     _relateToLevel1Entity:function (attributes,id) {
