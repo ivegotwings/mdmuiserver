@@ -1789,7 +1789,7 @@ var allConfigs = {
                                     "filterable": false,
                                     "editType": "",
                                     "isRelatedEntityAttribute": false,
-                                    "linkTemplate": "entity-manage?id={id}&type={entityType}"
+                                    "linkTemplate": "entity-manage?id={id}&type={type}"
                                 },
                                 {
                                     "header": "status",
@@ -1831,11 +1831,11 @@ var allConfigs = {
                                     "filterable": false,
                                     "editType": "",
                                     "isRelatedEntityAttribute": false,
-                                    "linkTemplate": "entity-manage?id={id}&type={entityType}"
+                                    "linkTemplate": "entity-manage?id={id}&type={type}"
                                 },
                                 {
-                                    "header": "status",
-                                    "name": "status",
+                                    "header": "Short Name",
+                                    "name": "shortnm",
                                     "sortable": true,
                                     "filterable": false,
                                     "editType": "",
@@ -1873,7 +1873,7 @@ var allConfigs = {
                                     "filterable": false,
                                     "editType": "",
                                     "isRelatedEntityAttribute": false,
-                                    "linkTemplate": "entity-manage?id={id}&type={entityType}"
+                                    "linkTemplate": "entity-manage?id={id}&type={type}"
 
                                 },
                                 {
