@@ -79,7 +79,7 @@
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <iron-ajax auto url="config\gridConfig.json" handle-as="json" last-response="{{_gridConfig}}"></iron-ajax>
         <liquid-rest id="copTransform" url="/cop/transform" 
-            method="POST" request-data={{_copTransformRequest}} on-response="_onTransformSuccess" on-error="_onTransformFailure"></liquid-rest>
+            method="POST" request-data={{_copTransformRequest}} on-liquid-response="_onTransformSuccess" on-liquid-error="_onTransformFailure"></liquid-rest>
         <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="[[attributeModelRequest]]" 
             on-response="_onCompositeModelResponse"></liquid-entity-model-composite-get>
         <liquid-entity-data-save name="entitiesSaveDataService" operation="create" request-data="{{_saveRequest}}" on-response="_onSaveResponse"></liquid-entity-data-save>
@@ -339,6 +339,9 @@
                                 this._attributeModels = DataHelper.transformAttributeModelsToUIFormat(e.detail.response.content.entityModels[0], ctxGroup);
                                 this._populateEntityGrid();
                             }
+                        } else {
+                            this._showErrorToast("Unable to fetch attribute models. Please check the service or contact your administrator.");
+                            this._loading = false;
                         }
                     },
                      _showView: function(viewName) {
@@ -484,7 +487,8 @@
                     },
                     _onTransformSuccess: function(e) {
                         var response = e.detail.response;
-                        if(response && response.entityOperationResponse && response.entityOperationResponse.entities) {
+                        if(response && response.entityOperationResponse && response.entityOperationResponse.entities
+                            && response.entityOperationResponse.entities.length > 0) {
                              this._hideView("entity-import");
                              this._hideButtons();
                              this._showView("label");
@@ -494,10 +498,14 @@
                              this.attributeNames = DataHelper.getAttributeNamesFromEntities(this._entities);
                         } else {
                             console.warn("Unexpected COP response:" + e.detail.response);
+                            this._showErrorToast("Unable to transform excel to json. Please check the service or contact your administrator.");
+                            this._loading = false;
                         }
                     },
                     _onTransformFailure: function(e) {
                         console.warn('COP transformation failed with error ', e.detail);
+                        this._showErrorToast("Unable to transform excel to json. Please check the service or contact your administrator.");
+                        this._loading = false;
                     },
                     _populateEntityGrid: function() {
                         var entitiesGrid = this.$$('#entitiesGrid');
@@ -586,7 +594,8 @@
                             }
                         } else {
                             this._loading = false;
-                            this._showSuccessToast();
+                            var msg = this._entities.length + " entities saved successfully!!";
+                            this._showSuccessToast(msg);
                             var eventName = "onSave";
                             var eventDetail = {
                                 name: eventName
@@ -628,12 +637,22 @@
                         } 
                         return entities.slice(start, end+1);
                     },
-                    _showSuccessToast: function() {
+                    _showSuccessToast: function(message) {
                         var mainApp = document.querySelector('#app');
-                        mainApp.toastText = this._entities.length + " entities saved successfully!!";
+                        mainApp.toastText = message;
                         var toastElement = mainApp.$$("#pebbleAppToast");
                         toastElement.toastType = "success";
                         toastElement.heading = "Success";
+                        toastElement.autoClose = true;
+
+                        toastElement.show();
+                    },
+                    _showErrorToast: function(message) {
+                        var mainApp = document.querySelector('#app');
+                        mainApp.toastText = message;
+                        var toastElement = mainApp.$$("#pebbleAppToast");
+                        toastElement.toastType = "error";
+                        toastElement.heading = "Error";
                         toastElement.autoClose = true;
 
                         toastElement.show();
