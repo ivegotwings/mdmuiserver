@@ -14,10 +14,10 @@ var COPRouter = function (app) {
     app.post('/cop/transform', async function (req, res) {
         var response = await copService.transform(req);
         //console.log('cop response:', JSON.stringify(response, null, 2));
-        if(!(response && response.response && response.response.entities 
-                && response.response.entities.length > 0)) {
+        if(!(response && response.entityOperationResponse  && response.entityOperationResponse .entities 
+                && response.entityOperationResponse .entities.length > 0)) {
             response = {
-                "response": {
+                "entityOperationResponse ": {
                     "entities": [
                         
                     ]
@@ -29,9 +29,9 @@ var COPRouter = function (app) {
                             "type": "sku",
                             "id": "sku_" + uid1,
                             "data": {
-                                "contexts": [
+                                "ctxInfo": [
                                     {
-                                        "context": {
+                                        "ctxGroup": {
                                             "list": "productMaster",
                                             "classification": "_ALL"
                                         },
@@ -59,7 +59,7 @@ var COPRouter = function (app) {
                                 ]
                             }
                         };
-                response.response.entities.push(e);
+                response.entityOperationResponse.entities.push(e);
             }
         }
         res.status(200).send(response);
