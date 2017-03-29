@@ -508,8 +508,8 @@ var allConfigs = {
                         "mode": "Read",
                         "schemaType": "attribute",
                         "dataRequest": {
-                            "typesCriterion": ["productPresentation", "lot", "sku"],
-                            "attributes": ["displayname", "description", "stuscd", "startdate", "enddate"]
+                            "typesCriterion": ["sku", "productPresentation", "lot"],
+                            "attributes": ["displayname", "description", "stuscd", "startdate", "enddate", "webDiscount"]
                         },
                         "tabular": {
                             "settings": {
@@ -531,6 +531,12 @@ var allConfigs = {
                             {
                                 "header": "Status Code",
                                 "name": "stuscd",
+                                "sortable": false,
+                                "filterable": false
+                            },
+                            {
+                                "header": "Web Discount",
+                                "name": "webDiscount",
                                 "sortable": false,
                                 "filterable": false
                             },
