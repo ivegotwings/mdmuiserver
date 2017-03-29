@@ -14,6 +14,7 @@
 <link rel="import" href="../pebble-icons/pebble-icons.html">
 <link rel="import" href="../pebble-icon/pebble-icon.html">
 <link rel="import" href="../pebble-image-viewer/pebble-image-viewer.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
 
 <link rel="import" href="../rock-grid/rock-grid.html">
 
@@ -39,6 +40,12 @@
 
             #content-actions {
                 padding-top: 30px;
+                position: fixed;
+                bottom: 0;
+                background: rgba(255, 255, 255, 0.80);                
+                text-align: center;
+                width: 100%;
+                z-index: 9999;
             }
 
             #content-label {
@@ -61,11 +68,18 @@
                 font-size: var(--default-font-size, 14px);		                  
                 text-align: center;
                 color:var(--palette-steel-grey, #75808b);
-              }		              }
+            }
+            pebble-button[disabled] {
+                pointer-events: none;
+                color: #c1cad4;
+                background-color: #c1cad4;
+                border-color: #c1cad4;
+            }
         </style>
+        <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <iron-ajax auto url="config\gridConfig.json" handle-as="json" last-response="{{_gridConfig}}"></iron-ajax>
         <liquid-rest id="copTransform" url="/cop/transform" 
-            method="POST" request-data={{_copTransformRequest}} on-response="_onTransformSuccess" on-error="_onTransformFailure"></liquid-rest>
+            method="POST" request-data={{_copTransformRequest}} on-liquid-response="_onTransformSuccess" on-liquid-error="_onTransformFailure"></liquid-rest>
         <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="[[attributeModelRequest]]" 
             on-response="_onCompositeModelResponse"></liquid-entity-model-composite-get>
         <liquid-entity-data-save name="entitiesSaveDataService" operation="create" request-data="{{_saveRequest}}" on-response="_onSaveResponse"></liquid-entity-data-save>
@@ -73,8 +87,7 @@
             <div class="placeHolder p-10">
                 <p class="title"><a href="#" class="btn-link" on-tap="_selectFile">Download</a> a system template or just upload an existing data file</p>
                 <!-- screen for import -->
-                <pebble-file-upload accept="application/msword, application/vnd.ms-excel, application/vnd.ms-powerpoint,
-                    text/plain, application/pdf, image/*" target="/file-upload"></pebble-file-upload>
+                <pebble-file-upload accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" target="/file-upload"></pebble-file-upload>
                 <bedrock-pubsub on-bedrock-event-pebble-file-upload-success="_onFileUploadSuccess"></bedrock-pubsub>
             </div>
         </div>
@@ -91,7 +104,7 @@
             <bedrock-pubsub on-bedrock-event-save-item="_onSaveItem"></bedrock-pubsub>
         </div>
         <div id="content-entities-grid" hidden>
-            <rock-grid id="entitiesGrid" page-size="2" no-header></rock-grid>
+            <rock-grid id="entitiesGrid" data="{{_gridData}}" page-size="10" no-header></rock-grid>
         </div>
         <div id="content-actions" class="p-b-10" align="center" hidden>
             <pebble-button class="action-button btn btn-secondary m-r-5" id="skip" button-text="Cancel" raised on-tap="_onSkipTap"></pebble-button>
@@ -240,6 +253,18 @@
                         },
                         _fileName: {
                             type: String
+                        },
+                        _currentBatchNumber: {
+                            type: Number,
+                            value: 0
+                        },
+                        _batchSize: {
+                            type: Number,
+                            value: 10
+                        },
+                        _loading: {
+                            type: Boolean,
+                            value: false
                         }
                     },
                     observers: [
@@ -307,6 +332,9 @@
                                 this._attributeModels = DataHelper.transformAttributeModelsToUIFormat(e.detail.response.content.entityModels[0], currContext);
                                 this._populateEntityGrid();
                             }
+                        } else {
+                            this._showErrorToast("Unable to fetch attribute models. Please check the service or contact your administrator.");
+                            this._loading = false;
                         }
                     },
                      _showView: function(viewName) {
@@ -433,6 +461,7 @@
                     },
 
                     _onFileUploadSuccess: function(e, detail, sender) {
+                        this._loading = true;
                         //this._populateMultiEntityUpperGrid();
                         var fileName = detail.fileName;
                         this.set("_fileName", detail.originalFileName);
@@ -451,27 +480,37 @@
                     },
                     _onTransformSuccess: function(e) {
                         var response = e.detail.response;
-                        if(response && response.entityOperationResponse && response.entityOperationResponse.entities) {
+                        if(response && response.entityOperationResponse && response.entityOperationResponse.entities
+                            && response.entityOperationResponse.entities.length > 0) {
                              this._hideView("entity-import");
                              this._hideButtons();
                              this._showView("label");
                              this._showView("entities-grid");
-                             this._showView("actions");
                              this._entities = response.entityOperationResponse.entities;
                              this.attributeNames = DataHelper.getAttributeNamesFromEntities(this._entities);
                         } else {
                             console.warn("Unexpected COP response:" + e.detail.response);
+                            this._showErrorToast("Unable to transform excel to json. Please check the service or contact your administrator.");
+                            this._loading = false;
                         }
                     },
                     _onTransformFailure: function(e) {
                         console.warn('COP transformation failed with error ', e.detail);
+                        this._showErrorToast("Unable to transform excel to json. Please check the service or contact your administrator.");
+                        this._loading = false;
                     },
                     _populateEntityGrid: function() {
-                        this._prepareEntityGridConfig();
-                        this._prepateEntityGridData();
-
-                        this.$$('#entitiesGrid').config = this._gridConfig;
-                        this.$$('#entitiesGrid').data = this._gridData;
+                        var entitiesGrid = this.$$('#entitiesGrid');
+                        if(entitiesGrid) {
+                            entitiesGrid.config = {};
+                            entitiesGrid.data = [];
+                            this._prepareEntityGridConfig();
+                            entitiesGrid.config = this._gridConfig;
+                            this._prepareEntityGridData();
+                            entitiesGrid.data = this._gridData;
+                            this._loading = false;
+                            this._showView("actions");
+                        }
                     },
                     _prepareEntityGridConfig: function() {
                         if(this._attributeModels) {
@@ -488,7 +527,7 @@
                             }
                         }
                     },
-                    _prepateEntityGridData: function() {
+                    _prepareEntityGridData: function() {
                         var dataContext = {
                                 "list": this.list,
                                 "classification": this.classification,
@@ -513,6 +552,8 @@
                         }
                     },
                     _onSaveTap: function(e) {
+                        this._disableActions();
+                        this._loading = true;
                         //get all entities from grid and process save
                         var gridData = this.$$("#entitiesGrid").data;
                         var dataContext = {
@@ -523,9 +564,10 @@
                                 "locale": this.locale,
                                 "entityType": this.entityType
                             };
-                        var entities = DataHelper.TransformGridDataToEntitiesSchema(gridData, dataContext, this._attributeModels);
+                        this._entities = DataHelper.TransformGridDataToEntitiesSchema(gridData, dataContext, this._attributeModels);
+                        var batchEntities = this._getNextBatch(this._entities, this._currentBatchNumber,  this._batchSize);
                         this._saveRequest = {
-                            "entities": entities
+                            "entities": batchEntities
                         };
                         var liquidSave = this.$$("[name=entitiesSaveDataService]");
                         if (liquidSave) {
@@ -533,13 +575,31 @@
                         }
                     },
                     _onSaveResponse: function(e) {
-                        var eventName = "onSave";
-                        var eventDetail = {
-                            name: eventName
+                        this._currentBatchNumber++;
+                        var batchEntities = this._getNextBatch(this._entities, this._currentBatchNumber,  this._batchSize);
+                        if(batchEntities && batchEntities.length > 0) {
+                            this._saveRequest = {
+                                "entities": batchEntities
+                            };
+                            var liquidSave = this.$$("[name=entitiesSaveDataService]");
+                            if (liquidSave) {
+                                liquidSave.generateRequest();
+                            }
+                        } else {
+                            this._loading = false;
+                            var msg = this._entities.length + " entities saved successfully!!";
+                            this._showSuccessToast(msg);
+                            var eventName = "onSave";
+                            var eventDetail = {
+                                name: eventName
+                            };
+                            this.async(function() {
+                                this.fireBedrockEvent(eventName, eventDetail, {
+                                    ignoreId: true
+                                });
+                            }, 1000);
                         }
-                        this.fireBedrockEvent(eventName, eventDetail, {
-                            ignoreId: true
-                        });
+                        
                     },
                     _onSkipTap: function(e) {
                         //raise event with name given for onbackAction in configuration
@@ -558,6 +618,43 @@
                         if(parentEl && parentEl.hideCreateButtons) {
                             parentEl.hideCreateButtons();
                         }
+                    },
+                    _getNextBatch: function(entities, currentBatchNumber, batchSize) {
+                        var start = currentBatchNumber*batchSize;
+                        var end = ((currentBatchNumber+1)*batchSize) - 1;
+                        if(start > entities.length) { 
+                            return; 
+                        }
+                        if(end > entities.length) { 
+                            end = entities.length - 1; 
+                        } 
+                        return entities.slice(start, end+1);
+                    },
+                    _showSuccessToast: function(message) {
+                        var mainApp = document.querySelector('#app');
+                        mainApp.toastText = message;
+                        var toastElement = mainApp.$$("#pebbleAppToast");
+                        toastElement.toastType = "success";
+                        toastElement.heading = "Success";
+                        toastElement.autoClose = true;
+
+                        toastElement.show();
+                    },
+                    _showErrorToast: function(message) {
+                        var mainApp = document.querySelector('#app');
+                        mainApp.toastText = message;
+                        var toastElement = mainApp.$$("#pebbleAppToast");
+                        toastElement.toastType = "error";
+                        toastElement.heading = "Error";
+                        toastElement.autoClose = true;
+
+                        toastElement.show();
+                    },
+                    _disableActions: function() {
+                        var saveButton = this.$$("#next");
+                        var cancelButton = this.$$("#skip")
+                        saveButton.setAttribute("disabled", true);
+                        cancelButton.setAttribute("disabled", true);
                     }
                 });
             })();
