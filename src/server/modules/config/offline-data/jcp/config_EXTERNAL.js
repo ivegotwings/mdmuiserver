@@ -1851,6 +1851,48 @@ var allConfigs = {
                                 ]
                             }
                         },
+                        "skuToImage": {
+                            "viewMode": "Tabular",
+                            "mode": "Read",
+                            "title": "Sku To Image",
+                            "schemaType": "colModel",
+                            "statusEnabled": true,
+                            "tabular": {
+                                "settings": {
+                                    "isMultiSelect": true,
+                                    "actions": [{
+                                        "name": "delete",
+                                        "icon": "pebble-icons:Delete",
+                                        "eventName": "delete-item"
+                                    }]
+                                },
+                                "columns": [{
+                                    "header": "Related Entity",
+                                    "name": "Related Entity",
+                                    "sortable": true,
+                                    "filterable": false,
+                                    "editType": "",
+                                    "isRelatedEntityAttribute": false,
+                                    "linkTemplate": "entity-manage?id={id}&type={type}"
+                                },
+                                {
+                                    "header": "Short Name",
+                                    "name": "shortnm",
+                                    "sortable": true,
+                                    "filterable": false,
+                                    "editType": "",
+                                    "isRelatedEntityAttribute": false
+                                }, {
+                                    "header": "Display Name",
+                                    "name": "displayname",
+                                    "sortable": true,
+                                    "filterable": false,
+                                    "editType": "",
+                                    "isRelatedEntityAttribute": true
+                                }
+                                ]
+                            }
+                        },
                         "productPresentationToImage": {
                             "viewMode": "Tabular",
                             "mode": "Read",
