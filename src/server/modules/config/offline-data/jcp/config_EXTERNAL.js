@@ -280,8 +280,6 @@ var allConfigs = {
                             "type": ["channel"]
                         },
                         "selectedItem": {
-                            "id": "webCatalog",
-                            "type": "channel"
                         },
                         "default": ""
                     },
@@ -859,8 +857,6 @@ var allConfigs = {
                             "type": ["channel"]
                         },
                         "selectedItem": {
-                            "id": "webCatalog",
-                            "type": "channel"
                         },
                         "default": ""
                     },
