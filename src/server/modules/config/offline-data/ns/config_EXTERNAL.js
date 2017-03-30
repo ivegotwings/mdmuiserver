@@ -1,62 +1,6 @@
 var allConfigs = {
     "configs": [{
             "name": "main-app",
-            "ctxInfo": [
-                {
-                    "tenant": "ns",
-                    "ctx": {
-                        "list": "productMaster"
-                    },
-                    "security": {
-                        "user": "",
-                        "role": ""
-                    },
-                    "components": {
-                        "pebble-actions": {
-                            "config": {
-                                "title": "Create",
-                                "actions": [
-                                    {
-                                        "name": "createStyle",
-                                        "icon": "pebble-xl-icons:Product",
-                                        "text": "Style",
-                                        "visible": true,
-                                        "dataRoute": "entity-create",
-                                        "dataContext": {
-                                            "source": "internal",
-                                            "locale": "en-US",
-                                            "list": "productMaster",
-                                            "classification": "_ALL",
-                                            "entityType": "style"
-                                        }
-                                    },
-                                    {
-                                        "name": "createSupplier",
-                                        "icon": "pebble-xl-icons:Customer",
-                                        "text": "Supplier",
-                                        "visible": true,
-                                        "dataRoute": "entity-create",
-                                        "dataContext": {
-                                            "source": "internal",
-                                            "locale": "en-US",
-                                            "list": "productMaster",
-                                            "classification": "_ALL",
-                                            "entityType": "supplier"
-                                        }
-                                    },
-                                    {
-                                        "name": "createUPC",
-                                        "icon": "pebble-xl-icons:Kit",
-                                        "text": "UPC",
-                                        "visible": true,
-                                        "dataRoute": "entity-create",
-                                        "dataContext": {
-                                            "source": "internal",
-                                            "locale": "en-US",
-                                            "list": "productMaster",
-                                            "classification": "_ALL",
-                                            "entityType": "upc"
-                                        },
             "contexts": [{
                 "tenant": "ns",
                 "ctx": {
@@ -69,7 +13,7 @@ var allConfigs = {
                 "components": {
                     "pebble-actions": {
                         "config": {
-                            "title": "Create New...",
+                            "title": "Create",
                             "actions": [{
                                     "name": "createStyle",
                                     "icon": "pebble-xl-icons:Product",
@@ -415,7 +359,7 @@ var allConfigs = {
                     },
                     "pebble-actions": {
                         "config": {
-                            "title": "",
+                            "title": "Create",
                             "actions": [{
                                     "name": "extendToBrand",
                                     "icon": "pebble-xl-icons:Brand",
