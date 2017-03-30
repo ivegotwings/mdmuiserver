@@ -94,7 +94,9 @@
         <div>
             <p>You can select multiple <b>Options</b> to create <b>SKUs</b></p>
         </div>
-        <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-response="_onCompositeModelGetResponse" ></liquid-entity-model-composite-get>
+        <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{_attributeModelRequest}}"
+                                           on-entity-model-composite-get-response = "_onCompositeModelGetResponse">
+        </liquid-entity-model-composite-get>
         <liquid-entity-data-get  id="getData" operation="getbyids" request-data="[[_request]]" last-response="{{remoteData}}"
             on-response="_onResponse">
         </liquid-entity-data-get>
@@ -112,12 +114,8 @@
                 </div>
                 <div class="box3">
                     <div class="label">VALUES</div>
-                    <rock-entity-combo-box item-id="id" item-title="id"
-                                           multi-select
-                                           context='[]'
-                                           value-context='[]'
-                                           entity-types='[[_getAttributeReferenceEntityTypes(item.option)]]'
-                                           selected-ids="{{item.values}}" >
+                    <rock-entity-combo-box id="combo-box" id-field="name" title-pattern="name" multi-select
+                                           request-data='[[_prepareRequestObjectForValues(item.option)]]'  selected-ids="{{item.values}}">
                     </rock-entity-combo-box>
                 </div>
             </div>
@@ -195,8 +193,7 @@
                     type: String
                 },
                 variantDefinition: {
-                    type: Object,
-                    observer:'_onVariantDefinitionGet'
+                    type: Object
                 },
                 _saveRequest: {
                     type: Object,
@@ -210,7 +207,7 @@
                 /**
                  * Indicates the request object that is passed to the data element to retrive the attribute model data.
                  */
-                attributeModelRequest: {
+                _attributeModelRequest: {
                     type: Object,
                     value: function () {
                         return {};
@@ -230,13 +227,20 @@
                 _errorMessage:{
                     type:String,
                     value:""
+                },
+                contextData: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
                 }
             },
             behaviors: [
                 RUFBehaviors.UIBehavior
             ],
             observers:[
-                '_optionLovSelectionChanged(selectedOptions,selectedOptions.*)'
+                '_optionLovSelectionChanged(selectedOptions,selectedOptions.*)',
+                '_onVariantDefinitionGet(variantDefinition,contextData)'
             ],
             attached:function () {
                 this.variantDefinition=this.getParentAppConfig('rock-entity-variant', '', 'variantDefinitionUI');
@@ -254,7 +258,7 @@
                 }] ;
             },
             _onVariantDefinitionGet:function (variantDefinition) {
-                if (!variantDefinition || !Object.keys(variantDefinition).length) {
+                if (!variantDefinition || _.isEmpty(variantDefinition) || _.isEmpty(this.contextData)) {
                     return;
                 }
                 var attrNames = [];
@@ -267,29 +271,11 @@
                 });
                 this.attributesList = attributesList;
                 this.attributeNames = attrNames;
-                var req = {
-                    "params": {
-                            "query": {
-                                "contexts": [{
-                                    "list": this.list,
-                                    "classification": this.classification
-                                    }
-                                ],
-                                "locale": this.locale,
-                                "name": this.entityType,
-                                "filters": {
-                                    "typesCriterion": [this.entityType]
-                                }
-                            },
-                            "fields": {
-                                "ctxTypes": [
-                                    "properties"
-                                ],
-                                "attributes": attrNames
-                            }
-                    }
-                };
-                this.set("attributeModelRequest", req);
+                var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+                if(attrNames && attrNames.length) {
+                    compositeModelGetRequest.params.fields.attributes = attrNames;
+                }
+                this.set("_attributeModelRequest", compositeModelGetRequest);
                 var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
                 if (liquidModelGet) {
                     liquidModelGet.generateRequest();
@@ -297,11 +283,7 @@
             },
             _onCompositeModelGetResponse: function (e) {
                 if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
-                    var contexts = {
-                        "list": this.list,
-                        "classification": this.classification
-                    };
-                    this._attributeModels = DataHelper.transformAttributeModelsToUIFormat(e.detail.response.content.entityModels[0], contexts);
+                    this._attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
                     var liquidGet = this.$.getData;
                     liquidGet.requestData=this._getRequest(this.variantDefinition);
                     if (liquidGet) {
@@ -310,34 +292,7 @@
                 }
             },
             _getRequest: function (variantDefinition) {
-                var req = {
-                    "params": {
-                        "query": {
-                            "contexts": [{
-                                "list": this.list,
-                                "classification": this.classification
-                            }],
-                            "valueContexts": [{
-                                "source": this.source,
-                                "locale": this.locale
-                            }],
-                            "id": this.entityId,
-                            "filters": {
-                                "typesCriterion": [this.entityType]
-                            }
-                        },
-                        "fields": {
-                            "ctxTypes": [
-                                "properties"
-                            ],
-                            "attributes": []
-                        },
-                        "options": {
-                            "totalRecords": 10,
-                            "includeRequest": false
-                        }
-                    }
-                };
+                var req= DataRequestHelper.createEntityGetRequest(this.contextData);
                 req.params.fields.attributes = this.attributeNames;
                 return req;
             },
@@ -347,25 +302,21 @@
                     this.selectedOptions=[];
                     var entities = data.content.entities;
                     if (entities) {
-                        var dataContext = {
-                            "list": this.list,
-                            "classification": this.classification,
-                            "source": this.source,
-                            "time": "now",
-                            "locale": this.locale
-                        };
                         var entity = entities[0];
                         this.originalEntity = entity;
                         if (entity.data) {
-                            var contexts = DataHelper.prepareCtx(dataContext);
-                            var valueContexts = DataHelper.prepareValCtx(dataContext);
-                            var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, contexts);
+                            var attributes = DataTransformHelper.transformAttributes(entity, this._attributeModels, this.contextData, "array");
                             for(var i in attributes){
                                 var attribute = attributes[i];
-                                if (attribute && attribute.values) {
-                                    var values =  DataHelper.getAttributeValues(attribute.values, valueContexts);
+                                if (attribute && attribute.value) {
+                                    var values=[];
+                                    if(attribute.value instanceof Array){
+                                        values=attribute.value;
+                                    } else{
+                                        values=[attribute.value];
+                                    }
                                     this.push('selectedOptions', {
-                                        "option":i,
+                                        "option":attribute.name,
                                         "values": values
                                     });
                                 }
@@ -523,6 +474,32 @@
                     return false;
                 }
                 return true;
+            },
+            _prepareRequestObjectForValues: function (option) {
+                if(!option || this._attributeModels[option]==undefined){
+                    return {};
+                }
+                var  attributeModel=this._attributeModels[option];
+                var refEntityTypes = [];
+                if (attributeModel.referenceEntityInfo) {
+                    for (var i = 0; i < attributeModel.referenceEntityInfo.length; i++) {
+                        var refEntityInfo = attributeModel.referenceEntityInfo[i];
+                        if (refEntityInfo.refRelationshipName == 'hasReferenceTo' && refEntityInfo.refEntityType) {
+                            refEntityTypes.push(refEntityInfo.refEntityType);
+                        }
+                    }
+                }
+
+                var clonedContextData = DataHelper.cloneObject(this.contextData);
+                clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+
+                var itemContext = {
+                    'type': refEntityTypes
+                };
+
+                clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+
+                return DataRequestHelper.createEntityGetRequest(clonedContextData);
             }
 
         });
