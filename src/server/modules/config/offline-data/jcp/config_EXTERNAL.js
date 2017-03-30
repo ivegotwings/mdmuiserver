@@ -674,7 +674,7 @@ var allConfigs = {
                                             "list": "productMaster",
                                             "mode": "view",
                                             "no-of-columns": 1,
-                                            "context": {
+                                            "config-context": {
                                                 "groupName": "Core Attributes",
                                                 "attributeNames": [
                                                     "displayname",
