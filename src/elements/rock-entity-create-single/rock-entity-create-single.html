@@ -1,7 +1,9 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/data-transform-helper.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
@@ -24,8 +26,8 @@
             <pebble-button class="action-button btn btn-secondary m-r-5" id="skip" button-text="Cancel" raised on-tap="_onSkipTap"></pebble-button>
             <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="next" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
         </div>
-        <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" 
-            on-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
+        <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}"
+                on-entity-model-composite-get-response = "_onCompositeModelGetResponse" >
         <liquid-entity-data-save name="attributeSaveDataService" operation="create" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}"
             on-response="_onSaveResponse"></liquid-entity-data-save>
     </template>
@@ -37,6 +39,12 @@
                     is: "rock-entity-create-single",
 
                     properties: {
+                        contextData: {
+                            type:Object,
+                            value: function(){
+                                return {};
+                            }
+                        },
                         /**
                          * Indicates the names of the attributes that are rendered while creating a single entity.
                          */
@@ -120,56 +128,22 @@
                         }
                     },
                     observers: [
-                        '_contextChanged(attributeNames, context)'
+                        '_contextChanged(attributeNames, contextData)'
                     ],
                     behaviors: [
-                        RUFBehaviors.UIBehavior
+                        RUFBehaviors.UIBehavior,
+                        RUFBehaviors.ComponentContextBehavior
                     ],
-                    ready: function() {
-                        this._prepareContext();
-                    },
-                    _prepareContext: function() {
-                        this.source = DataHelper.getParamValue("source");
-                        this.locale = DataHelper.getParamValue("locale");
-                        this.list = DataHelper.getParamValue("list");
-                        this.classification = DataHelper.getParamValue("classification");
-                        this.entityType = DataHelper.getParamValue("entityType");
-                        var context = {
-                            "list": this.list,
-                            "source": this.source,
-                            "locale": this.locale,
-                            "classification": this.classification,
-                            "entityType": this.entityType
-                        };
-                        this.set("context", context);
-                    },
-                    _getCurrentCtx: function() {
-                        var ctxItem = {};
-                        ctxItem.list = this.list;
-                        ctxItem.classification = this.classification;
-                        return ctxItem;
-                    },
-                    _contextChanged: function(attributeNames, context) {
-                        if (attributeNames && attributeNames.length > 0) {
-                            var ctxGroup = this._getCurrentCtx();
-                            var t = {
-                                "params": {
-                                    "query": {
-                                        "ctx": [
-                                            ctxGroup
-                                        ],
-                                        "locale": this.locale,
-                                        "name": this.entityType
-                                    },
-                                    "fields": {
-                                        "ctxTypes": [
-                                            "properties"
-                                        ],
-                                        "attributes": attributeNames
-                                    }
-                                }
-                            };
+                    _contextChanged: function(attributeNames, contextData) {
+                        if (attributeNames && attributeNames.length > 0 && !_.isEmpty(contextData)) {
+                            var itemContext = this.getFirstItemContext();
+
+                            itemContext.attributeNames = attributeNames;
+
+                            var t = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+
                             this.set("attributeModelRequest", t);
+
                             var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
                             if (liquidModelGet) {
                                 liquidModelGet.generateRequest();
@@ -178,17 +152,9 @@
                     },
                     _onCompositeModelGetResponse: function(e) {
                         var values = [];
-
                         if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
-
-                            var valCtx = {
-                                "locale": this.locale,
-                                "source": this.source
-                            };
-
-                            var ctxGroup = this._getCurrentCtx();
-                            this._attributeModels = DataHelper.transformAttributeModelsToUIFormat(e.detail.response.content.entityModels[0], ctxGroup);
-                            values = DataHelper.transformAttributesToManageFormat({}, this._attributeModels, valCtx);
+                            this._attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
+                            values = DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array");
                         }
                         this._attributeValues = values;
                     },
@@ -209,30 +175,36 @@
                             var attributeJSON = attributeElement.attributeObject;
                             attributesJSON.push(attributeJSON);
                         }
-                        var changedAttributes = DataHelper.transformAttributeFromUIFormat(attributesJSON);
-                        var entityData = {};
-                        entityData = this._getEntityData(changedAttributes);
 
-                        //TODO:: this must come from some model config
-                        this._populateEntityIdFromAttrVal(entityData, changedAttributes, "cpimProductName");
-                        this._populateEntityIdFromAttrVal(entityData, changedAttributes, "shortDescription");
-                        this._populateEntityIdFromAttrVal(entityData, changedAttributes, "skuid");
+                        var itemCtx = this.getFirstItemContext();
+                        var entityType = itemCtx.type;
+                        var entityId = "e" + this._getRandomString();
+
+                        var newEntity = DataTransformHelper.prepareEntityForCreate(entityId, entityType, attributesJSON, this.contextData, "John");
+
+                         //TODO:: this must come from some model config
+                        this._populateEntityIdFromAttrVal(newEntity, newEntity.data.attributes, "cpimProductName");
+                        this._populateEntityIdFromAttrVal(newEntity, newEntity.data.attributes, "shortDescription");
+                        this._populateEntityIdFromAttrVal(newEntity, newEntity.data.attributes, "skuid");
+
                         this._saveRequest = {
-                            "entities": entityData
+                            "entities": [newEntity]
                         };
+                        
                         var liquidSave = this.$$("[name=attributeSaveDataService]");
                         if (liquidSave) {
                             liquidSave.generateRequest();
-                        }
+                        }    
                     },
-                    _populateEntityIdFromAttrVal: function(entities, changedAttributes, attrName) {
-                        if (attrName in changedAttributes) {
-                            var attr = changedAttributes[attrName];
-
-                            if (attr.values && attr.values.length > 0) {
-                                entities[0].id = attr.values[0].value;
+                    _populateEntityIdFromAttrVal: function(entity, changedAttributes, attrName) {
+                        if (changedAttributes) {
+                            if (attrName in changedAttributes) {
+                                var attr = changedAttributes[attrName]; 
+                                if (attr.values && attr.values.length> 0) { 
+                                    entity.id = attr.values[0].value; 
+                                }
                             }
-                        }
+                        }                     
                     },
                     _onSaveResponse: function(e) {
                         var eventName = "onSave";
@@ -259,29 +231,7 @@
                         var x = 2147483648;
                         return Math.floor(Math.random() * x).toString(36) +
                             Math.abs(Math.floor(Math.random() * x) ^ new Date().getTime()).toString(36);
-                    },
-                    _getEntityData: function(attributes) {
-                        var entityId = "e" + this._getRandomString();
-                        var data = [];
-                        var ctxGroup = this._getCurrentCtx();
-                        var entity = {
-                            id: entityId,
-                            entityInfo: {
-                                "entityType": this.entityType
-                            },
-                            properties: {
-                                "createdBy": "John Doe"
-                            },
-                            data: {
-                                ctxInfo: [{
-                                    "ctxGroup": ctxGroup,
-                                    "attributes": attributes
-                                }]
-                            }
-                        };
-                        data.push(entity);
-                        return data;
-                    },
+                    }
                 });
             })();
         </script>

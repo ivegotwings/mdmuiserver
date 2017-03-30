@@ -2,7 +2,10 @@
 `bedrock-helpers` Represents a bunch of helpers that any bedrock, pebble, rock or app can use. 
 -->
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-helpers/context-helper.html">
 <link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
+<link rel="import" href="../bedrock-externalref-underscore/bedrock-externalref-underscore.html">
 
 <!--<script type="text/javascript" src="data-helper.js" />-->
 <script>
@@ -21,7 +24,7 @@
                 DataHelper._mergeObjects(mergedAttributeModels, compositeModel.data.attributes, true);
             }
 
-            //apply ctx specific model on top of default
+            //apply contexts specific model on top of default
             var specificCtxAttributeModels = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(compositeModel, modelContext);
             DataHelper._mergeObjects(mergedAttributeModels, specificCtxAttributeModels, true);
 
@@ -31,7 +34,6 @@
 
             return mergedAttributeModels;
         };
-
 
         DataHelper._fillModels = function (attributeModelObjects) {
             for (var attributeName in attributeModelObjects) {
@@ -74,21 +76,21 @@
 
             switch (dataType) {
                 case 'boolean': {
-                    displayType = 'boolean';
-                    break;
-                }
+                        displayType = 'boolean';
+                        break;
+                    }
                 case 'date': {
-                    displayType = 'date';
-                    break;
-                }
+                        displayType = 'date';
+                        break;
+                    }
                 case 'datetime': {
-                    displayType = 'datetime';
-                    break;
-                }
+                        displayType = 'datetime';
+                        break;
+                    }
                 case 'decimal': {
-                    displayType = 'textbox';
-                    break;
-                }
+                        displayType = 'textbox';
+                        break;
+                    }
             }
 
             return displayType;
@@ -158,8 +160,7 @@
                             });
                         }
                     }
-                }
-                else {
+                } else {
                     attributeValues.push({
                         "name": attributeJSON.name,
                         "value": attributeJSON.value,
@@ -211,15 +212,15 @@
                 entity.data = {};
             }
 
-            var ctx = DataHelper.prepareCtx(dataContext);
-            var valCtx = DataHelper.prepareValCtx(dataContext);
+            var contexts = DataHelper.prepareCtx(dataContext);
+            var valueContexts = DataHelper.prepareValCtx(dataContext);
 
-            var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, ctx);
+            var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, contexts);
 
-            return DataHelper.transformAttributesToManageFormat(attributes, attributeModels, valCtx);
+            return DataHelper.transformAttributesToManageFormat(attributes, attributeModels, valueContexts);
         };
 
-        DataHelper.transformAttributesToManageFormat = function (attributes, attributeModels, valCtx) {
+        DataHelper.transformAttributesToManageFormat = function (attributes, attributeModels, valueContexts) {
             var attributesInManageFormat = []; //our return value
 
             for (var attributeModelName in attributeModels) {
@@ -228,13 +229,13 @@
                 if (attributeModel.name) {
                     var attribute = attributes[attributeModel.name];
                     if (attribute && attribute.values) {
-                        attributeJSON = this._getCurrentValue(attribute.values, valCtx, attributeModel);
+                        attributeJSON = this._getCurrentValue(attribute.values, valueContexts, attributeModel);
                         if (attributeJSON != undefined && attributeJSON.hasOwnProperty('invalidValue')) {
                             attributeJSON["value"] = attributeJSON.invalidValue;
                         }
                     }
                     if (attributeJSON == undefined || !attributeJSON.hasOwnProperty('value')) {
-                        attributeJSON = this._getEmptyValue(valCtx);
+                        attributeJSON = this._getEmptyValue(valueContexts);
                     }
                     attributeJSON.name = attributeModel.name;
                     attributesInManageFormat.push(attributeJSON);
@@ -244,7 +245,7 @@
             return attributesInManageFormat;
         };
 
-        DataHelper.transformAttributesToGridFormat = function (attributes, attributeModels, valCtx) {
+        DataHelper.transformAttributesToGridFormat = function (attributes, attributeModels, valueContexts) {
 
             var attributesData = {};
 
@@ -255,11 +256,11 @@
                     var attribute = attributes[attributeModel.name];
 
                     if (attribute && attribute.values) {
-                        attributeJSON = this._getCurrentValue(attribute.values, valCtx, attributeModel);
+                        attributeJSON = this._getCurrentValue(attribute.values, valueContexts, attributeModel);
                     }
 
-                    if (attributeJSON == undefined || !attributeJSON.hasOwnProperty('value')) {
-                        attributeJSON = this._getEmptyValue(valCtx);
+                    if (attributeJSON == undefined) {
+                        attributeJSON = this._getEmptyValue(valueContexts);
                     }
 
                     attributesData[attributeModel.name] = attributeJSON;
@@ -269,19 +270,18 @@
             return attributesData;
         };
 
-        DataHelper.transformEntitySchemaForGrid = function (entities, attributeModels, dataContext) {
+        DataHelper.transformEntitySchemaForGrid = function (entities, attributeModels, contextData) {
 
-            var ctx = DataHelper.prepareCtx(dataContext);
-            var valCtx = DataHelper.prepareValCtx(dataContext);
+            var firstDataContext = ContextHelper.getFirstDataContext(contextData);
+            var firstValueContext = ContextHelper.getFirstValueContext(contextData);
 
             if (entities && entities.length) {
                 var entitiesToBeRemoved = [];
                 for (var i = 0; i < entities.length; i++) {
                     var entity = entities[i];
                     if (typeof (entity) == "object" && entity.data) {
-                        entity.entityType = entity.entityInfo && entity.entityInfo.entityType ? entity.entityInfo.entityType : "";
-                        var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, ctx);
-                        entity.attributes = this.transformAttributesToGridFormat(attributes, attributeModels, valCtx);
+                        var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, firstDataContext);
+                        entity.attributes = this.transformAttributesToGridFormat(attributes, attributeModels, firstValueContext);
                     } else {
                         //if the array has a bad item (non-entity, or entity with no data) then mark it for delete
                         entitiesToBeRemoved.push(entities[i].id);
@@ -301,82 +301,141 @@
             }
         };
 
-        DataHelper.transformEntitySchemaForLov = function (entities, lovAttributeMap) {
-            var lovFormatedData = [];
+        DataHelper.transformEntitySchemaToLovSchema = function (entities, lovColumnNameValueCollection) {
+            // Note: We will go by the assumption that id or value field is going to be unique
+            //       if id or name is provided do not put it into attributes fields
+
+            var formattedEntities = [];
+
             if (entities && entities.length) {
                 var entitiesToBeRemoved = [];
+
                 for (var i = 0; i < entities.length; i++) {
                     if (typeof (entities[i]) == "object") {
-                        var lovFormattedEntity = {};
-                        Object.keys(lovAttributeMap).map(function (key) {
+                        var formattedEntity = {};
+
+                        Object.keys(lovColumnNameValueCollection).map(function (columnName) {
                             var attributeValue;
-                            if (lovAttributeMap[key] == "id") {
-                                lovFormattedEntity[key] = entities[i].id;
-                            } else if (lovAttributeMap[key] == "name") {
-                                lovFormattedEntity[key] = entities[i].name;
+
+                            if (lovColumnNameValueCollection[columnName] == "id") {
+                                formattedEntity[columnName] = entities[i].id;
+                            } else if (lovColumnNameValueCollection[columnName] == "name") {
+                                formattedEntity[columnName] = entities[i].name;
+                            } else if (columnName == "type") {
+                                formattedEntity[columnName] = "";
+                                var entityTypes = lovColumnNameValueCollection[columnName];
+
+                                if (typeof (entityTypes !== "undefined" && entityTypes instanceof Array)) {
+                                    for (j = 0; j < entityTypes.length; j++) {
+                                        if (entityTypes[j] === entities[i].type) {
+                                            formattedEntity[columnName] = entityTypes[j];
+                                        }
+                                    }
+                                }
+
                             } else {
                                 if (entities[i].data) {
-                                    attributeValue = DataHelper.transformAttributesToLovFormat(
+                                    attributeValue = DataHelper._transformEntityAttributesForLovSchema(
                                         entities[i].data
-                                            .ctxInfo,
-                                        lovAttributeMap[key]);
-                                    lovFormattedEntity[key] = attributeValue.value;
+                                        .ctxInfo,
+                                        lovColumnNameValueCollection[columnName]);
+                                    formattedEntity[columnName] = attributeValue.value;
                                 }
                             }
                         });
-                        lovFormatedData.push(lovFormattedEntity);
+
+                        formattedEntities.push(formattedEntity);
                     } else {
                         //if the array has a bad item (non-entity, or entity with no data) then mark it for delete
                         entitiesToBeRemoved.push(i);
                     }
                 }
-                if (entitiesToBeRemoved && entitiesToBeRemoved.length) {
-                    for (var i = 0; i < entitiesToBeRemoved.length; i++) {
-                        entities.splice(entitiesToBeRemoved[i], 1);
+
+                // Make it Private
+                entitiesToBeRemoved.forEach(function (entityToBeRemoved) {
+                    for (var i = 0; i < entities.length; i++) {
+                        if (entities[i].id === entityToBeRemoved) {
+                            var currentEntity = entities[i];
+                            entities.splice(currentEntity, 1);
+                        }
                     }
-                }
+                });
             }
-            return lovFormatedData;
+
+            return formattedEntities;
         };
 
-        DataHelper.transformAttributesToLovFormat = function (ctxInfo, attributeName) {
+        DataHelper._transformEntityAttributesForLovSchema = function (contexts, attributeName) {
             var attributeValueObject = {};
-            for (var i = 0; i < ctxInfo.length; i++) {
-                var attributes = ctxInfo[i].attributes
+
+            for (var i = 0; i < contexts.length; i++) {
+                var attributes = contexts[i].attributes
+
                 Object.keys(attributes).map(function (key) {
                     if (key == attributeName && attributes[key].values) {
                         attributeValueObject = attributes[key].values[0];
                     }
                 });
             }
+
             return attributeValueObject;
         };
 
-        DataHelper.transformEntityModelForLov = function (entityModels, lovAttributeMap) {
+        DataHelper.transformEntityModelSchemaToLovSchema = function (entityModels, lovColumnNameValueCollection) {
             var formattedEntityModels = [];
+
             if (entityModels && entityModels.length) {
                 var entityModelsToBeRemoved = [];
+
                 for (var i = 0; i < entityModels.length; i++) {
                     if (typeof (entityModels[i]) == "object") {
 
                         var formattedEntityModel = {};
-                        Object.keys(lovAttributeMap).map(function (key) {
-                            var field = lovAttributeMap[key];
-                            formattedEntityModel[key] = entityModels[i][field];
-                        });
-                        formattedEntityModels.push(formattedEntityModel);
 
+                        Object.keys(lovColumnNameValueCollection).map(function (columnName) {
+                            var attributeValue;
+
+                            if (lovColumnNameValueCollection[columnName] == "id") {
+                                formattedEntityModel[columnName] = entityModels[i].id;
+                            } else if (lovColumnNameValueCollection[columnName] == "name") {
+                                formattedEntityModel[columnName] = entityModels[i].name;
+                            } else if (columnName == "type") {
+                                formattedEntityModel[columnName] = "";
+                                var entityTypes = lovColumnNameValueCollection[columnName];
+
+                                if (typeof (entityTypes !== "undefined" && entityTypes instanceof Array)) {
+                                    for (j = 0; j < entityTypes.length; j++) {
+                                        if (entityTypes[j] === entityModels[i].type) {
+                                            formattedEntityModel[columnName] = entityTypes[j];
+                                        }
+                                    }
+                                }
+
+                            } else {
+                                var data = entityModels[i].data;
+                                if (typeof (data) !== "undefined") {
+                                    attributeValue = DataHelper._transformEntityAttributesForLovSchema(data.ctxInfo, lovColumnNameValueCollection[columnName]);
+                                    formattedEntityModel[columnName] = attributeValue.value;
+                                }
+                            }
+                        });
+
+                        formattedEntityModels.push(formattedEntityModel);
                     } else {
                         entityModelsToBeRemoved.push(i);
                     }
                 }
 
-                if (entityModelsToBeRemoved && entityModelsToBeRemoved.length) {
-                    for (var i = 0; i < entityModelsToBeRemoved.length; i++) {
-                        entityModels.splice(entityModelsToBeRemoved[i], 1);
+                entityModelsToBeRemoved.forEach(function (entityModelToBeRemoved) {
+                    for (var i = 0; i < entityModels.length; i++) {
+                        if (entityModels[i].id === entityModelToBeRemoved) {
+                            var currentEntityModel = entityModels[i];
+                            entityModels.splice(currentEntityModel, 1);
+                        }
                     }
-                }
+                });
             }
+
             return formattedEntityModels;
         };
 
@@ -406,6 +465,7 @@
             return true;
         };
 
+        //TODO: Remove this after dimension selector starts using _.isEmpty
         DataHelper.isEmptyObject = function (obj) {
             for (var prop in obj) {
                 if (Object.prototype.hasOwnProperty.call(obj, prop)) {
@@ -416,10 +476,10 @@
             return true;
         };
 
-        DataHelper._getCurrentValue = function (values, valCtx, model) {
+        DataHelper._getCurrentValue = function (values, valueContexts, model) {
 
             if ((model.displayType == "textbox" || model.displayType == "referenceList") && model.isCollection) {
-                return this._getCurrentValues(values, valCtx, model);
+                return this._getCurrentValues(values, valueContexts, model);
             }
 
             var value;
@@ -428,10 +488,10 @@
                     var currentValue = values[i];
                     //TODO: locale and source case is not matching for what is there in dimension selector and what is coming in data,
                     // need to find a better answer
-                    if (valCtx.locale && currentValue.locale && currentValue.locale.toLowerCase() != valCtx.locale.toLowerCase()) {
+                    if (valueContexts.locale && currentValue.locale && currentValue.locale.toLowerCase() != valueContexts.locale.toLowerCase()) {
                         continue;
                     }
-                    if (valCtx.source && currentValue.source && currentValue.source.toLowerCase() != valCtx.source.toLowerCase()) {
+                    if (valueContexts.source && currentValue.source && currentValue.source.toLowerCase() != valueContexts.source.toLowerCase()) {
                         continue;
                     }
                     //TODO: compare for time?
@@ -443,7 +503,7 @@
             return value;
         };
 
-        DataHelper._getCurrentValues = function (values, valCtx, model) {
+        DataHelper._getCurrentValues = function (values, valueContexts, model) {
 
             if (!((model.displayType == "textbox" || model.displayType == "referenceList") && model.isCollection)) {
                 return;
@@ -457,10 +517,10 @@
                     var currentValue = values[i];
                     //TODO: locale and source case is not matching for what is there in dimension selector and what is coming in data,
                     // need to find a better answer
-                    if (valCtx.locale && currentValue.locale && currentValue.locale.toLowerCase() != valCtx.locale.toLowerCase()) {
+                    if (valueContexts.locale && currentValue.locale && currentValue.locale.toLowerCase() != valueContexts.locale.toLowerCase()) {
                         continue;
                     }
-                    if (valCtx.source && currentValue.source && currentValue.source.toLowerCase() != valCtx.source.toLowerCase()) {
+                    if (valueContexts.source && currentValue.source && currentValue.source.toLowerCase() != valueContexts.source.toLowerCase()) {
                         continue;
                     }
                     //TODO: compare for time?
@@ -479,8 +539,8 @@
 
             return {
                 "value": _values,
-                "source": valCtx.source,
-                "locale": valCtx.locale
+                "source": valueContexts.source,
+                "locale": valueContexts.locale
             }
         };
 
@@ -491,12 +551,12 @@
             };
         };
 
-        DataHelper._getEmptyValue = function (valCtx) {
+        DataHelper._getEmptyValue = function (valueContexts) {
             return {
                 "value": "",
-                "locale": valCtx.locale,
-                "time": valCtx.time,
-                "source": valCtx.source
+                "locale": valueContexts.locale,
+                "time": valueContexts.time,
+                "source": valueContexts.source
             };
         };
 
@@ -521,6 +581,7 @@
 
             return elementToReturn[0];
         };
+
         DataHelper.getFirstAttributeValue = function (attribute) {
             if (attribute && attribute.values && attribute.values.length > 0) {
                 return attribute.values[0].value;
@@ -553,7 +614,7 @@
         DataHelper.validateGetModelsResponse = function (modelsResponse) {
             if (modelsResponse && modelsResponse.content &&
                 modelsResponse.content.entityModels && modelsResponse.content.entityModels
-                    .length >
+                .length >
                 0) {
 
                 return true;
@@ -574,8 +635,7 @@
         DataHelper.validateGetAttributeModelsResponse_New = function (attributeModelsResponsee) {
             if (attributeModelsResponsee && attributeModelsResponsee.content &&
                 attributeModelsResponsee.content.entityModels && attributeModelsResponsee.content.entityModels
-                    .length >
-                0) {
+                    .length >0 && !_.isEmpty(attributeModelsResponsee.content.entityModels[0])) {
 
                 return true;
             }
@@ -584,45 +644,46 @@
 
         DataHelper._prepareContextGroups = function (lists, classification) {
             if (!classification) {
-                classification =
-                    "_ALL";
+                classification = "_ALL";
             }
+
             if (lists && lists instanceof Array) {
-                var ctxGroup = [];
+                var contexts = [];
                 for (var i = 0; i < lists.length; i++) {
-                    var ctxInfoObject = {};
-                    ctxInfoObject.list = lists[i].value;
-                    ctxInfoObject.classification = classification;
-                    ctxGroup.push(ctxInfoObject);
+                    var ctxContextObject = {};
+                    ctxContextObject.list = lists[i].value;
+                    ctxContextObject.classification = classification;
+                    context.push(ctxContextObject);
                 }
-                return ctxGroup;
+
+                return contexts;
             }
         };
 
         DataHelper._prepareValueContextGroups = function (sources, locales) {
-            var valueCtxGroup = [];
+            var valContexts = [];
             if (sources && locales && sources instanceof Array && locales instanceof Array) {
                 for (var i = 0; i < sources.length; i++) {
                     for (var j = 0; j < locales.length; j++) {
-                        var valueCtxInfoObject = {};
-                        valueCtxInfoObject.source = sources[i].value;
-                        valueCtxInfoObject.locale = locales[j].value;
-                        valueCtxGroup.push(valueCtxInfoObject);
+                        var valContextObject = {};
+                        valContextObject.source = sources[i].value;
+                        valContextObject.locale = locales[j].value;
+                        valContexts.push(valContextObject);
                     }
                 }
-                return valueCtxGroup;
+                return valContexts;
             }
         };
 
         DataHelper.getEmptyRelationshipDataObject = function (list, classification, relationship) {
-            var ctxGroup = {};
+
             var relationships = {};
 
             relationships[relationship] = [];
 
             return {
-                "ctxInfo": [{
-                    "ctxGroup": {
+                "contexts": [{
+                    "context": {
                         "classification": classification,
                         "list": list
                     },
@@ -657,15 +718,15 @@
             }
         };
 
-        DataHelper.getAttributeValues=function (values,valCtx) {
+        DataHelper.getAttributeValues = function (values, valueContexts) {
             var _values = [];
             if (values) {
                 for (var i = 0; i < values.length; i++) {
                     var currentValue = values[i];
-                    if (valCtx.locale && currentValue.locale && currentValue.locale.toLowerCase() != valCtx.locale.toLowerCase()) {
+                    if (valueContexts.locale && currentValue.locale && currentValue.locale.toLowerCase() != valueContexts.locale.toLowerCase()) {
                         continue;
                     }
-                    if (valCtx.source && currentValue.source && currentValue.source.toLowerCase() != valCtx.source.toLowerCase()) {
+                    if (valueContexts.source && currentValue.source && currentValue.source.toLowerCase() != valueContexts.source.toLowerCase()) {
                         continue;
                     }
                     if (Array.isArray(currentValue.value)) //When save, already array, then no change
@@ -679,13 +740,13 @@
             return _values;
         };
 
-         DataHelper.getAttributeNamesFromEntities = function(entities) {
+        DataHelper.getAttributeNamesFromEntities = function(entities) {
             var loopThroughLength = entities.length;// ToDO: should come from config.
             var attributeNames = [];
             for(var i=0; i< loopThroughLength; i++) {
                 if(entities[i]) {
                     var entity = entities[i];
-                    var attributes = entity.data.ctxInfo[0].attributes;
+                    var attributes = entity.data.contexts[0].attributes;
                     var keys = Object.keys(attributes);
                     if(keys && keys.length > 0) {
                         for(var j=0; j<keys.length; j++) {
@@ -723,15 +784,13 @@
                     }
                     var entity = {
                         id: rowData.id,
-                        entityInfo: {
-                            entityType: dataContext.entityType
-                        },
+                        type: dataContext.entityType,
                         properties: {
                                 "createdBy": "John Doe"
                         },
                         data: {
-                            ctxInfo: [{
-                                "ctxGroup": {
+                            contexts: [{
+                                "context": {
                                     "list": dataContext.list,
                                     "classification": dataContext.classification
                                 },
