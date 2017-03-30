@@ -1,7 +1,9 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 <link rel="import" href="../bedrock-helpers/component-helper.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/entity-helper.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
@@ -411,7 +413,7 @@ The following JSON object is a sample of data which can be used to bind the grid
               return {};
             }
           },
-          dimensions: {
+          contextData: {
             type: Object,
             value: function () {
               return {};
@@ -464,7 +466,8 @@ The following JSON object is a sample of data which can be used to bind the grid
         },
 
         behaviors: [
-          RUFBehaviors.UIBehavior
+          RUFBehaviors.UIBehavior,
+          RUFBehaviors.ComponentContextBehavior
         ],
 
         observers: [
@@ -617,61 +620,56 @@ The following JSON object is a sample of data which can be used to bind the grid
                     this.dataObject["blankEntity"] = entity;
                   }
 
-                  if (entity && entity.data && entity.data.contexts) {
-                    entity.data.contexts.forEach(function (item) {
-                      if (item) {
-                        var relationships = item.relationships;
-                        var relationshipTypeList = [];
-                        if (relationships) {
-                          var relationshipTypeName = Object.keys(relationships)[0];
-                          var relatedEntities = relationships[relationshipTypeName];
+                  var currentRel = "";
+                  var isSelfContext = false; 
+                  if (event.detail.request) {
+                    currentRel = event.detail.request.requestData.params.fields.relationships[0];
+                  }
 
-                          if (this.dataObject) {
-                            if (!this.dataObject[relationshipTypeName]) {
-                              this.dataObject[relationshipTypeName] = entity;
-                            }
-                          }
+                  var relConfig = this.relationshipGridConfigs[currentRel];
+                  if (relConfig) {
+                    isSelfContext = relConfig.selfContext;
+                  }
 
-                          relatedEntities.forEach(function (relItem) {
-                            if (relItem) {
-                              var record = {};
-                              if (relItem.attributes) {
-                                Object.keys(relItem.attributes).forEach(function (item) {
-                                  if (item && relItem.attributes[item]) {
-                                    record[item] = relItem.attributes[item].values[0].value;
-                                  }
-                                }, this);
-                              }
-                              if (relItem.relTo) {
-                                record["Related Entity"] = record["id"] = relItem.relTo.id;
-                                record["entityType"] = relItem.relTo.type;
+                  var relationships = EntityHelper.getRelationshipsBasedOnContext(entity, this.getFirstDataContext(), isSelfContext);
+                  if (!_.isEmpty(relationships)) {
+                    var relatedEntities = relationships[currentRel];
 
-                                if (relItem.relTo.data) {
-                                  var relContexts = relItem.relTo.data.contexts;
+                    if (this.dataObject) {
+                      if (!this.dataObject[currentRel]) {
+                        this.dataObject[currentRel] = entity;
+                      }
+                    }
 
-                                  if (relContexts) {
-                                    relContexts.forEach(function (item) {
-                                      if (item) {
-                                        //var relCtxList = relContexts[item];
-
-                                        if (item && item.attributes) {
-                                          Object.keys(item.attributes).forEach(function (
-                                            attrItem) {
-                                            if (attrItem && item.attributes[attrItem]) {
-                                              record[attrItem] = item.attributes[attrItem].values[
-                                                0].value;
-                                            }
-                                          }, this);
-                                        }
-                                      }
-                                    }, this);
-                                  }
-                                }
-                              }
-                              data.push(record);
+                    relatedEntities.forEach(function (relItem) {
+                      if (relItem) {
+                        var record = {};
+                        if (relItem.attributes) {
+                          Object.keys(relItem.attributes).forEach(function (item) {
+                            if (item && relItem.attributes[item]) {
+                              record[item] = relItem.attributes[item].values[0].value;
                             }
                           }, this);
                         }
+                        if (relItem.relTo) {
+                          record["Related Entity"] = record["id"] = relItem.relTo.id;
+                          record["type"] = relItem.relTo.type;
+
+                          if (relItem.relTo.data) {
+                            //var relCtxList = relContexts[item];
+                            var relatedAttributes = EntityHelper.getAllAttributes(relItem.relTo);
+                            if (relatedAttributes) {
+                              Object.keys(relatedAttributes).forEach(function (
+                                attrItem) {
+                                if (attrItem && relatedAttributes[attrItem]) {
+                                  record[attrItem] = relatedAttributes[attrItem].values[
+                                    0].value;
+                                }
+                              }, this);
+                            }
+                          }
+                        }
+                        data.push(record);
                       }
                     }, this);
                   }
@@ -704,15 +702,13 @@ The following JSON object is a sample of data which can be used to bind the grid
             }, this);
           }
 
-          //TODO-dimensions has to be set in req. same like did in relationship-manage
+          var valueContext = this.getFirstValueContext();
+
           var req = {
             "params": {
               "query": {
                 "contexts": contexts,
-                "valueContexts": [{
-                  "source": this.dimensions.source,
-                  "locale": this.dimensions.locale
-                }],
+                "valueContexts": [valueContext],
                 "filters": {
                   "attributesCriterion": [],
                   "typesCriterion": typesCriterion
@@ -726,8 +722,7 @@ The following JSON object is a sample of data which can be used to bind the grid
                 "relationships": []
               },
               "options": {
-                "from": 0,
-                "to": 10
+                "totalRecords": 10
               }
             }
           };
@@ -747,21 +742,14 @@ The following JSON object is a sample of data which can be used to bind the grid
               var entities = entitiesResponse.content.entities;
               entities.forEach(function (item) {
                 if (item) {
-                  if (item.data && item.data.contexts) {
-                    var contexts = item.data.contexts;
-                    contexts.forEach(function (dataItem) {
-                      if (dataItem) {
-                        if (dataItem.attributes) {
-                          items.push({
-                            "id": item.id,
-                            "title": item.id,
-                            "subtitle": item.type,
-                            "image": "/src/images/lookup-item.jpg"
-                          });
-                        }
-                      }
-                    }, this);
-                  }
+                  //TODO: this code has to be enhanced for based on config.
+                  var attributes = EntityHelper.getAllAttributes(item);
+                  items.push({
+                    "id": item.id,
+                    "title": item.id,
+                    "subtitle": item.type,
+                    "image": "/src/images/lookup-item.jpg"
+                  });
                 }
               }, this);
             }
@@ -779,26 +767,24 @@ The following JSON object is a sample of data which can be used to bind the grid
             }
           }
         },
-        _onLovConfirmButtonTapped: function (e, detail) {
-          if (detail) {
+        _onLovConfirmButtonTapped: function (event) {
+          if (event.detail) {
+
+            var lov = this.$$("pebble-lov[id=" + event.detail.data.id + "]");
 
             var oldSelectedItemIds = [];
-            var selectedItemIds = detail.selectedItemIds;
+            var selectedItemIds = [...new Set(lov.selectedItems.map((obj) => obj.id))];
             var newItemIds = [];
 
             // TO-DO Pebble-LOV has to handle this filteration.
-            if (detail.oldSelectedItemIds && detail.oldSelectedItemIds.length > 0) {
-              oldSelectedItemIds = detail.oldSelectedItemIds;
-            } else {
-              var currentRelGrid = Polymer.dom(this).node.$$('rock-grid[id=' + detail.id + ']');
-              if (currentRelGrid) {
-                var data = currentRelGrid.getData();
-                data.forEach(function (item) {
-                  if (item) {
-                    oldSelectedItemIds.push(item.id);
-                  }
-                }, this);
-              }
+            var currentRelGrid = Polymer.dom(this).node.$$('rock-grid[id=' + event.detail.data.id + ']');
+            if (currentRelGrid) {
+              var data = currentRelGrid.getData();
+              data.forEach(function (item) {
+                if (item) {
+                  oldSelectedItemIds.push(item.id);
+                }
+              }, this);
             }
 
             selectedItemIds.forEach(function (item) {
@@ -807,12 +793,12 @@ The following JSON object is a sample of data which can be used to bind the grid
               }
             }, this);
 
-            this._addRelatedEntity(detail.id, newItemIds);
+            this._addRelatedEntity(event.detail.data.id, newItemIds);
           }
         },
-        _onLovCloseButtonTapped: function (e, detail) {
+        _onLovCloseButtonTapped: function (event) {
           if (detail) {
-            var currentLovPopover = Polymer.dom(this).node.$$('pebble-popover[for=' + detail.id + ']');
+            var currentLovPopover = Polymer.dom(this).node.$$('pebble-popover[for=' + event.detail.data.id + ']');
 
             if (currentLovPopover) {
               currentLovPopover.hide();
@@ -842,16 +828,14 @@ The following JSON object is a sample of data which can be used to bind the grid
               }, this);
             }
 
+            var valueContext = this.getFirstValueContext();
 
             //TODO-dimensions has to be set in req. same like did in relationship-manage          
             var req = {
               "params": {
                 "query": {
                   "contexts": contexts,
-                  "valueContexts": [{
-                    "source": "internal",
-                    "locale": "en-US"
-                  }],
+                  "valueContexts": [valueContext],
                   "ids": entityIds,
                   "filters": {
                     "typesCriterion": typesCriterion
@@ -864,8 +848,7 @@ The following JSON object is a sample of data which can be used to bind the grid
                   "attributes": attributes
                 },
                 "options": {
-                  "from": 0,
-                  "to": 0
+                  "totalRecords": 10
                 }
               }
             };
@@ -887,33 +870,25 @@ The following JSON object is a sample of data which can be used to bind the grid
               if (this.relEntitiesResponse.content && this.relEntitiesResponse.content.entities) {
                 var entities = this.relEntitiesResponse.content.entities;
                 var relGridData = relGrid.getData();
-                entities.forEach(function (relitem) {
-                  if (relitem) {
-                    //var entity = entities[relitem];
+                entities.forEach(function (relItem) {
+                  if (relItem) {
+                    var attributes = EntityHelper.getAllAttributes(relItem);
                     var record = {};
-                    if (relitem && relitem.data && relitem.data.contexts) {
-                      record["Related Entity"] = record["id"] = relitem.id;
-                      relitem.data.contexts.forEach(function (item) {
-                        if (item) {
-                          var attributes = item.attributes;
-                          if (attributes) {
-                            Object.keys(attributes).forEach(function (attrItem) {
-                              if (attrItem && attributes[attrItem]) {
-                                record[attrItem] = attributes[attrItem].values[0].value;
-                              }
-                            }, this);
-                          }
+                    if (attributes) {
+                      Object.keys(attributes).forEach(function (attrItem) {
+                        if (attrItem && attributes[attrItem]) {
+                          record[attrItem] = attributes[attrItem].values[0].value;
                         }
                       }, this);
                     }
-                    record['entityType'] = relitem.type;
-                    record['properties'] = relitem.properties;
+                    record['Related Entity'] = record['id'] = relItem.id;
+                    record['type'] = relItem.type;
+                    record['properties'] = relItem.properties;
                     record['relationshipType'] = this._currentRelationshipItem;
                     relData.push(record);
                   }
                 }, this);
               }
-
               relGrid.addNewRecords(relData);
             }
           }
@@ -935,115 +910,102 @@ The following JSON object is a sample of data which can be used to bind the grid
           var currentRel = e.model.relationship;
           var currentRelGrid = Polymer.dom(this).node.$$('rock-grid[id=' + currentRel + ']');
           var entityId = DataHelper.getParamValue('id');
+          var relConfig = this.relationshipGridConfigs[currentRel];
 
-          if (currentRelGrid) {
+          if (currentRelGrid && relConfig) {
             var gridData = currentRelGrid.getData();
-            var entity;
+            var originalEntity;
 
             if (this.dataObject) {
               if (this.dataObject[currentRel]) {
-                entity = this.dataObject[currentRel];
+                originalEntity = this.dataObject[currentRel];
               } else if (this.dataObject['blankEntity']) {
-                entity = this.dataObject['blankEntity'];
+                originalEntity = this.dataObject['blankEntity'];
               }
             }
 
-            var relationships = this._relationships;
+            if (originalEntity) {
+              var relationships = EntityHelper.getRelationshipByType(originalEntity, this.getFirstDataContext(), currentRel, relConfig.selfContext);
+              var modifiedRelData = gridData;
+              var relAndRelEntityAttributes = this._getAttributeList(currentRel);
+              var valueContext = this.getFirstValueContext();
 
-            if (entity) {
-              if (!entity.data) {
-                entity.data = DataHelper.getEmptyRelationshipDataObject("productMaster",
-                  "_ALL", currentRel);
-              }
-              var contexts = entity.data.contexts;
-              if (contexts) {
-                contexts.forEach(function (item) {
-                  if (item) {
-                    item.attributes = {};
+              if (!_.isEmpty(modifiedRelData)) {
+                modifiedRelData.forEach(function (modItem) {
+                  var key = "";
+                  var relObject;
 
-                    var relationships = item.relationships[currentRel];
-                    var modifiedRelData = gridData;
-                    var relAndRelEntityAttributes = this._getAttributeList(currentRel);
+                  if (relationships) {
+                    relationships.forEach(function (relItem) {
+                      if (relItem.id.indexOf(modItem["Related Entity"]) >= 0) {
+                        relObject = relItem;
+                      }
+                    }, this);
+                  } else {
+                    relationships = {};
+                    relationships[currentRel] = [];
+                  }
 
-                    if (modifiedRelData) {
-                      modifiedRelData.forEach(function (modItem) {
-                        var key = "";
-                        var relObject;
+                  if (relObject) {
+                    delete relObject.attributes["Related Entity"];
+                    delete relObject.attributes["id"];
 
-                        if (relationships) {
-                          relationships.forEach(function (relItem) {
-                            if (relItem.id.indexOf(modItem["Related Entity"]) >= 0) {
-                              relObject = relItem;
-                            }
-                          }, this);
+                    var relAttributes = relObject.attributes;
+
+                    relAndRelEntityAttributes.relationshipAttributes.forEach(function (relAttr) {
+                      if (relAttr) {
+                        var relAttribute = relAttributes[relAttr];
+                        if (relAttribute) {
+                          relAttribute.values[0].value = modItem[relAttr];
                         } else {
-                          relationships = {};
-                          relationships[currentRel] = [];
-                        }
-
-                        if (relObject) {
-                          delete relObject.attributes["Related Entity"];
-                          delete relObject.attributes["id"];
-
-                          var relAttributes = relObject.attributes;
-
-                          relAndRelEntityAttributes.relationshipAttributes.forEach(function (relAttr) {
-                            if (relAttr) {
-                              var relAttribute = relAttributes[relAttr];
-                              if (relAttribute) {
-                                relAttribute.values[0].value = modItem[relAttr];
-                              } else {
-                                if (modItem[relAttr]) {
-                                  relAttributes[relAttr] = {};
-                                  relAttributes[relAttr].values = [{
-                                    "value": modItem[relAttr],
-                                    "source": this.dimensions.source,
-                                    "locale": this.dimensions.locale
-                                  }];
-                                }
-                              }
-                            }
-                          }, this);
-                        } else {
-                          var relationship = {};
-                          var relId = modItem["Related Entity"];
-
-                          relationship.id = relId;
-                          relationship.direction = "both";
-                          relationship.operation = "association";
-                          relationship.alias = modItem["relationshipType"];
-
-                          relationship.attributes = {};
-
-                          if (relAndRelEntityAttributes) {
-                            relAndRelEntityAttributes.relationshipAttributes.forEach(function (
-                              relAttr) {
-                              if (relAttr) {
-                                relationship.attributes[relAttr] = {};
-                                relationship.attributes[relAttr].values = [{
-                                  "value": modItem[relAttr],
-                                  "source": this.dimensions.source,
-                                  "locale": this.dimensions.locale
-                                }];
-                              }
-                            }, this);
+                          if (modItem[relAttr]) {
+                            relAttributes[relAttr] = {};
+                            relAttributes[relAttr].values = [{
+                              "value": modItem[relAttr],
+                              "source": valueContext.source,
+                              "locale": valueContext.locale
+                            }];
                           }
+                        }
+                      }
+                    }, this);
+                  } else {
+                    var relationship = {};
+                    var relId = modItem["Related Entity"];
 
-                          relationship.relTo = {};
-                          relationship.relTo.id = relId;
-                          relationship.relTo.type = modItem['type'];
-                          relationship.relTo.properties = modItem['properties'];
-                          relationships.push(relationship);
+                    relationship.id = relId;
+                    relationship.direction = "both";
+                    relationship.operation = "association";
+                    relationship.alias = modItem["relationshipType"];
+
+                    relationship.attributes = {};
+
+                    if (relAndRelEntityAttributes) {
+                      relAndRelEntityAttributes.relationshipAttributes.forEach(function (
+                        relAttr) {
+                        if (relAttr) {
+                          relationship.attributes[relAttr] = {};
+                          relationship.attributes[relAttr].values = [{
+                            "value": modItem[relAttr],
+                            "source": valueContext.source,
+                            "locale": valueContext.locale
+                          }];
                         }
                       }, this);
                     }
+
+                    relationship.relTo = {};
+                    relationship.relTo.id = relId;
+                    relationship.relTo.type = modItem['type'];
+                    relationship.relTo.properties = modItem['properties'];
+                    relationships.push(relationship);
                   }
                 }, this);
               }
             }
 
             this._saveRequest = {
-              "entities": [entity]
+              "entities": [originalEntity]
             };
 
             var liquidSave = this.$$("[name=attributeSaveDataService]");

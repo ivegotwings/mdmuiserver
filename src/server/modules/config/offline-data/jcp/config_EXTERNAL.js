@@ -1517,7 +1517,7 @@ var allConfigs = {
                                 "properties": {
                                     "mode": "view",
                                     "no-of-columns": 2,
-                                    "context": {
+                                    "config-context": {
                                         "relationshipTypeName": "Relationships"
                                     }
                                 }
@@ -1538,7 +1538,7 @@ var allConfigs = {
                                         "list": "productMaster",
                                         "mode": "view",
                                         "no-of-columns": 1,
-                                        "context": {
+                                        "config-context": {
                                             "relationshipTypeName": "isChildOf"
                                         }
                                     }
@@ -1560,7 +1560,7 @@ var allConfigs = {
                                         "list": "productMaster",
                                         "mode": "view",
                                         "no-of-columns": 1,
-                                        "context": {
+                                        "config-context": {
                                             "relationshipTypeName": "productPresentationToLot"
                                         }
                                     }
@@ -1844,11 +1844,95 @@ var allConfigs = {
                                     "filterable": false,
                                     "editType": "",
                                     "isRelatedEntityAttribute": false,
-                                    "linkTemplate": "entity-manage?id={id}&type={entityType}"
+                                    "linkTemplate": "entity-manage?id={id}&type={type}"
                                 },
                                 {
                                     "header": "status",
                                     "name": "status",
+                                    "sortable": true,
+                                    "filterable": false,
+                                    "editType": "",
+                                    "isRelatedEntityAttribute": false
+                                }, {
+                                    "header": "Display Name",
+                                    "name": "displayname",
+                                    "sortable": true,
+                                    "filterable": false,
+                                    "editType": "",
+                                    "isRelatedEntityAttribute": true
+                                }
+                                ]
+                            }
+                        },
+                        "isChildOf": {
+                            "viewMode": "Tabular",
+                            "mode": "Read",
+                            "title": "Is Child Of",
+                            "schemaType": "colModel",
+                            "statusEnabled": true,
+                            "tabular": {
+                                "settings": {
+                                    "isMultiSelect": true,
+                                    "actions": [{
+                                        "name": "delete",
+                                        "icon": "pebble-icons:Delete",
+                                        "eventName": "delete-item"
+                                    }]
+                                },
+                                "columns": [{
+                                    "header": "Related Entity",
+                                    "name": "Related Entity",
+                                    "sortable": true,
+                                    "filterable": false,
+                                    "editType": "",
+                                    "isRelatedEntityAttribute": false,
+                                    "linkTemplate": "entity-manage?id={id}&type={type}"
+                                },
+                                {
+                                    "header": "Short Name",
+                                    "name": "shortnm",
+                                    "sortable": true,
+                                    "filterable": false,
+                                    "editType": "",
+                                    "isRelatedEntityAttribute": false
+                                }, {
+                                    "header": "Display Name",
+                                    "name": "displayname",
+                                    "sortable": true,
+                                    "filterable": false,
+                                    "editType": "",
+                                    "isRelatedEntityAttribute": true
+                                }
+                                ]
+                            }
+                        },
+                        "skuToImage": {
+                            "viewMode": "Tabular",
+                            "mode": "Read",
+                            "title": "Sku To Image",
+                            "schemaType": "colModel",
+                            "statusEnabled": true,
+                            "tabular": {
+                                "settings": {
+                                    "isMultiSelect": true,
+                                    "actions": [{
+                                        "name": "delete",
+                                        "icon": "pebble-icons:Delete",
+                                        "eventName": "delete-item"
+                                    }]
+                                },
+                                "columns": [{
+                                    "header": "Related Entity",
+                                    "name": "Related Entity",
+                                    "sortable": true,
+                                    "filterable": false,
+                                    "editType": "",
+                                    "isRelatedEntityAttribute": false,
+                                    "linkTemplate": "entity-manage?id={id}&type={type}"
+                                },
+                                {
+                                    "header": "Short Name",
+                                    "name": "shortnm",
                                     "sortable": true,
                                     "filterable": false,
                                     "editType": "",
@@ -1886,7 +1970,7 @@ var allConfigs = {
                                     "filterable": false,
                                     "editType": "",
                                     "isRelatedEntityAttribute": false,
-                                    "linkTemplate": "entity-manage?id={id}&type={entityType}"
+                                    "linkTemplate": "entity-manage?id={id}&type={type}"
 
                                 },
                                 {
