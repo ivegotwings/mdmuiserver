@@ -1,9 +1,11 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
-<link rel="import" href="../bedrock-helpers/component-helper.html">
+<link rel="import" href="../bedrock-helpers/data-transform-helper.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-helpers/entity-helper.html">
 
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 <link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
@@ -119,6 +121,12 @@
                     is: "rock-entity-create-import",
 
                     properties: {
+                        contextData: {
+                            type:Object,
+                            value: function(){
+                                return {};
+                            }
+                        },
                         /**
                          * Indicates the names of the attributes that are rendered while creating a single entity.
                          */
@@ -149,42 +157,6 @@
                          * Specifies the response object for attribute models.
                          */
                         attributeModelResponse: {
-                            type: Object,
-                            value: function() {
-                                return {};
-                            }
-                        },
-                        /**
-                         * Specifies the source in which entity has to be created.
-                         */
-                        source: {
-                            type: String
-                        },
-                        /**
-                         * Specifies the locale in which entity has to be created.
-                         */
-                        locale: {
-                            type: String
-                        },
-                        /**
-                         * Specifies the list in which entity has to be created.
-                         */
-                        list: {
-                            type: String
-                        },
-                        /**
-                         * Specifies the classification in which entity has to be created.
-                         */
-                        classification: {
-                            type: String
-                        },
-                        /**
-                         * Specifies the type of the entity to be created.
-                         */
-                        entityType: {
-                            type: String
-                        },
-                        context: {
                             type: Object,
                             value: function() {
                                 return {};
@@ -226,12 +198,6 @@
                                 return {};
                             }
                         },
-                        context: {
-                            type: Object,
-                            value: function() {
-                                return {};
-                            }
-                        },
                         _copTransformRequest: {
                             type: Object,
                             value: function() { return {}; }
@@ -268,57 +234,25 @@
                         }
                     },
                     observers: [
-                        '_attributesChanged(attributeNames)'
+                        '_contextChanged(attributeNames, contextData)'
                     ],
                     behaviors: [
-                        RUFBehaviors.UIBehavior
+                        RUFBehaviors.UIBehavior,
+                        RUFBehaviors.ComponentContextBehavior
                     ],
                     ready: function() {
-                        this._prepareContext();
                         this._showView("entity-import");
                     },
-                    _prepareContext: function() {
-                        this.source = DataHelper.getParamValue("source");
-                        this.locale = DataHelper.getParamValue("locale");
-                        this.list = DataHelper.getParamValue("list");
-                        this.classification = DataHelper.getParamValue("classification");
-                        this.entityType = DataHelper.getParamValue("entityType");
-                        var context = {
-                            "list": this.list,
-                            "source": this.source,
-                            "locale": this.locale,
-                            "classification": this.classification,
-                            "entityType": this.entityType
-                        };
-                        this.set("context", context);
-                    },
-                    _getCurrentCtx: function() {
-                        var ctxItem = {};
-                        //ctxItem.list = this.list;
-                        ctxItem.classification = this.classification;
-                        return ctxItem;
-                    },
-                    _attributesChanged: function(attributeNames) {
-                        if (attributeNames && attributeNames.length > 0) {
-                            var currContext = this._getCurrentCtx();
-                            var t = {
-                                "params": {
-                                    "query": {
-                                        "contexts": [
-                                            currContext
-                                        ],
-                                        "locale": this.locale,
-                                        "name": this.entityType
-                                    },
-                                    "fields": {
-                                        "ctxTypes": [
-                                            "properties"
-                                        ],
-                                        "attributes": attributeNames
-                                    }
-                                }
-                            };
+                     _contextChanged: function(attributeNames, contextData) {
+                        if (attributeNames && attributeNames.length > 0 && !_.isEmpty(contextData)) {
+                            var itemContext = this.getFirstItemContext();
+
+                            itemContext.attributeNames = attributeNames;
+
+                            var t = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+
                             this.set("attributeModelRequest", t);
+
                             var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
                             if (liquidModelGet) {
                                 liquidModelGet.generateRequest();
@@ -327,9 +261,8 @@
                     },
                     _onCompositeModelResponse: function(e) {
                         if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
-                            var currContext = this._getCurrentCtx();
                             if(!this._attributeModels) {
-                                this._attributeModels = DataHelper.transformAttributeModelsToUIFormat(e.detail.response.content.entityModels[0], currContext);
+                                this._attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
                                 this._populateEntityGrid();
                             }
                         } else {
@@ -528,24 +461,20 @@
                         }
                     },
                     _prepareEntityGridData: function() {
-                        var dataContext = {
-                                "list": this.list,
-                                "classification": this.classification,
-                                "source": this.source,
-                                "time": "now",
-                                "locale": this.locale
-                            };
-                        //DataHelper.transformEntitySchemaForGrid(this._entities, this._attributeModels, dataContext);
                         for(var i=0; i< this._entities.length; i++) {
-                            var attributes = this._entities[i].data.contexts[0].attributes;
+                            var entity = this._entities[i];
+                            var entityId = DataHelper.getRandomString();
+                            var attributes = EntityHelper.getAllAttributes(entity);
                             var keys = Object.keys(attributes);
                             if(keys && keys.length>0) {
                                 var rowData = {
-                                    "id": this._entities[i].id
+                                    "id": entityId
                                 };
                                 for(var j=0; j<keys.length; j++) {
                                     var key = keys[j];
-                                    rowData[key] = attributes[key].values[0].value;
+                                    if(this._attributeModels[key]) {
+                                        rowData[key] = attributes[key].values[0].value;
+                                    }
                                 }
                                 this._gridData.push(rowData);
                             }
@@ -556,19 +485,12 @@
                         this._loading = true;
                         //get all entities from grid and process save
                         var gridData = this.$$("#entitiesGrid").data;
-                        var dataContext = {
-                                "list": this.list,
-                                "classification": this.classification,
-                                "source": this.source,
-                                "time": "now",
-                                "locale": this.locale,
-                                "entityType": this.entityType
-                            };
-                        this._entities = DataHelper.TransformGridDataToEntitiesSchema(gridData, dataContext, this._attributeModels);
+                        this._entities = DataTransformHelper.prepareEntitiesForCreate(gridData, this.contextData, this._attributeModels);
                         var batchEntities = this._getNextBatch(this._entities, this._currentBatchNumber,  this._batchSize);
                         this._saveRequest = {
                             "entities": batchEntities
                         };
+                        //console.log("batchEntities", JSON.stringify(batchEntities));
                         var liquidSave = this.$$("[name=entitiesSaveDataService]");
                         if (liquidSave) {
                             liquidSave.generateRequest();

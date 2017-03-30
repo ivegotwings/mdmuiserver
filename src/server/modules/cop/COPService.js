@@ -20,7 +20,7 @@ COPService.prototype = {
             "dataObject": {
                 "id": "",
                 "dataObjectInfo": {
-                    "dataObjectType": "excelfile"
+                    "dataObjectType": "entityjson"
                 },
                 "properties": {
                     "createdByService": "user interface",
@@ -29,7 +29,7 @@ COPService.prototype = {
                     "filename": "",
                     "encoding": "Base64",
                     "profileId": "d75a63f9-ed4f-4b6e-9973-8743396b61c0",
-                    "profileName": "ExcelToRdpMapping.profile"
+                    "profileName": "ProfileJSON_Lot1_Excel_Transform.json"
                 },
                 "data": {
                     "blob": ""
