@@ -1,14 +1,18 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-app-context-behavior/bedrock-app-context-behavior.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+
 <link rel="import" href="../liquid-config-get/liquid-config-get.html">
+
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-dialog/pebble-dialog.html">
 <link rel="import" href="../pebble-stepper/pebble-step.html">
 <link rel="import" href="../pebble-stepper/pebble-stepper.html">
 <link rel="import" href="../pebble-vertical-divider/pebble-vertical-divider.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+
 <link rel="import" href="../rock-dimension-selector/rock-dimension-selector.html">
 <link rel="import" href="../rock-layout/rock-layout.html">
 <link rel="import" href="../rock-layout/rock-titlebar/rock-titlebar.html">
@@ -18,6 +22,7 @@
 <link rel="import" href="../rock-entity-header/rock-entity-header.html">
 <link rel="import" href="../rock-dimension-grid/rock-dimension-grid.html">
 <link rel="import" href="../rock-workflow-panel/rock-workflow-panel.html">
+
 <dom-module id="app-entity-manage">
     <template>
         <style include="pebble-styles-shared">
@@ -92,22 +97,19 @@
             .content {
                 height: 100%;
             }
-
+            
             #dimensionGridContent {
                 height: 80%;
             }
         </style>
         <rock-layout>
-             <liquid-config-get auto id="getManageAppConfig" operation="getconfigs" request-id="getManageAppConfig" request-data="{{_configRequest}}"
+            <liquid-config-get auto id="getManageAppConfig" operation="getconfigs" request-id="getManageAppConfig" request-data="{{_configRequest}}"
                 last-response="{{applicationConfig}}"></liquid-config-get>
             <rock-titlebar icon="dashboard" title="" sub-title="" config="{{getConfig('rock-titlebar')}}" closable minimizable>
                 <div id="dimensionContainer" align="right">
                     <rock-dimension-selector id="dimensionSelector" config-data="{{getConfig('rock-dimension-selector')}}"></rock-dimension-selector>
                 </div>
             </rock-titlebar>
-            <bedrock-pubsub event-name="dimension-selector-list" handler="_onListChangeEvent" target-id="dimensionSelector"></bedrock-pubsub>
-            <bedrock-pubsub event-name="dimension-selector-source" handler="_onSourceChangeEvent" target-id="dimensionSelector"></bedrock-pubsub>
-            <bedrock-pubsub event-name="dimension-selector-locale" handler="_onLocaleChangeEvent" target-id="dimensionSelector"></bedrock-pubsub>
             <rock-header frozen>
                 <div class="fixed-content">
                     <bedrock-pubsub on-bedrock-event-search="_searchEvent"></bedrock-pubsub>
@@ -119,8 +121,8 @@
                     <bedrock-pubsub on-bedrock-event-delete="_deleteEvent"></bedrock-pubsub>
                     <bedrock-pubsub on-bedrock-event-cut="_cutEvent"></bedrock-pubsub>
                     <bedrock-pubsub on-bedrock-event-route-chamged="onRouteChange"></bedrock-pubsub>
-                    <rock-entity-header entity-id="[[entityId]]" entity-type="[[entityType]]" header-config="{{getConfig('rock-entity-header','','headerConfig')}}" buttons="{{getConfig('rock-entity-header','','toolbarConfig')}}" to-fix-data="{{getConfig('rock-entity-header','','summaryToFix')}}"
-                        locale="{{_locale}}" list="{{_list}}" source="{{_source}}"></rock-entity-header>
+                    <rock-entity-header context-data="[[contextData]]" header-config="{{getConfig('rock-entity-header','','headerConfig')}}"
+                        buttons="{{getConfig('rock-entity-header','','toolbarConfig')}}" to-fix-data="{{getConfig('rock-entity-header','','summaryToFix')}}"></rock-entity-header>
                 </div>
             </rock-header>
             <rock-sidebar id="rockSideBar" position="right">
@@ -145,6 +147,7 @@
                 </div>
             </pebble-dialog>
         </rock-layout>
+        <bedrock-pubsub event-name="app-context-changed" handler="_onAppContextChanged"></bedrock-pubsub>
     </template>
     <script>
         (function () {
@@ -163,25 +166,26 @@
                 ready: function () {
                     if (this.verbose)
                         console.log('app entity manage ready');
-                    this.entityId = DataHelper.getParamValue('id');
-                    this.entityType = DataHelper.getParamValue('type');
+
+                    var entityId = DataHelper.getParamValue('id');
+                    var entityType = DataHelper.getParamValue('type');
+
+                    var itemContext = {
+                        'id': entityId,
+                        'type': entityType
+                    };
+
+                    this.updateContext(this.CONTEXT_TYPE_ITEM, [itemContext]);
                 },
                 properties: {
-                    /**
-                     * Indictaes Id of the entity for which the attributes have to be managed.
-                     */
-                    entityId: {
-                        type: String
-                    },
-                    entityType: {
-                        type: String
-                    },
                     /*
                      * Indicates the config object for the summary element
                      */
                     summaryConfig: {
                         type: Object,
-                        value: function() { return{}; },
+                        value: function () {
+                            return {};
+                        },
                         computed: "getConfig('rock-entity-summary')"
                     },
                     _configRequest: {
@@ -196,50 +200,10 @@
                                     "user": "user1",
                                     "role": "role1"
                                 },
-                                "ctx": []
+                                "contexts": []
                             };
                         },
-                        notify: true                                      
-                    },
-
-                    _list: {
-                        type: String,
                         notify: true
-                    },
-                    /*
-                     * Indicates the lists selected by the user
-                     */
-                    _lists: {
-                        type: Array,
-                        value: function () {
-                            return [];
-                        }
-                    },
-                    _source: {
-                        type: String,
-                        notify: true
-                    },
-                    /*
-                     * Indicates the sources selected by the user
-                     */
-                    _sources: {
-                        type: Array,
-                        value: function () {
-                            return [];
-                        }
-                    },
-                    _locale: {
-                        type: String,
-                        notify: true
-                    },
-                    /*
-                     * Indicates the locales selected by the user
-                     */
-                    _locales: {
-                        type: Array,
-                        value: function () {
-                            return [];
-                        }
                     },
                     /*
                      * Indicates the config for tab element
@@ -259,111 +223,46 @@
                             return {};
                         }
                     },
+
                     dimensions: {
                         type: Object,
-                        value: function() { return{}; },
+                        value: function () {
+                            return {};
+                        },
                         computed: 'getConfig("rock-dimension-grid")'
+                    },
+
+                    verbose: {
+                        type: Boolean,
+                        value: false
                     }
                 },
-
                 behaviors: [
-                    RUFBehaviors.UIBehavior
+                    RUFBehaviors.UIBehavior,
+                    RUFBehaviors.AppContextBehavior
                 ],
-
-                listeners: {
-                    'dimension-selector-initialized': '_onDimensionSelectorInitialized'
-                },
-                _onDimensionSelectorInitialized: function () {
-                    var dimensionSelector = this.$.dimensionSelector;
-                    this._list = dimensionSelector.listSelector.selectedItem !== undefined ? this._convertSelectedItemsForSplitScreen(dimensionSelector.listSelector.selectedItem) : 'productMaster';
-                    this._lists = dimensionSelector.listSelector.selectedItems !== undefined && dimensionSelector.listSelector.selectedItems.length > 0 ? this._convertSelectedItemsForSplitScreen(dimensionSelector.listSelector.selectedItems) : [{'title': 'list', 'value':'productMaster'}];
-                    this._source = dimensionSelector.sourceSelector.selectedItem !== undefined ? this._convertSelectedItemsForSplitScreen(dimensionSelector.sourceSelector.selectedItem) : 'internal';
-                    this._sources = dimensionSelector.sourceSelector.selectedItems !== undefined && dimensionSelector.sourceSelector.selectedItems.length > 0 ? this._convertSelectedItemsForSplitScreen(dimensionSelector.sourceSelector.selectedItems) : [{'title': 'source', 'value':'internal'}];
-                    this._locale = dimensionSelector.localeSelector.selectedItem !== undefined ? this._convertSelectedItemsForSplitScreen(dimensionSelector.localeSelector.selectedItem) : 'en-US';
-                    this._locales = dimensionSelector.localeSelector.selectedItems !== undefined && dimensionSelector.localeSelector.selectedItems.length > 0 ? this._convertSelectedItemsForSplitScreen(dimensionSelector.localeSelector.selectedItems) : [{'title': 'locale', 'value':'en-US'}];
-                },
-                _onListChangeEvent: function (event) {
-                    this._list = this._convertSelectedItemsForSplitScreen(event.detail.selectedItem);
-                    this._lists = this._convertSelectedItemsForSplitScreen(event.detail.selectedItems);
-
-                    if (event.detail.multiSelect) {
-                        this._toggleStepper(this._lists);
+                _onAppContextChanged: function (e) {
+                    if (this.verbose) {
+                        console.log("AppContext:- " + JSON.stringify(e.detail.contextData));
                     }
 
-                    this.$$('rock-tabs').reloadCurrentTab();
-                },
-                _onSourceChangeEvent: function (event) {
-                    this._source = this._convertSelectedItemsForSplitScreen(event.detail.selectedItem);
-                    this._sources = this._convertSelectedItemsForSplitScreen(event.detail.selectedItems);
-
-                    if (event.detail.multiSelect) {
-                        this._toggleStepper(this._sources);
-                    }
-
-                    this.$$('rock-tabs').reloadCurrentTab();
-                },
-                _onLocaleChangeEvent: function (event) {
-                    this._locale = this._convertSelectedItemsForSplitScreen(event.detail.selectedItem);
-                    this._locales = this._convertSelectedItemsForSplitScreen(event.detail.selectedItems);
-
-                    if (event.detail.multiSelect) {
-                        this._toggleStepper(this._locales);
-                    }
-
-                    this.$$('rock-tabs').reloadCurrentTab();
+                    this.contextData = e.detail.contextData;
+                    this._reRenderOnDimensionChange();
                 },
                 _onComponentCreating: function (e, detail, sender) {
                     var component = detail.data;
-                    if ((component.name.indexOf("attribute") != -1 
-                            || component.name.indexOf("relationship") != -1 
-                            || component.name.indexOf("variant") != -1) && component.properties) {
 
-                        if (this._list || (this._lists && this._lists.length > 0)) {
-                            // Here it is assumed user will always provide selected items by default
-                            component.properties.list = this._list;
-                            component.properties.lists = this._lists;
-                        }
+                    if ((component.name.indexOf("attribute") != -1 ||
+                        component.name.indexOf("relationship") != -1 ||
+                        component.name.indexOf("variant") != -1) && component.properties) {
 
-                        if (this._source || (this._sources && this._sources.length > 0)) {
-                            component.properties.source = this._source;
-                            component.properties.sources = this._sources;
-                        }
-
-                        if (this._locale || (this._locales && this._locales.length > 0)) {
-                            component.properties.locale = this._locale;
-                            component.properties.locales = this._locales;
-                        }
+                        component.properties['context-data'] = this.contextData;
 
                     } else if (component.name == 'rock-entity-summary') {
                         component.properties.config = this.summaryConfig;
                     }
-                    component.properties['entity-id'] = this.entityId;
-                    component.properties['entity-type'] = this.entityType;
                 },
-                _convertSelectedItemsForSplitScreen: function (data) {
-                    if(data) {
-                        if (data instanceof Array) {
-                            var lists = [];
-
-                            for (var i = 0; i < data.length; i++) {
-                                var objList = new Object();
-                                objList.title = data[i].title;
-                                objList.value = data[i].value
-
-                                lists.push(objList);
-                            }
-                            return lists;
-
-                        } else if(data) {
-                            return data.value;
-                        }
-                    }
-
-                    return;
-                },
-                _searchEvent: function (e, detail, sender) {
-
-                },
+                _searchEvent: function (e, detail, sender) { },
                 _refreshEvent: function (e, detail, sender) {
                     var isDirty = false;
                     if (this.getIsDirty) {
@@ -371,7 +270,7 @@
                     }
                     if (isDirty) {
                         if (window.confirm(
-                                "There are unsaved changes. Do you want to discard the changes?")) {
+                            "There are unsaved changes. Do you want to discard the changes?")) {
                             this._refreshView();
                         }
                     } else {
@@ -399,8 +298,8 @@
                 _cutEvent: function (e, detail, sender) {
                     alert("event triggered: " + detail.eventName);
                 },
-                _toggleStepper: function (locales) {
-                    if (locales && locales.length > 1) {
+                _toggleStepper: function (contexts) {
+                    if (contexts && contexts.length > 1) {
                         this.$.rockSideBar.style.display = "none";
                     } else {
                         this.$.rockSideBar.style.display = "block";
@@ -432,12 +331,13 @@
                     dimensionGridElement.dataContext = Polymer.dom(this).node.$$(
                         'rock-dimension-selector[id="dimensionSelector"]').getSelectedDimensions();
 
-                    var dimensionGridContent = Polymer.dom(this).node.$.dimensionGridDialog.querySelector('#dimensionGridContent');
+                    var dimensionGridContent = Polymer.dom(this).node.$.dimensionGridDialog.querySelector(
+                        '#dimensionGridContent');
 
                     if (dimensionGridContent) {
                         dimensionGridContent.appendChild(dimensionGridElement);
                     }
-                    
+
                     this.$.dimensionGridDialog.open();
                 },
                 buttonOkClicked: function (event) {
@@ -469,21 +369,36 @@
                     };
                     return context;
                 },
-                setTitleBar: function(values) {
+                setTitleBar: function (values) {
                     var titlebar = this.$$('rock-titlebar');
                     var config = titlebar.config;
-                    for(var i=0; i<values.length; i++) {
+                    for (var i = 0; i < values.length; i++) {
                         var value = values[i];
-                        if(value.name == config.titleAttribute) {
-                            titlebar.title = value.value!== "" ? value.value : "No Title";
+                        if (value.name == config.titleAttribute) {
+                            titlebar.title = value.value !== "" ? value.value : "No Title";
                         }
-                        if(value.name == config.subtitleAttribute) {
-                            titlebar.subTitle = value.value!== "" ? value.value : "No Sub Title";
+                        if (value.name == config.subtitleAttribute) {
+                            titlebar.subTitle = value.value !== "" ? value.value : "No Sub Title";
                         }
-                        if(titlebar.title != "" && titlebar.subTitle !="") {
+                        if (titlebar.title != "" && titlebar.subTitle != "") {
                             break;
                         }
                     }
+                },
+                _reRenderOnDimensionChange: function () {
+                    var entityHeaderComponent = Polymer.dom(this).node.$$('rock-entity-header');
+                    if (entityHeaderComponent) {
+                        entityHeaderComponent.refresh();
+                    }
+
+                    var valContexts = this.getValueContexts();
+                    if(valContexts && valContexts.length) {
+                        this._toggleStepper(valContexts);
+                    }
+
+                    this.debounce('reloadTabs', function() {
+                        this.$$('rock-tabs').reloadTabs();
+                    }, 30);
                 }
             });
         })();

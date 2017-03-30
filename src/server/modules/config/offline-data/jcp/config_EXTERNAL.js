@@ -1,7 +1,7 @@
 var allConfigs = {
     "configs": [{
         "name": "main-app",
-        "ctxInfo": [{
+        "contexts": [{
             "tenant": "jcp",
             "ctx": {
                 "list": "productMaster"
@@ -20,12 +20,18 @@ var allConfigs = {
                             "text": "SKU",
                             "visible": true,
                             "dataRoute": "entity-create",
-                            "dataContext": {
-                                "source": "internal",
-                                "locale": "en-US",
-                                "list": "productMaster",
-                                "classification": "_ALL",
-                                "entityType": "sku"
+                            "contextData": {
+                                "itemContext": {
+                                    "type": "sku"
+                                },
+                                "valueContext": {
+                                    "source": "internal",
+                                    "locale": "en-US"
+                                },
+                                "context": {
+                                    "channel": "webCatalog",
+                                    "classification": "_ALL"
+                                }
                             }
                         },
                         {
@@ -34,12 +40,18 @@ var allConfigs = {
                             "text": "PDP",
                             "visible": true,
                             "dataRoute": "entity-create",
-                            "dataContext": {
-                                "source": "internal",
-                                "locale": "en-US",
-                                "list": "productMaster",
-                                "classification": "_ALL",
-                                "entityType": "pdp"
+                            "contextData": {
+                                "itemContext": {
+                                    "type": "pdp"
+                                },
+                                "valueContext": {
+                                    "source": "internal",
+                                    "locale": "en-US"
+                                },
+                                "context": {
+                                    "channel": "productMaster",
+                                    "classification": "_ALL"
+                                }
                             }
                         },
                         {
@@ -48,12 +60,18 @@ var allConfigs = {
                             "text": "Create Suplier",
                             "visible": true,
                             "dataRoute": "entity-create",
-                            "dataContext": {
-                                "source": "internal",
-                                "locale": "en-US",
-                                "list": "productMaster",
-                                "classification": "_ALL",
-                                "entityType": "supplier"
+                            "contextData": {
+                                "itemContext": {
+                                    "type": "supplier"
+                                },
+                                "valueContext": {
+                                    "source": "internal",
+                                    "locale": "en-US"
+                                },
+                                "context": {
+                                    "channel": "productMaster",
+                                    "classification": "_ALL"
+                                }
                             }
                         }
                         ]
@@ -225,7 +243,7 @@ var allConfigs = {
     },
     {
         "name": "app-entity-discovery",
-        "ctxInfo": [{
+        "contexts": [{
             "tenant": "jcp",
             "ctx": {
                 "list": "productMaster"
@@ -236,75 +254,100 @@ var allConfigs = {
             },
             "components": {
                 "rock-dimension-selector": {
-                    "config": {
-                        "catalogSelector": {
-                            "visible": true,
-                            "catalogItems": [{
-                                "id": 1,
-                                "title": "Product Master",
-                                "subtitle": "Product Master",
-                                "value": "productMaster",
-                                "image": ""
-                            },
-                            {
-                                "id": 2,
-                                "title": "Web Catalog",
-                                "subtitle": "Web Catalog",
-                                "value": "webCatalog",
-                                "image": ""
+                    "config": [{
+                        "id": "channel",
+                        "title": "Channel",
+                        "icon": "pebble-lg-icons:Source",
+                        "visible": true,
+                        "dataRequestType": "entity",
+                        "dataRequest": {
+                            "params": {
+                                "query": {
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "channel"
+                                        ]
+                                    }
+                                }
                             }
-                            ],
-                            "selectedCatalogItems": [{
-                                "id": 1,
-                                "title": "Product Master",
-                                "subtitle": "Product Master",
-                                "value": "productMaster",
-                                "image": ""
-                            }]
                         },
-                        "sourceSelector": {
-                            "visible": true,
-                            "sourceItems": [{
-                                "id": 1,
-                                "title": "Internal Source",
-                                "subtitle": "Internal Source",
-                                "value": "internal",
-                                "image": ""
-                            }],
-                            "selectedSourceItems": [{
-                                "id": 1,
-                                "title": "Internal source",
-                                "subtitle": "Internal source",
-                                "value": "internal",
-                                "image": ""
-                            }]
+                        "dataMappings": {
+                            "id": "name",
+                            "title": "name",
+                            "subtitle": "",
+                            "image": "",
+                            "icon": "",
+                            "type": ["channel"]
                         },
-                        "localeSelector": {
-                            "visible": true,
-                            "localeItems": [{
-                                "id": 1,
-                                "title": "English - United States",
-                                "subtitle": "English",
-                                "value": "en-US",
-                                "image": ""
-                            },
-                            {
-                                "id": 2,
-                                "title": "Spanish - Spain",
-                                "subtitle": "Spanish",
-                                "value": "es-SP",
-                                "image": ""
+                        "selectedItem": {
+                            "id": "webCatalog",
+                            "type": "channel"
+                        },
+                        "default": ""
+                    },
+                    {
+                        "id": "source",
+                        "title": "Source",
+                        "icon": "pebble-lg-icons:Source",
+                        "visible": true,
+                        "dataRequestType": "entity-model",
+                        "dataRequest": {
+                            "params": {
+                                "query": {
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "source"
+                                        ]
+                                    }
+                                }
                             }
-                            ],
-                            "selectedLocaleItems": [{
-                                "id": 1,
-                                "title": "English - United States",
-                                "subtitle": "English",
-                                "value": "en-US",
-                                "image": ""
-                            }]
-                        }
+                        },
+                        "dataMappings": {
+                            "id": "name",
+                            "title": "name",
+                            "subtitle": "",
+                            "image": "",
+                            "icon": "",
+                            "type": ["source"]
+                        },
+                        "selectedItem": {
+                            "id": "internal",
+                            "type": "source"
+                        },
+                        "default": ""
+                    },
+                    {
+                        "id": "locale",
+                        "title": "Locale",
+                        "icon": "pebble-lg-icons:Language",
+                        "visible": true,
+                        "dataRequestType": "entity-model",
+                        "dataRequest": {
+                            "params": {
+                                "query": {
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "locale"
+                                        ]
+                                    }
+                                }
+                            }
+                        },
+                        "dataMappings": {
+                            "id": "name",
+                            "title": "name",
+                            "subtitle": "",
+                            "image": "",
+                            "icon": "",
+                            "type": ["locale"]
+                        },
+                        "selectedItem": {
+                            "id": "en-US",
+                            "type": "locale"
+                        },
+                        "default": ""
                     }
+                    ]
                 },
                 "rock-saved-searches": {
                     "config": {
@@ -465,8 +508,8 @@ var allConfigs = {
                         "mode": "Read",
                         "schemaType": "attribute",
                         "dataRequest": {
-                            "typesCriterion": ["productPresentation", "lot", "sku"],
-                            "attributes": ["displayname", "description", "stuscd", "startdate", "enddate"]
+                            "typesCriterion": ["sku", "productPresentation", "lot"],
+                            "attributes": ["displayname", "description", "stuscd", "startdate", "enddate", "webDiscount"]
                         },
                         "tabular": {
                             "settings": {
@@ -477,7 +520,7 @@ var allConfigs = {
                                 "name": "displayname",
                                 "sortable": false,
                                 "filterable": false,
-                                "linkTemplate": "entity-manage?id={id}&type={entityType}"
+                                "linkTemplate": "entity-manage?id={id}&type={type}"
                             },
                             {
                                 "header": "Entity Description",
@@ -488,6 +531,12 @@ var allConfigs = {
                             {
                                 "header": "Status Code",
                                 "name": "stuscd",
+                                "sortable": false,
+                                "filterable": false
+                            },
+                            {
+                                "header": "Web Discount",
+                                "name": "webDiscount",
                                 "sortable": false,
                                 "filterable": false
                             },
@@ -588,7 +637,7 @@ var allConfigs = {
                                         "attributeGroups": [
                                             "coreAttributes"
                                         ],
-                                        "context": {
+                                        "config-context": {
                                             "attributeNames": [
                                                 "displayname",
                                                 "description",
@@ -773,7 +822,7 @@ var allConfigs = {
     },
     {
         "name": "app-entity-manage",
-        "ctxInfo": [{
+        "contexts": [{
             "tenant": "jcp",
             "ctx": {
                 "list": "productMaster"
@@ -784,75 +833,100 @@ var allConfigs = {
             },
             "components": {
                 "rock-dimension-selector": {
-                    "config": {
-                        "catalogSelector": {
-                            "visible": true,
-                            "catalogItems": [{
-                                "id": 1,
-                                "title": "Product Master",
-                                "subtitle": "Product Master",
-                                "value": "productMaster",
-                                "image": ""
-                            },
-                            {
-                                "id": 2,
-                                "title": "Web Catalog",
-                                "subtitle": "Web Catalog",
-                                "value": "webCatalog",
-                                "image": ""
+                    "config": [{
+                        "id": "channel",
+                        "title": "Channel",
+                        "icon": "pebble-lg-icons:Source",
+                        "visible": true,
+                        "dataRequestType": "entity",
+                        "dataRequest": {
+                            "params": {
+                                "query": {
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "channel"
+                                        ]
+                                    }
+                                }
                             }
-                            ],
-                            "selectedCatalogItems": [{
-                                "id": 1,
-                                "title": "Product Master",
-                                "subtitle": "Product Master",
-                                "value": "productMaster",
-                                "image": ""
-                            }]
                         },
-                        "sourceSelector": {
-                            "visible": true,
-                            "sourceItems": [{
-                                "id": 1,
-                                "title": "Internal Source",
-                                "subtitle": "Internal Source",
-                                "value": "internal",
-                                "image": ""
-                            }],
-                            "selectedSourceItems": [{
-                                "id": 1,
-                                "title": "Internal source",
-                                "subtitle": "Internal source",
-                                "value": "internal",
-                                "image": ""
-                            }]
+                        "dataMappings": {
+                            "id": "name",
+                            "title": "name",
+                            "subtitle": "",
+                            "image": "",
+                            "icon": "",
+                            "type": ["channel"]
                         },
-                        "localeSelector": {
-                            "visible": true,
-                            "localeItems": [{
-                                "id": 1,
-                                "title": "English - United States",
-                                "subtitle": "English",
-                                "value": "en-US",
-                                "image": ""
-                            },
-                            {
-                                "id": 2,
-                                "title": "Spanish - Spain",
-                                "subtitle": "Spanish",
-                                "value": "es-SP",
-                                "image": ""
+                        "selectedItem": {
+                            "id": "webCatalog",
+                            "type": "channel"
+                        },
+                        "default": ""
+                    },
+                    {
+                        "id": "source",
+                        "title": "Source",
+                        "icon": "pebble-lg-icons:Source",
+                        "visible": true,
+                        "dataRequestType": "entity-model",
+                        "dataRequest": {
+                            "params": {
+                                "query": {
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "source"
+                                        ]
+                                    }
+                                }
                             }
-                            ],
-                            "selectedLocaleItems": [{
-                                "id": 1,
-                                "title": "English - United States",
-                                "subtitle": "English",
-                                "value": "en-US",
-                                "image": ""
-                            }]
-                        }
+                        },
+                        "dataMappings": {
+                            "id": "name",
+                            "title": "name",
+                            "subtitle": "",
+                            "image": "",
+                            "icon": "",
+                            "type": ["source"]
+                        },
+                        "selectedItem": {
+                            "id": "internal",
+                            "type": "source"
+                        },
+                        "default": ""
+                    },
+                    {
+                        "id": "locale",
+                        "title": "Locale",
+                        "icon": "pebble-lg-icons:Language",
+                        "visible": true,
+                        "dataRequestType": "entity-model",
+                        "dataRequest": {
+                            "params": {
+                                "query": {
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "locale"
+                                        ]
+                                    }
+                                }
+                            }
+                        },
+                        "dataMappings": {
+                            "id": "name",
+                            "title": "name",
+                            "subtitle": "",
+                            "image": "",
+                            "icon": "",
+                            "type": ["locale"]
+                        },
+                        "selectedItem": {
+                            "id": "en-US",
+                            "type": "locale"
+                        },
+                        "default": ""
                     }
+                    ]
                 },
                 "rock-dimension-grid": {
                     "config": {
@@ -959,8 +1033,8 @@ var allConfigs = {
                             "noTrim": false
                         },
                         {
-                            "attributeName": "enddate",
-                            "label": "End Date",
+                            "attributeName": "webDiscount",
+                            "label": "Web Discount",
                             "noTrim": false
                         },
                         {
@@ -1170,7 +1244,7 @@ var allConfigs = {
                                         "buying",
                                         "selling"
                                     ],
-                                    "context": {
+                                    "config-context": {
                                         "attributeNames": [
                                             "color",
                                             "creationdate",
@@ -1227,7 +1301,8 @@ var allConfigs = {
                                             "sephorain",
                                             "isrecyclablein",
                                             "modelnb",
-                                            "frnin"
+                                            "frnin",
+                                            "webDiscount"
                                         ]
                                     }
                                 }
@@ -1240,15 +1315,9 @@ var allConfigs = {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
-                                        "locales": [{
-                                            "locale": "en-US",
-                                            "language": "English"
-                                        }],
-                                        "source": "internal",
-                                        "list": "productMaster",
                                         "mode": "view",
                                         "no-of-columns": 2,
-                                        "context": {
+                                        "config-context": {
                                             "groupName": "Core Attributes",
                                             "attributeNames": [
                                                 "creationdate",
@@ -1261,7 +1330,8 @@ var allConfigs = {
                                                 "productid",
                                                 "skuid",
                                                 "categoryid",
-                                                "longdescription"
+                                                "longdescription",
+                                                "webDiscount"
                                             ]
                                         }
                                     }
@@ -1275,15 +1345,9 @@ var allConfigs = {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
-                                        "locales": [{
-                                            "locale": "en-US",
-                                            "language": "English"
-                                        }],
-                                        "source": "internal",
-                                        "list": "productMaster",
                                         "mode": "view",
                                         "no-of-columns": 2,
-                                        "context": {
+                                        "config-context": {
                                             "groupName": "Buying Attributes",
                                             "attributeNames": [
                                                 "onlineonly",
@@ -1315,15 +1379,9 @@ var allConfigs = {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
-                                        "locales": [{
-                                            "locale": "en-US",
-                                            "language": "English"
-                                        }],
-                                        "source": "internal",
-                                        "list": "productMaster",
                                         "mode": "view",
                                         "no-of-columns": 3,
-                                        "context": {
+                                        "config-context": {
                                             "groupName": "Selling Attributes",
                                             "attributeNames": [
                                                 "whitegloveddlvryin",
@@ -1365,12 +1423,6 @@ var allConfigs = {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
-                                        "locales": [{
-                                            "locale": "en-US",
-                                            "language": "English"
-                                        }],
-                                        "source": "SAP",
-                                        "list": "productMaster",
                                         "mode": "view",
                                         "no-of-columns": 3,
                                         "context": {
@@ -1409,12 +1461,6 @@ var allConfigs = {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
-                                        "locales": [{
-                                            "locale": "en-US",
-                                            "language": "English"
-                                        }],
-                                        "source": "internal",
-                                        "list": "productMaster",
                                         "mode": "view",
                                         "no-of-columns": 2,
                                         "context": {
@@ -1446,12 +1492,6 @@ var allConfigs = {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
-                                        "locales": [{
-                                            "locale": "en-US",
-                                            "language": "English"
-                                        }],
-                                        "source": "internal",
-                                        "list": "productMaster",
                                         "mode": "view",
                                         "no-of-columns": 3,
                                         "context": {
@@ -1541,7 +1581,17 @@ var allConfigs = {
                                 "path": "/src/elements/app-entity-discovery/app-entity-discovery.html",
                                 "properties": {}
                             }
-                        }
+                        },
+                            {
+                                "name": "entity-family",
+                                "title": "Entity Family",
+                                "enableDropdownMenu": false,
+                                "component": {
+                                    "name": "rock-entity-variant",
+                                    "path": "/src/elements/rock-entity-variant/rock-entity-variant.html",
+                                    "properties": {}
+                                }
+                            }
                         ]
                     }
                 },
@@ -1690,38 +1740,87 @@ var allConfigs = {
                         "variantDefinitionUI": {
                             "name": "ehd1",
                             "levels": [{
-                                "entityType": "choice",
-                                "index": 1,
-                                "optional": false,
-                                "dimensionAttributes": [{
-                                    "sourceAttribute": "colorAssignment",
-                                    "targetAttribute": "choiceColor",
-                                    "optional": false
-                                },
-                                {
-                                    "sourceAttribute": "materials",
-                                    "targetAttribute": "choiceMaterial",
-                                    "optional": true
+                                    "entityType": "sku",
+                                    "index": 1,
+                                    "optional": false,
+                                    "dimensionAttributes": [{
+                                            "sourceAttribute": "color",
+                                            "targetAttribute": "color",
+                                            "optional": false
+                                        },
+                                        {
+                                            "sourceAttribute": "size",
+                                            "targetAttribute": "size",
+                                            "optional": true
+                                        }
+                                    ]
                                 }
-                                ]
-                            },
-                            {
-                                "entityType": "sku",
-                                "index": 2,
-                                "optional": false,
-                                "dimensionAttributes": [{
-                                    "sourceAttribute": "primarySizes",
-                                    "targetAttribute": "skuSize1",
-                                    "optional": false
-                                },
-                                {
-                                    "sourceAttribute": "secondarySizes",
-                                    "targetAttribute": "skuSize2",
-                                    "optional": true
-                                }
-                                ]
-                            }
                             ]
+                        },"businessFunctionVariantsCreate": {
+                            "stepperConfig": [{
+                                "index": "1",
+                                "title": "Option Selection",
+                                "status": "inprogress"
+                            },
+                                {
+                                    "index": "2",
+                                    "title": "Create Variants",
+                                    "status": ""
+                                }
+                            ],
+                            "name": "create-variants",
+                            "label": "Create Variants",
+                            "steps": [{
+                                "name": "step-1-selection-option",
+                                "label": "Select Options to create Skus",
+                                "component": {
+                                    "name": "rock-variants-option-select",
+                                    "path": "/../../src/elements/rock-variants-option-select/rock-variants-option-select.html",
+                                    "properties": {}
+                                },
+                                "nextEvent": "onSave",
+                                "skipEvent": "onCancel"
+                            },
+                                {
+                                    "name": "step-2-create-variants",
+                                    "label": "Create variants for a given entity",
+                                    "component": {
+                                        "name": "rock-variants-create-grid",
+                                        "path": "/../../src/elements/rock-variants-create-grid/rock-variants-create-grid.html",
+                                        "properties": {}
+                                    },
+                                    "nextEvent": "onComplete",
+                                    "skipEvent": "onCancel"
+                                }
+                            ]
+                        },
+                        "rock-variants-create-grid": {
+                            "config": {
+                                "createVariantsGridConfig": {
+                                    "viewMode": "Tabular",
+                                    "title": "Variant Data Table",
+                                    "mode": "Read",
+                                    "schemaType": "simple",
+                                    "tabular": {
+                                        "settings": {
+                                            "isMultiSelect": false,
+                                            "actions": [{
+                                                "name": "delete",
+                                                "icon": "pebble-icons:Delete",
+                                                "eventName": "delete-item"
+                                            }]
+                                        },
+                                        "columns": [
+                                            {
+                                                "header": "Existing",
+                                                "name": "existing",
+                                                "sortable": false,
+                                                "filterable": false
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
                         }
                     }
                 },
@@ -1899,7 +1998,7 @@ var allConfigs = {
     },
     {
         "name": "app-dashboard",
-        "ctxInfo": [{
+        "contexts": [{
             "tenant": "jcp",
             "ctx": {
                 "list": "productMaster"
@@ -2692,7 +2791,7 @@ var allConfigs = {
     },
     {
         "name": "app-business-function",
-        "ctxInfo": [{
+        "contexts": [{
             "tenant": "jcp",
             "ctx": {
                 "list": "productMaster"
@@ -2873,6 +2972,32 @@ var allConfigs = {
                             }
                             ]
                         }
+                    }
+                }
+            }
+        }]
+    },
+    {
+        "name": "user-store",
+        "contexts": [{
+            "tenant": "jcp",
+            "ctx": {
+                "list": ""
+            },
+            "security": {
+                "user": "",
+                "role": ""
+            },
+            "components": {
+                "user-config": {
+                    "config": {
+                        "users": [
+                            {
+                                "userName": "jcp",
+                                "password": "jcp",
+                                "roles": "vendor"
+                            }
+                        ]
                     }
                 }
             }
