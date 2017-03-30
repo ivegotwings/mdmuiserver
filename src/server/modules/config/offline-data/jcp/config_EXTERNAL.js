@@ -13,7 +13,7 @@ var allConfigs = {
             "components": {
                 "pebble-actions": {
                     "config": {
-                        "title": "Create New...",
+                        "title": "Create",
                         "actions": [{
                             "name": "createSKU",
                             "icon": "pebble-xl-icons:Product",
@@ -418,7 +418,7 @@ var allConfigs = {
                 },
                 "pebble-actions": {
                     "config": {
-                        "title": "",
+                        "title": "Create",
                         "actions": [{
                             "name": "createProductPresentation",
                             "icon": "pebble-xl-icons:Brand",
