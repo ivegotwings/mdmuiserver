@@ -108,21 +108,6 @@ var allConfigs = {
                     }
                     ]
                 },
-                "components": {
-                    "pebble-actions": {
-                        "config": {
-                            "title": "Create New",
-                            "actions": [{
-                                    "name": "createSKU",
-                                    "icon": "pebble-xl-icons:Product",
-                                    "text": "SKU",
-                                    "visible": true,
-                                    "dataRoute": "entity-create",
-                                    "dataContext": {
-                                        "source": "internal",
-                                        "locale": "en-US",
-                                        "list": "productMaster",
-                                        "classification": "_ALL",
                 "main-app-routes": {
                     "config": {
                         "dashboard": {
