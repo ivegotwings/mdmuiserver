@@ -14,31 +14,23 @@ DataObjectFalcorUtil.getPathKeys = function () {
         "dataIndexInfo": {
             "entityData": {
                 "name": "entity",
-                "typeInfo": "entityInfo",
-                "typeName": "entityType",
                 "collectionName": "entities",
-                "responseObjectName": "entityOperationResponse"
+                "responseObjectName": "response"
             },
             "entityGovernData": {
                 "name": "entityGovernData",
-                "typeInfo": "entityInfo",
-                "typeName": "entityType",
                 "collectionName": "entities",
-                "responseObjectName": "entityOperationResponse"
+                "responseObjectName": "response"
             },
             "entityModel": {
                 "name": "entityModel",
-                "typeInfo": "entityModelInfo",
-                "typeName": "entityModelType",
                 "collectionName": "entityModels",
-                "responseObjectName": "entityModelOperationResponse"
+                "responseObjectName": "response"
             },
             "config": {
                 "name": "config",
-                "typeInfo": "configObjectInfo",
-                "typeName": "configObjectType",
                 "collectionName": "configObjects",
-                "responseObjectName": "configOperationResponse"
+                "responseObjectName": "response"
             }
         }
     };
@@ -57,18 +49,38 @@ DataObjectFalcorUtil.boxDataObject = function (dataObject, boxOp) {
 
     for (var dataObjectFieldKey in dataObject) {
         if (dataObjectFieldKey === "data") {
-            var modCtxInfo = [];
-            if (dataObject && dataObject.data && dataObject.data.ctxInfo) {
-                for (var i = 0; i < dataObject.data.ctxInfo.length; i++) {
-                    var ctxItem = dataObject.data.ctxInfo[i];
-                    var modAttrs = DataObjectFalcorUtil.boxAttributesData(ctxItem.attributes, boxOp);
-                    var modRelationships = DataObjectFalcorUtil.boxRelationshipsData(ctxItem.relationships, boxOp);
+            if(dataObject && dataObject.data) {
+                var data = dataObejct.data;
+                var modData = {};
 
-                    modCtxInfo.push({ "ctxGroup": ctxItem.ctxGroup, "attributes": modAttrs, "relationships": modRelationships });
+                if(data.attributes) {
+                    modData.attributes = DataObjectFalcorUtil.boxAttributesData(data.attributes, boxOp);
                 }
-            }
-            modDataObject.data = { 'ctxInfo': modCtxInfo };
 
+                if(data.relationships) {
+                    modData.relationships = DataObjectFalcorUtil.boxRelationshipsData(data.relationships, boxOp);
+                }
+
+                if(data.properties) {
+                    modData.properties = boxOp(data.properties);
+                }
+
+                if (data.contexts) {
+                    var modContexts = [];
+                    for (var i = 0; i < data.contexts.length; i++) {
+                        var ctxItem = data.contexts[i];
+                        var modAttrs = DataObjectFalcorUtil.boxAttributesData(ctxItem.attributes, boxOp);
+                        var modRelationships = DataObjectFalcorUtil.boxRelationshipsData(ctxItem.relationships, boxOp);
+                        var modProperties = boxOp(ctxItem.properties);
+
+                        modContexts.push({ "context": ctxItem.context, "attributes": modAttrs, "relationships": modRelationships, "properties": modProperties });
+                    }
+
+                    modData.contexts = modContexts;
+                }
+
+                modDataObject.data = modData;
+            }
         }
         else {
             if (!isEmpty(dataObject[dataObjectFieldKey])) {
@@ -100,6 +112,11 @@ DataObjectFalcorUtil.boxAttributesData = function (attrs, boxOp) {
         }
 
         modAttr.values = boxOp(modAttr.values);
+        
+        if(modAttr.properties) {
+            modAttr.properties = boxOp(modAttr.properties);
+        }
+
         modAttrs[attrId] = modAttr;
     }
 
@@ -166,53 +183,53 @@ DataObjectFalcorUtil.transformToExternal = function (dataObject) {
     //TODO: AS OF NOW, API is not processing properties so blank it out :)
     transDataObject.properties = {};
 
-    var ctxInfo = [];
+    var contexts = [];
 
-    if (dataObject.data && dataObject.data.ctxInfo) {
+    if (dataObject.data && dataObject.data.contexts) {
 
-        var transCtxInfo = [];
+        var transContexts = [];
         var selfCtxItem = {};
-        var ctxKeys = Object.keys(dataObject.data.ctxInfo);
+        var ctxKeys = Object.keys(dataObject.data.contexts);
 
         if (ctxKeys && ctxKeys.length) {
             for (var i = 0; i < ctxKeys.length; i++) {
                 var ctxKey = ctxKeys[i];
-                var transCtxInfoItem = {};
+                var transContextsItem = {};
 
-                var ctxGroup = DataObjectFalcorUtil.createCtxItem(ctxKey);
+                var context = DataObjectFalcorUtil.createCtxItem(ctxKey);
 
-                transCtxInfoItem.ctxGroup = ctxGroup;
+                transContextsItem.context = context;
 
-                var enCtxInfo = dataObject.data.ctxInfo[ctxKey];
+                var enContexts = dataObject.data.contexts[ctxKey];
 
-                if (enCtxInfo.attributes) {
-                    transCtxInfoItem.attributes = DataObjectFalcorUtil.transformAttributesToExternal(enCtxInfo.attributes);
+                if (enContexts.attributes) {
+                    transContextsItem.attributes = DataObjectFalcorUtil.transformAttributesToExternal(enContexts.attributes);
                 }
 
-                if (enCtxInfo.relationships) {
-                    transCtxInfoItem.relationships = DataObjectFalcorUtil.transformRelationshipsToExternal(enCtxInfo.relationships);
+                if (enContexts.relationships) {
+                    transContextsItem.relationships = DataObjectFalcorUtil.transformRelationshipsToExternal(enContexts.relationships);
                 }
 
-                if (transCtxInfoItem.attributes && transCtxInfoItem.attributes.properties) {
-                    transCtxInfoItem.properties = DataObjectFalcorUtil.transformPropertiesToExternal(transCtxInfoItem.attributes.properties);
-                    delete transCtxInfoItem.attributes.properties;
+                if (transContextsItem.attributes && transContextsItem.attributes.properties) {
+                    transContextsItem.properties = DataObjectFalcorUtil.transformPropertiesToExternal(transContextsItem.attributes.properties);
+                    delete transContextsItem.attributes.properties;
                 }
 
-                if (enCtxInfo.jsonData) {
-                    transCtxInfoItem.jsonData = enCtxInfo.jsonData;
+                if (enContexts.jsonData) {
+                    transContextsItem.jsonData = enContexts.jsonData;
                 }
 
-                if (ctxGroup.self) {
-                    selfCtxItem = transCtxInfoItem;
+                if (context.self) {
+                    selfCtxItem = transContextsItem;
                 }
                 else {
-                    transCtxInfo.push(transCtxInfoItem);
+                    transContexts.push(transContextsItem);
                 }
             }
         }
 
         var transData = {};
-        transData.ctxInfo = transCtxInfo;
+        transData.contexts = transContexts;
 
         if (!isEmpty(selfCtxItem)) {
             transData.attributes = selfCtxItem.attributes;
@@ -236,17 +253,17 @@ DataObjectFalcorUtil.transformAttributesToExternal = function (attributes) {
 
     for (var attrKey in attributes) {
         var attr = attributes[attrKey];
-        var attrValCtxInfo = attr.valCtxInfo;
+        var attrValContexts = attr.valContexts;
 
-        if (!attrValCtxInfo) {
+        if (!attrValContexts) {
             continue;
         }
 
-        var valCtxKeys = Object.keys(attrValCtxInfo);
+        var valCtxKeys = Object.keys(attrValContexts);
         if (valCtxKeys && valCtxKeys.length) {
             for (var i = 0; i < valCtxKeys.length; i++) {
                 var valCtxKey = valCtxKeys[i];
-                var attrData = attrValCtxInfo[valCtxKey];
+                var attrData = attrValContexts[valCtxKey];
 
                 var transAttr = DataObjectFalcorUtil.getOrCreate(transAttributes, attrKey, {});
 
@@ -493,7 +510,7 @@ DataObjectFalcorUtil.createCtxItems = function (ctxKeys) {
         var ctxKey = ctxKeys[i];
         var ctxItem = DataObjectFalcorUtil.createCtxItem(ctxKey);
 
-        //skip self ctx..
+        //skip self contexts..
         if (ctxItem.self) {
             continue;
         }
@@ -517,11 +534,11 @@ DataObjectFalcorUtil.createCtxItems = function (ctxKeys) {
     return ctxItems;
 };
 
-DataObjectFalcorUtil.getCtxItem = function (ctxInfo, ctxGroup) {
-    for (var ctxItemId in ctxInfo) {
-        var ctxItem = ctxInfo[ctxItemId];
+DataObjectFalcorUtil.getCtxItem = function (contexts, context) {
+    for (var ctxItemId in contexts) {
+        var ctxItem = contexts[ctxItemId];
 
-        var compareResult = DataObjectFalcorUtil.compareCtx(ctxItem.ctxGroup, ctxGroup);
+        var compareResult = DataObjectFalcorUtil.compareCtx(ctxItem.context, context);
 
         if (compareResult) {
             return ctxItem;
@@ -531,9 +548,9 @@ DataObjectFalcorUtil.getCtxItem = function (ctxInfo, ctxGroup) {
     return undefined;
 };
 
-DataObjectFalcorUtil.getAttributesByCtx = function (dataObject, ctxGroup) {
-    if (dataObject && dataObject.data && dataObject.data.ctxInfo && dataObject.data.ctxInfo.length) {
-        var ctxItem = DataObjectFalcorUtil.getCtxItem(dataObject.data.ctxInfo, ctxGroup);
+DataObjectFalcorUtil.getAttributesByCtx = function (dataObject, context) {
+    if (dataObject && dataObject.data && dataObject.data.contexts && dataObject.data.contexts.length) {
+        var ctxItem = DataObjectFalcorUtil.getCtxItem(dataObject.data.contexts, context);
         if (ctxItem) {
             return ctxItem.attributes;
         }
@@ -542,9 +559,9 @@ DataObjectFalcorUtil.getAttributesByCtx = function (dataObject, ctxGroup) {
     return {};
 };
 
-DataObjectFalcorUtil.getRelationshipsByCtx = function (dataObject, ctxGroup) {
-    if (dataObject && dataObject.data && dataObject.data.ctxInfo && dataObject.data.ctxInfo.length) {
-        var ctxItem = DataObjectFalcorUtil.getCtxItem(dataObject.data.ctxInfo, ctxGroup);
+DataObjectFalcorUtil.getRelationshipsByCtx = function (dataObject, context) {
+    if (dataObject && dataObject.data && dataObject.data.contexts && dataObject.data.contexts.length) {
+        var ctxItem = DataObjectFalcorUtil.getCtxItem(dataObject.data.contexts, context);
         if (ctxItem) {
             return ctxItem.relationships;
         }
@@ -609,7 +626,6 @@ DataObjectFalcorUtil.deepAssign = function (...objs) {
                     value.forEach((sourceItem, itemIndex) => {
                         if (itemIndex < targetArray.length) {
                             const targetItem = targetArray[itemIndex];
-
                             if (Object.is(targetItem, sourceItem)) {
                                 return;
                             }

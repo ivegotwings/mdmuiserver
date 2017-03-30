@@ -33,7 +33,7 @@ OfflineConfigService.prototype = {
         });
 
         var response = {
-            'configOperationResponse': {
+            'response': {
                 'status': 'success',
                 'configs': configs
             }
@@ -66,7 +66,7 @@ OfflineConfigService.prototype = {
         });
 
         var response = {
-            configOperationResponse: {
+            response: {
                 status: "success",
                 configs: configs
             }
