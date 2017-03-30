@@ -749,7 +749,7 @@ var allConfigs = {
                                         "query": {
                                             "filters": {
                                                 "typesCriterion": [
-                                                    "channel", "country"
+                                                    "channel"
                                                 ]
                                             }
                                         }
@@ -761,7 +761,7 @@ var allConfigs = {
                                     "subtitle": "",
                                     "image": "",
                                     "icon": "",
-                                    "type": ["channel", "country"]
+                                    "type": ["channel"]
                                 },
                                 "selectedItem": {
                                     "id": "productMaster",
@@ -3259,29 +3259,27 @@ var allConfigs = {
             }]
         },
         {
-        "name": "user-store",
-        "contexts": [{
-            "tenant": "ns",
-            "ctx": {
-                "list": ""
-            },
-            "security": {
-                "user": "",
-                "role": ""
-            },
-            "components": {
-                "user-config": {
-                    "config": {
-                        "users": [
-                            {
+            "name": "user-store",
+            "contexts": [{
+                "tenant": "ns",
+                "ctx": {
+                    "list": ""
+                },
+                "security": {
+                    "user": "",
+                    "role": ""
+                },
+                "components": {
+                    "user-config": {
+                        "config": {
+                            "users": [{
                                 "userName": "ns",
                                 "password": "ns",
                                 "roles": "vendor"
-                            }
-                        ]
+                            }]
+                        }
                     }
                 }
-            }
             }]
         }
     ]
