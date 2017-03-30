@@ -158,40 +158,6 @@
                     computed: '_getOptions(variantDefinition, selectedOptions,_attributeModels,_reupdateOptions)',
                     notify: true
                 },
-                /**
-                 * Indictaes the identification of the entity for which the attributes are managed.
-                 */
-                entityId: {
-                    type: String
-                },
-                entityType: {
-                    type: String
-                },
-                /**
-                 * Indicates the locale dimension for which the attributes are managed.
-                 */
-                locale: {
-                    type: String
-                },
-                /**
-                 * Indictaes the list for which the attributes are managed.
-                 */
-                list: {
-                    type: String
-                },
-                /**
-                 * Indictaes the classification for which the attributes are managed.
-                 */
-                classification: {
-                    type: String,
-                    value: "_ALL"
-                },
-                /**
-                 * Indictaes the source dimension for which the attributes are managed.
-                 */
-                source: {
-                    type: String
-                },
                 variantDefinition: {
                     type: Object
                 },
@@ -216,14 +182,6 @@
                 _attributeModels: {
                     type: Object
                 },
-                _ctx:{
-                    type:Array,
-                    computed:'_getCtx(list,classification)'
-                },
-                _valCtx:{
-                    type:Array,
-                    computed:'_getValCtx(source,locale)'
-                },
                 _errorMessage:{
                     type:String,
                     value:""
@@ -244,18 +202,6 @@
             ],
             attached:function () {
                 this.variantDefinition=this.getParentAppConfig('rock-entity-variant', '', 'variantDefinitionUI');
-            },
-            _getCtx:function (list,classification) {
-              return[{
-                  "list":list,
-                  "classification":classification
-              }] ;
-            },
-            _getValCtx:function (source,locale) {
-                return[{
-                    "source":source,
-                    "locale":locale
-                }] ;
             },
             _onVariantDefinitionGet:function (variantDefinition) {
                 if (!variantDefinition || _.isEmpty(variantDefinition) || _.isEmpty(this.contextData)) {
@@ -305,18 +251,13 @@
                         var entity = entities[0];
                         this.originalEntity = entity;
                         if (entity.data) {
-                            var attributes = DataTransformHelper.transformAttributes(entity, this._attributeModels, this.contextData, "array");
+                            var attributes = EntityHelper.getAllAttributes(entity);
                             for(var i in attributes){
                                 var attribute = attributes[i];
-                                if (attribute && attribute.value) {
-                                    var values=[];
-                                    if(attribute.value instanceof Array){
-                                        values=attribute.value;
-                                    } else{
-                                        values=[attribute.value];
-                                    }
+                                if (attribute && attribute.values) {
+                                    var values =  DataHelper.getAttributeValues(attribute.values, this.contextData[ContextHelper.CONTEXT_TYPE_VALUE][0]);
                                     this.push('selectedOptions', {
-                                        "option":attribute.name,
+                                        "option":i,
                                         "values": values
                                     });
                                 }
@@ -373,30 +314,19 @@
                     this._errorMessage="Adding values for " + compulsaryAttrs + " is compulsary";
                     return;
                 }
-                var attributes = {};
-                var source=this.source;
-                var locale=this.locale;
+                var attributes = [];
                 for (var i = 0; i < selectedOptions.length; i++) {
                     if (selectedOptions[i].option && selectedOptions[i].values && selectedOptions[i].values.length > 0) {
-                        var values = selectedOptions[i].values.map(function (valueJson) {
-                           return {
-                                "value": valueJson,
-                                "source": source,
-                                "locale": locale
-                            };
-                        });
-                        attributes[selectedOptions[i].option] = { "values": values };
+                        var attributeModel=this._attributeModels[selectedOptions[i].option];
+                        var attrJson={
+                            "value":selectedOptions[i].values,
+                            "selfContext": attributeModel.selfContext,
+                            "name":selectedOptions[i].option
+                        };
+                        attributes.push(attrJson);
                     }
                 }
-                var entityData = this.originalEntity;
-                var contextualData = {};
-                contextualData.contexts = [];
-                var ctxItem = {};
-                ctxItem.context = { "list": this.list, "classification": this.classification };
-                ctxItem.attributes = attributes;
-                contextualData.contexts.push(ctxItem);
-                entityData["data"] = contextualData;
-
+                var entityData = DataTransformHelper.prepareEntityForAttributesSave(this.originalEntity, attributes, this.contextData);
                 if (!_.isEmpty(entityData)) {
                     this._saveRequest = {
                         "entities": [entityData]
@@ -414,7 +344,7 @@
                 var eventName = "onSave";
                 var eventDetail = {
                     name: eventName,
-                    data: { "entity-id": this.entityId,"attributes-list":attributesList,"entity-type": this.entityType, "source": this.source, "locale": this.locale, "list": this.list }
+                    data: {"attributes-list":attributesList,"context-data":this.contextData }
                 };
                 this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
             },
@@ -455,18 +385,6 @@
             },
             _optionLovSelectionChanged: function (e) {
                 this._reupdateOptions = !this._reupdateOptions;
-            },
-            _getAttributeReferenceEntityTypes:function(option){
-                if(!option || this._attributeModels[option]==undefined){
-                    return [];
-                }
-                var types=this._attributeModels[option].referenceEntityInfo.map(function (info) {
-                   return info.refEntityType;
-                });
-                if(!types){
-                    types=[];
-                }
-                return types;
             },
             getIsDirty:function () {
                 var utils = SharedUtils.DataObjectFalcorUtil;
