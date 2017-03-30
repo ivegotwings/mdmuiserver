@@ -82,14 +82,14 @@ var allConfigs = {
                         "name": "dashboard",
                         "title": "User Dashboard",
                         "data_route": "dashboard",
-                        "icon": "pebble-icons:Dashboard",
+                        "icon": "pebble-lg-icons:Userdashboard",
                         "isLandingPage": true
                     },
                     {
                         "name": "entity-discovery",
                         "title": "Entity Search & Refine",
                         "data_route": "entity-discovery",
-                        "icon": "pebble-icons:SearchDb"
+                        "icon": "pebble-lg-icons:SearchDb"
                     },
                     {
                         "name": "entity-manage",
@@ -98,7 +98,7 @@ var allConfigs = {
                         "queryParams": {
                             "id": "e1"
                         },
-                        "icon": "pebble-icons:Entities"
+                        "icon": "pebble-lg-icons:Entities"
                     },
                     {
                         "name": "divider"
@@ -113,7 +113,7 @@ var allConfigs = {
                         "name": "integrationManage",
                         "title": "Manage Integrations",
                         "data_route": "manage-integration",
-                        "icon": "pebble-icons:IntegrationDb"
+                        "icon": "pebble-lg-icons:IntegrationDb"
                     },
                     {
                         "name": "divider"
@@ -163,7 +163,7 @@ var allConfigs = {
                             "name": "entity-manage",
                             "title": "entity-manage",
                             "data_route": "entity-manage",
-                            "icon": "pebble-icons:Entities",
+                            "icon": "pebble-lg-icons:Entities",
                             "href": "/entity-manage?id=e1",
                             "component": {
                                 "name": "app-entity-manage",
@@ -175,7 +175,7 @@ var allConfigs = {
                             "name": "entity-create",
                             "title": "entity-create",
                             "data_route": "entity-create",
-                            "icon": "pebble-icons:Entities",
+                            "icon": "pebble-lg-icons:Entities",
                             "href": "/entity-create",
                             "component": {
                                 "name": "app-business-function",
