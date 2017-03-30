@@ -2702,22 +2702,6 @@ var allConfigs = {
             "components": {
                 "rock-wizard": {
                     "config": {
-                        "stepperConfig": [{
-                            "index": "1",
-                            "label": "",
-                            "status": "inprogress"
-                        },
-                        {
-                            "index": "2",
-                            "label": "",
-                            "status": ""
-                        },
-                        {
-                            "index": "3",
-                            "label": "",
-                            "status": ""
-                        }
-                        ],
                         "name": "create-entity",
                         "label": "Create",
                         "steps": [{
