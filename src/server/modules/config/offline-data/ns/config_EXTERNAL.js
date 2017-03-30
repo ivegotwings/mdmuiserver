@@ -1817,7 +1817,7 @@ var allConfigs = {
                                         "schemaType": "simple",
                                         "tabular": {
                                             "settings": {
-                                                "isMultiSelect": true,
+                                                "isMultiSelect": false,
                                                 "actions": [{
                                                     "name": "delete",
                                                     "icon": "pebble-icons:Delete",
@@ -1825,8 +1825,8 @@ var allConfigs = {
                                                 }]
                                             },
                                             "columns": [{
-                                                "header": "Status",
-                                                "name": "status",
+                                                "header": "Existing",
+                                                "name": "existing",
                                                 "sortable": false,
                                                 "filterable": false
                                             }]
