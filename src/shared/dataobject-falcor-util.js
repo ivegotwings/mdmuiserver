@@ -626,7 +626,6 @@ DataObjectFalcorUtil.deepAssign = function (...objs) {
                     value.forEach((sourceItem, itemIndex) => {
                         if (itemIndex < targetArray.length) {
                             const targetItem = targetArray[itemIndex];
-
                             if (Object.is(targetItem, sourceItem)) {
                                 return;
                             }
