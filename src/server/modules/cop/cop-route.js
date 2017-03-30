@@ -29,34 +29,26 @@ var COPRouter = function (app) {
                             "type": "sku",
                             "id": "sku_" + uid1,
                             "data": {
-                                "ctxInfo": [
-                                    {
-                                        "ctxGroup": {
-                                            "list": "productMaster",
-                                            "classification": "_ALL"
-                                        },
-                                        "attributes": {
-                                            "displayname": {
-                                                "values": [
-                                                    {
-                                                        "source": "internal",
-                                                        "locale": "en-US",
-                                                        "value": "Import Dummy "+ uid1
-                                                    }
-                                                ]
-                                            },
-                                            "description": {
-                                                "values": [
-                                                    {
-                                                        "source": "internal",
-                                                        "locale": "en-US",
-                                                        "value": "Import Dummy Desc "+ uid1
-                                                    }
-                                                ]
+                                "attributes": {
+                                    "displayname": {
+                                        "values": [
+                                            {
+                                                "source": "internal",
+                                                "locale": "en-US",
+                                                "value": "Import Dummy "+ uid1
                                             }
-                                        }
+                                        ]
+                                    },
+                                    "description": {
+                                        "values": [
+                                            {
+                                                "source": "internal",
+                                                "locale": "en-US",
+                                                "value": "Import Dummy Desc "+ uid1
+                                            }
+                                        ]
                                     }
-                                ]
+                                }
                             }
                         };
                 response.entityOperationResponse.entities.push(e);
