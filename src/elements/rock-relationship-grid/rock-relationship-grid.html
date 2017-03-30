@@ -620,15 +620,24 @@ The following JSON object is a sample of data which can be used to bind the grid
                     this.dataObject["blankEntity"] = entity;
                   }
 
-                  var relationships = EntityHelper.getRelationshipsBasedOnContext(entity, this.getFirstDataContext());
-                  var relationshipTypeList = [];
+                  var currentRel = "";
+                  var isSelfContext = false; 
+                  if (event.detail.request) {
+                    currentRel = event.detail.request.requestData.params.fields.relationships[0];
+                  }
+
+                  var relConfig = this.relationshipGridConfigs[currentRel];
+                  if (relConfig) {
+                    isSelfContext = relConfig.selfContext;
+                  }
+                  
+                  var relationships = EntityHelper.getRelationshipsBasedOnContext(entity, this.getFirstDataContext(), isSelfContext);
                   if (!_.isEmpty(relationships)) {
-                    var relationshipTypeName = Object.keys(relationships)[0];
-                    var relatedEntities = relationships[relationshipTypeName];
+                    var relatedEntities = relationships[currentRel];
 
                     if (this.dataObject) {
-                      if (!this.dataObject[relationshipTypeName]) {
-                        this.dataObject[relationshipTypeName] = entity;
+                      if (!this.dataObject[currentRel]) {
+                        this.dataObject[currentRel] = entity;
                       }
                     }
 
@@ -693,24 +702,13 @@ The following JSON object is a sample of data which can be used to bind the grid
             }, this);
           }
 
-          // var itemContext = DataHelper.cloneObject(this.getFirstItemContext());
+          var valueContext = this.getFirstValueContext();
 
-          // var ctxData = DataHelper.cloneObject(this.contextData);
-
-          // if (ctxData) {
-          //   ctxData[ContextHelper.CONTEXT_TYPE_DATA] = contexts;
-          //   ctxData[ContextHelper.CONTEXT_TYPE_ITEM] = typesCriterion;
-          // }
-
-          //TODO-dimensions has to be set in req. same like did in relationship-manage
           var req = {
             "params": {
               "query": {
                 "contexts": contexts,
-                "valueContexts": [{
-                  "source": 'internal',
-                  "locale": 'en-US'
-                }],
+                "valueContexts": [valueContext],
                 "filters": {
                   "attributesCriterion": [],
                   "typesCriterion": typesCriterion
@@ -830,16 +828,14 @@ The following JSON object is a sample of data which can be used to bind the grid
               }, this);
             }
 
+            var valueContext = this.getFirstValueContext();
 
             //TODO-dimensions has to be set in req. same like did in relationship-manage          
             var req = {
               "params": {
                 "query": {
                   "contexts": contexts,
-                  "valueContexts": [{
-                    "source": "internal",
-                    "locale": "en-US"
-                  }],
+                  "valueContexts": [valueContext],
                   "ids": entityIds,
                   "filters": {
                     "typesCriterion": typesCriterion
@@ -914,43 +910,22 @@ The following JSON object is a sample of data which can be used to bind the grid
           var currentRel = e.model.relationship;
           var currentRelGrid = Polymer.dom(this).node.$$('rock-grid[id=' + currentRel + ']');
           var entityId = DataHelper.getParamValue('id');
+          var relConfig = this.relationshipGridConfigs[currentRel];
 
-          if (currentRelGrid) {
+          if (currentRelGrid && relConfig) {
             var gridData = currentRelGrid.getData();
-            var entity;
+            var originalEntity;
 
             if (this.dataObject) {
               if (this.dataObject[currentRel]) {
-                entity = this.dataObject[currentRel];
+                originalEntity = this.dataObject[currentRel];
               } else if (this.dataObject['blankEntity']) {
-                entity = this.dataObject['blankEntity'];
+                originalEntity = this.dataObject['blankEntity'];
               }
             }
 
-            //var relationships = this._relationships;
-            if (entity) {
-              if (!entity.data) {
-                entity.data = DataHelper.getEmptyRelationshipDataObject(this.getFirstDataContext(), currentRel);
-              }
-
-              var relationships = {};
-              var contexts = entity.data.contexts;
-
-              if (!_.isEmpty(this.getFirstDataContext())) {
-                if (contexts && contexts.length) {
-                  contexts.forEach(function (item) {
-                    if (item) {
-                      item.attributes = {};
-                      relationships = item.relationships[currentRel];
-                    }
-                  }, this);
-                }
-              } else {
-                if (entity.data.relationships && entity.data.relationships[currentRel]) {
-                  relationships = entity.data.relationships[currentRel];
-                }
-              }
-
+            if (originalEntity) {
+              var relationships = EntityHelper.getRelationshipByType(originalEntity, this.getFirstDataContext(), currentRel, relConfig.selfContext);
               var modifiedRelData = gridData;
               var relAndRelEntityAttributes = this._getAttributeList(currentRel);
               var valueContext = this.getFirstValueContext();
@@ -1030,7 +1005,7 @@ The following JSON object is a sample of data which can be used to bind the grid
             }
 
             this._saveRequest = {
-              "entities": [entity]
+              "entities": [originalEntity]
             };
 
             var liquidSave = this.$$("[name=attributeSaveDataService]");

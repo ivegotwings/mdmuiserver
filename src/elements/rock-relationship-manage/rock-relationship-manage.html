@@ -5,6 +5,7 @@
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="improt" href="../bedrock-helpers/data-helper.html">
+<link rel="improt" href="../bedrock-helpers/data-transform-helper.html">
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
@@ -173,20 +174,10 @@ It renders the list of attributes based on the specified relationship type.
 
                     this._prepareRequest();
                 },
-                //TODO: Improve this
-                _getCurrentCtx: function () {
-                    var contexts = {};
-                    //contexts.list = this.list;
-                    contexts.classification = "_ALL";
-                    return contexts;
-                },
                 _prepareRequest: function () {
-                    var contexts = this._getCurrentCtx();
-
                     this.requestObj = DataRequestHelper.createEntityGetRequest(this.contextData);
                 },
                 _initiateRelationshipModelRequest: function (relationshipType, relationshipAttributes) {
-                    var currContext = this._getCurrentCtx();
                     var liquidElement = document.createElement("liquid-entity-model-composite-get");
                     liquidElement.name = relationshipType;
 
@@ -212,13 +203,14 @@ It renders the list of attributes based on the specified relationship type.
                         var compositeModel = e.detail.response.content.entityModels[0];
 
                         if (relType && compositeModel && compositeModel.data) {
-                            var relationships = compositeModel.data.relationships;
+                            var relationships = DataTransformHelper.transformRelationshipModels(compositeModel, this.contextData);
 
                             if (relationships && relationships[relType]) {
                                 var rel = relationships[relType] && relationships[relType].length ? relationships[relType][0] : undefined;
 
                                 if (rel) {
                                     if (this._relConfig[relType]) {
+                                        this._relConfig[relType].selfContext = relationships[relType].selfContext;
                                         this._relConfig[relType].relatedEntityModel = {};
                                         this._relConfig[relType].relatedEntityModel.relatedEntityAttributeModels = {};
                                         this._relConfig[relType].relationshipAttributeModels = {};
@@ -237,7 +229,7 @@ It renders the list of attributes based on the specified relationship type.
                                             relData.data = {};
                                             relData.data.attributes = rel.attributes;
 
-                                            this._relConfig[relType].relationshipAttributeModels = DataHelper.transformAttributeModelsToUIFormat(relData, this._getCurrentCtx());;
+                                            this._relConfig[relType].relationshipAttributeModels = DataTransformHelper.transformAttributeModels(relData, this.contextData);;
                                         }
 
                                         if (this._relationshipTypeAndAttributes[relType]) {
@@ -278,7 +270,6 @@ It renders the list of attributes based on the specified relationship type.
                     }
                 },
                 _initiateAttributeModelRequest: function (relationshipType, relatedEntityContexts, relatedEntityAttributes) {
-                    var contexts = this._getCurrentCtx();
                     var liquidElement = document.createElement("liquid-entity-model-composite-get");
                     liquidElement.name = relationshipType;
 
@@ -286,6 +277,7 @@ It renders the list of attributes based on the specified relationship type.
 
                     var typesCriterion = [];
                     var contexts = [];
+                    var valContext = this.getFirstValueContext();
 
                     if (relatedEntityContexts) {
                         relatedEntityContexts.forEach(function (relContext) {
@@ -304,7 +296,7 @@ It renders the list of attributes based on the specified relationship type.
                         "params": {
                             "query": {
                                 "contexts": contexts,
-                                "locale": this.locale,
+                                "locale": valContext.locale,
                                 "ids": ids
                             },
                             "fields": {
@@ -322,11 +314,9 @@ It renders the list of attributes based on the specified relationship type.
                 },
                 _onRelatedEntityAttributeModelGetResponse: function (e) {
                     if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
-                        var contexts = this._getCurrentCtx();
-
                         var compositeModel = e.detail.response.content.entityModels[0];
                         var relType = e.currentTarget.name;
-                        var attributeModels = DataHelper.transformAttributeModelsToUIFormat(compositeModel, contexts);
+                        var attributeModels = DataTransformHelper.transformAttributeModels(compositeModel, this.contextData);
 
                         if (relType) {
                             if (this._relConfig[relType] && attributeModels) {
