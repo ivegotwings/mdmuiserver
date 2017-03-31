@@ -5,6 +5,7 @@
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-helpers/data-request-helper.html">
+<link rel="import" href="../bedrock-helpers/data-merge-helper.html">
 
 <link rel="import" href="../liquid-entity-govern-data-get/liquid-entity-govern-data-get.html">
 <link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
@@ -16,6 +17,7 @@
 <link rel="import" href="../pebble-image-viewer/pebble-image-viewer.html">
 <link rel="import" href="../pebble-textarea/pebble-textarea.html">
 <link rel="import" href="../pebble-accordion/pebble-accordion.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
 
 <dom-module id="rock-workflow-panel">
     <template>
@@ -106,14 +108,15 @@
                 float: left;
             }
         </style>
+        <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <liquid-rest id="entityStartWorkflow" url="/pass-through/entitygovernservice/startworkflow" method="POST" request-data={{_invokeWorkflowRequest}}
             last-response={{_invokeWorkflowResponse}} on-liquid-response="_onWfStartSuccess" on-liquid-error="_onWfStartFailure"></liquid-rest>
+        <liquid-entity-model-get id="getWorkflowMappingDefinition" operation="getbyids" request-id="req1" request-data={{workflowMappingDefinitionRequest}}
+            on-response="_onWfMappingsReceived" on-error="_onMappingsGetFailed"></liquid-entity-model-get>
         <liquid-entity-model-get id="entityGetWorkflowDefinition" operation="getbyids" request-id="req1" request-data={{workflowDefinitionRequest}}
             on-response="_onDefinitionReceived" on-error="_onDefinitionGetFailed"></liquid-entity-model-get>
         <liquid-entity-govern-data-get id="entityGetRunningInstance" no-cache operation="getbyids" request-id="req2" request-data={{runningInstanceRequest}}
             on-response="_onRunningInstanceReceived" on-error="_onRunningInstanceGetFailed"></liquid-entity-govern-data-get>
-        <!--<liquid-rest id="entityGetRunningInstance" url="/pass-through/entitygovernservice/get" method="POST" request-data={{runningInstanceRequest}}
-            on-liquid-response="_onRunningInstanceReceived" on-liquid-error="_onRunningInstanceGetFailed"></liquid-rest>-->
         <liquid-rest id="entityWfTransition" url="/pass-through/entitygovernservice/transitionWorkflow" method="POST" request-data={{_transitionRequest}}
             on-liquid-response="_onTransitionSuccess" on-liquid-error="_onTransitionFailure"></liquid-rest>
         <pebble-button id="invokeButton" hidden raised class="iconButton btn btn-outline-primary m-r-5" button-text="Start Workflow"
@@ -177,6 +180,12 @@
                         type: Array,
                         value: function () { return []; }
                     },
+                    workflowMappingDefinitionRequest: {
+                        type: Object,
+                        value: function() {
+                            return {};
+                        }
+                    },
                     /*
                     * Indicates the request to fetch the workflow definition based on workflowId.
                     */
@@ -206,6 +215,14 @@
                     _transitionRequest: {
                         type: Object,
                         value: function () { return {}; }
+                    },
+                    _mappedWorkflowNames: {
+                        type: Array,
+                        value: function () { return []; }
+                    },
+                    _loading: {
+                        type: Boolean,
+                        value: false
                     }
                 },
                 behaviors: [
@@ -217,15 +234,30 @@
                 },
                 _contextChanged: function (contextData) {
                     if (!_.isEmpty(this.contextData)) {
-                        var itemContext = this.getFirstItemContext();
-                        itemContext.workflowNames = this._getMappedWorkflowNames();
-                        
-                        this.runningInstanceRequest = DataRequestHelper.createWorkflowRuntimeInstanceGetRequest(this.contextData);
-                        this.$$('#entityGetRunningInstance').generateRequest();
+                        this.workflowMappingDefinitionRequest = DataRequestHelper.createWorkflowMappingGetRequest(this.contextData);
+                        this.$$('#getWorkflowMappingDefinition').generateRequest();
                     }
                 },
-                _getMappedWorkflowNames: function () {
-                    return ["newProductSetup", "webContentApproval"];
+                _onWfMappingsReceived: function(e) {
+                    var response = e.detail.response;
+                    if(response) {
+                        var mappingModels = response.content && response.content.entityModels ? response.content.entityModels: undefined;
+                        if(mappingModels && mappingModels.length > 0) {
+                            var wfDefinitionMappingModel = mappingModels.find(obj => obj.type == "workflowDefinitionMapping");
+                            var wfRelationships = DataMergeHelper.mergeWorkflowMappings(wfDefinitionMappingModel, this.contextData);
+                            var mappedWorkflowNames = DataHelper.getRelToNames(wfRelationships.hasWorkflowsDefined);
+                            this.set("_mappedWorkflowNames", mappedWorkflowNames);
+                            var itemContext = this.getFirstItemContext();
+                            itemContext.workflowNames = this._mappedWorkflowNames;
+                            
+                            this.runningInstanceRequest = DataRequestHelper.createWorkflowRuntimeInstanceGetRequest(this.contextData);
+                            this.$$('#entityGetRunningInstance').generateRequest();
+                        }
+                    }
+                },
+                _onMappingsGetFailed: function(e) {
+                    console.warn("Failed to get workflow mappings with error: ", e.detail);
+                    this.showErrorToast("Failed to get workflow mappings. Please contact administrator.");
                 },
                 _onRunningInstanceReceived: function (e) {
                     var showInvokeButton = true;
@@ -249,7 +281,7 @@
                                 //Need to do below hack as data are coming directly in entity.data.attributes instead of context...once RDF is fixed, we need to remove below section
                                 //HACK::START
                                 var dataAttributes = runtimeInstanceEntity.data.attributes;
-                                var workflowName = this._getMappedWorkflowNames()[0];
+                                var workflowName = this._mappedWorkflowNames[0];
                                 var selfContext = {'context': {'workflow': workflowName}, 'attributes': dataAttributes };
                                 contexts.push(selfContext);
                                 //HACK::END
@@ -290,7 +322,8 @@
                     this._showInvokeButton(showInvokeButton);
                 },
                 _onRunningInstanceGetFailed: function (e) {
-                    Polymer.Base._error('running instance get failed with error ', e.detail);
+                    console.warn("Failed to get workflow status with error: ", e.detail);
+                    this.showErrorToast("Failed to get workflow status. Please contact administrator.");
                 },
                 _onDefinitionReceived: function (e) {
                     var workflowDefinitionResponse = e.detail.response;
@@ -304,11 +337,6 @@
                             if (entityModel.data && entityModel.data.attributes) {
                                 
                                 var wfAttributes = entityModel.data.attributes.workflows.group[0]; 
-                                
-                                //This is hack to work with RDF...eventually data would be directly under group[0] and not inside group[0].atttributes
-                                if(wfAttributes.attributes) {
-                                    wfAttributes = wfAttributes.attributes; 
-                                }
 
                                 var riAttributes = this._runningInstances[workflowName].attributes;
 
@@ -320,6 +348,7 @@
 
                         this.set("_workflowsData", workflowData);
                         this.$$("#workflowsTemplate").render();
+                        //this._loading = false;
                     }
                 },
                 _onDefinitionGetFailed: function (e) {
@@ -343,21 +372,11 @@
                         var activitiesJson = wfActivities;
                         var riActivity = riActivities.group[0];
 
-                         //This is hack to work with RDF...eventually data would be directly under group[0] and not inside group[0].atttributes
-                        if(riActivity.attributes) {
-                            riActivity = riActivity.attributes;
-                        }
-
                         var riActivityGuid = AttributeHelper.getFirstAttributeValue(riActivity.activityGuid);
                         var riActivityStatus = AttributeHelper.getFirstAttributeValue(riActivity.status);
 
                         for (var i = 0; i < activitiesJson.group.length; i++) {
                             var wfActivity = activitiesJson.group[i];
-
-                            //This is hack to work with RDF...eventually data would be directly under group[0] and not inside group[0].atttributes
-                            if(wfActivity.attributes) {
-                                wfActivity = wfActivity.attributes;
-                            }
 
                             var wfActivityGuid = AttributeHelper.getFirstAttributeValue(wfActivity.activityGuid);
                             if (riActivityGuid == wfActivityGuid) {
@@ -366,11 +385,6 @@
                                 riActivity["activityDescription"] = wfActivity["activityDescription"];
                                 
                                 riActivity["actions"] = wfActivity["actions"];
-
-                                //This is hack to work with RDF...eventually data would be directly under group[0] and not inside group[0].atttributes
-                                if(riActivity["actions"].attributes) {
-                                    riActivity["actions"] = riActivity["actions"].attributes;
-                                }
                                 
                                 activitiesJson.group[i] = riActivity;
                                 break;
@@ -407,20 +421,10 @@
                                 var k = activities.group.length - 1;
                                 var group = activities.group[k - i];
                                
-                                //This is hack to work with RDF...eventually data would be directly under group[0] and not inside group[0].atttributes
-                                if(group.attributes) {
-                                    group = group.attributes; 
-                                }
-                                
                                 var actions = [];
                                 if (group && group.actions && group.actions.group && group.actions.group.length) {
                                     for (var j = 0; j < group.actions.group.length; j++) {
                                         var actionsGroup = group.actions.group[j];
-                                       
-                                       //This is hack to work with RDF...eventually data would be directly under group[0] and not inside group[0].atttributes
-                                        if(actionsGroup.attributes) {
-                                            actionsGroup = actionsGroup.attributes; 
-                                        }
 
                                         var action = {
                                             "action": AttributeHelper.getFirstAttributeValue(actionsGroup.actionText),
@@ -522,17 +526,20 @@
 
                     this.set("_transitionRequest", workflowTransitionRequestDataJson);
                     this.$$("#entityWfTransition").generateRequest();
+                    //this._loading = true;
                 },
                 _onTransitionSuccess: function (e) {
                     var response = e.detail.response;
                     if (response) {
                         this.async(function () {
+                            this.showSuccessToast("Workflow action completed succesfully.");
                             this.$$('#entityGetRunningInstance').generateRequest();
                         }, 6000)
                     }
                 },
                 _onTransitionFailure: function (e) {
-                    Polymer.Base._error('workflow transition failed with error ', e.detail);
+                    console.warn("Failed to perform the workflow transition with error: ", e.detail);
+                    this.showErrorToast("Failed to perform the workflow transition. Please contact administrator.");
                 },
                 _getItemStatus: function (stepStatus, wfStatus) {
                     var status = AttributeHelper.getFirstAttributeValue(stepStatus);
@@ -545,6 +552,9 @@
                         }
                         else if (status == "Executing") {
                             return "inprogress";
+                        }
+                        else if (status == "Faulted") {
+                            return "failed";
                         }
                     }
                     else {
@@ -566,7 +576,7 @@
                     }
                 },
                 _onInvokeWorkflow: function () {
-                    var firstWorkflowName = this._getMappedWorkflowNames()[0]; //TODO:: Ehance invoke button to pass workflow name in event..
+                    var firstWorkflowName = this._mappedWorkflowNames[0]; //TODO:: Ehance invoke button to pass workflow name in event..
                     
                     var firstItemContext = this.getFirstItemContext();
 
@@ -578,6 +588,7 @@
 
                     this.set("_invokeWorkflowRequest", invokeWorkflowRequest);
                     this.$$("#entityStartWorkflow").generateRequest();
+                    //this._loading = true;
                 },
                 _onWfStartSuccess: function (e) {
                     var response = e.detail.response;
@@ -588,10 +599,11 @@
                     }
                 },
                 _onWfStartFailure: function (e) {
-                    Polymer.Base._error('starting workflow failed with error ', e.detail);
+                    console.warn("Failed to start the workflow with error: ", e.detail);
+                    this.showErrorToast("Failed to start the workflow. Please contact administrator.");
                 },
                 _userHasImage: function () {
-                    //To DO: functionality to get assigned user of item, get user preferences what to show in
+                    //ToDO: functionality to get assigned user of item, get user preferences what to show in
                     // step badge and get details of the content to be shown.
                 },
                 _getItemFullDetails: function (stepItem, workflowAttributes, actions) {
@@ -600,10 +612,6 @@
                         var currentActivity;
                         for (var i = 0; i < workflowAttributes.activities.group.length; i++) {
                             var group = workflowAttributes.activities.group[i];
-                             //This is hack to work with RDF...eventually data would be directly under group[0] and not inside group[0].atttributes
-                            if(group.attributes) {
-                                group = group.attributes; 
-                            }
                             
                             var activityId = AttributeHelper.getFirstAttributeValue(group.activityGuid);
                             if (activityId && activityId == stepItem.id) {
@@ -641,6 +649,9 @@
                     var itemDetail = "";
                     if (status == "inprogress") {
                         itemDetail = "  was assigned task on " + this._formatDate(startDate) + " and should complete by " + this._getSLADate(startDate, 21) + " to follow SLA of 21 Days.";
+                    }
+                    if (status == "failed") {
+                        itemDetail = "  was failed due to technical reason.";
                     }
                     if (status == "completed") {
                         itemDetail = " completed step just a while ago."
