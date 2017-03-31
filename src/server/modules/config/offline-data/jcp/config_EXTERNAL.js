@@ -674,7 +674,7 @@ var allConfigs = {
                                             "list": "productMaster",
                                             "mode": "view",
                                             "no-of-columns": 1,
-                                            "context": {
+                                            "config-context": {
                                                 "groupName": "Core Attributes",
                                                 "attributeNames": [
                                                     "displayname",
@@ -1306,7 +1306,6 @@ var allConfigs = {
                             },
                             "menuItems": [{
                                 "name": "coreAttributes",
-                                "icon": "icons:add-box",
                                 "title": "Core Attributes",
                                 "component": {
                                     "name": "rock-attribute-split-screen",
@@ -1337,7 +1336,6 @@ var allConfigs = {
                             {
                                 "name": "buying",
                                 "title": "Buying Attributes",
-                                "icon": "icons:add-box",
                                 "component": {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
@@ -1371,7 +1369,6 @@ var allConfigs = {
                             {
                                 "name": "selling",
                                 "title": "Selling Attributes",
-                                "icon": "icons:add-box",
                                 "component": {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
@@ -1415,7 +1412,6 @@ var allConfigs = {
                             {
                                 "name": "merchPlanning",
                                 "title": "Merch Planning",
-                                "icon": "icons:add-box",
                                 "component": {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
@@ -1453,7 +1449,6 @@ var allConfigs = {
                             {
                                 "name": "seoAttributes",
                                 "title": "SEO Attributes",
-                                "icon": "icons:add-box",
                                 "component": {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
@@ -1484,7 +1479,6 @@ var allConfigs = {
                             {
                                 "name": "copy",
                                 "title": "Copy and Description",
-                                "icon": "icons:add-box",
                                 "component": {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
@@ -1526,7 +1520,6 @@ var allConfigs = {
                             "menuItems": [{
                                 "name": "isChildOf",
                                 "title": "Variants",
-                                "icon": "icons:cloud-upload",
                                 "component": {
                                     "name": "rock-relationship-split-screen",
                                     "path": "/src/elements/rock-relationship-split-screen/rock-relationship-split-screen.html",
@@ -1548,7 +1541,6 @@ var allConfigs = {
                             {
                                 "name": "productPresentationToLot",
                                 "title": "Lots",
-                                "icon": "icons:cloud-upload",
                                 "component": {
                                     "name": "rock-relationship-split-screen",
                                     "path": "/src/elements/rock-relationship-split-screen/rock-relationship-split-screen.html",
@@ -1579,16 +1571,16 @@ var allConfigs = {
                                 "properties": {}
                             }
                         },
-                            {
-                                "name": "entity-family",
-                                "title": "Entity Family",
-                                "enableDropdownMenu": false,
-                                "component": {
-                                    "name": "rock-entity-variant",
-                                    "path": "/src/elements/rock-entity-variant/rock-entity-variant.html",
-                                    "properties": {}
-                                }
+                        {
+                            "name": "entity-family",
+                            "title": "Entity Family",
+                            "enableDropdownMenu": false,
+                            "component": {
+                                "name": "rock-entity-variant",
+                                "path": "/src/elements/rock-entity-variant/rock-entity-variant.html",
+                                "properties": {}
                             }
+                        }
                         ]
                     }
                 },
@@ -1737,33 +1729,33 @@ var allConfigs = {
                         "variantDefinitionUI": {
                             "name": "ehd1",
                             "levels": [{
-                                    "entityType": "sku",
-                                    "index": 1,
-                                    "optional": false,
-                                    "dimensionAttributes": [{
-                                            "sourceAttribute": "color",
-                                            "targetAttribute": "color",
-                                            "optional": false
-                                        },
-                                        {
-                                            "sourceAttribute": "size",
-                                            "targetAttribute": "size",
-                                            "optional": true
-                                        }
-                                    ]
+                                "entityType": "sku",
+                                "index": 1,
+                                "optional": false,
+                                "dimensionAttributes": [{
+                                    "sourceAttribute": "color",
+                                    "targetAttribute": "color",
+                                    "optional": false
+                                },
+                                {
+                                    "sourceAttribute": "size",
+                                    "targetAttribute": "size",
+                                    "optional": true
                                 }
+                                ]
+                            }
                             ]
-                        },"businessFunctionVariantsCreate": {
+                        }, "businessFunctionVariantsCreate": {
                             "stepperConfig": [{
                                 "index": "1",
                                 "title": "Option Selection",
                                 "status": "inprogress"
                             },
-                                {
-                                    "index": "2",
-                                    "title": "Create Variants",
-                                    "status": ""
-                                }
+                            {
+                                "index": "2",
+                                "title": "Create Variants",
+                                "status": ""
+                            }
                             ],
                             "name": "create-variants",
                             "label": "Create Variants",
@@ -1778,17 +1770,17 @@ var allConfigs = {
                                 "nextEvent": "onSave",
                                 "skipEvent": "onCancel"
                             },
-                                {
-                                    "name": "step-2-create-variants",
-                                    "label": "Create variants for a given entity",
-                                    "component": {
-                                        "name": "rock-variants-create-grid",
-                                        "path": "/../../src/elements/rock-variants-create-grid/rock-variants-create-grid.html",
-                                        "properties": {}
-                                    },
-                                    "nextEvent": "onComplete",
-                                    "skipEvent": "onCancel"
-                                }
+                            {
+                                "name": "step-2-create-variants",
+                                "label": "Create variants for a given entity",
+                                "component": {
+                                    "name": "rock-variants-create-grid",
+                                    "path": "/../../src/elements/rock-variants-create-grid/rock-variants-create-grid.html",
+                                    "properties": {}
+                                },
+                                "nextEvent": "onComplete",
+                                "skipEvent": "onCancel"
+                            }
                             ]
                         },
                         "rock-variants-create-grid": {
@@ -3060,29 +3052,76 @@ var allConfigs = {
     },
     {
         "name": "user-store",
-        "contexts": [{
-            "tenant": "jcp",
-            "ctx": {
-                "list": ""
-            },
-            "security": {
-                "user": "",
-                "role": ""
-            },
-            "components": {
-                "user-config": {
-                    "config": {
-                        "users": [
-                            {
-                                "userName": "jcp",
-                                "password": "jcp",
-                                "roles": "vendor"
-                            }
-                        ]
+        "contexts": [
+            {
+                "tenant": "jcp",
+                "ctx": {
+                    "list": ""
+                },
+                "security": {
+                    "user": "",
+                    "role": ""
+                },
+                "components": {
+                    "user-config": {
+                        "config": {
+                            "users": [
+                                {
+                                    "userName": "jcp",
+                                    "password": "jcp",
+                                    "roles": "vendor"
+                                },
+                                {
+                                    "userName": "admin1",
+                                    "password": "admin1",
+                                    "roles": "admin"
+                                },
+                                {
+                                    "userName": "vendor1",
+                                    "password": "vendor1",
+                                    "roles": "vendor"
+                                },
+                                {
+                                    "userName": "buyer1",
+                                    "password": "buyer1",
+                                    "roles": "buyer"
+                                },
+                                {
+                                    "userName": "assetEnrichment1",
+                                    "password": "assetEnrichment1",
+                                    "roles": "assetEnrichment"
+                                },
+                                {
+                                    "userName": "business1",
+                                    "password": "business1",
+                                    "roles": "business"
+                                },
+                                {
+                                    "userName": "copywriter1",
+                                    "password": "copywriter1",
+                                    "roles": "copywriter"
+                                },
+                                {
+                                    "userName": "siteOps1",
+                                    "password": "siteOps1",
+                                    "roles": "siteOps"
+                                },
+                                {
+                                    "userName": "taxonomyTeam1",
+                                    "password": "taxonomyTeam1",
+                                    "roles": "taxonomyTeam"
+                                },
+                                {
+                                    "userName": "siteMerchandiser1",
+                                    "password": "siteMerchandiser1",
+                                    "roles": "siteMerchandiser"
+                                }
+                            ]
+                        }
                     }
                 }
             }
-        }]
+        ]
     }
     ]
 };
