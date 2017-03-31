@@ -107,9 +107,11 @@ function createGetRequest(reqData) {
     var contexts = sharedDataObjectFalcorUtil.createCtxItems(reqData.ctxKeys);
     var valContexts = sharedDataObjectFalcorUtil.createCtxItems(reqData.valCtxKeys);
 
-    var selfContext = {'self': 'self'};
-    contexts.push(selfContext);
-    
+     if(reqData.dataIndex != "entityGovernData") {
+         var selfContext = {'self': 'self'};
+         contexts.push(selfContext);
+     }
+
     var fields = {
         ctxTypes: ["properties"]
     };
@@ -186,7 +188,7 @@ async function getSingle(dataObjectId, reqData) {
 
     //console.log('req to api ', JSON.stringify(request));
     var res = await dataObjectManageService.get(request);
-    //console.log(JSON.stringify(res, null, 4));
+    //console.log('get res from api', JSON.stringify(res, null, 4));
 
     var basePath = [pathKeys.root, reqData.dataIndex];
     var dataObject;
