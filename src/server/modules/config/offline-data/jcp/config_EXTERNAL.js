@@ -170,14 +170,14 @@ var allConfigs = {
                         "name": "dashboard",
                         "title": "User Dashboard",
                         "data_route": "dashboard",
-                        "icon": "pebble-icons:Dashboard",
+                        "icon": "pebble-lg-icons:Userdashboard",
                         "isLandingPage": true
                     },
                     {
                         "name": "entity-discovery",
                         "title": "Entity Search & Refine",
                         "data_route": "entity-discovery",
-                        "icon": "pebble-icons:SearchDb"
+                        "icon": "pebble-lg-icons:SearchDb"
                     },
                     {
                         "name": "divider"
@@ -192,7 +192,7 @@ var allConfigs = {
                         "name": "integrationManage",
                         "title": "Manage Integrations",
                         "data_route": "manage-integration",
-                        "icon": "pebble-icons:IntegrationDb"
+                        "icon": "pebble-lg-icons:InegrationDb"
                     },
                     {
                         "name": "divider"
@@ -201,7 +201,7 @@ var allConfigs = {
                         "name": "appStore",
                         "title": "App Store",
                         "data_route": "app-store",
-                        "icon": "pebble-icons:AppDb"
+                        "icon": "pebble-lg-icons:AppDb"
                     }
                     ]
                 },
@@ -233,7 +233,7 @@ var allConfigs = {
                     "config": [{
                         "id": "channel",
                         "title": "Channel",
-                        "icon": "pebble-lg-icons:Source",
+                        "icon": "pebble-lg-icons:Master",
                         "visible": true,
                         "dataRequestType": "entity",
                         "dataRequest": {
@@ -812,7 +812,7 @@ var allConfigs = {
                     "config": [{
                         "id": "channel",
                         "title": "Channel",
-                        "icon": "pebble-lg-icons:Source",
+                        "icon": "pebble-lg-icons:Master",
                         "visible": true,
                         "dataRequestType": "entity",
                         "dataRequest": {
