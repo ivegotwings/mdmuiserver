@@ -74,10 +74,12 @@
         </style>
         <pebble-accordion header-text="Entity Family" default-icon="expand-less" open-icon="expand-more">
             <div class="container" id="entity-variant-container">
-                <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-response="_onCompositeModelGetResponse" exclude-in-progress></liquid-entity-model-composite-get>
+                <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{_attributeModelRequest}}"
+                                                   on-entity-model-composite-get-response = "_onCompositeModelGetResponse">
+                </liquid-entity-model-composite-get>
                 <liquid-config-get auto id="getManageAppConfig" operation="getconfigs" request-id="getManageAppConfig" request-data="{{_configRequest}}"
                                 last-response="{{applicationConfig}}"></liquid-config-get>
-                <liquid-entity-data-get auto id="getTreeData" operation="getbyids" request-data="[[_getTreeRequest(entityId,entityType)]]" last-response="{{remoteTreeData}}">
+                <liquid-entity-data-get  id="getTreeData" operation="getbyids"  last-response="{{remoteTreeData}}">
                 </liquid-entity-data-get>
                 <liquid-entity-data-get id="getChildrenData" operation="getbyids" last-response="{{childrenData}}" on-response="_populateChildrenData">
                 </liquid-entity-data-get>
@@ -91,13 +93,11 @@
                     <pebble-button class="btn btn-primary m-r-10 m-t-10 pull-right" button-text="Variant Configurator" on-tap="_openVariantDialog"></pebble-button>
                     <rock-business-function-dialog id="bFDialog" config="{{getConfig('rock-entity-variant', '', 'businessFunctionVariantsCreate', 'app-entity-manage')}}"></rock-business-function-dialog>
                     <div class="grid-container">
-                        <template is="dom-if" if="[[_gridRequestAdded(gridRequest,gridConfig)]]">
-                        <entity-variant-grid-datasource id="gridSource" request="[[gridRequest]]" total-records="{{totalRecords}}" current-record-size="{{size}}"
-                            data-source="{{dataSource}}" data-formatter="{{dataFormatter}}"></entity-variant-grid-datasource>
-                        <rock-grid id="grid" data-source="{{dataSource}}" data-source-id="gridSource" config="{{getConfig('rock-entity-variant', '', 'variantGridConfig', 'app-entity-manage')}}"
+                        <entity-variant-grid-datasource id="gridSource" request="[[gridRequest]]" data-source="{{dataSource}}" total-records="{{totalRecords}}" current-record-size="{{size}}"
+                             data-formatter="{{dataFormatter}}"></entity-variant-grid-datasource>
+                        <rock-grid id="grid" data-source="{{dataSource}}" data-source-id="gridSource" config="{{gridConfig}}"
                             page-size="15" record-size="{{totalRecords}}" grid-data-size="{{size}}" attribute-models="[[_attributeModels]]"></rock-grid>
                         <bedrock-pubsub event-name="grid-edit-item" handler="_onGridEdit" target-id="grid"></bedrock-pubsub>
-                        </template>
                     </div>
                     <div class="action-container" hidden="[[!isEditMode]]">
                         <pebble-button class="pageRange btn btn-secondary" button-text="Cancel" on-tap="_cancelAction" noink raised></pebble-button>
@@ -121,37 +121,6 @@
                      * Indicates the identification of the entity for which the variants are shown.
                      */
                     entityId: {
-                        type: String
-                    },
-                    /**
-                     * Indicates the identification of the entity type for which the variants are shown.
-                     */
-                    entityType: {
-                        type: String
-                    },
-                    /**
-                     * Indicates the locale dimension for which the attributes are managed.
-                     */
-                    locale: {
-                        type: String
-                    },
-                    /**
-                     * Indictaes the list for which the attributes are managed.
-                     */
-                    list: {
-                        type: String
-                    },
-                    /**
-                     * Indictaes the classification for which the attributes are managed.
-                     */
-                    classification: {
-                        type: String,
-                        value: "_ALL"
-                    },
-                    /**
-                     * Indictaes the source dimension for which the attributes are managed.
-                     */
-                    source: {
                         type: String
                     },
                     /**
@@ -214,7 +183,7 @@
                     /**
                      * Indicates the request object that is passed to the data element to retrive the attribute model data.
                      */
-                    attributeModelRequest: {
+                    _attributeModelRequest: {
                         type: Object,
                         value: function () {
                             return {};
@@ -251,76 +220,36 @@
                             };
                         },
                         notify: true
-                    }
+                    },
+                    contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
                 },
                 behaviors: [
                     RUFBehaviors.UIBehavior
                 ],
                 observers: [
-                    '_onGridConfigChange(gridConfig,entityType)',
-                    '_editModeChanged(gridConfig.mode)'
+                    '_onGridConfigChange(gridConfig)',
+                    '_editModeChanged(gridConfig.mode)',
+                    '_contextChanged(contextData)',
                 ],
                 listeners: {
                     'tree-node-expanded': '_treeNodeExpanded'
                 },
-                _getCtx:function () {
-                    var ctx={};
-                    if(this.classification){
-                        ctx["classification"]=this.classification;
+                _contextChanged:function (contextData) {
+                    if(_.isEmpty(this.contextData) ) {
+                        return;
                     }
-                    if(this.list){
-                        ctx["list"]=this.list;
-                    }
-                    return ctx;
-                },
-                _getValCtx:function () {
-                    var valCtx={};
-                    if(this.locale){
-                        valCtx["locale"]=this.locale;
-                    }
-                    if(this.source){
-                        valCtx["source"]=this.source;
-                    }
-                    return valCtx;
+                    var treeGet=this.$.getTreeData;
+                    treeGet.requestData=this._getTreeRequest();
+                    treeGet.generateRequest();
                 },
                 _getTreeRequest: function () {
-                    var ctx=this._getCtx();
-                    var valCtx=this._getValCtx();
-                    var req = {
-                        "params": {
-                            "query": {
-                                "contexts": [
-                                   ctx
-                                ],
-                                "valueContexts": [
-                                    valCtx
-                                ],
-                                "id": this.entityId,
-                                "filters": {
-                                    "attributesCriterion": [],
-                                    "typesCriterion": [
-                                        this.entityType
-                                    ]
-                                }
-                            },
-                            "fields": {
-                                "ctxTypes": [
-                                    "properties"
-                                ],
-                                relationships: [
-                                    "isChildOf"
-                                ],
-                                relatedEntityAttributes: [
-                                    "cpimProductName", "name"
-                                ]
-
-                            },
-                            "options": {
-                                "from": 0,
-                                "to": 9
-                            }
-                        }
-                    };
+                    var req= DataRequestHelper.createEntityGetRequest(this.contextData);
+                    req.params.fields.relationships=["isChildOf"];
                     return req;
                 },
                 _getDefaultChildDepth: function () {
@@ -336,59 +265,34 @@
                 },
 
                 _getGridRequest: function () {
-                    if (!this.gridConfig) {
+                    if (!this.gridConfig || _.isEmpty(this.contextData) || !this.gridConfig.dataRequest) {
                         return;
                     }
-                    var ctx=this._getCtx();
-                    var valCtx=this._getValCtx();
-                    var req = {
-                        "params": {
-                            "query": {
-                                "contexts": [
-                                   ctx
-                                ],
-                                "valueContexts": [
-                                    valCtx
-                                ],
-                                "ids": [],
-                                "filters": {
-                                    "attributesCriterion": [],
-                                    "typesCriterion": []
-                                }
-                            },
-                            "fields": {
-                                "ctxTypes": [
-                                    "properties"
-                                ],
-                                "attributes": []
-                            },
-                            "options": {
-                                "from": 0,
-                                "to": 9
-                            }
-                        }
-                    };
-
+                    var contextData=DataHelper.cloneObject(this.contextData);
+                    var attributeNames=this.gridConfig.dataRequest.attributes;
+                    var itemContexts = [];
                     if (this.selectedItems && this.selectedItems.length > 0) {
-                        req.params.query.ids = [];
                         this.selectedItems.forEach(function (item) {
-                            req.params.query.ids.push(item.value);
-                            req.params.query.filters.typesCriterion.push(item.type);
+                            var itemContext = {
+                                'type': item.type,
+                                'id':item.value
+                            };
+                            itemContext.attributeNames = attributeNames;
+                            itemContexts.push(itemContext);
                         });
                     }
                     if (this.indeterminateItems && this.indeterminateItems.length > 0) {
                         this.indeterminateItems.forEach(function (item) {
-                            req.params.query.ids.push(item.value);
-                            req.params.query.filters.typesCriterion.push(item.type);
+                            var itemContext = {
+                                'type': item.type,
+                                'id':item.value
+                            };
+                            itemContext.attributeNames = attributeNames;
+                            itemContexts.push(itemContext);
                         });
                     }
-                    if (req.params.query.ids.length == 0) {
-                        req.params.query.ids = [""];
-                    }
-                    req.params.fields.attributes=this.gridConfig.dataRequest.attributes;
-//                    this.gridConfig.tabular.columns.forEach(function (column) {
-//                        req.params.fields.attributes.push(column.name);
-//                    });
+                    contextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
+                    var req= DataRequestHelper.createEntityGetRequest(contextData);
                     return req;
                 },
                 _selectedItemsChanged: function () {
@@ -411,31 +315,22 @@
                 },
 
                 _saveAction: function (e) {
-                    var entities = [];
+                    var entities=[];
                     for (var i = 0; i < this.editableItems.length; i++) {
-                        var entity=DataHelper.cloneObject(this.editableItems[i]);
-                        delete entity.errors;
-                        delete entity.index;
-                        var attrs={};
+                        var entity=this.editableItems[i];
+                        var attrs=[];
                         for(var key in entity.attributes){
-                            delete entity.attributes[key]._originalValue;
-                            attrs[key]={"values" : [entity.attributes[key]]};
+                            attrs.push(entity.attributes[key]);
                         }
-                        var ctx=this._getCtx();
-                        entity.data={
-                            ctxInfo: [{
-                                "ctxGroup": ctx,
-                                "attributes": attrs
-                            }]
-                        };
-                        delete entity.attributes;
-                        delete entity.entityType;
-                        delete entity._rowStatus;
-                        entities.push(entity);
+                        var originalEntity = this._entities.find(function (ent) {
+                            return ent.id==entity.id;
+                        });
+                        var newEntity = DataTransformHelper.prepareEntityForAttributesSave(originalEntity, attrs, this.contextData);
+                        entities.push(newEntity);
                     }
                     var attributeSaveDataService = this.$$('[name="attributeSaveDataService"]');
-                    attributeSaveDataService.requestData = { "entities": entities };
                     if (attributeSaveDataService) {
+                        attributeSaveDataService.requestData = { "entities": entities};
                         attributeSaveDataService.generateRequest();
                     }
                 },
@@ -463,67 +358,27 @@
                     this.isEditMode = true;
                 },
                 _getChildren: function (id, type) {
-                    var ctx=this._getCtx();
-                    var valCtx=this._getValCtx();
-                    var req = {
-                        "params": {
-                            "query": {
-                                "contexts": [
-                                    ctx
-                                ],
-                                "valueContexts": [
-                                    valCtx
-                                ],
-                                "id": id,
-                                "filters": {
-                                    "attributesCriterion": [],
-                                    "typesCriterion": [
-                                        type
-                                    ]
-                                }
-                            },
-                            "fields": {
-                                "ctxTypes": [
-                                    "properties"
-                                ],
-                                relationships: [
-                                    "isChildOf"
-                                ],
-                                relatedEntityAttributes: [
-
-                                ]
-                            },
-                            "options": {
-                                "from": 0,
-                                "to": 9
-                            }
-                        }
-                    };
+                    var contextData=DataHelper.cloneObject(this.contextData);
+                    contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [{"id":id,"type":type,attributeNames:[]}];
+                    var req= DataRequestHelper.createEntityGetRequest(contextData);
+                    req.params.fields.relationships=["isChildOf"];
                     this.$.getChildrenData.requestData = req;
                     this.$.getChildrenData.generateRequest();
                 },
                 _getRelatedEntitiesData: function (entity) {
                     var data = [];
-                    var dataContext = {
-                        "list": this.list,
-                        "classification": this.classification,
-                        "source": this.source,
-                        "time": "now",
-                        "locale": this.locale
-                    };
-                    if (entity && entity.data && entity.data.contexts) {
-                        var contexts = DataHelper.prepareCtx(dataContext);
-                        var relationshipsList;
-                        for (var i = 0; i < entity.data.contexts.length; i++) {
-                            var ctxData = entity.data.contexts[i];
-                            var compareResult = DataObjectFalcorUtil.compareCtx(ctxData.context, contexts);
-                            if (compareResult) {
-                                relationshipsList = ctxData.relationships;
-                                break;
-                            }
+                    var relationships={};
+                    var ctxRelationships={};
+                    if (entity && entity.data) {
+                        if (entity.data.relationships) {
+                            relationships = entity.data.relationships;
                         }
-                        if (relationshipsList) {
-                            var isChildRelationshipEntities = relationshipsList["isChildOf"];
+                        if (entity.data.contexts && this.contextData.contexts && this.contextData.contexts.length) {
+                            ctxRelationships = SharedUtils.DataObjectFalcorUtil.getRelationshipsByCtx(entity, this.contextData.contexts[0]);
+                        }
+                        relationships=DataMergeHelper.mergeRelationships(relationships, ctxRelationships, true);
+                        if (relationships) {
+                            var isChildRelationshipEntities = relationships["isChildOf"];
                             if (isChildRelationshipEntities) {
                                 isChildRelationshipEntities.forEach(function (relationshipEntity) {
                                     var relatedEntity = {};
@@ -563,7 +418,7 @@
                             var entities = respData.content.entities;
                             var entity = entities[0];
                             var entityId = entity.id;
-                            treeData = [{ "text": entityId, "value": entityId,"type": this.entityType, children: [], "border":true }];
+                            treeData = [{ "text": entityId, "value": entityId,"type": entity.type, children: [], "border":true }];
                             var data = this._getRelatedEntitiesData(entity);
                             treeData[0].children = data;
                         }
@@ -573,98 +428,34 @@
                         this.push('selectedItems', treeData[0]);
                     }
                 },
-                _prepareContextGroups: function (lists) {
-                    if (lists && lists instanceof Array) {
-                        var contexts = [];
-
-                        for (var i = 0; i < lists.length; i++) {
-                            var ctxObject = new Object();
-                            ctxObject.list = lists[i].value;
-                            ctxObject.classification = "_ALL";
-                            contexts.push(ctxObject);
-                        }
-
-                        return contexts;
-                    }
-                },
-                _prepareValueContextGroups: function (sources, locales) {
-                    var valueContexts = [];
-
-                    if (sources && locales && sources instanceof Array && locales instanceof Array) {
-                        for (var i = 0; i < sources.length; i++) {
-                            for (var j = 0; j < locales.length; j++) {
-
-                                var valCtxObject = new Object();
-                                valCtxObject.source = sources[i].value;
-                                valCtxObject.locale = locales[j].value;
-                                valueContexts.push(valCtxObject);
-                            }
-                        }
-
-                        return valueContexts;
-                    }
-                }, _getAttributeFormattedData: function (data) {
-                    if (data && data.content) {
-                        var entities = data.content.entities;
-                        if (entities) {
-                            var dataContext = {
-                                "list": this.list,
-                                "classification": this.classification,
-                                "source": this.source,
-                                "time": "now",
-                                "locale": this.locale
-                            };
-
-                            DataHelper.transformEntitySchemaForGrid(entities, this._attributeModels, dataContext);
-                        }
-                    }
-                    
-                    return entities;
-                },
-                _gridRequestAdded: function () {
-                    if (this.gridConfig && this.gridRequest && !_.isEmpty(this.gridRequest)) {
-                        return true;
-                    }
-                    return false;
+                 _getAttributeFormattedData: function (data) {
+                     var formattedEntities = [];
+                     if (data && data.content) {
+                         var entities = data.content.entities;
+                         this._entities=DataHelper.cloneObject(entities);
+                         if (entities && entities.length > 0) {
+                             formattedEntities = DataTransformHelper.transformEntitiesToGridFormat(entities, this._attributeModels, this.contextData);
+                         }
+                     }
+                     return formattedEntities;
                 },
                 _openVariantDialog: function () {
-                    this.$$("#bFDialog").sharedData = {
-                        "list": this.list,
-                        "source": this.source,
-                        "locale": this.locale,
-                        "entity-id": this.entityId,
-                        "entity-type": this.entityType,
-                    };
+                    this.$$("#bFDialog").sharedData = {"context-data":this.contextData};
                     this.$$("#bFDialog").open();
                 },
                 _onGridConfigChange: function () {
-                    if (!(this.gridConfig && this.gridConfig.dataRequest)) {
+                    if (_.isEmpty(this.gridConfig)) {
                         return;
                     }
-                    var attrNames = this.gridConfig.dataRequest.attributes;
-                    var ctx=this._getCtx();
-                    var valCtx=this._getValCtx();
-                    var req = {
-                        "params": {
-                            "query": {
-                                "contexts": [
-                                    ctx
-                                ],
-                                filters:{
-                                    "typesCriterion":[this.entityType]
-                                },
-                                "locale": this.locale,
-                                "name": this.entityType
-                            },
-                            "fields": {
-                                "ctxTypes": [
-                                    "properties"
-                                ],
-                                "attributes": attrNames
-                            }
+
+                    var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+                    if(this.gridConfig.dataRequest) {
+                        var attrNames = this.gridConfig.dataRequest.attributes;
+                        if (attrNames && attrNames.length) {
+                            compositeModelGetRequest.params.fields.attributes = attrNames;
                         }
-                    };
-                    this.set("attributeModelRequest", req);
+                    }
+                    this.set("_attributeModelRequest", compositeModelGetRequest);
                     var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
                     if (liquidModelGet) {
                         liquidModelGet.generateRequest();
@@ -672,11 +463,7 @@
                 },
                 _onCompositeModelGetResponse: function (e) {
                     if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
-                        var contexts = {
-                            "list": this.list,
-                            "classification": this.classification
-                        };
-                        this._attributeModels = DataHelper.transformAttributeModelsToUIFormat(e.detail.response.content.entityModels[0], contexts);
+                        this._attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
                     }
                 }
             })
