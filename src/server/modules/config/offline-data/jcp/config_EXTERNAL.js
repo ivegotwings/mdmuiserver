@@ -325,8 +325,204 @@ var allConfigs = {
                 },
                 "rock-saved-searches": {
                     "config": {
-                        "favourites": [{
+                        "workflowSavedSearch": [{
                             "id": 1,
+                            "accesstype": "self",
+                            "name": "New SKUs to Submit",
+                            "workflowSearchCriterion": {
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "contexts": [
+                                                {
+                                                    "workflow": "newProductSetup"
+                                                }
+                                            ],
+                                            "filters": {
+                                                "attributesCriterion": [
+                                                    {
+                                                        "activities/activityName": {
+                                                            "eq": "New SKUs to Submit"
+                                                        }
+                                                    }
+                                                ],
+                                                "typesCriterion": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "id": 2,
+                            "accesstype": "self",
+                            "name": "Provide Additional Info",
+                            "workflowSearchCriterion": {
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "contexts": [
+                                                {
+                                                    "workflow": "newProductSetup"
+                                                }
+                                            ],
+                                            "filters": {
+                                                "attributesCriterion": [
+                                                    {
+                                                        "activities/activityName": {
+                                                            "eq": "Provide Additional Info"
+                                                        }
+                                                    }
+                                                ],
+                                                "typesCriterion": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "id": 3,
+                            "accesstype": "self",
+                            "name": "Rejected SKUs",
+                            "workflowSearchCriterion": {
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "contexts": [
+                                                {
+                                                    "workflow": "newProductSetup"
+                                                }
+                                            ],
+                                            "filters": {
+                                                "attributesCriterion": [
+                                                    {
+                                                        "activities/activityName": {
+                                                            "eq": "Rejected SKUs"
+                                                        }
+                                                    }
+                                                ],
+                                                "typesCriterion": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "id": 4,
+                            "accesstype": "self",
+                            "name": "Review Assortment",
+                            "workflowSearchCriterion": {
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "contexts": [
+                                                {
+                                                    "workflow": "newProductSetup"
+                                                }
+                                            ],
+                                            "filters": {
+                                                "attributesCriterion": [
+                                                    {
+                                                        "activities/activityName": {
+                                                            "eq": "Review Assortment"
+                                                        }
+                                                    }
+                                                ],
+                                                "typesCriterion": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "id": 5,
+                            "accesstype": "self",
+                            "name": "Assign Internal Information",
+                            "workflowSearchCriterion": {
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "contexts": [
+                                                {
+                                                    "workflow": "newProductSetup"
+                                                }
+                                            ],
+                                            "filters": {
+                                                "attributesCriterion": [
+                                                    {
+                                                        "activities/activityName": {
+                                                            "eq": "Assign Internal Information"
+                                                        }
+                                                    }
+                                                ],
+                                                "typesCriterion": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "id": 6,
+                            "accesstype": "self",
+                            "name": "Enrich Copy",
+                            "workflowSearchCriterion": {
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "contexts": [
+                                                {
+                                                    "workflow": "newProductSetup"
+                                                }
+                                            ],
+                                            "filters": {
+                                                "attributesCriterion": [
+                                                    {
+                                                        "activities/activityName": {
+                                                            "eq": "Enrich Copy"
+                                                        }
+                                                    }
+                                                ],
+                                                "typesCriterion": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "id": 7,
+                            "accesstype": "self",
+                            "name": "Enrich with Digital Assets",
+                            "workflowSearchCriterion": {
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "contexts": [
+                                                {
+                                                    "workflow": "newProductSetup"
+                                                }
+                                            ],
+                                            "filters": {
+                                                "attributesCriterion": [
+                                                    {
+                                                        "activities/activityName": {
+                                                            "eq": "Enrich with Digital Assets"
+                                                        }
+                                                    }
+                                                ],
+                                                "typesCriterion": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }],
+                        "favourites": [{
+                            "id": 8,
                             "accesstype": "self",
                             "name": "Womens Shoes",
                             "icon": "pebble-icons:SavedSearch",
@@ -344,10 +540,32 @@ var allConfigs = {
                                 "value": {
                                     "eq": "Womens"
                                 }
-                            }]
+                            }],
+                            "workflowSearchCriterion": {
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "contexts": [
+                                                {
+                                                    "workflow": "newProductSetup"
+                                                }
+                                            ],
+                                            "filters": {
+                                                "attributesCriterion": [
+                                                    {
+                                                        "activities/activityName": {
+                                                            "eq": "Review Assortment"
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }],
                         "my-searches": [{
-                            "id": 2,
+                            "id": 9,
                             "accesstype": "self",
                             "name": "Mens Shoes",
                             "icon": "pebble-icons:SavedSearch",
@@ -369,7 +587,7 @@ var allConfigs = {
                             }]
                         }],
                         "shared-searches": [{
-                            "id": 3,
+                            "id": 10,
                             "accesstype": "self",
                             "name": "Women's Sport Wear & Dresses",
                             "icon": "pebble-icons:SavedSearch",
@@ -2174,11 +2392,12 @@ var allConfigs = {
                 "my-todo-summary-list": {
                     "config": [{
                         "id": 1,
+                        "savedSearchId": 1,
                         "name": "New SKUs to Submit",
-                        "numberOfTasks": 1037,
+                        "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
-                        "unAssigned": 1007,
-                        "assignedToMe": 30,
+                        "unAssigned": "TBD",
+                        "assignedToMe": "TBD",
                         "status": "red",
                         "products": [{
                             "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
@@ -2226,11 +2445,12 @@ var allConfigs = {
                     },
                     {
                         "id": 2,
+                        "savedSearchId": 2,
                         "name": "Provide Additional Information",
-                        "numberOfTasks": 23,
+                        "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
-                        "unAssigned": 23,
-                        "assignedToMe": 0,
+                        "unAssigned": "TBD",
+                        "assignedToMe": "TBD",
                         "status": "red",
                         "products": [{
                             "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
@@ -2278,11 +2498,12 @@ var allConfigs = {
                     },
                     {
                         "id": 3,
+                        "savedSearchId": 3,
                         "name": "Rejected SKUs",
-                        "numberOfTasks": 26,
+                        "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
-                        "unAssigned": 25,
-                        "assignedToMe": 1,
+                        "unAssigned": "TBD",
+                        "assignedToMe": "TBD",
                         "status": "red",
                         "products": [{
                             "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
@@ -2302,11 +2523,12 @@ var allConfigs = {
                     },
                     {
                         "id": 4,
+                        "savedSearchId": 4,
                         "name": "Review Assortment",
-                        "numberOfTasks": 34,
+                        "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
-                        "unAssigned": 4,
-                        "assignedToMe": 30,
+                        "unAssigned": "TBD",
+                        "assignedToMe": "TBD",
                         "status": "orange",
                         "products": [{
                             "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
@@ -2326,11 +2548,12 @@ var allConfigs = {
                     },
                     {
                         "id": 5,
+                        "savedSearchId": 5,
                         "name": "Assign Internal Information",
-                        "numberOfTasks": 4,
+                        "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
-                        "unAssigned": 4,
-                        "assignedToMe": 0,
+                        "unAssigned": "TBD",
+                        "assignedToMe": "TBD",
                         "status": "orange",
                         "products": [{
                             "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
@@ -2378,11 +2601,12 @@ var allConfigs = {
                     },
                     {
                         "id": 6,
+                        "savedSearchId": 6,
                         "name": "Enrich Copy",
-                        "numberOfTasks": 6,
+                        "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
-                        "unAssigned": 4,
-                        "assignedToMe": 2,
+                        "unAssigned": "TBD",
+                        "assignedToMe": "TBD",
                         "status": "green",
                         "products": [{
                             "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
@@ -2430,11 +2654,12 @@ var allConfigs = {
                     },
                     {
                         "id": 7,
+                        "savedSearchId": 7,
                         "name": "Enrich with Digital Assets",
-                        "numberOfTasks": 74,
+                        "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
-                        "unAssigned": 43,
-                        "assignedToMe": 31,
+                        "unAssigned": "TBD",
+                        "assignedToMe": "TBD",
                         "status": "green",
                         "products": [{
                             "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",

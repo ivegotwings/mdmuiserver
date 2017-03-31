@@ -9,6 +9,7 @@
 
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+<link rel="import" href="../liquid-entity-govern-data-get/liquid-entity-govern-data-get.html">
 
 <link rel="import" href="../rock-grid/rock-grid.html">
 <link rel="import" href="../rock-grid/entity-search-grid-datasource.html">
@@ -28,11 +29,14 @@ It filters the data as per filter criteria.
     </style>
     <template>
         <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
-        <entity-search-grid-datasource id="searchGrid" request="{{request}}" data-source="{{dataSource}}" data-formatter="{{dataFormatter}}"
-            current-record-size="{{size}}" total-records="{{totalRecords}}" total-count="{{totalCount}}"></entity-search-grid-datasource>
-        <rock-grid id="entityGrid" data-source="{{dataSource}}" data-source-id="searchGrid" record-size="{{totalRecords}}" config="{{gridConfig}}"
-            grid-data-size="{{size}}" attribute-models="{{attributeModels}}" page-size="[[pageSize]]" selected-item="{{selectedItem}}"
-            selected-items="{{selectedItems}}" total-count="{{totalCount}}"></rock-grid>
+        <liquid-entity-govern-data-get name="governDataGet" operation="initiatesearch" request-data="{{_governDataRequest}}" on-response="_onGovernDataResponse"></liquid-entity-govern-data-get>
+        <template is="dom-if" if="[[_isWorkflowRequest(_loadGrid, _loadWithoutWorkflow)]]">
+            <entity-search-grid-datasource id="searchGrid" request="{{request}}" data-source="{{dataSource}}" data-formatter="{{dataFormatter}}"
+                current-record-size="{{size}}" total-records="{{totalRecords}}" total-count="{{totalCount}}"></entity-search-grid-datasource>
+            <rock-grid id="entityGrid" data-source="{{dataSource}}" data-source-id="searchGrid" record-size="{{totalRecords}}" config="{{gridConfig}}"
+                grid-data-size="{{size}}" attribute-models="{{attributeModels}}" page-size="[[pageSize]]" selected-item="{{selectedItem}}"
+                selected-items="{{selectedItems}}" total-count="{{totalCount}}"></rock-grid>
+        </template>
     </template>
 
     <script>
@@ -51,7 +55,7 @@ It filters the data as per filter criteria.
                             return {};
                         }
                     },
-                    
+
                     contextData: {
                         type: Object,
                         value: function () {
@@ -119,6 +123,16 @@ It filters the data as per filter criteria.
                         observer: '_loadSearchResultsByQuery'
                     },
                     /**
+                     * Specifies the workflow criterion for search.
+                     */
+                    workflowCriterion: {
+                        type: Object,
+                        notify: true,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    /**
                      * Specifies the format of the data that are passed to the remote-data.
                      */
                     dataFormatter: {
@@ -171,7 +185,22 @@ It filters the data as per filter criteria.
                         type: Array,
                         value: [],
                         notify: true
-                    }
+                    },
+
+                    _governDataRequest: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    _loadGrid: {
+                        type: Boolean
+                    },
+
+                    _loadWithoutWorkflow: {
+                        type: Boolean
+                    },
                 },
 
                 behaviors: [
@@ -183,134 +212,9 @@ It filters the data as per filter criteria.
                     '_onGridConfigChange(gridConfig)'
                 ],
 
-                _onGridConfigChange: function (gridConfig) {
-                    var dataRequest = {};
 
-                    if (_.isEmpty(this.contextData) || _.isEmpty(this.gridConfig)) {
-                        return;
-                    }
-
-                    if (!this.gridConfig.dataRequest) {
-                        return;
-                    }
-
-                    var attributeNames = this.gridConfig.dataRequest.attributes;
-                    var typesCriterion = this.gridConfig.dataRequest.typesCriterion;
-                    var firstEntityType = undefined;
-
-                    if (typesCriterion && typesCriterion.length > 0) {
-                        firstEntityType = typesCriterion[0]; // TODO:: how to get attribute models for multiple entity types
-                    }
-
-                    this._updateItemContexts();
-                    this.set('gridConfig.dataContexts',this.contextData[ContextHelper.CONTEXT_TYPE_DATA]);
-                    this.set('gridConfig.valueContexts',this.contextData[ContextHelper.CONTEXT_TYPE_VALUE]);
-                    var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(
-                        this.contextData);
-
-                    this.set("attributeModelRequest", compositeModelGetRequest);
-                    var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
-                    if (liquidModelGet) {
-                        liquidModelGet.generateRequest();
-                    }
-                },
-
-                _onCompositeModelGetResponse: function (e) {
-                    if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
-                        this.attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response
-                            .content.entityModels[0], this.contextData);
-                        this.reloadGrid();
-                    }
-                },
-
-                _searchResultFiltersChanged: function (currentFilters) {
-                    this.set("request.params.query.filters", currentFilters);
-                },
-
-                _getAttributeFormattedData: function (data) {
-                    var dataArray = [];
-                    var formattedEntities = [];
-                    if (data && data.content) {
-                        var entities = data.content.entities;
-                        if (entities && entities.length > 0) {
-                            formattedEntities = DataTransformHelper.transformEntitiesToGridFormat(
-                                entities, this.attributeModels, this.contextData);
-                        }
-                    }
-
-                    return formattedEntities;
-                },
-
-                _loadSearchResultsByFilters: function () {
-                    var grid = Polymer.dom(this).node.$$('rock-grid');
-                    var dataSource = Polymer.dom(this).node.$$('entity-search-grid-datasource');
-
-                    if (dataSource && grid && this.searchFilters) {
-                        this.request.params.query.filters.attributesCriterion = this.searchFilters;
-                        dataSource.resetDataSource();
-                        grid.reRenderGrid();
-                    }
-                },
-
-                _loadSearchResultsByQuery: function () {
-                    var grid = Polymer.dom(this).node.$$('rock-grid');
-                    var dataSource = Polymer.dom(this).node.$$('entity-search-grid-datasource');
-
-                    if (dataSource && grid) {
-                        if (!this.request.params.query) {
-                            this.request.params.query = {};
-                        }
-
-                        if (!this.request.params.query.filters) {
-                            this.request.params.query.filters = {};
-                        }
-
-                        if (this.searchQuery && this.searchQuery != "") {
-                            this.request.params.query.filters.keywordsCriterion = {
-                                "keywords": this.searchQuery,
-                                "operator": "and"
-                            }
-                        } else {
-                            delete this.request.params.query.filters.keywordsCriterion;
-                        }
-
-                        dataSource.resetDataSource();
-                        grid.reRenderGrid();
-                    }
-                },
-
-                _getEntityGrid: function () {
-                    return ElementHelper.getElement(this, "#entityGrid");
-                },
                 refresh: function () {
                     this._onGridConfigChange(this.gridConfig, this.contextData);
-
-                },
-                _updateItemContexts:function () {
-                    var itemContexts=[];
-                    if (!this.gridConfig.dataRequest) {
-                        return;
-                    }
-                    var attributeNames = this.gridConfig.dataRequest.attributes;
-                    for(var i in this.gridConfig.dataRequest.typesCriterion) {
-                        var itemContext = {};
-                        itemContext.attributeNames = attributeNames;
-                        itemContext.type = this.gridConfig.dataRequest.typesCriterion[i];
-                        itemContexts.push(itemContext);
-                    }
-                    this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
-                },
-                /**
-                 * Can be used to reload the grid.
-                 */
-                reloadGrid: function () {
-
-                    var dataSource = Polymer.dom(this).node.$$('entity-search-grid-datasource');
-                    if (this.dataSource) {
-                        this._updateItemContexts();
-                        this.request = DataRequestHelper.createEntityGetRequest(this.contextData);
-                        this._getEntityGrid().reRenderGrid();
-                    }
                 },
 
                 /**
@@ -369,7 +273,177 @@ It filters the data as per filter criteria.
                  */
                 getSelectedItemIndex: function () {
                     return this._getEntityGrid().getSelectedItemIndex();
+                },
+
+                /**
+                 * Can be used to reload the grid.
+                 */
+                reloadGrid: function () {
+                    if (!_.isEmpty(this.workflowCriterion)) {
+                        var governDataLiquid = this.$$("[name=governDataGet]");
+                        if (governDataLiquid) {
+                            var req = this.workflowCriterion.dataRequest;
+                            req.params.query.filters.typesCriterion = this.gridConfig.dataRequest.typesCriterion;
+                            req.params.options = { "from": 0, "to": 0 };
+
+                            this._governDataRequest = req;
+                            governDataLiquid.generateRequest();
+                        }
+                    } else {
+                        this._loadGrid = true;
+                        this._loadWithoutWorkflow = true;
+                        this._reloadGrid(undefined);
+                    }
+                },
+
+                _onGridConfigChange: function (gridConfig) {
+                    var dataRequest = {};
+
+                    if (_.isEmpty(this.contextData) || _.isEmpty(this.gridConfig)) {
+                        return;
+                    }
+
+                    if (!this.gridConfig.dataRequest) {
+                        return;
+                    }
+
+                    var attributeNames = this.gridConfig.dataRequest.attributes;
+                    var typesCriterion = this.gridConfig.dataRequest.typesCriterion;
+                    var firstEntityType = undefined;
+
+                    if (typesCriterion && typesCriterion.length > 0) {
+                        firstEntityType = typesCriterion[0]; // TODO:: how to get attribute models for multiple entity types
+                    }
+
+                    this._updateItemContexts();
+                    this.set('gridConfig.dataContexts',this.contextData[ContextHelper.CONTEXT_TYPE_DATA]);
+                    this.set('gridConfig.valueContexts',this.contextData[ContextHelper.CONTEXT_TYPE_VALUE]);
+                    var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(
+                        this.contextData);
+
+                    this.set("attributeModelRequest", compositeModelGetRequest);
+                    var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
+                    if (liquidModelGet) {
+                        liquidModelGet.generateRequest();
+                    }
+                },
+
+                _onCompositeModelGetResponse: function (e) {
+                    if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+                        this.attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response
+                            .content.entityModels[0], this.contextData);
+                        this.reloadGrid();
+                    }
+                },
+
+                _onGovernDataResponse: function (e) {
+                    var response = e.detail.response;
+                    var ids = [0];
+                    if (response) {
+                        if (response.content && response.content.items) {
+                            var items = response.content.items;
+                            if (items.length > 0) {
+                                ids = [...new Set(items.map((obj) => obj.id))];
+                            }
+                        }
+                    }
+                    this._loadWithoutWorkflow = undefined;
+                    this._loadWithoutWorkflow = false;
+                    this._loadGrid = true;
+                    this._reloadGrid(ids);
+                },
+
+                _searchResultFiltersChanged: function (currentFilters) {
+                    this.set("request.params.query.filters", currentFilters);
+                },
+
+                _getAttributeFormattedData: function (data) {
+                    var dataArray = [];
+                    var formattedEntities = [];
+                    if (data && data.content) {
+                        var entities = data.content.entities;
+                        if (entities && entities.length > 0) {
+                            formattedEntities = DataTransformHelper.transformEntitiesToGridFormat(
+                                entities, this.attributeModels, this.contextData);
+                        }
+                    }
+
+                    return formattedEntities;
+                },
+
+                _loadSearchResultsByFilters: function () {
+                    var grid = Polymer.dom(this).node.$$('rock-grid');
+                    var dataSource = Polymer.dom(this).node.$$('entity-search-grid-datasource');
+
+                    if (dataSource && grid && this.searchFilters) {
+                        this.request.params.query.filters.attributesCriterion = this.searchFilters;
+                        dataSource.resetDataSource();
+                        grid.reRenderGrid();
+                    }
+                },
+
+                _loadSearchResultsByQuery: function () {
+                    var grid = Polymer.dom(this).node.$$('rock-grid');
+                    var dataSource = Polymer.dom(this).node.$$('entity-search-grid-datasource');
+
+                    if (dataSource && grid) {
+                        if (!this.request.params.query) {
+                            this.request.params.query = {};
+                        }
+
+                        if (!this.request.params.query.filters) {
+                            this.request.params.query.filters = {};
+                        }
+
+                        if (this.searchQuery && this.searchQuery != "") {
+                            this.request.params.query.filters.keywordsCriterion = {
+                                "keywords": this.searchQuery,
+                                "operator": "and"
+                            }
+                        } else {
+                            delete this.request.params.query.filters.keywordsCriterion;
+                        }
+
+                        dataSource.resetDataSource();
+                        grid.reRenderGrid();
+                    }
+                },
+
+                _updateItemContexts:function () {
+                    var itemContexts=[];
+                    if (!this.gridConfig.dataRequest) {
+                        return;
+                    }
+                    var attributeNames = this.gridConfig.dataRequest.attributes;
+                    for(var i in this.gridConfig.dataRequest.typesCriterion) {
+                        var itemContext = {};
+                        itemContext.attributeNames = attributeNames;
+                        itemContext.type = this.gridConfig.dataRequest.typesCriterion[i];
+                        itemContexts.push(itemContext);
+                    }
+                    this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
+                },
+                
+                _reloadGrid: function (ids) {
+
+                    this._updateItemContexts();
+                    this.request = DataRequestHelper.createEntityGetRequest(this.contextData);
+                    if (!_.isEmpty(ids)) {
+                        this.request.params.query.ids = ids;
+                    }
+                },
+
+                _getEntityGrid: function () {
+                    return ElementHelper.getElement(this, "#entityGrid");
+                },
+
+                _isWorkflowRequest: function (loadGrid, loadWithoutWorkflow) {
+                    if (_.isEmpty(this.workflowCriterion) && !loadWithoutWorkflow) {
+                        return false;
+                    }
+                    return true;
                 }
+
             });
         })();
     </script>
