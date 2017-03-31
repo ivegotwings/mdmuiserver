@@ -797,6 +797,15 @@ The following JSON object is a config sample which configures the grid in all ab
 						type: Number,
 						value: 0
 					},
+                    /**
+                     * Indicates the total record size of the data avialable for grid
+                     *
+                     */
+					totalCount: {
+						notify: true,
+						type: Number,
+						value: 0
+					},
 					/**
 					 * Indicates an attribute model to be used if the schema type is an <b>attribute</b>.
 					 */
@@ -878,8 +887,8 @@ The following JSON object is a config sample which configures the grid in all ab
 					RUFBehaviors.UIBehavior
 				],
 				observers: [
-					'_calculatePageRange(recordSize, pageSize)',
-					'_computeTitle(config, data, recordSize, sortOrder, sortOrder.*)'
+					'_calculatePageRange(recordSize, pageSize,totalCount)',
+					'_computeTitle(config, data, recordSize, sortOrder, sortOrder.*,totalCount,dataSource,config.*)'
 				],
 				listeners: {
 					'selecting-item': '_onSelectingItem',
@@ -1146,14 +1155,19 @@ The following JSON object is a config sample which configures the grid in all ab
 					this.$.gridMsgDialog.open();
 				},
 				_computeTitle: function (config, data, recordSize, sortOrder) {
+				    var status="";
 					if (config && config.header && config.header.displayTitle) {
 						if (config.title) {
 							this.set('title', config.title);
 						}
 						this.set('title', config.header.defaultValue);
-					} else if (data && recordSize) {
-						var status = recordSize + ' items.';
-						if (sortOrder && sortOrder.length > 0) {
+					} else if(recordSize)  {
+                        var totalCount=this.totalCount?this.totalCount:recordSize;
+                        if(totalCount>2000){
+                            totalCount="2000+";
+						}
+                         status = "Showing 1 - "+recordSize+" items of total "+totalCount+" results ";
+						if (data && sortOrder && sortOrder.length > 0) {
 							status += ' Sorted by ';
 							for (var i = 0; i < sortOrder.length; i++) {
 								var sort = sortOrder[i];
@@ -1163,14 +1177,57 @@ The following JSON object is a config sample which configures the grid in all ab
 								}
 							}
 						}
-						this.set('title', status);
-					} else if (recordSize) {
-						var status = recordSize + ' items.';
-						this.set('title', status);
+
+					} else{
+                         status = "Got 0 result ";
 					}
+					if(config.titleTemplate){
+					    var matchFound=false;
+                        var message=config.titleTemplate.replace(/\{\S+?\}/g,
+                            function (match) {
+                                var attrName = match.replace("{", "").replace("}", "");
+                                if(config.dataContexts) {
+                                    for (var i = 0; i < config.dataContexts.length; i++) {
+                                        var context = config.dataContexts[i];
+                                        if (context[attrName]) {
+                                            if (matchFound) {
+                                                match += ", " + context[attrName];
+                                            } else {
+                                                match = context[attrName];
+                                                matchFound = true;
+                                            }
+
+                                        }
+                                    }
+                                }
+                                if(config.valueContexts) {
+                                    for (var i = 0; i < config.valueContexts.length; i++) {
+                                        var context = config.valueContexts[i];
+                                        if (context[attrName]) {
+                                            if (matchFound) {
+                                                match += context[attrName];
+                                            } else {
+                                                match = context[attrName];
+                                                matchFound = true;
+                                            }
+                                        }
+                                    }
+                                }
+                            	return match;
+							});
+                        if(matchFound){
+                            status+=message;
+						}
+					}
+                    this.set('title', status);
 				},
-				_calculatePageRange: function (recordSize, pageSize) {
-					this._pageRange = "1 - " + recordSize + " / " + recordSize;
+				_calculatePageRange: function (recordSize, pageSize,totalCount) {
+				    if(totalCount){
+                        this._pageRange = "1 - " + recordSize + " / " + (totalCount>2000?"2000+":totalCount);
+					} else {
+                        this._pageRange = "1 - " + recordSize + " / " + recordSize;
+					}
+
 				},
 				_columnValue: function (gridData, index) {
 					var cellData;
