@@ -368,7 +368,29 @@ var allConfigs = {
                                 "value": {
                                     "eq": "Womens"
                                 }
-                            }]
+                            }],
+                            "workflowSearchCriterion": {
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "contexts": [
+                                                {
+                                                    "workflow": "newProductSetup"
+                                                }
+                                            ],
+                                            "filters": {
+                                                "attributesCriterion": [
+                                                    {
+                                                        "activities/activityName": {
+                                                            "eq": "Review Assortment"
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }],
                         "my-searches": [{
                             "id": 2,
@@ -1571,16 +1593,16 @@ var allConfigs = {
                                 "properties": {}
                             }
                         },
-                            {
-                                "name": "entity-family",
-                                "title": "Entity Family",
-                                "enableDropdownMenu": false,
-                                "component": {
-                                    "name": "rock-entity-variant",
-                                    "path": "/src/elements/rock-entity-variant/rock-entity-variant.html",
-                                    "properties": {}
-                                }
+                        {
+                            "name": "entity-family",
+                            "title": "Entity Family",
+                            "enableDropdownMenu": false,
+                            "component": {
+                                "name": "rock-entity-variant",
+                                "path": "/src/elements/rock-entity-variant/rock-entity-variant.html",
+                                "properties": {}
                             }
+                        }
                         ]
                     }
                 },
@@ -1729,33 +1751,33 @@ var allConfigs = {
                         "variantDefinitionUI": {
                             "name": "ehd1",
                             "levels": [{
-                                    "entityType": "sku",
-                                    "index": 1,
-                                    "optional": false,
-                                    "dimensionAttributes": [{
-                                            "sourceAttribute": "color",
-                                            "targetAttribute": "color",
-                                            "optional": false
-                                        },
-                                        {
-                                            "sourceAttribute": "size",
-                                            "targetAttribute": "size",
-                                            "optional": true
-                                        }
-                                    ]
+                                "entityType": "sku",
+                                "index": 1,
+                                "optional": false,
+                                "dimensionAttributes": [{
+                                    "sourceAttribute": "color",
+                                    "targetAttribute": "color",
+                                    "optional": false
+                                },
+                                {
+                                    "sourceAttribute": "size",
+                                    "targetAttribute": "size",
+                                    "optional": true
                                 }
+                                ]
+                            }
                             ]
-                        },"businessFunctionVariantsCreate": {
+                        }, "businessFunctionVariantsCreate": {
                             "stepperConfig": [{
                                 "index": "1",
                                 "title": "Option Selection",
                                 "status": "inprogress"
                             },
-                                {
-                                    "index": "2",
-                                    "title": "Create Variants",
-                                    "status": ""
-                                }
+                            {
+                                "index": "2",
+                                "title": "Create Variants",
+                                "status": ""
+                            }
                             ],
                             "name": "create-variants",
                             "label": "Create Variants",
@@ -1770,17 +1792,17 @@ var allConfigs = {
                                 "nextEvent": "onSave",
                                 "skipEvent": "onCancel"
                             },
-                                {
-                                    "name": "step-2-create-variants",
-                                    "label": "Create variants for a given entity",
-                                    "component": {
-                                        "name": "rock-variants-create-grid",
-                                        "path": "/../../src/elements/rock-variants-create-grid/rock-variants-create-grid.html",
-                                        "properties": {}
-                                    },
-                                    "nextEvent": "onComplete",
-                                    "skipEvent": "onCancel"
-                                }
+                            {
+                                "name": "step-2-create-variants",
+                                "label": "Create variants for a given entity",
+                                "component": {
+                                    "name": "rock-variants-create-grid",
+                                    "path": "/../../src/elements/rock-variants-create-grid/rock-variants-create-grid.html",
+                                    "properties": {}
+                                },
+                                "nextEvent": "onComplete",
+                                "skipEvent": "onCancel"
+                            }
                             ]
                         },
                         "rock-variants-create-grid": {
@@ -2192,10 +2214,10 @@ var allConfigs = {
                     "config": [{
                         "id": 1,
                         "name": "New SKUs to Submit",
-                        "numberOfTasks": 1037,
+                        "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
-                        "unAssigned": 1007,
-                        "assignedToMe": 30,
+                        "unAssigned": "TBD",
+                        "assignedToMe": "TBD",
                         "status": "red",
                         "products": [{
                             "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
@@ -2244,10 +2266,10 @@ var allConfigs = {
                     {
                         "id": 2,
                         "name": "Provide Additional Information",
-                        "numberOfTasks": 23,
+                        "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
-                        "unAssigned": 23,
-                        "assignedToMe": 0,
+                        "unAssigned": "TBD",
+                        "assignedToMe": "TBD",
                         "status": "red",
                         "products": [{
                             "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
@@ -2296,10 +2318,10 @@ var allConfigs = {
                     {
                         "id": 3,
                         "name": "Rejected SKUs",
-                        "numberOfTasks": 26,
+                        "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
-                        "unAssigned": 25,
-                        "assignedToMe": 1,
+                        "unAssigned": "TBD",
+                        "assignedToMe": "TBD",
                         "status": "red",
                         "products": [{
                             "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
@@ -2320,10 +2342,10 @@ var allConfigs = {
                     {
                         "id": 4,
                         "name": "Review Assortment",
-                        "numberOfTasks": 34,
+                        "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
-                        "unAssigned": 4,
-                        "assignedToMe": 30,
+                        "unAssigned": "TBD",
+                        "assignedToMe": "TBD",
                         "status": "orange",
                         "products": [{
                             "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
@@ -2344,10 +2366,10 @@ var allConfigs = {
                     {
                         "id": 5,
                         "name": "Assign Internal Information",
-                        "numberOfTasks": 4,
+                        "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
-                        "unAssigned": 4,
-                        "assignedToMe": 0,
+                        "unAssigned": "TBD",
+                        "assignedToMe": "TBD",
                         "status": "orange",
                         "products": [{
                             "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
@@ -2396,10 +2418,10 @@ var allConfigs = {
                     {
                         "id": 6,
                         "name": "Enrich Copy",
-                        "numberOfTasks": 6,
+                        "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
-                        "unAssigned": 4,
-                        "assignedToMe": 2,
+                        "unAssigned": "TBD",
+                        "assignedToMe": "TBD",
                         "status": "green",
                         "products": [{
                             "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
@@ -2448,10 +2470,10 @@ var allConfigs = {
                     {
                         "id": 7,
                         "name": "Enrich with Digital Assets",
-                        "numberOfTasks": 74,
+                        "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
-                        "unAssigned": 43,
-                        "assignedToMe": 31,
+                        "unAssigned": "TBD",
+                        "assignedToMe": "TBD",
                         "status": "green",
                         "products": [{
                             "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
