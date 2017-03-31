@@ -3074,29 +3074,76 @@ var allConfigs = {
     },
     {
         "name": "user-store",
-        "contexts": [{
-            "tenant": "jcp",
-            "ctx": {
-                "list": ""
-            },
-            "security": {
-                "user": "",
-                "role": ""
-            },
-            "components": {
-                "user-config": {
-                    "config": {
-                        "users": [
-                            {
-                                "userName": "jcp",
-                                "password": "jcp",
-                                "roles": "vendor"
-                            }
-                        ]
+        "contexts": [
+            {
+                "tenant": "jcp",
+                "ctx": {
+                    "list": ""
+                },
+                "security": {
+                    "user": "",
+                    "role": ""
+                },
+                "components": {
+                    "user-config": {
+                        "config": {
+                            "users": [
+                                {
+                                    "userName": "jcp",
+                                    "password": "jcp",
+                                    "roles": "vendor"
+                                },
+                                {
+                                    "userName": "admin1",
+                                    "password": "admin1",
+                                    "roles": "admin"
+                                },
+                                {
+                                    "userName": "vendor1",
+                                    "password": "vendor1",
+                                    "roles": "vendor"
+                                },
+                                {
+                                    "userName": "buyer1",
+                                    "password": "buyer1",
+                                    "roles": "buyer"
+                                },
+                                {
+                                    "userName": "assetEnrichment1",
+                                    "password": "assetEnrichment1",
+                                    "roles": "assetEnrichment"
+                                },
+                                {
+                                    "userName": "business1",
+                                    "password": "business1",
+                                    "roles": "business"
+                                },
+                                {
+                                    "userName": "copywriter1",
+                                    "password": "copywriter1",
+                                    "roles": "copywriter"
+                                },
+                                {
+                                    "userName": "siteOps1",
+                                    "password": "siteOps1",
+                                    "roles": "siteOps"
+                                },
+                                {
+                                    "userName": "taxonomyTeam1",
+                                    "password": "taxonomyTeam1",
+                                    "roles": "taxonomyTeam"
+                                },
+                                {
+                                    "userName": "siteMerchandiser1",
+                                    "password": "siteMerchandiser1",
+                                    "roles": "siteMerchandiser"
+                                }
+                            ]
+                        }
                     }
                 }
             }
-        }]
+        ]
     }
     ]
 };
