@@ -110,7 +110,7 @@ function _buildAttributesResponse(attrs, attrNames, basePath) {
             for (var valCtxKey in valCtxItems) {
                 var valCtxItem = valCtxItems[valCtxKey];
                 //console.log('valCtxItem.values', JSON.stringify(valCtxItem.values));
-                response.push(mergeAndCreatePath(basePath, [attrKey, 'valContexts', valCtxKey, 'values'], $atom(valCtxItem.values)), expires);
+                response.push(mergeAndCreatePath(basePath, [attrKey, 'valContexts', valCtxKey, 'values'], $atom(valCtxItem.values), expires));
             }
         }
 
