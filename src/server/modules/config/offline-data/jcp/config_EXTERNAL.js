@@ -16,7 +16,7 @@ var allConfigs = {
                         "dashboard": {
                             "title": "Dashboard",
                             "data_route": "dashboard",
-                            "icon": "pebble-lg-icons:Userdashboard",
+                            "icon": "pebble-icons:Dashboard",
                             "nonClosable": true,
                             "nonMinimizable": true,
                             "component": {
@@ -30,7 +30,7 @@ var allConfigs = {
                         "entity-discovery": {
                             "title": "Entity Search & Discovery",
                             "data_route": "entity-discovery",
-                            "icon": "pebble-lg-icons:SearchDb",
+                            "icon": "pebble-icons:Search",
                             "nonClosable": true,
                             "nonMinimizable": true,
                             "component": {
@@ -42,7 +42,7 @@ var allConfigs = {
                         "entity-manage": {
                             "title": "Entity Manage",
                             "data_route": "entity-manage",
-                            "icon": "pebble-lg-icons:ProductDb",
+                            "icon": "pebble-icons:Entities",
                             "component": {
                                 "name": "app-entity-manage",
                                 "path": "../../src/elements/app-entity-manage/app-entity-manage.html",
@@ -52,7 +52,7 @@ var allConfigs = {
                         "entity-create": {
                             "title": "Create Entity",
                             "data_route": "entity-create",
-                            "icon": "pebble-lg-icons:ProductDb",
+                            "icon": "pebble-icons:Entities",
                             "component": {
                                 "name": "app-business-function",
                                 "path": "../../src/elements/app-business-function/app-business-function.html",
@@ -78,7 +78,7 @@ var allConfigs = {
                         "manage-integration": {
                             "title": "Manage Integration",
                             "data_route": "manage-integration",
-                            "icon": "pebble-lg-icons:InegrationDb",
+                            "icon": "pebble-icons:IntegrationsDb",
                             "nonClosable": true,
                             "nonMinimizable": true,
                             "component": {
@@ -89,7 +89,7 @@ var allConfigs = {
                         "app-store": {
                             "title": "App Store",
                             "data_route": "app-store",
-                            "icon": "pebble-lg-icons:AppDb",
+                            "icon": "pebble-icons:AppsDb",
                             "nonClosable": true,
                             "nonMinimizable": true,
                             "component": {
