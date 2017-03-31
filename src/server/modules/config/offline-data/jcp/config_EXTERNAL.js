@@ -349,8 +349,38 @@ var allConfigs = {
                 },
                 "rock-saved-searches": {
                     "config": {
-                        "favourites": [{
+                        "workflowSavedSearch": [{
                             "id": 1,
+                            "accesstype": "self",
+                            "name": "Enrich with Digital Assets",
+                            "workflowSearchCriterion": {
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "contexts": [
+                                                {
+                                                    "workflow": "newProductSetup"
+                                                }
+                                            ],
+                                            "filters": {
+                                                "attributesCriterion": [
+                                                    {
+                                                        "activities/activityName": {
+                                                            "eq": "Enrich with Digital Assets"
+                                                        }
+                                                    }
+                                                ],
+                                                "typesCriterion": [
+                                                    
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }],
+                        "favourites": [{
+                            "id": 8,
                             "accesstype": "self",
                             "name": "Womens Shoes",
                             "icon": "pebble-icons:SavedSearch",
@@ -393,7 +423,7 @@ var allConfigs = {
                             }
                         }],
                         "my-searches": [{
-                            "id": 2,
+                            "id": 9,
                             "accesstype": "self",
                             "name": "Mens Shoes",
                             "icon": "pebble-icons:SavedSearch",
@@ -415,7 +445,7 @@ var allConfigs = {
                             }]
                         }],
                         "shared-searches": [{
-                            "id": 3,
+                            "id": 10,
                             "accesstype": "self",
                             "name": "Women's Sport Wear & Dresses",
                             "icon": "pebble-icons:SavedSearch",
