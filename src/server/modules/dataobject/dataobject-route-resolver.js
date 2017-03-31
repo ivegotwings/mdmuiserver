@@ -21,6 +21,7 @@ const futil = require('./dataobject-falcor-utils');
 
 const createPath = futil.createPath,
     buildResponse = futil.buildResponse,
+    formatDataObjectForSave = futil.formatDataObjectForSave,
     mergeAndCreatePath = futil.mergeAndCreatePath,
     mergePathSets = futil.mergePathSets,
     pathKeys = futil.pathKeys;
@@ -67,7 +68,7 @@ async function initiateSearch(callPath, args) {
             totalRecords = dataObjects.length;
             for (let dataObject of dataObjects) {
                 if (dataObject.id !== undefined) {
-                    var dataObjectType = dataObject[dataIndexInfo.typeInfo][dataIndexInfo.typeName];
+                    var dataObjectType = dataObject.type;
                     var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds];
                     response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [dataObject.id]))));
                 }
@@ -103,8 +104,13 @@ async function getSearchResultDetail(pathSet) {
 
 function createGetRequest(reqData) {
 
-    var ctxGroups = sharedDataObjectFalcorUtil.createCtxItems(reqData.ctxKeys);
-    var valCtxGroups = sharedDataObjectFalcorUtil.createCtxItems(reqData.valCtxKeys);
+    var contexts = sharedDataObjectFalcorUtil.createCtxItems(reqData.ctxKeys);
+    var valContexts = sharedDataObjectFalcorUtil.createCtxItems(reqData.valCtxKeys);
+
+     if(reqData.dataIndex != "entityGovernData") {
+         var selfContext = {'self': 'self'};
+         contexts.push(selfContext);
+     }
 
     var fields = {
         ctxTypes: ["properties"]
@@ -145,12 +151,12 @@ function createGetRequest(reqData) {
 
     var query = {'id': ''};
 
-    if(!isEmpty(ctxGroups)) {
-        query.ctx = ctxGroups;
+    if(!isEmpty(contexts)) {
+        query.contexts = contexts;
     }
 
-    if(!isEmpty(valCtxGroups)) {
-        query.valCtx = valCtxGroups;
+    if(!isEmpty(valContexts)) {
+        query.valueContexts = valContexts;
     }
 
     if(!isEmpty(filters)) {
@@ -182,7 +188,7 @@ async function getSingle(dataObjectId, reqData) {
 
     //console.log('req to api ', JSON.stringify(request));
     var res = await dataObjectManageService.get(request);
-    //console.log(JSON.stringify(res, null, 4));
+    //console.log('get res from api', JSON.stringify(res, null, 4));
 
     var basePath = [pathKeys.root, reqData.dataIndex];
     var dataObject;
@@ -199,7 +205,7 @@ async function getSingle(dataObjectId, reqData) {
 
         if (dataObjects !== undefined) {
             for (let dataObject of dataObjects) {
-                var dataObjectType = dataObject[dataIndexInfo.typeInfo][dataIndexInfo.typeName];
+                var dataObjectType = dataObject.type;
                 var dataObjectBasePath = mergePathSets(basePath, dataObjectType, pathKeys.byIds, dataObject.id);
 
                 if (dataObject.id == dataObjectId) {
@@ -259,7 +265,8 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation) 
     var basePath = [pathKeys.root, dataIndex];
 
     for (var dataObjectId in dataObjects) {
-        var dataObject = sharedDataObjectFalcorUtil.boxDataObject(dataObjects[dataObjectId], sharedDataObjectFalcorUtil.unboxJsonObject);
+        var dataObject = dataObjects[dataObjectId];
+        formatDataObjectForSave(dataObject);
         //console.log('dataObject data', JSON.stringify(dataObject, null, 4));
 
         var apiRequestObj = { 'includeRequest': false, 'dataIndex': dataIndex };
@@ -293,7 +300,7 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation) 
                 'operation': operation
             };
 
-            var dataObjectType = dataObject[dataIndexInfo.typeInfo][dataIndexInfo.typeName];
+            var dataObjectType = dataObject.type;
             var dataObjectBasePath = mergePathSets(basePath, dataObjectType, pathKeys.byIds, dataObjectId);
             response.push.apply(response, buildResponse(dataObject, reqData, dataObjectBasePath));
         }

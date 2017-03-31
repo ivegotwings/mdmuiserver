@@ -117,11 +117,11 @@
 
             var isIdExists = requestData.params.query.id !== undefined || requestData.params.query.ids !== undefined;
             var isNameExists = requestData.params.query.name !== undefined;
-            var isCtxExists = requestData.params.query.ctx !== undefined && requestData.params.query.ctx.length > 0;
+            var isCtxExists = requestData.params.query.contexts !== undefined && requestData.params.query.contexts.length > 0;
             var isTypeCriterionExists = requestData.params.query.filters !== undefined && requestData.params.query.filters.typesCriterion !== undefined && requestData.params.query.filters.typesCriterion.length > 0;
 
             if (!(isIdExists || isNameExists || isCtxExists || isTypeCriterionExists)) {
-                console.warn(mainMessage.format(': at least one must be present (ids, ctx, typesCriterion)'));
+                console.warn(mainMessage.format(': at least one must be present (ids, contexts, typesCriterion)'));
                 return false;
             }
 
@@ -144,6 +144,11 @@
                 }
             }
 
+            // Fill if someone does not pass fields
+            if(requestData.params && !requestData.params.fields) {
+                requestData.params.fields = {};
+            }
+
             return true;
         },
         _callGetByIds: function (model, request, basePath) {
@@ -158,13 +163,13 @@
             var dataIndex = this.dataIndex;
             var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
             
-            var dataObjectFields = ['id', 'name', 'version', dataIndexInfo.typeInfo, 'properties'];
+            var dataObjectFields = ['id', 'name', 'version', 'type', 'properties'];
 
             var dataObjectFieldsPath = this._mergePathSets(basePath, [dataObjectFields]);
             paths.push(dataObjectFieldsPath);
 
             var ctxKeys = this._getCtxKeys(reqData);
-            var valCtxKeys = utils.createCtxKeys(reqData.params.query.valCtx);
+            var valCtxKeys = utils.createCtxKeys(reqData.params.query.valueContexts);
 
             var attributesPath = this._getAttributesPath(reqData, basePath, ctxKeys, valCtxKeys);
             if(attributesPath) {
@@ -183,7 +188,7 @@
                 return this._callGetRelationships(model, paths, request, basePath, ctxKeys, valCtxKeys, relTypes, dataObjectFields);
             }
             else {
-                return this._makeFalcorGetCall(model, paths);
+                return this._makeFalcorGetCall(model, paths, this.noCache);
             }
         },
         _callInitiateSearch: function (model, reqData) {
@@ -270,7 +275,7 @@
             var relatedDataObjectAttrs = reqData.params.fields.relatedEntityAttributes === undefined ? [] : reqData.params.fields.relatedEntityAttributes;
             DataHelper.arrayRemove(relatedDataObjectAttrs, '_ALL'); //TODO: Fix this once we have logic to resolve ALL...
 
-            var relIdCreatePath = this._mergePathSets(basePath, ['data', 'ctxInfo', ctxKeys, 'relationships', relTypes, 'relIds']);
+            var relIdCreatePath = this._mergePathSets(basePath, ['data', 'contexts', ctxKeys, 'relationships', relTypes, 'relIds']);
 
             var attrDetailPath = this._getAttributeDetailPath(valCtxKeys);
 
@@ -283,7 +288,7 @@
 
             var relToObjectPath_Attrs = [];
             if (relatedDataObjectAttrs.length > 0)
-                relToObjectPath_Attrs = this._mergePathSets(['relTo', 'data', 'ctxInfo', ctxKeys, 'attributes', relatedDataObjectAttrs], attrDetailPath);
+                relToObjectPath_Attrs = this._mergePathSets(['relTo', 'data', 'contexts', ctxKeys, 'attributes', relatedDataObjectAttrs], attrDetailPath);
 
             var self = this;
             
@@ -299,7 +304,7 @@
                 }
                 
                 if (paths.length > 0) {
-                    var getWithRelResponsePromise = self._makeFalcorGetCall(model, paths);
+                    var getWithRelResponsePromise = self._makeFalcorGetCall(model, paths, self.noCache);
                     return self._handleModelResponse(request, getWithRelResponsePromise);
                 }
                 else {
@@ -363,8 +368,8 @@
 
             var utils = SharedUtils.DataObjectFalcorUtil;
 
-            if(reqData.params && reqData.params.query && reqData.params.query.ctx && reqData.params.query.ctx.length > 0) {
-                clonedCtx = utils.cloneObject(reqData.params.query.ctx);
+            if(reqData.params && reqData.params.query && reqData.params.query.contexts && reqData.params.query.contexts.length > 0) {
+                clonedCtx = utils.cloneObject(reqData.params.query.contexts);
             }
             
             clonedCtx.push(utils.getSelfCtx());
@@ -385,27 +390,27 @@
 
             // TODO:: how to solve this hack..
             if (this.dataIndex == "entityModel") {
-                attrs.push('properties'); /// get ctx level properties as attribute named 'properties'.. this is cheating..
+                attrs.push('properties'); /// get contexts level properties as attribute named 'properties'.. this is cheating..
             }
 
             DataHelper.arrayRemove(attrs, '_ALL'); //TODO: Fix this once we have logic to resolve ALL...
 
             if (attrs.length > 0) {
-                attributesPath = this._mergePathSets(basePath, ['data', 'ctxInfo', ctxKeys, 'attributes', attrs], attrDetailPath);
+                attributesPath = this._mergePathSets(basePath, ['data', 'contexts', ctxKeys, 'attributes', attrs], attrDetailPath);
             }
 
             return attributesPath;
         },
         _getJsonDataPath: function(reqData, basePath, ctxKeys) {
             if (reqData.params.fields.jsonData) {
-                return this._mergePathSets(basePath, ['data', 'ctxInfo', ctxKeys], ['jsonData']);
+                return this._mergePathSets(basePath, ['data', 'contexts', ctxKeys], ['jsonData']);
             }
             else {
                 return undefined;
             }
         },
         _getAttributeDetailPath: function(valCtxKeys) {
-            return ['valCtxInfo', valCtxKeys, ['values', 'group', 'properties']];
+            return ['valContexts', valCtxKeys, ['values', 'group', 'properties']];
         },
         _getRelationshipDetailPaths: function(relIdsResponsePkg, self, reqData, basePath, ctxKeys, valCtxKeys, relTypes, relAttrsPath, relToObjectPath_Fields, relToObjectPath_Attrs) {
             var relDetailGetPaths = [];
@@ -424,7 +429,7 @@
                         var ctxKey = ctxKeys[ctxKeyIdx];
                         for (var relTypeIdx in relTypes) {
                             var relType = relTypes[relTypeIdx];
-                            var relIds = utils.getNestedObject(resDataObject, ['data', 'ctxInfo', ctxKey, 'relationships', relType, 'relIds']);
+                            var relIds = utils.getNestedObject(resDataObject, ['data', 'contexts', ctxKey, 'relationships', relType, 'relIds']);
 
                             if (!relIds) {
                                 continue;
@@ -446,7 +451,7 @@
 
                             if (from != -1) {
                                 var filteredRelIds = relIds.slice(from, to + 1);
-                                var relBasePath = self._mergePathSets(basePath, ['data', 'ctxInfo', ctxKey, 'relationships', relType, 'rels', filteredRelIds]);
+                                var relBasePath = self._mergePathSets(basePath, ['data', 'contexts', ctxKey, 'relationships', relType, 'rels', filteredRelIds]);
 
                                 //must have paths for eachrel..rel fields and relTo with only fields..
                                 relDetailGetPaths.push(self._mergePathSets(relBasePath, relFieldsPath));
@@ -507,7 +512,14 @@
             var mergedPathSets = Array.prototype.concat.apply([], args);
             return mergedPathSets;
         },
-        _makeFalcorGetCall: function (model, paths) {
+        _makeFalcorGetCall: function (model, paths, noCache) {
+            if(noCache) {
+                for(var i = 0; i < paths.length; i++) {
+                    var path = paths[i];
+                    model.invalidate(path);
+                }
+            }
+
             return model.get.apply(model, paths);
         },
         _getPathKeys: function () {
