@@ -233,7 +233,7 @@ var allConfigs = {
                     "config": [{
                         "id": "channel",
                         "title": "Channel",
-                        "icon": "pebble-lg-icons:Source",
+                        "icon": "pebble-lg-icons:Master",
                         "visible": true,
                         "dataRequestType": "entity",
                         "dataRequest": {
@@ -812,7 +812,7 @@ var allConfigs = {
                     "config": [{
                         "id": "channel",
                         "title": "Channel",
-                        "icon": "pebble-lg-icons:Source",
+                        "icon": "pebble-lg-icons:Master",
                         "visible": true,
                         "dataRequestType": "entity",
                         "dataRequest": {
