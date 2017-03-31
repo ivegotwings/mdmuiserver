@@ -98,7 +98,7 @@ var allConfigs = {
                         "queryParams": {
                             "id": "e1"
                         },
-                        "icon": "pebble-lg-icons:Entities"
+                        "icon": "pebble-lg-icons:ProductDb"
                     },
                     {
                         "name": "divider"
@@ -113,7 +113,7 @@ var allConfigs = {
                         "name": "integrationManage",
                         "title": "Manage Integrations",
                         "data_route": "manage-integration",
-                        "icon": "pebble-lg-icons:IntegrationDb"
+                        "icon": "pebble-lg-icons:InegrationDb"
                     },
                     {
                         "name": "divider"
@@ -122,7 +122,7 @@ var allConfigs = {
                         "name": "appStore",
                         "title": "App Store",
                         "data_route": "app-store",
-                        "icon": "pebble-icons:AppDb"
+                        "icon": "pebble-lg-icons:AppDb"
                     }
                     ]
                 },
