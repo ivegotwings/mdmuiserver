@@ -23,7 +23,9 @@
             [[leafEntityDetails.entityType]] options for you. All new [[leafEntityDetails.entityType]]s in the list below will be created unless you
             want to delete the [[leafEntityDetails.entityType]]s from this list.
         </p>
-        <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-response="_onCompositeModelGetResponse" exclude-in-progress></liquid-entity-model-composite-get>
+        <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{_attributeModelRequest}}"
+                                           on-entity-model-composite-get-response = "_onCompositeModelGetResponse">
+        </liquid-entity-model-composite-get>
         <liquid-entity-data-get  id="getData" operation="getbyids" request-data="[[_request]]" last-response="{{remoteData}}"
                                  on-response="_onGetResponse">
         </liquid-entity-data-get>
@@ -47,37 +49,6 @@
             Polymer({
                     is: 'rock-variants-create-grid',
                     properties: {
-                        /**
-                         * Indicates the identification of the entity for which the variants are shown.
-                         */
-                        entityId: {
-                            type: String
-                        },
-                        /**
-                         * Indicates the locale dimension for which the attributes are managed.
-                         */
-                        locale: {
-                            type: String
-                        },
-                        /**
-                         * Indictaes the list for which the attributes are managed.
-                         */
-                        list: {
-                            type: String
-                        },
-                        /**
-                         * Indictaes the classification for which the attributes are managed.
-                         */
-                        classification: {
-                            type: String,
-                            value: "_ALL"
-                        },
-                        /**
-                         * Indictaes the source dimension for which the attributes are managed.
-                         */
-                        source: {
-                            type: String
-                        },
                         /**
                          * Specifies the configuration object that to be passed to grid.
                          */
@@ -106,6 +77,12 @@
                         totalVariantsCount: {
                             type: Number,
                             value: 1
+                        },
+                        contextData: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
                         }
                     },
                     behaviors: [
@@ -116,16 +93,19 @@
                         this.variantDefinition=this.getParentAppConfig('rock-entity-variant', '', 'variantDefinitionUI');
                     },
                     observers:[
-                        '_onDefinitionRender(variantDefinition,entityId,entityType,gridConfig,attributesList)'
+                        '_onDefinitionRender(variantDefinition,contextData,attributesList)'
                     ],
                     _onDefinitionRender: function () {
+                        if(_.isEmpty(this.contextData) || _.isEmpty(this.variantDefinition) ){
+                            return;
+                        }
                         var sourceAttrs = [];
                         var targetAttrs = [];
                         var medAttrs = [];
                         var leafEntity;
                         var max = 0;
                         var variantLevels={};
-                        variantLevels[0]={"entityType":this.entityType};
+                        variantLevels[0]={};
                         if (this.variantDefinition && this.variantDefinition.levels) {
                             this.variantDefinition.levels.forEach(function (level) {
                                 if (level.index > max) {
@@ -156,70 +136,27 @@
                             });
                             this.gridConfig.tabular.columns=this.gridConfig.tabular.columns.concat(columns);
                             this.leafEntityDetails = leafEntity;
+                            this._currentIndex=0;
                             var liquidGet = this.$.getData;
-                            this._request = this._getGridRequest(this.entityId, this.entityType, 0);
+                            this._request = this._getGridRequest(0);
                             if (liquidGet) {
                                 liquidGet.generateRequest();
                             }
+//                            this._getCompositeModel();
                         }
                     },
-                    _getCtx:function () {
-                        var ctx={};
-                        if(this.classification){
-                            ctx["classification"]=this.classification;
-                        }
-                        if(this.list){
-                            ctx["list"]=this.list;
-                        }
-                        return ctx;
-                    },
-                    _getValCtx:function () {
-                        var valCtx={};
-                        if(this.locale){
-                            valCtx["locale"]=this.locale;
-                        }
-                        if(this.source){
-                            valCtx["source"]=this.source;
-                        }
-                        return valCtx;
-                    },
-                    _getGridRequest: function (id, type,index) {
+                    _getGridRequest: function (index,ids, type) {
                         var attributes=this._attributesIndexMapping[index];
                         var relatedAttributes=[];
                         if(index<this.leafEntityDetails.index){
                             relatedAttributes=this._attributesIndexMapping[index+1];
                         }
-                        var ctx=this._getCtx();
-                        var valCtx=this._getValCtx();
-                        var req = {
-                            "params": {
-                                "query": {
-                                    "ctx": [
-                                        ctx
-                                    ],
-                                    "valCtx": [
-                                            valCtx
-                                        ],
-                                    "filters": {
-                                        "typesCriterion": [this.entityType]
-                                    },
-                                    "id": id
-                                },
-                                "fields": {
-                                    "ctxTypes": [
-                                        "properties"
-                                    ],
-                                    relationships: [
-                                        "isChildOf"
-                                    ],
-                                    relatedEntityAttributes: relatedAttributes,
-                                    attributes: attributes
-                                }
-                            }
-                        };
-                        if (id instanceof Array) {
-                            delete req.params.query.id;
-                            req.params.query.ids = id;
+                        var req= DataRequestHelper.createEntityGetRequest(this.contextData);
+                        req.params.fields.attributes = attributes;
+                        req.params.fields.relationships =  ["isChildOf"];
+                        req.params.fields.relatedEntityAttributes= relatedAttributes;
+                        if(ids) {
+                            req.params.query.ids = ids;
                         }
                         if (type) {
                             req.params.query.filters.typesCriterion = [type];
@@ -228,19 +165,18 @@
                     },
                     _getRelatedEntities: function (entity) {
                         var relatedEntities=[];
-                        if (entity && entity.data && entity.data.ctxInfo) {
-                            var ctx=this._getCtx();
-                            var relationshipsList;
-                            for (var i = 0; i < entity.data.ctxInfo.length; i++) {
-                                var ctxData = entity.data.ctxInfo[i];
-                                var compareResult = DataObjectFalcorUtil.compareCtx(ctxData.ctxGroup, ctx);
-                                if (compareResult) {
-                                    relationshipsList = ctxData.relationships;
-                                    break;
-                                }
+                        if (entity && entity.data) {
+                            var relationships={};
+                            var ctxRelationships={};
+                            if (entity.data.relationships) {
+                                relationships = entity.data.relationships;
                             }
-                            if (relationshipsList) {
-                                var isChildRelationshipEntities = relationshipsList["isChildOf"];
+                            if (entity.data.contexts && this.contextData.contexts && this.contextData.contexts.length) {
+                                ctxRelationships = SharedUtils.DataObjectFalcorUtil.getRelationshipsByCtx(entity, this.contextData.contexts[0]);
+                            }
+                            relationships=DataMergeHelper.mergeRelationships(relationships, ctxRelationships, true);
+                            if (relationships) {
+                                var isChildRelationshipEntities = relationships["isChildOf"];
                                 if (isChildRelationshipEntities) {
                                     isChildRelationshipEntities.forEach(function (relationshipEntity) {
                                         if (relationshipEntity.relTo) {
@@ -255,17 +191,15 @@
                     _getAttributeValues: function (entity) {
                         this.attributeValues = [];
                         var text = "";
-                        var ctx=this._getCtx();
-                        var valCtx=this._getValCtx();
                         if (entity.data) {
-                            var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, ctx);
+                            var attributes = EntityHelper.getAllAttributes(entity);
                             var totalVariantsCount = 1;
                             this._parentEntityAttributes=attributes;
                             if(attributes) {
                                 for (var i = 0; i < this.attributesList.length; i++) {
                                     var attribute = attributes[this.attributesList[i]];
                                     if (attribute && attribute.values) {
-                                        var values = DataHelper.getAttributeValues(attribute.values, valCtx);
+                                        var values = DataHelper.getAttributeValues(attribute.values, ContextHelper.getFirstValueContext(this.contextData));
                                         this.push('attributeValues', {
                                             "name": this.attributesList[i],
                                             "values": values
@@ -281,12 +215,11 @@
                     },
                     _onGetResponse: function (e) {
                         var respData = e.detail.response;
-                        var index;
                         if (respData) {
                             if (respData.content && respData.content.entities) {
                                 var relatedEntities=[];
                                 var entities = respData.content.entities;
-                                if(entities[0].entityInfo.entityType==this.entityType){
+                                if(this._currentIndex==0){
                                     var entity = entities[0];
                                     this._parentEntity=entity;
                                     this._getAttributeValues(entity);
@@ -298,9 +231,9 @@
                                         relatedEntities = relatedEntities.concat(relEnts);
                                     }
                                 }
+                                this._currentIndex++;
                                 if(relatedEntities.length) {
-                                    var type = relatedEntities[0].entityInfo.entityType;
-                                    if (relatedEntities[0].entityInfo.entityType == this.leafEntityDetails.entityType) {
+                                    if (this._currentIndex == this.leafEntityDetails.index) {
                                         this.leafEntities = relatedEntities;
                                         this._leafEntitiesChanged();
                                         return;
@@ -308,19 +241,14 @@
                                         if (!this.entities) {
                                             this.entities = {};
                                         }
-                                        for (var i = 0; i < this.variantDefinition.levels.length; i++) {
-                                            if (this.variantDefinition.levels[i].entityType == relatedEntities[0].entityInfo.entityType) {
-                                                this.entities[this.variantDefinition.levels[i].index] = relatedEntities;
-                                                index=this.variantDefinition.levels[i].index;
-                                                break;
-                                            }
-                                        }
+                                        this.entities[this._currentIndex] = relatedEntities;
                                     }
                                     var ids = relatedEntities.map(function (ent) {
                                         return ent.id;
                                     });
+                                    var type=relatedEntities[0].type;
                                     if (ids.length > 0) {
-                                        this._request = this._getGridRequest(ids, type,index);
+                                        this._request = this._getGridRequest(this._currentIndex,ids, type);
                                         this.$.getData.generateRequest();
                                     }
                                 } else {
@@ -344,9 +272,7 @@
                             Math.abs(Math.floor(Math.random() * x) ^ new Date().getTime()).toString(36);
                     },
                     _onSaveTap: function (e) {
-                        var source=this.source;
-                        var locale=this.locale;
-                        var ctx=this._getCtx();
+
                         var level1Details=this._variantLevels[1];
                         var level1TargetAttrs=level1Details.targetAttributes;
                         this._entitiesToBeUpdated=[];
@@ -356,31 +282,18 @@
                             if (this.data[i]["existing"] != "New") {
                                 continue;
                             }
-                            var attributes = {};
-                            var id = this._getRandomString();
+                            var id = "e"+this._getRandomString();
                             id += this.data[i][this.targetAttributesList[0]];
+                            var attributes = [];
                             for (var x = 0; x < this.targetAttributesList.length; x++) {
-                                var values = [
-                                    {
-                                        "source": source,
-                                        "locale": locale,
+                                var attr = {
+                                        "selfContext": 1,
+                                        "name": this.targetAttributesList[x],
                                         "value": this.data[i][this.targetAttributesList[x]]
-                                    }];
-                                attributes[this.targetAttributesList[x]] = {"values": values};
+                                    };
+                                attributes.push(attr);
                             }
-                            var entity = {
-                                "id": id,
-                                "entityInfo": {
-                                    "entityType": this.leafEntityDetails.entityType
-                                },
-                                "data": {
-                                    ctxInfo: [{
-                                        "ctxGroup": ctx,
-                                        "attributes": attributes
-                                    }]
-                                },
-                                properties: {}
-                            };
+                            var entity=DataTransformHelper.prepareEntityForCreate(id,this.leafEntityDetails.entityType,attributes,this.contextData,"");
                             entities.push(entity);
                             if(this.leafEntityDetails.index==2) {
                                 this._relateToLevel1Entity(attributes, id);
@@ -413,14 +326,11 @@
                         if(level1Ids.length) {
                             var parentEntityRels = this._makeChildOfRelationshipsArray(level1Ids, level1Details.entityType);
                             this._parentEntity.data = {
-                                ctxInfo: [{
-                                    "ctxGroup": ctx,
                                     "relationships": {
                                         "isChildOf": parentEntityRels
                                     }
-                                }]
                             };
-                            this._updateSaveRequestDetails(this._parentEntity,"update");
+                            this._updateSaveRequestDetails([this._parentEntity],"update");
                         }
 
                         if(this._totalSaveRequests==0){
@@ -460,26 +370,12 @@
                         for(var i in ids){
                             var rel= {
                                 "id": "Rel"+this._getRandomString(),
-                                "direction": "both",
-                                "source": "internal",
-                                "operation": "composition",
-                                "attributes": {
-                                    "shortDescription": {
-                                        "alias": "Short Description",
-                                        "values": [
-                                            {
-                                                "value": "Child Attributes",
-                                                "source": "internal",
-                                                "locale": "en-US"
-                                            }
-                                        ]
-                                    }
-                                },
+                                "direction":"both",
+                                "operation":"association",
+                                "alias":"isChildOf",
                                 "relTo": {
                                     "id": ids[i],
-                                    "entityInfo": {
-                                        "entityType": childEntityType
-                                    }
+                                    "type": childEntityType
                                 }
                             };
                             rels.push(rel);
@@ -487,7 +383,7 @@
                         return rels;
                     },
                     _onSaveResponse:function () {
-                        this._currentSaveRequests++;
+                        this._currentSaveRequest++;
                         if(this._totalSaveRequests==this._currentSaveRequest) {
                             var mainApp = document.querySelector('#app');
                             mainApp.toastText = "Variants Saved";
@@ -524,8 +420,10 @@
                         var level1Details=this._variantLevels[1];
                         var targetAttrs=level1Details.targetAttributes;
                         var comb={};
-                        for(var i in targetAttrs){
-                            comb[targetAttrs[i]]=attributes[targetAttrs[i]];
+                        for(var i in attributes){
+                            if(targetAttrs.indexOf(attributes[i].name)>-1) {
+                                comb.push(attributes[i]);
+                            }
                         }
                         for(var x in this.level1Combinations){
                             if(utils.compareObjects(comb,this.level1Combinations[x].attributes)){
@@ -535,95 +433,67 @@
                         }
                         this.level1Combinations.push({"ids":[id],"attributes":comb});
                     },
-                    _getLevel1Entities:function () {
+                    _checkIfMatchingEntityPresent:function (attrs,rels) {
                         var utils = SharedUtils.DataObjectFalcorUtil;
-                        var ctx=this._getCtx();
                         var presentEntities=[];
                         if(this.entities.hasOwnProperty(1)) {
                             presentEntities=this.entities[1];
                         }
+                        for(var p in presentEntities){
+                            var matched=false;
+                            var attributes = EntityHelper.getAllAttributes(presentEntities[p], this.contextData);
+                            if(attributes) {
+                                for (var i = 0; i < attrs.length; i++) {
+                                    var attribute = attributes[attrs[i].name];
+                                    if (attribute && attribute.values) {
+                                        var values = DataHelper.getAttributeValues(attribute.values, ContextHelper.getFirstValueContext(this.contextData));
+                                        if(utils.compareObjects(attrs[i],values[0])){
+                                            continue;
+                                        }
+                                    }
+                                    break;
+                                }
+                                if(i==attrs.length){
+                                    matched=true;
+                                }
+                            }
+                            if(matched){
+                                presentEntities[p].data= {
+                                    "relationships":{
+                                        "isChildOf": rels
+                                    }
+                                };
+                                this._entitiesToBeUpdated.push(presentEntities[p]);
+                                return true;
+                            }
+                        }
+                        return false;
+                    },
+                    _getLevel1Entities:function () {
                         var entities=[];
                         var level1Details=this._variantLevels[1];
                         var sourceAttrs=level1Details.sourceAttributes;
                         var targetAttrs=level1Details.targetAttributes;
-                        var attributes=this._parentEntityAttributes;
-                        for(var i in attributes){
-                            var index=sourceAttrs.indexOf(i);
-                            if(index>-1) {
-                                delete attributes[i];
+                        var attributes=[];
+                        for(var i in this.attributeValues){
+                            var index=sourceAttrs.indexOf(this.attributeValues[i].name);
+                            if(index==-1) {
+                                this.attributeValues[i].selfContext=1;
+                                attributes.push(this.attributeValues[i]);
                             }
                         }
                         for(var x in this.level1Combinations){
                             var comb=this.level1Combinations[x];
-                            var attrs=DataHelper.cloneObject(attributes);
-                            for(var key in comb.attributes){
-                                attrs[key]=comb.attributes[key];
-                            }
-                            var id = this._getRandomString();
-                            var rels=[];
-                            for(var i in comb.ids){
-                                var rel= {
-                                    "id": "Rel"+this._getRandomString(),
-                                    "direction": "both",
-                                    "source": "internal",
-                                    "operation": "composition",
-                                    "alias": level1Details.entityType,
-                                    "attributes": {
-                                        "shortDescription": {
-                                            "alias": "Short Description",
-                                            "values": [
-                                                {
-                                                    "value": "Child Attributes",
-                                                    "source": "internal",
-                                                    "locale": "en-US"
-                                                }
-                                            ]
-                                        }
-                                    },
-                                    "relTo": {
-                                        "id": comb.ids[i],
-                                        "entityInfo": {
-                                            "entityType": this.leafEntityDetails.entityType
-                                        }
-                                    }
-                                };
-                                rels.push(rel);
-                            }
-                            var matched=false;
-                            for(var p in presentEntities){
-                                var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(presentEntities[p], ctx);
-                                if(utils.compareObjects(attributes,attrs)){
-                                    matched=true;
-                                    presentEntities[p].data= {
-                                        ctxInfo: [{
-                                            "ctxGroup":ctx,
-                                            "relationships":{
-                                                "isChildOf": rels
-                                            }
-                                        }]
-                                    };
-                                    this._entitiesToBeUpdated.push(presentEntities[p]);
-                                    break;
-                                }
-                            }
+                            var attrs=attributes.concat(comb.attributes);
+                            var id = "e"+this._getRandomString();
+                            var rels=this._makeChildOfRelationshipsArray(comb.ids,this.leafEntityDetails.entityType);
+                            var matched=this._checkIfMatchingEntityPresent(attrs,rels);
                             if(matched){
                                 continue;
                             }
-                            var entity = {
-                                "id": id,
-                                "entityInfo": {
-                                    "entityType": level1Details.entityType
-                                },
-                                "data": {
-                                    ctxInfo: [{
-                                        "ctxGroup": ctx,
-                                        "attributes": attrs,
-                                        "relationships":{
-                                            "isChildOf": rels
-                                        }
-                                    }]
-                                },
-                                properties: {}
+                            var entity=DataTransformHelper.prepareEntityForCreate(id,level1Details.entityType,attrs,this.contextData,"");
+                            entity.data.relationships={
+                                "isChildOf": rels
                             };
                             entities.push(entity);
                         }
@@ -676,23 +546,14 @@
                 this.data = data.concat(presentData);
             },
             getValueForAttributes:function (entity,attributeNames) {
-                var dataContext = {
-                    "list": this.list,
-                    "classification": this.classification,
-                    "source": this.source,
-                    "time": "now",
-                    "locale": this.locale
-                };
                 var attributeValues = {};
                 if (entity.data) {
-                    var ctx = DataHelper.prepareCtx(dataContext);
-                    var valCtx = DataHelper.prepareValCtx(dataContext);
-                    var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, ctx);
+                    var attributes = EntityHelper.getAllAttributes(entity);
                     if(attributes) {
                         for (var i = 0; i < attributeNames.length; i++) {
                             var attribute = attributes[attributeNames[i]];
                             if (attribute && attribute.values) {
-                                var values = DataHelper.getAttributeValues(attribute.values, valCtx);
+                                var values = DataHelper.getAttributeValues(attribute.values, ContextHelper.getFirstValueContext(this.contextData));
                                 attributeValues[attributeNames[i]]=values[0];
                             }
                         }
@@ -730,9 +591,47 @@
                 if(detail.existing=="New") {
                     var index=this.data.indexOf(detail);
                     this.splice('data', index,1);
+                    this.$.variantGrid._gridDataLoad();
                 }
-                this.$.variantGrid._gridDataLoad();
             },
+            //TODO: right now all the selfContext is set as 1 , get attributemodels for each entityType and relationshipType and get corresponding selfContext value
+            _getCompositeModel:function () {
+
+                var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+                var attrNames = this.attributesList;
+                if (attrNames && attrNames.length) {
+                    compositeModelGetRequest.params.fields.attributes = attrNames;
+                }
+                compositeModelGetRequest.params.fields.relationships = ["isChildOf"];
+                this.set("_attributeModelRequest", compositeModelGetRequest);
+                var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
+                this._modelIndex=0;
+                if (liquidModelGet) {
+                    liquidModelGet.generateRequest();
+                }
+
+            },
+            _onCompositeModelGetResponse:function (e) {
+                if(! this._attributeModelsByIndex){
+                    this._attributeModelsByIndex={};
+                }
+                if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+                    this._attributeModelsByIndex[this._modelIndex]={};
+                    this._attributeModelsByIndex[this._modelIndex].attributeModels= DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
+                    this._attributeModelsByIndex[this._modelIndex].relationshipModels= DataTransformHelper.transformRelationshipModels(e.detail.response.content.entityModels[0], this.contextData);
+                    this._modelIndex++;
+                    if(this._modelIndex<=this.leafEntityDetails.index && this._variantLevels[this._modelIndex]) {
+                        var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+                        compositeModelGetRequest.params.query.name = this._variantLevels[this._modelIndex].entityType;
+                        compositeModelGetRequest.params.fields.attributes = this._attributesIndexMapping[this._modelIndex];
+                        compositeModelGetRequest.params.fields.relationships = ["isChildOf"];
+                        this.set("_attributeModelRequest", compositeModelGetRequest);
+                        var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
+                        liquidModelGet.generateRequest();
+                    }
+                }
+            }
+
         });
         })();
     </script>

@@ -11,6 +11,94 @@ var allConfigs = {
                 "role": ""
             },
             "components": {
+                 "app-repository": {
+                    "config": {
+                        "dashboard": {
+                            "title": "Dashboard",
+                            "data_route": "dashboard",
+                            "icon": "pebble-icons:Dashboard",
+                            "nonClosable": true,
+                            "nonMinimizable": true,
+                            "component": {
+                                "name": "app-dashboard",
+                                "path": "../../src/elements/app-dashboard/app-dashboard.html",
+                                "properties": {
+                                    "mode": "edit"
+                                }
+                            }
+                        },
+                        "entity-discovery": {
+                            "title": "Entity Search & Discovery",
+                            "data_route": "entity-discovery",
+                            "icon": "pebble-icons:Search",
+                            "nonClosable": true,
+                            "nonMinimizable": true,
+                            "component": {
+                                "name": "app-entity-discovery",
+                                "path": "../../src/elements/app-entity-discovery/app-entity-discovery.html",
+                                "properties": {}
+                            }
+                        },
+                        "entity-manage": {
+                            "title": "Entity Manage",
+                            "data_route": "entity-manage",
+                            "icon": "pebble-icons:Entities",
+                            "component": {
+                                "name": "app-entity-manage",
+                                "path": "../../src/elements/app-entity-manage/app-entity-manage.html",
+                                "properties": {}
+                            }
+                        },
+                        "entity-create": {
+                            "title": "Create Entity",
+                            "data_route": "entity-create",
+                            "icon": "pebble-icons:Entities",
+                            "component": {
+                                "name": "app-business-function",
+                                "path": "../../src/elements/app-business-function/app-business-function.html",
+                                "properties": {
+                                    "name": "createentity",
+                                    "context": {
+                                        "entityType": "sku"
+                                    }
+                                }
+                            }
+                        },
+                        "manage-model": {
+                            "title": "Manage Model",
+                            "data_route": "manage-model",
+                            "icon": "pebble-icons:DataModelDb",
+                            "nonClosable": true,
+                            "nonMinimizable": true,
+                            "component": {
+                                "name": "",
+                                "path": ""
+                            }
+                        },
+                        "manage-integration": {
+                            "title": "Manage Integration",
+                            "data_route": "manage-integration",
+                            "icon": "pebble-icons:IntegrationsDb",
+                            "nonClosable": true,
+                            "nonMinimizable": true,
+                            "component": {
+                                "name": "",
+                                "path": ""
+                            }
+                        },
+                        "app-store": {
+                            "title": "App Store",
+                            "data_route": "app-store",
+                            "icon": "pebble-icons:AppsDb",
+                            "nonClosable": true,
+                            "nonMinimizable": true,
+                            "component": {
+                                "name": "",
+                                "path": ""
+                            }
+                        }
+                    }
+                },
                 "pebble-actions": {
                     "config": {
                         "title": "Create",
@@ -92,15 +180,6 @@ var allConfigs = {
                         "icon": "pebble-icons:SearchDb"
                     },
                     {
-                        "name": "entity-manage",
-                        "title": "Entity Manage",
-                        "data_route": "entity-manage",
-                        "queryParams": {
-                            "id": "e1"
-                        },
-                        "icon": "pebble-icons:Entities"
-                    },
-                    {
                         "name": "divider"
                     },
                     {
@@ -125,109 +204,6 @@ var allConfigs = {
                         "icon": "pebble-icons:AppDb"
                     }
                     ]
-                },
-                "main-app-routes": {
-                    "config": {
-                        "dashboard": {
-                            "name": "dashboard",
-                            "title": "Dashboard",
-                            "data_route": "dashboard",
-                            "icon": "pebble-icons:Dashboard",
-                            "href": "/",
-                            "nonClosable": true,
-                            "nonMinimizable": true,
-                            "isLandingPage": true,
-                            "component": {
-                                "name": "app-dashboard",
-                                "path": "../../src/elements/app-dashboard/app-dashboard.html",
-                                "properties": {
-                                    "mode": "edit"
-                                }
-                            }
-                        },
-                        "entity-discovery": {
-                            "name": "entity-discovery",
-                            "title": "Entity Search & Discovery",
-                            "data_route": "entity-discovery",
-                            "icon": "pebble-icons:Search",
-                            "href": "/entity-discovery",
-                            "nonClosable": true,
-                            "nonMinimizable": true,
-                            "component": {
-                                "name": "app-entity-discovery",
-                                "path": "../../src/elements/app-entity-discovery/app-entity-discovery.html",
-                                "properties": {}
-                            }
-                        },
-                        "entity-manage": {
-                            "name": "entity-manage",
-                            "title": "entity-manage",
-                            "data_route": "entity-manage",
-                            "icon": "pebble-icons:Entities",
-                            "href": "/entity-manage?id=e1",
-                            "component": {
-                                "name": "app-entity-manage",
-                                "path": "../../src/elements/app-entity-manage/app-entity-manage.html",
-                                "properties": {}
-                            }
-                        },
-                        "entity-create": {
-                            "name": "entity-create",
-                            "title": "entity-create",
-                            "data_route": "entity-create",
-                            "icon": "pebble-icons:Entities",
-                            "href": "/entity-create",
-                            "component": {
-                                "name": "app-business-function",
-                                "path": "../../src/elements/app-business-function/app-business-function.html",
-                                "properties": {
-                                    "name": "createentity",
-                                    "context": {
-                                        "entityType": "sku"
-                                    }
-                                }
-                            }
-                        },
-                        "manage-model": {
-                            "name": "managemodel",
-                            "title": "Manage Model",
-                            "data_route": "manage-model",
-                            "icon": "pebble-icons:DataModelDb",
-                            "href": "/",
-                            "nonClosable": true,
-                            "nonMinimizable": true,
-                            "component": {
-                                "name": "",
-                                "path": ""
-                            }
-                        },
-                        "manage-integration": {
-                            "name": "manageintegration",
-                            "title": "Manage Integration",
-                            "data_route": "manage-integration",
-                            "icon": "pebble-icons:IntegrationsDb",
-                            "href": "/",
-                            "nonClosable": true,
-                            "nonMinimizable": true,
-                            "component": {
-                                "name": "",
-                                "path": ""
-                            }
-                        },
-                        "app-store": {
-                            "name": "appstore",
-                            "title": "App Store",
-                            "data_route": "app-store",
-                            "icon": "pebble-icons:AppsDb",
-                            "href": "/",
-                            "nonClosable": true,
-                            "nonMinimizable": true,
-                            "component": {
-                                "name": "",
-                                "path": ""
-                            }
-                        }
-                    }
                 },
                 "tenant-config": {
                     "config": {
@@ -1613,7 +1589,7 @@ var allConfigs = {
                             "mode": "Read",
                             "schemaType": "attribute",
                             "dataRequest": {
-                                "relatedEntityAttributes": ["shortDescription", "rmsSkuId", "nrfColorCode", "nrfSizeCode"]
+                                "attributes": ["color","description", "skuId", "startDate", "stuscd"]
                             },
                             "tabular": {
                                 "settings": {
@@ -1629,26 +1605,32 @@ var allConfigs = {
                                     ]
                                 },
                                 "columns": [{
-                                    "header": "Short Description",
-                                    "name": "shortDescription",
+                                    "header": "Description",
+                                    "name": "description",
                                     "sortable": false,
                                     "filterable": false
                                 },
                                 {
-                                    "header": "RMS SKU ID",
-                                    "name": "rmsSkuId",
+                                    "header": "Color",
+                                    "name": "color",
                                     "sortable": false,
                                     "filterable": false
                                 },
                                 {
-                                    "header": "NRF Color Code",
-                                    "name": "nrfColorCode",
+                                    "header": "Start_Date",
+                                    "name": "startDate",
                                     "sortable": false,
                                     "filterable": false
                                 },
                                 {
-                                    "header": "NRF Size Code",
-                                    "name": "nrfSizeCode",
+                                    "header": "STUS_CD",
+                                    "name": "stuscd",
+                                    "sortable": false,
+                                    "filterable": false
+                                },
+                                    {
+                                    "header": "Sku_Id",
+                                    "name": "skuId",
                                     "sortable": false,
                                     "filterable": false
                                 }
