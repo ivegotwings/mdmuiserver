@@ -20,12 +20,18 @@ var allConfigs = {
                                     "text": "Style",
                                     "visible": true,
                                     "dataRoute": "entity-create",
-                                    "dataContext": {
-                                        "source": "internal",
-                                        "locale": "en-US",
-                                        "list": "productMaster",
-                                        "classification": "_ALL",
-                                        "entityType": "style"
+                                    "contextData": {
+                                        "itemContext": {
+                                            "type": "style"
+                                        },
+                                        "valueContext": {
+                                            "source": "internal",
+                                            "locale": "en-US"
+                                        },
+                                        "context": {
+                                            "channel": "productMaster",
+                                            "classification": "_ALL"
+                                        }
                                     }
                                 },
                                 {
@@ -34,12 +40,18 @@ var allConfigs = {
                                     "text": "Supplier",
                                     "visible": true,
                                     "dataRoute": "entity-create",
-                                    "dataContext": {
-                                        "source": "internal",
-                                        "locale": "en-US",
-                                        "list": "productMaster",
-                                        "classification": "_ALL",
-                                        "entityType": "supplier"
+                                    "contextData": {
+                                        "itemContext": {
+                                            "type": "supplier"
+                                        },
+                                        "valueContext": {
+                                            "source": "internal",
+                                            "locale": "en-US"
+                                        },
+                                        "context": {
+                                            "channel": "productMaster",
+                                            "classification": "_ALL"
+                                        }
                                     }
                                 },
                                 {
@@ -48,12 +60,18 @@ var allConfigs = {
                                     "text": "UPC",
                                     "visible": true,
                                     "dataRoute": "entity-create",
-                                    "dataContext": {
-                                        "source": "internal",
-                                        "locale": "en-US",
-                                        "list": "productMaster",
-                                        "classification": "_ALL",
-                                        "entityType": "upc"
+                                    "contextData": {
+                                        "itemContext": {
+                                            "type": "upc"
+                                        },
+                                        "valueContext": {
+                                            "source": "internal",
+                                            "locale": "en-US"
+                                        },
+                                        "context": {
+                                            "channel": "productMaster",
+                                            "classification": "_ALL"
+                                        }
                                     }
                                 }
                             ]
@@ -413,6 +431,7 @@ var allConfigs = {
                             "viewMode": "Tabular",
                             "title": "Search Results",
                             "mode": "Read",
+                            "readOnly": true,
                             "schemaType": "attribute",
                             "dataRequest": {
                                 "typesCriterion": ["style", "choice", "sku", "supplier"],
@@ -749,7 +768,7 @@ var allConfigs = {
                                         "query": {
                                             "filters": {
                                                 "typesCriterion": [
-                                                    "channel", "country"
+                                                    "channel"
                                                 ]
                                             }
                                         }
@@ -761,7 +780,7 @@ var allConfigs = {
                                     "subtitle": "",
                                     "image": "",
                                     "icon": "",
-                                    "type": ["channel", "country"]
+                                    "type": ["channel"]
                                 },
                                 "selectedItem": {
                                     "id": "productMaster",
@@ -3259,29 +3278,27 @@ var allConfigs = {
             }]
         },
         {
-        "name": "user-store",
-        "contexts": [{
-            "tenant": "ns",
-            "ctx": {
-                "list": ""
-            },
-            "security": {
-                "user": "",
-                "role": ""
-            },
-            "components": {
-                "user-config": {
-                    "config": {
-                        "users": [
-                            {
+            "name": "user-store",
+            "contexts": [{
+                "tenant": "ns",
+                "ctx": {
+                    "list": ""
+                },
+                "security": {
+                    "user": "",
+                    "role": ""
+                },
+                "components": {
+                    "user-config": {
+                        "config": {
+                            "users": [{
                                 "userName": "ns",
                                 "password": "ns",
                                 "roles": "vendor"
-                            }
-                        ]
+                            }]
+                        }
                     }
                 }
-            }
             }]
         }
     ]
