@@ -2392,6 +2392,7 @@ var allConfigs = {
                 "my-todo-summary-list": {
                     "config": [{
                         "id": 1,
+                        "SavedSearchId": 1,
                         "name": "New SKUs to Submit",
                         "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
@@ -2444,6 +2445,7 @@ var allConfigs = {
                     },
                     {
                         "id": 2,
+                        "SavedSearchId": 2,
                         "name": "Provide Additional Information",
                         "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
@@ -2496,6 +2498,7 @@ var allConfigs = {
                     },
                     {
                         "id": 3,
+                        "SavedSearchId": 3,
                         "name": "Rejected SKUs",
                         "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
@@ -2520,6 +2523,7 @@ var allConfigs = {
                     },
                     {
                         "id": 4,
+                        "SavedSearchId": 4,
                         "name": "Review Assortment",
                         "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
@@ -2544,6 +2548,7 @@ var allConfigs = {
                     },
                     {
                         "id": 5,
+                        "SavedSearchId": 5,
                         "name": "Assign Internal Information",
                         "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
@@ -2596,6 +2601,7 @@ var allConfigs = {
                     },
                     {
                         "id": 6,
+                        "SavedSearchId": 6,
                         "name": "Enrich Copy",
                         "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
@@ -2648,6 +2654,7 @@ var allConfigs = {
                     },
                     {
                         "id": 7,
+                        "SavedSearchId": 7,
                         "name": "Enrich with Digital Assets",
                         "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
