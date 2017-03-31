@@ -1589,7 +1589,7 @@ var allConfigs = {
                             "mode": "Read",
                             "schemaType": "attribute",
                             "dataRequest": {
-                                "relatedEntityAttributes": ["shortDescription", "rmsSkuId", "nrfColorCode", "nrfSizeCode"]
+                                "attributes": ["color","description", "skuId", "startDate", "stuscd"]
                             },
                             "tabular": {
                                 "settings": {
@@ -1605,26 +1605,32 @@ var allConfigs = {
                                     ]
                                 },
                                 "columns": [{
-                                    "header": "Short Description",
-                                    "name": "shortDescription",
+                                    "header": "Description",
+                                    "name": "description",
                                     "sortable": false,
                                     "filterable": false
                                 },
                                 {
-                                    "header": "RMS SKU ID",
-                                    "name": "rmsSkuId",
+                                    "header": "Color",
+                                    "name": "color",
                                     "sortable": false,
                                     "filterable": false
                                 },
                                 {
-                                    "header": "NRF Color Code",
-                                    "name": "nrfColorCode",
+                                    "header": "Start_Date",
+                                    "name": "startDate",
                                     "sortable": false,
                                     "filterable": false
                                 },
                                 {
-                                    "header": "NRF Size Code",
-                                    "name": "nrfSizeCode",
+                                    "header": "STUS_CD",
+                                    "name": "stuscd",
+                                    "sortable": false,
+                                    "filterable": false
+                                },
+                                    {
+                                    "header": "Sku_Id",
+                                    "name": "skuId",
                                     "sortable": false,
                                     "filterable": false
                                 }
