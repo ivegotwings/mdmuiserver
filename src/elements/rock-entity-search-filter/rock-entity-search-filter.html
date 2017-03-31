@@ -14,14 +14,16 @@
 
 <dom-module id="rock-entity-search-filter">
     <template>
-        <rock-search-filter id="search-filter" icon="pebble-sm-icons:Filter-wt" text="Refine More" filters="[[filters]]" tags="{{tags}}"
-                            hide-search-trigger></rock-search-filter>
+        <rock-search-filter id="search-filter" 
+                            icon="pebble-sm-icons:Filter-wt" 
+                            text="Refine More" 
+                            filters="[[filters]]" 
+                            tags="{{tags}}" 
+                            context-data="[[_contextData]]" 
+                            hide-search-trigger>
+        </rock-search-filter>
         <bedrock-pubsub event-name="tag-value-change" handler="_onSearchTagValueChange"></bedrock-pubsub>
         <bedrock-pubsub event-name="tag-item-remove" handler="_onTagItemRemove"></bedrock-pubsub>
-        <liquid-entity-data-get id="initiateLovSearchResult" operation="initiatesearch" request-data="{{_lovTagRequest}}" 
-            last-response="{{_lovSearchResponse}}" exclude-in-progress></liquid-entity-data-get>
-        <liquid-entity-data-get auto id="getLovsearchresultdetail" operation="getsearchresultdetail" request-data="{{_lovTagRequest}}"
-            request-id="[[_lovSearchResponse.content.requestId]]" last-response="{{_lovSearchResultResponse}}" exclude-in-progress></liquid-entity-data-get>
 </template>
 
 <script> 
@@ -31,70 +33,32 @@
         Polymer({
             is: 'rock-entity-search-filter',
             properties: {
-                _lovTagRequest:{
-                    type:Object,
-                    value:function () {
-                        return {
-                            "params": {
-                                "query": {
-                                    "contexts": [],
-                                    "valueContexts": [{
-                                        "source": "",
-                                        "locale": ""
-                                    }],
-                                    "filters": {
-                                        "attributesCriterion": [],
-                                        "typesCriterion": ["nart"]
-                                    }
-                                },
-                                "fields": {
-                                    "ctxTypes": [
-                                        "properties"
-                                    ],
-                                    "attributes": [
-                                    ],
-                                    "relationships": [
-                                    ]
-                                }
-                            }
-                        };
-                    }
-                },
-                _lovSearchResultResponse: {
-                    type: Object,
-                    value: undefined,
-                    notify: true,
-                    observer: '_lovSearchResultResponseChanged'
-                },
+                
                 _selectedSearchFilters:{
                     type:Array,
                     notify:true
                 },
-                dimensions: {
-                    type: Object
+                contextData: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    },
+                    observer: '_prepareContext'
+                },
+                _contextData: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+                typesCriterion: {
+                    type: Array,
+                    observer: '_prepareContext'
                 }
-            },
-            listeners: {
-                'tag-item-remove': '_onTagItemRemove',
-                'tag-item-added': '_onTagItemAdded'
-             },
+            },            
             behaviors: [
                 RUFBehaviors.UIBehavior
             ],
-            _onTagItemAdded: function (e,detail) {
-                if(detail !=undefined && detail.displayType=='textBox'){
-                    var request=this._lovTagRequest;
-                    request.params.fields.attributes=[detail.name];
-                    if(this.dimensions) {
-                        request.params.query.contexts = this._prepareContextGroups(this.dimensions.lists)
-                        request.params.query.valueContexts = this._prepareValueContextGroups(this.dimensions.sources, this.dimensions.locales);
-                    }
-                    this._lovTagRequest=undefined;
-                    this._lovTagRequest=request;
-                    this.$.initiateLovSearchResult.generateRequest();
-                    this.currentTag=detail;
-                }
-            },
 
             // Refine Filter
             _onTagItemRemove: function (e, detail) {
@@ -130,70 +94,18 @@
                     }
                 }
             },
-            _lovSearchResultResponseChanged: function (_lovSearchResultResponse) {
-                this._convertIntoEntityLovList(_lovSearchResultResponse);
-            },
-            _convertIntoEntityLovList: function (entitiesResponse) {
-                if (entitiesResponse) {
-                    var items = [];
-                    if (entitiesResponse.content && entitiesResponse.content.entities) {
-                        var entities = entitiesResponse.content.entities;
-                        Object.keys(entities).forEach(function (item) {
-                            var entity = entities[item];
-                            if (entity && entity.data && entity.data.contexts) {
-                                var currContexts = entity.data.contexts;
-                                Object.keys(currContexts).forEach(function (dataItem) {
-                                    var data = currContexts[dataItem];
-                                    if (data) {
-                                        if (data.attributes) {
-                                            items.push({
-                                                "id": entity.id,
-                                                "title": data.attributes[this.currentTag.name].values[0].value,
-                                            });
-                                        }
-                                    }
-                                }, this);
-                            }
-                        }, this);
-                    }
-                    if(this.$$("#search-filter") && this.$$("#search-filter").currentTag) {
-                        this.$$("#search-filter").currentTag.options = items;
-                    }
-                }
-            } ,
-            _prepareContextGroups: function (lists) {
-                if (lists && lists instanceof Array) {
-                    var contexts = [];
 
-                    for (var i = 0; i < lists.length; i++) {
-                        var contextObject = new Object();
-                        contextObject.list = lists[i].value;
-                        contextObject.classification = "_ALL";
-                        contexts.push(contextObject);
-                    }
-
-                    return contexts;
-                }
-            },
-            _prepareValueContextGroups: function (sources, locales) {
-                var valueContexts = [];
-
-                if (sources && locales && sources instanceof Array && locales instanceof Array) {
-                    for (var i = 0; i < sources.length; i++) {
-                        for (var j = 0; j < locales.length; j++) {
-
-                            var valueCtx = new Object();
-                            valueCtx.source = sources[i].value;
-                            valueCtx.locale = locales[j].value;
-                            valueContexts.push(valueCtx);
-                        }
-                    }
-
-                    return valueContexts;
+            _prepareContext: function() {
+                if(!_.isEmpty(this.contextData) && this.typesCriterion && this.typesCriterion.length > 0)
+                {
+                    var itemContext = {
+                        'type': this.typesCriterion
+                    };
+                    
+                    this._contextData = DataHelper.cloneObject(this.contextData);
+                    this._contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
                 }
             }
-
-
         });
     })();
 </script>
