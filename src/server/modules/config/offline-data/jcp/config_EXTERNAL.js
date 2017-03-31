@@ -674,7 +674,7 @@ var allConfigs = {
                                             "list": "productMaster",
                                             "mode": "view",
                                             "no-of-columns": 1,
-                                            "context": {
+                                            "config-context": {
                                                 "groupName": "Core Attributes",
                                                 "attributeNames": [
                                                     "displayname",
@@ -1306,7 +1306,6 @@ var allConfigs = {
                             },
                             "menuItems": [{
                                 "name": "coreAttributes",
-                                "icon": "icons:add-box",
                                 "title": "Core Attributes",
                                 "component": {
                                     "name": "rock-attribute-split-screen",
@@ -1337,7 +1336,6 @@ var allConfigs = {
                             {
                                 "name": "buying",
                                 "title": "Buying Attributes",
-                                "icon": "icons:add-box",
                                 "component": {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
@@ -1371,7 +1369,6 @@ var allConfigs = {
                             {
                                 "name": "selling",
                                 "title": "Selling Attributes",
-                                "icon": "icons:add-box",
                                 "component": {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
@@ -1415,7 +1412,6 @@ var allConfigs = {
                             {
                                 "name": "merchPlanning",
                                 "title": "Merch Planning",
-                                "icon": "icons:add-box",
                                 "component": {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
@@ -1453,7 +1449,6 @@ var allConfigs = {
                             {
                                 "name": "seoAttributes",
                                 "title": "SEO Attributes",
-                                "icon": "icons:add-box",
                                 "component": {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
@@ -1484,7 +1479,6 @@ var allConfigs = {
                             {
                                 "name": "copy",
                                 "title": "Copy and Description",
-                                "icon": "icons:add-box",
                                 "component": {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
@@ -1526,7 +1520,6 @@ var allConfigs = {
                             "menuItems": [{
                                 "name": "isChildOf",
                                 "title": "Variants",
-                                "icon": "icons:cloud-upload",
                                 "component": {
                                     "name": "rock-relationship-split-screen",
                                     "path": "/src/elements/rock-relationship-split-screen/rock-relationship-split-screen.html",
@@ -1548,7 +1541,6 @@ var allConfigs = {
                             {
                                 "name": "productPresentationToLot",
                                 "title": "Lots",
-                                "icon": "icons:cloud-upload",
                                 "component": {
                                     "name": "rock-relationship-split-screen",
                                     "path": "/src/elements/rock-relationship-split-screen/rock-relationship-split-screen.html",

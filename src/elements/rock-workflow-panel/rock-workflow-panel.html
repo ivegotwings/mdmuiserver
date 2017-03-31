@@ -107,15 +107,15 @@
             }
         </style>
         <liquid-rest id="entityStartWorkflow" url="/pass-through/entitygovernservice/startworkflow" method="POST" request-data={{_invokeWorkflowRequest}}
-            last-response={{_invokeWorkflowResponse}} on-response="_onWfStartSuccess" on-error="_onWfStartFailure"></liquid-rest>
+            last-response={{_invokeWorkflowResponse}} on-liquid-response="_onWfStartSuccess" on-liquid-error="_onWfStartFailure"></liquid-rest>
         <liquid-entity-model-get id="entityGetWorkflowDefinition" operation="getbyids" request-id="req1" request-data={{workflowDefinitionRequest}}
             on-response="_onDefinitionReceived" on-error="_onDefinitionGetFailed"></liquid-entity-model-get>
-        <liquid-entity-govern-data-get id="entityGetRunningInstance" operation="getbyids" request-id="req2" request-data={{runningInstanceRequest}}
+        <liquid-entity-govern-data-get id="entityGetRunningInstance" no-cache operation="getbyids" request-id="req2" request-data={{runningInstanceRequest}}
             on-response="_onRunningInstanceReceived" on-error="_onRunningInstanceGetFailed"></liquid-entity-govern-data-get>
         <!--<liquid-rest id="entityGetRunningInstance" url="/pass-through/entitygovernservice/get" method="POST" request-data={{runningInstanceRequest}}
-            on-response="_onRunningInstanceReceived" on-error="_onRunningInstanceGetFailed"></liquid-rest>-->
+            on-liquid-response="_onRunningInstanceReceived" on-liquid-error="_onRunningInstanceGetFailed"></liquid-rest>-->
         <liquid-rest id="entityWfTransition" url="/pass-through/entitygovernservice/transitionWorkflow" method="POST" request-data={{_transitionRequest}}
-            on-response="_onTransitionSuccess" on-error="_onTransitionFailure"></liquid-rest>
+            on-liquid-response="_onTransitionSuccess" on-liquid-error="_onTransitionFailure"></liquid-rest>
         <pebble-button id="invokeButton" hidden raised class="iconButton btn btn-outline-primary m-r-5" button-text="Start Workflow"
             on-tap="_onInvokeWorkflow"></pebble-button>
         <template id="workflowsTemplate" is="dom-repeat" items="[[_workflowsData]]" as="_workflowstepperData">
@@ -235,39 +235,54 @@
                                                         ? e.detail.response.content.entities: undefined;
 
                         if (runtimeInstanceEntities && runtimeInstanceEntities.length > 0) {
+                            //console.log('runtime instance entities ', JSON.stringify(runtimeInstanceEntities, null, 2));
 
-                            var foundWorkflowNames = [];
-                            var runningInstances = [];
-                            //Note: Here, workflow runtime data would be always in the context of workflow so no need to check for data.attributes
+                            var runtimeInstanceEntity = runtimeInstanceEntities[0];
 
-                            var contexts = runtimeInstanceEntities[0].data.contexts;
+                            if(runtimeInstanceEntity && runtimeInstanceEntity.data) {
+                                var foundWorkflowNames = [];
+                                var runningInstances = [];
 
-                            for (var i = 0; i < contexts.length; i++) {
-                                var currContext = contexts[i].context;
-                                var currWorkflowName = currContext.workflow;
+                                //Note: Here, workflow runtime data would be always in the context of workflow so no need to check for data.attributes
+                                var contexts = runtimeInstanceEntity.data && runtimeInstanceEntity.data.contexts ? runtimeInstanceEntity.data.contexts : [];
 
-                                if(currWorkflowName) {
-                                    var runtimeInstance = {
-                                        "name": currWorkflowName,
-                                        "attributes": contexts[i].attributes
-                                    };
-
-                                    runningInstances[currWorkflowName] = {};
-                                    runningInstances[currWorkflowName] = runtimeInstance;
-                                    foundWorkflowNames.push(currWorkflowName);
-                                }
-                            }
-
-                            if(foundWorkflowNames.length > 0) {
-                                showInvokeButton = false;
-
-                                this.set("_runningInstances", runningInstances);
+                                //Need to do below hack as data are coming directly in entity.data.attributes instead of context...once RDF is fixed, we need to remove below section
+                                //HACK::START
+                                var dataAttributes = runtimeInstanceEntity.data.attributes;
+                                var workflowName = this._getMappedWorkflowNames()[0];
+                                var selfContext = {'context': {'workflow': workflowName}, 'attributes': dataAttributes };
+                                contexts.push(selfContext);
+                                //HACK::END
                                 
-                                var itemContext = this.getFirstItemContext();
-                                itemContext.workflowNames = foundWorkflowNames;
+                                for (var i = 0; i < contexts.length; i++) {
+                                    var currContextItem = contexts[i];
+                                    var currContext = currContextItem.context;
+                                    var currWorkflowName = currContext.workflow;
+                                    var contextAttrs = currContextItem.attributes;
 
-                                this.workflowDefinitionRequest = DataRequestHelper.createWorkflowDefinitionGetRequest(this.contextData);
-                                this.$$("#entityGetWorkflowDefinition").generateRequest();
+                                    if(currWorkflowName) {
+                                        var runtimeInstance = {
+                                            "name": currWorkflowName,
+                                            "attributes": contexts[i].attributes
+                                        };
+
+                                        runningInstances[currWorkflowName] = {};
+                                        runningInstances[currWorkflowName] = runtimeInstance;
+                                        foundWorkflowNames.push(currWorkflowName);
+                                    }
+                                }
+
+                                if(foundWorkflowNames.length > 0) {
+                                    showInvokeButton = false;
+
+                                    this.set("_runningInstances", runningInstances);
+                                    
+                                    var itemContext = this.getFirstItemContext();
+                                    itemContext.workflowNames = foundWorkflowNames;
+
+                                    this.workflowDefinitionRequest = DataRequestHelper.createWorkflowDefinitionGetRequest(this.contextData);
+                                    this.$$("#entityGetWorkflowDefinition").generateRequest();
+                                }
                             }
                         }
                     }
@@ -287,7 +302,14 @@
                             var workflowName = entityModel.name;
 
                             if (entityModel.data && entityModel.data.attributes) {
-                                var wfAttributes = entityModel.data.attributes.workflows.group[0];
+                                
+                                var wfAttributes = entityModel.data.attributes.workflows.group[0]; 
+                                
+                                //This is hack to work with RDF...eventually data would be directly under group[0] and not inside group[0].atttributes
+                                if(wfAttributes.attributes) {
+                                    wfAttributes = wfAttributes.attributes; 
+                                }
+
                                 var riAttributes = this._runningInstances[workflowName].attributes;
 
                                 var _stepperData = this._transformEntityResponseToStepperJson(wfAttributes, riAttributes, workflowName);
@@ -320,17 +342,36 @@
 
                         var activitiesJson = wfActivities;
                         var riActivity = riActivities.group[0];
+
+                         //This is hack to work with RDF...eventually data would be directly under group[0] and not inside group[0].atttributes
+                        if(riActivity.attributes) {
+                            riActivity = riActivity.attributes;
+                        }
+
                         var riActivityGuid = AttributeHelper.getFirstAttributeValue(riActivity.activityGuid);
                         var riActivityStatus = AttributeHelper.getFirstAttributeValue(riActivity.status);
 
                         for (var i = 0; i < activitiesJson.group.length; i++) {
                             var wfActivity = activitiesJson.group[i];
+
+                            //This is hack to work with RDF...eventually data would be directly under group[0] and not inside group[0].atttributes
+                            if(wfActivity.attributes) {
+                                wfActivity = wfActivity.attributes;
+                            }
+
                             var wfActivityGuid = AttributeHelper.getFirstAttributeValue(wfActivity.activityGuid);
                             if (riActivityGuid == wfActivityGuid) {
                                 riActivity["sequence"] = wfActivity["sequence"];
                                 riActivity["activityName"] = wfActivity["activityName"];
                                 riActivity["activityDescription"] = wfActivity["activityDescription"];
+                                
                                 riActivity["actions"] = wfActivity["actions"];
+
+                                //This is hack to work with RDF...eventually data would be directly under group[0] and not inside group[0].atttributes
+                                if(riActivity["actions"].attributes) {
+                                    riActivity["actions"] = riActivity["actions"].attributes;
+                                }
+                                
                                 activitiesJson.group[i] = riActivity;
                                 break;
                             }
@@ -365,10 +406,22 @@
                             for (var i = 0; i < activities.group.length; i++) {
                                 var k = activities.group.length - 1;
                                 var group = activities.group[k - i];
+                               
+                                //This is hack to work with RDF...eventually data would be directly under group[0] and not inside group[0].atttributes
+                                if(group.attributes) {
+                                    group = group.attributes; 
+                                }
+                                
                                 var actions = [];
                                 if (group && group.actions && group.actions.group && group.actions.group.length) {
                                     for (var j = 0; j < group.actions.group.length; j++) {
                                         var actionsGroup = group.actions.group[j];
+                                       
+                                       //This is hack to work with RDF...eventually data would be directly under group[0] and not inside group[0].atttributes
+                                        if(actionsGroup.attributes) {
+                                            actionsGroup = actionsGroup.attributes; 
+                                        }
+
                                         var action = {
                                             "action": AttributeHelper.getFirstAttributeValue(actionsGroup.actionText),
                                             "event": AttributeHelper.getFirstAttributeValue(actionsGroup.actionName),
@@ -385,7 +438,8 @@
                                     "title": AttributeHelper.getFirstAttributeValue(group.activityName),
                                     "subtitle": this._getItemSubtitle(group.action, group.endDateTime),
                                     "status": this._getItemStatus(group.status, config.status),
-                                    "selected": this._getSelected(group.status)
+                                    "selected": this._getSelected(group.status),
+                                    "workflowName": workflowName
                                 };
                                 item["stepDetails"] = this._getItemFullDetails(item, attributes, actions);
                                 items.push(item);
@@ -546,24 +600,34 @@
                         var currentActivity;
                         for (var i = 0; i < workflowAttributes.activities.group.length; i++) {
                             var group = workflowAttributes.activities.group[i];
+                             //This is hack to work with RDF...eventually data would be directly under group[0] and not inside group[0].atttributes
+                            if(group.attributes) {
+                                group = group.attributes; 
+                            }
+                            
                             var activityId = AttributeHelper.getFirstAttributeValue(group.activityGuid);
                             if (activityId && activityId == stepItem.id) {
                                 currentActivity = group;
                                 break;
                             }
                         }
+
                         var itemDetailsJson = {};
-                        var itemDescription = AttributeHelper.getFirstAttributeValue(currentActivity.activityDescription);
-                        var assignedUser = AttributeHelper.getFirstAttributeValue(currentActivity.assignedUser);
-                        if (!assignedUser) {
-                            assignedUser = "cfadmin";
+
+                        if(currentActivity) {
+                            var itemDescription = AttributeHelper.getFirstAttributeValue(currentActivity.activityDescription);
+                            var assignedUser = AttributeHelper.getFirstAttributeValue(currentActivity.assignedUser);
+                            if (!assignedUser) {
+                                assignedUser = "cfadmin";
+                            }
+
+                            var wfStatus = AttributeHelper.getFirstAttributeValue(workflowAttributes.status);
+                            var itemDetail = this._getItemDetail(currentActivity, wfStatus);
+                            itemDetailsJson["description"] = itemDescription;
+                            itemDetailsJson["assignedUser"] = assignedUser;
+                            itemDetailsJson["details"] = itemDetail;
+                            itemDetailsJson["actions"] = actions;
                         }
-                        var wfStatus = AttributeHelper.getFirstAttributeValue(workflowAttributes.status);
-                        var itemDetail = this._getItemDetail(currentActivity, wfStatus);
-                        itemDetailsJson["description"] = itemDescription;
-                        itemDetailsJson["assignedUser"] = assignedUser;
-                        itemDetailsJson["details"] = itemDetail;
-                        itemDetailsJson["actions"] = actions;
 
                         return itemDetailsJson;
                     }
@@ -608,9 +672,9 @@
                     return false;
                 },
                 _isRequired: function (stepDetails) {
-                    if (stepDetails && stepDetails.actions && stepDetails.actions.group
-                        && stepDetails.actions.group.length && stepDetails.actions.group.length > 0) {
-                        stepDetails.actions.group.forEach(function (action) {
+                    if (stepDetails && stepDetails.actions && stepDetails.actions
+                        && stepDetails.actions.length && stepDetails.actions.length > 0) {
+                        stepDetails.actions.forEach(function (action) {
                             var commentsMode = AttributeHelper.getFirstAttributeValue(action.commentsMode);
                             if (commentsMode != "Mandatory") {
                                 return false;
