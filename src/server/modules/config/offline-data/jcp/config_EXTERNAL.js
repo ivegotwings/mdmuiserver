@@ -352,6 +352,174 @@ var allConfigs = {
                         "workflowSavedSearch": [{
                             "id": 1,
                             "accesstype": "self",
+                            "name": "New SKUs to Submit",
+                            "workflowSearchCriterion": {
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "contexts": [
+                                                {
+                                                    "workflow": "newProductSetup"
+                                                }
+                                            ],
+                                            "filters": {
+                                                "attributesCriterion": [
+                                                    {
+                                                        "activities/activityName": {
+                                                            "eq": "New SKUs to Submit"
+                                                        }
+                                                    }
+                                                ],
+                                                "typesCriterion": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "id": 2,
+                            "accesstype": "self",
+                            "name": "Provide Additional Info",
+                            "workflowSearchCriterion": {
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "contexts": [
+                                                {
+                                                    "workflow": "newProductSetup"
+                                                }
+                                            ],
+                                            "filters": {
+                                                "attributesCriterion": [
+                                                    {
+                                                        "activities/activityName": {
+                                                            "eq": "Provide Additional Info"
+                                                        }
+                                                    }
+                                                ],
+                                                "typesCriterion": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "id": 3,
+                            "accesstype": "self",
+                            "name": "Rejected SKUs",
+                            "workflowSearchCriterion": {
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "contexts": [
+                                                {
+                                                    "workflow": "newProductSetup"
+                                                }
+                                            ],
+                                            "filters": {
+                                                "attributesCriterion": [
+                                                    {
+                                                        "activities/activityName": {
+                                                            "eq": "Rejected SKUs"
+                                                        }
+                                                    }
+                                                ],
+                                                "typesCriterion": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "id": 4,
+                            "accesstype": "self",
+                            "name": "Review Assortment",
+                            "workflowSearchCriterion": {
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "contexts": [
+                                                {
+                                                    "workflow": "newProductSetup"
+                                                }
+                                            ],
+                                            "filters": {
+                                                "attributesCriterion": [
+                                                    {
+                                                        "activities/activityName": {
+                                                            "eq": "Review Assortment"
+                                                        }
+                                                    }
+                                                ],
+                                                "typesCriterion": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "id": 5,
+                            "accesstype": "self",
+                            "name": "Assign Internal Information",
+                            "workflowSearchCriterion": {
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "contexts": [
+                                                {
+                                                    "workflow": "newProductSetup"
+                                                }
+                                            ],
+                                            "filters": {
+                                                "attributesCriterion": [
+                                                    {
+                                                        "activities/activityName": {
+                                                            "eq": "Assign Internal Information"
+                                                        }
+                                                    }
+                                                ],
+                                                "typesCriterion": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "id": 6,
+                            "accesstype": "self",
+                            "name": "Enrich Copy",
+                            "workflowSearchCriterion": {
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "contexts": [
+                                                {
+                                                    "workflow": "newProductSetup"
+                                                }
+                                            ],
+                                            "filters": {
+                                                "attributesCriterion": [
+                                                    {
+                                                        "activities/activityName": {
+                                                            "eq": "Enrich Copy"
+                                                        }
+                                                    }
+                                                ],
+                                                "typesCriterion": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "id": 7,
+                            "accesstype": "self",
                             "name": "Enrich with Digital Assets",
                             "workflowSearchCriterion": {
                                 "dataRequest": {
@@ -370,9 +538,7 @@ var allConfigs = {
                                                         }
                                                     }
                                                 ],
-                                                "typesCriterion": [
-                                                    
-                                                ]
+                                                "typesCriterion": []
                                             }
                                         }
                                     }
