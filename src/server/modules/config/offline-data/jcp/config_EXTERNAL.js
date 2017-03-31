@@ -233,7 +233,7 @@ var allConfigs = {
                     "config": [{
                         "id": "channel",
                         "title": "Channel",
-                        "icon": "pebble-lg-icons:Source",
+                        "icon": "pebble-lg-icons:Master",
                         "visible": true,
                         "dataRequestType": "entity",
                         "dataRequest": {
@@ -482,6 +482,7 @@ var allConfigs = {
                         "mode": "Read",
                         "readOnly": true,
                         "schemaType": "attribute",
+                        "titleTemplate":"for the channel {channel} ",
                         "dataRequest": {
                             "typesCriterion": ["sku", "productPresentation", "lot"],
                             "attributes": ["displayname", "description", "stuscd", "startdate", "enddate", "webDiscount"]
@@ -811,7 +812,7 @@ var allConfigs = {
                     "config": [{
                         "id": "channel",
                         "title": "Channel",
-                        "icon": "pebble-lg-icons:Source",
+                        "icon": "pebble-lg-icons:Master",
                         "visible": true,
                         "dataRequestType": "entity",
                         "dataRequest": {
