@@ -504,6 +504,7 @@ var allConfigs = {
                         "viewMode": "Tabular",
                         "title": "Search Results",
                         "mode": "Read",
+                        "readOnly": true,
                         "schemaType": "attribute",
                         "dataRequest": {
                             "typesCriterion": ["sku", "productPresentation", "lot"],
