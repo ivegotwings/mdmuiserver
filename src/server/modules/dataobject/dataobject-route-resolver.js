@@ -17,7 +17,7 @@ const CONST_ALL = sharedDataObjectFalcorUtil.CONST_ALL,
 const DataObjectManageService = require('./DataObjectManageService');
 
 //falcor utilty functions' references
-const futil = require('./dataobject-falcor-utils');
+const futil = require('./dataobject-falcor-response-builder');
 
 const createPath = futil.createPath,
     buildResponse = futil.buildResponse,
@@ -106,11 +106,6 @@ function createGetRequest(reqData) {
 
     var contexts = sharedDataObjectFalcorUtil.createCtxItems(reqData.ctxKeys);
     var valContexts = sharedDataObjectFalcorUtil.createCtxItems(reqData.valCtxKeys);
-
-     if(reqData.dataIndex != "entityGovernData") {
-         var selfContext = {'self': 'self'};
-         contexts.push(selfContext);
-     }
 
     var fields = {
         ctxTypes: ["properties"]
