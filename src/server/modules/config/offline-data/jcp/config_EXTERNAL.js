@@ -482,6 +482,7 @@ var allConfigs = {
                         "mode": "Read",
                         "readOnly": true,
                         "schemaType": "attribute",
+                        "titleTemplate":"for the channel {channel} ",
                         "dataRequest": {
                             "typesCriterion": ["sku", "productPresentation", "lot"],
                             "attributes": ["displayname", "description", "stuscd", "startdate", "enddate", "webDiscount"]
