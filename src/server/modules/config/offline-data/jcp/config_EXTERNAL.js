@@ -684,7 +684,10 @@ var allConfigs = {
                         "mode": "Read",
                         "readOnly": true,
                         "schemaType": "attribute",
-                        "titleTemplate":"for the channel {channel} ",
+                        "titleTemplates": {
+                           "contextTemplate": "for the channel: {channel} ",
+                            "workflowTemplate":"in workflow: {workflow}, workflow Status: {workflowStatus}"
+                        },
                         "dataRequest": {
                             "typesCriterion": ["sku", "productPresentation", "lot"],
                             "attributes": ["displayname", "description", "stuscd", "startdate", "enddate", "webDiscount"]
