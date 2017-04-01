@@ -536,33 +536,13 @@ var allConfigs = {
                             "searchTags": [{
                                 "name": "description",
                                 "longName": "Description",
-                                "displayType": "textBox",
+                                "options":{
+                                    "displayType": "textArea",                                    
+                                },
                                 "value": {
                                     "eq": "Womens"
                                 }
-                            }],
-                            "workflowSearchCriterion": {
-                                "dataRequest": {
-                                    "params": {
-                                        "query": {
-                                            "contexts": [
-                                                {
-                                                    "workflow": "newProductSetup"
-                                                }
-                                            ],
-                                            "filters": {
-                                                "attributesCriterion": [
-                                                    {
-                                                        "activities/activityName": {
-                                                            "eq": "Review Assortment"
-                                                        }
-                                                    }
-                                                ]
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                            }]
                         }],
                         "my-searches": [{
                             "id": 9,
@@ -580,7 +560,9 @@ var allConfigs = {
                             "searchTags": [{
                                 "name": "description",
                                 "longName": "Description",
-                                "displayType": "textBox",
+                                "options":{
+                                    "displayType": "textArea",                                    
+                                },
                                 "value": {
                                     "eq": "Mens"
                                 }
@@ -602,7 +584,9 @@ var allConfigs = {
                             "searchTags": [{
                                 "name": "description",
                                 "longName": "Description",
-                                "displayType": "textBox",
+                                "options":{
+                                    "displayType": "textArea",                                    
+                                },
                                 "value": {
                                     "eq": "dresses"
                                 }
