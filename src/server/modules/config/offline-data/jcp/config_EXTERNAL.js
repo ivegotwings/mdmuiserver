@@ -616,8 +616,14 @@ var allConfigs = {
                 },
                 "rock-search-filter": {
                     "config": [{
-                        "name": "displayname",
+                        "name": "displayName",
                         "longName": "Display Name",
+                        "displayType": "textBox"
+                    },
+                    {
+                        "name": "skuNumber",
+                        "longName": "Sku Number",
+                        "value": "",
                         "displayType": "textBox"
                     },
                     {
@@ -628,30 +634,25 @@ var allConfigs = {
                     },
 
                     {
-                        "name": "creationdate",
+                        "name": "creationDate",
                         "longName": "Creation Date",
                         "value": "",
                         "displayType": "dateTime"
                     },
                     {
-                        "name": "startdate",
+                        "name": "startDate",
                         "longName": "Start Date",
                         "value": "",
                         "displayType": "dateTime"
                     },
                     {
-                        "name": "enddate",
+                        "name": "endDate",
                         "longName": "End Date",
                         "value": "",
                         "displayType": "dateTime"
                     },
                     {
-                        "name": "color",
-                        "longName": "Color",
-                        "displayType": "dropDown"
-                    },
-                    {
-                        "name": "Size",
+                        "name": "size",
                         "longName": "Size",
                         "displayType": "dropDown"
                     },
@@ -666,13 +667,13 @@ var allConfigs = {
                         "displayType": "dropDown"
                     },
                     {
-                        "name": "skuqy",
-                        "longName": "SKU Quantity",
+                        "name": "skuQuantity",
+                        "longName": "Quantity",
                         "displayType": "numeric"
                     },
                     {
-                        "name": "stuscd",
-                        "longName": "Status Code",
+                        "name": "status",
+                        "longName": "Status",
                         "displayType": "textBox"
                     }
                     ]
@@ -690,28 +691,28 @@ var allConfigs = {
                         },
                         "dataRequest": {
                             "typesCriterion": ["sku", "productPresentation", "lot"],
-                            "attributes": ["displayname", "description", "stuscd", "startdate", "enddate", "webDiscount"]
+                            "attributes": ["displayName", "description", "status", "startDate", "endDate", "webDiscount"]
                         },
                         "tabular": {
                             "settings": {
                                 "isMultiSelect": true
                             },
                             "columns": [{
-                                "header": "Entity Name",
-                                "name": "displayname",
+                                "header": "Display Name",
+                                "name": "displayName",
                                 "sortable": false,
                                 "filterable": false,
                                 "linkTemplate": "entity-manage?id={id}&type={type}"
                             },
                             {
-                                "header": "Entity Description",
+                                "header": "Description",
                                 "name": "description",
                                 "sortable": false,
                                 "filterable": false
                             },
                             {
-                                "header": "Status Code",
-                                "name": "stuscd",
+                                "header": "Status",
+                                "name": "status",
                                 "sortable": false,
                                 "filterable": false
                             },
@@ -723,13 +724,13 @@ var allConfigs = {
                             },
                             {
                                 "header": "Start Date",
-                                "name": "startdate",
+                                "name": "startDate",
                                 "sortable": true,
                                 "filterable": false
                             },
                             {
                                 "header": "End Date",
-                                "name": "enddate",
+                                "name": "endDate",
                                 "sortable": true,
                                 "filterable": false
                             }
@@ -752,7 +753,7 @@ var allConfigs = {
                             },
                             "listItems": {
                                 "image": "productImageUrl",
-                                "title": "displayname",
+                                "title": "displayName",
                                 "id": "id",
                                 "fields": [{
                                     "name": "description",
@@ -760,8 +761,8 @@ var allConfigs = {
                                     "noTrim": false
                                 },
                                 {
-                                    "name": "stuscd",
-                                    "label": "Status Code",
+                                    "name": "status",
+                                    "label": "Status",
                                     "noTrim": true
                                 }
                                 ]
@@ -784,7 +785,7 @@ var allConfigs = {
                             },
                             "tileItems": {
                                 "image": "productImageUrl",
-                                "title": "displayname",
+                                "title": "displayName",
                                 "id": "id",
                                 "fields": [{
                                     "name": "description",
@@ -792,8 +793,8 @@ var allConfigs = {
                                     "noTrim": false
                                 },
                                 {
-                                    "name": "stuscd",
-                                    "label": "Status Code",
+                                    "name": "status",
+                                    "label": "Status",
                                     "noTrim": true
                                 }
                                 ]
@@ -815,55 +816,78 @@ var allConfigs = {
                                     "name": "rock-attribute-manage",
                                     "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
                                     "properties": {
-                                        "attributeGroups": [
-                                            "coreAttributes"
-                                        ],
                                         "config-context": {
                                             "attributeNames": [
-                                                "displayname",
+                                                "alsoInStore",
+                                                "brand",
+                                                "brandLogo",
+                                                "channel",
+                                                "channelAvailability",
                                                 "description",
-                                                "enddate",
-                                                "startdate",
-                                                "stuscd",
+                                                "displayAskAndAnswerSection",
+                                                "displayName",
+                                                "factSheet",
+                                                "featureColor",
+                                                "hideDisplayIndicator",
+                                                "id",
+                                                "isCustomerFavoriteOption",
+                                                "isHidden",
+                                                "isPreOrderOption",
+                                                "longDescription",
+                                                "lotSelectionType",
+                                                "lotType",
+                                                "onlineOnly",
                                                 "orin",
-                                                "productid",
-                                                "onlineonly",
-                                                "shortnm",
-                                                "chnlcd",
-                                                "trukitmin",
-                                                "whseclasscd",
-                                                "drctshprstrid",
-                                                "disposalfeeid",
-                                                "willcallrstrid",
-                                                "questionalordqy"
+                                                "programType",
+                                                "ratingReviewId",
+                                                "retailSkuNumber",
+                                                "shortName",
+                                                "skuGrouping",
+                                                "skuItemType",
+                                                "skuNumber",
+                                                "skuQuantity",
+                                                "skuType",
+                                                "source",
+                                                "status",
+                                                "stone",
+                                                "styleText",
+                                                "upcBarcode",
+                                                "warranty"
                                             ]
                                         }
                                     }
                                 },
                                 "menuItems": [{
-                                    "name": "core-attributes",
+                                    "name": "advanced",
                                     "icon": "icons:add-box",
-                                    "title": "Core Attributes",
+                                    "title": "Advanced",
                                     "component": {
                                         "name": "rock-attribute-manage",
                                         "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
                                         "properties": {
-                                            "locales": [{
-                                                "locale": "en-US",
-                                                "language": "English"
-                                            }],
-                                            "source": "SAP",
-                                            "list": "productMaster",
                                             "mode": "view",
-                                            "no-of-columns": 1,
+                                            "no-of-columns": 2,
                                             "config-context": {
-                                                "groupName": "Core Attributes",
+                                                "groupName": "Advanced",
                                                 "attributeNames": [
-                                                    "displayname",
-                                                    "description",
-                                                    "enddate",
-                                                    "startdate",
-                                                    "stuscd"
+                                                    "featureHeaderText",
+                                                    "featureQuoteText",
+                                                    "isBopisEligible",
+                                                    "isNewClearanceTimestamp",
+                                                    "isNewToClearance",
+                                                    "isSampleEnsemble",
+                                                    "ppSkuSwatchesRolledUpCount",
+                                                    "productReviewQuoteText",
+                                                    "sourceFeedId",
+                                                    "isFurniture",
+                                                    "isSephora",
+                                                    "mailableIndicator",
+                                                    "questionableOrderQuantity",
+                                                    "recycleFeeIndicator",
+                                                    "sabrixCommodityCode",
+                                                    "specialIndicator",
+                                                    "unusualDemandQuantity",
+                                                    "vData"
                                                 ]
                                             }
                                         }
@@ -1005,9 +1029,6 @@ var allConfigs = {
         "name": "app-entity-manage",
         "contexts": [{
             "tenant": "jcp",
-            "ctx": {
-                "list": "productMaster"
-            },
             "security": {
                 "user": "",
                 "role": ""
@@ -1192,8 +1213,13 @@ var allConfigs = {
                 "rock-entity-header": {
                     "config": {
                         "headerConfig": [{
-                            "attributeName": "skuid",
+                            "attributeName": "id",
                             "label": "SKU ID",
+                            "noTrim": false
+                        },
+                        {
+                            "attributeName": "skuNumber",
+                            "label": "SKU Number",
                             "noTrim": false
                         },
                         {
@@ -1202,23 +1228,18 @@ var allConfigs = {
                             "noTrim": false
                         },
                         {
-                            "attributeName": "stuscd",
-                            "label": "Status Code",
+                            "attributeName": "status",
+                            "label": "Status",
                             "noTrim": false
                         },
                         {
-                            "attributeName": "startdate",
+                            "attributeName": "startDate",
                             "label": "Start Date",
                             "noTrim": false
                         },
                         {
                             "attributeName": "webDiscount",
                             "label": "Web Discount",
-                            "noTrim": false
-                        },
-                        {
-                            "attributeName": "color",
-                            "label": "Color",
                             "noTrim": false
                         }
 
@@ -1418,77 +1439,52 @@ var allConfigs = {
                                 "name": "rock-attribute-split-screen",
                                 "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                 "properties": {
-                                    "attributeGroups": [
-                                        "coreAttributes",
-                                        "buying",
-                                        "selling"
-                                    ],
+                                    "mode": "view",
+                                    "no-of-columns": 2,
                                     "config-context": {
                                         "attributeNames": [
-                                            "color",
-                                            "creationdate",
-                                            "length",
-                                            "width",
-                                            "startdate",
-                                            "enddate",
-                                            "displayname",
+                                            "alsoInStore",
+                                            "brand",
+                                            "brandLogo",
+                                            "channel",
+                                            "channelAvailability",
                                             "description",
-                                            "stuscd",
+                                            "displayAskAndAnswerSection",
+                                            "displayName",
+                                            "factSheet",
+                                            "featureColor",
+                                            "hideDisplayIndicator",
+                                            "id",
+                                            "isCustomerFavoriteOption",
+                                            "isHidden",
+                                            "isPreOrderOption",
+                                            "longDescription",
+                                            "lotSelectionType",
+                                            "lotType",
+                                            "onlineOnly",
                                             "orin",
-                                            "productid",
-                                            "skuid",
-                                            "categoryid",
-                                            "longdescription",
-                                            "onlineonly",
-                                            "shortnm",
-                                            "chnlcd",
-                                            "trukitmin",
-                                            "whseclasscd",
-                                            "drctshprstrid",
-                                            "disposalfeeid",
-                                            "willcallrstrid",
-                                            "questionalordqy",
-                                            "lottypcd",
-                                            "skutype",
-                                            "skunb",
-                                            "rtlskunb",
-                                            "hidedsplin",
-                                            "skuqy",
-                                            "barcodecd",
-                                            "whitegloveddlvryin",
-                                            "styletx",
-                                            "lotselntypcd",
-                                            "noncontntlprepaidcd",
-                                            "contntlprepaidcd",
-                                            "unusualdmdqy",
-                                            "mlblitmin",
-                                            "prodlengthnb",
-                                            "prodheightnb",
-                                            "prodwtnb",
-                                            "prodwidthnb",
-                                            "cmrclcarrcd",
-                                            "noncmrclcarrcd",
-                                            "sabrixcommoditycd",
-                                            "pgmtypcd",
-                                            "spclin",
-                                            "parantheticam",
-                                            "willcallfsin",
-                                            "intlshippablein",
-                                            "mfrnm",
-                                            "origcntrycd",
-                                            "szunittx",
-                                            "sephorain",
-                                            "isrecyclablein",
-                                            "modelnb",
-                                            "frnin",
-                                            "webDiscount"
+                                            "programType",
+                                            "ratingReviewId",
+                                            "retailSkuNumber",
+                                            "shortName",
+                                            "skuGrouping",
+                                            "skuItemType",
+                                            "skuNumber",
+                                            "skuQuantity",
+                                            "skuType",
+                                            "source",
+                                            "status",
+                                            "stone",
+                                            "styleText",
+                                            "upcBarcode",
+                                            "warranty"
                                         ]
                                     }
                                 }
                             },
                             "menuItems": [{
-                                "name": "coreAttributes",
-                                "title": "Core Attributes",
+                                "name": "Advanced",
+                                "title": "Advanced",
                                 "component": {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
@@ -1496,28 +1492,135 @@ var allConfigs = {
                                         "mode": "view",
                                         "no-of-columns": 2,
                                         "config-context": {
-                                            "groupName": "Core Attributes",
+                                            "groupName": "Advanced",
                                             "attributeNames": [
-                                                "creationdate",
-                                                "startdate",
-                                                "enddate",
-                                                "displayname",
+                                                "featureHeaderText",
+                                                "featureQuoteText",
+                                                "isBopisEligible",
+                                                "isNewClearanceTimestamp",
+                                                "isNewToClearance",
+                                                "isSampleEnsemble",
+                                                "ppSkuSwatchesRolledUpCount",
+                                                "productReviewQuoteText",
+                                                "sourceFeedId",
+                                                "isFurniture",
+                                                "isSephora",
+                                                "mailableIndicator",
+                                                "questionableOrderQuantity",
+                                                "recycleFeeIndicator",
+                                                "sabrixCommodityCode",
+                                                "specialIndicator",
+                                                "unusualDemandQuantity",
+                                                "vData"
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "name": "Basic",
+                                "title": "Basic",
+                                "component": {
+                                    "name": "rock-attribute-split-screen",
+                                    "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
+                                    "properties": {
+                                        "mode": "view",
+                                        "no-of-columns": 2,
+                                        "config-context": {
+                                            "groupName": "Basic",
+                                            "attributeNames": [
+                                                "alsoInStore",
+                                                "brand",
+                                                "brandLogo",
+                                                "channel",
+                                                "channelAvailability",
                                                 "description",
-                                                "stuscd",
+                                                "displayAskAndAnswerSection",
+                                                "displayName",
+                                                "factSheet",
+                                                "featureColor",
+                                                "hideDisplayIndicator",
+                                                "id",
+                                                "isCustomerFavoriteOption",
+                                                "isHidden",
+                                                "isPreOrderOption",
+                                                "longDescription",
+                                                "lotSelectionType",
+                                                "lotType",
+                                                "onlineOnly",
                                                 "orin",
-                                                "productid",
-                                                "skuid",
-                                                "categoryid",
-                                                "longdescription",
-                                                "webDiscount"
+                                                "programType",
+                                                "ratingReviewId",
+                                                "retailSkuNumber",
+                                                "shortName",
+                                                "skuGrouping",
+                                                "skuItemType",
+                                                "skuNumber",
+                                                "skuQuantity",
+                                                "skuType",
+                                                "source",
+                                                "status",
+                                                "stone",
+                                                "styleText",
+                                                "upcBarcode",
+                                                "warranty"
                                             ]
                                         }
                                     }
                                 }
                             },
                             {
-                                "name": "buying",
-                                "title": "Buying Attributes",
+                                "name": "Category-Related",
+                                "title": "Category-Related",
+                                "component": {
+                                    "name": "rock-attribute-split-screen",
+                                    "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
+                                    "properties": {
+                                        "mode": "view",
+                                        "no-of-columns": 1,
+                                        "config-context": {
+                                            "groupName": "Category-Related",
+                                            "attributeNames": [
+                                                "canonicalURL",
+                                                "disableAds",
+                                                "disableGoogleAds",
+                                                "seoDisplayName",
+                                                "seoTagInclude",
+                                                "seoTags"
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "name": "Copy",
+                                "title": "Copy",
+                                "component": {
+                                    "name": "rock-attribute-split-screen",
+                                    "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
+                                    "properties": {
+                                        "mode": "view",
+                                        "no-of-columns": 1,
+                                        "config-context": {
+                                            "groupName": "Copy",
+                                            "attributeNames": [
+                                                "features1",
+                                                "features2",
+                                                "features3",
+                                                "features4",
+                                                "features5",
+                                                "inspirationalCopy",
+                                                "longCopy",
+                                                "productDescription",
+                                                "secondaryCopy"
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "name": "Dates",
+                                "title": "Dates",
                                 "component": {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
@@ -1525,158 +1628,345 @@ var allConfigs = {
                                         "mode": "view",
                                         "no-of-columns": 2,
                                         "config-context": {
-                                            "groupName": "Buying Attributes",
+                                            "groupName": "Dates",
                                             "attributeNames": [
-                                                "onlineonly",
-                                                "shortnm",
-                                                "chnlcd",
-                                                "trukitmin",
-                                                "whseclasscd",
-                                                "drctshprstrid",
-                                                "disposalfeeid",
-                                                "willcallrstrid",
-                                                "questionalordqy",
-                                                "lottypcd",
-                                                "skutype",
-                                                "skunb",
-                                                "rtlskunb",
-                                                "hidedsplin",
-                                                "skuqy",
-                                                "barcodecd"
+                                                "creationDate",
+                                                "ecommOOSDate",
+                                                "endDate",
+                                                "plannedOnSiteDate",
+                                                "startDate",
+                                                "storeOOSDate"
                                             ]
                                         }
                                     }
                                 }
                             },
                             {
-                                "name": "selling",
-                                "title": "Selling Attributes",
+                                "name": "Dimensions",
+                                "title": "Dimensions",
                                 "component": {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
                                         "mode": "view",
-                                        "no-of-columns": 3,
+                                        "no-of-columns": 2,
                                         "config-context": {
-                                            "groupName": "Selling Attributes",
+                                            "groupName": "Dimensions",
                                             "attributeNames": [
-                                                "whitegloveddlvryin",
-                                                "styletx",
-                                                "lotselntypcd",
-                                                "noncontntlprepaidcd",
-                                                "contntlprepaidcd",
-                                                "unusualdmdqy",
-                                                "mlblitmin",
-                                                "prodlengthnb",
-                                                "prodheightnb",
-                                                "prodwtnb",
-                                                "prodwidthnb",
-                                                "cmrclcarrcd",
-                                                "noncmrclcarrcd",
-                                                "sabrixcommoditycd",
-                                                "pgmtypcd",
-                                                "spclin",
-                                                "parantheticam",
-                                                "willcallfsin",
-                                                "intlshippablein",
-                                                "mfrnm",
-                                                "origcntrycd",
-                                                "szunittx",
-                                                "sephorain",
-                                                "isrecyclablein",
-                                                "modelnb",
-                                                "frnin"
+                                                "productHeight",
+                                                "productLength",
+                                                "productWeight",
+                                                "productWidth",
+                                                "sizeUnit",
+                                                "weightUnit"
                                             ]
                                         }
                                     }
                                 }
                             },
                             {
-                                "name": "merchPlanning",
-                                "title": "Merch Planning",
+                                "name": "Images___Media",
+                                "title": "Images & Media",
                                 "component": {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
                                         "mode": "view",
-                                        "no-of-columns": 3,
-                                        "context": {
-                                            "groupName": "Merch Planning",
+                                        "no-of-columns": 1,
+                                        "config-context": {
+                                            "groupName": "Images & Media",
                                             "attributeNames": [
-                                                "color",
-                                                "length",
-                                                "width",
-                                                "sleeve",
+                                                "ensembleDHTML",
+                                                "galleryVideo",
+                                                "promotionalImageContent",
+
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "name": "Item_Details",
+                                "title": "Item Details",
+                                "component": {
+                                    "name": "rock-attribute-split-screen",
+                                    "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
+                                    "properties": {
+                                        "mode": "view",
+                                        "no-of-columns": 2,
+                                        "config-context": {
+                                            "groupName": "Item Details",
+                                            "attributeNames": [
+                                                "artworkId",
+                                                "assembledHeight",
+                                                "assembledLength",
+                                                "assembledWeight",
+                                                "assembledWidth",
+                                                "caseQuantityColor",
+                                                "christmasIndicator",
+                                                "colorDesc",
+                                                "colorFamily",
+                                                "complianceLikeItem",
+                                                "conceptual",
+                                                "deliveryInstructions",
+                                                "diff1Group",
+                                                "diff1Type",
+                                                "diff2Group",
+                                                "diff2Type",
+                                                "eComHangingIndicator",
+                                                "ecommActiveSizes",
+                                                "ecommColor",
+                                                "ecommColorAbbr",
+                                                "ecommInnerPack",
+                                                "ecommJcpStatus",
+                                                "ecommMinOrderQty",
+                                                "ecommPurchaseType",
+                                                "ecommUnitCostColor",
+                                                "ecomPrimarySupplierIdColor",
+                                                "effIndicator",
+                                                "enterpriseInventoryIndicator",
+                                                "factoryShipLeadTime",
+                                                "factoryShipLimitedInvInd",
+                                                "fashionPyramid",
+                                                "floorSetDate",
+                                                "innerPackIncrementColor",
+                                                "innerQuantityColor",
+                                                "lifestyle",
+                                                "minOrderQtyColor",
+                                                "monogramCharge",
+                                                "packingMethod",
+                                                "ppkNo",
+                                                "priceTier",
+                                                "printPattern",
+                                                "productTitle",
+                                                "programName",
+                                                "protectionPlan",
+                                                "season",
                                                 "size",
-                                                "waist",
-                                                "cup",
-                                                "chest",
-                                                "necksize",
-                                                "inseam",
-                                                "patternname",
-                                                "pdbcolorfamily",
-                                                "letterornumber",
-                                                "alphacharacter",
-                                                "pattern",
-                                                "woodfinish",
-                                                "colorfamily",
-                                                "minorcolorfamily",
-                                                "pdbcolor",
-                                                "numericvalue"
+                                                "sizeCase",
+                                                "sizeInner",
+                                                "sourcingPartner",
+                                                "specialItemCode",
+                                                "specialProgramType",
+                                                "storeActiveSizes",
+                                                "storeCollectionNumberName",
+                                                "storeColorAbbr",
+                                                "storeJCPStatus",
+                                                "storePrimarySupplierIdColor",
+                                                "storePurchaseType",
+                                                "storeSet",
+                                                "storeSubSet",
+                                                "storeUnitCostColor",
+                                                "supplierMfrShipPoint",
+                                                "ticketAttribute",
+                                                "ticketStockNo",
+                                                "vpn",
+                                                "warrantyFlag",
+                                                "whseProcessingFee1"
                                             ]
                                         }
                                     }
                                 }
                             },
                             {
-                                "name": "seoAttributes",
-                                "title": "SEO Attributes",
+                                "name": "Merchandise_Hierarchy",
+                                "title": "Merchandise Hierarchy",
                                 "component": {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
                                         "mode": "view",
                                         "no-of-columns": 2,
-                                        "context": {
-                                            "groupName": "SEO Attributes",
+                                        "config-context": {
+                                            "groupName": "Merchandise Hierarchy",
                                             "attributeNames": [
-                                                "seotagtx",
-                                                "seodsplnm",
-                                                "canonicalurl",
-                                                "disableadsin",
-                                                "disablegoogleadsensein",
-                                                "ncldseotagin",
-                                                "shortnm",
-                                                "medialtrcd",
-                                                "mediayrid",
-                                                "hidein",
-                                                "prodreviewtx",
-                                                "feathdrtx",
-                                                "featquotetx"
+                                                "class",
+                                                "division",
+                                                "entity",
+                                                "subClass",
+                                                "subDivision"
                                             ]
                                         }
                                     }
                                 }
                             },
                             {
-                                "name": "copy",
-                                "title": "Copy and Description",
+                                "name": "Pricing__USD_",
+                                "title": "Pricing (USD)",
                                 "component": {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
                                         "mode": "view",
-                                        "no-of-columns": 3,
-                                        "context": {
-                                            "groupName": "Copy and Description",
+                                        "no-of-columns": 2,
+                                        "config-context": {
+                                            "groupName": "Pricing (USD)",
                                             "attributeNames": [
-                                                "longcpytx",
-                                                "secondarycpytx",
-                                                "insprtnlcpytx",
-                                                "alsoinstrin",
-                                                "promotionalimcntntid",
-                                                "ratingreviewid",
-                                                "swatchimct"
+                                                "competitorPrice",
+                                                "cost",
+                                                "ecommUnitCost",
+                                                "estimatedShippingExpense",
+                                                "initialMarkup",
+                                                "msrp",
+                                                "retail",
+                                                "storeUnitCost"
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "name": "Product_Hierarchy",
+                                "title": "Product Hierarchy",
+                                "component": {
+                                    "name": "rock-attribute-split-screen",
+                                    "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
+                                    "properties": {
+                                        "mode": "view",
+                                        "no-of-columns": 2,
+                                        "config-context": {
+                                            "groupName": "Product Hierarchy",
+                                            "attributeNames": [
+                                                "itemType",
+                                                "productLine",
+                                                "productType",
+                                                "sizeRange",
+                                                "subProductType"
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "name": "Product_Presentation_Type",
+                                "title": "Product Presentation Type",
+                                "component": {
+                                    "name": "rock-attribute-split-screen",
+                                    "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
+                                    "properties": {
+                                        "mode": "view",
+                                        "no-of-columns": 1,
+                                        "config-context": {
+                                            "groupName": "Product Presentation Type",
+                                            "attributeNames": [
+                                                "mediaLetter",
+                                                "mediaYear",
+                                                "productPresentationType"
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "name": "SEO",
+                                "title": "SEO",
+                                "component": {
+                                    "name": "rock-attribute-split-screen",
+                                    "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
+                                    "properties": {
+                                        "mode": "view",
+                                        "no-of-columns": 1,
+                                        "config-context": {
+                                            "groupName": "SEO",
+                                            "attributeNames": [
+                                                "searchKeywordsNavigation",
+                                                "seoDescription",
+                                                "seoTitle",
+                                                "serviceDescription"
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "name": "Shipping",
+                                "title": "Shipping",
+                                "component": {
+                                    "name": "rock-attribute-split-screen",
+                                    "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
+                                    "properties": {
+                                        "mode": "view",
+                                        "no-of-columns": 2,
+                                        "config-context": {
+                                            "groupName": "Shipping",
+                                            "attributeNames": [
+                                                "countryOfManufacture",
+                                                "factoryShipUOM",
+                                                "grossWeight",
+                                                "height",
+                                                "length",
+                                                "liquidUnitofMeasure",
+                                                "liquidVolume",
+                                                "maxBackorderDays",
+                                                "originIndicator",
+                                                "packageType",
+                                                "shippingInfoRequired",
+                                                "weightUnitofMeasure",
+                                                "width",
+                                                "commercialCarrierCode",
+                                                "continentalPrepaid",
+                                                "directShipRestrict",
+                                                "disposalFee",
+                                                "hazMatFlag",
+                                                "internationalShippable",
+                                                "isTruckItem",
+                                                "nonCommercialCarrierCode",
+                                                "nonContinentalPrepaid",
+                                                "parantheticAmount",
+                                                "prop65Indicator",
+                                                "warehouseClass",
+                                                "whiteGlovedDelivery",
+                                                "willCallFactoryShipInd",
+                                                "willCallRestrict"
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "name": "Supplier",
+                                "title": "Supplier",
+                                "component": {
+                                    "name": "rock-attribute-split-screen",
+                                    "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
+                                    "properties": {
+                                        "mode": "view",
+                                        "no-of-columns": 2,
+                                        "config-context": {
+                                            "groupName": "Supplier",
+                                            "attributeNames": [
+                                                "alternateSupplierID",
+                                                "ecommSupplierShipPoint",
+                                                "ecomPrimarySupplierId",
+                                                "shipPointCity",
+                                                "shipPointState",
+                                                "storePrimarySupplierId",
+                                                "supplierChannel",
+                                                "supplierLeadTime",
+                                                "supplierNumberName",
+                                                "supplierSiteNumber",
+                                                "whseSupplier1",
+                                                "whseSupplierShipPoint1"
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "name": "Vendor",
+                                "title": "Vendor",
+                                "component": {
+                                    "name": "rock-attribute-split-screen",
+                                    "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
+                                    "properties": {
+                                        "mode": "view",
+                                        "no-of-columns": 1,
+                                        "config-context": {
+                                            "groupName": "Vendor",
+                                            "attributeNames": [
+                                                "countryOfOrigin",
+                                                "manufacturer",
+                                                "modelNumber"
                                             ]
                                         }
                                     }
@@ -1795,7 +2085,7 @@ var allConfigs = {
                             "mode": "Read",
                             "schemaType": "attribute",
                             "dataRequest": {
-                                "attributes": ["color","description", "skuId", "startDate", "stuscd"]
+                                "attributes": ["description", "skuId", "startDate", "status"]
                             },
                             "tabular": {
                                 "settings": {
@@ -1823,20 +2113,20 @@ var allConfigs = {
                                     "filterable": false
                                 },
                                 {
-                                    "header": "Start_Date",
+                                    "header": "Start Date",
                                     "name": "startDate",
                                     "sortable": false,
                                     "filterable": false
                                 },
                                 {
-                                    "header": "STUS_CD",
-                                    "name": "stuscd",
+                                    "header": "Status",
+                                    "name": "status",
                                     "sortable": false,
                                     "filterable": false
                                 },
                                     {
-                                    "header": "Sku_Id",
-                                    "name": "skuId",
+                                    "header": "SKU Id",
+                                    "name": "id",
                                     "sortable": false,
                                     "filterable": false
                                 }
@@ -1868,16 +2158,6 @@ var allConfigs = {
                                     {
                                         "name": "description",
                                         "label": "Description",
-                                        "noTrim": true
-                                    },
-                                    {
-                                        "name": "isNew",
-                                        "label": "isNew",
-                                        "noTrim": true
-                                    },
-                                    {
-                                        "name": "isApproved",
-                                        "label": "isApproved",
                                         "noTrim": true
                                     }
                                     ]
@@ -2028,7 +2308,7 @@ var allConfigs = {
                                     "linkTemplate": "entity-manage?id={id}&type={type}"
                                 },
                                 {
-                                    "header": "status",
+                                    "header": "Status",
                                     "name": "status",
                                     "sortable": true,
                                     "filterable": false,
@@ -2036,7 +2316,7 @@ var allConfigs = {
                                     "isRelatedEntityAttribute": false
                                 }, {
                                     "header": "Display Name",
-                                    "name": "displayname",
+                                    "name": "displayName",
                                     "sortable": true,
                                     "filterable": false,
                                     "editType": "",
@@ -2070,12 +2350,12 @@ var allConfigs = {
                                     "linkTemplate": "entity-manage?id={id}&type={type}"
                                 },
                                 {
-                                    "header": "Short Name",
-                                    "name": "shortnm",
+                                    "header": "skuNumber",
+                                    "name": "SKU Number",
                                     "sortable": true,
                                     "filterable": false,
                                     "editType": "",
-                                    "isRelatedEntityAttribute": false
+                                    "isRelatedEntityAttribute": true
                                 }, {
                                     "header": "Display Name",
                                     "name": "displayname",
@@ -2157,13 +2437,6 @@ var allConfigs = {
                                 {
                                     "header": "Descriptioin",
                                     "name": "discription",
-                                    "sortable": true,
-                                    "filterable": false,
-                                    "editType": "",
-                                    "isRelatedEntityAttribute": true
-                                }, {
-                                    "header": "Short NM",
-                                    "name": "shortnm",
                                     "sortable": true,
                                     "filterable": false,
                                     "editType": "",
@@ -2250,7 +2523,7 @@ var allConfigs = {
                 "rock-titlebar": {
                     "config": {
                         "image": "",
-                        "titleAttribute": "displayname",
+                        "titleAttribute": "displayName",
                         "subtitleAttribute": "description"
                     }
                 }
@@ -2261,9 +2534,6 @@ var allConfigs = {
         "name": "app-dashboard",
         "contexts": [{
             "tenant": "jcp",
-            "ctx": {
-                "list": "productMaster"
-            },
             "security": {
                 "user": "",
                 "role": ""
@@ -2754,9 +3024,6 @@ var allConfigs = {
         "name": "app-business-function",
         "contexts": [{
             "tenant": "jcp",
-            "ctx": {
-                "list": "productMaster"
-            },
             "security": {
                 "user": "",
                 "role": ""
@@ -2775,14 +3042,14 @@ var allConfigs = {
                                 "properties": {
                                     "import-profile-name": "Entity Import - RSExcel 2.0",
                                     "attribute-names": [
-                                        "skuid",
-                                        "productid",
-                                        "lottype",
-                                        "skutype",
-                                        "displayname",
+                                        "brand",
                                         "description",
-                                        "startdate",
-                                        "enddate"
+                                        "displayName",
+                                        "id",
+                                        "retailSkuNumber",
+                                        "shortName",
+                                        "skuNumber",
+                                        "skuType"
                                     ]
                                 }
                             },
