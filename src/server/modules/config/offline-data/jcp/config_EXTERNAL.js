@@ -536,8 +536,8 @@ var allConfigs = {
                             "searchTags": [{
                                 "name": "description",
                                 "longName": "Description",
-                                "options":{
-                                    "displayType": "textArea",                                    
+                                "options": {
+                                    "displayType": "textArea"
                                 },
                                 "value": {
                                     "eq": "Womens"
@@ -560,8 +560,8 @@ var allConfigs = {
                             "searchTags": [{
                                 "name": "description",
                                 "longName": "Description",
-                                "options":{
-                                    "displayType": "textArea",                                    
+                                "options": {
+                                    "displayType": "textArea"
                                 },
                                 "value": {
                                     "eq": "Mens"
@@ -584,8 +584,8 @@ var allConfigs = {
                             "searchTags": [{
                                 "name": "description",
                                 "longName": "Description",
-                                "options":{
-                                    "displayType": "textArea",                                    
+                                "options": {
+                                    "displayType": "textArea"
                                 },
                                 "value": {
                                     "eq": "dresses"
@@ -686,8 +686,8 @@ var allConfigs = {
                         "readOnly": true,
                         "schemaType": "attribute",
                         "titleTemplates": {
-                           "contextTemplate": "for the channel: {channel} ",
-                            "workflowTemplate":"in workflow: {workflow}, workflow Status: {workflowStatus}"
+                            "contextTemplate": "for the channel: {channel} ",
+                            "workflowTemplate": "in workflow: {workflow}, workflow Status: {workflowStatus}"
                         },
                         "dataRequest": {
                             "typesCriterion": ["sku", "productPresentation", "lot"],
@@ -1678,7 +1678,7 @@ var allConfigs = {
                                             "attributeNames": [
                                                 "ensembleDHTML",
                                                 "galleryVideo",
-                                                "promotionalImageContent",
+                                                "promotionalImageContent"
 
                                             ]
                                         }
@@ -2124,7 +2124,7 @@ var allConfigs = {
                                     "sortable": false,
                                     "filterable": false
                                 },
-                                    {
+                                {
                                     "header": "SKU Id",
                                     "name": "id",
                                     "sortable": false,
