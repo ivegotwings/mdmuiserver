@@ -3040,7 +3040,7 @@ var allConfigs = {
                                 "name": "rock-entity-create",
                                 "path": "/../../src/elements/rock-entity-create/rock-entity-create.html",
                                 "properties": {
-                                    "import-profile-name": "Entity Import - RSExcel 2.0",
+                                    "import-profile-name": "ProfileJSON_Lot1_Excel_Transform.json",
                                     "attribute-names": [
                                         "brand",
                                         "description",
