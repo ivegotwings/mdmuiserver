@@ -16,10 +16,12 @@
 <link rel="import" href="elements/bedrock-notification-manager/bedrock-notification-manager.html">
 <link rel="import" href="elements/bedrock-externalref-classList/bedrock-externalref-classList.html">
 <link rel="import" href="elements/bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="elements/bedrock-app-context-behavior/bedrock-app-context-behavior.html">
 <link rel="import" href="elements/bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="elements/bedrock-helpers/component-helper.html">
 
 <link rel="import" href="elements/liquid-config-get/liquid-config-get.html">
+<link rel="import" href="elements/liquid-config-aggregate-get/liquid-config-aggregate-get.html">
 
 <link rel="import" href="elements/pebble-elements/pebble-elements.html">
 <link rel="import" href="elements/pebble-styles-shared/pebble-styles-shared.html">
@@ -414,8 +416,8 @@ Main os app for riversand ui framework
             <rock-login is-authenticated="{{isAuthenticated}}" auth-response="{{_authResponse}}" user-store="{{userStore}}"></rock-login>
         </template>
         <template is="dom-if" if="[[isAuthenticated]]">
-            <liquid-config-get auto id="getAppConfig" operation="getconfigs" request-id="getAppConfig" request-data="{{_configRequest}}"
-                last-response="{{applicationConfig}}"></liquid-config-get>
+            <liquid-config-aggregate-get id="aggregareConfigGet" verbose operation="getbyids" request-id="req1" app-name="main-app" 
+                context-data="[[contextData]]" on-config-get-response="_onApplicationConfigReceived"></liquid-config-aggregate-get>
             <app-header-layout fullbleed>
                 <app-header fixed effects="waterfall">
                     <app-toolbar>
@@ -522,8 +524,8 @@ Main os app for riversand ui framework
             </pebble-toast>
         </template>
         <template is="dom-if" if="{{_hasTenantId}}">
-            <liquid-config-get auto id="getUserStore" operation="getconfigs" request-id="getUserStore" request-data="{{_userStoreRequest}}"
-                last-response="{{userStore}}"></liquid-config-get>
+            <liquid-config-get-new auto id="getUserStore"operation="getbyids" request-id="req2" request-data="[[_userStoreRequest]]" 
+                on-response="_onUserStoreGetResponse"></liquid-config-get-new>
         </template>
         
     </template>
@@ -546,8 +548,6 @@ Main os app for riversand ui framework
                 if (_.isEmpty(Globals.progressBar) && paperProgress) {
                     Globals.progressBar = paperProgress;
                 }
-                this._userStoreRequest.tenantId = this.tenantId;
-                this._configRequest.tenantId = this.tenantId;
             },
             /**
              * Fired when route is changed.
@@ -633,36 +633,29 @@ Main os app for riversand ui framework
                     },
                     observer: '_onAuthResponseChange'
                 },
-                _configRequest: {
-                    type: Object,
-                    value: function () {
-                        return {
-                            "apps": [
-                                "main-app"
-                            ],
-                            "tenantId": this.tenantId,
-                            "security": {
-                                "user": this.userId,
-                                "role": this.roleId
-                            },
-                            "ctx": []
-                        };
-                    },
-                    notify: true
-                },
                 _userStoreRequest: {
                     type: Object,
                     value: function () {
                         return {
-                            "apps": [
-                                "user-store"
-                            ],
-                            "tenantId": this.tenantId,
-                            "security": {
-                                "user": "",
-                                "role": ""
-                            },
-                            "contexts": []
+                            "params": {
+                                "query": {          
+                                    "name": "app-user-store_rock-user-store",
+                                    "contexts": [
+                                        {
+                                            "app": "app-user-store",
+                                            "service": "_ALL",
+                                            "component": "rock-user-store",
+                                            "subComponent": "_ALL"   
+                                        }
+                                    ],
+                                    "filters": {
+                                        "typesCriterion": ["uiConfig"]
+                                    }
+                                },
+                                "fields": {
+                                    "jsonData": true
+                                }
+                            }
                         };
                     }
                 },
@@ -689,11 +682,9 @@ Main os app for riversand ui framework
                 '_routePageChanged(routeData.page)',
                 '_pageChanged(page,appRepository,menuItems,queryParams)'
             ],
-            listeners: {
-                "application-config-changed": '_configChanged'
-            },
             behaviors: [
-                RUFBehaviors.UIBehavior
+                RUFBehaviors.UIBehavior,
+                RUFBehaviors.AppContextBehavior
             ],
 
             changePageRoutePath: function (newPath) {
@@ -810,6 +801,13 @@ Main os app for riversand ui framework
                     this.tenantId = this._userDetails.tenantId;
                     this.roleId = this._userDetails.roleId;
                     this.set('route.path', '/' + this.tenantId);
+
+                    var userContext = {
+                        "role": this.roleId,
+                        "user": this.userId
+                    }
+
+                    this.contextData[this.CONTEXT_TYPE_USER] = [userContext];
                 }
             },
             _routePageChanged: function (page) {
@@ -859,7 +857,13 @@ Main os app for riversand ui framework
                     mainApp.changePageRoutePath(dataRoute);
                 }
             },
-            _configChanged: function (e) {
+            _onUserStoreGetResponse: function (e) {
+                //console.log('Received configs ', JSON.stringify(e, null, 2));
+                this.set('userStore', e.detail.response.content.configObjects[0].data.contexts[0].jsonData.config);
+            },
+            _onApplicationConfigReceived: function (e) {
+                //console.log('Received configs ', JSON.stringify(e, null, 2));
+                this.set('applicationConfig', e.detail);
                 this.set('menuItems', []);
                 this.set('menuItems', this.getConfig('rock-navmenu'));
                 this.set('appRepository', this.getConfig('app-repository'));
