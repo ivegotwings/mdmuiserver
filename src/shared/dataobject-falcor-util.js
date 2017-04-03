@@ -39,7 +39,7 @@ DataObjectFalcorUtil.getPathKeys = function () {
 const pathKeys = DataObjectFalcorUtil.getPathKeys();
 
 DataObjectFalcorUtil.getSelfCtx = function () {
-    return { 'self': 1 };
+    return { 'selfContext': true };
 };
 
 const selfCtx = DataObjectFalcorUtil.getSelfCtx();
@@ -219,7 +219,7 @@ DataObjectFalcorUtil.transformToExternal = function (dataObject) {
                     transContextsItem.jsonData = enContexts.jsonData;
                 }
 
-                if (context.self) {
+                if (context.selfContext) {
                     selfCtxItem = transContextsItem;
                 }
                 else {
@@ -511,7 +511,7 @@ DataObjectFalcorUtil.createCtxItems = function (ctxKeys) {
         var ctxItem = DataObjectFalcorUtil.createCtxItem(ctxKey);
 
         //skip self contexts..
-        if (ctxItem.self) {
+        if (ctxItem.selfContext) {
             continue;
         }
 
@@ -569,6 +569,17 @@ DataObjectFalcorUtil.getRelationshipsByCtx = function (dataObject, context) {
 
     return {};
 };
+
+DataObjectFalcorUtil.getConfigByCtx = function(dataObject, context) {
+    if(dataObject && dataObject.configObjects && dataObject.configObjects.length > 0 && dataObject.configObjects[0].data && dataObject.configObjects[0].data.contexts && dataObject.configObjects[0].data.contexts.length > 0) {
+        var ctxItem = DataObjectFalcorUtil.getCtxItem(dataObject.configObjects[0].data.contexts, context);
+        if (ctxItem) {
+            return ctxItem.jsonData;
+        }
+    }
+
+    return {};
+}
 
 DataObjectFalcorUtil.cloneObject = function (obj) {
     var clonedObj = {};
