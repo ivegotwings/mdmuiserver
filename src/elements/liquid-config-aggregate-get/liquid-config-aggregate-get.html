@@ -1,23 +1,27 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="../liquid-config-get-new/liquid-config-get-new.html">
 <link rel="import" href="../bedrock-helpers/data-request-helper.html">
-<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-helpers/component-helper.html">
+<link rel="import" href="../bedrock-helpers/context-helper.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../liquid-base-behavior/liquid-base-behavior.html">
 
 <!--
 `liquid-config-get-new`
 
 @demo demo/index.html 
 -->
-<dom-module id="liquid-aggregate-config-get">
+<dom-module id="liquid-config-aggregate-get">
     <template>
-         <liquid-config-get-new id="getConfig" operation="getbyids" request-id="req1" request-data={{request}} on-response="_onConfigsGetResponse"></liquid-config-get-new>
+         <liquid-config-get-new auto$="[[auto]]" id="getConfig" operation="getbyids" request-id="req1" request-data={{request}} on-response="_onConfigsGetResponse"></liquid-config-get-new>
     </template>
     <script>
         (function () {
             'use strict';
         
             Polymer({
-                is: 'liquid-aggregate-config-get',
+                is: 'liquid-config-aggregate-get',
+                behaviors: [RUFBehaviors.LiquidBaseBehavior],
                 properties: {
                     request: {
                         type: Object,
@@ -25,6 +29,10 @@
                             return {};
                         },
                         notify: true
+                    },
+                    appName: {
+                        type: String,
+                        value: "app-entity-discovery"
                     },
                     configs: {
                         type: Object,
@@ -37,11 +45,40 @@
                         value: function() {
                             return [];
                         }
-                    }
+                    },
+                    auto: {
+                        type: Boolean,
+                        value: false
+                    },
                 },
-                behaviors: [
-                    RUFBehaviors.UIBehavior
-                ],
+                refresh: function () {
+                    var currentApp = ComponentHelper.getCurrentActiveApp();
+                    var contextData = currentApp.contextData;
+                    var dataContext =  ContextHelper.getFirstDataContext(contextData);
+                    var valueContext = ContextHelper.getFirstValueContext(contextData);
+                    var itemContext = ContextHelper.getFirstItemContext(contextData);
+                    var userContext = ContextHelper.getFirstUserContext(contextData);
+                    var context = this._mergeContexts(dataContext, valueContext, itemContext, userContext);
+                    this.request = DataRequestHelper.createGetConfigRequest(this.appName, context);
+                    this.generateRequest();
+                },
+                _mergeContexts: function(dataCtx, valCtx, itemCtx, userCtx) {
+                    var context = {
+                        "app": this.appName,
+                        "service": "_ALL",
+                        "subComponent": "_ALL",
+                        //"relationshipType": "_ALL",
+                        //"channel": dataCtx.channel,
+                        //"locale": valCtx.locale,
+                        //"source": valCtx.source,
+                        "role": userCtx && userCtx.role
+                        //"user": userCtx.user
+                    };
+                    if(itemCtx && itemCtx.type) {
+                        context["entityType"] = itemCtx.type;
+                    }
+                    return context;
+                },
                 generateRequest: function() {
                     this.$$('#getConfig').generateRequest();
                 },
@@ -66,7 +103,10 @@
                                     name: eventName,
                                     configs: this.configs
                                 };
-                                this.fireBedrockEvent(eventName, eventDetail,{ ignoreId: true });
+
+                                this.fire('response', eventDetail, {
+                                    bubbles: this.bubbles
+                                });
                             }
                         }
                     }
