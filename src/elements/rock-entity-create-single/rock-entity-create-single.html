@@ -1,10 +1,10 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 
-<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
-<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-helpers/data-transform-helper.html">
-<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 <link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
@@ -32,6 +32,7 @@
                 on-entity-model-composite-get-response = "_onCompositeModelGetResponse" >
         <liquid-entity-data-save name="attributeSaveDataService" operation="create" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}"
             on-response="_onSaveResponse" on-error="_onSaveError" ></liquid-entity-data-save>
+        <bedrock-pubsub event-name="error-length-changed" handler="_errorLengthChanged"></bedrock-pubsub>
     </template>
      <script>
             (function () {
@@ -95,6 +96,14 @@
                         _loading: {
                             type: Boolean,
                             value: false
+                        },
+                        /**
+                         * Specifies the length of the error message.
+                         */
+                        errorLength: {
+                            type: Number,
+                            notify: true,
+                            value: 0
                         }
                     },
                     observers: [
@@ -106,9 +115,11 @@
                     ],
                     _contextChanged: function(attributeNames, contextData) {
                         if (attributeNames && attributeNames.length > 0 && !_.isEmpty(contextData)) {
-                            var itemContext = this.getFirstItemContext();
+                            var firstItemContext = this.getFirstItemContext();
 
-                            itemContext.attributeNames = attributeNames;
+                            if(typeof(firstItemContext) != "undefined") {
+                                firstItemContext.attributeNames = attributeNames;
+                            }
 
                             var t = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
 
@@ -139,6 +150,16 @@
                                 "message": "No changes to save"
                             };
                         }
+
+                        var attributeList = this.$$("rock-attribute-list");
+                        // Note: This method is going to fire error-length-changed event which is going to update
+                        //       update errorLength values
+                        attributeList._calculateErrorLength(this._attributeValues);
+                        if(this.errorLength > 0) {
+                            this.showErrorToast("Cannot save. Please resolve the errors.");
+                            return;
+                        }
+                        
                         var attributesJSON = [];
                         for (var i = 0; i < changedAttributeElements.length; i++) {
                             var attributeElement = changedAttributeElements[i];
@@ -212,6 +233,9 @@
                         var x = 2147483648;
                         return Math.floor(Math.random() * x).toString(36) +
                             Math.abs(Math.floor(Math.random() * x) ^ new Date().getTime()).toString(36);
+                    },
+                    _errorLengthChanged: function (e) {
+                        this.errorLength = e.detail.data;
                     }
                 });
             })();
