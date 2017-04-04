@@ -22,23 +22,24 @@ function addUserConnectionIds(userId, connectionId) {
         }
     }
     console.log(JSON.stringify(userConnectionIds));
-
 }
 
 function removeConnectionIdByUser(userId, connectionId) {
     if (userId && connectionId) {
         if (userConnectionIds[userId]) {
             arrayRemove(userConnectionIds[userId], connectionId);
-        } else {
-            userConnectionIds[userId] = [];
-            userConnectionIds[userId].push(connectionId);
         }
     }
     console.log(JSON.stringify(userConnectionIds));
 }
 
 function removeUserConnectionIds(userId) {
-
+    if (userId && connectionId) {
+        if (userConnectionIds[userId]) {
+            delete userConnectionIds[userId];
+        }
+    }
+    console.log(JSON.stringify(userConnectionIds));
 }
 
 function getConnectionIdsOfUser(userId) {

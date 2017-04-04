@@ -1,6 +1,7 @@
 var socketIo = require('socket.io');
 var api = require('./api/notification-manager');
 var userManager = require('../users/user-management');
+var executionManager = require('../common/context-manager/execution-context');
 
 function initSockets(server) {
     var io = socketIo.listen(server, {origins:'*:*'});
@@ -16,31 +17,32 @@ function initSockets(server) {
         //Connected
         socket.on('connected', function(userId) {
             connections.push(socket);
-            console.log('Connected: %s sockets Connected %s', connections.length, socket.id);
+            console.log("connected as by pass . . . ");
         });
-                
+
+        var securityContext = executionManager.getSecurityContext();
+        if(securityContext) {
+            console.log("connected as global socket . . . ", JSON.stringify(securityContext));
+        }
+        console.log("connected as global socket . . . ", JSON.stringify(securityContext));
+
         //Disconnect
         socket.on('disconnect', function(data){
-            
             if(socket.userName)
             {
                 userManager.removeConnectionIdByUser(socket.userName, socket.id);
             }
-            
-            connections.splice(connections.indexOf(socket), 1);
-
-            console.log('Disconnected: %s sockets Connected', connections.length);
         });
 
         //Send Message
-        socket.on('send message', function(data, user){
+        socket.on('send message', function(data, userId){
             
             var currentUserSocketIds = [];
 
-            if(user)
+            if(userId)
             {               
                 userConnectionId.forEach(function(element) {
-                    if(element.user == user) {
+                    if(element.user == userId) {
                         currentUserSocketIds.push(element.socketId);
                     }
                 }, this);
