@@ -11,16 +11,45 @@ COPService.prototype = {
     transform: async function (request) {
         //console.log('COPService.transform url ', request.url);
         var copURL = "copservice/transform";
-        var copRequest = this._prepareCOPRequestForTransform(request);
+        var validationResult = this._validateRequest(request);
+        if(!validationResult) {
+            return {
+                "entityOperationResponse": {
+                    "status" :"Error",
+                    "statusDetail" : {
+                        "code": "RSUI0000",
+                        "message": "Incorrect request for COP transform.",
+                        "messageType": "Error"
+                    }
+                }
+            };
+        }
+
+        var fileName = request.body.fileName;
+        var profileName = request.body.profileName;
+        var copRequest = this._prepareCOPRequestForTransform(fileName, profileName);
         //console.log('copRequest: ', JSON.stringify(copRequest, null, 2));
         return await this.post(copURL, copRequest);
     },
-    _prepareCOPRequestForTransform: function(request) {
+    _validateRequest: function(request) {
+        if(!request.body) {
+            return false;
+        }
+        if(!request.body.fileName) {
+            return false;    
+        }
+        if(!request.body.profileName) {
+            return false;    
+        }
+
+        return true;
+    },
+    _prepareCOPRequestForTransform: function(fileName, profileName) {
         var copRequest = {
             "dataObject": {
                 "id": "",
                 "dataObjectInfo": {
-                    "dataObjectType": "excelfile"
+                    "dataObjectType": "entityjson"
                 },
                 "properties": {
                     "createdByService": "user interface",
@@ -29,7 +58,7 @@ COPService.prototype = {
                     "filename": "",
                     "encoding": "Base64",
                     "profileId": "d75a63f9-ed4f-4b6e-9973-8743396b61c0",
-                    "profileName": "ExcelToRdpMapping.profile"
+                    "profileName": ""
                 },
                 "data": {
                     "blob": ""
@@ -37,9 +66,9 @@ COPService.prototype = {
             }
         };
         
-        var fileName = request.body.fileName;
         copRequest.dataObject.id = uuidV1();
         copRequest.dataObject.properties.filename = fileName;
+        copRequest.dataObject.properties.profileName = profileName;
         copRequest.dataObject.data.blob = this._getFileContent(fileName);
         return copRequest;
     },

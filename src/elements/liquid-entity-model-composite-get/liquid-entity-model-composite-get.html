@@ -3,6 +3,9 @@
 <link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
 <link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
 
+<link rel="import" href="../bedrock-helpers/data-merge-helper.html">
+
+
 <!--
 `liquid-entity-model-composite-get`
 Boolean control
@@ -58,18 +61,18 @@ Boolean control
                     if (internalRequestData.params && internalRequestData.params.query) {
                         var query = internalRequestData.params.query;
 
-                        if (query.valCtx) {
-                            delete query.valCtx;
+                        if (query.valueContexts) {
+                            delete query.valueContexts;
                         }
 
-                        if (!query.ctx) {
-                            query.ctx = [];
+                        if (!query.contexts) {
+                            query.contexts = [];
                         }
 
                         if (query.locale) {
                             var localeCtx = { "locale": query.locale };
                             this.localeCtx = localeCtx;
-                            query.ctx.push(localeCtx);
+                            query.contexts.push(localeCtx);
                         }
 
                         if (!query.filters) {
@@ -101,9 +104,7 @@ Boolean control
 
                     var mergedModel = {};
 
-                    const deepAssign = SharedUtils.DataObjectFalcorUtil.deepAssign;
-
-                    var localeCtxGroup = { 'locale': this.requestData.params.query.locale };
+                    var localeContext = { 'locale': this.requestData.params.query.locale };
                     var name = this.requestData.params.query.name;
 
                     if(this.verbose) {
@@ -112,34 +113,36 @@ Boolean control
 
                     var mergedLocaleCtxItem = {};
                     if (allModels && allModels.length > 0) {
+                        var manageModel = allModels.find(obj => obj.type == "entityManageModel");
 
-                        var manageModel = allModels.find(obj => obj.entityModelInfo.entityModelType == "entityManageModel");
-
+                        if(!manageModel) {
+                            return undefined;
+                        }
                         mergedModel = manageModel;
                         
                         for (var i = 0; i < allModels.length; i++) {
                             var model = allModels[i];
 
                             if (model && model.id != manageModel.id) {
-                                mergedModel = this._mergeDataObjects(mergedModel, model);
+                                mergedModel = DataMergeHelper.mergeDataObjects(mergedModel, model);
 
-                                if(model.data && model.data.ctxInfo) {
-                                    var modelLocaleCtxItem = SharedUtils.DataObjectFalcorUtil.getCtxItem(model.data.ctxInfo, localeCtxGroup);
+                                if(model.data && model.data.contexts) {
+                                    var modelLocaleCtxItem = SharedUtils.DataObjectFalcorUtil.getCtxItem(model.data.contexts, localeContext);
 
                                     if (modelLocaleCtxItem) {
-                                        mergedLocaleCtxItem = this._mergeCtxItems(mergedLocaleCtxItem, modelLocaleCtxItem, true);
+                                        mergedLocaleCtxItem = DataMergeHelper.mergeCtxItems(mergedLocaleCtxItem, modelLocaleCtxItem, true);
                                     }
                                 }
                             }
                         }
 
                         mergedModel.id = name + "_entityCompositeModel";
-                        mergedModel.entityModelInfo.entityModelType = "entityCompositeModel";
+                        mergedModel.type = "entityCompositeModel";
                     }
 
                     if(this.verbose) {
                         console.log('default merged model ', JSON.stringify(mergedModel, null, 4));
-                        console.log('default merged locale ctx item ', JSON.stringify(mergedLocaleCtxItem, null, 4));
+                        console.log('default merged locale contexts item ', JSON.stringify(mergedLocaleCtxItem, null, 4));
                     }
                     
                     if (mergedModel && mergedModel.data && mergedLocaleCtxItem != {}) {
@@ -148,103 +151,19 @@ Boolean control
 
                         var selfCtxItem = { 'attributes': mergedData.attributes, 'relationships': mergedData.relationships, 'properties': mergedData.properties };
 
-                        selfCtxItem = this._mergeCtxItems(selfCtxItem, mergedLocaleCtxItem, false);
+                        selfCtxItem = DataMergeHelper.mergeCtxItems(selfCtxItem, mergedLocaleCtxItem, false);
 
-                        var mergedCtxInfo = mergedData.ctxInfo;
+                        var mergedContexts = mergedData.contexts;
 
-                        if (mergedCtxInfo) {
-                            for (var j = 0; j < mergedCtxInfo.length; j++) {
-                                var ctxItem = mergedCtxInfo[j];
-                                ctxItem = this._mergeCtxItems(ctxItem, mergedLocaleCtxItem, false);
+                        if (mergedContexts) {
+                            for (var j = 0; j < mergedContexts.length; j++) {
+                                var ctxItem = mergedContexts[j];
+                                ctxItem = DataMergeHelper.mergeCtxItems(ctxItem, mergedLocaleCtxItem, false);
                             }
                         }
                     }
 
                     return mergedModel;
-                },
-                _mergeDataObjects: function (target, source) {
-
-                    const utils = SharedUtils.DataObjectFalcorUtil;
-
-                    var targetData = target.data;
-
-                    if (!targetData) {
-                        return target;
-                    }
-
-                    var targetCtxInfo = target.data.ctxInfo;
-
-                    var sourceData = source.data;
-
-                    if (!sourceData) {
-                        return target;
-                    }
-
-                    var sourceCtxInfo = sourceData.ctxInfo;
-
-                    var targetSelfCtxItem = { 'attributes': targetData.attributes, 'relationships': targetData.relationships, 'properties': targetData.properties };
-                    var sourceSelfCtxItem = { 'attributes': sourceData.attributes, 'relationships': sourceData.relationships, 'properties': sourceData.properties };
-
-                    targetSelfCtxItem = this._mergeCtxItems(targetSelfCtxItem, sourceSelfCtxItem, false);
-
-                    for (var i = 0; i < targetCtxInfo.length; i++) {
-                        var targetCtxItem = targetCtxInfo[i];
-                        var targetCtxGroup = targetCtxItem.ctxGroup;
-
-                        var sourceCtxItem = utils.getCtxItem(sourceCtxInfo, targetCtxGroup);
-
-                        if (sourceCtxItem) {
-                            targetCtxItem = this._mergeCtxItems(targetCtxItem, sourceCtxItem, false);
-                        }
-                    }
-
-                    return target;
-                },
-                _mergeRelationships: function (target, source, addMissing = false) {
-                    if (!target) {
-                        if (addMissing) {
-                            target = {};
-                        }
-                        else {
-                            return target;
-                        }
-                    }
-
-                    if (!source) {
-                        return target;
-                    }
-
-                    for (var targetObjKey in target) {
-                        var targetObj = target[targetObjKey];
-                        var sourceObj = source[targetObjKey];
-
-                        if (sourceObj) {
-                            targetObj = SharedUtils.DataObjectFalcorUtil.mergeArraysNoOverride(targetObj, sourceObj, "id", true);
-                        }
-                    }
-
-                    if(addMissing) {
-                        for (var sourceObjKey in source) {
-                            var sourceObj = source[sourceObjKey];
-                            var targetObj = target[sourceObjKey];
-
-                            if (!targetObj) {
-                                target[sourceObjKey] = sourceObj;
-                            }
-                        }
-                    }
-                    
-                    return target;
-                },
-                _mergeCtxItems: function (target, source, addMissing = false) {
-
-                    var deepAssign = SharedUtils.DataObjectFalcorUtil.deepAssign;
-
-                    target.attributes = SharedUtils.DataObjectFalcorUtil.mergeObjectsNoOverride(target.attributes, source.attributes, addMissing);
-                    target.relationships = this._mergeRelationships(target.relationships, source.relationships, addMissing);
-                    target.properties = SharedUtils.DataObjectFalcorUtil.mergeObjectsNoOverride(target.properties, source.properties, true);
-
-                    return target;
                 },
                 _onResponse: function (e) {
                     var request = e.detail.request;
@@ -268,8 +187,8 @@ Boolean control
                         "response": response
                     };
 
-                    this.fire('response', eventDetail, { bubbles: this.bubbles });
-                    this.fire('liquid-response', eventDetail, { bubbles: this.bubbles });
+                    this.fire('entity-model-composite-get-response', eventDetail, { bubbles: this.bubbles });
+                    this.fire('liquid-entity-model-composite-get-response', eventDetail, { bubbles: this.bubbles });
                 },
                 _handleError: function (e) {
                     var eventDetail = e.detail;

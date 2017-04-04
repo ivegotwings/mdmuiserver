@@ -1,7 +1,7 @@
 var allConfigs = {
     "configs": [{
         "name": "main-app",
-        "ctxInfo": [{
+        "contexts": [{
             "tenant": "jcp",
             "ctx": {
                 "list": "productMaster"
@@ -11,21 +11,115 @@ var allConfigs = {
                 "role": ""
             },
             "components": {
+                "app-repository": {
+                    "config": {
+                        "dashboard": {
+                            "title": "Dashboard",
+                            "data_route": "dashboard",
+                            "icon": "pebble-icons:Dashboard",
+                            "nonClosable": true,
+                            "nonMinimizable": true,
+                            "component": {
+                                "name": "app-dashboard",
+                                "path": "../../src/elements/app-dashboard/app-dashboard.html",
+                                "properties": {
+                                    "mode": "edit"
+                                }
+                            }
+                        },
+                        "entity-discovery": {
+                            "title": "Entity Search & Discovery",
+                            "data_route": "entity-discovery",
+                            "icon": "pebble-icons:Search",
+                            "nonClosable": true,
+                            "nonMinimizable": true,
+                            "component": {
+                                "name": "app-entity-discovery",
+                                "path": "../../src/elements/app-entity-discovery/app-entity-discovery.html",
+                                "properties": {}
+                            }
+                        },
+                        "entity-manage": {
+                            "title": "Entity Manage",
+                            "data_route": "entity-manage",
+                            "icon": "pebble-icons:Entities",
+                            "component": {
+                                "name": "app-entity-manage",
+                                "path": "../../src/elements/app-entity-manage/app-entity-manage.html",
+                                "properties": {}
+                            }
+                        },
+                        "entity-create": {
+                            "title": "Create Entity",
+                            "data_route": "entity-create",
+                            "icon": "pebble-icons:Entities",
+                            "component": {
+                                "name": "app-business-function",
+                                "path": "../../src/elements/app-business-function/app-business-function.html",
+                                "properties": {
+                                    "name": "createentity",
+                                    "context": {
+                                        "entityType": "sku"
+                                    }
+                                }
+                            }
+                        },
+                        "manage-model": {
+                            "title": "Manage Model",
+                            "data_route": "manage-model",
+                            "icon": "pebble-icons:DataModelDb",
+                            "nonClosable": true,
+                            "nonMinimizable": true,
+                            "component": {
+                                "name": "",
+                                "path": ""
+                            }
+                        },
+                        "manage-integration": {
+                            "title": "Manage Integration",
+                            "data_route": "manage-integration",
+                            "icon": "pebble-icons:IntegrationsDb",
+                            "nonClosable": true,
+                            "nonMinimizable": true,
+                            "component": {
+                                "name": "",
+                                "path": ""
+                            }
+                        },
+                        "app-store": {
+                            "title": "App Store",
+                            "data_route": "app-store",
+                            "icon": "pebble-icons:AppsDb",
+                            "nonClosable": true,
+                            "nonMinimizable": true,
+                            "component": {
+                                "name": "",
+                                "path": ""
+                            }
+                        }
+                    }
+                },
                 "pebble-actions": {
                     "config": {
-                        "title": "Create New...",
+                        "title": "Create",
                         "actions": [{
                             "name": "createSKU",
                             "icon": "pebble-xl-icons:Product",
                             "text": "SKU",
                             "visible": true,
                             "dataRoute": "entity-create",
-                            "dataContext": {
-                                "source": "internal",
-                                "locale": "en-US",
-                                "list": "productMaster",
-                                "classification": "_ALL",
-                                "entityType": "sku"
+                            "contextData": {
+                                "itemContext": {
+                                    "type": "sku"
+                                },
+                                "valueContext": {
+                                    "source": "internal",
+                                    "locale": "en-US"
+                                },
+                                "context": {
+                                    "channel": "webCatalog",
+                                    "classification": "_ALL"
+                                }
                             }
                         },
                         {
@@ -34,12 +128,18 @@ var allConfigs = {
                             "text": "PDP",
                             "visible": true,
                             "dataRoute": "entity-create",
-                            "dataContext": {
-                                "source": "internal",
-                                "locale": "en-US",
-                                "list": "productMaster",
-                                "classification": "_ALL",
-                                "entityType": "pdp"
+                            "contextData": {
+                                "itemContext": {
+                                    "type": "pdp"
+                                },
+                                "valueContext": {
+                                    "source": "internal",
+                                    "locale": "en-US"
+                                },
+                                "context": {
+                                    "channel": "productMaster",
+                                    "classification": "_ALL"
+                                }
                             }
                         },
                         {
@@ -48,12 +148,18 @@ var allConfigs = {
                             "text": "Create Suplier",
                             "visible": true,
                             "dataRoute": "entity-create",
-                            "dataContext": {
-                                "source": "internal",
-                                "locale": "en-US",
-                                "list": "productMaster",
-                                "classification": "_ALL",
-                                "entityType": "supplier"
+                            "contextData": {
+                                "itemContext": {
+                                    "type": "supplier"
+                                },
+                                "valueContext": {
+                                    "source": "internal",
+                                    "locale": "en-US"
+                                },
+                                "context": {
+                                    "channel": "productMaster",
+                                    "classification": "_ALL"
+                                }
                             }
                         }
                         ]
@@ -64,23 +170,14 @@ var allConfigs = {
                         "name": "dashboard",
                         "title": "User Dashboard",
                         "data_route": "dashboard",
-                        "icon": "pebble-icons:Dashboard",
+                        "icon": "pebble-lg-icons:Userdashboard",
                         "isLandingPage": true
                     },
                     {
                         "name": "entity-discovery",
                         "title": "Entity Search & Refine",
                         "data_route": "entity-discovery",
-                        "icon": "pebble-icons:SearchDb"
-                    },
-                    {
-                        "name": "entity-manage",
-                        "title": "Entity Manage",
-                        "data_route": "entity-manage",
-                        "queryParams": {
-                            "id": "e1"
-                        },
-                        "icon": "pebble-icons:Entities"
+                        "icon": "pebble-lg-icons:SearchDb"
                     },
                     {
                         "name": "divider"
@@ -95,7 +192,7 @@ var allConfigs = {
                         "name": "integrationManage",
                         "title": "Manage Integrations",
                         "data_route": "manage-integration",
-                        "icon": "pebble-icons:IntegrationDb"
+                        "icon": "pebble-lg-icons:InegrationDb"
                     },
                     {
                         "name": "divider"
@@ -104,112 +201,9 @@ var allConfigs = {
                         "name": "appStore",
                         "title": "App Store",
                         "data_route": "app-store",
-                        "icon": "pebble-icons:AppDb"
+                        "icon": "pebble-lg-icons:AppDb"
                     }
                     ]
-                },
-                "main-app-routes": {
-                    "config": {
-                        "dashboard": {
-                            "name": "dashboard",
-                            "title": "Dashboard",
-                            "data_route": "dashboard",
-                            "icon": "pebble-icons:Dashboard",
-                            "href": "/",
-                            "nonClosable": true,
-                            "nonMinimizable": true,
-                            "isLandingPage": true,
-                            "component": {
-                                "name": "app-dashboard",
-                                "path": "../../src/elements/app-dashboard/app-dashboard.html",
-                                "properties": {
-                                    "mode": "edit"
-                                }
-                            }
-                        },
-                        "entity-discovery": {
-                            "name": "entity-discovery",
-                            "title": "Entity Search & Discovery",
-                            "data_route": "entity-discovery",
-                            "icon": "pebble-icons:Search",
-                            "href": "/entity-discovery",
-                            "nonClosable": true,
-                            "nonMinimizable": true,
-                            "component": {
-                                "name": "app-entity-discovery",
-                                "path": "../../src/elements/app-entity-discovery/app-entity-discovery.html",
-                                "properties": {}
-                            }
-                        },
-                        "entity-manage": {
-                            "name": "entity-manage",
-                            "title": "entity-manage",
-                            "data_route": "entity-manage",
-                            "icon": "pebble-icons:Entities",
-                            "href": "/entity-manage?id=e1",
-                            "component": {
-                                "name": "app-entity-manage",
-                                "path": "../../src/elements/app-entity-manage/app-entity-manage.html",
-                                "properties": {}
-                            }
-                        },
-                        "entity-create": {
-                            "name": "entity-create",
-                            "title": "entity-create",
-                            "data_route": "entity-create",
-                            "icon": "pebble-icons:Entities",
-                            "href": "/entity-create",
-                            "component": {
-                                "name": "app-business-function",
-                                "path": "../../src/elements/app-business-function/app-business-function.html",
-                                "properties": {
-                                    "name": "createentity",
-                                    "context": {
-                                        "entityType": "sku"
-                                    }
-                                }
-                            }
-                        },
-                        "manage-model": {
-                            "name": "managemodel",
-                            "title": "Manage Model",
-                            "data_route": "manage-model",
-                            "icon": "pebble-icons:DataModelDb",
-                            "href": "/",
-                            "nonClosable": true,
-                            "nonMinimizable": true,
-                            "component": {
-                                "name": "",
-                                "path": ""
-                            }
-                        },
-                        "manage-integration": {
-                            "name": "manageintegration",
-                            "title": "Manage Integration",
-                            "data_route": "manage-integration",
-                            "icon": "pebble-icons:IntegrationsDb",
-                            "href": "/",
-                            "nonClosable": true,
-                            "nonMinimizable": true,
-                            "component": {
-                                "name": "",
-                                "path": ""
-                            }
-                        },
-                        "app-store": {
-                            "name": "appstore",
-                            "title": "App Store",
-                            "data_route": "app-store",
-                            "icon": "pebble-icons:AppsDb",
-                            "href": "/",
-                            "nonClosable": true,
-                            "nonMinimizable": true,
-                            "component": {
-                                "name": "",
-                                "path": ""
-                            }
-                        }
-                    }
                 },
                 "tenant-config": {
                     "config": {
@@ -225,7 +219,7 @@ var allConfigs = {
     },
     {
         "name": "app-entity-discovery",
-        "ctxInfo": [{
+        "contexts": [{
             "tenant": "jcp",
             "ctx": {
                 "list": "productMaster"
@@ -236,80 +230,299 @@ var allConfigs = {
             },
             "components": {
                 "rock-dimension-selector": {
-                    "config": {
-                        "catalogSelector": {
-                            "visible": true,
-                            "catalogItems": [{
-                                "id": 1,
-                                "title": "Product Master",
-                                "subtitle": "Product Master",
-                                "value": "productMaster",
-                                "image": ""
-                            },
-                            {
-                                "id": 2,
-                                "title": "Web Catalog",
-                                "subtitle": "Web Catalog",
-                                "value": "webCatalog",
-                                "image": ""
+                    "config": [{
+                        "id": "channel",
+                        "title": "Channel",
+                        "icon": "pebble-lg-icons:Master",
+                        "visible": true,
+                        "dataRequestType": "entity",
+                        "dataRequest": {
+                            "params": {
+                                "query": {
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "channel"
+                                        ]
+                                    }
+                                }
                             }
-                            ],
-                            "selectedCatalogItems": [{
-                                "id": 1,
-                                "title": "Product Master",
-                                "subtitle": "Product Master",
-                                "value": "productMaster",
-                                "image": ""
-                            }]
                         },
-                        "sourceSelector": {
-                            "visible": true,
-                            "sourceItems": [{
-                                "id": 1,
-                                "title": "Internal Source",
-                                "subtitle": "Internal Source",
-                                "value": "internal",
-                                "image": ""
-                            }],
-                            "selectedSourceItems": [{
-                                "id": 1,
-                                "title": "Internal source",
-                                "subtitle": "Internal source",
-                                "value": "internal",
-                                "image": ""
-                            }]
+                        "dataMappings": {
+                            "id": "name",
+                            "title": "name",
+                            "subtitle": "",
+                            "image": "",
+                            "icon": "",
+                            "type": ["channel"]
                         },
-                        "localeSelector": {
-                            "visible": true,
-                            "localeItems": [{
-                                "id": 1,
-                                "title": "English - United States",
-                                "subtitle": "English",
-                                "value": "en-US",
-                                "image": ""
-                            },
-                            {
-                                "id": 2,
-                                "title": "Spanish - Spain",
-                                "subtitle": "Spanish",
-                                "value": "es-SP",
-                                "image": ""
+                        "selectedItem": {
+                        },
+                        "default": ""
+                    },
+                    {
+                        "id": "source",
+                        "title": "Source",
+                        "icon": "pebble-lg-icons:Source",
+                        "visible": true,
+                        "dataRequestType": "entity-model",
+                        "dataRequest": {
+                            "params": {
+                                "query": {
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "source"
+                                        ]
+                                    }
+                                }
                             }
-                            ],
-                            "selectedLocaleItems": [{
-                                "id": 1,
-                                "title": "English - United States",
-                                "subtitle": "English",
-                                "value": "en-US",
-                                "image": ""
-                            }]
-                        }
+                        },
+                        "dataMappings": {
+                            "id": "name",
+                            "title": "name",
+                            "subtitle": "",
+                            "image": "",
+                            "icon": "",
+                            "type": ["source"]
+                        },
+                        "selectedItem": {
+                            "id": "internal",
+                            "type": "source"
+                        },
+                        "default": ""
+                    },
+                    {
+                        "id": "locale",
+                        "title": "Locale",
+                        "icon": "pebble-lg-icons:Language",
+                        "visible": true,
+                        "dataRequestType": "entity-model",
+                        "dataRequest": {
+                            "params": {
+                                "query": {
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "locale"
+                                        ]
+                                    }
+                                }
+                            }
+                        },
+                        "dataMappings": {
+                            "id": "name",
+                            "title": "name",
+                            "subtitle": "",
+                            "image": "",
+                            "icon": "",
+                            "type": ["locale"]
+                        },
+                        "selectedItem": {
+                            "id": "en-US",
+                            "type": "locale"
+                        },
+                        "default": ""
                     }
+                    ]
                 },
                 "rock-saved-searches": {
                     "config": {
-                        "favourites": [{
+                        "workflowSavedSearch": [{
                             "id": 1,
+                            "accesstype": "self",
+                            "name": "New SKUs to Submit",
+                            "workflowSearchCriterion": {
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "contexts": [
+                                                {
+                                                    "workflow": "newProductSetup"
+                                                }
+                                            ],
+                                            "filters": {
+                                                "attributesCriterion": [
+                                                    {
+                                                        "activities/activityName": {
+                                                            "eq": "New SKUs to Submit"
+                                                        }
+                                                    }
+                                                ],
+                                                "typesCriterion": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "id": 2,
+                            "accesstype": "self",
+                            "name": "Provide Additional Info",
+                            "workflowSearchCriterion": {
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "contexts": [
+                                                {
+                                                    "workflow": "newProductSetup"
+                                                }
+                                            ],
+                                            "filters": {
+                                                "attributesCriterion": [
+                                                    {
+                                                        "activities/activityName": {
+                                                            "eq": "Provide Additional Info"
+                                                        }
+                                                    }
+                                                ],
+                                                "typesCriterion": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "id": 3,
+                            "accesstype": "self",
+                            "name": "Rejected SKUs",
+                            "workflowSearchCriterion": {
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "contexts": [
+                                                {
+                                                    "workflow": "newProductSetup"
+                                                }
+                                            ],
+                                            "filters": {
+                                                "attributesCriterion": [
+                                                    {
+                                                        "activities/activityName": {
+                                                            "eq": "Rejected SKUs"
+                                                        }
+                                                    }
+                                                ],
+                                                "typesCriterion": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "id": 4,
+                            "accesstype": "self",
+                            "name": "Review Assortment",
+                            "workflowSearchCriterion": {
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "contexts": [
+                                                {
+                                                    "workflow": "newProductSetup"
+                                                }
+                                            ],
+                                            "filters": {
+                                                "attributesCriterion": [
+                                                    {
+                                                        "activities/activityName": {
+                                                            "eq": "Review Assortment"
+                                                        }
+                                                    }
+                                                ],
+                                                "typesCriterion": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "id": 5,
+                            "accesstype": "self",
+                            "name": "Assign Internal Information",
+                            "workflowSearchCriterion": {
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "contexts": [
+                                                {
+                                                    "workflow": "newProductSetup"
+                                                }
+                                            ],
+                                            "filters": {
+                                                "attributesCriterion": [
+                                                    {
+                                                        "activities/activityName": {
+                                                            "eq": "Assign Internal Information"
+                                                        }
+                                                    }
+                                                ],
+                                                "typesCriterion": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "id": 6,
+                            "accesstype": "self",
+                            "name": "Enrich Copy",
+                            "workflowSearchCriterion": {
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "contexts": [
+                                                {
+                                                    "workflow": "newProductSetup"
+                                                }
+                                            ],
+                                            "filters": {
+                                                "attributesCriterion": [
+                                                    {
+                                                        "activities/activityName": {
+                                                            "eq": "Enrich Copy"
+                                                        }
+                                                    }
+                                                ],
+                                                "typesCriterion": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "id": 7,
+                            "accesstype": "self",
+                            "name": "Enrich with Digital Assets",
+                            "workflowSearchCriterion": {
+                                "dataRequest": {
+                                    "params": {
+                                        "query": {
+                                            "contexts": [
+                                                {
+                                                    "workflow": "newProductSetup"
+                                                }
+                                            ],
+                                            "filters": {
+                                                "attributesCriterion": [
+                                                    {
+                                                        "activities/activityName": {
+                                                            "eq": "Enrich with Digital Assets"
+                                                        }
+                                                    }
+                                                ],
+                                                "typesCriterion": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }],
+                        "favourites": [{
+                            "id": 8,
                             "accesstype": "self",
                             "name": "Womens Shoes",
                             "icon": "pebble-icons:SavedSearch",
@@ -323,14 +536,16 @@ var allConfigs = {
                             "searchTags": [{
                                 "name": "description",
                                 "longName": "Description",
-                                "displayType": "textBox",
+                                "options": {
+                                    "displayType": "textArea"
+                                },
                                 "value": {
                                     "eq": "Womens"
                                 }
                             }]
                         }],
                         "my-searches": [{
-                            "id": 2,
+                            "id": 9,
                             "accesstype": "self",
                             "name": "Mens Shoes",
                             "icon": "pebble-icons:SavedSearch",
@@ -345,14 +560,16 @@ var allConfigs = {
                             "searchTags": [{
                                 "name": "description",
                                 "longName": "Description",
-                                "displayType": "textBox",
+                                "options": {
+                                    "displayType": "textArea"
+                                },
                                 "value": {
                                     "eq": "Mens"
                                 }
                             }]
                         }],
                         "shared-searches": [{
-                            "id": 3,
+                            "id": 10,
                             "accesstype": "self",
                             "name": "Women's Sport Wear & Dresses",
                             "icon": "pebble-icons:SavedSearch",
@@ -367,7 +584,9 @@ var allConfigs = {
                             "searchTags": [{
                                 "name": "description",
                                 "longName": "Description",
-                                "displayType": "textBox",
+                                "options": {
+                                    "displayType": "textArea"
+                                },
                                 "value": {
                                     "eq": "dresses"
                                 }
@@ -377,7 +596,7 @@ var allConfigs = {
                 },
                 "pebble-actions": {
                     "config": {
-                        "title": "",
+                        "title": "Create",
                         "actions": [{
                             "name": "createProductPresentation",
                             "icon": "pebble-xl-icons:Brand",
@@ -397,8 +616,14 @@ var allConfigs = {
                 },
                 "rock-search-filter": {
                     "config": [{
-                        "name": "displayname",
+                        "name": "displayName",
                         "longName": "Display Name",
+                        "displayType": "textBox"
+                    },
+                    {
+                        "name": "skuNumber",
+                        "longName": "Sku Number",
+                        "value": "",
                         "displayType": "textBox"
                     },
                     {
@@ -409,30 +634,25 @@ var allConfigs = {
                     },
 
                     {
-                        "name": "creationdate",
+                        "name": "creationDate",
                         "longName": "Creation Date",
                         "value": "",
                         "displayType": "dateTime"
                     },
                     {
-                        "name": "startdate",
+                        "name": "startDate",
                         "longName": "Start Date",
                         "value": "",
                         "displayType": "dateTime"
                     },
                     {
-                        "name": "enddate",
+                        "name": "endDate",
                         "longName": "End Date",
                         "value": "",
                         "displayType": "dateTime"
                     },
                     {
-                        "name": "color",
-                        "longName": "Color",
-                        "displayType": "dropDown"
-                    },
-                    {
-                        "name": "Size",
+                        "name": "size",
                         "longName": "Size",
                         "displayType": "dropDown"
                     },
@@ -447,13 +667,13 @@ var allConfigs = {
                         "displayType": "dropDown"
                     },
                     {
-                        "name": "skuqy",
-                        "longName": "SKU Quantity",
+                        "name": "skuQuantity",
+                        "longName": "Quantity",
                         "displayType": "numeric"
                     },
                     {
-                        "name": "stuscd",
-                        "longName": "Status Code",
+                        "name": "status",
+                        "longName": "Status",
                         "displayType": "textBox"
                     }
                     ]
@@ -463,43 +683,54 @@ var allConfigs = {
                         "viewMode": "Tabular",
                         "title": "Search Results",
                         "mode": "Read",
+                        "readOnly": true,
                         "schemaType": "attribute",
+                        "titleTemplates": {
+                            "contextTemplate": "for the channel: {channel} ",
+                            "workflowTemplate": "in workflow: {workflow}, workflow Status: {workflowStatus}"
+                        },
                         "dataRequest": {
-                            "typesCriterion": ["productPresentation", "lot", "sku"],
-                            "attributes": ["displayname", "description", "stuscd", "startdate", "enddate"]
+                            "typesCriterion": ["sku", "productPresentation", "lot"],
+                            "attributes": ["displayName", "description", "status", "startDate", "endDate", "webDiscount"]
                         },
                         "tabular": {
                             "settings": {
                                 "isMultiSelect": true
                             },
                             "columns": [{
-                                "header": "Entity Name",
-                                "name": "displayname",
+                                "header": "Display Name",
+                                "name": "displayName",
                                 "sortable": false,
                                 "filterable": false,
-                                "linkTemplate": "entity-manage?id={id}&type={entityType}"
+                                "linkTemplate": "entity-manage?id={id}&type={type}"
                             },
                             {
-                                "header": "Entity Description",
+                                "header": "Description",
                                 "name": "description",
                                 "sortable": false,
                                 "filterable": false
                             },
                             {
-                                "header": "Status Code",
-                                "name": "stuscd",
+                                "header": "Status",
+                                "name": "status",
+                                "sortable": false,
+                                "filterable": false
+                            },
+                            {
+                                "header": "Web Discount",
+                                "name": "webDiscount",
                                 "sortable": false,
                                 "filterable": false
                             },
                             {
                                 "header": "Start Date",
-                                "name": "startdate",
+                                "name": "startDate",
                                 "sortable": true,
                                 "filterable": false
                             },
                             {
                                 "header": "End Date",
-                                "name": "enddate",
+                                "name": "endDate",
                                 "sortable": true,
                                 "filterable": false
                             }
@@ -522,7 +753,7 @@ var allConfigs = {
                             },
                             "listItems": {
                                 "image": "productImageUrl",
-                                "title": "displayname",
+                                "title": "displayName",
                                 "id": "id",
                                 "fields": [{
                                     "name": "description",
@@ -530,8 +761,8 @@ var allConfigs = {
                                     "noTrim": false
                                 },
                                 {
-                                    "name": "stuscd",
-                                    "label": "Status Code",
+                                    "name": "status",
+                                    "label": "Status",
                                     "noTrim": true
                                 }
                                 ]
@@ -554,7 +785,7 @@ var allConfigs = {
                             },
                             "tileItems": {
                                 "image": "productImageUrl",
-                                "title": "displayname",
+                                "title": "displayName",
                                 "id": "id",
                                 "fields": [{
                                     "name": "description",
@@ -562,8 +793,8 @@ var allConfigs = {
                                     "noTrim": false
                                 },
                                 {
-                                    "name": "stuscd",
-                                    "label": "Status Code",
+                                    "name": "status",
+                                    "label": "Status",
                                     "noTrim": true
                                 }
                                 ]
@@ -585,55 +816,78 @@ var allConfigs = {
                                     "name": "rock-attribute-manage",
                                     "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
                                     "properties": {
-                                        "attributeGroups": [
-                                            "coreAttributes"
-                                        ],
-                                        "context": {
+                                        "config-context": {
                                             "attributeNames": [
-                                                "displayname",
+                                                "alsoInStore",
+                                                "brand",
+                                                "brandLogo",
+                                                "channel",
+                                                "channelAvailability",
                                                 "description",
-                                                "enddate",
-                                                "startdate",
-                                                "stuscd",
+                                                "displayAskAndAnswerSection",
+                                                "displayName",
+                                                "factSheet",
+                                                "featureColor",
+                                                "hideDisplayIndicator",
+                                                "id",
+                                                "isCustomerFavoriteOption",
+                                                "isHidden",
+                                                "isPreOrderOption",
+                                                "longDescription",
+                                                "lotSelectionType",
+                                                "lotType",
+                                                "onlineOnly",
                                                 "orin",
-                                                "productid",
-                                                "onlineonly",
-                                                "shortnm",
-                                                "chnlcd",
-                                                "trukitmin",
-                                                "whseclasscd",
-                                                "drctshprstrid",
-                                                "disposalfeeid",
-                                                "willcallrstrid",
-                                                "questionalordqy"
+                                                "programType",
+                                                "ratingReviewId",
+                                                "retailSkuNumber",
+                                                "shortName",
+                                                "skuGrouping",
+                                                "skuItemType",
+                                                "skuNumber",
+                                                "skuQuantity",
+                                                "skuType",
+                                                "source",
+                                                "status",
+                                                "stone",
+                                                "styleText",
+                                                "upcBarcode",
+                                                "warranty"
                                             ]
                                         }
                                     }
                                 },
                                 "menuItems": [{
-                                    "name": "core-attributes",
+                                    "name": "advanced",
                                     "icon": "icons:add-box",
-                                    "title": "Core Attributes",
+                                    "title": "Advanced",
                                     "component": {
                                         "name": "rock-attribute-manage",
                                         "path": "/src/elements/rock-attribute-manage/rock-attribute-manage.html",
                                         "properties": {
-                                            "locales": [{
-                                                "locale": "en-US",
-                                                "language": "English"
-                                            }],
-                                            "source": "SAP",
-                                            "list": "productMaster",
                                             "mode": "view",
-                                            "no-of-columns": 1,
-                                            "context": {
-                                                "groupName": "Core Attributes",
+                                            "no-of-columns": 2,
+                                            "config-context": {
+                                                "groupName": "Advanced",
                                                 "attributeNames": [
-                                                    "displayname",
-                                                    "description",
-                                                    "enddate",
-                                                    "startdate",
-                                                    "stuscd"
+                                                    "featureHeaderText",
+                                                    "featureQuoteText",
+                                                    "isBopisEligible",
+                                                    "isNewClearanceTimestamp",
+                                                    "isNewToClearance",
+                                                    "isSampleEnsemble",
+                                                    "ppSkuSwatchesRolledUpCount",
+                                                    "productReviewQuoteText",
+                                                    "sourceFeedId",
+                                                    "isFurniture",
+                                                    "isSephora",
+                                                    "mailableIndicator",
+                                                    "questionableOrderQuantity",
+                                                    "recycleFeeIndicator",
+                                                    "sabrixCommodityCode",
+                                                    "specialIndicator",
+                                                    "unusualDemandQuantity",
+                                                    "vData"
                                                 ]
                                             }
                                         }
@@ -773,86 +1027,106 @@ var allConfigs = {
     },
     {
         "name": "app-entity-manage",
-        "ctxInfo": [{
+        "contexts": [{
             "tenant": "jcp",
-            "ctx": {
-                "list": "productMaster"
-            },
             "security": {
                 "user": "",
                 "role": ""
             },
             "components": {
                 "rock-dimension-selector": {
-                    "config": {
-                        "catalogSelector": {
-                            "visible": true,
-                            "catalogItems": [{
-                                "id": 1,
-                                "title": "Product Master",
-                                "subtitle": "Product Master",
-                                "value": "productMaster",
-                                "image": ""
-                            },
-                            {
-                                "id": 2,
-                                "title": "Web Catalog",
-                                "subtitle": "Web Catalog",
-                                "value": "webCatalog",
-                                "image": ""
+                    "config": [{
+                        "id": "channel",
+                        "title": "Channel",
+                        "icon": "pebble-lg-icons:Master",
+                        "visible": true,
+                        "dataRequestType": "entity",
+                        "dataRequest": {
+                            "params": {
+                                "query": {
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "channel"
+                                        ]
+                                    }
+                                }
                             }
-                            ],
-                            "selectedCatalogItems": [{
-                                "id": 1,
-                                "title": "Product Master",
-                                "subtitle": "Product Master",
-                                "value": "productMaster",
-                                "image": ""
-                            }]
                         },
-                        "sourceSelector": {
-                            "visible": true,
-                            "sourceItems": [{
-                                "id": 1,
-                                "title": "Internal Source",
-                                "subtitle": "Internal Source",
-                                "value": "internal",
-                                "image": ""
-                            }],
-                            "selectedSourceItems": [{
-                                "id": 1,
-                                "title": "Internal source",
-                                "subtitle": "Internal source",
-                                "value": "internal",
-                                "image": ""
-                            }]
+                        "dataMappings": {
+                            "id": "name",
+                            "title": "name",
+                            "subtitle": "",
+                            "image": "",
+                            "icon": "",
+                            "type": ["channel"]
                         },
-                        "localeSelector": {
-                            "visible": true,
-                            "localeItems": [{
-                                "id": 1,
-                                "title": "English - United States",
-                                "subtitle": "English",
-                                "value": "en-US",
-                                "image": ""
-                            },
-                            {
-                                "id": 2,
-                                "title": "Spanish - Spain",
-                                "subtitle": "Spanish",
-                                "value": "es-SP",
-                                "image": ""
+                        "selectedItem": {
+                        },
+                        "default": ""
+                    },
+                    {
+                        "id": "source",
+                        "title": "Source",
+                        "icon": "pebble-lg-icons:Source",
+                        "visible": true,
+                        "dataRequestType": "entity-model",
+                        "dataRequest": {
+                            "params": {
+                                "query": {
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "source"
+                                        ]
+                                    }
+                                }
                             }
-                            ],
-                            "selectedLocaleItems": [{
-                                "id": 1,
-                                "title": "English - United States",
-                                "subtitle": "English",
-                                "value": "en-US",
-                                "image": ""
-                            }]
-                        }
+                        },
+                        "dataMappings": {
+                            "id": "name",
+                            "title": "name",
+                            "subtitle": "",
+                            "image": "",
+                            "icon": "",
+                            "type": ["source"]
+                        },
+                        "selectedItem": {
+                            "id": "internal",
+                            "type": "source"
+                        },
+                        "default": ""
+                    },
+                    {
+                        "id": "locale",
+                        "title": "Locale",
+                        "icon": "pebble-lg-icons:Language",
+                        "visible": true,
+                        "dataRequestType": "entity-model",
+                        "dataRequest": {
+                            "params": {
+                                "query": {
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "locale"
+                                        ]
+                                    }
+                                }
+                            }
+                        },
+                        "dataMappings": {
+                            "id": "name",
+                            "title": "name",
+                            "subtitle": "",
+                            "image": "",
+                            "icon": "",
+                            "type": ["locale"]
+                        },
+                        "selectedItem": {
+                            "id": "en-US",
+                            "type": "locale"
+                        },
+                        "default": ""
                     }
+                    ]
                 },
                 "rock-dimension-grid": {
                     "config": {
@@ -939,8 +1213,13 @@ var allConfigs = {
                 "rock-entity-header": {
                     "config": {
                         "headerConfig": [{
-                            "attributeName": "skuid",
+                            "attributeName": "id",
                             "label": "SKU ID",
+                            "noTrim": false
+                        },
+                        {
+                            "attributeName": "skuNumber",
+                            "label": "SKU Number",
                             "noTrim": false
                         },
                         {
@@ -949,23 +1228,18 @@ var allConfigs = {
                             "noTrim": false
                         },
                         {
-                            "attributeName": "stuscd",
-                            "label": "Status Code",
+                            "attributeName": "status",
+                            "label": "Status",
                             "noTrim": false
                         },
                         {
-                            "attributeName": "startdate",
+                            "attributeName": "startDate",
                             "label": "Start Date",
                             "noTrim": false
                         },
                         {
-                            "attributeName": "enddate",
-                            "label": "End Date",
-                            "noTrim": false
-                        },
-                        {
-                            "attributeName": "color",
-                            "label": "Color",
+                            "attributeName": "webDiscount",
+                            "label": "Web Discount",
                             "noTrim": false
                         }
 
@@ -1165,305 +1439,534 @@ var allConfigs = {
                                 "name": "rock-attribute-split-screen",
                                 "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                 "properties": {
-                                    "attributeGroups": [
-                                        "coreAttributes",
-                                        "buying",
-                                        "selling"
-                                    ],
-                                    "context": {
+                                    "mode": "view",
+                                    "no-of-columns": 2,
+                                    "config-context": {
                                         "attributeNames": [
-                                            "color",
-                                            "creationdate",
-                                            "length",
-                                            "width",
-                                            "startdate",
-                                            "enddate",
-                                            "displayname",
+                                            "alsoInStore",
+                                            "brand",
+                                            "brandLogo",
+                                            "channel",
+                                            "channelAvailability",
                                             "description",
-                                            "stuscd",
+                                            "displayAskAndAnswerSection",
+                                            "displayName",
+                                            "factSheet",
+                                            "featureColor",
+                                            "hideDisplayIndicator",
+                                            "id",
+                                            "isCustomerFavoriteOption",
+                                            "isHidden",
+                                            "isPreOrderOption",
+                                            "longDescription",
+                                            "lotSelectionType",
+                                            "lotType",
+                                            "onlineOnly",
                                             "orin",
-                                            "productid",
-                                            "skuid",
-                                            "categoryid",
-                                            "longdescription",
-                                            "onlineonly",
-                                            "shortnm",
-                                            "chnlcd",
-                                            "trukitmin",
-                                            "whseclasscd",
-                                            "drctshprstrid",
-                                            "disposalfeeid",
-                                            "willcallrstrid",
-                                            "questionalordqy",
-                                            "lottypcd",
-                                            "skutype",
-                                            "skunb",
-                                            "rtlskunb",
-                                            "hidedsplin",
-                                            "skuqy",
-                                            "barcodecd",
-                                            "whitegloveddlvryin",
-                                            "styletx",
-                                            "lotselntypcd",
-                                            "noncontntlprepaidcd",
-                                            "contntlprepaidcd",
-                                            "unusualdmdqy",
-                                            "mlblitmin",
-                                            "prodlengthnb",
-                                            "prodheightnb",
-                                            "prodwtnb",
-                                            "prodwidthnb",
-                                            "cmrclcarrcd",
-                                            "noncmrclcarrcd",
-                                            "sabrixcommoditycd",
-                                            "pgmtypcd",
-                                            "spclin",
-                                            "parantheticam",
-                                            "willcallfsin",
-                                            "intlshippablein",
-                                            "mfrnm",
-                                            "origcntrycd",
-                                            "szunittx",
-                                            "sephorain",
-                                            "isrecyclablein",
-                                            "modelnb",
-                                            "frnin"
+                                            "programType",
+                                            "ratingReviewId",
+                                            "retailSkuNumber",
+                                            "shortName",
+                                            "skuGrouping",
+                                            "skuItemType",
+                                            "skuNumber",
+                                            "skuQuantity",
+                                            "skuType",
+                                            "source",
+                                            "status",
+                                            "stone",
+                                            "styleText",
+                                            "upcBarcode",
+                                            "warranty"
                                         ]
                                     }
                                 }
                             },
                             "menuItems": [{
-                                "name": "coreAttributes",
-                                "icon": "icons:add-box",
-                                "title": "Core Attributes",
+                                "name": "Advanced",
+                                "title": "Advanced",
                                 "component": {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
-                                        "locales": [{
-                                            "locale": "en-US",
-                                            "language": "English"
-                                        }],
-                                        "source": "internal",
-                                        "list": "productMaster",
                                         "mode": "view",
                                         "no-of-columns": 2,
-                                        "context": {
-                                            "groupName": "Core Attributes",
+                                        "config-context": {
+                                            "groupName": "Advanced",
                                             "attributeNames": [
-                                                "creationdate",
-                                                "startdate",
-                                                "enddate",
-                                                "displayname",
+                                                "featureHeaderText",
+                                                "featureQuoteText",
+                                                "isBopisEligible",
+                                                "isNewClearanceTimestamp",
+                                                "isNewToClearance",
+                                                "isSampleEnsemble",
+                                                "ppSkuSwatchesRolledUpCount",
+                                                "productReviewQuoteText",
+                                                "sourceFeedId",
+                                                "isFurniture",
+                                                "isSephora",
+                                                "mailableIndicator",
+                                                "questionableOrderQuantity",
+                                                "recycleFeeIndicator",
+                                                "sabrixCommodityCode",
+                                                "specialIndicator",
+                                                "unusualDemandQuantity",
+                                                "vData"
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "name": "Basic",
+                                "title": "Basic",
+                                "component": {
+                                    "name": "rock-attribute-split-screen",
+                                    "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
+                                    "properties": {
+                                        "mode": "view",
+                                        "no-of-columns": 2,
+                                        "config-context": {
+                                            "groupName": "Basic",
+                                            "attributeNames": [
+                                                "alsoInStore",
+                                                "brand",
+                                                "brandLogo",
+                                                "channel",
+                                                "channelAvailability",
                                                 "description",
-                                                "stuscd",
+                                                "displayAskAndAnswerSection",
+                                                "displayName",
+                                                "factSheet",
+                                                "featureColor",
+                                                "hideDisplayIndicator",
+                                                "id",
+                                                "isCustomerFavoriteOption",
+                                                "isHidden",
+                                                "isPreOrderOption",
+                                                "longDescription",
+                                                "lotSelectionType",
+                                                "lotType",
+                                                "onlineOnly",
                                                 "orin",
-                                                "productid",
-                                                "skuid",
-                                                "categoryid",
-                                                "longdescription"
+                                                "programType",
+                                                "ratingReviewId",
+                                                "retailSkuNumber",
+                                                "shortName",
+                                                "skuGrouping",
+                                                "skuItemType",
+                                                "skuNumber",
+                                                "skuQuantity",
+                                                "skuType",
+                                                "source",
+                                                "status",
+                                                "stone",
+                                                "styleText",
+                                                "upcBarcode",
+                                                "warranty"
                                             ]
                                         }
                                     }
                                 }
                             },
                             {
-                                "name": "buying",
-                                "title": "Buying Attributes",
-                                "icon": "icons:add-box",
+                                "name": "Category-Related",
+                                "title": "Category-Related",
                                 "component": {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
-                                        "locales": [{
-                                            "locale": "en-US",
-                                            "language": "English"
-                                        }],
-                                        "source": "internal",
-                                        "list": "productMaster",
+                                        "mode": "view",
+                                        "no-of-columns": 1,
+                                        "config-context": {
+                                            "groupName": "Category-Related",
+                                            "attributeNames": [
+                                                "canonicalURL",
+                                                "disableAds",
+                                                "disableGoogleAds",
+                                                "seoDisplayName",
+                                                "seoTagInclude",
+                                                "seoTags"
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "name": "Copy",
+                                "title": "Copy",
+                                "component": {
+                                    "name": "rock-attribute-split-screen",
+                                    "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
+                                    "properties": {
+                                        "mode": "view",
+                                        "no-of-columns": 1,
+                                        "config-context": {
+                                            "groupName": "Copy",
+                                            "attributeNames": [
+                                                "features1",
+                                                "features2",
+                                                "features3",
+                                                "features4",
+                                                "features5",
+                                                "inspirationalCopy",
+                                                "longCopy",
+                                                "productDescription",
+                                                "secondaryCopy"
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "name": "Dates",
+                                "title": "Dates",
+                                "component": {
+                                    "name": "rock-attribute-split-screen",
+                                    "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
+                                    "properties": {
                                         "mode": "view",
                                         "no-of-columns": 2,
-                                        "context": {
-                                            "groupName": "Buying Attributes",
+                                        "config-context": {
+                                            "groupName": "Dates",
                                             "attributeNames": [
-                                                "onlineonly",
-                                                "shortnm",
-                                                "chnlcd",
-                                                "trukitmin",
-                                                "whseclasscd",
-                                                "drctshprstrid",
-                                                "disposalfeeid",
-                                                "willcallrstrid",
-                                                "questionalordqy",
-                                                "lottypcd",
-                                                "skutype",
-                                                "skunb",
-                                                "rtlskunb",
-                                                "hidedsplin",
-                                                "skuqy",
-                                                "barcodecd"
+                                                "creationDate",
+                                                "ecommOOSDate",
+                                                "endDate",
+                                                "plannedOnSiteDate",
+                                                "startDate",
+                                                "storeOOSDate"
                                             ]
                                         }
                                     }
                                 }
                             },
                             {
-                                "name": "selling",
-                                "title": "Selling Attributes",
-                                "icon": "icons:add-box",
+                                "name": "Dimensions",
+                                "title": "Dimensions",
                                 "component": {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
-                                        "locales": [{
-                                            "locale": "en-US",
-                                            "language": "English"
-                                        }],
-                                        "source": "internal",
-                                        "list": "productMaster",
                                         "mode": "view",
-                                        "no-of-columns": 3,
-                                        "context": {
-                                            "groupName": "Selling Attributes",
+                                        "no-of-columns": 2,
+                                        "config-context": {
+                                            "groupName": "Dimensions",
                                             "attributeNames": [
-                                                "whitegloveddlvryin",
-                                                "styletx",
-                                                "lotselntypcd",
-                                                "noncontntlprepaidcd",
-                                                "contntlprepaidcd",
-                                                "unusualdmdqy",
-                                                "mlblitmin",
-                                                "prodlengthnb",
-                                                "prodheightnb",
-                                                "prodwtnb",
-                                                "prodwidthnb",
-                                                "cmrclcarrcd",
-                                                "noncmrclcarrcd",
-                                                "sabrixcommoditycd",
-                                                "pgmtypcd",
-                                                "spclin",
-                                                "parantheticam",
-                                                "willcallfsin",
-                                                "intlshippablein",
-                                                "mfrnm",
-                                                "origcntrycd",
-                                                "szunittx",
-                                                "sephorain",
-                                                "isrecyclablein",
-                                                "modelnb",
-                                                "frnin"
+                                                "productHeight",
+                                                "productLength",
+                                                "productWeight",
+                                                "productWidth",
+                                                "sizeUnit",
+                                                "weightUnit"
                                             ]
                                         }
                                     }
                                 }
                             },
                             {
-                                "name": "merchPlanning",
-                                "title": "Merch Planning",
-                                "icon": "icons:add-box",
+                                "name": "Images___Media",
+                                "title": "Images & Media",
                                 "component": {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
-                                        "locales": [{
-                                            "locale": "en-US",
-                                            "language": "English"
-                                        }],
-                                        "source": "SAP",
-                                        "list": "productMaster",
                                         "mode": "view",
-                                        "no-of-columns": 3,
-                                        "context": {
-                                            "groupName": "Merch Planning",
+                                        "no-of-columns": 1,
+                                        "config-context": {
+                                            "groupName": "Images & Media",
                                             "attributeNames": [
-                                                "color",
-                                                "length",
-                                                "width",
-                                                "sleeve",
+                                                "ensembleDHTML",
+                                                "galleryVideo",
+                                                "promotionalImageContent"
+
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "name": "Item_Details",
+                                "title": "Item Details",
+                                "component": {
+                                    "name": "rock-attribute-split-screen",
+                                    "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
+                                    "properties": {
+                                        "mode": "view",
+                                        "no-of-columns": 2,
+                                        "config-context": {
+                                            "groupName": "Item Details",
+                                            "attributeNames": [
+                                                "artworkId",
+                                                "assembledHeight",
+                                                "assembledLength",
+                                                "assembledWeight",
+                                                "assembledWidth",
+                                                "caseQuantityColor",
+                                                "christmasIndicator",
+                                                "colorDesc",
+                                                "colorFamily",
+                                                "complianceLikeItem",
+                                                "conceptual",
+                                                "deliveryInstructions",
+                                                "diff1Group",
+                                                "diff1Type",
+                                                "diff2Group",
+                                                "diff2Type",
+                                                "eComHangingIndicator",
+                                                "ecommActiveSizes",
+                                                "ecommColor",
+                                                "ecommColorAbbr",
+                                                "ecommInnerPack",
+                                                "ecommJcpStatus",
+                                                "ecommMinOrderQty",
+                                                "ecommPurchaseType",
+                                                "ecommUnitCostColor",
+                                                "ecomPrimarySupplierIdColor",
+                                                "effIndicator",
+                                                "enterpriseInventoryIndicator",
+                                                "factoryShipLeadTime",
+                                                "factoryShipLimitedInvInd",
+                                                "fashionPyramid",
+                                                "floorSetDate",
+                                                "innerPackIncrementColor",
+                                                "innerQuantityColor",
+                                                "lifestyle",
+                                                "minOrderQtyColor",
+                                                "monogramCharge",
+                                                "packingMethod",
+                                                "ppkNo",
+                                                "priceTier",
+                                                "printPattern",
+                                                "productTitle",
+                                                "programName",
+                                                "protectionPlan",
+                                                "season",
                                                 "size",
-                                                "waist",
-                                                "cup",
-                                                "chest",
-                                                "necksize",
-                                                "inseam",
-                                                "patternname",
-                                                "pdbcolorfamily",
-                                                "letterornumber",
-                                                "alphacharacter",
-                                                "pattern",
-                                                "woodfinish",
-                                                "colorfamily",
-                                                "minorcolorfamily",
-                                                "pdbcolor",
-                                                "numericvalue"
+                                                "sizeCase",
+                                                "sizeInner",
+                                                "sourcingPartner",
+                                                "specialItemCode",
+                                                "specialProgramType",
+                                                "storeActiveSizes",
+                                                "storeCollectionNumberName",
+                                                "storeColorAbbr",
+                                                "storeJCPStatus",
+                                                "storePrimarySupplierIdColor",
+                                                "storePurchaseType",
+                                                "storeSet",
+                                                "storeSubSet",
+                                                "storeUnitCostColor",
+                                                "supplierMfrShipPoint",
+                                                "ticketAttribute",
+                                                "ticketStockNo",
+                                                "vpn",
+                                                "warrantyFlag",
+                                                "whseProcessingFee1"
                                             ]
                                         }
                                     }
                                 }
                             },
                             {
-                                "name": "seoAttributes",
-                                "title": "SEO Attributes",
-                                "icon": "icons:add-box",
+                                "name": "Merchandise_Hierarchy",
+                                "title": "Merchandise Hierarchy",
                                 "component": {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
-                                        "locales": [{
-                                            "locale": "en-US",
-                                            "language": "English"
-                                        }],
-                                        "source": "internal",
-                                        "list": "productMaster",
                                         "mode": "view",
                                         "no-of-columns": 2,
-                                        "context": {
-                                            "groupName": "SEO Attributes",
+                                        "config-context": {
+                                            "groupName": "Merchandise Hierarchy",
                                             "attributeNames": [
-                                                "seotagtx",
-                                                "seodsplnm",
-                                                "canonicalurl",
-                                                "disableadsin",
-                                                "disablegoogleadsensein",
-                                                "ncldseotagin",
-                                                "shortnm",
-                                                "medialtrcd",
-                                                "mediayrid",
-                                                "hidein",
-                                                "prodreviewtx",
-                                                "feathdrtx",
-                                                "featquotetx"
+                                                "class",
+                                                "division",
+                                                "entity",
+                                                "subClass",
+                                                "subDivision"
                                             ]
                                         }
                                     }
                                 }
                             },
                             {
-                                "name": "copy",
-                                "title": "Copy and Description",
-                                "icon": "icons:add-box",
+                                "name": "Pricing__USD_",
+                                "title": "Pricing (USD)",
                                 "component": {
                                     "name": "rock-attribute-split-screen",
                                     "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
                                     "properties": {
-                                        "locales": [{
-                                            "locale": "en-US",
-                                            "language": "English"
-                                        }],
-                                        "source": "internal",
-                                        "list": "productMaster",
                                         "mode": "view",
-                                        "no-of-columns": 3,
-                                        "context": {
-                                            "groupName": "Copy and Description",
+                                        "no-of-columns": 2,
+                                        "config-context": {
+                                            "groupName": "Pricing (USD)",
                                             "attributeNames": [
-                                                "longcpytx",
-                                                "secondarycpytx",
-                                                "insprtnlcpytx",
-                                                "alsoinstrin",
-                                                "promotionalimcntntid",
-                                                "ratingreviewid",
-                                                "swatchimct"
+                                                "competitorPrice",
+                                                "cost",
+                                                "ecommUnitCost",
+                                                "estimatedShippingExpense",
+                                                "initialMarkup",
+                                                "msrp",
+                                                "retail",
+                                                "storeUnitCost"
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "name": "Product_Hierarchy",
+                                "title": "Product Hierarchy",
+                                "component": {
+                                    "name": "rock-attribute-split-screen",
+                                    "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
+                                    "properties": {
+                                        "mode": "view",
+                                        "no-of-columns": 2,
+                                        "config-context": {
+                                            "groupName": "Product Hierarchy",
+                                            "attributeNames": [
+                                                "itemType",
+                                                "productLine",
+                                                "productType",
+                                                "sizeRange",
+                                                "subProductType"
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "name": "Product_Presentation_Type",
+                                "title": "Product Presentation Type",
+                                "component": {
+                                    "name": "rock-attribute-split-screen",
+                                    "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
+                                    "properties": {
+                                        "mode": "view",
+                                        "no-of-columns": 1,
+                                        "config-context": {
+                                            "groupName": "Product Presentation Type",
+                                            "attributeNames": [
+                                                "mediaLetter",
+                                                "mediaYear",
+                                                "productPresentationType"
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "name": "SEO",
+                                "title": "SEO",
+                                "component": {
+                                    "name": "rock-attribute-split-screen",
+                                    "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
+                                    "properties": {
+                                        "mode": "view",
+                                        "no-of-columns": 1,
+                                        "config-context": {
+                                            "groupName": "SEO",
+                                            "attributeNames": [
+                                                "searchKeywordsNavigation",
+                                                "seoDescription",
+                                                "seoTitle",
+                                                "serviceDescription"
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "name": "Shipping",
+                                "title": "Shipping",
+                                "component": {
+                                    "name": "rock-attribute-split-screen",
+                                    "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
+                                    "properties": {
+                                        "mode": "view",
+                                        "no-of-columns": 2,
+                                        "config-context": {
+                                            "groupName": "Shipping",
+                                            "attributeNames": [
+                                                "countryOfManufacture",
+                                                "factoryShipUOM",
+                                                "grossWeight",
+                                                "height",
+                                                "length",
+                                                "liquidUnitofMeasure",
+                                                "liquidVolume",
+                                                "maxBackorderDays",
+                                                "originIndicator",
+                                                "packageType",
+                                                "shippingInfoRequired",
+                                                "weightUnitofMeasure",
+                                                "width",
+                                                "commercialCarrierCode",
+                                                "continentalPrepaid",
+                                                "directShipRestrict",
+                                                "disposalFee",
+                                                "hazMatFlag",
+                                                "internationalShippable",
+                                                "isTruckItem",
+                                                "nonCommercialCarrierCode",
+                                                "nonContinentalPrepaid",
+                                                "parantheticAmount",
+                                                "prop65Indicator",
+                                                "warehouseClass",
+                                                "whiteGlovedDelivery",
+                                                "willCallFactoryShipInd",
+                                                "willCallRestrict"
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "name": "Supplier",
+                                "title": "Supplier",
+                                "component": {
+                                    "name": "rock-attribute-split-screen",
+                                    "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
+                                    "properties": {
+                                        "mode": "view",
+                                        "no-of-columns": 2,
+                                        "config-context": {
+                                            "groupName": "Supplier",
+                                            "attributeNames": [
+                                                "alternateSupplierID",
+                                                "ecommSupplierShipPoint",
+                                                "ecomPrimarySupplierId",
+                                                "shipPointCity",
+                                                "shipPointState",
+                                                "storePrimarySupplierId",
+                                                "supplierChannel",
+                                                "supplierLeadTime",
+                                                "supplierNumberName",
+                                                "supplierSiteNumber",
+                                                "whseSupplier1",
+                                                "whseSupplierShipPoint1"
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "name": "Vendor",
+                                "title": "Vendor",
+                                "component": {
+                                    "name": "rock-attribute-split-screen",
+                                    "path": "/src/elements/rock-attribute-split-screen/rock-attribute-split-screen.html",
+                                    "properties": {
+                                        "mode": "view",
+                                        "no-of-columns": 1,
+                                        "config-context": {
+                                            "groupName": "Vendor",
+                                            "attributeNames": [
+                                                "countryOfOrigin",
+                                                "manufacturer",
+                                                "modelNumber"
                                             ]
                                         }
                                     }
@@ -1481,7 +1984,7 @@ var allConfigs = {
                                 "properties": {
                                     "mode": "view",
                                     "no-of-columns": 2,
-                                    "context": {
+                                    "config-context": {
                                         "relationshipTypeName": "Relationships"
                                     }
                                 }
@@ -1489,7 +1992,6 @@ var allConfigs = {
                             "menuItems": [{
                                 "name": "isChildOf",
                                 "title": "Variants",
-                                "icon": "icons:cloud-upload",
                                 "component": {
                                     "name": "rock-relationship-split-screen",
                                     "path": "/src/elements/rock-relationship-split-screen/rock-relationship-split-screen.html",
@@ -1502,7 +2004,7 @@ var allConfigs = {
                                         "list": "productMaster",
                                         "mode": "view",
                                         "no-of-columns": 1,
-                                        "context": {
+                                        "config-context": {
                                             "relationshipTypeName": "isChildOf"
                                         }
                                     }
@@ -1511,7 +2013,6 @@ var allConfigs = {
                             {
                                 "name": "productPresentationToLot",
                                 "title": "Lots",
-                                "icon": "icons:cloud-upload",
                                 "component": {
                                     "name": "rock-relationship-split-screen",
                                     "path": "/src/elements/rock-relationship-split-screen/rock-relationship-split-screen.html",
@@ -1524,7 +2025,7 @@ var allConfigs = {
                                         "list": "productMaster",
                                         "mode": "view",
                                         "no-of-columns": 1,
-                                        "context": {
+                                        "config-context": {
                                             "relationshipTypeName": "productPresentationToLot"
                                         }
                                     }
@@ -1539,6 +2040,16 @@ var allConfigs = {
                             "component": {
                                 "name": "app-entity-discovery",
                                 "path": "/src/elements/app-entity-discovery/app-entity-discovery.html",
+                                "properties": {}
+                            }
+                        },
+                        {
+                            "name": "entity-family",
+                            "title": "Entity Family",
+                            "enableDropdownMenu": false,
+                            "component": {
+                                "name": "rock-entity-variant",
+                                "path": "/src/elements/rock-entity-variant/rock-entity-variant.html",
                                 "properties": {}
                             }
                         }
@@ -1574,7 +2085,7 @@ var allConfigs = {
                             "mode": "Read",
                             "schemaType": "attribute",
                             "dataRequest": {
-                                "relatedEntityAttributes": ["shortDescription", "rmsSkuId", "nrfColorCode", "nrfSizeCode"]
+                                "attributes": ["description", "skuId", "startDate", "status"]
                             },
                             "tabular": {
                                 "settings": {
@@ -1590,26 +2101,32 @@ var allConfigs = {
                                     ]
                                 },
                                 "columns": [{
-                                    "header": "Short Description",
-                                    "name": "shortDescription",
+                                    "header": "Description",
+                                    "name": "description",
                                     "sortable": false,
                                     "filterable": false
                                 },
                                 {
-                                    "header": "RMS SKU ID",
-                                    "name": "rmsSkuId",
+                                    "header": "Color",
+                                    "name": "color",
                                     "sortable": false,
                                     "filterable": false
                                 },
                                 {
-                                    "header": "NRF Color Code",
-                                    "name": "nrfColorCode",
+                                    "header": "Start Date",
+                                    "name": "startDate",
                                     "sortable": false,
                                     "filterable": false
                                 },
                                 {
-                                    "header": "NRF Size Code",
-                                    "name": "nrfSizeCode",
+                                    "header": "Status",
+                                    "name": "status",
+                                    "sortable": false,
+                                    "filterable": false
+                                },
+                                {
+                                    "header": "SKU Id",
+                                    "name": "id",
                                     "sortable": false,
                                     "filterable": false
                                 }
@@ -1641,16 +2158,6 @@ var allConfigs = {
                                     {
                                         "name": "description",
                                         "label": "Description",
-                                        "noTrim": true
-                                    },
-                                    {
-                                        "name": "isNew",
-                                        "label": "isNew",
-                                        "noTrim": true
-                                    },
-                                    {
-                                        "name": "isApproved",
-                                        "label": "isApproved",
                                         "noTrim": true
                                     }
                                     ]
@@ -1690,38 +2197,87 @@ var allConfigs = {
                         "variantDefinitionUI": {
                             "name": "ehd1",
                             "levels": [{
-                                "entityType": "choice",
+                                "entityType": "sku",
                                 "index": 1,
                                 "optional": false,
                                 "dimensionAttributes": [{
-                                    "sourceAttribute": "colorAssignment",
-                                    "targetAttribute": "choiceColor",
+                                    "sourceAttribute": "color",
+                                    "targetAttribute": "color",
                                     "optional": false
                                 },
                                 {
-                                    "sourceAttribute": "materials",
-                                    "targetAttribute": "choiceMaterial",
-                                    "optional": true
-                                }
-                                ]
-                            },
-                            {
-                                "entityType": "sku",
-                                "index": 2,
-                                "optional": false,
-                                "dimensionAttributes": [{
-                                    "sourceAttribute": "primarySizes",
-                                    "targetAttribute": "skuSize1",
-                                    "optional": false
-                                },
-                                {
-                                    "sourceAttribute": "secondarySizes",
-                                    "targetAttribute": "skuSize2",
+                                    "sourceAttribute": "size",
+                                    "targetAttribute": "size",
                                     "optional": true
                                 }
                                 ]
                             }
                             ]
+                        }, "businessFunctionVariantsCreate": {
+                            "stepperConfig": [{
+                                "index": "1",
+                                "title": "Option Selection",
+                                "status": "inprogress"
+                            },
+                            {
+                                "index": "2",
+                                "title": "Create Variants",
+                                "status": ""
+                            }
+                            ],
+                            "name": "create-variants",
+                            "label": "Create Variants",
+                            "steps": [{
+                                "name": "step-1-selection-option",
+                                "label": "Select Options to create Skus",
+                                "component": {
+                                    "name": "rock-variants-option-select",
+                                    "path": "/../../src/elements/rock-variants-option-select/rock-variants-option-select.html",
+                                    "properties": {}
+                                },
+                                "nextEvent": "onSave",
+                                "skipEvent": "onCancel"
+                            },
+                            {
+                                "name": "step-2-create-variants",
+                                "label": "Create variants for a given entity",
+                                "component": {
+                                    "name": "rock-variants-create-grid",
+                                    "path": "/../../src/elements/rock-variants-create-grid/rock-variants-create-grid.html",
+                                    "properties": {}
+                                },
+                                "nextEvent": "onComplete",
+                                "skipEvent": "onCancel"
+                            }
+                            ]
+                        },
+                        "rock-variants-create-grid": {
+                            "config": {
+                                "createVariantsGridConfig": {
+                                    "viewMode": "Tabular",
+                                    "title": "Variant Data Table",
+                                    "mode": "Read",
+                                    "schemaType": "simple",
+                                    "tabular": {
+                                        "settings": {
+                                            "isMultiSelect": false,
+                                            "actions": [{
+                                                "name": "delete",
+                                                "icon": "pebble-icons:Delete",
+                                                "eventName": "delete-item"
+                                            }]
+                                        },
+                                        "columns": [
+                                            {
+                                                "header": "Existing",
+                                                "name": "existing",
+                                                "sortable": false,
+                                                "filterable": false
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
                         }
                     }
                 },
@@ -1749,11 +2305,95 @@ var allConfigs = {
                                     "filterable": false,
                                     "editType": "",
                                     "isRelatedEntityAttribute": false,
-                                    "linkTemplate": "entity-manage?id={id}&type={entityType}"
+                                    "linkTemplate": "entity-manage?id={id}&type={type}"
                                 },
                                 {
-                                    "header": "status",
+                                    "header": "Status",
                                     "name": "status",
+                                    "sortable": true,
+                                    "filterable": false,
+                                    "editType": "",
+                                    "isRelatedEntityAttribute": false
+                                }, {
+                                    "header": "Display Name",
+                                    "name": "displayName",
+                                    "sortable": true,
+                                    "filterable": false,
+                                    "editType": "",
+                                    "isRelatedEntityAttribute": true
+                                }
+                                ]
+                            }
+                        },
+                        "isChildOf": {
+                            "viewMode": "Tabular",
+                            "mode": "Read",
+                            "title": "Is Child Of",
+                            "schemaType": "colModel",
+                            "statusEnabled": true,
+                            "tabular": {
+                                "settings": {
+                                    "isMultiSelect": true,
+                                    "actions": [{
+                                        "name": "delete",
+                                        "icon": "pebble-icons:Delete",
+                                        "eventName": "delete-item"
+                                    }]
+                                },
+                                "columns": [{
+                                    "header": "Related Entity",
+                                    "name": "Related Entity",
+                                    "sortable": true,
+                                    "filterable": false,
+                                    "editType": "",
+                                    "isRelatedEntityAttribute": false,
+                                    "linkTemplate": "entity-manage?id={id}&type={type}"
+                                },
+                                {
+                                    "header": "skuNumber",
+                                    "name": "SKU Number",
+                                    "sortable": true,
+                                    "filterable": false,
+                                    "editType": "",
+                                    "isRelatedEntityAttribute": true
+                                }, {
+                                    "header": "Display Name",
+                                    "name": "displayname",
+                                    "sortable": true,
+                                    "filterable": false,
+                                    "editType": "",
+                                    "isRelatedEntityAttribute": true
+                                }
+                                ]
+                            }
+                        },
+                        "skuToImage": {
+                            "viewMode": "Tabular",
+                            "mode": "Read",
+                            "title": "Sku To Image",
+                            "schemaType": "colModel",
+                            "statusEnabled": true,
+                            "tabular": {
+                                "settings": {
+                                    "isMultiSelect": true,
+                                    "actions": [{
+                                        "name": "delete",
+                                        "icon": "pebble-icons:Delete",
+                                        "eventName": "delete-item"
+                                    }]
+                                },
+                                "columns": [{
+                                    "header": "Related Entity",
+                                    "name": "Related Entity",
+                                    "sortable": true,
+                                    "filterable": false,
+                                    "editType": "",
+                                    "isRelatedEntityAttribute": false,
+                                    "linkTemplate": "entity-manage?id={id}&type={type}"
+                                },
+                                {
+                                    "header": "Short Name",
+                                    "name": "shortnm",
                                     "sortable": true,
                                     "filterable": false,
                                     "editType": "",
@@ -1791,19 +2431,12 @@ var allConfigs = {
                                     "filterable": false,
                                     "editType": "",
                                     "isRelatedEntityAttribute": false,
-                                    "linkTemplate": "entity-manage?id={id}&type={entityType}"
+                                    "linkTemplate": "entity-manage?id={id}&type={type}"
 
                                 },
                                 {
                                     "header": "Descriptioin",
                                     "name": "discription",
-                                    "sortable": true,
-                                    "filterable": false,
-                                    "editType": "",
-                                    "isRelatedEntityAttribute": true
-                                }, {
-                                    "header": "Short NM",
-                                    "name": "shortnm",
                                     "sortable": true,
                                     "filterable": false,
                                     "editType": "",
@@ -1890,7 +2523,7 @@ var allConfigs = {
                 "rock-titlebar": {
                     "config": {
                         "image": "",
-                        "titleAttribute": "displayname",
+                        "titleAttribute": "displayName",
                         "subtitleAttribute": "description"
                     }
                 }
@@ -1899,11 +2532,8 @@ var allConfigs = {
     },
     {
         "name": "app-dashboard",
-        "ctxInfo": [{
+        "contexts": [{
             "tenant": "jcp",
-            "ctx": {
-                "list": "productMaster"
-            },
             "security": {
                 "user": "",
                 "role": ""
@@ -1912,7 +2542,7 @@ var allConfigs = {
                 "rock-saved-searches": {
                     "config": {
                         "favourites": [{
-                            "id": 1,
+                            "id": 8,
                             "accesstype": "self",
                             "name": "Womens Shoes",
                             "icon": "pebble-icons:SavedSearch",
@@ -1926,14 +2556,16 @@ var allConfigs = {
                             "searchTags": [{
                                 "name": "description",
                                 "longName": "Description",
-                                "displayType": "textBox",
+                                "options": {
+                                    "displayType": "textArea"
+                                },
                                 "value": {
                                     "eq": "Womens"
                                 }
                             }]
                         }],
                         "my-searches": [{
-                            "id": 2,
+                            "id": 9,
                             "accesstype": "self",
                             "name": "Mens Shoes",
                             "icon": "pebble-icons:SavedSearch",
@@ -1948,14 +2580,16 @@ var allConfigs = {
                             "searchTags": [{
                                 "name": "description",
                                 "longName": "Description",
-                                "displayType": "textBox",
+                                "options": {
+                                    "displayType": "textArea"
+                                },
                                 "value": {
                                     "eq": "Mens"
                                 }
                             }]
                         }],
                         "shared-searches": [{
-                            "id": 3,
+                            "id": 10,
                             "accesstype": "self",
                             "name": "Women's Sport Wear & Dresses",
                             "icon": "pebble-icons:SavedSearch",
@@ -1970,7 +2604,9 @@ var allConfigs = {
                             "searchTags": [{
                                 "name": "description",
                                 "longName": "Description",
-                                "displayType": "textBox",
+                                "options": {
+                                    "displayType": "textArea"
+                                },
                                 "value": {
                                     "eq": "dresses"
                                 }
@@ -2019,11 +2655,12 @@ var allConfigs = {
                 "my-todo-summary-list": {
                     "config": [{
                         "id": 1,
+                        "savedSearchId": 1,
                         "name": "New SKUs to Submit",
-                        "numberOfTasks": 1037,
+                        "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
-                        "unAssigned": 1007,
-                        "assignedToMe": 30,
+                        "unAssigned": "TBD",
+                        "assignedToMe": "TBD",
                         "status": "red",
                         "products": [{
                             "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
@@ -2071,11 +2708,12 @@ var allConfigs = {
                     },
                     {
                         "id": 2,
+                        "savedSearchId": 2,
                         "name": "Provide Additional Information",
-                        "numberOfTasks": 23,
+                        "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
-                        "unAssigned": 23,
-                        "assignedToMe": 0,
+                        "unAssigned": "TBD",
+                        "assignedToMe": "TBD",
                         "status": "red",
                         "products": [{
                             "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
@@ -2123,11 +2761,12 @@ var allConfigs = {
                     },
                     {
                         "id": 3,
+                        "savedSearchId": 3,
                         "name": "Rejected SKUs",
-                        "numberOfTasks": 26,
+                        "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
-                        "unAssigned": 25,
-                        "assignedToMe": 1,
+                        "unAssigned": "TBD",
+                        "assignedToMe": "TBD",
                         "status": "red",
                         "products": [{
                             "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
@@ -2147,11 +2786,12 @@ var allConfigs = {
                     },
                     {
                         "id": 4,
+                        "savedSearchId": 4,
                         "name": "Review Assortment",
-                        "numberOfTasks": 34,
+                        "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
-                        "unAssigned": 4,
-                        "assignedToMe": 30,
+                        "unAssigned": "TBD",
+                        "assignedToMe": "TBD",
                         "status": "orange",
                         "products": [{
                             "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
@@ -2171,11 +2811,12 @@ var allConfigs = {
                     },
                     {
                         "id": 5,
+                        "savedSearchId": 5,
                         "name": "Assign Internal Information",
-                        "numberOfTasks": 4,
+                        "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
-                        "unAssigned": 4,
-                        "assignedToMe": 0,
+                        "unAssigned": "TBD",
+                        "assignedToMe": "TBD",
                         "status": "orange",
                         "products": [{
                             "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
@@ -2223,11 +2864,12 @@ var allConfigs = {
                     },
                     {
                         "id": 6,
+                        "savedSearchId": 6,
                         "name": "Enrich Copy",
-                        "numberOfTasks": 6,
+                        "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
-                        "unAssigned": 4,
-                        "assignedToMe": 2,
+                        "unAssigned": "TBD",
+                        "assignedToMe": "TBD",
                         "status": "green",
                         "products": [{
                             "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
@@ -2275,11 +2917,12 @@ var allConfigs = {
                     },
                     {
                         "id": 7,
+                        "savedSearchId": 7,
                         "name": "Enrich with Digital Assets",
-                        "numberOfTasks": 74,
+                        "numberOfTasks": "TBD",
                         "workflow": "New Product Setup",
-                        "unAssigned": 43,
-                        "assignedToMe": 31,
+                        "unAssigned": "TBD",
+                        "assignedToMe": "TBD",
                         "status": "green",
                         "products": [{
                             "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
@@ -2328,314 +2971,7 @@ var allConfigs = {
                     ]
                 },
                 "my-todo-detail-view-list": {
-                    "config": [{
-                        "id": 1,
-                        "name": "New SKUs to Submit",
-                        "numberOfTasks": 1037,
-                        "workflow": "New Product Setup",
-                        "unAssigned": 1007,
-                        "assignedToMe": 30,
-                        "status": "red",
-                        "products": [{
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        }
-                        ]
-                    },
-                    {
-                        "id": 2,
-                        "name": "Provide Additional Information",
-                        "numberOfTasks": 23,
-                        "workflow": "New Product Setup",
-                        "unAssigned": 23,
-                        "assignedToMe": 0,
-                        "status": "red",
-                        "products": [{
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        }
-                        ]
-                    },
-                    {
-                        "id": 3,
-                        "name": "Rejected SKUs",
-                        "numberOfTasks": 26,
-                        "workflow": "New Product Setup",
-                        "unAssigned": 25,
-                        "assignedToMe": 1,
-                        "status": "red",
-                        "products": [{
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        }
-                        ]
-                    },
-                    {
-                        "id": 4,
-                        "name": "Review Assortment",
-                        "numberOfTasks": 34,
-                        "workflow": "New Product Setup",
-                        "unAssigned": 4,
-                        "assignedToMe": 30,
-                        "status": "orange",
-                        "products": [{
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        }
-                        ]
-                    },
-                    {
-                        "id": 5,
-                        "name": "Assign Internal Information",
-                        "numberOfTasks": 4,
-                        "workflow": "New Product Setup",
-                        "unAssigned": 4,
-                        "assignedToMe": 0,
-                        "status": "orange",
-                        "products": [{
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        }
-                        ]
-                    },
-                    {
-                        "id": 6,
-                        "name": "Enrich Copy",
-                        "numberOfTasks": 6,
-                        "workflow": "New Product Setup",
-                        "unAssigned": 4,
-                        "assignedToMe": 2,
-                        "status": "green",
-                        "products": [{
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        }
-                        ]
-                    },
-                    {
-                        "id": 7,
-                        "name": "Enrich with Digital Assets",
-                        "numberOfTasks": 74,
-                        "workflow": "New Product Setup",
-                        "unAssigned": 43,
-                        "assignedToMe": 31,
-                        "status": "green",
-                        "products": [{
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        },
-                        {
-                            "name": "Complexion Rescue Tinted Hydrating Gel Cream Broad Spectrum SPF 30",
-                            "id": 2283289,
-                            "vendorName": "Aquaphor",
-                            "categoryPath": "/Skin Care/Moisturizers",
-                            "imageUrl": "../../../../bower_components/iron-image/demo/polymer.svg"
-                        }
-                        ]
-                    }
+                    "config": [
                     ]
                 },
                 "rock-saved-searches-tags": {
@@ -2692,11 +3028,8 @@ var allConfigs = {
     },
     {
         "name": "app-business-function",
-        "ctxInfo": [{
+        "contexts": [{
             "tenant": "jcp",
-            "ctx": {
-                "list": "productMaster"
-            },
             "security": {
                 "user": "",
                 "role": ""
@@ -2704,22 +3037,6 @@ var allConfigs = {
             "components": {
                 "rock-wizard": {
                     "config": {
-                        "stepperConfig": [{
-                            "index": "1",
-                            "label": "",
-                            "status": "inprogress"
-                        },
-                        {
-                            "index": "2",
-                            "label": "",
-                            "status": ""
-                        },
-                        {
-                            "index": "3",
-                            "label": "",
-                            "status": ""
-                        }
-                        ],
                         "name": "create-entity",
                         "label": "Create",
                         "steps": [{
@@ -2729,16 +3046,16 @@ var allConfigs = {
                                 "name": "rock-entity-create",
                                 "path": "/../../src/elements/rock-entity-create/rock-entity-create.html",
                                 "properties": {
-                                    "import-profile-name": "Entity Import - RSExcel 2.0",
+                                    "import-profile-name": "ProfileJSON_Lot1_Excel_Transform.json",
                                     "attribute-names": [
-                                        "skuid",
-                                        "productid",
-                                        "lottype",
-                                        "skutype",
-                                        "displayname",
+                                        "brand",
                                         "description",
-                                        "startdate",
-                                        "enddate"
+                                        "displayName",
+                                        "id",
+                                        "retailSkuNumber",
+                                        "shortName",
+                                        "skuNumber",
+                                        "skuType"
                                     ]
                                 }
                             },
@@ -2877,6 +3194,79 @@ var allConfigs = {
                 }
             }
         }]
+    },
+    {
+        "name": "user-store",
+        "contexts": [
+            {
+                "tenant": "jcp",
+                "ctx": {
+                    "list": ""
+                },
+                "security": {
+                    "user": "",
+                    "role": ""
+                },
+                "components": {
+                    "user-config": {
+                        "config": {
+                            "users": [
+                                {
+                                    "userName": "jcp",
+                                    "password": "jcp",
+                                    "roles": "vendor"
+                                },
+                                {
+                                    "userName": "admin1",
+                                    "password": "admin1",
+                                    "roles": "admin"
+                                },
+                                {
+                                    "userName": "vendor1",
+                                    "password": "vendor1",
+                                    "roles": "vendor"
+                                },
+                                {
+                                    "userName": "buyer1",
+                                    "password": "buyer1",
+                                    "roles": "buyer"
+                                },
+                                {
+                                    "userName": "assetEnrichment1",
+                                    "password": "assetEnrichment1",
+                                    "roles": "assetEnrichment"
+                                },
+                                {
+                                    "userName": "business1",
+                                    "password": "business1",
+                                    "roles": "business"
+                                },
+                                {
+                                    "userName": "copywriter1",
+                                    "password": "copywriter1",
+                                    "roles": "copywriter"
+                                },
+                                {
+                                    "userName": "siteOps1",
+                                    "password": "siteOps1",
+                                    "roles": "siteOps"
+                                },
+                                {
+                                    "userName": "taxonomyTeam1",
+                                    "password": "taxonomyTeam1",
+                                    "roles": "taxonomyTeam"
+                                },
+                                {
+                                    "userName": "siteMerchandiser1",
+                                    "password": "siteMerchandiser1",
+                                    "roles": "siteMerchandiser"
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        ]
     }
     ]
 };
