@@ -6,6 +6,7 @@ const jsonGraph = require('falcor-json-graph'),
     $atom = jsonGraph.atom;
 
 const   arrayRemove = require('../common/utils/array-remove'),
+        arrayContains = require('../common/utils/array-contains'),
         isEmpty = require('../common/utils/isEmpty'),
         uuidV1 = require('uuid/v1');
 
@@ -108,29 +109,44 @@ function createGetRequest(reqData) {
     var valContexts = sharedDataObjectFalcorUtil.createCtxItems(reqData.valCtxKeys);
 
     var fields = {
-        ctxTypes: ["properties"]
+        'ctxTypes': ["properties"]
     };
 
-    var attrNames = reqData.attrNames;
-    if (attrNames !== undefined && attrNames.length > 0) {
-        var clonedAttrNames = sharedDataObjectFalcorUtil.cloneObject(attrNames);
-        arrayRemove(clonedAttrNames, 'properties');
-        fields.attributes = clonedAttrNames;
+    if(reqData.operation == "getMappings" && arrayContains(reqData.mapKeys, "attributeMap")) {
+        fields.attributes = ['_ALL'];
+    }
+    else {
+        var attrNames = reqData.attrNames;
+        if (attrNames !== undefined && attrNames.length > 0) {
+            var clonedAttrNames = sharedDataObjectFalcorUtil.cloneObject(attrNames);
+            arrayRemove(clonedAttrNames, 'properties');
+            fields.attributes = clonedAttrNames;
+        }
     }
 
-    var relTypes = reqData.relTypes;
-    if (relTypes !== undefined && relTypes.length > 0) {
-        fields.relationships = relTypes;
+    if(reqData.operation == "getMappings" && arrayContains(reqData.mapKeys, "relationshipMap")) {
+        fields.relationships = ['_ALL'];
     }
-
+    else {
+        var relTypes = reqData.relTypes;
+        if (relTypes !== undefined && relTypes.length > 0) {
+            fields.relationships = relTypes;
+        }
+    }
+    
     var relIds = reqData.relIds;
     if (relIds !== undefined && relIds.length > 0) {
         fields.relIds = relIds;
     }
 
-    var relAttrNames = reqData.relAttrNames;
-    if (relAttrNames !== undefined && relAttrNames.length > 0) {
-        fields.relationshipAttributes = relAttrNames;
+    if(reqData.operation == "getMappings" && arrayContains(reqData.mapKeys, "relationshipAttributeMap")) {
+        fields.relationshipAttributes = ['_ALL'];
+    }
+    else {
+        var relAttrNames = reqData.relAttrNames;
+        if (relAttrNames !== undefined && relAttrNames.length > 0) {
+            fields.relationshipAttributes = relAttrNames;
+        }
     }
 
     var options = {
@@ -177,13 +193,13 @@ async function getSingle(dataObjectId, reqData) {
     var response = [];
 
     var request = createGetRequest(reqData);
-
+    
     //update dataObject id in request query for current id
     request.params.query.id = dataObjectId;
 
     //console.log('req to api ', JSON.stringify(request));
     var res = await dataObjectManageService.get(request);
-    //console.log('get res from api', JSON.stringify(res, null, 4));
+    //console.log('get res from api ', JSON.stringify(res, null, 4));
 
     var basePath = [pathKeys.root, reqData.dataIndex];
     var dataObject;
@@ -236,18 +252,19 @@ async function getByIds(pathSet, operation) {
         'relFields': pathSet.relFields === undefined ? [] : pathSet.relFields,
         'valCtxKeys': pathSet.valCtxKeys === undefined ? [] : pathSet.valCtxKeys,
         'valFields': pathSet.valFields === undefined ? [] : pathSet.valFields,
+        'mapKeys': pathSet.mapKeys == undefined ? [] : pathSet.mapKeys,
         'operation': operation
     }
 
     var response = [];
-    //console.log('reqData', JSON.stringify(reqData));
+    //console.log('reqData ', JSON.stringify(reqData));
 
     for (let dataObjectId of reqData.dataObjectIds) {
         var singleDataObjectResponse = await getSingle(dataObjectId, reqData);
         response.push.apply(response, singleDataObjectResponse);
     }
 
-    //console.log('getDataObjects response :', JSON.stringify(response, null, 4));
+    //console.log('getByIds response ', JSON.stringify(response, null, 4));
     return response;
 }
 
@@ -292,6 +309,7 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation) 
                 'relAttrNames': [CONST_ALL],
                 'relFields': [CONST_ALL],
                 'valFields': [CONST_ALL],
+                'mapKeys': [CONST_ALL],
                 'operation': operation
             };
 
