@@ -230,9 +230,9 @@ The user can view the past data but cannot modify it. However the current and fu
             }
           },
 
-          _gridConfig:{
+          _gridConfig: {
             type: Object,
-            value: function() {
+            value: function () {
               return {};
             }
           }
@@ -336,79 +336,108 @@ The user can view the past data but cannot modify it. However the current and fu
         _onSelectAll: function (e) {
           if (e.currentTarget.id == 'localeChk') {
             var localeLov = Polymer.dom(this).node.$$('rock-entity-model-lov[id="locale"]');
-            localeLov.selectedItem = undefined;
+            localeLov.selectedItems = undefined;
             this._selectedLocales = undefined;
             if (e.currentTarget.checked) {
-              localeLov.selectedItems = this.locales;
-              this._selectedLocales = this.locales;
+                var items = this._getAllItemsOfLov(localeLov);
+                localeLov.selectedItems = items;
+                this._selectedLocales = items;
             } else {
               localeLov.selectedItems = [];
               this._selectedLocales = [];
             }
           } else if (e.currentTarget.id == 'sourceChk') {
             var sourceLov = Polymer.dom(this).node.$$('rock-entity-model-lov[id="source"]');
-            sourceLov.selectedItem = undefined;
+            sourceLov.selectedItems = undefined;
             this._selectedSources = undefined;
             if (e.currentTarget.checked) {
-              sourceLov.selectedItems = this.sources;
-              this._selectedSources = this.sources;
+              var items = this._getAllItemsOfLov(sourceLov);
+              sourceLov.selectedItems = items;
+              this._selectedSources = items;
             } else {
               sourceLov.selectedItems = [];
               this._selectedSources = [];
             }
-          } else if (e.currentTarget.id == 'contextChk') {
-            var contextLov = Polymer.dom(this).node.$$('rock-entity-lov[id="channel"]');
-            contextLov.selectedItem = undefined;
+          } else if (e.currentTarget.id == 'channelChk') {
+            var channelLov = Polymer.dom(this).node.$$('rock-entity-lov[id="channel"]');
+            channelLov.selectedItems = undefined;
             this._selectedChannels = undefined;
             if (e.currentTarget.checked) {
-              contextLov.selectedItems = this.channels;
-              this._selectedChannels = this.channels;
+              var items = this._getAllItemsOfLov(channelLov);
+              channelLov.selectedItems = items;
+              this._selectedChannels = items;
             } else {
-              contextLov.selectedItems = [];
+              channelLov.selectedItems = [];
               this._selectedChannels = [];
             }
           }
         },
 
+        _getAllItemsOfLov: function (lovElement) {
+          var items = [];
+
+          if (lovElement) {
+            var pebbleLov = Polymer.dom(lovElement).node.$$('pebble-lov');
+            if (pebbleLov) {
+              items = pebbleLov.$.selector.items;
+            }
+          }
+
+          return items;
+        },
+
         _saveAction: function (e) {
           var attributesJSON = {};
           var grid = Polymer.dom(this).node.$$('rock-grid');
+          var attrName = this.attributeModelObject.name;
 
           if (grid) {
             var data = grid.data;
 
             var entityData = {};
             if (this.response && this.response.content && this.response.content.entities) {
-              entityData = DataHelper.cloneObject(this.response.content.entities);
+              var entities = DataHelper.cloneObject(this.response.content.entities);
+              if (!_.isEmpty(entities)) {
+                entityData = entities[0];
+              }
             }
 
-            if (entityData) {
+            if (!_.isEmpty(entityData)) {
 
               data.forEach(function (item) {
-
-                if (attributesJSON[item.Context] == undefined) {
-                  attributesJSON[item.Context] = {};
-                  attributesJSON[item.Context][this.attributeModelObject.name] = {};
-                  attributesJSON[item.Context][this.attributeModelObject.name].values = [];
+                item.Channel = _.isEmpty(item.Channel) ? item.Channel = 'self' : item.Channel;
+                if (attributesJSON[item.Channel] == undefined) {
+                  attributesJSON[item.Channel] = {};
+                  attributesJSON[item.Channel][attrName] = {};
+                  attributesJSON[item.Channel][attrName].values = [];
                 }
 
-                if (attributesJSON[item.Context][this.attributeModelObject.name]) {
-                  attributesJSON[item.Context][this.attributeModelObject.name].values.push({
-                    "value": item.Value,
+                if (attributesJSON[item.Channel][attrName]) {
+                  attributesJSON[item.Channel][attrName].values.push({
+                    "value": item[attrName],
                     "source": item.Source,
                     "locale": item.Locale
                   })
                 }
               }, this);
 
-              if (this.dataId == entityData[0].id) {
-                entityData[0].data.contexts.forEach(function (item) {
-                  if (attributesJSON[item.context.channel]) {
-                    item.attributes = attributesJSON[item.context.channel];
+              if (this.dataId == entityData.id) {
+                if (entityData.data) {
+                  if (!_.isEmpty(entityData.data.contexts)) {
+                    entityData.data.contexts.forEach(function (item) {
+                      if (attributesJSON[item.context.channel]) {
+                        item.attributes = attributesJSON[item.context.channel];
+                      }
+                    }, this);
                   }
-                }, this);
+
+                  if (!_.isEmpty(entityData.data.attributes)) {
+                    entityData.data.attributes = attributesJSON['self'];
+                  }
+                }
+
               }
-              
+
               //set requestObject for save liquid
               this._saveRequest = {
                 "entities": entityData
@@ -462,6 +491,7 @@ The user can view the past data but cannot modify it. However the current and fu
         _entityGet: function () {
           var dimGrid = Polymer.dom(this).node.$$('rock-grid');
           var data = [];
+          var attrName = this.attributeModelObject.name;
 
           if (this.response && this.response.content && this.response.content.entities) {
             var entity = this.response.content.entities[0];
@@ -470,14 +500,14 @@ The user can view the past data but cannot modify it. However the current and fu
               var selfAttributes = entity.data.attributes;
 
               if (selfAttributes) {
-                var values = selfAttributes[this.attributeModelObject.name].values;
+                var values = selfAttributes[attrName].values;
                 if (values) {
                   values.forEach(function (valueItem) {
                     var record = {};
-                    record[this.attributeModelObject.name] = valueItem.value;
+                    record[attrName] = valueItem.value;
                     record.Locale = valueItem.locale;
                     record.Source = valueItem.source;
-                    record.Context = "";
+                    record.Channel = "";
                     data.push(record);
                   }, this);
                 }
@@ -489,14 +519,14 @@ The user can view the past data but cannot modify it. However the current and fu
                   var attributes = item.attributes;
 
                   if (attributes) {
-                    var values = attributes[this.attributeModelObject.name].values;
+                    var values = attributes[attrName].values;
                     if (values) {
                       values.forEach(function (valueItem) {
                         var record = {};
-                        record[this.attributeModelObject.name] = valueItem.value;
+                        record[attrName] = valueItem.value;
                         record.Locale = valueItem.locale;
                         record.Source = valueItem.source;
-                        record.Context = item.context.list;
+                        record.Channel = item.context.list;
                         data.push(record);
                       }, this);
                     }
@@ -568,7 +598,7 @@ The user can view the past data but cannot modify it. However the current and fu
             this._selectedLocales = selectedLocales;
             this._selectedChannels = selectedChannels;
             this._selectedSources = selectedSources;
-            
+
             this._gridConfig = undefined;
             this._gridConfig = this._getGridConfig();
 
