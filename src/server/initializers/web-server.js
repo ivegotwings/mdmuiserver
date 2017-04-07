@@ -39,6 +39,9 @@ app.get('/', function (req, res) {
     var userId = req.header("x-rdp-userId");
     var tenantId = req.header("x-rdp-tenantId");
     var userRoles = req.header("x-rdp-userRoles");
+    var firstName = req.header("x-rdp-firstName");
+    var lastName = req.header("x-rdp-lastName");
+    var userEmail = req.header("x-rdp-userEmail");
     if (tenantId && userId) {
         res.render('index', { isAuthenticated: true, tenantId: tenantId, userId: userId, roleId: userRoles });
     }
@@ -75,6 +78,9 @@ app.get('*', function (req, res) {
     var userId = req.header("x-rdp-userId");
     var tenantId = req.header("x-rdp-tenantId");
     var userRoles = req.header("x-rdp-userRoles");
+    var firstName = req.header("x-rdp-firstName");
+    var lastName = req.header("x-rdp-lastName");
+    var userEmail = req.header("x-rdp-userEmail");
     if (tenantId && tenantId != "" && userId && userId != "") {
         res.render('index', { isAuthenticated: true, tenantId: tenantId, userId: userId, roleId: userRoles });
     }
