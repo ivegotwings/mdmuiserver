@@ -28,7 +28,7 @@ var DFServiceBase = function (options) {
                 this._headers["x-rdp-userId"] = securityContext.headers.userId || "";
                 this._headers["x-rdp-userName"] = securityContext.headers.userName || "";
                 this._headers["x-rdp-userEmail"] = securityContext.headers.userEmail || "";
-                this._headers["x-rdp-userRoles"] = ["vendor", "buyer"];
+                this._headers["x-rdp-userRoles"] = '["vendor", "buyer"]';
             }
         }
        
