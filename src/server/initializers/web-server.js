@@ -39,6 +39,9 @@ app.get('/', function (req, res) {
     var userId = req.header("x-rdp-userId");
     var tenantId = req.header("x-rdp-tenantId");
     var userRoles = req.header("x-rdp-userRoles");
+    var firstName = req.header("x-rdp-firstName");
+    var lastName = req.header("x-rdp-lastName");
+    var userEmail = req.header("x-rdp-userEmail");
     if (tenantId && userId) {
         res.render('index', { isAuthenticated: true, tenantId: tenantId, userId: userId, roleId: userRoles });
     }
@@ -56,9 +59,6 @@ contextMgrMiddleware(app);
 //Load falcor api routes
 var dataobjectRoute = require('../modules/dataobject/dataobject-router');
 dataobjectRoute(app);
-
-var configRoute = require('../modules/config/config-router');
-configRoute(app);
 
 var passThroughRoute = require('../modules/pass-through/pass-through-route');
 passThroughRoute(app);
@@ -78,6 +78,9 @@ app.get('*', function (req, res) {
     var userId = req.header("x-rdp-userId");
     var tenantId = req.header("x-rdp-tenantId");
     var userRoles = req.header("x-rdp-userRoles");
+    var firstName = req.header("x-rdp-firstName");
+    var lastName = req.header("x-rdp-lastName");
+    var userEmail = req.header("x-rdp-userEmail");
     if (tenantId && tenantId != "" && userId && userId != "") {
         res.render('index', { isAuthenticated: true, tenantId: tenantId, userId: userId, roleId: userRoles });
     }
