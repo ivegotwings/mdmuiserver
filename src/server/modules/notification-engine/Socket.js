@@ -20,11 +20,7 @@ function initSockets(server) {
             console.log("connected as by pass . . . ");
         });
 
-        var securityContext = executionManager.getSecurityContext();
-        if(securityContext) {
-            console.log("connected as global socket . . . ", JSON.stringify(securityContext));
-        }
-        console.log("connected as global socket . . . ", JSON.stringify(securityContext));
+        
 
         //Disconnect
         socket.on('disconnect', function(data){

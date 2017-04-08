@@ -1,4 +1,5 @@
 'use strict';
+var notificationManager = require('../notification-engine/api/notification-manager');
 
 module.exports = function(app) {
      app.post('/api/notify', function (req, res) {
