@@ -2,6 +2,8 @@
 
 var DFConnection = require('./DFConnection');
 var executionContext = require('../context-manager/execution-context');
+var cryptoJS = require("crypto-js");
+var moment = require('moment');
 
 var DFServiceBase = function (options) {
     var _dataConnection = new DFConnection();
@@ -28,12 +30,13 @@ var DFServiceBase = function (options) {
                 this._headers["x-rdp-userId"] = securityContext.headers.userId || "";
                 this._headers["x-rdp-userName"] = securityContext.headers.userName || "";
                 this._headers["x-rdp-userEmail"] = securityContext.headers.userEmail || "";
-                this._headers["x-rdp-userRoles"] = '["vendor", "buyer"]';
+                this._headers["x-rdp-userRoles"] =  '["vendor", "buyer"]';
             }
         }
-       
-        url = this._serverUrl + '/' + tenantId + '/api' + url;
-
+        var timeStamp = moment().toISOString();
+        url = this._serverUrl + '/' + tenantId + '/api' + url + '?timeStamp=' + timeStamp;
+        this._headers["x-rdp-authtoken"] = cryptoJS.HmacSHA256(url.split('?')[1], securityContext.clientAuthKey).toString(cryptoJS.enc.Base64);
+        
         var options = {
             url: url,
             method: "POST",
