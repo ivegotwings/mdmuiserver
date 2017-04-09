@@ -22,7 +22,7 @@ var DFServiceBase = function (options) {
 
         if (securityContext && securityContext.tenantId) {
             tenantId = securityContext.tenantId;
-            userId = securityContext.headers.userId;
+            userId = securityContext.userId;
 
             if (securityContext.headers) {
                 this._headers["x-rdp-clientId"] = securityContext.headers.clientId || "";
@@ -34,6 +34,8 @@ var DFServiceBase = function (options) {
                 this._headers["x-rdp-userRoles"] = '["vendor", "buyer"]';
             }
         }
+
+        updateRequestObjectWithUserId(request, userId);
        
         url = this._serverUrl + '/' + tenantId + '/api' + url;
 
@@ -69,5 +71,16 @@ var DFServiceBase = function (options) {
 
     //console.log('Data platform service instance initiated with ', JSON.stringify({options: options, baseUrl: this.baseUrl}, null, 4));
 };
+
+function updateRequestObjectWithUserId(request ,userId) {
+    if(request && userId){
+        if(request.clientState) {
+            request.clientState.userId = userId;
+        } else {
+            request.clientState = {};
+            request.clientState.userId = userId;
+        }
+    }
+}
 
 module.exports = DFServiceBase;
