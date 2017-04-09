@@ -16,6 +16,7 @@
 
 <link rel="import" href="../rock-entity-lov/rock-entity-lov.html">
 <link rel="import" href="../rock-search-bar/rock-search-bar.html">
+<link rel="import" href="../rock-attribute-model-lov/rock-attribute-model-lov.html">
 
 <!--
 `rock-search-filter` Represents an element that contains search bar and filter tags. 
@@ -153,16 +154,13 @@ An user can switch between a search mode and a filter mode to get the query they
         <template is="dom-if" if="{{!hideSearchTrigger}}">
           <pebble-button icon="search" class="button" on-tap="toggleMode" raised></pebble-button>
         </template>
-        <!--<pebble-button class="button" id="pebbleButtonMenu1" items={{filters}} icon="filter-list" filter="_alreadyAdded" menu-button  raised  on-iron-select="_dropdownValueChanged" ></pebble-button>-->
-        <paper-menu-button horizontal-align="right">
-          <pebble-button icon="{{icon}}" button-text="{{text}}" dropdown-icon noink class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" 
-            on-tap="refreshFilter"></pebble-button>
-          <paper-menu class="dropdown-content" on-iron-select="_dropdownValueChanged">
-            <template id="filterList" is="dom-repeat" items="{{filters}}" filter="_alreadyAdded" observe="tags">
-              <paper-item item="[[item]]">[[item.longName]]</paper-item>
-            </template>
-          </paper-menu>
-        </paper-menu-button>
+          <pebble-button id="filterButton" icon="{{icon}}" button-text="{{text}}" dropdown-icon noink class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger"
+                         on-tap="_openFilterLov"></pebble-button>
+          <pebble-popover id="refineFilterPopover" for="filterButton" no-overlap auto-fit-on-attach vertical-align="auto" horizontal-align="auto">
+              <rock-attribute-model-lov  id="attributeModelLov" context-data="[[contextData]]" no-sub-title  id-field="name"
+                                    title-pattern="externalName" type-field="" request-data="{{attributeModelRequest}}"  ></rock-attribute-model-lov>
+          </pebble-popover>
+          <bedrock-pubsub event-name="attribute-model-lov-selection-changed" handler="_onSelectedFilterChange" target-id="attributeModelLov"></bedrock-pubsub>
         <pebble-tags id="filter-tags" 
                      tags="{{tags}}"
                      show-expand-icon 
@@ -174,7 +172,7 @@ An user can switch between a search mode and a filter mode to get the query they
         <bedrock-pubsub target-id="rockEntityLovForDropdown" event-name="entity-lov-selection-changed" handler="_onLOVDropdownSelectedItemChange"></bedrock-pubsub>
         <!-- Refine popover starts here -->
         <pebble-popover id="filterPopover" for="pebble-tag" no-overlap auto-fit-on-attach vertical-align="auto" horizontal-align="auto">            
-            <template is="dom-if" if="{{_showTagModifier('textBox', _tigger)}}">              
+            <template is="dom-if" if="{{_showTagModifier('textbox', _tigger)}}">
                <rock-entity-lov id="rockEntityLov"
                                 request-data="[[_prepareRequestData(contextData)]]"
                                 selected-item="{{selectedItem}}">                               
@@ -313,7 +311,8 @@ An user can switch between a search mode and a filter mode to get the query they
         type: Object,
         value: function () {
             return {};
-        }
+        },
+        observer:'_getAttributeModels'
       }
 
     },
@@ -324,14 +323,23 @@ An user can switch between a search mode and a filter mode to get the query they
     /**
     * Can be used add a filter tag on selecting it from the dropdown.
     */
-    _dropdownValueChanged: function(e) {
-       var tag = e.target.selectedItem.item;
+    _onSelectedFilterChange: function(e, detail) {
+       var tag = detail.data;
        tag["value"] = (tag.value && !_.isEmpty(tag.value)) ? tag.value : {"eq": "All"};
        tag["displayParams"] = (tag.displayParams && !_.isEmpty(tag.displayParams)) ? tag.displayParams : ["eq"];
-       tag["options"] = {
-         "displayType": tag.displayType
+       var displayType=tag.displayType;
+       if(displayType=="referenceList" || displayType=="textCollection"){
+           displayType="textbox"
        }
+       if(displayType=="date"){
+           displayType="dateTime"
+       }
+       tag["options"] = {
+         "displayType": displayType
+       };
+       tag["longName"] = tag.externalName;
        this.$$("#filter-tags").addTag(tag);
+       this.$$("#refineFilterPopover").close();
     },
     /**
      *  Can be used to toggle between the search mode and filter mode.
@@ -339,34 +347,6 @@ An user can switch between a search mode and a filter mode to get the query they
     toggleMode: function(e){
       this.searchMode= !this.searchMode;
     },
-    /**
-     *  Can be used to check if a property is already added in the filter tags. 
-     *  If it is added, then that property is not shown in the drop-down list.
-    */
-    _alreadyAdded: function(item){
-        if (!item){
-          return false;
-        }
-        var tag = this.tags.filter(function (i) {
-          return i.name == item.name;
-        });
-        if (tag && tag.length > 0) {
-          return false;
-        }
-        return true;
-    },
-    
-  
-    /**
-     *  Can be used to refresh the drop-down elements.
-    */
-    refreshFilter: function () {
-        var list = this.$$("#filterList");
-        if (list) {
-          list.render();
-          this.$$('paper-menu').selected = null;
-        }
-    }, 
 
     _prepareRequestData: function(){
        return DataRequestHelper.createEntityGetRequest(this.contextData);
@@ -447,7 +427,7 @@ An user can switch between a search mode and a filter mode to get the query they
 
                 }
               }              
-              else if(this.currentTag.options.displayType == "textBox")
+              else if(this.currentTag.options.displayType == "textbox")
               {                
                 //Set Id, Title and Value to the LOV
                 var lovComponent = this.$$('#filterPopover').querySelector('#rockEntityLov');
@@ -658,7 +638,23 @@ An user can switch between a search mode and a filter mode to get the query they
     //Hide the popover
     _dismissDialog: function () {
         this.$$('#filterPopover').hide();
-    }
+    },
+    _openFilterLov:function () {
+        this.$$("#refineFilterPopover").open();
+    },
+      _getAttributeModels:function (contextData) {
+          if(_.isEmpty(contextData)){
+                return;
+          }
+          var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(
+              contextData);
+//          compositeModelGetRequest.params.fields.attributes=['_All'];
+          this.set('attributeModelRequest',compositeModelGetRequest);
+          var lov=this.$$('rock-attribute-model-lov');
+          if(lov){
+              lov.refreshData();
+          }
+      }
     
   });
 
