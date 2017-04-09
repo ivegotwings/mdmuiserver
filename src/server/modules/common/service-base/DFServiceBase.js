@@ -24,7 +24,7 @@ var DFServiceBase = function (options) {
 
         if (securityContext && securityContext.tenantId) {
             tenantId = securityContext.tenantId;
-            userId = securityContext.userId;
+            userId = securityContext.headers.userId;
 
             if (securityContext.headers) {
                 this._headers["x-rdp-clientId"] = securityContext.headers.clientId || "";
