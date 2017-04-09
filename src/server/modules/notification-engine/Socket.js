@@ -2,21 +2,21 @@ var socketIo = require('socket.io');
 var api = require('./api/notification-manager');
 var userManager = require('./api/user-manager');
 var executionManager = require('../common/context-manager/execution-context');
+var defaultUserId = "unassigned";
 
 function initSockets(server) {
     var io = socketIo.listen(server, {origins:'*:*'});
     console.log('notification engine running . . .');
 
     io.sockets.on('connect', function(socket) {
-        userManager.addUserConnectionIds("unassigned", socket.id);
+        userManager.addUserConnectionIds(defaultUserId, socket.id);
 
         //Disconnect
         socket.on('disconnect', function(data){
-            if(socket.userName)
-            {
+            if(socket.userName) {
                 userManager.removeConnectionIdByUser(socket.userName, socket.id);
             } else {
-                userManager.removeConnectionIdByUser("unassigned", socket.id);
+                userManager.removeConnectionIdByUser(defaultUserId, socket.id);
             }
         });
 
@@ -43,7 +43,7 @@ function initSockets(server) {
         socket.on('Connect new user', function(userId) {
             socket.userName = userId;
             userManager.addUserConnectionIds(userId, socket.id);
-            userManager.removeConnectionIdByUser("unassigned", socket.id);
+            userManager.removeConnectionIdByUser(defaultUserId, socket.id);
         });
 
     });
