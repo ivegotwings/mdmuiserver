@@ -21,7 +21,7 @@ function addUserConnectionIds(userId, connectionId) {
             userConnectionIds[userId].push(connectionId);
         }
     }
-    console.log(JSON.stringify(userConnectionIds));
+    //console.log('User connections ', JSON.stringify(userConnectionIds));
 }
 
 function removeConnectionIdByUser(userId, connectionId) {
@@ -30,7 +30,7 @@ function removeConnectionIdByUser(userId, connectionId) {
             arrayRemove(userConnectionIds[userId], connectionId);
         }
     }
-    console.log(JSON.stringify(userConnectionIds));
+    //console.log('User connections ', JSON.stringify(userConnectionIds));
 }
 
 function removeUserConnectionIds(userId) {
@@ -39,7 +39,7 @@ function removeUserConnectionIds(userId) {
             delete userConnectionIds[userId];
         }
     }
-    console.log(JSON.stringify(userConnectionIds));
+    //console.log('User connections ', JSON.stringify(userConnectionIds));
 }
 
 function getConnectionIdsOfUser(userId) {
