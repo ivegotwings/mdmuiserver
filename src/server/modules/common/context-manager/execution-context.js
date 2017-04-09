@@ -5,7 +5,7 @@ function createSecurityContext(req) {
     var tenantConfig;
     if (tid) {
         tenantConfig = require(process.cwd() + "/tenant-configs/" + tid.toLowerCase() + "-tenant-config");
-        if (!tenantConfig || !tenantConfig.clientId || !tenantConfig.secretKey) {
+        if (!tenantConfig || !tenantConfig.clientId || !tenantConfig.clientAuthKey) {
             console.log("Tenant configuration not found for tenant:" + tid);
         }
     }
@@ -14,7 +14,8 @@ function createSecurityContext(req) {
         'user': req.query.user,
         'role': req.query.role,
         'tenantId': tid,
-        "headers": {
+        'clientAuthKey': tenantConfig && tenantConfig.clientAuthKey ? tenantConfig.clientAuthKey : "",
+        'headers': {
             "clientId": tenantConfig && tenantConfig.clientId ? tenantConfig.clientId : "",
             "vendorName": req.headers["x-rdp-vendorName"],
             "userId": req.headers["x-rdp-userId"],
