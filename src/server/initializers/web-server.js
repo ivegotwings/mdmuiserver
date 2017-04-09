@@ -7,7 +7,7 @@ var express = require('express');
 var history = require('connect-history-api-fallback');
 var cors = require('cors');
 var bodyParser = require('body-parser');
-var notificationEngine = require("../modules/notification_engine/Socket");
+var notificationEngine = require("../modules/notification-engine/socket");
 
 var buildPath = process.cwd();
 

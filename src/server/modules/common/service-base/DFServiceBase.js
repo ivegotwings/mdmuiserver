@@ -18,11 +18,14 @@ var DFServiceBase = function (options) {
     this.requestJson = async function (url, request) {
 
         var tenantId = 'jcp';
+        var userId = 'admin';
 
         var securityContext = executionContext.getSecurityContext();
 
         if (securityContext && securityContext.tenantId) {
             tenantId = securityContext.tenantId;
+            userId = securityContext.headers.userId;
+
             if (securityContext.headers) {
                 this._headers["x-rdp-clientId"] = securityContext.headers.clientId || "";
                 this._headers["x-rdp-tenantId"] = tenantId;
@@ -33,6 +36,11 @@ var DFServiceBase = function (options) {
                 this._headers["x-rdp-userRoles"] =  '["vendor", "buyer"]';
             }
         }
+
+        //TODO:: This will be enhanced based on need.
+        //Below function will update clientState in request Object with required info in notification object.
+        updateRequestObjectWithUserId(request, userId);
+       
         var timeStamp = moment().toISOString();
         url = this._serverUrl + '/' + tenantId + '/api' + url + '?timeStamp=' + timeStamp;
         this._headers["x-rdp-authtoken"] = cryptoJS.HmacSHA256(url.split('?')[1], securityContext.clientAuthKey).toString(cryptoJS.enc.Base64);
@@ -69,5 +77,16 @@ var DFServiceBase = function (options) {
 
     //console.log('Data platform service instance initiated with ', JSON.stringify({options: options, baseUrl: this.baseUrl}, null, 4));
 };
+
+function updateRequestObjectWithUserId(request ,userId) {
+    if(request && userId){
+        if(request.clientState) {
+            request.clientState.userId = userId;
+        } else {
+            request.clientState = {};
+            request.clientState.userId = userId;
+        }
+    }
+}
 
 module.exports = DFServiceBase;
