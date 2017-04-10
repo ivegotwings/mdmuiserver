@@ -24,7 +24,7 @@ function initSockets(server) {
         socket.on('send message', function(data, userId){
             
             var currentUserSocketIds = [];
-            console.log("\ncame to the launching point");
+            
             if(userId)
             {      
                 currentUserSocketIds = userManager.getConnectionIdsOfUser(userId);
