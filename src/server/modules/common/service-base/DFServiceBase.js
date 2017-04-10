@@ -2,6 +2,8 @@
 
 var DFConnection = require('./DFConnection');
 var executionContext = require('../context-manager/execution-context');
+var randomId = require('../utils/getRandomId');
+var isEmpty = require('../utils/isEmpty');
 var cryptoJS = require("crypto-js");
 var moment = require('moment');
 
@@ -33,18 +35,20 @@ var DFServiceBase = function (options) {
                 this._headers["x-rdp-userId"] = securityContext.headers.userId || "";
                 this._headers["x-rdp-userName"] = securityContext.headers.userName || "";
                 this._headers["x-rdp-userEmail"] = securityContext.headers.userEmail || "";
-                this._headers["x-rdp-userRoles"] =  '["vendor", "buyer"]';
+                this._headers["x-rdp-userRoles"] = '["vendor", "buyer"]';
             }
         }
 
+        var timeStamp = moment().toISOString();
+        
         //TODO:: This will be enhanced based on need.
         //Below function will update clientState in request Object with required info in notification object.
-        updateRequestObjectWithUserId(request, userId);
-       
-        var timeStamp = moment().toISOString();
+        updateRequestObjectForNotification(request, userId, url, timeStamp);
+        console.log(JSON.stringify(request));
+
         url = this._serverUrl + '/' + tenantId + '/api' + url + '?timeStamp=' + timeStamp;
         this._headers["x-rdp-authtoken"] = cryptoJS.HmacSHA256(url.split('?')[1], securityContext.clientAuthKey).toString(cryptoJS.enc.Base64);
-        
+
         var options = {
             url: url,
             method: "POST",
@@ -78,14 +82,37 @@ var DFServiceBase = function (options) {
     //console.log('Data platform service instance initiated with ', JSON.stringify({options: options, baseUrl: this.baseUrl}, null, 4));
 };
 
-function updateRequestObjectWithUserId(request ,userId) {
-    if(request && userId){
-        if(request.clientState) {
-            request.clientState.userId = userId;
-        } else {
+function updateRequestObjectForNotification(request, userId, url, timeStamp) {
+    if (request) {
+        if (isEmpty(request.clientState)) {
             request.clientState = {};
-            request.clientState.userId = userId;
+            request.clientState.notificationInfo = {};
+        } else if (isEmpty(request.clientState.notificationInfo)) {
+            request.clientState.notificationInfo = {};
         }
+
+        var notificationInfo = request.clientState.notificationInfo;
+
+        notificationInfo.id = randomId();
+        notificationInfo.timeStamp = timeStamp;
+        //notificationInfo.description = "";
+        notificationInfo.source = "ui"; //rdp/cop/ui
+        notificationInfo.userId = userId;
+        notificationInfo.connectionId = "";
+
+        if (isEmpty(notificationInfo.context)) {
+            notificationInfo.context = {};
+        }
+
+        if (request.entity) {
+            notificationInfo.context.id = request.entity.id;
+            notificationInfo.context.type = request.entity.type;
+        } else if(request.params) {
+            notificationInfo.context.id = request.params.query.id;
+            notificationInfo.context.type = request.params.query.filters.typesCriterion[0];
+        }
+
+        notificationInfo.context.dataIndex = request.dataIndex;
     }
 }
 
