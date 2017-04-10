@@ -114,6 +114,6 @@ function updateRequestObjectForNotification(request, userId, url, timeStamp) {
 
         notificationInfo.context.dataIndex = request.dataIndex;
     }
-}
+};
 
 module.exports = DFServiceBase;

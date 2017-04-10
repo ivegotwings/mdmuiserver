@@ -26,7 +26,7 @@ function prepareNotificationObject(data) {
     }
 
     return notificationInfo;
-}
+};
 
 function getAction(serviceName, status) {
     var action = "";
@@ -50,7 +50,7 @@ function getAction(serviceName, status) {
     }
     
     return action;
-}
+};
 
 module.exports = function (app) {
     app.post('/api/notify', function (req, res) {
