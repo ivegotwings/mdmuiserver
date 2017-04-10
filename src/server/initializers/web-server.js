@@ -7,7 +7,7 @@ var express = require('express');
 var history = require('connect-history-api-fallback');
 var cors = require('cors');
 var bodyParser = require('body-parser');
-var notificationEngine = require("../modules/notification_engine/Socket");
+var notificationEngine = require("../modules/notification-engine/socket");
 
 var buildPath = process.cwd();
 
@@ -43,6 +43,8 @@ app.get('/', function (req, res) {
     var lastName = req.header("x-rdp-lastName");
     var userEmail = req.header("x-rdp-userEmail");
     if (tenantId && userId) {
+        res.append("x-rdp-userId", userId);
+        res.append("x-rdp-userRoles", userRoles);
         res.render('index', { isAuthenticated: true, tenantId: tenantId, userId: userId, roleId: userRoles });
     }
     else {
@@ -82,6 +84,8 @@ app.get('*', function (req, res) {
     var lastName = req.header("x-rdp-lastName");
     var userEmail = req.header("x-rdp-userEmail");
     if (tenantId && tenantId != "" && userId && userId != "") {
+        res.append("x-rdp-userId", userId);
+        res.append("x-rdp-userRoles", userRoles);
         res.render('index', { isAuthenticated: true, tenantId: tenantId, userId: userId, roleId: userRoles });
     }
     else {
