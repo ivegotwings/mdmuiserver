@@ -42,12 +42,9 @@ to select multiple values.
             position: relative;
         }
 
-        :host pebble-spinner{
-            top: 40px;
-        }
-
         #scroller {
             max-height: calc(var(--pebble-lov-height, 250px) - 94px);
+            min-height: 100px;
             overflow: auto;
             /* Fixes item background from getting on top of scrollbars on Safari */
             transform: translate3d(0, 0, 0);
@@ -203,12 +200,12 @@ to select multiple values.
             padding-right: 15%;
         }
 
-        #actionButtons{
+        #actionButtons {
             padding: 10px 0 0 0;
         }
     </style>
     <template>
-        <pebble-spinner active="[[_loading]]"></pebble-spinner>
+
         <div id="searchbox">
             <div class="item">
                 <pebble-icon icon="pebble-md-icons:ToolbarSearch" class="iconstyle pebble-md-icons"></pebble-icon>
@@ -217,6 +214,7 @@ to select multiple values.
             </div>
         </div>
         <div id="scroller" scroller="[[_getScroller()]]" on-tap="_stopPropagation">
+            <pebble-spinner active="[[_loading]]"></pebble-spinner>
             <iron-list id="selector" role="listbox" touch-device$="[[_touchDevice]]" on-touchend="_preventDefault" multi-selection="[[multiSelect]]"
                 items="[[_itemsObject]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" scroll-target="[[_getScroller()]]">
                 <template>
@@ -256,8 +254,8 @@ to select multiple values.
         </iron-scroll-threshold>
         <template is="dom-if" if="[[showActionButtons]]">
             <div id="actionButtons" class="buttons">
-                <pebble-button class="close btn btn-secondary m-r-5" button-text="Close" noink elevation="2" on-tap="_onClose"></pebble-button>
-                <pebble-button class="apply btn btn-success" button-text="Apply" noink elevation="2" on-tap="_onConfirm"></pebble-button>
+                <pebble-button id="cancelButton" class="close btn btn-secondary m-r-5" button-text="Close" noink elevation="2" on-tap="_onClose"></pebble-button>
+                <pebble-button id="confirmButton" class="apply btn btn-success" button-text="Apply" noink elevation="2" on-tap="_onConfirm"></pebble-button>
             </div>
         </template>
     </template>
@@ -344,12 +342,16 @@ to select multiple values.
                     },
                     notify: true
                 },
+                _previousSelectedItemId: {
+                    type: String,
+                    value: "-1",
+                    notify: true
+                },
                 _previousSelectedItemIds: {
                     type: Array,
                     value: function () {
                         return [];
-                    },
-                    computed: '_computePreviousSelectedIds(_selectedItemIds)'
+                    }
                 },
                 _touchDevice: {
                     type: Boolean,
@@ -406,7 +408,7 @@ to select multiple values.
                 _page: {
                     type: Number,
                     value: 0
-                },
+                }
             },
             behaviors: [
                 RUFBehaviors.LovBehavior
@@ -422,7 +424,8 @@ to select multiple values.
                 '_filteredItemsChanged(_filteredItems.*)',
                 '_selectedItemChanged(selectedItem)',
                 '_selectedItemsChanged(selectedItems.*)',
-                '_pageChanged(dataSource, _page)'
+                '_pageChanged(dataSource, _page)',
+                '_multiSelectChanged(multiSelect)'
             ],
             ready: function () {
                 this._patchWheelOverScrolling();
@@ -432,7 +435,13 @@ to select multiple values.
                     this.$.selector._scroller = this._getScroller();
                 }
 
-                
+                this.debounce('set-previous-selected-ids-on-ready', function () {
+                    if (this.multiSelect) {
+                        this._previousSelectedItemIds = this._selectedItemIds
+                    } else {
+                        this._previousSelectedItemId = this._selectedItemId
+                    }
+                }, 5000)
             },
             attached: function () {
                 this._handler = this._outsideClickListener.bind(this);
@@ -447,9 +456,6 @@ to select multiple values.
                      Tested that iron-list 1.2.x works nicely even without the external scroller, but
                      left these here for now for backwards compatibility.
             */
-            _computePreviousSelectedIds: function() {
-                return this._selectedItemIds;
-            },
             _getScroller: function () {
                 return this.$.scroller;
             },
@@ -492,6 +498,15 @@ to select multiple values.
             },
 
             /* Computed Methods */
+            _multiSelectChanged: function () {
+                this.debounce('set-previous-selected-ids-on-multi-select-changed', function () {
+                    if (this.multiSelect) {
+                        this._previousSelectedItemIds = this._selectedItemIds
+                    } else {
+                        this._previousSelectedItemId = this._selectedItemId
+                    }
+                }, 1000)
+            },
             /* Functional Methods */
             _onLowerThreshold: function () {
                 this._page++;
@@ -548,7 +563,9 @@ to select multiple values.
                         }
                     }
                 }
+
                 this._selectionChanged(e.model.item);
+
                 if (!this.multiSelect) {
                     this._clearFilter();
                 }
@@ -752,15 +769,13 @@ to select multiple values.
                 }
                 this.$.selector.scrollToIndex(Math.max(0, targetIndex));
             },
-            _updateViewportBoundaries: function () {
-                // Note: Code is never executed
-                // this._cachedViewportTotalPadding = undefined;
-                // this.$.selector._updateViewportBoundaries();
-            },
             _ensureItemsRendered: function () {
-                // Note: Code is never executed
                 this.$.selector.flushDebouncer('_debounceTemplate');
                 this.$.selector._render && this.$.selector._render();
+            },
+            _updateViewportBoundaries: function () {
+                this._cachedViewportTotalPadding = undefined;
+                this.$.selector._updateViewportBoundaries();
             },
             _adjustScrollHeight: function () {
                 // Note: Code is never executed
@@ -921,6 +936,12 @@ to select multiple values.
                     this._open();
                 }
             },
+            refereshTemplate: function () {
+                this._filter = '';
+                this.$.input.focus();
+                this._deSelectCheckBox(); // Will DeSelect All CheckBox
+                this._selectCheckbox(this.selectedItems);
+            },
             _open: function () {
                 this._addOutsideClickListener();
                 // Note: Code is never executed
@@ -1055,8 +1076,12 @@ to select multiple values.
                 }
             },
             _onConfirm: function (event) {
-                // This is actually not required. The consumer should directly use selectedItem or selectedItems property
-                // Relationship Grid Affected
+                if (this.multiSelect) {
+                    this._previousSelectedItemIds = this._selectedItemIds
+                } else {
+                    this._previousSelectedItemId = this._selectedItemId
+                }
+
                 var eventDetail = {
                     data: {
                         id: this.id
@@ -1065,15 +1090,21 @@ to select multiple values.
                 this.fire("lov-confirm-button-tap", eventDetail);
             },
             _onClose: function (event) {
-                if (!DataHelper._isEqual(this._previousSelectedItemIds, this._selectedItemIds)) {
-                    var selectedItems = [];
+                if (this.multiSelect) {
+                    if (!DataHelper._isEqual(this._previousSelectedItemIds, this._selectedItemIds)) {
+                        var selectedItems = [];
 
-                    for (var i = 0; i < this._previousSelectedItemIds.length; i++) {
-                        selectedItems.push(this._getItemById(this._previousSelectedItemIds[i]));
+                        for (var i = 0; i < this._previousSelectedItemIds.length; i++) {
+                            selectedItems.push(this._getItemById(this._previousSelectedItemIds[i]));
+                        }
+
+                        // Todo.. Verify this minor change
+                        this.set("selectedItems", selectedItems);
                     }
-
-                    // Todo.. Verify this minor change
-                    this.set("selectedItems", selectedItems);
+                } else {
+                    if (!DataHelper._isEqual(this._previousSelectedItemId, this._selectedItemId)) {
+                        this.selectedItem = this._getItemById(this._previousSelectedItemId);
+                    }
                 }
 
                 var eventDetail = {
