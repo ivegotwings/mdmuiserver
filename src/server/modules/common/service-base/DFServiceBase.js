@@ -2,12 +2,14 @@
 
 var DFConnection = require('./DFConnection');
 var executionContext = require('../context-manager/execution-context');
+var cryptoJS = require("crypto-js");
+var moment = require('moment');
 
 var DFServiceBase = function (options) {
     var _dataConnection = new DFConnection();
     this._restRequest = _dataConnection.getRequest();
     this._serverUrl = _dataConnection.getServerUrl();
-    if(options.serverType == 'cop') {
+    if (options.serverType == 'cop') {
         this._serverUrl = _dataConnection.getCOPServerUrl();
     }
     this._headers = _dataConnection.getHeaders();
@@ -16,15 +18,33 @@ var DFServiceBase = function (options) {
     this.requestJson = async function (url, request) {
 
         var tenantId = 'jcp';
+        var userId = 'admin';
 
         var securityContext = executionContext.getSecurityContext();
 
-        if(securityContext && securityContext.tenantId) {
+        if (securityContext && securityContext.tenantId) {
             tenantId = securityContext.tenantId;
-        }
-        
-        url = this._serverUrl + '/' + tenantId + '/api' + url ;
+            userId = securityContext.headers.userId;
 
+            if (securityContext.headers) {
+                this._headers["x-rdp-clientId"] = securityContext.headers.clientId || "";
+                this._headers["x-rdp-tenantId"] = tenantId;
+                this._headers["x-rdp-vendorName"] = securityContext.headers.vendorName || "";
+                this._headers["x-rdp-userId"] = securityContext.headers.userId || "";
+                this._headers["x-rdp-userName"] = securityContext.headers.userName || "";
+                this._headers["x-rdp-userEmail"] = securityContext.headers.userEmail || "";
+                this._headers["x-rdp-userRoles"] =  '["vendor", "buyer"]';
+            }
+        }
+
+        //TODO:: This will be enhanced based on need.
+        //Below function will update clientState in request Object with required info in notification object.
+        updateRequestObjectWithUserId(request, userId);
+       
+        var timeStamp = moment().toISOString();
+        url = this._serverUrl + '/' + tenantId + '/api' + url + '?timeStamp=' + timeStamp;
+        this._headers["x-rdp-authtoken"] = cryptoJS.HmacSHA256(url.split('?')[1], securityContext.clientAuthKey).toString(cryptoJS.enc.Base64);
+        
         var options = {
             url: url,
             method: "POST",
@@ -40,10 +60,10 @@ var DFServiceBase = function (options) {
         var reqPromise = this._restRequest(options)
             .catch(function (errors) {
                 var err = {
-                            'status': 'error', 
-                            'msg': 'RDF request failed due to technical reasons', 
-                            'reason': errors
-                        };
+                    'status': 'error',
+                    'msg': 'RDF request failed due to technical reasons',
+                    'reason': errors
+                };
 
                 console.error('EXCEPTION:', JSON.stringify(err, null, 2));
                 return err;
@@ -57,5 +77,16 @@ var DFServiceBase = function (options) {
 
     //console.log('Data platform service instance initiated with ', JSON.stringify({options: options, baseUrl: this.baseUrl}, null, 4));
 };
+
+function updateRequestObjectWithUserId(request ,userId) {
+    if(request && userId){
+        if(request.clientState) {
+            request.clientState.userId = userId;
+        } else {
+            request.clientState = {};
+            request.clientState.userId = userId;
+        }
+    }
+}
 
 module.exports = DFServiceBase;
