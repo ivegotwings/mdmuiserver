@@ -352,6 +352,87 @@
             return entities;
         };
 
+        DataTransformHelper.transformEntityForDimensionGrid = function (entity, dimensions, attributeModel) {
+            if (!_.isEmpty(entity) && !_.isEmpty(dimensions) && !_.isEmpty(attributeModel)) {
+
+                var valContextFlat = {};
+                if (!_.isEmpty(dimensions.locales)) {
+                    valContextFlat.locale = [...new Set(dimensions.locales.map((obj) => obj.id))];
+                }
+
+                if (!_.isEmpty(dimensions.sources)) {
+                    valContextFlat.source = [...new Set(dimensions.sources.map((obj) => obj.id))];
+                }
+
+                var valContexts = _.createCartesianObjects(valContextFlat);
+                if (_.isEmpty(entity.data)) {
+                    entity.data = {};
+                    entity.data.contexts = [];
+                    entity.data.attributes = {};
+                }
+
+                if (!_.isEmpty(dimensions.channels)) {
+                    var entityContexts = entity.data.contexts;
+                    dimensions.channels.forEach(function (channel) {
+                        var ctx = entityContexts.filter(ctx => ctx.context.list == channel.id);
+                        if (ctx) {
+                            if (_.isEmpty(ctx.attributes)) {
+                                ctx.attributes = {};
+                            }
+
+                            this._transformAttributesForDimensionGrid(ctx.attributes, attributeModel, valContexts);
+                        } else {
+                            var context = {};
+                            context.context = {
+                                "list": channel.id
+                            };
+                            context.attributes = {};
+
+                            this._transformAttributesForDimensionGrid(context.attributes, attributeModel, valContexts);
+                            entityContexts.push(context);
+                        }
+                    }, this);
+
+                    var selContextAttributes = entity.data.attributes;
+                    if (_.isEmpty(selContextAttributes)) {
+                        selContextAttributes = {};
+                    }
+                    this._transformAttributesForDimensionGrid(selContextAttributes, attributeModel, valContexts);
+                } else {
+                    var selfContextAttributes = entity.data.attributes;
+                    if (_.isEmpty(selfContextAttributes)) {
+                        selfContextAttributes = {};
+                    }
+                    this._transformAttributesForDimensionGrid(selfContextAttributes, attributeModel, valContexts);
+                    entity.data.attributes = selfContextAttributes;
+                }
+            }
+        };
+
+        DataTransformHelper._transformAttributesForDimensionGrid = function (attributes, attributeModel, valueContexts) {
+            if (valueContexts) {
+                if (!_.isEmpty(attributes) && attributes[attributeModel.name]) {
+                    var values = attributes[attributeModel.name].values;
+                    if (!_.isEmpty(values)) {
+                        valueContexts.forEach(function (valCtx) {
+                            var value = values.filter(val => val.locale == valCtx.locale && val.source == valCtx.source);
+                            if (_.isEmpty(value)) {
+                                var val = AttributeHelper.getEmptyValue(valCtx);
+                                if (val) {
+                                    values.push(val);
+                                }
+                            }
+                        }, this);
+                    } else {
+                        attributes[attributeModel.name] = AttributeHelper.getEmptyValues(valueContexts);
+                    }
+                } else {
+                    attributes[attributeModel.name] = {}
+                    attributes[attributeModel.name] = AttributeHelper.getEmptyValues(valueContexts);
+                }
+            }
+        };
+
     })();
 
 </script>
