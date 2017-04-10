@@ -125,9 +125,10 @@ It makes it easy to explore and switch between different views or functional asp
                 overflow-y: auto;
             }
         </style>
+        <div id="menuProviders" hidden></div>
         <pebble-tab-group id$="{{id}}" selected="{{selectedTabIndex}}" on-iron-select="_onIronSelect" noink>
-            <template is="dom-repeat" items="[[config.tabItems]]" as="tabItem">
-                <pebble-tab id="[[tabItem.name]]" display-menu="[[tabItem.enableDropdownMenu]]" tab-config="{{tabItem}}">
+            <template id="menu-dom-repeat" is="dom-repeat" items="[[_calculatedTabItems]]" as="tabItem">
+                <pebble-tab id="[[tabItem.name]]" display-menu="[[arrayItem(_calculatedTabItems.*, index, 'enableDropdownMenu')]]" tab-config="{{tabItem}}">
                     <div class="tab-title-content">
                         <div class="tab-subtitle">
                             <span class="tab-subtitle-content truncate">[[tabItem.subtitle]]</span>
@@ -139,11 +140,11 @@ It makes it easy to explore and switch between different views or functional asp
                             <template is="dom-if" if="[[tabItem.icon]]">
                                 <iron-icon icon="[[tabItem.icon]]"></iron-icon>
                             </template>
-                            <span class="truncate">[[tabItem.title]]</span>
+                            <span class="truncate">[[_temp(tabItem.title)]]</span>
                         </div>
                     </div>
                     <paper-menu class="dropdown-content">
-                        <template is="dom-repeat" items="[[tabItem.menuItems]]" as="menuItem">
+                        <template id="menu-dom-repeat-[[tabItem.name]]" is="dom-repeat" items="[[arrayItem(_calculatedTabItems.*, index, 'menuItems')]]" as="menuItem">
                             <template is="dom-if" if="[[!_isDivider(menuItem)]]">
                                 <paper-item id="[[tabItem.name]]-[[menuItem.name]]" tab-config="[[tabItem]]" menu-item-config="[[menuItem]]">
                                     <!--<iron-icon icon="[[menuItem.icon]]"></iron-icon>-->
@@ -158,10 +159,10 @@ It makes it easy to explore and switch between different views or functional asp
                 </pebble-tab>
             </template>
         </pebble-tab-group>
-        <template is="dom-repeat" items="[[config.tabItems]]" as="tabItemContent">
+        <template id="content-dom-repeat" is="dom-repeat" items="[[config.tabItems]]" as="tabItemContent">
             <div id="content-[[tabItemContent.name]]" hidden class="tab-content"></div>
             <template is="dom-if" if="[[tabItemContent]]">
-                <template is="dom-repeat" items="[[tabItemContent.menuItems]]" as="menuItemContent">
+                <template id="content-dom-repeat-[[tabItemContent.name]]" is="dom-repeat" items="[[tabItemContent.menuItems]]" as="menuItemContent">
                     <template is="dom-if" if="[[!_isDivider(menuItemContent)]]">
                         <div id="content-[[tabItemContent.name]]-[[menuItemContent.name]]" class="tab-content" hidden></div>
                     </template>
@@ -176,6 +177,15 @@ It makes it easy to explore and switch between different views or functional asp
 
             Polymer({
                 is: 'rock-tabs',
+                created: function created() {
+                    if (this.verbose) console.log('rock-tabs created');
+                },
+                attached: function attached() {
+                    if (this.verbose) console.log('rock-tabs attached');
+                },
+                ready: function ready() {
+                    if (this.verbose) console.log('rock-tabs ready');
+                },
                 properties: {
 
                     /**
@@ -194,6 +204,12 @@ It makes it easy to explore and switch between different views or functional asp
                         observer: '_configChanged',
                         value: function () {
                             return {};
+                        }
+                    },
+                    _calculatedTabItems: {
+                        type: Array,
+                        value: function () {
+                            return [];
                         }
                     },
 
@@ -309,14 +325,23 @@ It makes it easy to explore and switch between different views or functional asp
 
                 _configChanged: function (config) {
                     if (config != null && config != undefined) {
-                        if (config && config.tabItems) {
+                        if (config.tabItems) {
                             var tabItems = config.tabItems;
                             if (tabItems != null && tabItems != undefined && tabItems.length > 0) {
                                 for (var tabItemIndex in tabItems) {
-                                    if (tabItems[tabItemIndex].selected) {
+                                    var tabItem = tabItems[tabItemIndex];
+                                    tabItem.index = tabItemIndex;
+                                    if (tabItem.selected) {
                                         this.selectedTabIndex = tabItemIndex;
                                     }
                                 }
+                            }
+
+                            this._calculatedTabItems = DataHelper.cloneObject(tabItems);
+                            for (var tabItemIndex in tabItems) {
+                                var tabItem = tabItems[tabItemIndex];
+                                //fill menuitems auto
+                                this._fillMenuItems(tabItem);
                             }
                         }
 
@@ -329,6 +354,36 @@ It makes it easy to explore and switch between different views or functional asp
                             }
                         }
                     }
+                },
+
+                _fillMenuItems: function(tabItem) {
+                    if(tabItem.name == 'summary') {
+                        this._addAsyncMenu(tabItem);
+                    }
+                },
+
+                _addMenuItems: function(tabItem, menuItems) {
+                    var origCount = 0;
+                    if(tabItem.menuItems) {
+                        origCount = tabItem.menuItems.length;
+                    }
+                    if(menuItems.length > 0 && origCount != menuItems.length) {
+                        tabItem.enableDropdownMenu = true;
+                        tabItem.menuItems = menuItems;
+                        this.set('_calculatedTabItems.'+tabItem.index, tabItem);
+                    }
+                },
+
+                _addAsyncMenu: function(tabItem) {
+                    var menuProviders = this.$.menuProviders;
+                    if(tabItem.menuProviderComponent) {
+                        tabItem.menuProviderComponent.properties = DataHelper.cloneObject(tabItem.component.properties);
+                        ComponentHelper.loadContent(menuProviders, tabItem.menuProviderComponent, this, this.menuProviderCreated);
+                    }
+                },
+
+                _menuProviderCreated: function(menuProviderElement) {
+                    menuProviderElement.getMenu(tabItem, this._addMenuItems);
                 },
 
                 _isDivider: function (item) {
@@ -551,7 +606,13 @@ It makes it easy to explore and switch between different views or functional asp
                         errorCircle.hidden = true;
                         errorCircle.textContent = "";
                     }
-                }
+                },
+                _temp: function(x){
+                    return x;
+                },
+                arrayItem: function(change, index, path) {
+                    return this.get(path, change.base[index]);
+                },
             });
         })();
     </script>
