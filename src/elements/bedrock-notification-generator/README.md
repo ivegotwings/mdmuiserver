@@ -1,6 +1,6 @@
-##RUFBehaviors.NotificationManager
+##RUFBehaviors.NotificationGenerator
 
-`RUFBehaviors.NotificationManager` this will send notification to all app user or specific app user.
+`RUFBehaviors.NotificationGenerator` this will send notification to all app user or specific app user.
 
 Sample application for sending notification:
 
@@ -13,7 +13,7 @@ Sample application for sending notification:
         is: "demo-app",
 
         behaviors: [
-          RUFBehaviors.NotificationManager
+          RUFBehaviors.NotificationGenerator
         ],
 
         properties: {
