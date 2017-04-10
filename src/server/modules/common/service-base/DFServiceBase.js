@@ -44,7 +44,7 @@ var DFServiceBase = function (options) {
         //TODO:: This will be enhanced based on need.
         //Below function will update clientState in request Object with required info in notification object.
         updateRequestObjectForNotification(request, userId, url, timeStamp);
-        console.log(JSON.stringify(request));
+        //console.log(JSON.stringify(request));
 
         url = this._serverUrl + '/' + tenantId + '/api' + url + '?timeStamp=' + timeStamp;
         this._headers["x-rdp-authtoken"] = cryptoJS.HmacSHA256(url.split('?')[1], securityContext.clientAuthKey).toString(cryptoJS.enc.Base64);

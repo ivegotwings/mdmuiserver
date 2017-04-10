@@ -29,9 +29,11 @@ function initSockets(server) {
             {      
                 currentUserSocketIds = userManager.getConnectionIdsOfUser(userId);
                 //console.log(JSON.stringify(currentUserSocketIds));
-                currentUserSocketIds.forEach(function(id){
-                    io.to(id).emit('new message', data);
-                }, this);
+                if(currentUserSocketIds) {
+                    currentUserSocketIds.forEach(function(id){
+                        io.to(id).emit('new message', data);
+                    }, this);
+                }
             }
             else
             {

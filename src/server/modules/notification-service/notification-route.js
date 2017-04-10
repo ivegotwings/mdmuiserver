@@ -1,22 +1,22 @@
 'use strict';
 var notificationManager = require('../notification-engine/api/notification-manager');
-
+var isEmpty = require('../common/utils/isEmpty');
 
 function prepareNotificationObject(data) {
     var notificationInfo = {};
 
-    if (!_.isEmpty(data)) {
+    if (!isEmpty(data)) {
         var attributes = data.attributes;
-        if (!_.isEmpty(attributes)) {
+        if (!isEmpty(attributes)) {
             var clientState = attributes['clientState'];
             var requestStatus = attributes['requestStatus'];
             var serviceName = attributes['serviceName'];
 
-            if (!_.isEmpty(clientState)) {
+            if (!isEmpty(clientState)) {
                 notificationInfo = clientState.values[0].value.notificationInfo;
 
-                if (!_.isEmpty(notificationInfo)) {
-                    if (!_.isEmpty(serviceName) && !_.isEmpty(requestStatus)) {
+                if (!isEmpty(notificationInfo)) {
+                    if (!isEmpty(serviceName) && !isEmpty(requestStatus)) {
                         notificationInfo.status = requestStatus.values[0].value;
                         notificationInfo.action = getAction(serviceName.values[0].value, notificationInfo.status);
                     }
@@ -31,20 +31,20 @@ function prepareNotificationObject(data) {
 function getAction(serviceName, status) {
     var action = "";
     
-    if(!_.isEmpty(status) && !_.isEmpty(status)) {
+    if(!isEmpty(status) && !isEmpty(status)) {
         if(serviceName == "entityservice") {
             if(status == "success") {
-                action = "";
+                action = "save completed";
             } else {
-                action = "";
+                action = "save failed";
             }
         }
 
         if(serviceName == "entitygovernservice") {
             if(status == "success") {
-                action = "";
+                action = "govern completed";
             } else {
-                action = "";
+                action = "govern failed";
             }
         }
     }
@@ -60,7 +60,7 @@ module.exports = function (app) {
         if (dataObject) {
             var notificationInfo = prepareNotificationObject(dataObject.data);
 
-            if(!_.isEmpty(notificationInfo)) {
+            if(!isEmpty(notificationInfo)) {
                 if(notificationInfo.userId) {
                     notificationManager.sendMessageToSpecificUser(notificationInfo, notificationInfo.userId);
                 }
