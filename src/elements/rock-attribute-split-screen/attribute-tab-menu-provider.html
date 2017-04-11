@@ -1,0 +1,147 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+
+<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+
+<dom-module id="attribute-tab-menu-provider">
+    <template>
+        <liquid-entity-model-get id="liquidModeleGet" operation="getbyids" request-data={{_request}} 
+         on-response="_onModelReceived" on-error="_onModelGetFailed"></liquid-entity-model-get>
+    </template>
+    <script>
+        Polymer({
+            is: 'attribute-tab-menu-provider',
+            properties: {
+               _callback: {
+                   type: Function
+               },
+               _tabItem: {
+                    type: Object,
+                    value: function() {
+                        return {};
+                    }
+               },
+               _request: {
+                    type: Object,
+                    value: function() {
+                        return {};
+                    }
+               }
+            },
+            behaviors: [
+                RUFBehaviors.UIBehavior,
+                RUFBehaviors.ComponentContextBehavior
+            ],
+            getMenu: function(tabItem, callback) {
+                this._callback = callback;
+                this._tabItem = tabItem;
+                this._setRequestObject();
+                var liquid = this.$.liquidModeleGet;
+                if(liquid) {
+                    liquid.generateRequest();
+                }
+            },
+            _onModelReceived: function(e) {
+                if(e && e.detail && e.detail.response && e.detail.response.content && e.detail.response.content.entityModels) {
+                    var attributeGroups = this._getAttributeGroups(e.detail.response.content.entityModels);
+                    var menuItems = this._buildMenuItems(attributeGroups);
+                    this._callback(menuItems);
+                }
+            },
+            _onModelGetFailed: function(e) {
+                console.log('Model get call failed for attribute tab menu provider: ', JSON.stringify(e));
+            },
+            _setRequestObject: function() {
+                var firstDataContext = this.getFirstDataContext();
+                var firstItemContext = this.getFirstItemContext();
+
+                var entityType = firstItemContext.type;
+                
+                var req = {
+                    "params": {
+                        "query": {
+                            "name": entityType,
+                            "filters": {
+                                "typesCriterion": ["entityManageModel"]
+                            }
+                        },
+                        "fields": {
+                            "properties": [
+                                "_ALL"
+                            ],
+                            "attributes": ["_ALL"]
+                        }
+                    }
+                };
+
+                if(firstDataContext) {
+                    req.params.query.contexts = [firstDataContext];
+                }
+
+                this._request = req;
+            },
+            _buildMenuItems: function(attributeGroups) {
+                var menuItems = [];
+                var attributeGroupNames = Object.keys(attributeGroups);
+                attributeGroupNames.sort();
+                for(var i=0; i < attributeGroupNames.length; i++) {
+                    var attributeGroupName = attributeGroupNames[i];
+                    var attributeNames = attributeGroups[attributeGroupName];
+                    var menuItem = this._buildMenuItem(attributeGroupName, attributeNames);
+                    menuItems.push(menuItem);
+                }
+                return menuItems;
+            },
+            _buildMenuItem: function(attributeGroupName, attributeNames) {
+                var menuItem = {};
+                menuItem.component = DataHelper.cloneObject(this._tabItem.component);
+                menuItem.name = attributeGroupName.replace(/\W/g,'_');
+                menuItem.title = attributeGroupName;
+                var configContext = {};
+                configContext.groupName = attributeGroupName;
+                configContext.attributeNames = attributeNames;
+                if(!menuItem.properties) {
+                    menuItem.properties = {};
+                }
+                menuItem.component.properties["config-context"] = configContext;
+
+                return menuItem;
+            },
+            _getAttributeGroups: function(entityModels) {
+                var attributeGroups = [];
+                for(var i=0; i < entityModels.length; i++) {
+                    var entityModel = entityModels[i];
+                    if(entityModel.data) {
+                        if(entityModel.data.attributes) {
+                            this._fillAttributesInGroups(entityModel.data.attributes, attributeGroups);
+                        }
+                        if(entityModel.data.contexts) {
+                            for(var j=0; j < entityModel.data.contexts.length; j++) {
+                                var context = entityModel.data.contexts[j];
+                                if(context.attributes) {
+                                    this._fillAttributesInGroups(context.attributes, attributeGroups);
+                                }
+                            }
+                        }
+                    }
+                }
+                return attributeGroups;
+            },
+            _fillAttributesInGroups: function(attributes, attributeGroups) {
+                for(var attributeName in attributes) {
+                    var attribute = attributes[attributeName];
+                    var attributeGroupName = attribute.properties && attribute.properties.groupName ? attribute.properties.groupName : 'Ungrouped Attributes';
+                    var attributeGroup = attributeGroups[attributeGroupName];
+                    if(!attributeGroup) {
+                        attributeGroup = [];
+                        attributeGroups[attributeGroupName] = attributeGroup;
+                    }
+                    if(attributeGroup.indexOf(attributeName) == -1) {
+                        attributeGroup.push(attributeName);
+                    }
+                }
+            }
+        });
+    </script>
+</dom-module>
