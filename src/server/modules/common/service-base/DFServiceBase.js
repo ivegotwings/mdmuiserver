@@ -33,6 +33,7 @@ var DFServiceBase = function (options) {
                 this._headers["x-rdp-clientid"] = securityContext.headers.clientId || "";
                 this._headers["x-rdp-tenantid"] = tenantId;
                 this._headers["x-rdp-vendorname"] = securityContext.headers.vendorName || "";
+                this._headers["x-rdp-ownershipdata"] = securityContext.headers.ownershipData || "";
                 this._headers["x-rdp-userid"] = userId || "";
                 this._headers["x-rdp-username"] = securityContext.headers.userName || "";
                 this._headers["x-rdp-useremail"] = securityContext.headers.userEmail || "";
