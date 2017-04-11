@@ -34,7 +34,7 @@ function getAction(serviceName, status) {
     var action = "";
     
     if(!isEmpty(status) && !isEmpty(status)) {
-        if(serviceName == "entityservice") {
+        if(serviceName.toLowerCase() == "entityservice") {
             if(status == "success") {
                 action = enums.actions.saveComplete;
             } else {
@@ -42,7 +42,7 @@ function getAction(serviceName, status) {
             }
         }
 
-        if(serviceName == "entitygovernservice") {
+        if(serviceName.toLowerCase() == "entitygovernservice") {
             if(status == "success") {
                 action = enums.actions.governComplete;
             } else {
@@ -63,6 +63,7 @@ module.exports = function (app) {
             var notificationInfo = prepareNotificationObject(dataObject.data);
 
             if(!isEmpty(notificationInfo)) {
+                notificationInfo.tenantId = req.body.tenantId;
                 if(notificationInfo.userId) {
                     notificationManager.sendMessageToSpecificUser(notificationInfo, notificationInfo.userId);
                 }
