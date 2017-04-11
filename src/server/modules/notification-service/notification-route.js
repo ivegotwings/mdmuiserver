@@ -15,7 +15,7 @@ function prepareNotificationObject(data) {
             var serviceName = attributes['serviceName'];
 
             if (!isEmpty(clientState)) {
-                notificationInfo = clientState.values[0].value.notificationInfo;
+                notificationInfo = clientState.notificationInfo;
 
                 if (!isEmpty(notificationInfo)) {
                     if (!isEmpty(serviceName) && !isEmpty(requestStatus)) {
