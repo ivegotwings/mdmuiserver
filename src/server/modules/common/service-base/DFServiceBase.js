@@ -41,9 +41,9 @@ var DFServiceBase = function (options) {
 
         var timeStamp = moment().toISOString();
         
-        //TODO:: This will be enhanced based on need.
+        
         //Below function will update clientState in request Object with required info in notification object.
-        updateRequestObjectForNotification(request, userId, url, timeStamp);
+        updateRequestObjectForNotification(request, userId, timeStamp);
         //console.log(JSON.stringify(request));
 
         url = this._serverUrl + '/' + tenantId + '/api' + url + '?timeStamp=' + timeStamp;
@@ -82,37 +82,29 @@ var DFServiceBase = function (options) {
     //console.log('Data platform service instance initiated with ', JSON.stringify({options: options, baseUrl: this.baseUrl}, null, 4));
 };
 
-function updateRequestObjectForNotification(request, userId, url, timeStamp) {
+function updateRequestObjectForNotification(request, userId, timeStamp) {
     if (request) {
-        if (isEmpty(request.clientState)) {
-            request.clientState = {};
-            request.clientState.notificationInfo = {};
-        } else if (isEmpty(request.clientState.notificationInfo)) {
-            request.clientState.notificationInfo = {};
+        if (!isEmpty(request.clientState)) {
+            var notificationInfo = request.clientState.notificationInfo;
+            if (!isEmpty(notificationInfo)) {  
+                notificationInfo.id = randomId();
+                notificationInfo.timeStamp = timeStamp;
+                notificationInfo.source = "ui";
+                notificationInfo.userId = userId;
+                notificationInfo.connectionId = "";
+
+                if (isEmpty(notificationInfo.context)) {
+                    notificationInfo.context = {};
+                }
+                
+                if (request.entity) {
+                    notificationInfo.context.id = request.entity.id;
+                    notificationInfo.context.type = request.entity.type;
+                }
+                
+                notificationInfo.context.dataIndex = request.dataIndex;
+            }
         }
-
-        var notificationInfo = request.clientState.notificationInfo;
-
-        notificationInfo.id = randomId();
-        notificationInfo.timeStamp = timeStamp;
-        //notificationInfo.description = "";
-        notificationInfo.source = "ui"; //rdp/cop/ui
-        notificationInfo.userId = userId;
-        notificationInfo.connectionId = "";
-
-        if (isEmpty(notificationInfo.context)) {
-            notificationInfo.context = {};
-        }
-
-        if (request.entity) {
-            notificationInfo.context.id = request.entity.id;
-            notificationInfo.context.type = request.entity.type;
-        } else if(request.params) {
-            notificationInfo.context.id = request.params.query.id;
-            notificationInfo.context.type = request.params.query.filters.typesCriterion[0];
-        }
-
-        notificationInfo.context.dataIndex = request.dataIndex;
     }
 };
 

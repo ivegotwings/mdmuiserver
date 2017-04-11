@@ -1,6 +1,7 @@
 'use strict';
 var notificationManager = require('../notification-engine/api/notification-manager');
 var isEmpty = require('../common/utils/isEmpty');
+var enums = require('../../../shared/enums-util');
 
 function prepareNotificationObject(data) {
     var notificationInfo = {};
@@ -19,6 +20,7 @@ function prepareNotificationObject(data) {
                     if (!isEmpty(serviceName) && !isEmpty(requestStatus)) {
                         notificationInfo.status = requestStatus.values[0].value;
                         notificationInfo.action = getAction(serviceName.values[0].value, notificationInfo.status);
+                        notificationInfo.description = "";
                     }
                 }
             }
@@ -34,17 +36,17 @@ function getAction(serviceName, status) {
     if(!isEmpty(status) && !isEmpty(status)) {
         if(serviceName == "entityservice") {
             if(status == "success") {
-                action = "save completed";
+                action = enums.actions.saveComplete;
             } else {
-                action = "save failed";
+                action = enums.actions.saveFail;
             }
         }
 
         if(serviceName == "entitygovernservice") {
             if(status == "success") {
-                action = "govern completed";
+                action = enums.actions.governComplete;
             } else {
-                action = "govern failed";
+                action = enums.actions.governFail;
             }
         }
     }
