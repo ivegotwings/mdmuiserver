@@ -17,13 +17,16 @@ function createSecurityContext(req) {
         'clientAuthKey': tenantConfig && tenantConfig.clientAuthKey ? tenantConfig.clientAuthKey : "",
         'headers': {
             "clientId": tenantConfig && tenantConfig.clientId ? tenantConfig.clientId : "",
-            "vendorName": req.headers["x-rdp-vendorName"],
-            "userId": req.headers["x-rdp-userId"],
-            "userName": req.headers["x-rdp-userName"],
-            "userEmail": req.headers["x-rdp-userEmail"],
-            "userRoles": req.headers["x-rdp-userRoles"]
+            "vendorName": req.headers["x-rdp-vendorname"],
+            "userId": req.headers["x-rdp-userid"],
+            "firstName": req.headers["x-rdp-firstname"],
+            "lastName": req.headers["x-rdp-lastname"],
+            "userName": req.headers["x-rdp-username"],
+            "userEmail": req.headers["x-rdp-useremail"],
+            "userRoles": req.headers["x-rdp-userroles"]
         }
     };
+   
     var session = getNamespace('User Session');
     session.set('securityContext', securityContext);
 }

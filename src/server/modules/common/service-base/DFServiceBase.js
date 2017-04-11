@@ -21,21 +21,24 @@ var DFServiceBase = function (options) {
 
         var tenantId = 'jcp';
         var userId = 'admin';
+        var userRoles = ['vendor'];
 
         var securityContext = executionContext.getSecurityContext();
 
         if (securityContext && securityContext.tenantId) {
             tenantId = securityContext.tenantId;
             userId = securityContext.headers.userId;
-
+            if(securityContext.headers.userRoles){
+                userRoles = securityContext.headers.userRoles.split(',');
+            }
             if (securityContext.headers) {
-                this._headers["x-rdp-clientId"] = securityContext.headers.clientId || "";
-                this._headers["x-rdp-tenantId"] = tenantId;
-                this._headers["x-rdp-vendorName"] = securityContext.headers.vendorName || "";
-                this._headers["x-rdp-userId"] = securityContext.headers.userId || "";
-                this._headers["x-rdp-userName"] = securityContext.headers.userName || "";
-                this._headers["x-rdp-userEmail"] = securityContext.headers.userEmail || "";
-                this._headers["x-rdp-userRoles"] = '["vendor", "buyer"]';
+                this._headers["x-rdp-clientid"] = securityContext.headers.clientId || "";
+                this._headers["x-rdp-tenantid"] = tenantId;
+                this._headers["x-rdp-vendorname"] = securityContext.headers.vendorName || "";
+                this._headers["x-rdp-userid"] = userId || "";
+                this._headers["x-rdp-username"] = securityContext.headers.userName || "";
+                this._headers["x-rdp-useremail"] = securityContext.headers.userEmail || "";
+                this._headers["x-rdp-userroles"] =  JSON.stringify(userRoles);
             }
         }
 
