@@ -8,8 +8,9 @@ function prepareNotificationObject(data) {
 
     if (!isEmpty(data)) {
         var attributes = data.attributes;
-        if (!isEmpty(attributes)) {
-            var clientState = attributes['clientState'];
+        var jsonData = data.jsonData;
+        if (!isEmpty(attributes) && !isEmpty(jsonData)) {
+            var clientState = jsonData['clientState'];
             var requestStatus = attributes['requestStatus'];
             var serviceName = attributes['serviceName'];
 
