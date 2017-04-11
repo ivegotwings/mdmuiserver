@@ -1,0 +1,153 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-enums-util/bedrock-enums-util.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-helpers/component-helper.html">
+
+<link rel="import" href="../pebble-toast/pebble-toast.html">
+
+<!--
+`bedrock-notification-dataobject-handler`
+-->
+
+<dom-module id="bedrock-notification-dataobject-handler">
+    <template>
+        <bedrock-pubsub event-name="dataobject-notification" handler="_onDataObjectNotification"></bedrock-pubsub>
+    </template>
+
+    <script>
+        (function () {
+            'use strict';
+
+            Polymer({
+                is: 'bedrock-notification-dataobject-handler',
+                properties: {
+
+                },
+                behaviors: [
+                    RUFBehaviors.UIBehavior
+                ],
+                _onDataObjectNotification: function (e) {
+                    var self = this;
+                    var data = e.detail;
+                    var actions = SharedEnumsUtil.Enums.actions;
+                    if (data) {
+                        switch (data.action) {
+                            case actions.saveComplete:
+                                // clear cache
+                                break;
+                            case actions.governComplete:
+                                // clear cache
+                                // give toast as well with refresh/open link
+                                self._sendPebbleToastWithLink(data);
+                                break;
+                            case actions.workflowTransitionComplete:
+                                // clear cache
+                                // auto refresh event trigger for workflow component
+                                self._fireNotificationEvent(data);
+                                break;
+                            case actions.saveFail:
+                            case actions.governFail:
+                            case actions.workflowTransitionFail:
+                                self._notifyUIOnBadge(data);
+                                break;
+                        }
+                    }
+                },
+
+                _notifyUIOnBadge: function (data) {
+                    var notificationElement = document.querySelector("main-app").$$('#notificationsList');
+                    var notificationLabelElement = document.querySelector("main-app").$$('#mdmNotifications');
+
+                    if (notificationElement) {
+                        var notifications = notificationElement.notifications;
+                        notificationElement.notifications = [];
+
+                        notifications.push({
+                            src: data.source || '',
+                            alt: data.alt || '',
+                            when: moment(data.timestamp).format("DD MMM YYYY hh:mm a") || '',
+                            desc: data.description || ''
+                        });
+
+                        notificationElement.notifications = notifications;
+                        notificationElement.notifyPath("notifications", notificationElement.notifications.slice());
+
+                        if (notificationLabelElement) {
+                            notificationLabelElement.label = notifications.length;
+                        }
+                    }
+                },
+
+                _fireNotificationEvent: function (data) {
+                    if (data.context) {
+                        if (data.context.appInstanceId) {
+                            var activeApp = ComponentHelper.getCurrentActiveApp();
+                            if (activeApp) {
+                                //TODO::Event name has to be specific like saveComplete, workflowTransitionComplete, etc.
+                                activeApp.fireBedrockEvent("notification", data, { ignoreId: true });
+                            }
+                        }
+                    }
+                },
+
+                _sendPebbleToastWithLink: function (data) {
+
+                    if (data.context && data.tenantId) {
+                        var link = "/" + data.tenantId + "/entity-manage?id=" + data.context.id + "&type=" + data.context.type
+                        var activeApp = ComponentHelper.getCurrentActiveApp();
+                        var currentApp = undefined;
+                        var isActiveApp = false;
+                        var isMinimizedApp = false;
+
+                        if (activeApp) {
+                            if (data.context.appInstanceId == activeApp.id) {
+                                isActiveApp = true;
+                                currentApp = activeApp;
+                            }
+                        } else {
+                            var app = ComponentHelper.getAppById(data.context.appInstanceId);
+                            if (app) {
+                                isMinimizedApp = true;
+                                currentApp = app;
+                            }
+                        }
+
+
+                        if (!_.isEmpty(link)) {
+                            if (isActiveApp) {
+                                data.description = data.description + "Would you like to refresh it? <a href=" + link + " onclick='RUFEventHandlers.toastClick()' appId='" + data.context.appInstanceId + "'>click here</a>";
+                            } else if (isMinimizedApp) {
+                                data.description = data.description + "Would you like to open it? <a href=" + link + " onclick='RUFEventHandlers.toastClick()' appId='" + data.context.appInstanceId + "'>click here</a>";
+                            }
+                        }
+                    }
+
+                    RUFEventHandlers.toastClick = function () {
+                        if (event.currentTarget) {
+                            var appId = event.currentTarget.getAttribute('appId');
+                            if (appId) {
+                                var appElement = ComponentHelper.getAppById(appId);
+                                if (appElement && appElement.refresh) {
+                                    appElement.refresh();
+                                }
+                            }
+                        }
+                    };
+
+                    var pebbleToastElement = document.createElement("pebble-toast");
+                    pebbleToastElement.setAttribute('id', Date.parse(new Date())); //Just unique id  
+                    pebbleToastElement.innerHTML = data.description;
+                    pebbleToastElement.toastType = data.status;
+                    pebbleToastElement.alignToast = "top";
+                    pebbleToastElement.autoClose = true;
+                    pebbleToastElement.toastDuration = 10000;
+                    document.body.appendChild(pebbleToastElement);
+                    pebbleToastElement.show();
+                }
+            });
+        })();
+    </script>
+
+</dom-module>
