@@ -18,6 +18,7 @@ function createSecurityContext(req) {
         'headers': {
             "clientId": tenantConfig && tenantConfig.clientId ? tenantConfig.clientId : "",
             "vendorName": req.headers["x-rdp-vendorname"],
+            "ownershipData": req.headers["x-rdp-ownershipdata"],
             "userId": req.headers["x-rdp-userid"],
             "firstName": req.headers["x-rdp-firstname"],
             "lastName": req.headers["x-rdp-lastname"],
