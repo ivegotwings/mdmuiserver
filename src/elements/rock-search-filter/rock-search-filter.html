@@ -175,7 +175,6 @@ An user can switch between a search mode and a filter mode to get the query they
         <pebble-popover id="filterPopover" for="pebble-tag" no-overlap auto-fit-on-attach vertical-align="auto" horizontal-align="auto">            
             <template is="dom-if" if="{{_showTagModifier('textbox', _tigger)}}">
                <rock-entity-lov id="rockEntityLov"
-                                request-data="[[_prepareRequestData(contextData)]]"
                                 selected-item="{{selectedItem}}">                               
 							</rock-entity-lov>              
             </template>
@@ -326,20 +325,25 @@ An user can switch between a search mode and a filter mode to get the query they
     * Can be used add a filter tag on selecting it from the dropdown.
     */
     _onSelectedFilterChange: function(e, detail) {
-       var tag = detail.data;
-       tag["value"] = (tag.value && !_.isEmpty(tag.value)) ? tag.value : {"eq": "All"};
-       tag["displayParams"] = (tag.displayParams && !_.isEmpty(tag.displayParams)) ? tag.displayParams : ["eq"];
-       var displayType=tag.displayType;
+       var data = detail.data;
+       var tag={};
+       tag["value"] = (data.value && !_.isEmpty(data.value)) ? data.value : {"eq": "All"};
+       tag["displayParams"] = (data.displayParams && !_.isEmpty(data.displayParams)) ? data.displayParams : ["eq"];
+       var dataType=data.dataType;
+       var displayType=data.displayType;
        if(displayType=="referenceList" || displayType=="textCollection"){
            displayType="textbox"
        }
        if(displayType=="date"){
-           displayType="dateTime"
+           displayType="datetime"
        }
-       tag["options"] = {
-         "displayType": displayType
-       };
-       tag["longName"] = tag.externalName;
+       if(dataType.toLowerCase()=="integer" || dataType.toLowerCase()=="decimal"){
+           displayType="numeric"
+       }
+       tag.options=data;
+       tag.options.displayType= displayType
+       tag["longName"] = data.externalName;
+       tag["name"] = data.name;
        this.$$("#filter-tags").addTag(tag);
        this.$$("#refineFilterPopover").close();
     },
@@ -357,14 +361,9 @@ An user can switch between a search mode and a filter mode to get the query they
      // On tag tap should select the soecific element 
      _onTagItemTap:function (e, detail) {
        
-        for(var i in this.tags){
-          if(this.tags[i].name==detail.name){
-             this.currentTag = this.tags[i];
-             break;
-          }
-        }       
+        this.currentTag=detail;
 
-        if(this.currentTag && this.currentTag.options.displayType == "dateTime")
+        if(this.currentTag && this.currentTag.options.displayType.toLowerCase() == "datetime")
         {
           //Display range picker based on the currerntTag
           if(this.currentTag.value.eq != 'All')
@@ -409,7 +408,7 @@ An user can switch between a search mode and a filter mode to get the query they
 
               //Set values to the components
               //TextArea
-              if(this.currentTag.options.displayType == "textArea")
+              if(this.currentTag.options.displayType.toLowerCase() == "textarea")
               {
                 if(this.$$('pebble-popover').querySelector('.input'))
                 {
@@ -419,7 +418,7 @@ An user can switch between a search mode and a filter mode to get the query they
                   }, 10); //Delayed to set the value and focus the input                
                 }            
               }
-              else if(this.currentTag.options.displayType == "numeric")
+              else if(this.currentTag.options.displayType.toLowerCase() == "numeric")
               {
                 this.gte = this.lte = this.equalNum = "";
                 if(this.currentTag.value.eq && this.currentTag.value.eq != 'All')
@@ -435,24 +434,16 @@ An user can switch between a search mode and a filter mode to get the query they
 
                 }
               }              
-              else if(this.currentTag.options.displayType == "textbox")
+              else if(this.currentTag.options.displayType.toLowerCase() == "textbox")
               {                
                 //Set Id, Title and Value to the LOV
                 var lovComponent = this.$$('#filterPopover').querySelector('#rockEntityLov');
                 
-                lovComponent.idField = this.currentTag.name;
-                lovComponent.titlePattern = this.currentTag.name;
-                lovComponent.valueField = this.currentTag.name;               
-
-                lovComponent.resetLOV();
-                lovComponent.reTriggerRequest();
-                
-                if(this.currentTag.isReferenceType){
+                if(this.currentTag.options.isReferenceType){
                     lovComponent.idField = "name";
                     lovComponent.titlePattern = "name";
                     lovComponent.valueField = "name";
-               
-                    var refEntityTypes=this.currentTag.referenceEntityTypes;
+                    var refEntityTypes=this.currentTag.options.referenceEntityTypes;
                     var itemContexts=[];
                     for(var i in refEntityTypes){
                       itemContexts.push({"type":refEntityTypes[i]});
@@ -460,10 +451,17 @@ An user can switch between a search mode and a filter mode to get the query they
                     var contextData = DataHelper.cloneObject(this.contextData);
                     contextData[this.CONTEXT_TYPE_ITEM]=itemContexts; 
                     contextData[this.CONTEXT_TYPE_VALUE]=[]; 
-                    lovComponent.requestData = this._prepareRequestData(contextData); 
+                    lovComponent.requestData = this._prepareRequestData(contextData);
+                } else{
+                    lovComponent.idField = this.currentTag.name;
+                    lovComponent.titlePattern = this.currentTag.name;
+                    lovComponent.valueField = this.currentTag.name;
+                    lovComponent.requestData = this._prepareRequestData(this.contextData);
+                    lovComponent.requestData.params.fields.attributes=[this.currentTag.name];
                 }
-                
-                if(!this.currentTag.value.eq)
+                  lovComponent.refreshLOVData();
+
+                  if(!this.currentTag.value.eq)
                 {
                   return;
                 }
@@ -479,7 +477,7 @@ An user can switch between a search mode and a filter mode to get the query they
                   });                    
                 }
               }
-              else if(this.currentTag.options.displayType == "dropDown")
+              else if(this.currentTag.options.displayType.toLowerCase() == "dropdown")
               {                
                 //Set Id, Title and Value to the LOV
                 var lovComponent = this.$$('#filterPopover').querySelector('#rockEntityLovForDropdown');
@@ -550,12 +548,12 @@ An user can switch between a search mode and a filter mode to get the query they
 
         this.$$('#filterPopover').hide();
         //Fire event
-        this._fireChangeEvent(this.currentTag.name, this.currentTag.value);        
+        this._fireChangeEvent(this.currentTag.name, this.currentTag.value,this.currentTag.options.type);
     },
 
     // Refine filter tags will be updated as per selection
     _updateValue: function (e) {
-        if(this.currentTag.options.displayType == "dateTime") //DateTime
+        if(this.currentTag.options.displayType.toLowerCase() == "datetime") //DateTime
         {
             if (this.gte == this.lte) {
                 this.currentTag.value = {
@@ -573,7 +571,7 @@ An user can switch between a search mode and a filter mode to get the query they
                 this.set('tags.' + this.currentTag.index + '.displayParams', this.currentTag.displayParams);
                 this.set('tags.' + this.currentTag.index + '.value', this.currentTag.value);
         }
-        else if (this.currentTag.options.displayType == "numeric") //Radio group
+        else if (this.currentTag.options.displayType.toLowerCase() == "numeric") //Radio group
         {
                 if (this.$$('paper-radio-group').selected == "range") {
 
@@ -623,7 +621,7 @@ An user can switch between a search mode and a filter mode to get the query they
         }
 
         //Close the popover once value updated
-        if(this.currentTag.options.displayType == "dateTime")
+        if(this.currentTag.options.displayType.toLowerCase() == "datetime")
         {
           this.$$('#rangepicker').hide();
         }
@@ -637,10 +635,11 @@ An user can switch between a search mode and a filter mode to get the query they
 
     },
 
-    _fireChangeEvent: function (_name, _value) {
+    _fireChangeEvent: function (_name, _value,_type) {
          var attribute = {
              name: _name,
-             value:  _value
+             value:  _value,
+             type:_type
          };
          if (_value && _name) {
              this.fireBedrockEvent('tag-value-change', attribute, {
@@ -651,10 +650,10 @@ An user can switch between a search mode and a filter mode to get the query they
 
     // When tag tapped, which popover component need to show
     _showTagModifier: function(displayType) {
-        if(this.currentTag && this.currentTag.options.displayType == displayType)
-        {
-          return true;
-        }       
+
+        if(this.currentTag && this.currentTag.options.displayType.toLowerCase() == displayType.toLowerCase())  {
+                return true;
+        }
 
         return false;
     },
