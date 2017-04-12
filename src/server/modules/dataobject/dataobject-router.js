@@ -2,7 +2,7 @@
 
 var falcorExpress = require('falcor-express'),
     Router = require('falcor-router'),
-    routerOptions = { maxPaths: 70000 }; // maxPaths defines max. allowed number of paths in one router request
+    routerOptions = { 'maxPaths': 70000 }; // maxPaths defines max. allowed number of paths in one router request
 
 var resolver = require('./dataobject-route-resolver');
 
