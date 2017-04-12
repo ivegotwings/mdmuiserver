@@ -2,16 +2,20 @@
 
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/element-helper.html">
 <link rel="import" href="../bedrock-helpers/data-transform-helper.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 <link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
+<link rel="import" href="../liquid-entity-govern-data-get/liquid-entity-govern-data-get.html">
+<link rel="import" href="../liquid-rest/liquid-rest.html">
 
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-dialog/pebble-dialog.html">
 
 <link rel="import" href="../rock-attribute-list/rock-attribute-list.html">
 
@@ -21,8 +25,63 @@
             #content-actions {
                 padding-top: 30px;
             }
+            pebble-dialog::shadow #dialog { 
+                width: 400px;
+                top: 20% !important;
+            }
+            pebble-dialog::shadow ::content > * {
+                padding: 5px 50px 5px 20px !important;
+            }
+            #errorsDialog {
+                --popup-header-color: red;
+            }
+            pebble-dialog::shadow ::content > ul {
+                padding-left: 50px !important;
+            }
+            pebble-dialog > ul > li {
+                list-style-type: disc;
+            }
         </style>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
+        <liquid-rest id="entityMatchService" 
+                     url="/pass-through/matchservice/search" 
+                     method="POST" 
+                     request-data={{_entityMatchRequest}}
+                     on-liquid-response="_onMatchSuccess" 
+                     on-liquid-error="_onMatchFailure">
+        </liquid-rest>
+        <liquid-rest id="entityGovernService" 
+                     url="/pass-through/entitygovernservice/validate" 
+                     method="POST" 
+                     request-data={{_entityGovernRequest}}
+                     on-liquid-response="_onEntityGovernResponse" 
+                     on-liquid-error="_onEntityGovernFailed">
+        </liquid-rest>  
+        <pebble-dialog id="updateConfirmDialog" dialog-title="Found Match">             
+              <p>Found the below matching entity in system: </p>
+              <ul>
+                  <li>Entity Id: [[_matchedEntity.id]]</li>
+                  <li>Entity Type: [[_matchedEntity.type]]</li>
+              </ul>
+              <p>Do you want to update the entity?</p>
+              <div class="buttons">
+                <paper-button dialog-confirm class="btn btn-success" on-tap="_updateEntity">Update</paper-button>
+                <paper-button dialog-confirm class="btn btn-secondary" on-tap="_cancelProcess">Cancel</paper-button>
+              </div>
+        </pebble-dialog>
+        <pebble-dialog id="errorsDialog" dialog-title="Errors on page">
+            <p>Found below errors in entity details: </p>
+            <ul>
+                <template is="dom-repeat" items="[[_errorMessages]]">
+                    <li>[[item.attributeName]] with error: [[item.message]]</li>
+                </template>
+            </ul>             
+            <p>Do you want to fix the errors or continue?</p>  
+            <div class="buttons">
+                <paper-button dialog-confirm class="btn btn-success">Fix</paper-button>
+                <paper-button dialog-confirm class="btn btn-secondary" on-tap="_skipErrors">Skip & Continue</paper-button>
+              </div>
+        </pebble-dialog>
         <rock-attribute-list attribute-values="[[_attributeValues]]" attribute-models="[[_attributeModels]]" no-of-columns="3" mode="{{mode}}"></rock-attribute-list>
         <div id="content-actions" class="p-b-10" align="center">
             <pebble-button class="action-button btn btn-secondary m-r-5" id="skip" button-text="Cancel" raised on-tap="_onSkipTap"></pebble-button>
@@ -30,7 +89,7 @@
         </div>
         <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}"
                 on-entity-model-composite-get-response = "_onCompositeModelGetResponse" >
-        <liquid-entity-data-save name="attributeSaveDataService" operation="create" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}"
+        <liquid-entity-data-save name="entitySaveService" operation="create" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}"
             on-response="_onSaveResponse" on-error="_onSaveError" ></liquid-entity-data-save>
         <bedrock-pubsub event-name="error-length-changed" handler="_errorLengthChanged"></bedrock-pubsub>
     </template>
@@ -104,6 +163,42 @@
                             type: Number,
                             notify: true,
                             value: 0
+                        },
+                        _entityMatchRequest: {
+                            type: Object,
+                            value: function() { return {}; }
+                        },
+                        messageCodeMapping: {
+                            type: Object,
+                            value: function() {
+                                return {
+                                    "Req001": "Required",
+                                    "MinLen001": "MIN_LENGTH",
+                                    "MaxLen001": "MAX_LENGTH",
+                                    "AlVal001": "ALLOWED_VALUES",
+                                    "Prec001": "Precision",
+                                    "Range001": "RANGE_FROM_INCLUSIVE",
+                                    "Range002": "RANGE_TO_INCLUSIVE",
+                                    "Range003": "RANGE_FROM_EXCLUSIVE",
+                                    "Range004": "RANGE_TO_EXCLUSIVE",
+                                    "Range005": "RANGE_TO_INCLUSIVE_FROM_EXCLUSIVE",
+                                    "Range006": "RANGE_TO_INCLUSIVE_FROM_INCLUSIVE",
+                                    "Range007": "RANGE_TO_EXCLUSIVE_FROM_EXCLUSIVE",
+                                    "Range008": "RANGE_TO_EXCLUSIVE_FROM_INCLUSIVE",
+                                    "133311": "Length should be greater than Width",
+                                    "133312": "Width should be less than Length"
+                                };
+                            }
+                        },
+                         _matchedEntity: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        _errorMessages: {
+                            type: Array,
+                            value: function() { return []; }
                         }
                     },
                     observers: [
@@ -143,22 +238,17 @@
                         //raise event with name given for onNextAction in configuration
                         var attributeList = Polymer.dom(this).node.$$('rock-attribute-list');
                         var changedAttributeElements = attributeList.getChangedAttributeElements();
-                        if (changedAttributeElements == undefined || changedAttributeElements.length == 0) {
-                            // document.querySelector('#app').toastText = "No changes to save";
-                            // document.querySelector('#app').$.pebbleAppToast.show();
-                            return {
-                                "message": "No changes to save"
-                            };
-                        }
-
-                        var attributeList = this.$$("rock-attribute-list");
-                        // Note: This method is going to fire error-length-changed event which is going to update
-                        //       update errorLength values
+                        //Note: This method is going to fire error-length-changed event which is going to update
+                        //update errorLength values
                         attributeList._calculateErrorLength(this._attributeValues);
                         if(this.errorLength > 0) {
                             this.showErrorToast("Cannot save. Please resolve the errors.");
                             return;
                         }
+                        if (changedAttributeElements == undefined || changedAttributeElements.length == 0) {
+                            this.showErrorToast("No changes to save.");
+                            return;
+                        }                       
                         
                         var attributesJSON = [];
                         for (var i = 0; i < changedAttributeElements.length; i++) {
@@ -169,8 +259,9 @@
 
                         var itemCtx = this.getFirstItemContext();
                         var entityType = itemCtx.type;
-                        var entityId = "e" + this._getRandomString();
-
+                        var entityId = "e" + ElementHelper.getRandomString();
+                        itemCtx.id = entityId;
+                        
                         var newEntity = DataTransformHelper.prepareEntityForCreate(entityId, entityType, attributesJSON, this.contextData, "John");
 
                          //TODO:: this must come from some model config
@@ -181,11 +272,82 @@
                         this._saveRequest = {
                             "entities": [newEntity]
                         };
-                        
-                        var liquidSave = this.$$("[name=attributeSaveDataService]");
+
+                        //Set match request
+                        this.set('_entityMatchRequest', {
+                            "entity": newEntity
+                        });
+
+                        if(this.$$("#entityMatchService"))
+                        {
+                            this.$$("#entityMatchService").generateRequest();
+                        }                        
+                    },
+                    _onMatchSuccess: function(e, detail) {                        
+                        if(detail.response)
+                        {
+                            var response = detail.response.response;
+                            if((response.dataObjectOperationResponse && 
+                                response.dataObjectOperationResponse.status == "error") || 
+                                response.status == "error")
+                            {
+                                console.warn("Failed to request match service with error: ", detail);
+                                this.showErrorToast("There is a problem in match service. Please contact administrator.");
+                                return;
+                            }
+
+                            if(response.status == "success" && response.entities)
+                            {
+                                if(response.entities.length == 0)
+                                {
+                                    var governReq = DataHelper.cloneObject(this._entityMatchRequest);
+
+                                    this.set("_entityGovernRequest", governReq);
+                                    var liquidSave = this.$$("[name=entitySaveService]");
+                                    if (liquidSave) {
+                                        liquidSave.operation = "create";
+                                    }
+                                    var liquidGovernGet = this.$.entityGovernService;
+                                    if (liquidGovernGet) {
+                                        liquidGovernGet.generateRequest();
+                                    }                              
+                                }
+                                else if(response.entities.length > 1) {
+                                    this.showErrorToast("We found multiple entites matching in our system. Please check entity details or contact your administrator.");
+                                }
+                                else
+                                {
+                                    this._matchedEntity = response.entities[0];
+                                    this.$$('#updateConfirmDialog').open();
+                                    return;
+                                }
+                            }                            
+                        }                        
+                    },
+
+                    _onMatchFailure: function(e, detail) {
+                        console.warn("Failed to request match service, errors: ", detail);
+                        this.showErrorToast("There is a problem in match service. Please contact administrator.");
+                    },
+
+                    _updateEntity: function() {                        
+                        this._saveRequest.entities[0].id = this._matchedEntity.id;
+                        var itemCtx = this.getFirstItemContext();
+                        itemCtx.id = this._matchedEntity.id;
+                        var governReq = DataHelper.cloneObject(this._entityMatchRequest);
+
+                        this.set("_entityGovernRequest", governReq);
+                        var liquidSave = this.$$("[name=entitySaveService]");
                         if (liquidSave) {
-                            liquidSave.generateRequest();
-                        }    
+                            liquidSave.operation = "update";
+                        }
+                        var liquidGovernGet = this.$.entityGovernService;
+                        if (liquidGovernGet) {
+                            liquidGovernGet.generateRequest();
+                        }
+                    },                    
+                    _cancelProcess: function() {
+                        //Stay at same page
                     },
                     _populateEntityIdFromAttrVal: function(entity, changedAttributes, attrName) {
                         if (changedAttributes) {
@@ -202,11 +364,16 @@
                         var eventDetail = {
                             name: eventName
                         }
-                        this._loading = true
+                        this._loading = true;
 
                         this.async(function() {
-                            this._loading = false
-
+                            this._loading = false;
+                            if(e.detail.request.operation == "create") {
+                                this.showSuccessToast("Entity created successfully.");
+                            }
+                            if(e.detail.request.operation == "update") {
+                                this.showSuccessToast("Entity updated successfully.");
+                            }
                             this.fireBedrockEvent(eventName, eventDetail, {
                                 ignoreId: true
                             });
@@ -229,14 +396,93 @@
                             ignoreId: true
                         });
                     },
-                    _getRandomString: function() {
-                        var x = 2147483648;
-                        return Math.floor(Math.random() * x).toString(36) +
-                            Math.abs(Math.floor(Math.random() * x) ^ new Date().getTime()).toString(36);
-                    },
                     _errorLengthChanged: function (e) {
                         this.errorLength = e.detail.data;
-                    }
+                    },
+                    _onEntityGovernResponse: function (e) {
+                        var res = e.detail.response.response;
+                        var values = [];
+                        var itemContext = this.getFirstItemContext();
+                        var entityId;
+                        var entityType;
+                        if(itemContext) {
+                            entityId = itemContext.id;
+                            entityType = itemContext.type;
+                        }
+                        
+                        var entity = DataHelper.findEntityById(res.entities, entityId);
+                        var attrMessages = {};
+                        if (entity && entity.data && entity.data.attributes) {
+                            var attributes = entity.data.attributes;
+                            for (var i in attributes) {
+                                if(this._attributeModels[i]) {
+                                    var messageCodes = this._getMessageCodes(attributes[i]);
+                                    var messages = this.getMessagesFromCodes(messageCodes);
+                                    if (messages && messages.length) {
+                                        attrMessages[i] = messages;
+                                    }
+                                }
+                            }
+                        }
+                        if(!_.isEmpty(attrMessages)) {
+                            var errorMessages = [];
+                            for(var i in attrMessages) {
+                                var attrLongName = this._attributeModels[i].externalName;
+                                var errorMessage = attrMessages[i][0];
+                                var errorMessage = {
+                                    "attributeName": attrLongName,
+                                    "message": errorMessage
+                                };
+                                errorMessages.push(errorMessage);
+                            }
+                            this.set("_errorMessages", errorMessages);
+                            this.$$('#errorsDialog').open();
+                            return;
+                        } else {                          
+                            var liquidSave = this.$$("[name=entitySaveService]");
+                            if (liquidSave) {
+                                liquidSave.generateRequest();
+                            }    
+                        }                        
+                    },
+                    _onEntityGovernFailed: function (e) {
+                        console.warn('Entity get failed with error: ', JSON.stringify(e));
+                    },
+                    _skipErrors: function() {
+                        var liquidSave = this.$$("[name=entitySaveService]");
+                        if (liquidSave) {
+                            liquidSave.generateRequest();
+                        }
+                    },
+                    _getMessageCodes: function (attribute) {
+                        var messageCodes = [];
+                        var properties = attribute.properties;
+                        if (properties) {
+                            var messages = properties.messages;
+                            if(messages && messages.length > 0) {
+                                for (var i=0; i< messages.length; i++) {
+                                    var messageCode = messages[i].messageCode;
+                                    messageCodes.push(messages[i].messageCode);
+                                }
+                            }
+                        }
+                        return messageCodes;
+                    },
+
+                    getMessagesFromCodes:function (messageCodes) {
+                        var messages=[];
+                        if(messageCodes && messageCodes.length > 0) {
+                            for(var i=0; i<messageCodes.length; i++){
+                                var mes= this.messageCodeMapping[messageCodes[i]];
+                                if(mes){
+                                    messages.push(mes);
+                                } else{
+                                    messages.push("Error with Code: "+messageCodes[i])
+                                }
+                            }
+                        }
+                        return messages;
+                    },
                 });
             })();
         </script>

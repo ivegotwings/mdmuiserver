@@ -14,6 +14,6 @@ function sendMessageToSpecificUser(data, userId) {
 }
 
 module.exports = {
-    sendMessageToAllUser : sendMessageToAllUser,
-    sendMessageToSpecificUser : sendMessageToSpecificUser
+        sendMessageToAllUser: sendMessageToAllUser,
+        sendMessageToSpecificUser: sendMessageToSpecificUser
 };

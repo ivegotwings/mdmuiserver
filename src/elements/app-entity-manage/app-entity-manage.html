@@ -102,7 +102,7 @@
             }
         </style>
         <rock-layout>
-            <liquid-config-aggregate-get id="getManageAppConfig" verbose operation="getbyids" request-id="req1" app-name="app-entity-manage"
+            <liquid-config-aggregate-get id="getManageAppConfig" verbose operation="getbyids" request-id="req1" app-name="app-entity-manage" 
                 context-data="[[contextData]]" on-config-get-response="_onApplicationConfigReceived"></liquid-config-aggregate-get>
             <rock-titlebar icon="dashboard" title="" sub-title="" config="{{getConfig('rock-titlebar')}}" closable minimizable>
                 <div id="dimensionContainer" align="right">
@@ -111,16 +111,9 @@
             </rock-titlebar>
             <rock-header frozen>
                 <div class="fixed-content">
-                    <bedrock-pubsub on-bedrock-event-search="_searchEvent"></bedrock-pubsub>
-                    <bedrock-pubsub on-bedrock-event-refresh="_refreshEvent"></bedrock-pubsub>
-                    <bedrock-pubsub on-bedrock-event-copy="_copyEvent"></bedrock-pubsub>
-                    <bedrock-pubsub on-bedrock-event-paste="_pasteEvent"></bedrock-pubsub>
-                    <bedrock-pubsub on-bedrock-event-clone="_cloneEvent"></bedrock-pubsub>
-                    <bedrock-pubsub on-bedrock-event-add="_addEvent"></bedrock-pubsub>
-                    <bedrock-pubsub on-bedrock-event-delete="_deleteEvent"></bedrock-pubsub>
-                    <bedrock-pubsub on-bedrock-event-cut="_cutEvent"></bedrock-pubsub>
-                    <bedrock-pubsub on-bedrock-event-route-chamged="onRouteChange"></bedrock-pubsub>
-                    <rock-entity-header context-data="[[contextData]]" header-config="{{getConfig('rock-entity-header','','headerConfig')}}"
+                    <bedrock-pubsub event-name="toolbar-button-event" handler="_onToolbarEvent" target-id="entityManageHeader"></bedrock-pubsub>
+                    <bedrock-pubsub on-bedrock-event-route-changed="onRouteChange"></bedrock-pubsub>
+                    <rock-entity-header id="entityManageHeader" context-data="[[contextData]]" header-config="{{getConfig('rock-entity-header','','headerConfig')}}"
                         buttons="{{getConfig('rock-entity-header','','toolbarConfig')}}" to-fix-data="{{getConfig('rock-entity-header','','summaryToFix')}}"></rock-entity-header>
                 </div>
             </rock-header>
@@ -147,7 +140,9 @@
             </pebble-dialog>
         </rock-layout>
         <bedrock-pubsub event-name="app-context-changed" handler="_onAppContextChanged"></bedrock-pubsub>
+        <bedrock-pubsub event-name="notification" handler="_onNotification"></bedrock-pubsub>
         <bedrock-pubsub event-name="on-attribute-save" handler="_refreshRockEntityHeader"></bedrock-pubsub>
+
     </template>
     <script>
         (function () {
@@ -232,34 +227,7 @@
                     RUFBehaviors.UIBehavior,
                     RUFBehaviors.AppContextBehavior
                 ],
-                _onApplicationConfigReceived: function (e) {
-                    //console.log('Received configs ', JSON.stringify(e, null, 2));
-                    this.set('applicationConfig', e.detail);
-                },
-                _onAppContextChanged: function (e) {
-                    if (this.verbose) {
-                        console.log("AppContext:- " + JSON.stringify(e.detail.contextData));
-                    }
-
-                    this.contextData = e.detail.contextData;
-
-                    this._reRenderOnDimensionChange();
-                },
-                _onComponentCreating: function (e, detail, sender) {
-                    var component = detail.data;
-
-                    if ((component.name.indexOf("attribute") != -1 ||
-                        component.name.indexOf("relationship") != -1 ||
-                        component.name.indexOf("variant") != -1) && component.properties) {
-
-                        component.properties['context-data'] = this.contextData;
-
-                    } else if (component.name == 'rock-entity-summary') {
-                        component.properties.config = this.summaryConfig;
-                    }
-                },
-                _searchEvent: function (e, detail, sender) { },
-                _refreshEvent: function (e, detail, sender) {
+                refresh: function() {
                     var isDirty = false;
                     if (this.getIsDirty) {
                         isDirty = this.getIsDirty();
@@ -273,6 +241,68 @@
                         this._refreshView();
                     }
                 },
+                _onApplicationConfigReceived: function (e) {
+                    //console.log('Received configs ', JSON.stringify(e, null, 2));
+                    this.set('applicationConfig', e.detail);
+                },
+                _onToolbarEvent: function(e, detail) {
+					var event = detail.name;                    
+
+					switch (event.toLowerCase()) {
+                        case "search":
+							this._searchEvent(e, detail);
+							break;
+						case "refresh":
+							this._refreshEvent(e, detail);
+							break;						
+						case "copy":
+							this._copyEvent(e, detail);
+							break;
+						case "paste":
+							this._pasteEvent(e, detail);
+							break;
+						case "clone":
+							this._cloneEvent(e, detail);
+							break;
+						case "add":
+                            this._addEvent(e, detail);
+							break;
+                        case "delete":
+                            this._deleteEvent(e, detail);
+							break;
+                        case "cut":
+                            this._cutEvent(e, detail);
+							break;
+						default:
+							this.fireBedrockEvent("grid-custom-toolbar-event", detail);
+							break;
+					}
+				},
+                _onAppContextChanged: function (e) {
+                    if (this.verbose) {
+                        console.log("AppContext:- " + JSON.stringify(e.detail.contextData));
+                    }
+
+                    this.contextData = e.detail.contextData;
+                    
+                    this._reRenderOnDimensionChange();
+                },
+                _onComponentCreating: function (e, detail, sender) {
+                    var component = detail.data;
+
+                    if (component.properties) {
+                        //set context-data for all components no matter what
+                        component.properties['context-data'] = this.contextData;
+                        //TODO: summary should load its config by itself
+                        if (component.name == 'rock-entity-summary') {
+                            component.properties.config = this.summaryConfig;
+                        }
+                    }
+                },
+                _searchEvent: function (e, detail, sender) { },
+                _refreshEvent: function (e, detail, sender) {
+                    this.refresh();
+                },
                 _copyEvent: function (e, detail, sender) {
                     document.querySelector('#app').$.pebbleAppToast.fitInto = document.querySelector(
                         '#app').$.toastArea;
@@ -280,19 +310,19 @@
                     document.querySelector('#app').$.pebbleAppToast.show();
                 },
                 _pasteEvent: function (e, detail, sender) {
-                    alert("event triggered: " + detail.eventName);
+                    alert("event triggered: " + detail.name);
                 },
                 _cloneEvent: function (e, detail, sender) {
-                    alert("event triggered: " + detail.eventName);
+                    alert("event triggered: " + detail.name);
                 },
                 _addEvent: function (e, detail, sender) {
-                    alert("event triggered: " + detail.eventName);
+                    alert("event triggered: " + detail.name);
                 },
                 _deleteEvent: function (e, detail, sender) {
-                    alert("event triggered: " + detail.eventName);
+                    alert("event triggered: " + detail.name);
                 },
                 _cutEvent: function (e, detail, sender) {
-                    alert("event triggered: " + detail.eventName);
+                    alert("event triggered: " + detail.name);
                 },
                 _toggleStepper: function (contexts) {
                     if (contexts && contexts.length > 1) {
@@ -328,7 +358,7 @@
                     dimensionGridElement.dataContext = Polymer.dom(this).node.$$(
                         'rock-dimension-selector[id="dimensionSelector"]').getSelectedDimensions();
                     dimensionGridElement.contextData = this.contextData;
-
+                    
                     var dimensionGridContent = Polymer.dom(this).node.$.dimensionGridDialog.querySelector(
                         '#dimensionGridContent');
 
@@ -377,7 +407,7 @@
                     }
                 },
                 _reRenderOnDimensionChange: function () {
-                    this._refreshRockEntityHeader();
+                   this._refreshRockEntityHeader();
 
                     var entityWorklflowPanelEl = Polymer.dom(this).node.$$('rock-workflow-panel');
                     if (entityWorklflowPanelEl && entityWorklflowPanelEl.refresh) {
@@ -394,6 +424,11 @@
                     }, 30);
                 },
 
+                _onNotification: function(e) {
+                    //TODO:: Needs to change after discussing how workflow refresh will happen
+                    alert("notified");
+                },
+                
                 _refreshRockEntityHeader: function () {
                     var entityHeaderEle = Polymer.dom(this).node.$$('rock-entity-header');
                     if (entityHeaderEle && entityHeaderEle.refresh) {
