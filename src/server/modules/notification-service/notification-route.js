@@ -20,7 +20,7 @@ function prepareNotificationObject(data) {
                 if (!isEmpty(notificationInfo)) {
                     if (!isEmpty(serviceName) && !isEmpty(requestStatus)) {
                         notificationInfo.status = requestStatus.values[0].value;
-                        notificationInfo.action = getAction(serviceName.values[0].value, notificationInfo.status);
+                        notificationInfo.action = getAction(serviceName.values[0].value, notificationInfo.status, notificationInfo.operation);
                         notificationInfo.description = "";
                     }
                 }
@@ -31,27 +31,37 @@ function prepareNotificationObject(data) {
     return notificationInfo;
 };
 
-function getAction(serviceName, status) {
+function getAction(serviceName, status, operation) {
     var action = "";
-    
-    if(!isEmpty(status) && !isEmpty(status)) {
-        if(serviceName.toLowerCase() == "entityservice") {
-            if(status == "success") {
-                action = enums.actions.saveComplete;
+
+    if (!isEmpty(status) && !isEmpty(status)) {
+        if (serviceName.toLowerCase() == "entityservice") {
+            if (status.toLowerCase() == "success") {
+                action = enums.actions.SaveComplete;
             } else {
-                action = enums.actions.saveFail;
+                action = enums.actions.SaveFail;
             }
         }
 
-        if(serviceName.toLowerCase() == "entitygovernservice") {
-            if(status == "success") {
-                action = enums.actions.governComplete;
+        if (serviceName.toLowerCase() == "entitygovernservice") {
+            if (operation) {
+                if (operation == enums.operations.WorkflowTransition) {
+                    if (status.toLowerCase() == "success") {
+                        action = enums.actions.WorkflowTransitionComplete;
+                    } else {
+                        action = enums.actions.WorkflowTransitionFail;
+                    }
+                }
             } else {
-                action = enums.actions.governFail;
+                if (status.toLowerCase() == "success") {
+                    action = enums.actions.GovernComplete;
+                } else {
+                    action = enums.actions.GovernFail;
+                }
             }
         }
     }
-    
+
     return action;
 };
 
@@ -63,9 +73,9 @@ module.exports = function (app) {
         if (dataObject) {
             var notificationInfo = prepareNotificationObject(dataObject.data);
 
-            if(!isEmpty(notificationInfo)) {
+            if (!isEmpty(notificationInfo)) {
                 notificationInfo.tenantId = req.body.tenantId;
-                if(notificationInfo.userId) {
+                if (notificationInfo.userId) {
                     notificationManager.sendMessageToSpecificUser(notificationInfo, notificationInfo.userId);
                 }
             }
