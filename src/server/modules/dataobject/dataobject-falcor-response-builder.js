@@ -248,6 +248,10 @@ function _addCtxPropertiesToAttributes(attrs, attrNames, properties) {
         'properties': properties
     };
 
+    if(!attrs) {
+        attrs = {};
+    }
+    
     attrs['properties'] = ctxProperties;
 }
 

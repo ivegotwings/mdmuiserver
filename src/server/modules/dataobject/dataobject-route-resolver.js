@@ -272,7 +272,7 @@ async function getByIds(pathSet, operation) {
     return response;
 }
 
-async function processData(dataIndex, dataObjects, dataObjectAction, operation) {
+async function processData(dataIndex, dataObjects, dataObjectAction, operation, clientState) {
     //console.log(dataObjectAction, operation);
 
     var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
@@ -285,7 +285,7 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation) 
         formatDataObjectForSave(dataObject);
         //console.log('dataObject data', JSON.stringify(dataObject, null, 4));
 
-        var apiRequestObj = { 'includeRequest': false, 'dataIndex': dataIndex };
+        var apiRequestObj = { 'includeRequest': false, 'dataIndex': dataIndex, 'clientState': clientState };
         apiRequestObj[dataIndexInfo.name] = dataObject;
         //console.log('api request data for process dataObjects', JSON.stringify(apiRequestObj));
 
@@ -333,6 +333,7 @@ async function create(callPath, args, operation) {
     var dataIndex = callPath.dataIndexes[0];
     var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
     var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
+    var clientState = jsonEnvelope.json.clientState;
     var dataObjectIds = Object.keys(dataObjects);
     //console.log(dataObjects);
 
@@ -347,7 +348,7 @@ async function create(callPath, args, operation) {
         }
     }
 
-    return processData(dataIndex, dataObjects, "create", operation);
+    return processData(dataIndex, dataObjects, "create", operation, clientState);
 }
 
 async function update(callPath, args, operation) {
@@ -356,8 +357,9 @@ async function update(callPath, args, operation) {
     var dataIndex = callPath.dataIndexes[0];
     var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
     var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
+    var clientState = jsonEnvelope.json.clientState;    
 
-    return processData(dataIndex, dataObjects, "update", operation);
+    return processData(dataIndex, dataObjects, "update", operation, clientState);
 }
 
 async function deleteDataObjects(callPath, args, operation) {
@@ -365,7 +367,9 @@ async function deleteDataObjects(callPath, args, operation) {
     var jsonEnvelope = args[0];
     var dataIndex = callPath.dataIndexes[0];
     var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][pathKeys.byIds];
-    return processData(dataIndex, dataObjects, "delete", operation);
+    var clientState = jsonEnvelope.json.clientState;
+    
+    return processData(dataIndex, dataObjects, "delete", operation, clientState);
 }
 
 module.exports = {
