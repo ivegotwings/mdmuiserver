@@ -28,8 +28,7 @@
         <style include="pebble-styles-shared">
             rock-entity-header {
                 border-bottom: 1px solid var(--default-border-color, #c1cad4);
-                height: 70px;
-                padding: 10px;
+                padding: 10px 20px;
             }
             
             rock-titlebar::shadow #mainTitle {
@@ -101,9 +100,15 @@
             #dimensionGridContent {
                 height: 80%;
             }
+            
+            rock-tabs::shadow .tab-content {
+                overflow-y: auto;
+                height: var(--rock-tab-content-height);
+            }
         </style>
-        <rock-layout>
-            <liquid-config-aggregate-get id="getManageAppConfig" verbose operation="getbyids" request-id="req1" app-name="app-entity-manage" 
+
+        <rock-layout hide-footer>
+            <liquid-config-aggregate-get id="getManageAppConfig" verbose operation="getbyids" request-id="req1" app-name="app-entity-manage"
                 context-data="[[contextData]]" on-config-get-response="_onApplicationConfigReceived"></liquid-config-aggregate-get>
             <rock-titlebar icon="dashboard" title="" sub-title="" config="{{getConfig('rock-titlebar')}}" closable minimizable>
                 <div id="dimensionContainer" align="right">
@@ -112,16 +117,9 @@
             </rock-titlebar>
             <rock-header frozen>
                 <div class="fixed-content">
-                    <bedrock-pubsub on-bedrock-event-search="_searchEvent"></bedrock-pubsub>
-                    <bedrock-pubsub on-bedrock-event-refresh="_refreshEvent"></bedrock-pubsub>
-                    <bedrock-pubsub on-bedrock-event-copy="_copyEvent"></bedrock-pubsub>
-                    <bedrock-pubsub on-bedrock-event-paste="_pasteEvent"></bedrock-pubsub>
-                    <bedrock-pubsub on-bedrock-event-clone="_cloneEvent"></bedrock-pubsub>
-                    <bedrock-pubsub on-bedrock-event-add="_addEvent"></bedrock-pubsub>
-                    <bedrock-pubsub on-bedrock-event-delete="_deleteEvent"></bedrock-pubsub>
-                    <bedrock-pubsub on-bedrock-event-cut="_cutEvent"></bedrock-pubsub>
-                    <bedrock-pubsub on-bedrock-event-route-chamged="onRouteChange"></bedrock-pubsub>
-                    <rock-entity-header context-data="[[contextData]]" header-config="{{getConfig('rock-entity-header','','headerConfig')}}"
+                    <bedrock-pubsub event-name="toolbar-button-event" handler="_onToolbarEvent" target-id="entityManageHeader"></bedrock-pubsub>
+                    <bedrock-pubsub on-bedrock-event-route-changed="onRouteChange"></bedrock-pubsub>
+                    <rock-entity-header id="entityManageHeader" context-data="[[contextData]]" header-config="{{getConfig('rock-entity-header','','headerConfig')}}"
                         buttons="{{getConfig('rock-entity-header','','toolbarConfig')}}" to-fix-data="{{getConfig('rock-entity-header','','summaryToFix')}}"></rock-entity-header>
                 </div>
             </rock-header>
@@ -148,6 +146,9 @@
             </pebble-dialog>
         </rock-layout>
         <bedrock-pubsub event-name="app-context-changed" handler="_onAppContextChanged"></bedrock-pubsub>
+        <bedrock-pubsub event-name="workflow-transition-complete" handler="_onWorkflowTransitionComplete"></bedrock-pubsub>
+        <bedrock-pubsub event-name="on-attribute-save" handler="_refreshRockEntityHeader"></bedrock-pubsub>
+
     </template>
     <script>
         (function () {
@@ -170,6 +171,11 @@
                     };
 
                     this.contextData[this.CONTEXT_TYPE_USER] = [userContext];
+
+                    setTimeout(function () {
+                        this._setTabContentHeight();
+                    }.bind(this), 50);
+
                 },
                 ready: function () {
                     if (this.verbose)
@@ -232,34 +238,7 @@
                     RUFBehaviors.UIBehavior,
                     RUFBehaviors.AppContextBehavior
                 ],
-                _onApplicationConfigReceived: function (e) {
-                    //console.log('Received configs ', JSON.stringify(e, null, 2));
-                    this.set('applicationConfig', e.detail);
-                },
-                _onAppContextChanged: function (e) {
-                    if (this.verbose) {
-                        console.log("AppContext:- " + JSON.stringify(e.detail.contextData));
-                    }
-
-                    this.contextData = e.detail.contextData;
-                    
-                    this._reRenderOnDimensionChange();
-                },
-                _onComponentCreating: function (e, detail, sender) {
-                    var component = detail.data;
-
-                    if ((component.name.indexOf("attribute") != -1 ||
-                        component.name.indexOf("relationship") != -1 ||
-                        component.name.indexOf("variant") != -1) && component.properties) {
-
-                        component.properties['context-data'] = this.contextData;
-
-                    } else if (component.name == 'rock-entity-summary') {
-                        component.properties.config = this.summaryConfig;
-                    }
-                },
-                _searchEvent: function (e, detail, sender) { },
-                _refreshEvent: function (e, detail, sender) {
+                refresh: function () {
                     var isDirty = false;
                     if (this.getIsDirty) {
                         isDirty = this.getIsDirty();
@@ -268,10 +247,74 @@
                         if (window.confirm(
                             "There are unsaved changes. Do you want to discard the changes?")) {
                             this._refreshView();
+                            this._reRenderOnDimensionChange();
                         }
                     } else {
                         this._refreshView();
+                        this._reRenderOnDimensionChange();
                     }
+                },
+                _onApplicationConfigReceived: function (e) {
+                    //console.log('Received configs ', JSON.stringify(e, null, 2));
+                    this.set('applicationConfig', e.detail);
+                },
+                _onToolbarEvent: function (e, detail) {
+                    var event = detail.name;
+
+                    switch (event.toLowerCase()) {
+                        case "search":
+                            this._searchEvent(e, detail);
+                            break;
+                        case "refresh":
+                            this._refreshEvent(e, detail);
+                            break;
+                        case "copy":
+                            this._copyEvent(e, detail);
+                            break;
+                        case "paste":
+                            this._pasteEvent(e, detail);
+                            break;
+                        case "clone":
+                            this._cloneEvent(e, detail);
+                            break;
+                        case "add":
+                            this._addEvent(e, detail);
+                            break;
+                        case "delete":
+                            this._deleteEvent(e, detail);
+                            break;
+                        case "cut":
+                            this._cutEvent(e, detail);
+                            break;
+                        default:
+                            this.fireBedrockEvent("grid-custom-toolbar-event", detail);
+                            break;
+                    }
+                },
+                _onAppContextChanged: function (e) {
+                    if (this.verbose) {
+                        console.log("AppContext:- " + JSON.stringify(e.detail.contextData));
+                    }
+
+                    this.contextData = e.detail.contextData;
+
+                    this._reRenderOnDimensionChange();
+                },
+                _onComponentCreating: function (e, detail, sender) {
+                    var component = detail.data;
+
+                    if (component.properties) {
+                        //set context-data for all components no matter what
+                        component.properties['context-data'] = this.contextData;
+                        //TODO: summary should load its config by itself
+                        if (component.name == 'rock-entity-summary') {
+                            component.properties.config = this.summaryConfig;
+                        }
+                    }
+                },
+                _searchEvent: function (e, detail, sender) { },
+                _refreshEvent: function (e, detail, sender) {
+                    this.refresh();
                 },
                 _copyEvent: function (e, detail, sender) {
                     document.querySelector('#app').$.pebbleAppToast.fitInto = document.querySelector(
@@ -280,19 +323,19 @@
                     document.querySelector('#app').$.pebbleAppToast.show();
                 },
                 _pasteEvent: function (e, detail, sender) {
-                    alert("event triggered: " + detail.eventName);
+                    alert("event triggered: " + detail.name);
                 },
                 _cloneEvent: function (e, detail, sender) {
-                    alert("event triggered: " + detail.eventName);
+                    alert("event triggered: " + detail.name);
                 },
                 _addEvent: function (e, detail, sender) {
-                    alert("event triggered: " + detail.eventName);
+                    alert("event triggered: " + detail.name);
                 },
                 _deleteEvent: function (e, detail, sender) {
-                    alert("event triggered: " + detail.eventName);
+                    alert("event triggered: " + detail.name);
                 },
                 _cutEvent: function (e, detail, sender) {
-                    alert("event triggered: " + detail.eventName);
+                    alert("event triggered: " + detail.name);
                 },
                 _toggleStepper: function (contexts) {
                     if (contexts && contexts.length > 1) {
@@ -314,10 +357,11 @@
                 },
                 onDimensionGridOpen: function (e, detail, sender) {
                     this.$.dimensionGridDialog.dialogTitle = "Detailed Dimensional Edit for : " +
-                        detail.data.longName;
+                        detail.data.externalName;
 
                     var dimension = this.dimensions;
                     var dimensionGridElement = document.createElement("rock-dimension-grid");
+                    dimensionGridElement.dimensionConfigs = this.getConfig('rock-dimension-selector');
 
                     dimensionGridElement.attributeModelObject = detail.data;
                     dimensionGridElement.locales = dimension["locales"];
@@ -326,6 +370,7 @@
                     dimensionGridElement.dataId = DataHelper.getParamValue('id');
                     dimensionGridElement.dataContext = Polymer.dom(this).node.$$(
                         'rock-dimension-selector[id="dimensionSelector"]').getSelectedDimensions();
+                    dimensionGridElement.contextData = this.contextData;
 
                     var dimensionGridContent = Polymer.dom(this).node.$.dimensionGridDialog.querySelector(
                         '#dimensionGridContent');
@@ -358,6 +403,8 @@
                 },
                 setTitleBar: function (values) {
                     var titlebar = this.$$('rock-titlebar');
+                    titlebar.title = "";
+                    titlebar.subTitle = "";
                     var config = titlebar.config;
                     for (var i = 0; i < values.length; i++) {
                         var value = values[i];
@@ -373,24 +420,59 @@
                     }
                 },
                 _reRenderOnDimensionChange: function () {
+                    this._refreshRockEntityHeader();
+                    this._refreshWorkflowPanel();
+
+                    var valContexts = this.getValueContexts();
+                    if (valContexts && valContexts.length) {
+                        this._toggleStepper(valContexts);
+                    }
+
+                    this.debounce('reloadTabs', function () {
+                        this.$$('rock-tabs').reloadTabs();
+                    }, 30);
+                },
+
+                _onWorkflowTransitionComplete: function (e) {
+                    this._refreshWorkflowPanel();
+
+                },
+
+                _refreshRockEntityHeader: function () {
                     var entityHeaderEle = Polymer.dom(this).node.$$('rock-entity-header');
                     if (entityHeaderEle && entityHeaderEle.refresh) {
                         entityHeaderEle.refresh();
                     }
+                },
 
+                _refreshWorkflowPanel: function () {
                     var entityWorklflowPanelEl = Polymer.dom(this).node.$$('rock-workflow-panel');
                     if (entityWorklflowPanelEl && entityWorklflowPanelEl.refresh) {
                         entityWorklflowPanelEl.refresh();
                     }
+                },
 
-                    var valContexts = this.getValueContexts();
-                    if(valContexts && valContexts.length) {
-                        this._toggleStepper(valContexts);
+                _setTabContentHeight: function () {
+                    var viewPortHeight = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+                    var appHeader = document.querySelector("main-app").$$("app-header");
+                    var tabGroup = this.$$("rock-tabs").$$('pebble-tab-group');
+                    var entityHeader = this.$.entityManageHeader;
+                    var rockTitle = this.$$("rock-layout").querySelector("rock-titlebar");
+                    if (appHeader) {
+                        viewPortHeight -= appHeader.offsetHeight;
+                    }
+                    if (tabGroup) {
+                        viewPortHeight -= tabGroup.offsetHeight;
+                    }
+                    if (entityHeader) {
+                        viewPortHeight -= entityHeader.offsetHeight;
+                    }
+                    if (rockTitle) {
+                        viewPortHeight -= rockTitle.offsetHeight;
                     }
 
-                    this.debounce('reloadTabs', function() {
-                        this.$$('rock-tabs').reloadTabs();
-                    }, 30);
+                    this.customStyle['--rock-tab-content-height'] = parseInt(viewPortHeight) - 33 + 'px';
+                    this.updateStyles();
                 }
             });
         })();

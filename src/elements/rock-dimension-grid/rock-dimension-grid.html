@@ -2,6 +2,8 @@
 
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-helpers/data-transform-helper.html">
 
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
@@ -75,41 +77,41 @@ The user can view the past data but cannot modify it. However the current and fu
           height: 30px;
         }
       }
-      pebble-checkbox{
+      
+      pebble-checkbox {
         margin-top: 3px;
-      }      
+      }
+      
       rock-grid {
         --rock-grid-height: 350px;
       }
     </style>
     <div id="dimensionGridContainer">
       <div id="dimensionFilters">
-        <pebble-accordion header-text="Locale" default-icon="expand-less" open-icon="expand-more">
-          <div class="header-content">
-            <pebble-checkbox id="localeChk" on-change="_onSelectAll"></pebble-checkbox>
-          </div>
-          <pebble-lov id="locale" items="{{locales}}" no-sub-title multi-select show-image on-selection-changed="_onLocaleDimensionChage"></pebble-lov>
-        </pebble-accordion>
-        <pebble-accordion header-text="Context" default-icon="expand-less" open-icon="expand-more">
-          <div class="header-content">
-            <pebble-checkbox id="contextChk" on-change="_onSelectAll"></pebble-checkbox>
-          </div>
-          <pebble-lov id="context" items="{{contexts}}" no-sub-title multi-select show-image on-selection-changed="_onContextDimensionChage"></pebble-lov>
-        </pebble-accordion>
-        <pebble-accordion header-text="Source" default-icon="expand-less" open-icon="expand-more">
-          <div class="header-content">
-            <pebble-checkbox id="sourceChk" on-change="_onSelectAll"></pebble-checkbox>
-          </div>
-          <pebble-lov id="source" items="{{sources}}" no-sub-title multi-select show-image on-selection-changed="_onSourceDimensionChage"></pebble-lov>
-        </pebble-accordion>
-        <pebble-accordion header-text="Time" default-icon="expand-less" open-icon="expand-more">
-        </pebble-accordion>
+        <template is="dom-repeat" items="[[dimensionConfigs]]" as="configDataItem" notify-dom-change>
+          <pebble-accordion header-text="[[configDataItem.title]]" default-icon="expand-less" open-icon="expand-more">
+            <div class="header-content">
+              <pebble-checkbox id="[[configDataItem.id]]Chk" on-change="_onSelectAll"></pebble-checkbox>
+            </div>
+            <template id="[[configDataItem.id]]" is="dom-if" if="[[_compareRequestType(configDataItem.dataRequestType, 'entity')]]" notify-dom-change>
+              <rock-entity-lov id="[[configDataItem.id]]" config-data-item-id="[[configDataItem.id]]" id-field="[[configDataItem.dataMappings.id]]"
+                title-pattern="[[configDataItem.dataMappings.title]]" type-field="[[configDataItem.dataMappings.type]]" request-data="[[configDataItem.dataRequest]]"
+                on-selection-changed="_onDimensionChange" multi-select no-sub-title></rock-entity-lov>
+            </template>
+            <template id="[[configDataItem.id]]" is="dom-if" if="[[_compareRequestType(configDataItem.dataRequestType, 'entity-model')]]"
+              notify-dom-change>
+              <rock-entity-model-lov id="[[configDataItem.id]]" config-data-item-id="[[configDataItem.id]]" id-field="[[configDataItem.dataMappings.id]]"
+                title-pattern="[[configDataItem.dataMappings.title]]" type-field="[[configDataItem.dataMappings.type]]" request-data="[[configDataItem.dataRequest]]"
+                on-selection-changed="_onDimensionChange" multi-select no-sub-title></rock-entity-model-lov>
+            </template>
+          </pebble-accordion>
+        </template>
       </div>
       <div id="dimensionGrid">
         <pebble-button icon="pebble-md-icons:actions" class="dropdownText dropdownIcon btn dropdown-success pull-right" menu-button
           dropdown-icon button-text="Action" on-click=""></pebble-button>
         <div class="clearfix"></div>
-        <rock-grid config="{{getParentAppConfig('rock-dimension-grid', '', 'dimension-gridConfig')}}" page-size="10" attribute-models="{{gridAttributeModel}}"></rock-grid>
+        <rock-grid config="[[_gridConfig]]" page-size="10" attribute-models="[[gridAttributeModel]]"></rock-grid>
       </div>
       <div class="clearfix"></div>
     </div>
@@ -148,9 +150,9 @@ The user can view the past data but cannot modify it. However the current and fu
           },
 
           /*
-           * Indicates an array of contexts for the dimension panel.
+           * Indicates an array of channels for the dimension panel.
            */
-          contexts: {
+          channels: {
             type: Array,
             value: function () {
               return [];
@@ -191,7 +193,7 @@ The user can view the past data but cannot modify it. However the current and fu
           /*
            * Indicates current selected contexts in dimension grid.
            */
-          _selectedContexts: {
+          _selectedChannels: {
             type: Array,
             value: function () {
               return [];
@@ -226,61 +228,44 @@ The user can view the past data but cannot modify it. However the current and fu
             value: function () {
               return {};
             }
+          },
+
+          _gridConfig: {
+            type: Object,
+            value: function () {
+              return {};
+            }
           }
         },
 
         observers: [
-          '_onSelectionChange(_selectedLocales, _selectedContexts, _selectedSources)',
-          '_entityGet(response)',
-          '_initDimensionGrid(dataContext)'
+          '_onSelectionChange(_selectedLocales, _selectedChannels, _selectedSources)',
+          '_entityGet(response)'
         ],
 
         behaviors: [
-          RUFBehaviors.UIBehavior
+          RUFBehaviors.UIBehavior,
+          RUFBehaviors.ComponentContextBehavior
         ],
 
-        _onLocaleDimensionChage: function (e) {
-          if (e.currentTarget.selectedItems) {
-            var selectedItemIds = this._getIdsFromObject(e.currentTarget.selectedItems);
-            var selectedLocales = [];
-            this.locales.forEach(function (item) {
-              if (selectedItemIds.indexOf(item.id) >= 0) {
-                selectedLocales.push(item);
-              }
-            }, this);
-
-            this._selectedLocales = undefined;
-            this._selectedLocales = selectedLocales;
-          }
+        ready: function () {
+          this._setInitDimensions();
         },
 
-        _onContextDimensionChage: function (e) {
+        _onDimensionChange: function (e) {
           if (e.currentTarget.selectedItems) {
-            var selectedItemIds = this._getIdsFromObject(e.currentTarget.selectedItems);
-            var selectedContexts = [];
-            this.contexts.forEach(function (item) {
-              if (selectedItemIds.indexOf(item.id) >= 0) {
-                selectedContexts.push(item);
-              }
-            }, this);
+            var selectedItems = e.currentTarget.selectedItems;
 
-            this._selectedContexts = undefined;
-            this._selectedContexts = selectedContexts;
-          }
-        },
-
-        _onSourceDimensionChage: function (e) {
-          if (e.currentTarget.selectedItems) {
-            var selectedItemIds = this._getIdsFromObject(e.currentTarget.selectedItems);
-            var selectedSources = [];
-            this.sources.forEach(function (item) {
-              if (selectedItemIds.indexOf(item.id) >= 0) {
-                selectedSources.push(item);
-              }
-            }, this);
-
-            this._selectedSources = undefined;
-            this._selectedSources = selectedSources;
+            if (e.currentTarget.id == "locale") {
+              this._selectedLocales = undefined;
+              this._selectedLocales = selectedItems;
+            } else if (e.currentTarget.id == "channel") {
+              this._selectedChannels = undefined;
+              this._selectedChannels = selectedItems;
+            } else if (e.currentTarget.id == "source") {
+              this._selectedSources = undefined;
+              this._selectedSources = selectedItems;
+            }
           }
         },
 
@@ -289,6 +274,7 @@ The user can view the past data but cannot modify it. However the current and fu
             var attributeNames = [];
             var valueContexts = [];
             var contexts = [];
+            var typesCriterion = [];
 
             attributeNames.push(this.attributeModelObject.name);
             if (this._selectedLocales && this._selectedSources) {
@@ -302,8 +288,8 @@ The user can view the past data but cannot modify it. However the current and fu
               }, this);
             }
 
-            if (this._selectedContexts) {
-              this._selectedContexts.forEach(function (contextItem) {
+            if (this._selectedChannels) {
+              this._selectedChannels.forEach(function (contextItem) {
                 contexts.push({
                   "classification": "_ALL",
                   "list": contextItem.title
@@ -311,6 +297,15 @@ The user can view the past data but cannot modify it. However the current and fu
               }, this);
             }
 
+            var itemContext = this.getFirstItemContext();
+
+            if (!_.isEmpty(itemContext)) {
+              typesCriterion.push(itemContext.type);
+            }
+
+            //TODO: need to check how can we replace this request with request-helper.
+            // Here this component has it's own set of contexts.
+            //TODO: Overall comment for this is dimensions of this component's are working only on locale, source, channel. It has to br dynamic.
             var req = {
               "params": {
                 "query": {
@@ -318,7 +313,7 @@ The user can view the past data but cannot modify it. However the current and fu
                   "valueContexts": valueContexts,
                   "filters": {
                     "attributesCriterion": [],
-                    "typesCriterion": ["nart"]
+                    "typesCriterion": typesCriterion
                   },
                   "id": this.dataId
                 },
@@ -335,7 +330,7 @@ The user can view the past data but cannot modify it. However the current and fu
 
             var liquidGet = Polymer.dom(this).node.$$('liquid-entity-data-get');
 
-            if (liquidGet && valueContexts.length > 0 && contexts.length > 0) {
+            if (liquidGet && valueContexts.length > 0) {
               liquidGet.generateRequest();
             }
           }
@@ -343,80 +338,109 @@ The user can view the past data but cannot modify it. However the current and fu
 
         _onSelectAll: function (e) {
           if (e.currentTarget.id == 'localeChk') {
-            var localeLov = Polymer.dom(this).node.$$('pebble-lov[id="locale"]');
-            localeLov.selectedItem = undefined;
+            var localeLov = Polymer.dom(this).node.$$('rock-entity-model-lov[id="locale"]');
+            localeLov.selectedItems = undefined;
             this._selectedLocales = undefined;
             if (e.currentTarget.checked) {
-              localeLov.selectedItems = this.locales;
-              this._selectedLocales = this.locales;
+                var items = this._getAllItemsOfLov(localeLov);
+                localeLov.selectedItems = items;
+                this._selectedLocales = items;
             } else {
               localeLov.selectedItems = [];
               this._selectedLocales = [];
             }
           } else if (e.currentTarget.id == 'sourceChk') {
-            var sourceLov = Polymer.dom(this).node.$$('pebble-lov[id="source"]');
-            sourceLov.selectedItem = undefined;
+            var sourceLov = Polymer.dom(this).node.$$('rock-entity-model-lov[id="source"]');
+            sourceLov.selectedItems = undefined;
             this._selectedSources = undefined;
             if (e.currentTarget.checked) {
-              sourceLov.selectedItems = this.sources;
-              this._selectedSources = this.sources;
+              var items = this._getAllItemsOfLov(sourceLov);
+              sourceLov.selectedItems = items;
+              this._selectedSources = items;
             } else {
               sourceLov.selectedItems = [];
               this._selectedSources = [];
             }
-          } else if (e.currentTarget.id == 'contextChk') {
-            var contextLov = Polymer.dom(this).node.$$('pebble-lov[id="context"]');
-            contextLov.selectedItem = undefined;
-            this._selectedContexts = undefined;
+          } else if (e.currentTarget.id == 'channelChk') {
+            var channelLov = Polymer.dom(this).node.$$('rock-entity-lov[id="channel"]');
+            channelLov.selectedItems = undefined;
+            this._selectedChannels = undefined;
             if (e.currentTarget.checked) {
-              contextLov.selectedItems = this.contexts;
-              this._selectedContexts = this.contexts;
+              var items = this._getAllItemsOfLov(channelLov);
+              channelLov.selectedItems = items;
+              this._selectedChannels = items;
             } else {
-              contextLov.selectedItems = [];
-              this._selectedContexts = [];
+              channelLov.selectedItems = [];
+              this._selectedChannels = [];
             }
           }
+        },
+
+        _getAllItemsOfLov: function (lovElement) {
+          var items = [];
+
+          if (lovElement) {
+            var pebbleLov = Polymer.dom(lovElement).node.$$('pebble-lov');
+            if (pebbleLov) {
+              items = pebbleLov.$.selector.items;
+            }
+          }
+
+          return items;
         },
 
         _saveAction: function (e) {
           var attributesJSON = {};
           var grid = Polymer.dom(this).node.$$('rock-grid');
+          var attrName = this.attributeModelObject.name;
 
           if (grid) {
             var data = grid.data;
 
             var entityData = {};
             if (this.response && this.response.content && this.response.content.entities) {
-              entityData = DataHelper.cloneObject(this.response.content.entities);
+              var entities = DataHelper.cloneObject(this.response.content.entities);
+              if (!_.isEmpty(entities)) {
+                entityData = entities[0];
+              }
             }
 
-            if (entityData) {
+            if (!_.isEmpty(entityData)) {
 
               data.forEach(function (item) {
-
-                if (attributesJSON[item.Context] == undefined) {
-                  attributesJSON[item.Context] = {};
-                  attributesJSON[item.Context][this.attributeModelObject.name] = {};
-                  attributesJSON[item.Context][this.attributeModelObject.name].values = [];
+                item.Channel = _.isEmpty(item.Channel) ? item.Channel = 'self' : item.Channel;
+                if (attributesJSON[item.Channel] == undefined) {
+                  attributesJSON[item.Channel] = {};
+                  attributesJSON[item.Channel][attrName] = {};
+                  attributesJSON[item.Channel][attrName].values = [];
                 }
 
-                if (attributesJSON[item.Context][this.attributeModelObject.name]) {
-                  attributesJSON[item.Context][this.attributeModelObject.name].values.push({
-                    "value": item.Value,
+                if (attributesJSON[item.Channel][attrName]) {
+                  attributesJSON[item.Channel][attrName].values.push({
+                    "value": item[attrName],
                     "source": item.Source,
                     "locale": item.Locale
                   })
                 }
               }, this);
 
-              if (this.dataId == entityData[0].id) {
-                var contextKeys = Object.keys(entityData[0].data.contexts);
-                entityData[0].data.contexts.forEach(function (item) {
-                  if (attributesJSON[item.context.list]) {
-                    item.attributes = attributesJSON[item.context.list];
+              if (this.dataId == entityData.id) {
+                if (entityData.data) {
+                  if (!_.isEmpty(entityData.data.contexts)) {
+                    entityData.data.contexts.forEach(function (item) {
+                      if (attributesJSON[item.context.channel]) {
+                        item.attributes = attributesJSON[item.context.channel];
+                      }
+                    }, this);
                   }
-                }, this);
+
+                  if (!_.isEmpty(entityData.data.attributes)) {
+                    entityData.data.attributes = attributesJSON['self'];
+                  }
+                }
+
               }
+
               //set requestObject for save liquid
               this._saveRequest = {
                 "entities": entityData
@@ -434,26 +458,26 @@ The user can view the past data but cannot modify it. However the current and fu
           var dimGrid = Polymer.dom(this).node.$$('rock-grid');
           var pebbleDialog = this._getParentPebbleDialog(Polymer.dom(this).node.parentElement);
 
-          if(dimGrid) {
+          if (dimGrid) {
             dimGrid.changeToReadMode();
           }
 
-          if(pebbleDialog) {
+          if (pebbleDialog) {
             pebbleDialog._close();
           }
           Polymer.dom(this).node.parentElement.removeChild(this);
         },
 
         _getParentPebbleDialog: function (element) {
-					if (element) {
-						if (element.is == "pebble-dialog") {
-							return element;
-						} else {
-							return this._getParentPebbleDialog(element.parentNode);
-						}
-					}
-					return undefined;
-				},
+          if (element) {
+            if (element.is == "pebble-dialog") {
+              return element;
+            } else {
+              return this._getParentPebbleDialog(element.parentNode);
+            }
+          }
+          return undefined;
+        },
 
         _onSaveResponse: function () {
           var mainApp = document.querySelector('#app');
@@ -470,41 +494,57 @@ The user can view the past data but cannot modify it. However the current and fu
         _entityGet: function () {
           var dimGrid = Polymer.dom(this).node.$$('rock-grid');
           var data = [];
+          var attrName = this.attributeModelObject.name;
+          var dimensions = {
+            "locales": this._selectedLocales,
+            "channels": this._selectedChannels,
+            "sources": this._selectedSources
+          };
 
           if (this.response && this.response.content && this.response.content.entities) {
-            //var clonedData = DataHelper.cloneObject(this.response.content.entities);
-
             var entity = this.response.content.entities[0];
-            if (entity && entity.data) {
-              var currContexts = entity.data.contexts;
+            if (entity) {
+              DataTransformHelper.transformEntityForDimensionGrid(entity, dimensions, this.attributeModelObject);
+              var currentContexts = entity.data.contexts;
+              var selfAttributes = entity.data.attributes;
 
-              if (currContexts) {
-                currContexts.forEach(function (item) {
+              if (selfAttributes) {
+                var values = selfAttributes[attrName].values;
+                if (values) {
+                  values.forEach(function (valueItem) {
+                    var record = {};
+                    record[attrName] = valueItem.value;
+                    record.Locale = valueItem.locale;
+                    record.Source = valueItem.source;
+                    record.Channel = "";
+                    data.push(record);
+                  }, this);
+                }
+              }
+
+              if (currentContexts) {
+                currentContexts.forEach(function (item) {
 
                   var attributes = item.attributes;
-                  //var clonedAttributes = clonedData[this.dataId].data.contexts[item].attributes;
 
                   if (attributes) {
-                    var values = attributes[this.attributeModelObject.name].values;
+                    var values = attributes[attrName].values;
                     if (values) {
                       values.forEach(function (valueItem) {
                         var record = {};
-                        record.Value = valueItem.value;
+                        record[attrName] = valueItem.value;
                         record.Locale = valueItem.locale;
                         record.Source = valueItem.source;
-                        record.Context = item.context.list;
+                        record.Channel = item.context.list;
                         data.push(record);
                       }, this);
                     }
                   }
                 }, this);
               }
-
-              // this.gridAttributeModel = undefined;
-              // this.gridAttributeModel = this._getDummyAttributeModels();
             }
 
-             if (data) {
+            if (data) {
               var grid = Polymer.dom(this).node.$$('rock-grid');
               grid.data = data;
               if (grid._getIronDataTable()) {
@@ -516,54 +556,68 @@ The user can view the past data but cannot modify it. However the current and fu
         },
 
         _initDimensionGrid: function () {
-          if (this.dataContext) {
+          if (!_.isEmpty(this.contextData)) {
+            var dataContexts = this.getDataContexts();
+            var valueContexts = this.getValueContexts();
+
+            var locales = [];
+            var sources = [];
+            var channels = [];
+
             var selectedLocales = [];
             var selectedSources = [];
-            var selectedContexts = [];
+            var selectedChannels = [];
 
-            if (this._selectedLocales) {
-              this.locales.forEach(function (item) {
-                this.dataContext.selectedLocales.forEach(function (selectedItem) {
-                  if (item.title == selectedItem) {
-                    selectedLocales.push(item);
-                  }
-                }, this);
+            if (!_.isEmpty(dataContexts)) {
+              channels = [...new Set(dataContexts.map((obj) => obj.channel))];
+            }
+
+            if (!_.isEmpty(valueContexts)) {
+              locales = [...new Set(valueContexts.map((obj) => obj.locale))];
+              sources = [...new Set(valueContexts.map((obj) => obj.source))];
+            }
+
+            if (!_.isEmpty(locales)) {
+              locales.forEach(function (locale) {
+                selectedLocales.push({
+                  "id": locale,
+                  "title": locale
+                });
               }, this);
             }
-            if (this._selectedContexts) {
-              this.contexts.forEach(function (item) {
-                this.dataContext.selectedContexts.forEach(function (selectedItem) {
-                  if (item.title == selectedItem) {
-                    selectedContexts.push(item);
-                  }
-                }, this);
+
+            if (!_.isEmpty(channels)) {
+              channels.forEach(function (channel) {
+                selectedChannels.push({
+                  "id": channel,
+                  "title": channel
+                });
               }, this);
             }
-            if (this._selectedSources) {
-              this.sources.forEach(function (item) {
-                this.dataContext.selectedSources.forEach(function (selectedItem) {
-                  if (item.title == selectedItem) {
-                    selectedSources.push(item);
-                  }
-                }, this);
+
+            if (!_.isEmpty(sources)) {
+              sources.forEach(function (source) {
+                selectedSources.push({
+                  "id": source,
+                  "title": source
+                });
               }, this);
             }
 
             this._selectedLocales = selectedLocales;
-            this._selectedContexts = selectedContexts;
+            this._selectedChannels = selectedChannels;
             this._selectedSources = selectedSources;
 
-            var localeLov = Polymer.dom(this).node.$$("pebble-lov[id='locale']");
-            var sourceLov = Polymer.dom(this).node.$$("pebble-lov[id='source']");
-            var contextLov = Polymer.dom(this).node.$$("pebble-lov[id='context']");
+            this._gridConfig = undefined;
+            this._gridConfig = this._getGridConfig();
 
-            localeLov.activate();
-            sourceLov.activate();
-            contextLov.activate();
+            var attrModels = {};
+            attrModels[this.attributeModelObject.name] = this.attributeModelObject;
 
-            localeLov.selectedItems = this._selectedLocales;
-            sourceLov.selectedItems = this._selectedSources;
-            contextLov.selectedItems = this._selectedContexts;
+            this.gridAttributeModel = undefined;
+            this.gridAttributeModel = attrModels;
+
+            this._setDimensionSelection();
           }
         },
 
@@ -575,6 +629,68 @@ The user can view the past data but cannot modify it. However the current and fu
             }, this);
           }
           return ids;
+        },
+
+        _compareRequestType: function (dataRequestType, entityTypeInfo) {
+          return dataRequestType === entityTypeInfo;
+        },
+
+        _setInitDimensions: function () {
+          var repeat = Polymer.dom(this).node.$$("template[is='dom-repeat']");
+          if (repeat) {
+            repeat.addEventListener("dom-change", function (event) {
+              this._initDimensionGrid();
+            }.bind(this));
+          }
+        },
+
+        _setDimensionSelection: function () {
+          var domIfs = this.$.dimensionFilters.querySelectorAll("template[is='dom-if']");
+          if (domIfs) {
+            domIfs.forEach(function (domIf) {
+              domIf.addEventListener("dom-change", function (event) {
+                if (event.currentTarget.id == "locale") {
+                  var localeLov = Polymer.dom(this).node.$$('rock-entity-model-lov[id="locale"]');
+
+                  if (localeLov) {
+                    localeLov.selectedItems = this._selectedLocales;
+                  }
+                }
+                else if (event.currentTarget.id == "source") {
+                  var sourceLov = Polymer.dom(this).node.$$('rock-entity-model-lov[id="source"]');
+
+                  if (sourceLov) {
+                    sourceLov.selectedItems = this._selectedSources;
+                  }
+                }
+                else if (event.currentTarget.id == "channel") {
+                  var channelLov = Polymer.dom(this).node.$$('rock-entity-lov[id="channel"]');
+
+                  if (localeLov) {
+                    channelLov.selectedItems = this._selectedChannels;
+                  }
+                }
+              }.bind(this));
+            }, this);
+          }
+        },
+
+        _getGridConfig: function () {
+          var config = this.getParentAppConfig('rock-dimension-grid', '', 'dimension-gridConfig');
+
+          if (!_.isEmpty(config)) {
+            var columns = config.tabular.columns;
+
+            if (!_.isEmpty(columns)) {
+              for (var i = 0; i < columns.length; i++) {
+                if (columns[i].header.toLowerCase() == "value") {
+                  columns[i].name = this.attributeModelObject.name;
+                }
+              }
+            }
+          }
+
+          return config;
         }
       });
     })();

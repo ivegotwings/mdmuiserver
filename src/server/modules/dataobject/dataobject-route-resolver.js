@@ -170,6 +170,10 @@ function createGetRequest(reqData) {
         query.valueContexts = valContexts;
     }
 
+    if(reqData.dataIndex == "config") {
+        filters.excludeNonContextual = true;
+    }
+
     if(!isEmpty(filters)) {
         query.filters = filters;
     }
@@ -198,7 +202,20 @@ async function getSingle(dataObjectId, reqData) {
     request.params.query.id = dataObjectId;
 
     //console.log('req to api ', JSON.stringify(request));
-    var res = await dataObjectManageService.get(request);
+    var res = undefined;
+    //Temp: work in progress for getcoalesce call integration hence placed 1 == 2 condtion to always go to normal get for now
+    if(request.dataIndex == "entityModel" && 1 == 2) {
+        if(!isEmpty(reqData.attrNames) || !isEmpty(reqData.relationships)) {
+            res = await dataObjectManageService.getCoalesce(request);
+        }
+        else {
+            res = await dataObjectManageService.get(request);
+        }        
+    }
+    else {
+        res = await dataObjectManageService.get(request);
+    }
+    
     //console.log('get res from api ', JSON.stringify(res, null, 4));
 
     var basePath = [pathKeys.root, reqData.dataIndex];
@@ -253,6 +270,7 @@ async function getByIds(pathSet, operation) {
         'valCtxKeys': pathSet.valCtxKeys === undefined ? [] : pathSet.valCtxKeys,
         'valFields': pathSet.valFields === undefined ? [] : pathSet.valFields,
         'mapKeys': pathSet.mapKeys == undefined ? [] : pathSet.mapKeys,
+        'jsonData': operation == "getJsonData" ? true : false,
         'operation': operation
     }
 
@@ -268,7 +286,7 @@ async function getByIds(pathSet, operation) {
     return response;
 }
 
-async function processData(dataIndex, dataObjects, dataObjectAction, operation) {
+async function processData(dataIndex, dataObjects, dataObjectAction, operation, clientState) {
     //console.log(dataObjectAction, operation);
 
     var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
@@ -281,7 +299,7 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation) 
         formatDataObjectForSave(dataObject);
         //console.log('dataObject data', JSON.stringify(dataObject, null, 4));
 
-        var apiRequestObj = { 'includeRequest': false, 'dataIndex': dataIndex };
+        var apiRequestObj = { 'includeRequest': false, 'dataIndex': dataIndex, 'clientState': clientState };
         apiRequestObj[dataIndexInfo.name] = dataObject;
         //console.log('api request data for process dataObjects', JSON.stringify(apiRequestObj));
 
@@ -310,6 +328,7 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation) 
                 'relFields': [CONST_ALL],
                 'valFields': [CONST_ALL],
                 'mapKeys': [CONST_ALL],
+                'jsonData': true,
                 'operation': operation
             };
 
@@ -329,6 +348,7 @@ async function create(callPath, args, operation) {
     var dataIndex = callPath.dataIndexes[0];
     var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
     var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
+    var clientState = jsonEnvelope.json.clientState;
     var dataObjectIds = Object.keys(dataObjects);
     //console.log(dataObjects);
 
@@ -343,7 +363,7 @@ async function create(callPath, args, operation) {
         }
     }
 
-    return processData(dataIndex, dataObjects, "create", operation);
+    return processData(dataIndex, dataObjects, "create", operation, clientState);
 }
 
 async function update(callPath, args, operation) {
@@ -352,8 +372,9 @@ async function update(callPath, args, operation) {
     var dataIndex = callPath.dataIndexes[0];
     var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
     var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
+    var clientState = jsonEnvelope.json.clientState;    
 
-    return processData(dataIndex, dataObjects, "update", operation);
+    return processData(dataIndex, dataObjects, "update", operation, clientState);
 }
 
 async function deleteDataObjects(callPath, args, operation) {
@@ -361,7 +382,9 @@ async function deleteDataObjects(callPath, args, operation) {
     var jsonEnvelope = args[0];
     var dataIndex = callPath.dataIndexes[0];
     var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][pathKeys.byIds];
-    return processData(dataIndex, dataObjects, "delete", operation);
+    var clientState = jsonEnvelope.json.clientState;
+    
+    return processData(dataIndex, dataObjects, "delete", operation, clientState);
 }
 
 module.exports = {

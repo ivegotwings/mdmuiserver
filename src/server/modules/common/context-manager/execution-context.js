@@ -5,7 +5,7 @@ function createSecurityContext(req) {
     var tenantConfig;
     if (tid) {
         tenantConfig = require(process.cwd() + "/tenant-configs/" + tid.toLowerCase() + "-tenant-config");
-        if (!tenantConfig || !tenantConfig.clientId || !tenantConfig.secretKey) {
+        if (!tenantConfig || !tenantConfig.clientId || !tenantConfig.clientAuthKey) {
             console.log("Tenant configuration not found for tenant:" + tid);
         }
     }
@@ -14,15 +14,20 @@ function createSecurityContext(req) {
         'user': req.query.user,
         'role': req.query.role,
         'tenantId': tid,
-        "headers": {
+        'clientAuthKey': tenantConfig && tenantConfig.clientAuthKey ? tenantConfig.clientAuthKey : "",
+        'headers': {
             "clientId": tenantConfig && tenantConfig.clientId ? tenantConfig.clientId : "",
-            "vendorName": req.headers["x-rdp-vendorName"],
-            "userId": req.headers["x-rdp-userId"],
-            "userName": req.headers["x-rdp-userName"],
-            "userEmail": req.headers["x-rdp-userEmail"],
-            "userRoles": req.headers["x-rdp-userRoles"]
+            "vendorName": req.headers["x-rdp-vendorname"],
+            "ownershipData": req.headers["x-rdp-ownershipdata"],
+            "userId": req.headers["x-rdp-userid"],
+            "firstName": req.headers["x-rdp-firstname"],
+            "lastName": req.headers["x-rdp-lastname"],
+            "userName": req.headers["x-rdp-username"],
+            "userEmail": req.headers["x-rdp-useremail"],
+            "userRoles": req.headers["x-rdp-userroles"]
         }
     };
+   
     var session = getNamespace('User Session');
     session.set('securityContext', securityContext);
 }

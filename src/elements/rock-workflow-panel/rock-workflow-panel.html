@@ -6,6 +6,7 @@
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-helpers/data-request-helper.html">
 <link rel="import" href="../bedrock-helpers/data-merge-helper.html">
+<link rel="import" href="../bedrock-helpers/component-helper.html">
 
 <link rel="import" href="../liquid-entity-govern-data-get/liquid-entity-govern-data-get.html">
 <link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
@@ -106,6 +107,10 @@
             pebble-accordion::shadow .header .header-text iron-icon {
                 margin: 0 5px 0 10px;
                 float: left;
+            }
+
+            pebble-accordion::shadow .accordion-content-wrapper .card-actions {
+                overflow: auto;
             }
         </style>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
@@ -230,6 +235,9 @@
                     RUFBehaviors.UIBehavior,
                     RUFBehaviors.ComponentContextBehavior
                 ],
+                listeners: {
+                    'accordion-transition-end': '_accordionTransitionEnd'
+                },
                 refresh: function () {
                     this._contextChanged(this.contextData);
                 },
@@ -342,6 +350,13 @@
                         this.set("_workflowsData", workflowData);
                         this.$$("#workflowsTemplate").render();
                         //this._loading = false;
+                        this.async(function() {
+                            var stepper = this.$$("#workflow-stepper");
+                            var step = stepper.querySelector('pebble-step[opened]');
+                            if(step) {
+                                step.scrollIntoView(false);
+                            }
+                        }, 1000);//ToDo: need to figure out better way. As of now delay to let the stepper to load with workflow data properly.
                     }
                 },
                 _onDefinitionGetFailed: function (e) {
@@ -522,14 +537,24 @@
                     //this._loading = true;
                 },
                 _onTransitionSuccess: function (e) {
+                    var request = e.detail.request;
                     var response = e.detail.response.response; //need to check why this is response.response
-                    if (response && response.status == 'success') {
+                    if (response && response.statusDetail.isCriteriaValid) {
                         this.async(function () {
                             this.showSuccessToast("Workflow action completed succesfully.");
                             this.$$('#entityGetRunningInstance').generateRequest();
                         }, 6000)
                     } else {
-                        this.showErrorToast("Workflow action failed. Please check the business conditions.");
+                        var actionItem = "Workflow";
+
+                        if (request.requestData && request.requestData.params && request.requestData.params.workflow) {
+                            var workflow = request.requestData.params.workflow;
+                            if(workflow && workflow.activity && workflow.activity.action) {
+                                actionItem = workflow.activity.action;
+                            }
+                        }
+                        
+                        this.showErrorToast("'" + actionItem + "' action failed. Please check the business conditions in Summary tab.");
                     }
                 },
                 _onTransitionFailure: function (e) {
@@ -710,6 +735,32 @@
                         "id": id
                     };
                     return data;
+                },
+                _accordionTransitionEnd: function(e) {
+                    if(this._workflowsData.length == 1 && e && e.detail) {
+                        var isCollapsed = e.detail.isCollapsed;
+                        var accordionEl = e.detail.accordion;
+                        if(accordionEl && isCollapsed) {
+                            var actionsDiv = Polymer.dom(accordionEl.root).querySelector(".card-actions");
+                            var activeApp = ComponentHelper.getCurrentActiveApp();
+                            var sidebar;
+                            var sidebarContainer;
+                            var sideBarHeight;
+                            if(activeApp) {
+                                sidebar = activeApp.$$("#rockSideBar");
+                            }
+                            if(sidebar) {
+                                sidebarContainer = sidebar.$$("#rockSidebarContainer");
+                                sideBarHeight = sidebar.getBoundingClientRect()['height'];
+                            }
+                            if(actionsDiv && sideBarHeight && sidebarContainer) {
+                                sidebarContainer.style.overflow = 'hidden';
+                                sidebar.updateStyles();
+                                actionsDiv.style.height = (sideBarHeight - 60) + 'px';
+                                accordionEl.updateStyles();
+                            }
+                        }
+                    }
                 }
             });
         })();
