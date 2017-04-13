@@ -35,7 +35,7 @@ function getAction(serviceName, status, operation) {
     var action = "";
 
     if (!isEmpty(status) && !isEmpty(status)) {
-        if (serviceName.toLowerCase() == "entityservice") {
+        if (serviceName.toLowerCase() == "entitymanageservice") {
             if (status.toLowerCase() == "success") {
                 action = enums.actions.SaveComplete;
             } else {
@@ -67,23 +67,32 @@ function getAction(serviceName, status, operation) {
 
 module.exports = function (app) {
     app.post('/api/notify', function (req, res) {
-        //console.log(JSON.stringify(req.body));
-        var dataObject = req.body.dataObject;
+        // console.log('------------------ notification from RDF ------------------------------');
+        // console.log(JSON.stringify(req.body));
+        // console.log('-------------------------------------------------------------------\n\n');
 
-        if (dataObject) {
-            var notificationInfo = prepareNotificationObject(dataObject.data);
+        var notificationObject = req.body.notificationObject;
+
+        if (notificationObject) {
+            var notificationInfo = prepareNotificationObject(notificationObject.data);
+            // console.log('------------------ notification object ---------------------');
+            // console.log(JSON.stringify(notificationInfo));
+            // console.log('-------------------------------------------------------------------\n\n');
 
             if (!isEmpty(notificationInfo)) {
                 notificationInfo.tenantId = req.body.tenantId;
                 if (notificationInfo.userId) {
+                    // console.log('------------------ notification message to browser ---------------------');
+                    // console.log(JSON.stringify(notificationInfo));
+                    // console.log('-------------------------------------------------------------------\n\n');
                     notificationManager.sendMessageToSpecificUser(notificationInfo, notificationInfo.userId);
                 }
             }
         }
 
-        var dataObjectOperation = {};
-        dataObjectOperation.dataObjectOperationResponse = {};
-        dataObjectOperation.dataObjectOperationResponse.status = "success";
-        res.status(200).send(dataObjectOperation);
+        var notiificationObjectOperation = {};
+        notiificationObjectOperation.dataObjectOperationResponse = {};
+        notiificationObjectOperation.dataObjectOperationResponse.status = "success";
+        res.status(200).send(notiificationObjectOperation);
     });
 };
