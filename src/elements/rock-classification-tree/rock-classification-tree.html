@@ -65,8 +65,7 @@
                     }
                 },
                 taxonomy:{
-                    type:String,
-                    value:""
+                    type:String
                 },
                 selectedItems:{
                     type:Array,
@@ -84,23 +83,31 @@
             listeners: {
                 'tree-node-expanded': '_treeNodeExpanded'
             },
+            observers:[
+              '_contextRecieved(contextData,taxonomy)'
+            ],
 
-            ready: function () {
-                this._dataFormatter = this._getAttributeFormattedData.bind(this);
-                this._prepareRequest();
+            _contextRecieved:function () {
+                if(this.taxonomy && !_.isEmpty(this.contextData)) {
+                    this.generateRequest();
+                }
             },
-
-            _prepareRequest: function (parentClassificationId){
+            generateRequest: function (parentClassificationId){
                 if(!parentClassificationId){
                     parentClassificationId=this.rootClassificationId;
                 }
                 var contextData=DataHelper.cloneObject(this.contextData);
                 contextData[this.CONTEXT_TYPE_ITEM]=[{type:"classification"}];
                 contextData[this.CONTEXT_TYPE_VALUE]=[];
-                contextData[this.CONTEXT_TYPE_DATA]=[];
                 var req=DataRequestHelper.createEntityGetRequest(contextData);
-                var criteria={"belongsTo":{"relTo":{"id":parentClassificationId,"type":"classification"},"attributes":[]}};
-                req.params.query.filters.relationshipsCriterion=[criteria];
+                var relCreiterion=[];
+                var classificationCriteria={"belongsTo":{"relTo":{"id":parentClassificationId,"type":"classification"},"attributes":[]}};
+                relCreiterion.push(classificationCriteria);
+                if(this.taxonomy){
+                    var taxonomyCriteria={"belongsTo":{"relTo":{"id":this.taxonomy,"type":"taxonomy"},"attributes":[]}};
+                    relCreiterion.push(taxonomyCriteria);
+                }
+                req.params.query.filters.relationshipsCriterion=relCreiterion;
                 this.set('request',req);
                 this.$$("#initiateSearch").generateRequest();
             },
@@ -149,27 +156,10 @@
                 }
             },
 
-            reTriggerRequest: function() {
-                this.$$('#initiateSearch').reTriggerRequest();
-            },
-
-            resetLOV: function() {
-                this.$$('#entityLov').items = [];
-            },
-
-            _getAttributeFormattedData: function (data) {
-                if (data && data.content.entities) {
-                    var entities = data.content.entities;
-                    if (entities) {
-                        entities = DataHelper.transformEntitySchemaToLovSchema(entities, this._lovColumnNameValueCollection);
-                    }
-                }
-                return entities;
-            },
             _treeNodeExpanded:function (e) {
                 this._currentNode = e.detail;
                 if (!this._currentNode.nodeData.children || this._currentNode.nodeData.children.length == 0) {
-                    this._prepareRequest(this._currentNode.nodeData.value);
+                    this.generateRequest(this._currentNode.nodeData.value);
                     this._currentNode._loading=true;
                 }
             }
