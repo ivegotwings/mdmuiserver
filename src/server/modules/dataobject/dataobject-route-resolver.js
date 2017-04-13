@@ -170,7 +170,7 @@ function createGetRequest(reqData) {
         query.valueContexts = valContexts;
     }
 
-    if(reqData.dataIndex == "config") {
+    if(reqData.dataIndex == "config" && contexts && contexts.length > 0) {
         filters.excludeNonContextual = true;
     }
 
