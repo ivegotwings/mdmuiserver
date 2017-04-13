@@ -30,7 +30,7 @@
                 ],
 
                 attached: function () {
-                    RUFEventHandlers.toastClick = function () {
+                    RUFEventHandlers.reloadClick = function () {
                         if (event.currentTarget) {
                             var appId = event.currentTarget.getAttribute('appId');
                             if (appId) {
@@ -38,6 +38,14 @@
                                 if (appElement && appElement.refresh) {
                                     appElement.refresh();
                                 }
+                            }
+                        }
+                    };
+
+                    RUFEventHandlers.continueClick = function () {
+                        if (event.target) {
+                            if (event.target.parentElement && event.target.parentElement.close) {
+                                event.target.parentElement.close();
                             }
                         }
                     };
@@ -63,34 +71,10 @@
                                 break;
                             case actions.SaveFail:
                             case actions.GovernFail:
+                                self._onSaveAndGovernFail(data);
                             case actions.WorkflowTransitionFail:
-                                self._notifyUIOnBadge(data);
+                                self._onWorkflowTransitionFail(data);
                                 break;
-                        }
-                    }
-                },
-
-                // update notification badge and notification list.
-                _notifyUIOnBadge: function (data) {
-                    var notificationElement = document.querySelector("main-app").$$('#notificationsList');
-                    var notificationLabelElement = document.querySelector("main-app").$$('#mdmNotifications');
-
-                    if (notificationElement) {
-                        var notifications = notificationElement.notifications;
-                        notificationElement.notifications = [];
-
-                        notifications.push({
-                            src: data.source || '',
-                            alt: data.alt || '',
-                            when: moment(data.timestamp).format("DD MMM YYYY hh:mm a") || '',
-                            desc: data.description || ''
-                        });
-
-                        notificationElement.notifications = notifications;
-                        notificationElement.notifyPath("notifications", notificationElement.notifications.slice());
-
-                        if (notificationLabelElement) {
-                            notificationLabelElement.label = notifications.length;
                         }
                     }
                 },
@@ -136,19 +120,45 @@
                         }
 
                         if (isActiveApp || isMinimizedApp) {
+                            var description = "";
+                            var actions = "";
                             if (!_.isEmpty(link)) {
                                 if (isActiveApp) {
-                                    data.description = data.description + " <a href=" + link + " onclick='RUFEventHandlers.toastClick()' appId='" + data.context.appInstanceId + "'>refresh</a>";
+                                    description = "Some changes that you made have been verified by the system. Do you want to refresh the page to see the changes?";
+                                    actions = " <a href=" + link + " onclick='RUFEventHandlers.reloadClick()' appId='" + data.context.appInstanceId + "'>Reload</a>";
+                                    actions = actions + " <a href='' onclick='RUFEventHandlers.continueClick()'>Continue without Reload</a>";
                                 } else if (isMinimizedApp) {
-                                    data.description = data.description + " <a href=" + link + " onclick='RUFEventHandlers.toastClick()' appId='" + data.context.appInstanceId + "'>open</a>";
+                                    description = "Some changes that you made have been verified by the system for a/an " + data.context.type + " with ID " + data.context.id + ". Do you want to refresh the page to see the changes?";
+                                    actions = " <a href=" + link + " onclick='RUFEventHandlers.reloadClick()' appId='" + data.context.appInstanceId + "'>Reload and open</a>";
+                                    actions = actions + " <a href='' onclick='RUFEventHandlers.reloadClick()' appId='" + data.context.appInstanceId + "'>Reload and keep minimized</a>";
+                                    actions = actions + " <a href='' onclick='RUFEventHandlers.continueClick()'>Continue without Reload</a>";
                                 }
                             }
+                            data.description = description + actions;
                             this._sendToast(data);
                         }
                     }
 
                     //incase needs to do some other stuff. right now not in use.
                     this._fireNotificationEvent("govern-complete", data);
+                },
+
+                // update notification badge and notification list.
+                _onSaveAndGovernFail: function (data) {
+                    if (data && data.context) {
+                        data.description = data.context.type + " " + data.context.id + " has some errors. Please resolve.";
+                        this._notifyUIOnBadge(data);
+                    }
+                },
+
+                // update notification badge and notification list.
+                _onWorkflowTransitionFail: function (data) {
+                    if (data && data.context) {
+                        if (data && data.context) {
+                            data.description = data.context.type + " " + data.context.id + " could not be <<workflow action>> in <<workflow name>>:<<workflow step name>>";
+                            this._notifyUIOnBadge(data);
+                        }
+                    }
                 },
 
                 //if app is active: fire event with given event name for active app.
@@ -159,6 +169,31 @@
                             if (activeApp.id == data.context.appInstanceId) {
                                 activeApp.fireBedrockEvent(eventName, data, { ignoreId: true });
                             }
+                        }
+                    }
+                },
+
+                // update notification badge and notification list.
+                _notifyUIOnBadge: function (data) {
+                    var notificationElement = document.querySelector("main-app").$$('#notificationsList');
+                    var notificationLabelElement = document.querySelector("main-app").$$('#mdmNotifications');
+
+                    if (notificationElement) {
+                        var notifications = notificationElement.notifications;
+                        notificationElement.notifications = [];
+
+                        notifications.push({
+                            src: data.source || '',
+                            alt: data.alt || '',
+                            when: moment(data.timestamp).format("DD MMM YYYY hh:mm a") || '',
+                            desc: data.description || ''
+                        });
+
+                        notificationElement.notifications = notifications;
+                        notificationElement.notifyPath("notifications", notificationElement.notifications.slice());
+
+                        if (notificationLabelElement) {
+                            notificationLabelElement.label = notifications.length;
                         }
                     }
                 },
@@ -178,15 +213,18 @@
 
                 _sendToast: function (data) {
                     if (data) {
-                        var pebbleToastElement = document.createElement("pebble-toast");
-                        pebbleToastElement.setAttribute('id', Date.parse(new Date())); //Just unique id  
-                        pebbleToastElement.innerHTML = data.description;
-                        pebbleToastElement.toastType = data.status;
-                        pebbleToastElement.alignToast = "top";
-                        pebbleToastElement.autoClose = true;
-                        pebbleToastElement.toastDuration = 10000;
-                        document.body.appendChild(pebbleToastElement);
-                        pebbleToastElement.show();
+                        var mainApp = document.querySelector('main-app');
+                        if (mainApp) {
+                            var pebbleToastElement = document.createElement("pebble-toast");
+                            pebbleToastElement.setAttribute('id', Date.parse(new Date())); //Just unique id  
+                            pebbleToastElement.innerHTML = data.description;
+                            pebbleToastElement.toastType = data.status;
+                            pebbleToastElement.alignToast = "top";
+                            pebbleToastElement.autoClose = true;
+                            pebbleToastElement.toastDuration = 15000;
+                            mainApp.root.appendChild(pebbleToastElement);
+                            pebbleToastElement.show();
+                        }
                     }
                 }
             });
