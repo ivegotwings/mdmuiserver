@@ -13,8 +13,6 @@ function initSockets(server) {
 
         //Disconnect
         socket.on('disconnect', function (data) {
-            console.log("disconnected from engine: ", socket.id);
-
             if (socket.userName) {
                 userManager.removeConnectionIdByUser(socket.userName, socket.id);
             } else {
@@ -46,7 +44,6 @@ function initSockets(server) {
             socket.userName = userId;
             userManager.addUserConnectionIds(userId, socket.id);
             userManager.removeConnectionIdByUser(defaultUserId, socket.id);
-            console.log("connected from engine: ", socket.id);
         });
 
     });
