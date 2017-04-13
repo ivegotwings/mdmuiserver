@@ -280,7 +280,7 @@ function buildResponse(dataObject, reqData, basePath) {
         response.push.apply(response, _buildFieldsResponse(dataObject, reqData, basePath));
     }
 
-    if (!(isEmpty(reqData.attrNames) && isEmpty(reqData.relTypes) && reqData.operation != "getJsonData" && reqData.operation != "getMappings")) {
+    if (!(isEmpty(reqData.attrNames) && isEmpty(reqData.relTypes) && !reqData.jsonData && reqData.operation != "getMappings")) {
 
         if (isEmpty(dataObject.data)) { return response; }
 
@@ -331,7 +331,7 @@ function buildResponse(dataObject, reqData, basePath) {
                 }
             }
             
-            if(reqData.operation == "getJsonData" && !isEmpty(contextItem.jsonData)) {
+            if(reqData.jsonData && !isEmpty(contextItem.jsonData)) {
                 var jsonDataBasePath = mergePathSets(ctxBasePath, ['jsonData']);
                 response.push.apply(response, _buildJsonDataResponse(contextItem.jsonData, jsonDataBasePath));
             }

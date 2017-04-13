@@ -3,14 +3,18 @@
 var Enums = function () { };
 
 Enums.actions = {
-    saveComplete:1,
-    saveFail:2,
-    governComplete:3,
-    governFail:4,
-    workflowTransitionComplete:5,
-    workflowTransitionFail:6,
-    workflowAssignmentComplete:7,
-    workflowAssignmentFail:8
+    SaveComplete:1,
+    SaveFail:2,
+    GovernComplete:3,
+    GovernFail:4,
+    WorkflowTransitionComplete:5,
+    WorkflowTransitionFail:6,
+    WorkflowAssignmentComplete:7,
+    WorkflowAssignmentFail:8
+}
+
+Enums.operations = {
+    WorkflowTransition: 1
 }
 
 var SharedEnumsUtil = SharedEnumsUtil || {};
