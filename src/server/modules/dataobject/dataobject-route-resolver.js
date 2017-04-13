@@ -170,7 +170,7 @@ function createGetRequest(reqData) {
         query.valueContexts = valContexts;
     }
 
-    if(reqData.dataIndex == "config") {
+    if(reqData.dataIndex == "config" && contexts && contexts.length > 0) {
         filters.excludeNonContextual = true;
     }
 
@@ -202,7 +202,20 @@ async function getSingle(dataObjectId, reqData) {
     request.params.query.id = dataObjectId;
 
     //console.log('req to api ', JSON.stringify(request));
-    var res = await dataObjectManageService.get(request);
+    var res = undefined;
+    //Temp: work in progress for getcoalesce call integration hence placed 1 == 2 condtion to always go to normal get for now
+    if(request.dataIndex == "entityModel" && 1 == 2) {
+        if(!isEmpty(reqData.attrNames) || !isEmpty(reqData.relationships)) {
+            res = await dataObjectManageService.getCoalesce(request);
+        }
+        else {
+            res = await dataObjectManageService.get(request);
+        }        
+    }
+    else {
+        res = await dataObjectManageService.get(request);
+    }
+    
     //console.log('get res from api ', JSON.stringify(res, null, 4));
 
     var basePath = [pathKeys.root, reqData.dataIndex];
@@ -257,6 +270,7 @@ async function getByIds(pathSet, operation) {
         'valCtxKeys': pathSet.valCtxKeys === undefined ? [] : pathSet.valCtxKeys,
         'valFields': pathSet.valFields === undefined ? [] : pathSet.valFields,
         'mapKeys': pathSet.mapKeys == undefined ? [] : pathSet.mapKeys,
+        'jsonData': operation == "getJsonData" ? true : false,
         'operation': operation
     }
 
@@ -314,6 +328,7 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
                 'relFields': [CONST_ALL],
                 'valFields': [CONST_ALL],
                 'mapKeys': [CONST_ALL],
+                'jsonData': true,
                 'operation': operation
             };
 
