@@ -16,6 +16,7 @@
 <link rel="import" href="../rock-entity-lov/rock-entity-lov.html">
 <link rel="import" href="../rock-grid/rock-grid.html">
 <link rel="import" href="entity-relationship-grid-datasource.html">
+<link rel="import" href="../liquid-rest/liquid-rest.html">
 <!--
 
 `rock-relationship-grid` Represents an association relationship grid for an entity.
@@ -298,6 +299,22 @@ The following JSON object is a sample of data which can be used to bind the grid
         bottom: 0px;
         width: 100%;
       }
+      pebble-dialog::shadow #dialog { 
+          width: 400px;
+          top: 20% !important;
+      }
+      pebble-dialog::shadow ::content > * {
+          padding: 5px 50px 5px 20px !important;
+      }
+      #errorsDialog {
+          --popup-header-color: red;
+      }
+      pebble-dialog::shadow ::content > ul {
+          padding-left: 50px !important;
+      }
+      pebble-dialog > ul > li {
+          list-style-type: disc;
+      }
     </style>
 
     <template is="dom-repeat" items="{{relationshipTypeList}}" as="relationship" index-as="colIndex" notify-dom-change>
@@ -332,7 +349,26 @@ The following JSON object is a sample of data which can be used to bind the grid
 
     <liquid-entity-data-save name="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}"
       on-response="_onSaveResponse"></liquid-entity-data-save>
-
+      <liquid-rest id="entityGovernService" 
+                     url="/pass-through/entitygovernservice/validate" 
+                     method="POST" 
+                     request-data={{_entityGovernRequest}}
+                     on-liquid-response="_onEntityGovernResponse" 
+                     on-liquid-error="_onEntityGovernFailed">
+        </liquid-rest>
+      <pebble-dialog id="errorsDialog" dialog-title="Errors on page">
+            <p>Found below errors in entity details: </p>
+            <ul>
+                <template is="dom-repeat" items="[[_errorMessages]]">
+                    <li>[[item.attributeName]] with error: [[item.message]]</li>
+                </template>
+            </ul>             
+            <p>Do you want to fix the errors or continue?</p>  
+            <div class="buttons">
+                <paper-button dialog-confirm class="btn btn-success">Fix</paper-button>
+                <paper-button dialog-confirm class="btn btn-secondary" on-tap="_skipErrors">Skip & Continue</paper-button>
+              </div>
+        </pebble-dialog>
   </template>
   <script>
     (function () {
@@ -417,6 +453,10 @@ The following JSON object is a sample of data which can be used to bind the grid
             value: function () {
               return {};
             }
+          },
+          doSyncAndValidate: {
+            type: Boolean,
+            value: true
           },
           /*
            */
@@ -956,11 +996,73 @@ The following JSON object is a sample of data which can be used to bind the grid
             this._saveRequest = {
               "entities": [originalEntity]
             };
-
-            var liquidSave = this.$$("[name=attributeSaveDataService]");
-            if (liquidSave) {
-              liquidSave.generateRequest();
+            if(this.doSyncAndValidate) {
+              this.set('_entityGovernRequest', {
+                "entity": originalEntity
+              });
+              delete this._entityGovernRequest.entity.name;
+              var liquidGovernGet = this.$.entityGovernService;
+              if (liquidGovernGet) {
+                  liquidGovernGet.generateRequest();
+              }
+            } else {
+              this._saveEntity();
             }
+          }
+        },
+        _onEntityGovernResponse: function (e) {
+            if(e && e.detail && e.detail.response && e.detail.response.response && e.detail.response.response.status == "success") {
+                var res = e.detail.response.response;
+                var itemContext = this.getFirstItemContext();
+                var entityId;
+                if(itemContext) {
+                    entityId = itemContext.id;
+                }
+                
+                var entity = DataHelper.findEntityById(res.entities, entityId);
+                
+                if (entity && entity.data && entity.data.relationships) {
+                    var relationships = entity.data.relationships;
+                    var relMessages = {};
+                    for(var i in relationships) {
+                      var relationshipType = i;
+                      var relTitle = this._getRelationshipTypeTitle(relationshipType);
+                      var relationshipMessages = this.getRelationshipMessages(relationships[i]);
+                      var relAttributes = relationships[i][0].attributes;
+                      var attrModels = this._getRelationshipAttributeModels(relationshipType);
+                      var relationshipObj = {
+                        "relTitle": relTitle,
+                        "relMessage": relationshipMessages[0],
+                        "relAttributes": relAttributes,
+                        "attrModels": attrModels
+                      };
+                      relMessages[relationshipType] = relationshipObj;
+                    }
+                }
+                if(!_.isEmpty(relMessages)) {
+                    var errorMessages = this.getErrorsFromRelMessages(relMessages);
+                    this.set("_errorMessages", errorMessages);
+                    this.$$('#errorsDialog').open();
+                    return;
+                } else {                          
+                    this._saveEntity();  
+                }
+            } else {
+                console.warn("Failed in validation service with errors: ", detail);
+                this.showErrorToast("There is a problem in validation service. Please contact administrator.");
+            }                        
+        },
+        _onEntityGovernFailed: function (e) {
+            console.warn('Failed in validation service with errors ', JSON.stringify(e));
+            this.showErrorToast("There is a problem in validation service. Please contact administrator.");
+        },
+        _skipErrors: function() {
+            this._saveEntity();
+        },
+        _saveEntity: function() {
+          var liquidSave = this.$$("[name=attributeSaveDataService]");
+          if (liquidSave) {
+            liquidSave.generateRequest();
           }
         },
         _onSaveResponse: function () {

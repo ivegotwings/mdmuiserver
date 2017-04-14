@@ -59,7 +59,36 @@ It is responsible to get and save the attributes.
                 border-top: 1px solid var(--default-border-color, #c1cad4);
                 z-index: 9999;
             }
+            pebble-dialog::shadow #dialog { 
+                width: 400px;
+                top: 20% !important;
+            }
+            pebble-dialog::shadow ::content > * {
+                padding: 5px 50px 5px 20px !important;
+            }
+            #errorsDialog {
+                --popup-header-color: red;
+            }
+            pebble-dialog::shadow ::content > ul {
+                padding-left: 50px !important;
+            }
+            pebble-dialog > ul > li {
+                list-style-type: disc;
+            }
         </style>
+        <pebble-dialog id="errorsDialog" dialog-title="Errors on page">
+            <p>Found below errors in entity details: </p>
+            <ul>
+                <template is="dom-repeat" items="[[_errorMessages]]">
+                    <li>[[item.attributeName]] with error: [[item.message]]</li>
+                </template>
+            </ul>             
+            <p>Do you want to fix the errors or continue?</p>  
+            <div class="buttons">
+                <paper-button dialog-confirm class="btn btn-success">Fix</paper-button>
+                <paper-button dialog-confirm class="btn btn-secondary" on-tap="_skipErrors">Skip & Continue</paper-button>
+              </div>
+        </pebble-dialog>
         <rock-attribute-list context-data="[[contextData]]" show-group-name$=[[showGroupName]] group-name="[[groupName]]" attribute-values="[[_attributeValues]]"
             attribute-models="[[_attributeModels]]" no-of-columns="[[noOfColumns]]" mode="{{mode}}" attribute-messages="{{_attributeMessages}}"></rock-attribute-list>
         <liquid-entity-data-get name="attributeGetDataService" operation="getbyids" request-data="{{_attributeRequest}}" last-response="{{_attributeResponse}}"></liquid-entity-data-get>
@@ -134,6 +163,10 @@ It is responsible to get and save the attributes.
 					    type: Boolean,
                         value: false
 				    },
+                    doSyncAndValidate: {
+                        type: Boolean,
+                        value: true
+                    },
                     /**
                     * Indicates the request object that is passed to the data element to retrive the attribute data.
                       Sample: { 
@@ -224,27 +257,9 @@ It is responsible to get and save the attributes.
                             return {};
                         }
                     },
-                    messageCodeMapping: {
-                        type: Object,
-                        value: function() {
-                            return {
-                                "Req001": "Required",
-                                "MinLen001": "MIN_LENGTH",
-                                "MaxLen001": "MAX_LENGTH",
-                                "AlVal001": "ALLOWED_VALUES",
-                                "Prec001": "Precision",
-                                "Range001": "RANGE_FROM_INCLUSIVE",
-                                "Range002": "RANGE_TO_INCLUSIVE",
-                                "Range003": "RANGE_FROM_EXCLUSIVE",
-                                "Range004": "RANGE_TO_EXCLUSIVE",
-                                "Range005": "RANGE_TO_INCLUSIVE_FROM_EXCLUSIVE",
-                                "Range006": "RANGE_TO_INCLUSIVE_FROM_INCLUSIVE",
-                                "Range007": "RANGE_TO_EXCLUSIVE_FROM_EXCLUSIVE",
-                                "Range008": "RANGE_TO_EXCLUSIVE_FROM_INCLUSIVE",
-                                "133311": "Length should be greater than Width",
-                                "133312": "Width should be less than Length"
-                            };
-                        }
+                    _errorMessages: {
+                        type: Array,
+                        value: function() { return []; }
                     }
                 },
                 behaviors: [
@@ -351,50 +366,11 @@ It is responsible to get and save the attributes.
                     }
                  
                     var attributes = entity.data.attributes;
-                    // var contexts = DataHelper.prepareCtx(dataContext);
-                    // var valueContexts = DataHelper.prepareValCtx(dataContext);
-                    // var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, contexts);
-                        var attrMessages = {};
-                    for (var i in attributes) {
-                        var messageCodes = this._getMessageCodes(attributes[i]);
-                        var messages = this.getMessagesFromCodes(messageCodes);
-                        if (messages && messages.length) {
-                            attrMessages[i] = messages;
-                        }
-                    }
-                    this.set('_attributeMessages', attrMessages);
-                                      
+                    var attrMessages = this.getAttributeMessages(attributes, this._attributeModels);
+                    this.set('_attributeMessages', attrMessages);                     
                 },
                 _onEntityGetFailed: function (e) {
                     console.error('Entity get failed with error: ', JSON.stringify(e));
-                },
-                _getMessageCodes: function (attribute) {
-                    var messageCodes = [];
-                    var properties = attribute.properties;
-                    if (properties) {
-                        var messages = properties.messages;
-                        if(messages && messages.length > 0) {
-                            for (var i=0; i< messages.length; i++) {
-                                messageCodes.push(messages[i].messageCode);
-                            }
-                        }
-                    }
-                    return messageCodes;
-                },
-
-                getMessagesFromCodes:function (messageCodes) {
-                    var messages=[];
-                    if(messageCodes && messageCodes.length > 0) {
-                        for(var i=0; i<messageCodes.length; i++){
-                            var mes= this.messageCodeMapping[messageCodes[i]];
-                            if(mes){
-                                messages.push(mes);
-                            } else{
-                                messages.push("Error with Code: "+messageCodes[i])
-                            }
-                        }
-                    }
-                    return messages;
                 },
                 _attributeResponseChanged: function (_attributeResponse) {
                     if (this.verbose) {
@@ -492,18 +468,28 @@ It is responsible to get and save the attributes.
                         this._saveRequest = {
                             "entities": [newEntity]
                         };
-                        this.set('_entityGovernRequest', {
-                            "entity": newEntity
-                        });
-                        delete this._entityGovernRequest.entity.name;
-                        var liquidGovernGet = this.$.entityGovernService;
-                        if (liquidGovernGet) {
-                            liquidGovernGet.generateRequest();
-                        }  
+                        if(this.doSyncAndValidate) {
+                            this.set('_entityGovernRequest', {
+                                "entity": newEntity
+                            });
+                            delete this._entityGovernRequest.entity.name;
+                            var liquidGovernGet = this.$.entityGovernService;
+                            if (liquidGovernGet) {
+                                liquidGovernGet.generateRequest();
+                            } 
+                        } else {
+                            this._saveEntity();
+                        }
                     }
 
                     //this return isnt useful for now
                     return newEntity;
+                },
+                _saveEntity: function() {
+                    var liquidSave = this.$$("[name=attributeSaveDataService]");
+                    if (liquidSave) {
+                        liquidSave.generateRequest();
+                    }
                 },
                 _hasErrors: function(attributeList) {
                     var _attributes = [];
@@ -580,28 +566,20 @@ It is responsible to get and save the attributes.
                         var attrMessages = {};
                         if (entity && entity.data && entity.data.attributes) {
                             var attributes = entity.data.attributes;
-
-                            for (var i in attributes) {
-                                if(this._attributeModels[i]) {
-                                    var messageCodes = this._getMessageCodes(attributes[i]);
-                                    var messages = this.getMessagesFromCodes(messageCodes);
-                                    if (messages && messages.length) {
-                                        attrMessages[i] = messages;
-                                    }
-                                }
-                            } 
+                            attrMessages = this.getAttributeMessages(attributes, this._attributeModels);
                         }                      
-                        if(!_.isEmpty(attrMessages) && !this.allowSaveOnError) {
-                            this.set('_attributeMessages', attrMessages);
-                            this.showErrorToast("Cannot save entity. Please resolve the errors.");
+                        if(!_.isEmpty(attrMessages)) {
+                            var errorMessages = this.getErrorsFromAttrMessages(attrMessages, this._attributeModels);
+                            this.set("_errorMessages", errorMessages);
+                            this.$$('#errorsDialog').open();
                             return;
                         } else {
-                            var liquidSave = this.$$("[name=attributeSaveDataService]");
-                            if (liquidSave) {
-                                liquidSave.generateRequest();
-                            }
+                            this._saveEntity();
                         }
                     }
+                },
+                _skipErrors: function() {
+                    this._saveEntity();
                 },
                 /**
                  * Can be used to get the elements if they are dirty.
