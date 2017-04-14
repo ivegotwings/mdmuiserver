@@ -9,6 +9,7 @@
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-externalref-underscore/bedrock-externalref-underscore.html">
 
 <link rel="import" href="../rock-entity-lov/rock-entity-lov.html">
 <link rel="import" href="../rock-entity-model-lov/rock-entity-model-lov.html">
@@ -103,7 +104,6 @@ Custom property | Description | Default
                         <bedrock-pubsub event-name="entity-model-lov-close-button-tap" handler="_onEntityLovCloseButtonTapped" target-id="[[configDataItem.id]]-lov"></bedrock-pubsub>
                     </template>
                 </div>
-
             </template>
         </div>
     </template>
@@ -132,6 +132,14 @@ Custom property | Description | Default
                     return {};
                 }
             },
+             /**
+             * Indicates the selected values of all dimensions in the dimension selector.
+             */
+            allMultiSelect: {
+                type: Boolean,
+                value: false
+            },
+
             _currentDimensionSelector: {
                 type: Object,
                 value: function () {
@@ -158,20 +166,23 @@ Custom property | Description | Default
 
         _getSelectedItems: function (selectedItem) {
             // Todo.. This is not a correct code lov must support selectedid
-            var formattedSelectedItems = [];
-            var formattedSelectedItem = {};
+            
+            if(!_.isEmpty(selectedItem)) {
+                var formattedSelectedItems = [];
+                var formattedSelectedItem = {};
 
-            var itemId = typeof (selectedItem) !== "undefined" && selectedItem !== "" ? selectedItem.id :
-                _default.id;
-            var itemType = typeof (selectedItem) !== "undefined" && selectedItem !== "" ? selectedItem.type :
-                _default.type;
+                var itemId = typeof (selectedItem) !== "undefined" && selectedItem !== "" ? selectedItem.id :
+                    _default.id;
+                var itemType = typeof (selectedItem) !== "undefined" && selectedItem !== "" ? selectedItem.type :
+                    _default.type;
 
-            formattedSelectedItem["id"] = itemId;
-            formattedSelectedItem["type"] = itemType;
+                formattedSelectedItem["id"] = itemId;
+                formattedSelectedItem["type"] = itemType;
 
-            formattedSelectedItems.push(formattedSelectedItem);
+                formattedSelectedItems.push(formattedSelectedItem);
 
-            return formattedSelectedItems
+                return formattedSelectedItems
+            }
         },
 
         _configDataChanged: function () {
@@ -186,53 +197,61 @@ Custom property | Description | Default
         },
 
         _onEntityLovConfirmButtonTapped: function (event) {
-            // Todo.. Confirm with Jimmy is this really required?
+            if (!this.allMultiSelect) {
+                var currentLovId = event.detail.data.id;
+                var currentRockLov = this.$$("#" + currentLovId);
+                var switchToMultiSelect = true;
 
-            // var currentEntityLovId = event.detail.data.id;
-            // var rockLov = this.$$("#" + currentEntityLovId);
-            // var switchToMultiSelect = true;
+                if (currentRockLov.multiSelect) {
+                    if (currentRockLov.selectedItems.length > 1) {
+                        switchToMultiSelect = !currentRockLov.multiSelect;
+                    }
 
-            // if (rockLov.selectedItems.length > 1) {
-            //     switchToMultiSelect = !rockLov.multiSelect;
-            // }
+                    for (var i = 0; i < this.configData.length; i++) {
+                        var configDataItem = this.configData[i];
+                        var rockLov;
 
-            // for (var i = 0; i < this.configData.length; i++) {
-            //     var configDataItem = this.configData[i];
-            //     var entityLov = this.$$("#" + configDataItem.id).querySelector("rock-entity-lov");
+                        if(configDataItem.dataRequestType == "entity") {
+                            rockLov = this.$$("#" + configDataItem.id).querySelector("rock-entity-lov");
+                        }
 
-            //     if (entityLov.id !== currentEntityLovId && entityLov.multiSelect !== switchToMultiSelect) {
-
-            //         // this._toggleLovSelectionMode(entityLov, switchToMultiSelect);
-            //     }
-            // }
-
+                        if(configDataItem.dataRequestType == "entity-model") {
+                            rockLov = this.$$("#" + configDataItem.id).querySelector("rock-entity-model-lov");
+                        }
+                        
+                        if (typeof(rockLov) !== "undefined" && rockLov.id !== currentLovId && rockLov.multiSelect !== switchToMultiSelect) {
+                            this._toggleLovSelectionMode(rockLov, switchToMultiSelect);
+                        }
+                    }
+                }
+            }
+            
             this._updateSelectedDimensions();
             this._toggleLovPopover(this._currentDimensionSelector.popover);
         },
 
         _toggleLovSelectionMode: function (rockLov, switchToMultiSelect) {
-            // if (switchToMultiSelect) {
-            //     var selectedItem = rockLov.selectedItem;
-            //     rockLov.multiSelect = switchToMultiSelect;
+            if (switchToMultiSelect) {
+                var selectedItem = rockLov.selectedItem;
+                rockLov.multiSelect = switchToMultiSelect;
 
-            //     if (typeof (selectedItem) !== "undefined") {
-            //         rockLov.push("selectedItems", selectedItem);
-            //     }
+                if (typeof (selectedItem) !== "undefined" && !_.isEmpty(selectedItem)) {
+                    rockLov.push("selectedItems", selectedItem);
+                }
 
-            //     rockLov.showActionButtons = true;
-            //     rockLov._refershTemplate();
-            // } else {
-            //     var selectedItems = rockLov.selectedItems
-            //     rockLov.multiSelect = switchToMultiSelect;
+                rockLov.refershTemplate();
+            } else {
+                var selectedItems = rockLov.selectedItems
+                rockLov.multiSelect = switchToMultiSelect;
 
-            //     if (typeof (selectedItems) !== "undefined" && selectedItems.length > 0) {
-            //         rockLov.selectedItem = selectedItems[0];
-            //     } else {
-            //         rockLov.selectedItem = {};
-            //     }
+                if (typeof (selectedItems) !== "undefined" && selectedItems.length > 0) {
+                    rockLov.selectedItem = selectedItems[0];
+                } else {
+                    rockLov.selectedItem = {};
+                }
 
-            //     rockLov.showActionButtons = false;
-            // }
+                rockLov.refershTemplate();
+            }
         },
 
         _onEntityLovCloseButtonTapped: function () {
@@ -253,7 +272,6 @@ Custom property | Description | Default
                     var configDataItem = this.configData[i];
                     var rockLov;
 
-
                     if (this._compareRequestType(configDataItem.dataRequestType, 'entity')) {
                         rockLov = this.$$("#" + configDataItem.id).querySelector("rock-entity-lov");
                     }
@@ -263,15 +281,17 @@ Custom property | Description | Default
                     }
 
                     if (typeof (rockLov) !== "undefined") {
-                        if (!rockLov.multiSelect) {
-                            selectedDimensions[rockLov.selectedItem.type] = this._getItemId(
-                                rockLov.selectedItem);
-                        } else {
-                            var entityTypes = configDataItem.dataMappings.type;
+                        var entityTypes = configDataItem.dataMappings.type;
 
+                        if(typeof(entityTypes) !== "undefined") {
                             for (var j = 0; j < entityTypes.length; j++) {
-                                selectedDimensions[entityTypes[j]] = this._getItemsIdsByType(
+                                if (!rockLov.multiSelect) {
+                                    var itemId = this._getItemId(rockLov.selectedItem);
+                                    selectedDimensions[entityTypes[j]] = [itemId] ;
+                                } else {
+                                    selectedDimensions[entityTypes[j]] = this._getItemsIdsByType(
                                     rockLov.selectedItems, entityTypes[j]);
+                                }
                             }
                         }
                     }
@@ -290,7 +310,7 @@ Custom property | Description | Default
 
         _toggleLovPopover: function (popoverId) {
             var currentPopover = this.$$("#" + popoverId);
-            if (!DataHelper.isEmptyObject(currentPopover)) {
+            if (!_.isEmpty(currentPopover)) {
                 if (!currentPopover.opened) {
                     currentPopover.show();
                 } else {
@@ -387,7 +407,8 @@ Custom property | Description | Default
             if (items) {
                 for (var i = 0; i < items.length; i++) {
                     if (items[i].type === type) {
-                        itemsIds.push(this._getItemId(items[i]));
+                        var itemId = this._getItemId(items[i]);
+                        itemsIds.push(itemId);
                     }
                 }
             }
@@ -397,8 +418,8 @@ Custom property | Description | Default
         _getItemId: function (item) {
             var itemId = this.get("id", item);
 
-            if (itemId === undefined || itemId === null) {
-                itemId = item ? item.toString() : '';
+            if (typeof(itemId) == "undefined" || typeof(itemId) == "null") {
+                itemId = ""; // Could be -1 or ""?
             }
 
             return itemId;

@@ -1,7 +1,7 @@
 var clientIO = require("socket.io-client");
 var config = require("../config");
 
-var path = config.clientConfig.host + ":" + config.clientConfig.port;
+var path = config.clientConfig.url;
 
 var clientSocket = clientIO.connect(path);
 
@@ -14,6 +14,6 @@ function sendMessageToSpecificUser(data, userId) {
 }
 
 module.exports = {
-    sendMessageToAllUser : sendMessageToAllUser,
-    sendMessageToSpecificUser : sendMessageToSpecificUser
+        sendMessageToAllUser: sendMessageToAllUser,
+        sendMessageToSpecificUser: sendMessageToSpecificUser
 };

@@ -28,7 +28,7 @@ DataObjectFalcorUtil.getPathKeys = function () {
                 "responseObjectName": "response"
             },
             "config": {
-                "name": "config",
+                "name": "configObject",
                 "collectionName": "configObjects",
                 "responseObjectName": "response"
             }

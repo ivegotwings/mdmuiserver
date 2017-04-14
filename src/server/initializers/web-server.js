@@ -36,19 +36,8 @@ app.use(cors());
 
 //handling root path (specifically for SAML type of authentication)
 app.get('/', function (req, res) {
-    var userId = req.header("x-rdp-userId");
-    var tenantId = req.header("x-rdp-tenantId");
-    var userRoles = req.header("x-rdp-userRoles");
-    var firstName = req.header("x-rdp-firstName");
-    var lastName = req.header("x-rdp-lastName");
-    var userEmail = req.header("x-rdp-userEmail");
-    if (tenantId && userId) {
-        res.append("x-rdp-userId", userId);
-        res.append("x-rdp-userRoles", userRoles);
-        res.render('index', { isAuthenticated: true, tenantId: tenantId, userId: userId, roleId: userRoles });
-    }
-    else {
-         res.render('index', { isAuthenticated: false });
+    if (!renderAuthenticatedPage(req, res)) {
+        res.render('index', { isAuthenticated: false });
     }
 });
 
@@ -76,19 +65,7 @@ notificationService(app);
 
 //register static file root ...index.html..
 app.get('*', function (req, res) {
-    //We are making sure if request is already authenticated by looking at request headers
-    var userId = req.header("x-rdp-userId");
-    var tenantId = req.header("x-rdp-tenantId");
-    var userRoles = req.header("x-rdp-userRoles");
-    var firstName = req.header("x-rdp-firstName");
-    var lastName = req.header("x-rdp-lastName");
-    var userEmail = req.header("x-rdp-userEmail");
-    if (tenantId && tenantId != "" && userId && userId != "") {
-        res.append("x-rdp-userId", userId);
-        res.append("x-rdp-userRoles", userRoles);
-        res.render('index', { isAuthenticated: true, tenantId: tenantId, userId: userId, roleId: userRoles });
-    }
-    else {
+    if (!renderAuthenticatedPage(req, res)) {
         //If request is not authenticated, we are trying see if URL has tenant after root of the URL
         var urlComps = req.url.split('/');
         tenantId = urlComps[0] != "" ? urlComps[0] : urlComps.length > 1 ? urlComps[1] : "";
@@ -102,6 +79,30 @@ app.get('*', function (req, res) {
     }
 });
 
+function renderAuthenticatedPage(req, res) {
+    var userId = req.header("x-rdp-userid");
+    var tenantId = req.header("x-rdp-tenantid");
+    var userRoles = req.header("x-rdp-userroles");
+    var firstName = req.header("x-rdp-firstname");
+    var lastName = req.header("x-rdp-lastname");
+    var userEmail = req.header("x-rdp-useremail");
+    if (tenantId && userId) {
+        var fullName = "";
+        if (firstName) {
+            fullName = firstName;
+        }
+        if (lastName) {
+            fullName = fullName + " " + lastName;
+        }
+        if (fullName == "") {
+            fullName = userId;
+        }
+        res.render('index', { isAuthenticated: true, tenantId: tenantId, userId: userId, roleId: userRoles, fullName: fullName });
+        return true;
+    } else {
+        return false;
+    }
+}
 // Finally, start the web server...
 var server = app.listen(5005, function () {
     var host = server.address().address === '::' ? 'localhost' : server.address().address;

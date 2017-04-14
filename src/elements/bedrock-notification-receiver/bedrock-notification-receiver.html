@@ -1,8 +1,11 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
-<!--<link rel="import" href="../pebble-toast/pebble-toast.html">-->
 
 <link rel="import" href="../bedrock-externalref-socketio/bedrock-externalref-socketio.html">
+<link rel="import" href="../bedrock-enums-util/bedrock-enums-util.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 
 <!--
 `bedrock-notification-receiver` Represents a component that creates the 
@@ -16,84 +19,67 @@ in the current window tab of the browser.
 -->
 
 <dom-module id="bedrock-notification-receiver">
-  <template>
-    <iron-ajax auto url="../../data/config.json" handle-as="json" last-response="{{serverConfig}}"></iron-ajax>
-  </template>
+    <template>
+        <iron-ajax auto url="../../data/config.json" handle-as="json" last-response="{{serverConfig}}"></iron-ajax>
+    </template>
 
-  <script>
-    (function () {
-        'use strict';
+    <script>
+        (function () {
+            'use strict';
 
-        Polymer({
-            is: 'bedrock-notification-receiver',
-            properties: {
-                /*
-                * Indicates the `serverConfig` object that contains the host and port details where the notification engine is hosted.
-                */
-                serverConfig: {
-                    type : Object,
-                    notify : true,
-                    value: function(){
-                        return {};
-                    },
-                    observer: '_init'
-                }
-            },
-            _clientSocket: null,
-            _init: function() {
-                var self = this;
-                if(self.serverConfig.notificationManager && self.serverConfig.notificationManager.Host && self.serverConfig.notificationManager.Port) {
-                    var path = self.serverConfig.notificationManager.Host + ":" + self.serverConfig.notificationManager.Port;
+            Polymer({
+                is: 'bedrock-notification-receiver',
+                properties: {
+                    /*
+                    * Indicates the `serverConfig` object that contains the host and port details where the notification engine is hosted.
+                    */
+                    serverConfig: {
+                        type: Object,
+                        notify: true,
+                        value: function () {
+                            return {};
+                        },
+                        observer: '_init'
+                    }
+                },
+                behaviors: [
+                    RUFBehaviors.UIBehavior
+                ],
+                _clientSocket: null,
+                _init: function () {
+                    var self = this;
+                    if (self.serverConfig.notificationManager && self.serverConfig.notificationManager.url) {
+                        var path = self.serverConfig.notificationManager.url;
 
-                    self._clientSocket = io.connect(path);
+                        //console.log('initializing socket connection to the path ', JSON.stringify(path));
+                        self._clientSocket = io.connect(path);
 
-                    self._clientSocket.on("new message", function(data) {
+                        self._clientSocket.on('connect', function () {
+                            var userId = DataHelper.getUserId();
+                            //console.log("fired from client to reset: " + self._clientSocket.id + " user id" + userId);
+                            self._clientSocket.emit('Connect new user', userId);
+                        });
 
-                        //TODO:: This part has to be changed based on further discussion
-                        // It has to fire event to proper app or component inside app.
-                        var pebbleToastElement = document.createElement("pebble-toast");
-                        pebbleToastElement.setAttribute('id', Date.parse(new Date())); //Just unique id                
-                        pebbleToastElement.text = data.msg;
-                        pebbleToastElement.toastType = data.type;
-                        pebbleToastElement.autoClose = true;
-                        pebbleToastElement.toastDuration = 5000; 
-                        document.body.appendChild(pebbleToastElement);
-                        pebbleToastElement.show();
-
-                        var notificationElement = document.querySelector("main-app").$.notificationsList;
-                        var notificationLabelElement = document.querySelector("main-app").$.mdmNotifications;
-
-                        if(notificationElement)
-                        {
-                            var notifications = notificationElement.notifications;
-                            notificationElement.notifications = [];
+                        self._clientSocket.on("new message", function (data) {
+                            //console.log('notification received from server ', JSON.stringify(data));
                             
-                            // notification json has to be decided and changed here
-                            notifications.push({
-                                src: data.src || '',
-                                alt: data.alt || '',
-                                when: data.when || '',
-                                desc: data.msg || ''
-                            });
-
-                            notificationElement.notifications = notifications;
-                            notificationElement.notifyPath("notifications", notificationElement.notifications.slice());
-
-                            if(notificationLabelElement)
-                            {
-                                notificationLabelElement.label = notifications.length;
+                            var mainApp = document.querySelector('main-app');
+                            if (mainApp) {
+                                var dataObjectNotificationHandler = mainApp.$$('bedrock-dataobject-notification-handler');
+                                if (dataObjectNotificationHandler) {
+                                    dataObjectNotificationHandler.fireBedrockEvent("dataobject-notification", data, { ignoreId: true });
+                                }
                             }
-                        }
-                    });
+                        }.bind(self));
 
-                    window.globalFunctions = window.globalFunctions || {};
-                    globalFunctions.getClientSocket = function(){
-                        return self._clientSocket;
+                        window.globalFunctions = window.globalFunctions || {};
+                        globalFunctions.getClientSocket = function () {
+                            return self._clientSocket;
+                        }
                     }
                 }
-            }
-        });
-    })();
-  </script>
+            });
+        })();
+    </script>
 
 </dom-module>
