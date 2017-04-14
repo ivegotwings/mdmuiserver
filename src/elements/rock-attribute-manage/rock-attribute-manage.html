@@ -11,6 +11,7 @@
 <link rel="import" href="../liquid-entity-govern-data-get/liquid-entity-govern-data-get.html">
 <link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
+<link rel="import" href="../liquid-rest/liquid-rest.html">
 
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
@@ -69,6 +70,13 @@ It is responsible to get and save the attributes.
         <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{_attributeModelRequest}}" 
             on-entity-model-composite-get-response = "_onCompositeModelGetResponse">
         </liquid-entity-model-composite-get>
+        <liquid-rest id="entityGovernService" 
+                     url="/pass-through/entitygovernservice/validate" 
+                     method="POST" 
+                     request-data={{_entityGovernRequest}}
+                     on-liquid-response="_onEntityGovernResponse" 
+                     on-liquid-error="_onEntityGovernFailed">
+        </liquid-rest>
         <div id="buttonContainer" align="center">
             <pebble-button id="cancel" class="btn btn-secondary m-r-10" button-text="Cancel" on-tap="_revertAll" elevation=1 raised></pebble-button>
             <pebble-button id="save" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
@@ -355,7 +363,7 @@ It is responsible to get and save the attributes.
                         }
                     }
                     this.set('_attributeMessages', attrMessages);
-                    
+                                      
                 },
                 _onEntityGetFailed: function (e) {
                     console.error('Entity get failed with error: ', JSON.stringify(e));
@@ -484,10 +492,14 @@ It is responsible to get and save the attributes.
                         this._saveRequest = {
                             "entities": [newEntity]
                         };
-                        var liquidSave = this.$$("[name=attributeSaveDataService]");
-                        if (liquidSave) {
-                            liquidSave.generateRequest();
-                        }
+                        this.set('_entityGovernRequest', {
+                            "entity": newEntity
+                        });
+                        delete this._entityGovernRequest.entity.name;
+                        var liquidGovernGet = this.$.entityGovernService;
+                        if (liquidGovernGet) {
+                            liquidGovernGet.generateRequest();
+                        }  
                     }
 
                     //this return isnt useful for now
@@ -552,6 +564,41 @@ It is responsible to get and save the attributes.
                                 if (contentComponent) {
                                     contentComponent.setTitleBar(values);
                                 }
+                            }
+                        }
+                    }
+                },
+                _onEntityGovernResponse: function(e) {
+                    if(e && e.detail && e.detail.response && e.detail.response.response && e.detail.response.response.status == "success") {
+                        var res = e.detail.response.response;
+                        var itemContext = this.getFirstItemContext();
+                        var entityId;
+                        if(itemContext) {
+                            entityId = itemContext.id;
+                        }
+                        var entity = DataHelper.findEntityById(res.entities, entityId);
+                        var attrMessages = {};
+                        if (entity && entity.data && entity.data.attributes) {
+                            var attributes = entity.data.attributes;
+
+                            for (var i in attributes) {
+                                if(this._attributeModels[i]) {
+                                    var messageCodes = this._getMessageCodes(attributes[i]);
+                                    var messages = this.getMessagesFromCodes(messageCodes);
+                                    if (messages && messages.length) {
+                                        attrMessages[i] = messages;
+                                    }
+                                }
+                            } 
+                        }                      
+                        if(!_.isEmpty(attrMessages) && !this.allowSaveOnError) {
+                            this.set('_attributeMessages', attrMessages);
+                            this.showErrorToast("Cannot save entity. Please resolve the errors.");
+                            return;
+                        } else {
+                            var liquidSave = this.$$("[name=attributeSaveDataService]");
+                            if (liquidSave) {
+                                liquidSave.generateRequest();
                             }
                         }
                     }
