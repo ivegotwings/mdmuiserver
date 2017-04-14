@@ -20,7 +20,8 @@ function prepareNotificationObject(data) {
                 if (!isEmpty(notificationInfo)) {
                     if (!isEmpty(serviceName) && !isEmpty(requestStatus)) {
                         notificationInfo.status = requestStatus.values[0].value;
-                        setActionAndDescription(serviceName.values[0].value, notificationInfo);
+                        notificationInfo.action = getAction(serviceName.values[0].value, notificationInfo.status, notificationInfo.operation);
+                        notificationInfo.description = "";
                     }
                 }
             }
@@ -30,19 +31,15 @@ function prepareNotificationObject(data) {
     return notificationInfo;
 };
 
-function setActionAndDescription(serviceName, notificationInfo) {
-    var status = notificationInfo.status;
-    var operation = notificationInfo.operation;
-    var entityId = notificationInfo.context.id;
+function getAction(serviceName, status, operation) {
+    var action = "";
 
     if (!isEmpty(status) && !isEmpty(status)) {
         if (serviceName.toLowerCase() == "entityservice") {
             if (status.toLowerCase() == "success") {
-                notificationInfo.action = enums.actions.SaveComplete;
-                notificationInfo.description = "entity save is successful for entity id: " + entityId + ".";
+                action = enums.actions.SaveComplete;
             } else {
-                notificationInfo.action = enums.actions.SaveFail;
-                notificationInfo.description = "entity save is failed for entity id: " + entityId + ".";
+                action = enums.actions.SaveFail;
             }
         }
 
@@ -50,24 +47,22 @@ function setActionAndDescription(serviceName, notificationInfo) {
             if (operation) {
                 if (operation == enums.operations.WorkflowTransition) {
                     if (status.toLowerCase() == "success") {
-                        notificationInfo.action = enums.actions.WorkflowTransitionComplete;
-                        notificationInfo.description = "workflow transition is successful for entity id: " + entityId + ".";
+                        action = enums.actions.WorkflowTransitionComplete;
                     } else {
-                        notificationInfo.action = enums.actions.WorkflowTransitionFail;
-                        notificationInfo.description = "workflow transition is failed for entity id: " + entityId + ".";
+                        action = enums.actions.WorkflowTransitionFail;
                     }
                 }
             } else {
                 if (status.toLowerCase() == "success") {
-                    notificationInfo.action = enums.actions.GovernComplete;
-                    notificationInfo.description = "entity govern is successful for entity id: " + entityId + ".";
+                    action = enums.actions.GovernComplete;
                 } else {
-                    notificationInfo.action = enums.actions.GovernFail;
-                    notificationInfo.description = "entity govern is failed for entity id: " + entityId + ".";
+                    action = enums.actions.GovernFail;
                 }
             }
         }
     }
+
+    return action;
 };
 
 module.exports = function (app) {
@@ -81,7 +76,6 @@ module.exports = function (app) {
             if (!isEmpty(notificationInfo)) {
                 notificationInfo.tenantId = req.body.tenantId;
                 if (notificationInfo.userId) {
-                    console.log(notificationInfo);
                     notificationManager.sendMessageToSpecificUser(notificationInfo, notificationInfo.userId);
                 }
             }
