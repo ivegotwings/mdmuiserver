@@ -1012,12 +1012,13 @@ Custom property | Description | Default
 
                             if (typeof (workflowContext) !== "undefined") {
                                 var formattedWorkflowData = {
-                                    "name": workflowContext.workflow, // Workflow ShortName
+                                    "id": workflowContext.workflow,
+                                    "name": workflowContext.workflow,
                                     "attributes": attributes // Workflow Attributes [Also includes activities]
                                 }
                             }
 
-                            this.push("_governWorkflowNames", workflowContext.workflow);
+                            this.push("_governWorkflowNames", workflowContext.workflow); // Should be renamed
                             this.push("_formattedWorkflowStatus", formattedWorkflowData); // Todo.. Name should be changed
                         }
 
@@ -1056,17 +1057,18 @@ Custom property | Description | Default
                     var businessConditions = this._entityGovernDataBusinessConditions;
                     if (typeof (businessConditions) !== "undefined" && businessConditions.length > 0) {
                         for (var i = 0; i < businessConditions.length; i++) {
-                            var businessConditionName = businessConditions[i].businessConditionName.values[
-                                0].value;
-                            var businessConditionStatus = businessConditions[i].businessConditionStatus.values[
-                                0].value;
+                            var businessConditionId = AttributeHelper.getFirstAttributeValue(
+                                businessConditions[i].businessConditionName);
+                            var businessConditionStatus = AttributeHelper.getFirstAttributeValue(
+                                businessConditions[i].businessConditionStatus);
 
                             var formattedBusinessCondition = {
-                                "name": businessConditionName,
+                                "id": businessConditionId,
+                                "name": businessConditionId,
                                 "status": businessConditionStatus
                             }
 
-                            this.push("_governBusinessConditionNames", businessConditionName);
+                            this.push("_governBusinessConditionNames", businessConditionId); // Should be renamed
                             this.push("_formattedBusinessConditions", formattedBusinessCondition); // Todo.. Name should be changed
                         }
 
@@ -1076,9 +1078,9 @@ Custom property | Description | Default
                             }));
                         }
 
-                        console.log(JSON.stringify({
-                            "FormattedBusinessConditions": this._formattedBusinessConditions
-                        }));
+                        // console.log(JSON.stringify({
+                        //     "FormattedBusinessConditions": this._formattedBusinessConditions
+                        // }));
 
                         // console.log(JSON.stringify({
                         //     "EntityGovernDataBusinessConditions": this._entityGovernDataBusinessConditions
@@ -1111,9 +1113,11 @@ Custom property | Description | Default
                     //     "OriginalBusinessConditions": this._originalBusinessConditions
                     // }));
 
-                    if (this._entityGovernDataWorkflowStatus.length > 0) {
-                        for (var j = 0; j < this._entityGovernDataWorkflowStatus.length; j++) {
-                            var workflowData = this._entityGovernDataWorkflowStatus[j];
+                    if (this._formattedWorkflowStatus.length > 0) {
+                        for (var j = 0; j < this._formattedWorkflowStatus.length; j++) {
+                            var workflowData = this._formattedWorkflowStatus[j];
+                            workflowData.name = this._getWorkflowNameById(workflowData.id);
+
                             var workflowActivityNames = this._getWorkflowAcitivityNames(workflowData.attributes);
 
                             for (var k = 0; k < workflowActivityNames.length; k++) {
@@ -1122,14 +1126,14 @@ Custom property | Description | Default
                                 var globalBusinessConditions = [];
                                 var workflowActivityName = workflowActivityNames[k];
 
-                                var workflowLabel = workflowActivityName + " - [" + workflowData.context.workflow +
-                                    "]";
+                                var workflowLabel = workflowActivityName + " - [" + workflowData.name + "]";
                                 tofixWorkflowData["label"] = workflowLabel;
                                 tofixWorkflowData["type"] = "Workflow";
 
                                 for (var i = 0; i < this._formattedBusinessConditions.length; i++) {
                                     var businessCondition = this._formattedBusinessConditions[i];
-                                    var businessConditionName = businessCondition.name;
+                                    businessCondition.name = this._getBusinessConditionNameById(
+                                        businessCondition.id);
 
                                     if (DataHelper.containsObject(businessCondition,
                                             workflowBusinessConditions) || DataHelper.containsObject(
@@ -1142,7 +1146,7 @@ Custom property | Description | Default
                                     }
 
                                     var isMapped = this._isBusinessConditionMappedToCurrentActivity(
-                                        businessConditionName,
+                                        businessCondition.id,
                                         workflowActivityName);
 
                                     if (isMapped) {
@@ -1194,37 +1198,6 @@ Custom property | Description | Default
                 }
             },
 
-            _isBusinessConditionMappedToCurrentActivity: function (businessConditionName, workflowActivityName) {
-                var isMapped = false;
-
-                var context = this._contextSpecificBusinessConditions[0];
-
-                for (var i = 0; i < context.businessConditions.length; i++) {
-                    var contextSpecificBusinessCondition = context.businessConditions[i];
-                    var mappedActivityName = AttributeHelper.getFirstAttributeValue(
-                        contextSpecificBusinessCondition.attributes.stepName);
-
-                    if (contextSpecificBusinessCondition.relTo.id == businessConditionName &&
-                        mappedActivityName == workflowActivityName) {
-                        return isMapped = true;
-                    }
-                }
-
-                return isMapped;
-            },
-
-            _prepareGlobalToFixData: function (globalBusinessConditions) {
-                var tofixGlobalData = {};
-                tofixGlobalData["label"] = "General";
-                tofixGlobalData["type"] = "Global";
-                tofixGlobalData["businessConditions"] = globalBusinessConditions;
-                this.push("_tofixData", tofixGlobalData);
-            },
-
-
-            // --------------------------------------------------------------------------------------------
-
-
             _getWorkflowAcitivityNames: function (workflowAttributes) {
                 var workflowActivityNames = [];
 
@@ -1247,6 +1220,57 @@ Custom property | Description | Default
 
                 return workflowActivityNames;
             },
+
+            _isBusinessConditionMappedToCurrentActivity: function (businessConditionName, workflowActivityName) {
+                var isMapped = false;
+
+                var context = this._contextSpecificBusinessConditions[0];
+
+                for (var i = 0; i < context.businessConditions.length; i++) {
+                    var contextSpecificBusinessCondition = context.businessConditions[i];
+                    var mappedActivityName = AttributeHelper.getFirstAttributeValue(
+                        contextSpecificBusinessCondition.attributes.stepName);
+
+                    if (contextSpecificBusinessCondition.relTo.id == businessConditionName &&
+                        mappedActivityName == workflowActivityName) {
+                        return isMapped = true;
+                    }
+                }
+
+                return isMapped;
+            },
+
+            _getWorkflowNameById: function (workflowId) {
+                for (var i = 0; i < this._formattedWorkflowDefinitions.length; i++) {
+                    var workflowDefinition = this._formattedWorkflowDefinitions[i];
+
+                    if (workflowDefinition.name === workflowId) {
+                        var workflowAttributes = workflowDefinition.attributes.workflows.group; // To be Changed
+                        return AttributeHelper.getFirstAttributeValue(workflowAttributes[0].workflowName);
+                    }
+                }
+            },
+
+            _getBusinessConditionNameById: function (businessConditionId) {
+                for (var i = 0; i < this._originalBusinessConditions.length; i++) {
+                    var originalBusinessCondition = this._originalBusinessConditions[i];
+
+                    if (originalBusinessCondition.id === businessConditionId) {
+                        return originalBusinessCondition.name;
+                    }
+                }
+            },
+
+            _prepareGlobalToFixData: function (globalBusinessConditions) {
+                var tofixGlobalData = {};
+                tofixGlobalData["label"] = "General";
+                tofixGlobalData["type"] = "Global";
+                tofixGlobalData["businessConditions"] = globalBusinessConditions;
+                this.push("_tofixData", tofixGlobalData);
+            },
+
+
+            // --------------------------------------------------------------------------------------------
 
             _onTap: function (e) {
                 var eventDetail = {
