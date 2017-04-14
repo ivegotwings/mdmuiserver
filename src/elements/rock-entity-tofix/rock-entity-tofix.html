@@ -192,8 +192,8 @@ Custom property | Description | Default
             on-error="_onBusinessConditionsGetError"></liquid-entity-model-get>
 
         <div class="tofix-data-container">
-            <pebble-spinner active="[[_loading]]"></pebble-spinner>
-            <template is="dom-if" if="[[_isToFixDataExits]]">
+            <pebble-spinner active="[[!_isToFixDataExists]]"></pebble-spinner>
+            <template is="dom-if" if="[[_isToFixDataExists]]">
                 <template is="dom-repeat" items="[[_tofixData]]" as="tofixItem">
                     <div class="title">[[tofixItem.label]]</div>
                     <pebble-horizontal-divider></pebble-horizontal-divider>
@@ -698,7 +698,7 @@ Custom property | Description | Default
                     }
                 },
 
-                _isToFixDataExits: {
+                _isToFixDataExists: {
                     type: Boolean,
                     value: false
                 },
@@ -708,15 +708,6 @@ Custom property | Description | Default
                     value: function () {
                         return [];
                     }
-                },
-
-                /**
-                 * Indicates that pushing of items in control is in progress
-                 */
-                _loading: {
-                    type: Boolean,
-                    value: false,
-                    reflectToAttribute: true
                 }
             },
 
@@ -726,8 +717,8 @@ Custom property | Description | Default
             ],
 
             attached: function () {
+                // Use ES6 and Underscore methods whever applicable
                 if (!_.isEmpty(this.contextData)) {
-                    this._loading = !this._isToFixDataExits
                     var workflowMappingsGet = this.$$('#workflowMappingsGet');
 
                     if (typeof (workflowMappingsGet) === "undefined" ||
@@ -798,13 +789,15 @@ Custom property | Description | Default
 
                     var clonedContextData = DataHelper.cloneObject(this.contextData);
 
+                    var itemContext = ContextHelper.getFirstItemContext(clonedContextData);
+
                     // Prepare DataContext 
                     var workflowDataContexts = [];
 
                     if (typeof (mappedWorkflowNames) !== "undefined" && mappedWorkflowNames.length > 0) {
                         for (var i = 0; i < mappedWorkflowNames.length; i++) {
                             var workflowDataContext = {};
-                            workflowDataContext.self = "self/eq3e82qc6fw3800";
+                            workflowDataContext.self = "self/" + itemContext.id;
                             workflowDataContext.workflow = mappedWorkflowNames[i];
 
                             workflowDataContexts.push(workflowDataContext);
@@ -990,7 +983,8 @@ Custom property | Description | Default
                     var ruleContextMappings;
 
                     if (typeof (responseContent) !== "undefined") {
-                        ruleContextMappings = responseContent.entityModels[0].data;
+                        ruleContextMappings = responseContent.entityModels.length > 0 ? responseContent.entityModels[
+                            0].data : undefined;
 
                         if (this.verbose) {
                             console.log("RuleContextMappings:- " + JSON.stringify(responseContent.entityModels));
@@ -1002,7 +996,7 @@ Custom property | Description | Default
                             var contextSpecificRuleMaps = this._contextRelationships;
 
                             for (var i = 0; i < contextSpecificRuleMaps.length; i++) {
-                                var workflowName = contextSpecificRuleMaps[i].context.workflow; // Ask: Will this be always workflow
+                                var workflowName = contextSpecificRuleMaps[i].context.workflow; // Ask Jimmy: Will this be always workflow
                                 var businessConditions = contextSpecificRuleMaps[i].relationships.hasBusinessConditions;
 
                                 var contextSpecificBusinessCondition = {};
@@ -1230,6 +1224,16 @@ Custom property | Description | Default
                                     var businessCondition = this._formattedBusinessConditions[i];
                                     var businessConditionName = businessCondition.name;
 
+                                    if (DataHelper.containsObject(businessCondition,
+                                            workflowBusinessConditions) || DataHelper.containsObject(
+                                            businessCondition, globalBusinessConditions)) {
+
+                                        console.log(businessConditionName +
+                                            " has already pushed to toFixDataSource");
+
+                                        continue;
+                                    }
+
                                     var isMapped = this._isBusinessConditionMappedToCurrentActivity(
                                         businessConditionName,
                                         workflowActivityName);
@@ -1254,16 +1258,14 @@ Custom property | Description | Default
                     console.log(JSON.stringify({
                         "ToFix": this._tofixData
                     }));
-                    this._isToFixDataExits = true;
-                    this._loading = !this._isToFixDataExits;
-                } else {
-                    console.log("No tofix data available");
+                    this._isToFixDataExists = true;
+                    // Todo:  should we put text to user like 'Nothing to fix!'
                 }
             },
 
             _isDataSetPrepared: function () {
                 var isWorkflowDefinitionAvailable = false;
-                var isGovernDataBCAvaibable = false;
+                var isGovernDataBCAvailable = false;
                 var originalBCAvailable = false;
 
                 if (this._governBusinessConditionNames.length > 0) {
@@ -1272,16 +1274,16 @@ Custom property | Description | Default
                         isWorkflowDefinitionAvailable = this._formattedWorkflowDefinitions.length > 0;
                     }
 
-                    isGovernDataBCAvaibable = this._contextSpecificBusinessConditions.length > 0 ==
+                    isGovernDataBCAvailable = this._contextSpecificBusinessConditions.length > 0 ==
                         0 || this._globalBusinessConditions.length > 0;
 
                     originalBCAvailable = this._originalBusinessConditions.length > 0;
                 }
 
                 if (this._formattedWorkflowDefinitions.length > 0) {
-                    return isWorkflowDefinitionAvailable && isGovernDataBCAvaibable && originalBCAvailable;
+                    return isWorkflowDefinitionAvailable && isGovernDataBCAvailable && originalBCAvailable;
                 } else {
-                    return isGovernDataBCAvaibable && originalBCAvailable;
+                    return isGovernDataBCAvailable && originalBCAvailable;
                 }
             },
 
@@ -1297,7 +1299,7 @@ Custom property | Description | Default
 
                     if (contextSpecificBusinessCondition.relTo.id == businessConditionName &&
                         mappedActivityName == workflowActivityName) {
-                        isMapped = true;
+                        return isMapped = true;
                     }
                 }
 
