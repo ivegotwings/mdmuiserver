@@ -1,0 +1,175 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/element-helper.html">
+<link rel="import" href="../bedrock-lov-behavior/bedrock-lov-behavior.html">
+
+<link rel="import" href="../pebble-lov/pebble-lov.html">
+
+
+<!--
+`rock-context-lov` component is used to render entities in lov, it filters data as per filter criteria.
+
+-->
+
+<dom-module id="rock-context-lov">
+    <template>
+        <liquid-rest id="contextLiquid" url="/pass-through/entityservice/getcontext" auto$="[[auto]]" verbose
+                     method="POST" request-data={{requestData}}
+                     on-response="_onResponseReceived"  exclude-in-progress>
+        </liquid-rest>
+        <pebble-lov id="contextLov" page-size="[[pageSize]]" multi-select="[[multiSelect]]" show-image="[[showImage]]" show-color="[[showColor]]"
+                    no-sub-title="[[noSubTitle]]" show-action-buttons="[[showActionButtons]]"  items="[[items]]"
+                    selected-item="{{selectedItem}}" selected-items="{{selectedItems}}">
+        </pebble-lov>
+    </template>
+    <script>
+        Polymer({
+            is: 'rock-context-lov',
+            properties: {
+                entityId:{
+                    type:String,
+                    value:""
+                },
+                entityType:{
+                    type:String,
+                    value:""
+                },
+                contextName:{
+                    type:String,
+                    value:""
+                },
+                requestData: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+                /**
+                 * Specifies whether or not to generate console logs.
+                 */
+                verbose: {
+                    type: Boolean,
+                    value: false
+                },
+                showActionButtons:{
+                    type:Boolean,
+                    value:true
+                },
+                multiSelect:{
+                    type:Boolean,
+                    value:true
+                },
+                items:{
+                    type:Array,
+                    value:function () {
+                        return [];
+                    }
+                }
+            },
+
+            behaviors: [
+                RUFBehaviors.UIBehavior,
+                RUFBehaviors.LovBehavior
+            ],
+
+            listeners: {
+                'contextLov.selection-changed': '_onLovSelectionChanged',
+                'contextLov.lov-confirm-button-tap': '_onLovConfirmButtonTapped',
+                'contextLov.lov-close-button-tap': '_onLovCloseButtonTapped'
+            },
+
+            observers: [
+                '_prepareRequest(entityId,entityType,contextName)'
+            ],
+
+            ready: function () {
+                if (this.verbose) {
+                    // Todo..  Id may not be available every time
+                    console.log("Request Object for the Element: " + this.id + "is" + JSON.stringify(this.requestData));
+                }
+            },
+            _prepareRequest:function (entityId,entityType,contextName) {
+                if(entityId && entityType && contextName ){
+                    var req= {
+                        "params": {
+                            "query": {
+                                "filters": {
+                                    "typesCriterion": [
+                                        entityType
+                                    ]
+                                },
+                                "id": entityId
+                            }
+                        }
+                    };
+                    this.set('requestData',req);
+                    this.generateRequest();
+                }
+            },
+
+            generateRequest: function() {
+                this.$$('#contextLiquid').generateRequest();
+            },
+
+            resetLOV: function() {
+                this.$$('#contextLov').items = [];
+            },
+
+            _onResponseReceived:function (e) {
+                var items=[];
+                if(e.detail && e.detail.response) {
+                    var res = e.detail.response.response;
+                    if(res && res.entities && res.entities.length) {
+                        var entity = res.entities[0];
+                        if(entity && entity.data ) {
+                            var contexts = entity.data.contexts;
+                            for (var i in contexts) {
+                                var context = contexts[i].context;
+                                var item = context[this.contextName];
+                                if (item) {
+                                    items.push({"id":item,"title":item,"type":this.contextName});
+                                }
+                            }
+                        }
+                    }
+                }
+                this.items=items;
+            },
+            _onLovSelectionChanged: function (event) {
+                var eventDetail = {
+                    data: event.detail.item
+                }
+
+                this.fireBedrockEvent("context-lov-selection-changed", eventDetail);
+            },
+
+            _onLovConfirmButtonTapped: function (event) {
+                var eventDetail = {
+                    data: {
+                        id: this.id
+                    },
+                    name: "context-lov-confirm-button-tap"
+                }
+
+                this.fireBedrockEvent("context-lov-confirm-button-tap", eventDetail);
+            },
+
+            _onLovCloseButtonTapped: function (event) {
+                var eventDetail = {
+                    data: {
+                        id: this.id
+                    },
+                    name: "context-lov-close-button-tap"
+                }
+
+                this.fireBedrockEvent("context-lov-close-button-tap", eventDetail);
+            },
+
+            refershTemplate: function () {
+                this.$$("#entityLov").refereshTemplate();
+            },
+        });
+    </script>
+</dom-module>
