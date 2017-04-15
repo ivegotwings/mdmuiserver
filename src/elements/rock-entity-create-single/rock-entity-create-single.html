@@ -4,6 +4,7 @@
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-helpers/element-helper.html">
 <link rel="import" href="../bedrock-helpers/data-transform-helper.html">
+<link rel="import" href="../bedrock-helpers/message-helper.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 
@@ -168,28 +169,6 @@
                             type: Object,
                             value: function() { return {}; }
                         },
-                        messageCodeMapping: {
-                            type: Object,
-                            value: function() {
-                                return {
-                                    "Req001": "Required",
-                                    "MinLen001": "MIN_LENGTH",
-                                    "MaxLen001": "MAX_LENGTH",
-                                    "AlVal001": "ALLOWED_VALUES",
-                                    "Prec001": "Precision",
-                                    "Range001": "RANGE_FROM_INCLUSIVE",
-                                    "Range002": "RANGE_TO_INCLUSIVE",
-                                    "Range003": "RANGE_FROM_EXCLUSIVE",
-                                    "Range004": "RANGE_TO_EXCLUSIVE",
-                                    "Range005": "RANGE_TO_INCLUSIVE_FROM_EXCLUSIVE",
-                                    "Range006": "RANGE_TO_INCLUSIVE_FROM_INCLUSIVE",
-                                    "Range007": "RANGE_TO_EXCLUSIVE_FROM_EXCLUSIVE",
-                                    "Range008": "RANGE_TO_EXCLUSIVE_FROM_INCLUSIVE",
-                                    "133311": "Length should be greater than Width",
-                                    "133312": "Width should be less than Length"
-                                };
-                            }
-                        },
                          _matchedEntity: {
                             type: Object,
                             value: function () {
@@ -199,6 +178,10 @@
                         _errorMessages: {
                             type: Array,
                             value: function() { return []; }
+                        },
+                        messageCodeMapping: {
+                            type: Object,
+                            value: function() { return {}; }
                         }
                     },
                     observers: [
@@ -401,40 +384,20 @@
                     _onEntityGovernResponse: function (e) {
                         if(e && e.detail && e.detail.response && e.detail.response.response && e.detail.response.response.status == "success") {
                             var res = e.detail.response.response;
-                            var values = [];
                             var itemContext = this.getFirstItemContext();
                             var entityId;
-                            var entityType;
                             if(itemContext) {
                                 entityId = itemContext.id;
-                                entityType = itemContext.type;
                             }
                             
                             var entity = DataHelper.findEntityById(res.entities, entityId);
                             var attrMessages = {};
                             if (entity && entity.data && entity.data.attributes) {
                                 var attributes = entity.data.attributes;
-                                for (var i in attributes) {
-                                    if(this._attributeModels[i]) {
-                                        var messageCodes = this._getMessageCodes(attributes[i]);
-                                        var messages = this.getMessagesFromCodes(messageCodes);
-                                        if (messages && messages.length) {
-                                            attrMessages[i] = messages;
-                                        }
-                                    }
-                                }
+                                attrMessages = MessageHelper.getAttributeMessages(attributes, this._attributeModels, this.messageCodeMapping);
                             }
                             if(!_.isEmpty(attrMessages)) {
-                                var errorMessages = [];
-                                for(var i in attrMessages) {
-                                    var attrLongName = this._attributeModels[i].externalName;
-                                    var errorMessage = attrMessages[i][0];
-                                    var errorMessage = {
-                                        "attributeName": attrLongName,
-                                        "message": errorMessage
-                                    };
-                                    errorMessages.push(errorMessage);
-                                }
+                                var errorMessages = MessageHelper.getErrorsFromAttrMessages(attrMessages, this._attributeModels);
                                 this.set("_errorMessages", errorMessages);
                                 this.$$('#errorsDialog').open();
                                 return;
@@ -459,34 +422,13 @@
                             liquidSave.generateRequest();
                         }
                     },
-                    _getMessageCodes: function (attribute) {
-                        var messageCodes = [];
-                        var properties = attribute.properties;
-                        if (properties) {
-                            var messages = properties.messages;
-                            if(messages && messages.length > 0) {
-                                for (var i=0; i< messages.length; i++) {
-                                    var messageCode = messages[i].messageCode;
-                                    messageCodes.push(messages[i].messageCode);
-                                }
-                            }
+                    getIsDirty: function() {
+                        var attributeList = Polymer.dom(this).node.$$('rock-attribute-list');
+                        var changedAttributeElements = attributeList.getChangedAttributeElements();
+                        if(changedAttributeElements != undefined && changedAttributeElements.length > 0) {
+                            return true;
                         }
-                        return messageCodes;
-                    },
-
-                    getMessagesFromCodes:function (messageCodes) {
-                        var messages=[];
-                        if(messageCodes && messageCodes.length > 0) {
-                            for(var i=0; i<messageCodes.length; i++){
-                                var mes= this.messageCodeMapping[messageCodes[i]];
-                                if(mes){
-                                    messages.push(mes);
-                                } else{
-                                    messages.push("Error with Code: "+messageCodes[i])
-                                }
-                            }
-                        }
-                        return messages;
+                        return false;
                     },
                 });
             })();
