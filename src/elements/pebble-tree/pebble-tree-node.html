@@ -9,6 +9,7 @@
 <link rel="import" href="../pebble-icons/pebble-icons.html">
 <link rel="import" href="../pebble-checkbox/pebble-checkbox.html">
 <link rel="import" href="../pebble-textbox/pebble-textbox.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
 <!--
 `pebble-tree-node` Represents an individual tree list that is combined to make `rock-tree`.
 
@@ -112,24 +113,25 @@
         </style>
         <template is="dom-if" if="[[!hasChildren(nodeData.*,itemPath)]]"  >
             <li class$="[[_getNodeClass(nodeData)]]">
-                <div class="check-box-wrapper" on-tap = "_itemClick">
-                    <pebble-checkbox hidden="[[!multiSelect]]" disabled="[[disabled]]" checked="[[_isSelected(nodeData,selectedItems,selectedItems.*)]]"></pebble-checkbox>
+                <div class="check-box-wrapper">
+                    <pebble-checkbox on-tap = "_itemClick"  disabled="[[disabled]]" checked="[[_isSelected(nodeData,selectedItems,selectedItems.*,selectedItem)]]"></pebble-checkbox>
                 </div>
                 <iron-icon src="[[nodeData.src]]" icon="[[nodeData.icon]]" hidden="[[!_iconPassed(nodeData)]]"></iron-icon>
-                <a class$="nav-lnk" on-tap="_itemClick" >[[nodeData.text]]</a>
+                <a class$="nav-lnk"  >[[nodeData.text]]</a>
                 <div class="right" hidden="[[isNotAddable(addableLevels)]]">
                     <pebble-button class="iconButton" icon="icons:add-circle" on-tap="_addNewElement"></pebble-button>
                 </div>
             </li>
         </template>
         <template is="dom-if" if="[[hasChildren(nodeData.*,itemPath)]]" >
-            <li class$="[[_getNodeClass(nodeData)]]">                
-                <div class="check-box-wrapper" on-tap = "_itemClick">
-                    <pebble-checkbox hidden="[[!multiSelect]]" disabled="[[disabled]]" indeterminate="[[_isIndeterminate(nodeData,indeterminateItems,indeterminateItems.*)]]" checked="[[_isSelected(nodeData,selectedItems,selectedItems.*)]]"></pebble-checkbox>
+            <li class$="[[_getNodeClass(nodeData)]]">
+                <pebble-button class="iconButton" icon$="[[_expandClass(expanded)]]"  on-click="_toggle" ></pebble-button>
+                <div class="check-box-wrapper" >
+                    <pebble-checkbox  on-tap = "_itemClick" disabled="[[disabled]]" indeterminate="[[_isIndeterminate(nodeData,indeterminateItems,indeterminateItems.*)]]" checked="[[_isSelected(nodeData,selectedItems,selectedItems.*,selectedItem)]]"></pebble-checkbox>
                 </div>
-                <div on-click="_toggle" class="flex">
-                    <div id="arrow" hidden="[[multiSelect]]" class$="[[_arrowClass(expanded)]] arrow"
-                        ></div>
+                <div  class="flex">
+                    <!--<div id="arrow" on-click="_toggle" hidden="[[multiSelect]]" class$="[[_arrowClass(expanded)]] arrow"-->
+                        <!--&gt;</div>-->
                     <iron-icon src="[[nodeData.src]]" icon="[[nodeData.icon]]"
                             hidden="[[!_iconPassed(nodeData)]]"></iron-icon>
                     <div class="nodetext">[[nodeData.text]]</div>
@@ -137,7 +139,6 @@
                 <div class="right" hidden="[[isNotAddable(addableLevels)]]">
                     <pebble-button class="iconButton" icon="icons:add-circle" on-tap="_addNewElement"></pebble-button>
                 </div>
-                <pebble-button class="iconButton" icon$="[[_expandClass(expanded)]]"  hidden="[[!multiSelect]]" on-click="_toggle" ></pebble-button>
             </li>
         </template>
         <iron-collapse id="collapse" opened$="[[expanded]]">
@@ -148,11 +149,12 @@
             </ul>
             <template is="dom-if" if="[[hasChildren(nodeData.*,itemPath)]]" >
             <ul>
-                    <template is="dom-repeat" id="childList"  items="[[_getChildren(searchKeyword,nodeData.*)]]" >
+                <pebble-spinner active="[[_loading]]"></pebble-spinner>
+                <template is="dom-repeat" id="childList"  items="[[_getChildren(searchKeyword,nodeData.*)]]" >
                         <pebble-tree-node disabled="[[disabled]]"  node-data="{{item}}" search-keyword="[[searchKeyword]]" default-expand-depth ="[[defaultExpandDepth]]" default-child-depth="[[defaultChildDepth]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}"
                                            indeterminate-items="{{indeterminateItems}}"  multi-select="[[multiSelect]]"
                                            parent-item="{{nodeData}}" parent-tree-node="[[_setParentTreeNode()]]" item-path$="[[_setItemPath(index)]]" value-path$="[[_computeValuePath(item)]]" selected-node="{{selectedNode}}" selected-nodes="{{selectedNodes}}"
-                                           tree="[[tree]]" check-child-nodes="[[checkChildNodes]]" addable-levels="[[addableLevels]]">
+                                           tree="[[tree]]" check-child-nodes="[[checkChildNodes]]"  check-parent-nodes="[[checkParentNodes]]" addable-levels="[[addableLevels]]">
                         </pebble-tree-node>
                     </template>
             </ul>
@@ -192,7 +194,10 @@
                  */
                 selectedItem: {
                     type: Object,
-                    notify: true
+                    notify: true,
+                    value:function () {
+                        return {};
+                    }
                 },
 
                 /**
@@ -280,6 +285,13 @@
                     value:false
                 },
                 /**
+                 * Specifies whether child elements are selected or not on selecting the parent elements.
+                 */
+                checkParentNodes:{
+                    type:Boolean,
+                    value:false
+                },
+                /**
                  * Indicates a reference to the tree.
                  */
                 tree:{
@@ -313,6 +325,14 @@
                  **/
                 parentTreeNode: {
                     type: Element
+                },
+                /**
+                 * Indicates that pushing of items in control is in progress
+                 */
+                _loading: {
+                    type: Boolean,
+                    value: false,
+                    reflectToAttribute: true
                 }
             },
             observers:[
@@ -331,10 +351,16 @@
                 return (item) ? 'pebble-icons:Collapse' : 'pebble-icons:ExpandLess';
             },
             _isSelected : function(item,selectedItems) {
+                if(!this.multiSelect){
+                    return (this.selectedItem==this.nodeData);
+                }
                 if(selectedItems.indexOf(item) > -1){
                     if(this.selectedNodes.indexOf(this)==-1){
                         this.selectedNodes.push(this);
-                        if (this.checkChildNodes) {
+                        if(this.checkParentNodes){
+                            this._makeParentIndeterminate();
+                            this._notifySelectedItemChanges();
+                        } else if (this.checkChildNodes) {
                             if (this._hasChildren(item)) {
                                 this.checkAllChildNodes(item);
                             }
@@ -370,10 +396,13 @@
             selectItem: function(){
                 if(!this.disabled) {
                     var nodeData = this.nodeData;
+                    this.nodeData.valuePath=this.valuePath;
                     if (this.selectedItems.indexOf(nodeData) == -1) {
                         this.push('selectedItems', nodeData);
                         this.selectedNodes.push(this);
-                        if (this.checkChildNodes) {
+                        if(this.checkParentNodes){
+                            this._makeParentIndeterminate();
+                        } else if (this.checkChildNodes) {
                             if (this._hasChildren(nodeData)) {
                                 this.checkAllChildNodes(nodeData);
                             }
@@ -385,10 +414,10 @@
                             } else {
                                 this._makeParentIndeterminate();
                             }
-                        }
-                        var indeterminateIndex = this.indeterminateItems.indexOf(nodeData);
-                        if (indeterminateIndex > -1) {
-                            this.splice('indeterminateItems', indeterminateIndex, 1);
+                            var indeterminateIndex = this.indeterminateItems.indexOf(nodeData);
+                            if (indeterminateIndex > -1) {
+                                this.splice('indeterminateItems', indeterminateIndex, 1);
+                            }
                         }
                     }
                     this._notifySelectedItemChanges();
@@ -408,7 +437,9 @@
                     if (nodeIndex > -1) {
                         this.splice('selectedNodes', nodeIndex, 1);
                     }
-                    if (this.checkChildNodes) {
+                    if(this.checkParentNodes){
+                        this._changeParentDeterminateState();
+                    } else if (this.checkChildNodes) {
                         if (this._hasChildren(this.nodeData)) {
                             this.unCheckAllChildNodes(this.nodeData);
                         }
@@ -494,15 +525,13 @@
                         this.deSelectItem();
                     }
                 } else {
-                    var target = evt.target;
-                    var prevSelectedItem = document.querySelector('.selected')
-                    if (prevSelectedItem) {
-                        prevSelectedItem.classList.remove('selected');
+                    if(this.selectedItem ==nodeData){
+                        this.selectedItem={};
+                    } else {
+                        this.selectedItem = nodeData;
+                        this.selectedNode = this;
+//                        evt.preventDefault();
                     }
-                    target.classList.add('selected');
-                    this.selectedItem =nodeData;
-                    this.selectedNode=this;
-                    evt.preventDefault();
                 }
             },
 
@@ -609,7 +638,7 @@
                 if(this.itemPath) {
                     var currentLevel = (this.itemPath.length + 1) / 2;
                 }
-                if(currentLevel<=this.defaultChildDepth){
+                if(!this._changeToLeafMode &&currentLevel<=this.defaultChildDepth){
                     return true;
                 }
                 return this.nodeData.children && this.nodeData.children.length > 0;
@@ -639,7 +668,7 @@
              *
              */
             getParentNode: function () {
-                var lastIndex = this.valuePath.lastIndexOf(".");
+                var lastIndex = this.valuePath.lastIndexOf("#@#");
                 var parentPath = this.valuePath.substring(0, lastIndex);
                 return this.tree.getElementNodeByPath(parentPath);
             },
@@ -761,6 +790,10 @@
              */
             refreshChildList:function () {
                 this.$$("#childList").render();
+                this._loading=false;
+            },
+            changeToLeafMode:function () {
+              this._changeToLeafMode=true;
             },
             _getNodeClass: function(nodeData) {
                 if(nodeData.border) {
@@ -771,7 +804,7 @@
                 }
             },
             _computeValuePath: function(nodeData) {
-                return this.valuePath + "." + nodeData.value;
+                return this.valuePath + "#@#" + nodeData.value;
             },
             _setParentTreeNode: function() {
                 return this;
@@ -810,6 +843,18 @@
                     parentNode.selectItem();
                     parentNode.selectAllParentNodes();
                 }
+            },
+            isTreeNodeSelected: function (nodeData) {
+                var data=this.selectedItems.find(function (item) {
+                    if(item.text==nodeData.text) {
+                        if (nodeData.value || data.value) {
+                            return nodeData.value == data.value;
+                        }
+                        return true;
+                    } else{
+                        return false;
+                    }
+                })
             }
         });
 
