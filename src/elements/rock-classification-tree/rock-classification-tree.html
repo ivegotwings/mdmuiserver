@@ -17,11 +17,16 @@
 
 <dom-module id="rock-classification-tree">
     <template>
+        <liquid-rest id="contextLiquid" url="/pass-through/entityservice/getcontext"
+                     method="POST" request-data={{requestData}}
+                     on-response="_onResponseReceived"  exclude-in-progress>
+        </liquid-rest>
         <liquid-entity-data-get id="initiateSearch" operation="initiatesearch" request-data="{{request}}" last-response="{{initiateSearchResponse}}"
                                 on-error="_onGetSearchError"  on-response="_onInitiateSearchResponse" exclude-in-progress></liquid-entity-data-get>
         <liquid-entity-data-get id="getSearchResultDetail" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[initiateSearchResponse.content.requestId]]"
                                 last-response="{{getEntitySearchResultsResponse}}" on-error="_onGetSearchError" on-response="_onGetSearchResultDetailResponse" exclude-in-progress></liquid-entity-data-get>
         <pebble-tree id="contextTree" data="{{classifications}}" check-parent-nodes default-child-depth="10" selected-items="{{selectedItems}}"  multi-select></pebble-tree>
+        <bedrock-pubsub event-name="tree-node-child-list-refreshed" handler="_childListRefreshed" ></bedrock-pubsub>
     </template>
     <script>
         Polymer({
@@ -87,7 +92,61 @@
 
             _contextRecieved:function () {
                 if(this.taxonomy && !_.isEmpty(this.contextData)) {
+                    this._prepareGetContextRequest(this.contextData);
+                }
+            },
+            _prepareGetContextRequest:function (contextData) {
+                var firstItemContext=ContextHelper.getFirstItemContext(contextData);
+                var entityId,entityType;
+                if(firstItemContext){
+                    entityId=firstItemContext.id;
+                    entityType=firstItemContext.type;
+                }
+                if(entityId && entityType){
+                    var req= {
+                        "params": {
+                            "query": {
+                                "filters": {
+                                    "typesCriterion": [
+                                        entityType
+                                    ]
+                                },
+                                "id": entityId
+                            }
+                        }
+                    };
+                    this.set('requestData',req);
+                    console.log(req);
+                    this.$$("#contextLiquid").generateRequest();
+                }
+            },
+            _onResponseReceived:function (e) {
+                if(!this._responseRecieved) {
+                    var items = [];
+                    if (e.detail && e.detail.response) {
+                        var res = e.detail.response.response;
+                        if (res && res.entities && res.entities.length) {
+                            var entity = res.entities[0];
+                            if (entity && entity.data) {
+                                var contexts = entity.data.contexts;
+                                for (var i in contexts) {
+                                    var context = contexts[i].context;
+                                    var item = context["classification"];
+                                    if (item) {
+                                        if (context["taxonomy"] == this.taxonomy) {
+                                            var arr = item.split("/");
+                                            items.push(arr);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                    }
+                    this.selectedClassifications = items;
+                    console.log(this.selectedClassifications);
                     this.generateRequest();
+                    this._responseRecieved=true;
                 }
             },
             generateRequest: function (parentClassificationId){
@@ -142,12 +201,57 @@
                 } else {
                     if (!this._currentNode || _.isEmpty(this._currentNode)) {
                         this.classifications = this._classificationsList;
+                        this._checkForSelectedClassification();
                     } else {
                         if (!this._classificationsList.length) {
                             this._currentNode.changeToLeafMode();
                         }
                         this._currentNode.set('nodeData.children', this._classificationsList);
                         this._currentNode.refreshChildList();
+                    }
+                }
+            },
+            _checkForSelectedClassification:function () {
+                if(!this.selectedClassifications || !this.selectedClassifications.length || this._classificationIndex ==this.selectedClassifications.length) {
+                    return;
+                }
+                if(!this._currentClassification) {
+                    this._classificationIndex=0;
+                    this._currentIndex = 0;
+                }
+                this._currentClassification = this.selectedClassifications[this._classificationIndex];
+                var name=this._currentClassification[this._currentIndex];
+                if(this._currentIndex==0){
+                    this._currentNode=this.$$("#contextTree").getElementNodeByPath(name);
+                } else{
+                    var childNodes=this._currentNode.getChildNodes();
+                    var matchedChild;
+                    for(var i in childNodes){
+                        if(childNodes[i].nodeData.value==name){
+                            matchedChild=childNodes[i];
+                            break;
+                        }
+                    }
+                    if(matchedChild){
+                        this._currentNode=matchedChild;
+                    } else{
+                        this._classificationIndex++;
+                        this._currentIndex=0;
+                        this._checkForSelectedClassification();
+                        return;
+                    }
+                }
+                if(this._currentIndex==this._currentClassification.length-1){
+                    this._currentNode.selectItem();
+                    this._classificationIndex++;
+                    this._currentIndex=0;
+                    this._checkForSelectedClassification();
+                } else {
+                    this._currentIndex++;
+                    if(this._currentNode.expanded){
+                        this._checkForSelectedClassification();
+                    } else {
+                        this._currentNode.expand();
                     }
                 }
             },
@@ -158,6 +262,9 @@
                     this.generateRequest(this._currentNode.nodeData.id);
                     this._currentNode._loading=true;
                 }
+            },
+            _childListRefreshed:function () {
+                    this._checkForSelectedClassification();
             }
 
 
