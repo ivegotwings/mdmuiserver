@@ -1,0 +1,130 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+
+<link rel="import" href="../liquid-rest/liquid-rest.html">
+
+<link rel="import" href="../pebble-file-upload/pebble-file-upload.html">
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+
+<dom-module id="rock-model-import">
+    <template>
+        <style include="pebble-styles-shared">
+            .placeHolder {
+                width: 880px;
+                height: 400px;
+                margin: 0 auto;
+                box-shadow: 0 0 10px 0 var(--cloudy-blue-color, #c1cad4);
+                position: relative;
+            }
+            .title {
+                font-size: var(--default-font-size, 14px);		                  
+                text-align: center;
+                color:var(--palette-steel-grey, #75808b);
+            }
+        </style>
+        <p class="title"><strong>Profile Name:</strong> [[importProfileName]]</p>
+        <div class="placeHolder p-10">
+            <p class="title"><a href="#" class="btn-link" on-tap="_selectFile">Download</a> a system template or just upload an existing data file</p>
+            <!-- screen for import -->
+            <pebble-file-upload accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" target="/file-upload"></pebble-file-upload>
+            <bedrock-pubsub on-bedrock-event-pebble-file-upload-success="_onFileUploadSuccess"></bedrock-pubsub>
+        </div>
+        <liquid-rest id="copProcessModel" url="/cop/processmodel" 
+            method="POST" request-data={{_copProcessModelRequest}} on-liquid-response="_onProcessModelSuccess" on-liquid-error="_onProcessModelFailure"></liquid-rest>
+    </template>
+    <script>
+        (function(){
+            'use strict';
+
+            Polymer({
+                is: "rock-model-import",
+
+                properties: {
+                    importProfileName:{
+                        type: String
+                    },
+                    _copProcessModelRequest: {
+                        type: Object,
+                        value: function() { return {}; }
+                    },
+                    _fileName: {
+                        type: String
+                    },
+                    businessFunctionData: {
+                        type: Object,
+                        value: function() { return {}; }
+                    }
+                },
+                behaviors: [
+                    RUFBehaviors.UIBehavior,
+                    RUFBehaviors.ComponentContextBehavior
+                ],
+                _onFileUploadSuccess: function(e, detail, sender) {
+                    if(this.importProfileName == undefined || this.importProfileName.length == 0) {
+                        this.showErrorToast("Import profile name not found. Please check the config.");
+                        return;
+                    }
+
+                    var fileName = detail.fileName;
+                    this.set("_fileName", detail.originalFileName);
+                    var copRequest = {
+                        "fileName": fileName,
+                        "profileName": this.importProfileName
+                    };
+                    this.set("_copProcessModelRequest", copRequest);
+                    var liqTransform = this.$$("#copProcessModel");
+                    if(liqTransform) {
+                        liqTransform.generateRequest();
+                    }
+                },
+                _onProcessModelSuccess: function(e) {
+                    var response = e.detail.response;
+                    if(response && response.dataObjectOperationResponse &&response.dataObjectOperationResponse.status == "success") {
+                        // go to next step in wizard
+                        var data = {
+                            "messages": [
+                                {
+                                    "message": "The Data Model has been uploaded and will be processed by the system"
+                                },
+                                {
+                                    "message": "You can view the status of the processing in the Data Model Dashboard"
+                                }
+                            ],
+                            "actions": [
+                                {
+                                    "name": "closeFunction",
+                                    "text": "Close Data Model Loader"
+                                },
+                                {
+                                    "name": "nextAction",
+                                    "text": "Take me to File Upload Status",
+                                    "dataRoute": "dashboard"
+                                }
+                            ]
+                        };
+                        this.businessFunctionData = data;
+                        var eventName = "onNext";
+                        var eventDetail = {
+                            name: eventName
+                        };
+                        this.async(function() {
+                            this.fireBedrockEvent(eventName, eventDetail, {
+                                ignoreId: true
+                            });
+                        }, 5000);
+                    } else {
+                        console.warn("Unexpected COP response:" + e.detail.response);
+                        this.showErrorToast("Unable to process the data model. Please check the service or contact your administrator.");
+                    }
+                },
+                _onProcessModelFailure: function(e) {
+                    console.warn("Unexpected COP response:" + e.detail.response);
+                    this.showErrorToast("Unable to process the data model. Please check the service or contact your administrator.");
+                }
+            });
+        })();
+    </script>
+</dom-module>

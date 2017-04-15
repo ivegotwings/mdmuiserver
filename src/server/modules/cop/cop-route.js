@@ -57,6 +57,16 @@ var COPRouter = function (app) {
         res.status(200).send(response);
 
     });
+    app.post('/cop/process', async function(req, res) {
+        var response = await copService.process(req);
+        //console.log('cop response:', JSON.stringify(response, null, 2));
+        res.status(200).send(response);
+    });
+    app.post('/cop/processmodel', async function(req, res) {
+        var response = await copService.processmodel(req);
+        //console.log('cop response:', JSON.stringify(response, null, 2));
+        res.status(200).send(response);
+    });
 };
 
 module.exports = function (app) {
