@@ -336,22 +336,20 @@
                     }                    
                 },
 
+                //Prepare context for mappings
                 _prepareContext: function(_clonedContextData, type) {
                     var _context = {};
                     var userContext = ContextHelper.getFirstUserContext(_clonedContextData);
 
                     if(type == "searchmapping" && userContext)
                     {
-                        // "role": userContext.role,
-                        // "user1": userContext.user
-
                         _context = {
                             "app": this.appName,
                             "service": "_ALL",
                             "component": "_ALL",
                             "subComponent": "_ALL",
-                            "role": "vendor",
-                            "user1": "vendor1"                       
+                            "role": userContext.role,
+                            "user1": userContext.user                       
                         };
                         var _typesCriterion = ["savedSearchMappings"];
                     }
@@ -556,30 +554,45 @@
                 
                 _onTapSavedSearchFavourite: function (e, detail, sender) {
                     var _foundInFav = false;                    
-                    var _tag = detail.parentButton;                                       
-                    var _favourites = this._originalSearchMappings[0].data.contexts[0].jsonData.config.favoriteSavedSearches;
+                    var _tag = detail.parentButton;
 
-                    for(var i = 0; i < _favourites.length; i++)
-                    {
-                        if(_favourites[i] == _tag.searchname)
+                    // If mappings available then update
+                    if(this._originalSearchMappings && this._originalSearchMappings.length > 0)                           {            
+                        var _favourites = this._originalSearchMappings[0].data.contexts[0].jsonData.config.favoriteSavedSearches;
+                        
+                        for(var i = 0; i < _favourites.length; i++)
                         {
-                            _favourites.splice(i, 1);
-                            _foundInFav = true;
-                            break;                            
+                            if(_favourites[i] == _tag.searchname)
+                            {
+                                _favourites.splice(i, 1);
+                                _foundInFav = true;
+                                break;                            
+                            }
                         }
-                    }
 
-                    if(!_foundInFav) //Its not fav, then make it fav now
+                        if(!_foundInFav) //Its not fav, then make it fav now
+                        {
+                            _favourites.push(_tag.searchname);
+                        }
+
+                        var _reqData = { "configObjects" : [this._originalSearchMappings[0]] } //Mapping have only one record
+                        this.generateSaveRequest(_reqData, "update");
+                    }
+                    else // When no mapping, then create request and submit
                     {
-                        _favourites.push(_tag.searchname);
+                        var _clonedContextData = DataHelper.cloneObject(this.contextData);
+                        var _createMappingRequestData = DataRequestHelper.savedSearchCreateRequest(this._prepareCreateMappingContext(_clonedContextData, _tag), "savedsearchmapping");
+                        
+                        var _reqData = { "configObjects" : [_createMappingRequestData] }
+                        this.generateSaveRequest(_reqData, "create");
+                        
                     }
-
-                    var _reqData = { "configObjects" : [this._originalSearchMappings[0]] } //Mapping have only one record
-                    this.generateSaveRequest(_reqData, "update");
                 },
                 _onTapSavedSearchDelete: function (e, detail, sender) {
                     console.log('Delete: ', detail);
                 },
+
+                // Generate save request
                 generateSaveRequest: function (reqData, operation) {
                     var configSaveService = this.$$('[name="configSaveService"]');
 
@@ -603,12 +616,13 @@
                     }
                 },
 
+                // Create and Update saved search
                 createUpdateSavedSearch: function(searchInfo, type) {
                     //Prepare request
                     if(type == "create")
                     {
                         var _clonedContextData = DataHelper.cloneObject(this.contextData);
-                        var _createRequestData = DataRequestHelper.savedSearchCreateRequest(this._prepareCreateContext(_clonedContextData, searchInfo));
+                        var _createRequestData = DataRequestHelper.savedSearchCreateRequest(this._prepareCreateContext(_clonedContextData, searchInfo), "savedsearch");
                         
                         var _reqData = { "configObjects" : [_createRequestData] }
                         this.generateSaveRequest(_reqData, "create");
@@ -636,6 +650,7 @@
                     }                    
                 },
 
+                // Context for create saved search
                 _prepareCreateContext: function(_clonedContextData, searchInfo) {
                     var _context = {};
                     var userContext = ContextHelper.getFirstUserContext(_clonedContextData);                    
@@ -643,7 +658,9 @@
                             "app": this.appName,
                             "service": "_ALL",
                             "component": "_ALL",
-                            "subComponent": "_ALL"                        
+                            "subComponent": "_ALL",
+                            "role": userContext.role,
+                            "user1": userContext.user
                     };
 
                     var _data = {};
@@ -664,6 +681,39 @@
                                 "searchQuery": searchInfo["search-query"],
                                 "searchTags": searchInfo["search-tags"]
                             }
+                        };
+                    
+                    var _contextsObject = {
+                        "context": _context,
+                        "jsonData": _data
+                    }
+                    
+                    
+                    //Set context
+                    _clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [_contextsObject];
+                    
+                    return _clonedContextData;
+                },
+
+                // Context for create mappings
+                _prepareCreateMappingContext: function(_clonedContextData, tag) {
+                    var _context = {};
+                    var userContext = ContextHelper.getFirstUserContext(_clonedContextData);                    
+                    _context = {
+                            "app": this.appName,
+                            "service": "_ALL",
+                            "component": "_ALL",
+                            "subComponent": "_ALL",
+                            "role": userContext.role,
+                            "user1": userContext.user
+                    };
+
+                    var _data = {};
+
+                    _data = {
+                        "config": {
+                                    "favoriteSavedSearches": [ tag.searchname ]
+                                  }
                         };
                     
                     var _contextsObject = {
