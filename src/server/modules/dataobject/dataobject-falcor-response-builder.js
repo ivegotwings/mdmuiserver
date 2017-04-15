@@ -267,6 +267,14 @@ function formatDataObjectForSave(dataObject) {
     if(isEmpty(dataObject.properties)) {
         delete dataObject.properties;
     }
+
+    if(dataObject.data && isEmpty(dataObject.data.contexts)) {
+        delete dataObject.data.contexts;
+    }
+
+    if(isEmpty(dataObject.domain)) {
+        delete dataObject.domain;
+    }
 }
 
 function buildResponse(dataObject, reqData, basePath) {
