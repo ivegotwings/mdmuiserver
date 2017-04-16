@@ -4,6 +4,7 @@
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-helpers/data-request-helper.html">
 <link rel="import" href="../bedrock-helpers/data-transform-helper.html">
+<link rel="import" href="../bedrock-helpers/message-helper.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 
@@ -11,6 +12,7 @@
 <link rel="import" href="../liquid-entity-govern-data-get/liquid-entity-govern-data-get.html">
 <link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
+<link rel="import" href="../liquid-rest/liquid-rest.html">
 
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
@@ -58,7 +60,36 @@ It is responsible to get and save the attributes.
                 border-top: 1px solid var(--default-border-color, #c1cad4);
                 z-index: 9999;
             }
+            pebble-dialog::shadow #dialog { 
+                width: 400px;
+                top: 20% !important;
+            }
+            pebble-dialog::shadow ::content > * {
+                padding: 5px 50px 5px 20px !important;
+            }
+            #errorsDialog {
+                --popup-header-color: red;
+            }
+            pebble-dialog::shadow ::content > ul {
+                padding-left: 50px !important;
+            }
+            pebble-dialog > ul > li {
+                list-style-type: disc;
+            }
         </style>
+        <pebble-dialog id="errorsDialog" dialog-title="Errors on page">
+            <p>Found below errors in entity details: </p>
+            <ul>
+                <template is="dom-repeat" items="[[_errorMessages]]">
+                    <li>[[item.attributeName]] with error: [[item.message]]</li>
+                </template>
+            </ul>             
+            <p>Do you want to fix the errors or continue?</p>  
+            <div class="buttons">
+                <paper-button dialog-confirm class="btn btn-success">Fix</paper-button>
+                <paper-button dialog-confirm class="btn btn-secondary" on-tap="_skipErrors">Skip & Continue</paper-button>
+              </div>
+        </pebble-dialog>
         <rock-attribute-list context-data="[[contextData]]" show-group-name$=[[showGroupName]] group-name="[[groupName]]" attribute-values="[[_attributeValues]]"
             attribute-models="[[_attributeModels]]" no-of-columns="[[noOfColumns]]" mode="{{mode}}" attribute-messages="{{_attributeMessages}}"></rock-attribute-list>
         <liquid-entity-data-get name="attributeGetDataService" operation="getbyids" request-data="{{_attributeRequest}}" last-response="{{_attributeResponse}}"></liquid-entity-data-get>
@@ -69,6 +100,13 @@ It is responsible to get and save the attributes.
         <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{_attributeModelRequest}}" 
             on-entity-model-composite-get-response = "_onCompositeModelGetResponse">
         </liquid-entity-model-composite-get>
+        <liquid-rest id="entityGovernService" 
+                     url="/pass-through/entitygovernservice/validate" 
+                     method="POST" 
+                     request-data={{_entityGovernRequest}}
+                     on-liquid-response="_onEntityGovernResponse" 
+                     on-liquid-error="_onEntityGovernFailed">
+        </liquid-rest>
         <div id="buttonContainer" align="center">
             <pebble-button id="cancel" class="btn btn-secondary m-r-10" button-text="Cancel" on-tap="_revertAll" elevation=1 raised></pebble-button>
             <pebble-button id="save" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
@@ -88,6 +126,7 @@ It is responsible to get and save the attributes.
                         console.log('attribute manage attached');
                 },
                 ready: function () {
+                    this.messageCodeMapping = this.getParentAppConfig('rock-attribute-manage', '', 'messageCodeMapping');
                     if (this.verbose)
                         console.log('attribute manage ready');
                 },
@@ -126,6 +165,10 @@ It is responsible to get and save the attributes.
 					    type: Boolean,
                         value: false
 				    },
+                    doSyncValidation: {
+                        type: Boolean,
+                        value: false
+                    },
                     /**
                     * Indicates the request object that is passed to the data element to retrive the attribute data.
                       Sample: { 
@@ -218,25 +261,11 @@ It is responsible to get and save the attributes.
                     },
                     messageCodeMapping: {
                         type: Object,
-                        value: function() {
-                            return {
-                                "Req001": "Required",
-                                "MinLen001": "MIN_LENGTH",
-                                "MaxLen001": "MAX_LENGTH",
-                                "AlVal001": "ALLOWED_VALUES",
-                                "Prec001": "Precision",
-                                "Range001": "RANGE_FROM_INCLUSIVE",
-                                "Range002": "RANGE_TO_INCLUSIVE",
-                                "Range003": "RANGE_FROM_EXCLUSIVE",
-                                "Range004": "RANGE_TO_EXCLUSIVE",
-                                "Range005": "RANGE_TO_INCLUSIVE_FROM_EXCLUSIVE",
-                                "Range006": "RANGE_TO_INCLUSIVE_FROM_INCLUSIVE",
-                                "Range007": "RANGE_TO_EXCLUSIVE_FROM_EXCLUSIVE",
-                                "Range008": "RANGE_TO_EXCLUSIVE_FROM_INCLUSIVE",
-                                "133311": "Length should be greater than Width",
-                                "133312": "Width should be less than Length"
-                            };
-                        }
+                        value: function() { return {}; }
+                    },
+                    _errorMessages: {
+                        type: Array,
+                        value: function() { return []; }
                     }
                 },
                 behaviors: [
@@ -343,50 +372,11 @@ It is responsible to get and save the attributes.
                     }
                  
                     var attributes = entity.data.attributes;
-                    // var contexts = DataHelper.prepareCtx(dataContext);
-                    // var valueContexts = DataHelper.prepareValCtx(dataContext);
-                    // var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, contexts);
-                        var attrMessages = {};
-                    for (var i in attributes) {
-                        var messageCodes = this._getMessageCodes(attributes[i]);
-                        var messages = this.getMessagesFromCodes(messageCodes);
-                        if (messages && messages.length) {
-                            attrMessages[i] = messages;
-                        }
-                    }
-                    this.set('_attributeMessages', attrMessages);
-                    
+                    var attrMessages = MessageHelper.getAttributeMessages(attributes, this._attributeModels, this.messageCodeMapping);
+                    this.set('_attributeMessages', attrMessages);                     
                 },
                 _onEntityGetFailed: function (e) {
                     console.error('Entity get failed with error: ', JSON.stringify(e));
-                },
-                _getMessageCodes: function (attribute) {
-                    var messageCodes = [];
-                    var properties = attribute.properties;
-                    if (properties) {
-                        var messages = properties.messages;
-                        if(messages && messages.length > 0) {
-                            for (var i=0; i< messages.length; i++) {
-                                messageCodes.push(messages[i].messageCode);
-                            }
-                        }
-                    }
-                    return messageCodes;
-                },
-
-                getMessagesFromCodes:function (messageCodes) {
-                    var messages=[];
-                    if(messageCodes && messageCodes.length > 0) {
-                        for(var i=0; i<messageCodes.length; i++){
-                            var mes= this.messageCodeMapping[messageCodes[i]];
-                            if(mes){
-                                messages.push(mes);
-                            } else{
-                                messages.push("Error with Code: "+messageCodes[i])
-                            }
-                        }
-                    }
-                    return messages;
                 },
                 _attributeResponseChanged: function (_attributeResponse) {
                     if (this.verbose) {
@@ -484,14 +474,27 @@ It is responsible to get and save the attributes.
                         this._saveRequest = {
                             "entities": [newEntity]
                         };
-                        var liquidSave = this.$$("[name=attributeSaveDataService]");
-                        if (liquidSave) {
-                            liquidSave.generateRequest();
+                        if(this.doSyncValidation) {
+                            var req = DataRequestHelper.createSyncValidationRequest(newEntity.id, newEntity.type, attributeJSON, this.contextData);
+                            
+                            this.set("_entityGovernRequest", req);
+                            var liquidGovernGet = this.$.entityGovernService;
+                            if (liquidGovernGet) {
+                                liquidGovernGet.generateRequest();
+                            } 
+                        } else {
+                            this._saveEntity();
                         }
                     }
 
                     //this return isnt useful for now
                     return newEntity;
+                },
+                _saveEntity: function() {
+                    var liquidSave = this.$$("[name=attributeSaveDataService]");
+                    if (liquidSave) {
+                        liquidSave.generateRequest();
+                    }
                 },
                 _hasErrors: function(attributeList) {
                     var _attributes = [];
@@ -555,6 +558,40 @@ It is responsible to get and save the attributes.
                             }
                         }
                     }
+                },
+                _onEntityGovernResponse: function(e) {
+                    if(e && e.detail && e.detail.response && e.detail.response.response && e.detail.response.response.status == "success") {
+                        var res = e.detail.response.response;
+                        var itemContext = this.getFirstItemContext();
+                        var entityId;
+                        if(itemContext) {
+                            entityId = itemContext.id;
+                        }
+                        var entity = DataHelper.findEntityById(res.entities, entityId);
+                        var attrMessages = {};
+                        if (entity && entity.data && entity.data.attributes) {
+                            var attributes = entity.data.attributes;
+                            attrMessages = MessageHelper.getAttributeMessages(attributes, this._attributeModels, this.messageCodeMapping);
+                        }                      
+                        if(!_.isEmpty(attrMessages)) {
+                            var errorMessages = MessageHelper.getErrorsFromAttrMessages(attrMessages, this._attributeModels);
+                            this.set("_errorMessages", errorMessages);
+                            this.$$('#errorsDialog').open();
+                            return;
+                        } else {
+                            this._saveEntity();
+                        }
+                    } else {
+                        console.warn("Failed in validation service with errors: ", detail);
+                        this.showErrorToast("There is a problem in validation service. Please contact administrator.");
+                    }
+                },
+                _onEntityGovernFailed: function (e) {
+                    console.warn('Failed in validation service with errors ', JSON.stringify(e));
+                    this.showErrorToast("There is a problem in validation service. Please contact administrator.");
+                },
+                _skipErrors: function() {
+                    this._saveEntity();
                 },
                 /**
                  * Can be used to get the elements if they are dirty.
