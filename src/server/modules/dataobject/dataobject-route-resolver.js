@@ -352,6 +352,11 @@ async function create(callPath, args, operation) {
     var dataObjectIds = Object.keys(dataObjects);
     //console.log(dataObjects);
 
+    //TODO: made showNotificationToUser flag false for entity create till we decide how it has to be.
+    if(clientState && clientState.notificationInfo) {
+        clientState.notificationInfo.showNotificationToUser = false;
+    }
+
     // create new guids for the dataObjects to be created..
     for (let dataObjectId of dataObjectIds) {
         var dataObject = dataObjects[dataObjectId];

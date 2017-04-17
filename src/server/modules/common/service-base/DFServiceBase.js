@@ -87,7 +87,7 @@ var DFServiceBase = function (options) {
 };
 
 function updateRequestObjectForNotification(request, userId, timeStamp) {
-    if (request) {
+    if (request && request.clientState) {
         if (!isEmpty(request.clientState)) {
             var notificationInfo = request.clientState.notificationInfo;
             if (!isEmpty(notificationInfo)) {  
