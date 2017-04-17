@@ -8,16 +8,16 @@
 
 <link rel="import" href="../pebble-lov/pebble-lov.html">
 
-<link rel="import" href="entity-type-model-datasource.html">
-
 <!--
 `rock-attribute-model-datasource` component is used to render model entities in refine more
 -->
 
 <dom-module id="rock-entity-type-model-lov">
     <template>
-        <entity-type-model-datasource id="attributeModelDataSource" request="[[requestData]]"  data-formatter="{{_dataFormatter}}">
-        </entity-type-model-datasource>
+        <liquid-entity-model-get id="initGetEntities" operation="initiatesearch" request-data="{{requestData}}" last-response="{{_initGetEntitySearchResponse}}"
+            on-error="_onError" on-response= "_generateSearchRequest"></liquid-entity-model-get>
+        <liquid-entity-model-get id="getEntitiesSearchResults" operation="getsearchresultdetail" request-data="{{requestData}}" request-id="[[_initGetEntitySearchResponse.content.requestId]]"
+            on-response="_onGetResponse" on-error="_onError"></liquid-entity-model-get>
         <pebble-lov id="entityTypeModelLov" page-size="[[pageSize]]" multi-select show-image="[[showImage]]" show-color="[[showColor]]"
             no-sub-title="[[noSubTitle]]" show-action-buttons="[[showActionButtons]]"  items="[[items]]" selected-items="{{selectedItems}}">
         </pebble-lov>
@@ -42,7 +42,7 @@
                     value:function () {
                         return {};
                     },
-                    observer:"_getAttributeModels"
+                    observer:"_getEntityTypes"
                 },
                 requestData: {
                     type: Object,
@@ -55,19 +55,7 @@
                     value: function() {
                         return ["thing"];
                     }
-                },
-                _lovColumnNameValueCollection: {
-                    type: Object,
-                    value: function () {
-                        return {};
-                    }
-                },                
-                _dataFormatter: {
-                    type: Object,
-                    value: function () {
-                        return {};
-                    }
-                },
+                },            
                 _itemContexts:{
                     type:Array,
                     value: function () {
@@ -79,59 +67,56 @@
             behaviors: [
                 RUFBehaviors.UIBehavior,
                 RUFBehaviors.LovBehavior,
-                RUFBehaviors.AppContextBehavior
+                RUFBehaviors.ComponentContextBehavior
             ],
 
-
-            ready: function () {
-                this._dataFormatter = this._getAttributeFormattedData.bind(this);
-                this._prepareAttributeMaps();
-                if (this.verbose) {
-                    console.log("Request Object for the Element: " + this.id + "is" + JSON.stringify(this.requestData));
-                }
-            },
             _onSelectedItemsChange:function () {
-                alert(this.selectedItems.length);            
+                console.log('selectedEntityTypes: ', this.selectedItems.length);            
             },
             
             _defaultEntityTypes:function () {
                 var contextData = this.contextData;
                 if(contextData.ItemContexts){
-                this._itemContexts = contextData.ItemContexts.map( function(item){
-                    return item.type;
-                })
+                    this._itemContexts = contextData.ItemContexts.map( function(item){
+                        return item.type;
+                    })
                 }
             },
-            reTriggerRequest: function() {
-                this.$$('#attributeModelDataSource').reTriggerRequest();
-            },
-            
-            _prepareAttributeMaps: function () {
-                this._lovColumnNameValueCollection.id = this.idField;
-                this._lovColumnNameValueCollection.title = this.titlePattern;
-                this._lovColumnNameValueCollection.subtitle = this.subTitlePattern;
-                this._lovColumnNameValueCollection.image = this.imageField;
-                this._lovColumnNameValueCollection.color = this.colorField;
-                this._lovColumnNameValueCollection.value = this.valueField;
-            },
 
-            _getAttributeModels:function () {
-                var contextData = DataHelper.cloneObject(this.contextData);
+            _getEntityTypes:function () {
+                var clonedContextData = DataHelper.cloneObject(this.contextData);
 
-                if(_.isEmpty(contextData)){
+                if(_.isEmpty(clonedContextData)){
                         return;
                 }
-                 contextData[this.CONTEXT_TYPE_ITEM]=[{"type":"entityType"}]; 
-                 contextData[this.CONTEXT_TYPE_VALUE]=[]; 
-                 contextData[this.CONTEXT_TYPE_DATA]=[]; 
-                var req = DataRequestHelper.createEntityGetRequest(contextData); 
-                delete req.params.options.totalRecords;
+                clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM]=[{"type":"entityType"}]; 
+                clonedContextData[ContextHelper.CONTEXT_TYPE_DATA]=[]; 
+                clonedContextData[ContextHelper.CONTEXT_TYPE_VALUE]=[]; 
+                var req = DataRequestHelper.createEntityGetRequest(clonedContextData); 
+                if(req) {
+                    if(req.params && req.params.options && req.params.options.totalRecords) {
+                        delete req.params.options.totalRecords;
+                    }
                     this.set('requestData',req)
-                this._defaultEntityTypes();
+                    if(this.$.initGetEntities) {
+                        this.$.initGetEntities.generateRequest();
+                    }
+                }
+                //this._defaultEntityTypes();
             },
 
-            _getAttributeFormattedData: function (data) {
-                var test = this._selectedItems;
+            _generateSearchRequest: function (){
+                if(this.$.getEntitiesSearchResults) {
+                    this.$.getEntitiesSearchResults.generateRequest();
+                }
+            },
+
+            _onGetResponse: function (e) {
+                var response=event.detail.response;
+                this._formatEntityTypes(response);
+            },
+
+            _formatEntityTypes: function (data) {
                 var entityModels = data.content.entityModels;
                 var _itemContexts = this._itemContexts;
                 var filteredEntityTypes = [];
@@ -151,14 +136,11 @@
                                 "title":entityModel.name,
                                 "id":entityModel.id
                             });
-                            
-                            
                         }
                 }
                 this.items = filteredEntityTypes;
                 this.selectedItems = selectedEntityTypes;
-                
-            },
+            }
 
         });
     </script>
