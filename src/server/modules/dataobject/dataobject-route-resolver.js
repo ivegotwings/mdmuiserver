@@ -348,7 +348,7 @@ async function create(callPath, args, operation) {
     var dataIndex = callPath.dataIndexes[0];
     var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
     var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
-    var clientState = jsonEnvelope.json.clientState;
+    //var clientState = jsonEnvelope.json.clientState; //TODO: commented for now from entity create till we decide how it has to be.
     var dataObjectIds = Object.keys(dataObjects);
     //console.log(dataObjects);
 
@@ -363,7 +363,7 @@ async function create(callPath, args, operation) {
         }
     }
 
-    return processData(dataIndex, dataObjects, "create", operation, clientState);
+    return processData(dataIndex, dataObjects, "create", operation, undefined);
 }
 
 async function update(callPath, args, operation) {
