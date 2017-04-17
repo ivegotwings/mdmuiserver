@@ -348,10 +348,11 @@ async function create(callPath, args, operation) {
     var dataIndex = callPath.dataIndexes[0];
     var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
     var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
-    var clientState = jsonEnvelope.json.clientState; //TODO: commented for now from entity create till we decide how it has to be.
+    var clientState = jsonEnvelope.json.clientState;
     var dataObjectIds = Object.keys(dataObjects);
     //console.log(dataObjects);
 
+    //TODO: made showNotificationToUser flag false for entity create till we decide how it has to be.
     if(clientState && clientState.notificationInfo) {
         clientState.notificationInfo.showNotificationToUser = false;
     }
