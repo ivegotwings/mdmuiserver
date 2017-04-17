@@ -46,7 +46,14 @@ async function initiateSearch(callPath, args) {
         dataIndex = callPath[1],
         basePath = [pathKeys.root, dataIndex, pathKeys.searchResults, requestId];
 
+    var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
     request.dataIndex = dataIndex;
+
+    if(request.params) {
+        var options = sharedDataObjectFalcorUtil.getOrCreate(request.params, 'options', {});
+        options.totalRecords = dataIndexInfo.totalRecordsToReturn || 2000;
+    }
+
     //console.log('request str', JSON.stringify(request, null, 4));
 
     delete request.params.fields; // while initiating search, we dont want any of the fields to be returned..all we want is resulted ids..
@@ -57,7 +64,6 @@ async function initiateSearch(callPath, args) {
 
     var totalRecords = 0;
 
-    var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
     var collectionName = dataIndexInfo.collectionName;
 
     var dataObjectResponse = res ? res[dataIndexInfo.responseObjectName] : undefined;
