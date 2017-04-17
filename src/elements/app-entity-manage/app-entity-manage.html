@@ -23,6 +23,7 @@
 <link rel="import" href="../rock-entity-header/rock-entity-header.html">
 <link rel="import" href="../rock-dimension-grid/rock-dimension-grid.html">
 <link rel="import" href="../rock-workflow-panel/rock-workflow-panel.html">
+<link rel="import" href="../rock-business-function-dialog/rock-business-function-dialog.html">
 
 <dom-module id="app-entity-manage">
     <template>
@@ -113,7 +114,8 @@
                 context-data="[[contextData]]" on-config-get-response="_onApplicationConfigReceived"></liquid-config-aggregate-get>
             <rock-titlebar icon="dashboard" title="" sub-title="" config="{{getConfig('rock-titlebar')}}" closable minimizable>
                 <div id="dimensionContainer" align="right">
-                    <rock-dimension-selector id="dimensionSelector" config-data="{{getConfig('rock-dimension-selector')}}"></rock-dimension-selector>
+                    <rock-dimension-selector id="dimensionSelector" config-data="{{getConfig('rock-dimension-selector')}}" entity-id="[[_entityId]]"
+                        entity-type="[[_entityType]]"></rock-dimension-selector>
                 </div>
             </rock-titlebar>
             <rock-header frozen>
@@ -149,6 +151,7 @@
         <bedrock-pubsub event-name="app-context-changed" handler="_onAppContextChanged"></bedrock-pubsub>
         <bedrock-pubsub event-name="workflow-transition-complete" handler="_onWorkflowTransitionComplete"></bedrock-pubsub>
         <bedrock-pubsub event-name="on-attribute-save" handler="_refreshRockEntityHeader"></bedrock-pubsub>
+        <rock-business-function-dialog id="contextDialog"></rock-business-function-dialog>
 
     </template>
     <script>
@@ -182,12 +185,12 @@
                     if (this.verbose)
                         console.log('app entity manage ready');
 
-                    var entityId = DataHelper.getParamValue('id');
-                    var entityType = DataHelper.getParamValue('type');
+                    this._entityId = DataHelper.getParamValue('id');
+                    this._entityType = DataHelper.getParamValue('type');
 
                     var itemContext = {
-                        'id': entityId,
-                        'type': entityType
+                        'id': this._entityId,
+                        'type': this._entityType
                     };
 
                     this.updateContext(this.CONTEXT_TYPE_ITEM, [itemContext]);
@@ -247,11 +250,11 @@
                     if (isDirty) {
                         if (window.confirm(
                             "There are unsaved changes. Do you want to discard the changes?")) {
-                            this._refreshView();
+                            this.$$('rock-dimension-selector').refresh();
                             this._reRenderOnDimensionChange();
                         }
                     } else {
-                        this._refreshView();
+                        this.$$('rock-dimension-selector').refresh();                        
                         this._reRenderOnDimensionChange();
                     }
                 },
@@ -259,9 +262,16 @@
                     //console.log('Received configs ', JSON.stringify(e, null, 2));
                     this.set('applicationConfig', e.detail);
                 },
+                _openContextManagement:function (taxonomy) {
+                    this.$$("#contextDialog").name="extension-manage-"+taxonomy;
+                    this.$$("#contextDialog").sharedData = {"context-data":this.contextData};
+                    this.$$("#contextDialog").open();
+                },
                 _onToolbarEvent: function (e, detail) {
                     var event = detail.name;
-
+                    if(event.toLowerCase().indexOf("taxonomy")){
+                        this._openContextManagement(event);
+                    }
                     switch (event.toLowerCase()) {
                         case "search":
                             this._searchEvent(e, detail);
@@ -315,7 +325,18 @@
                 },
                 _searchEvent: function (e, detail, sender) { },
                 _refreshEvent: function (e, detail, sender) {
-                    this.refresh();
+                    var isDirty = false;
+                    if (this.getIsDirty) {
+                        isDirty = this.getIsDirty();
+                    }
+                    if (isDirty) {
+                        if (window.confirm(
+                            "There are unsaved changes. Do you want to discard the changes?")) {
+                            this._refreshView();
+                        }
+                    } else {
+                        this._refreshView();
+                    }
                 },
                 _copyEvent: function (e, detail, sender) {
                     document.querySelector('#app').$.pebbleAppToast.fitInto = document.querySelector(

@@ -17,6 +17,7 @@
 <link rel="import" href="../pebble-icon/pebble-icon.html">
 <link rel="import" href="../pebble-image-viewer/pebble-image-viewer.html">
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-checkbox/pebble-checkbox.html">
 
 <link rel="import" href="../rock-grid/rock-grid.html">
 
@@ -77,6 +78,10 @@
                 background-color: #c1cad4;
                 border-color: #c1cad4;
             }
+            #showReviewChk {
+                padding-right: 15%;
+                --pebble-checkbox-label-color: #75808b;
+            }
         </style>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <liquid-rest id="entityMatchService" 
@@ -87,12 +92,16 @@
                      on-liquid-error="_onMatchFailure">
         </liquid-rest>
         <iron-ajax auto url="config\gridConfig.json" handle-as="json" last-response="{{_gridConfig}}"></iron-ajax>
-        <liquid-rest id="copTransform" url="/cop/transform" 
-            method="POST" request-data={{_copTransformRequest}} on-liquid-response="_onTransformSuccess" on-liquid-error="_onTransformFailure"></liquid-rest>
+        <liquid-rest id="copService" url="" 
+            method="POST" request-data={{_copRequest}} on-liquid-response="_onCOPSuccess" on-liquid-error="_onCOPFailure"></liquid-rest>
         <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="[[attributeModelRequest]]" 
             on-response="_onCompositeModelResponse"></liquid-entity-model-composite-get>
         <liquid-entity-data-save name="entitiesSaveDataService" operation="" request-data="{{_saveRequest}}" on-response="_onSaveResponse"></liquid-entity-data-save>
         <div id="content-entity-import" hidden>
+            <p class="title"><strong>Profile Name:</strong> [[_profileName]]</p>
+            <div align="right">
+                <pebble-checkbox id="showReviewChk" on-change="_onPreviewChange">Show Data Preview</pebble-checkbox>
+            </div>
             <div class="placeHolder p-10">
                 <p class="title"><a href="#" class="btn-link" on-tap="_selectFile">Download</a> a system template or just upload an existing data file</p>
                 <!-- screen for import -->
@@ -129,6 +138,9 @@
 
                     properties: {
                         importProfileName:{
+                            type: String
+                        },
+                        processProfileName: {
                             type: String
                         },
                         contextData: {
@@ -208,7 +220,7 @@
                                 return {};
                             }
                         },
-                        _copTransformRequest: {
+                        _copRequest: {
                             type: Object,
                             value: function() { return {}; }
                         },
@@ -264,7 +276,18 @@
                         _currentAction: {
                             type: String,
                             value: "create"
-                        }
+                        },
+                        _showPreview: {
+                            type: Boolean,
+                            value: false
+                        },
+                        _isDirty: {
+                            type: Boolean,
+                            value: false
+                        },
+                        _profileName: {
+                            type: String,
+                        },
                     },
                     observers: [
                         '_contextChanged(attributeNames, contextData)'
@@ -275,8 +298,10 @@
                     ],
                     ready: function() {
                         this._showView("entity-import");
+                        this._profileName = this.processProfileName;
                     },
                      _contextChanged: function(attributeNames, contextData) {
+                         this._profileName = this.processProfileName;
                         if (attributeNames && attributeNames.length > 0 && !_.isEmpty(contextData)) {
                             var itemContext = this.getFirstItemContext();
 
@@ -437,37 +462,44 @@
                             this.showErrorToast("Import profile name not found. Please check the config.");
                             return;
                         }
+                        this._isDirty = true;
                         this._loading = true;
                         //this._populateMultiEntityUpperGrid();
                         var fileName = detail.fileName;
                         this.set("_fileName", detail.originalFileName);
                         var copRequest = {
                             "fileName": fileName,
-                            "profileName": this.importProfileName
+                            "profileName": this._profileName
                         };
-                        this.set("_copTransformRequest", copRequest);
-                        var liqTransform = this.$$("#copTransform");
-                        if(liqTransform) {
-                            liqTransform.generateRequest();
+                        this.set("_copRequest", copRequest);
+                        var liqCOP = this.$$("#copService");
+                        if(liqCOP) {
+                            if(this._showPreview) {
+                                liqCOP.url = "/cop/transform";
+                            } else {
+                                liqCOP.url = "/cop/process";
+                            }
+                            liqCOP.generateRequest();
                         }
                         this.async(function() {
                             //Clear file upload
                             this.$$('pebble-file-upload').reset();
                         });
                     },
-                    _onTransformSuccess: function(e) {
+                    _onCOPSuccess: function(e) {
                         var response = e.detail.response;
-                        if(response && response.entityOperationResponse && response.entityOperationResponse.entities
-                            && response.entityOperationResponse.entities.length > 0) {
+                        if(response && response.response && response.response.entities
+                            && response.response.entities.length > 0) {
                              this._hideView("entity-import");
                              this._hideButtons();
                              this._showView("label");
                              this._showView("entities-grid");
-                             this._entities = response.entityOperationResponse.entities;
+                             this._entities = response.response.entities;
                              var maxNoOfRows = this._gridConfig.tabular.settings.maxNoOfRows;
                              if(maxNoOfRows && this._entities.length > maxNoOfRows) {
                                  this.showErrorToast("Imported more entities than specified maximum number of entities. Please review the file imported or contact your administrator.", 3000);
                                  this._loading = false;
+                                 this._isDirty = false;
                                  return;
                              }
                              var attributeNames = DataHelper.getAttributeNamesFromEntities(this._entities);
@@ -476,17 +508,54 @@
                              } else {
                                  this.showErrorToast("Unable to fetch attributes from excel. Please check excel file imported or contact your administrator.");
                                  this._loading = false;
+                                 this._isDirty = false;
                              }
+                        } else if(response && response.dataObjectOperationResponse && response.dataObjectOperationResponse.status && response.dataObjectOperationResponse.status.toLowerCase() == "success") {
+                            var data = {
+                                "messages": [
+                                    {
+                                        "message": "Entities will be created using the uploaded file."
+                                    },
+                                    {
+                                        "message": "You can view the status of the processing in the File  Upload Status Dashboard"
+                                    }
+                                ],
+                                "actions": [
+                                    {
+                                        "name": "closeFunction",
+                                        "text": "Take Me back to Where I started"
+                                    },
+                                    {
+                                        "name": "nextAction",
+                                        "text": "Take me to File Upload Status",
+                                        "dataRoute": "dashboard"
+                                    }
+                                ]
+                            };
+                            ComponentHelper.getParentElement(this).businessFunctionData = data;
+                            var eventName = "onSave";
+                            var eventDetail = {
+                                name: eventName,
+                                data: { "skipNext": true}
+                            };
+                            this.async(function() {
+                                this._loading = false;
+                                this.fireBedrockEvent(eventName, eventDetail, {
+                                    ignoreId: true
+                                });
+                            }, 5000);
                         } else {
                             console.warn("Unexpected COP response:" + e.detail.response);
                             this.showErrorToast("Unable to transform excel to json. Please check the service or contact your administrator.");
+                            this._isDirty = false;
                             this._loading = false;
                         }
                     },
-                    _onTransformFailure: function(e) {
+                    _onCOPFailure: function(e) {
                         console.warn('COP transformation failed with error ', e.detail);
                         this.showErrorToast("Unable to transform excel to json. Please check the service or contact your administrator.");
                         this._loading = false;
+                        this._isDirty = false;
                     },
                     _populateEntityGrid: function() {
                         var entitiesGrid = this.$$('#entitiesGrid');
@@ -569,6 +638,7 @@
                             {
                                 console.warn("Failed in entity match service with error: ", detail);
                                 this.showErrorToast("There is a problem in match service. Please contact administrator.");
+                                this._isDirty = false;
                                 return;
                             }
 
@@ -591,6 +661,7 @@
                     _onMatchFailure: function(e, detail) {
                         console.warn("Failed in entity match service with error: ", detail);
                         this.showErrorToast("There is a problem in match service. Please contact administrator.");
+                        this._isDirty = false;
                     },
                      _createEntities: function() {
                         var batchEntities = this._getNextBatch(this._newEntities, this._currentBatchNumber,  this._batchSize);
@@ -629,9 +700,29 @@
                             }
                             this.showSuccessToast(msg, 3000);
 
+                            var data = {
+                                "messages": [
+                                    {
+                                        "message": msg
+                                    }
+                                ],
+                                "actions": [
+                                    {
+                                        "name": "closeFunction",
+                                        "text": "Take Me back to Where I started"
+                                    },
+                                    {
+                                        "name": "nextAction",
+                                        "text": "Take me to User Dashboard",
+                                        "dataRoute": "dashboard"
+                                    }
+                                ]
+                            };
+                            ComponentHelper.getParentElement(this).businessFunctionData = data;
                             var eventName = "onSave";
                             var eventDetail = {
-                                name: eventName
+                                name: eventName,
+                                data: { "skipNext": true}
                             };
                             this.async(function() {
                                 this.fireBedrockEvent(eventName, eventDetail, {
@@ -682,7 +773,20 @@
                         var cancelButton = this.$$("#skip")
                         saveButton.setAttribute("disabled", true);
                         cancelButton.setAttribute("disabled", true);
-                    }
+                    },
+                    _onPreviewChange: function(e) {
+                        var chkbox = e.currentTarget;
+                        if(chkbox.checked) {
+                            this._showPreview = true;
+                            this._profileName = this.importProfileName;
+                        } else {
+                            this._showPreview = false;
+                            this._profileName = this.processProfileName;
+                        }
+                    },
+                    getIsDirty: function() {
+                        return this._isDirty;
+                    },
                 });
             })();
         </script>

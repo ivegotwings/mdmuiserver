@@ -1,0 +1,250 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-app-context-behavior/bedrock-app-context-behavior.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/element-helper.html">
+
+<link rel="import" href="../pebble-tree/pebble-tree.html">
+
+
+<!--
+`rock-classification-tree` component is used to render classification in a tree.
+
+@demo demo/index.html
+-->
+
+<dom-module id="rock-classification-tree">
+    <template>
+        <liquid-rest id="contextLiquid" url="/pass-through/entityservice/getcontext"
+                     method="POST" request-data="{{requestData}}"
+                     on-liquid-response="_onResponseReceived"  exclude-in-progress>
+        </liquid-rest>
+        <liquid-entity-data-get id="initiateSearch" operation="initiatesearch" request-data="{{request}}" last-response="{{initiateSearchResponse}}"
+                                on-error="_onGetSearchError"  on-response="_onInitiateSearchResponse" exclude-in-progress></liquid-entity-data-get>
+        <liquid-entity-data-get id="getSearchResultDetail" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[initiateSearchResponse.content.requestId]]"
+                                last-response="{{getEntitySearchResultsResponse}}" on-error="_onGetSearchError" on-response="_onGetSearchResultDetailResponse" exclude-in-progress></liquid-entity-data-get>
+        <pebble-tree id="contextTree" data="{{classifications}}" check-parent-nodes default-child-depth="10" selected-items="{{selectedItems}}"  multi-select></pebble-tree>
+        <bedrock-pubsub event-name="tree-node-child-list-refreshed" handler="_childListRefreshed" ></bedrock-pubsub>
+    </template>
+    <script>
+        Polymer({
+            is: 'rock-classification-tree',
+            properties: {
+
+                request: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+                _dataFormatter: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+                contextData:{
+                    type:Object,
+                    value:function () {
+                        return {};
+                    }
+                },
+                rootClassificationId:{
+                    type:String,
+                    value:"_root_classification"
+                },
+                _currentNode:{
+                    type:Object,
+                    value:function () {
+                        return {};
+                    }
+                },
+                taxonomy:{
+                    type:String
+                },
+                selectedItems:{
+                    type:Array,
+                    value:function () {
+                        return [];
+                    },
+                    notify:true
+                }
+            },
+
+            behaviors: [
+                RUFBehaviors.UIBehavior
+            ],
+            listeners: {
+                'tree-node-expanded': '_treeNodeExpanded'
+            },
+            observers:[
+              '_contextRecieved(contextData,taxonomy)'
+            ],
+
+            _contextRecieved:function () {
+                if(this.taxonomy && !_.isEmpty(this.contextData)) {
+                    this._prepareGetContextRequest();
+                }
+            },
+            _prepareGetContextRequest:function () {
+                var contextData=DataHelper.cloneObject(this.contextData);
+                var firstItemContext=ContextHelper.getFirstItemContext(contextData);
+                if(firstItemContext && firstItemContext.id && firstItemContext.type){
+                    firstItemContext.attributes=[];
+                    contextData[ContextHelper.CONTEXT_TYPE_VALUE]=[];
+                    contextData[ContextHelper.CONTEXT_TYPE_DATA]=[];
+                    var req= DataRequestHelper.createEntityGetRequest(contextData);
+                    delete req.params.options;
+                    this.set('requestData',req);
+                    this.$$("#contextLiquid").generateRequest();
+                }
+            },
+            _onResponseReceived:function (e) {
+                    var items = [];
+                    if (e.detail && e.detail.response) {
+                        var res = e.detail.response.response;
+                        if (res && res.entities && res.entities.length) {
+                            var entity = res.entities[0];
+                            if (entity && entity.data) {
+                                var contexts = entity.data.contexts;
+                                for (var i in contexts) {
+                                    var context = contexts[i].context;
+                                    var item = context["classification"];
+                                    if (item) {
+                                        if (context["taxonomy"] == this.taxonomy) {
+                                            var arr = item.split("/");
+                                            items.push(arr);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                    }
+                    this.selectedClassifications = items;
+                    this.generateRequest();
+            },
+            generateRequest: function (parentClassificationId){
+                if(!parentClassificationId){
+                    parentClassificationId=this.rootClassificationId;
+                }
+                var contextData=DataHelper.cloneObject(this.contextData);
+                contextData[ContextHelper.CONTEXT_TYPE_ITEM]=[{type:"classification"}];
+                contextData[ContextHelper.CONTEXT_TYPE_VALUE]=[];
+                var dataContext={};
+                dataContext["taxonomy"]=this.taxonomy;
+                contextData[ContextHelper.CONTEXT_TYPE_DATA]=[dataContext];
+                var req=DataRequestHelper.createEntityGetRequest(contextData);
+                var classificationCriteria={"belongsTo":{"relTo":{"id":parentClassificationId,"type":"classification"},"attributes":[]}};
+                req.params.query.filters.relationshipsCriterion=[classificationCriteria];
+                delete  req.params.options;
+                this.set('request',req);
+                this.$$("#initiateSearch").generateRequest();
+            },
+            _onInitiateSearchResponse: function (e) {
+                this._currentRecord=0;
+                this._totalRecords=this.initiateSearchResponse.content.totalRecords;
+                this._classificationsList=[];
+                this._makeNextBatchSearchDetailCall();
+            },
+            _makeNextBatchSearchDetailCall: function() {
+                var start = this._currentRecord;
+                var end = this._currentRecord+19;
+                if(start > this._totalRecords) {
+                    return;
+                }
+                if(end > this._totalRecords) {
+                    end = this._totalRecords ;
+                }
+                var getDetailOptions = { 'from': start, 'to':end };
+                this.set('request.params.options', getDetailOptions);
+                var liqGetSearchResultDetail = this.$$('#getSearchResultDetail');
+                liqGetSearchResultDetail.generateRequest();
+            },
+            _onGetSearchResultDetailResponse: function (e) {
+                var res=e.detail.response;
+                var classifications=res.content.entities;
+                for(var i in classifications){
+                    classifications[i].text=classifications[i].name;
+                    classifications[i].value=classifications[i].name;
+                    classifications[i].children=[];
+                }
+                this._classificationsList =this._classificationsList.concat(classifications);
+                this._currentRecord+=20;
+                if(this._currentRecord<this._totalRecords){
+                    this._makeNextBatchSearchDetailCall();
+                } else {
+                    if (!this._currentNode || _.isEmpty(this._currentNode)) {
+                        this.classifications = this._classificationsList;
+                        this._checkForSelectedClassification();
+                    } else {
+                        if (!this._classificationsList.length) {
+                            this._currentNode.changeToLeafMode();
+                        }
+                        this._currentNode.set('nodeData.children', this._classificationsList);
+                        this._currentNode.refreshChildList();
+                    }
+                }
+            },
+            _checkForSelectedClassification:function () {
+                if(!this.selectedClassifications || !this.selectedClassifications.length || this._classificationIndex ==this.selectedClassifications.length) {
+                    return;
+                }
+                if(!this._currentClassification) {
+                    this._classificationIndex=0;
+                    this._currentIndex = 0;
+                }
+                this._currentClassification = this.selectedClassifications[this._classificationIndex];
+                var name=this._currentClassification[this._currentIndex];
+                if(this._currentIndex==0){
+                    this._currentNode=this.$$("#contextTree").getElementNodeByPath(name);
+                } else{
+                    var childNodes=this._currentNode.getChildNodes();
+                    var matchedChild;
+                    for(var i in childNodes){
+                        if(childNodes[i].nodeData.value==name){
+                            matchedChild=childNodes[i];
+                            break;
+                        }
+                    }
+                    if(matchedChild){
+                        this._currentNode=matchedChild;
+                    } else{
+                        this._classificationIndex++;
+                        this._currentIndex=0;
+                        this._checkForSelectedClassification();
+                        return;
+                    }
+                }
+                if(this._currentIndex==this._currentClassification.length-1){
+                    this._currentNode.selectItem();
+                    this._classificationIndex++;
+                    this._currentIndex=0;
+                    this._checkForSelectedClassification();
+                } else {
+                    this._currentIndex++;
+                    if(this._currentNode.expanded){
+                        this._checkForSelectedClassification();
+                    } else {
+                        this._currentNode.expand();
+                    }
+                }
+            },
+
+            _treeNodeExpanded:function (e) {
+                this._currentNode = e.detail;
+                if (!this._currentNode.nodeData.children || this._currentNode.nodeData.children.length == 0) {
+                    this.generateRequest(this._currentNode.nodeData.id);
+                    this._currentNode.startLoading();
+                }
+            },
+            _childListRefreshed:function () {
+                    this._checkForSelectedClassification();
+            }
+
+
+        });
+    </script>
+</dom-module>
