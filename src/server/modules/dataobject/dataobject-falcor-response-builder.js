@@ -158,12 +158,12 @@ function _buildRelationshipsResponse(rels, reqData, basePath) {
 
                 relIds.push(rel.id);
 
-                if (operation !== "getRelIdOnly") {
+                if (operation.toLowerCase() !== "getrelidonly") {
                     response.push.apply(response, _buildRelationshipDetailsResponse(rel, reqData, relBasePath));
                 }
             }
 
-            if (operation === "getRelIdOnly" || operation === "update" || operation === "create") {
+            if (operation.toLowerCase() === "getrelidonly" || operation.toLowerCase() === "update" || operation.toLowerCase() === "create") {
                 response.push(mergeAndCreatePath(relBasePath, ["relIds"], $atom(relIds)));
             }
         }
