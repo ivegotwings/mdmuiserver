@@ -221,11 +221,37 @@ function _buildJsonDataResponse(jsonData, basePath) {
     return response;
 }
 
+function _buildMappingsResponse(ctxItem, reqData, ctxBasePath) {
+    var mapKeys = reqData.mapKeys;
+    var response = [];
+
+    var attrs = ctxItem.attributes;
+    var rels = ctxItem.relationships;
+
+    for(let mapKey of mapKeys) {
+        if(mapKey == "attributeMap" && !isEmpty(attrs)) {
+            var attrMap = Object.keys(attrs);
+            //console.log('attrs map ', JSON.stringify(attrMap));
+            response.push(mergeAndCreatePath(ctxBasePath, ['mappings', 'attributeMap'], $atom(attrMap)));
+        } 
+        else if(mapKey == "relationshipMap" && !isEmpty(rels)) {            
+            var relTypeMap = Object.keys(rels);
+            response.push(mergeAndCreatePath(ctxBasePath, ['mappings', 'relationshipMap'], $atom(relTypeMap)));
+        }
+    }
+
+    return response;
+}
+
 function _addCtxPropertiesToAttributes(attrs, attrNames, properties) {
     var ctxProperties = {
         'properties': properties
     };
 
+    if(!attrs) {
+        attrs = {};
+    }
+    
     attrs['properties'] = ctxProperties;
 }
 
@@ -241,6 +267,14 @@ function formatDataObjectForSave(dataObject) {
     if(isEmpty(dataObject.properties)) {
         delete dataObject.properties;
     }
+
+    if(dataObject.data && isEmpty(dataObject.data.contexts)) {
+        delete dataObject.data.contexts;
+    }
+
+    if(isEmpty(dataObject.domain)) {
+        delete dataObject.domain;
+    }
 }
 
 function buildResponse(dataObject, reqData, basePath) {
@@ -254,7 +288,7 @@ function buildResponse(dataObject, reqData, basePath) {
         response.push.apply(response, _buildFieldsResponse(dataObject, reqData, basePath));
     }
 
-    if (!(isEmpty(reqData.attrNames) && isEmpty(reqData.relTypes) && reqData.operation != "getJsonData")) {
+    if (!(isEmpty(reqData.attrNames) && isEmpty(reqData.relTypes) && !reqData.jsonData && reqData.operation != "getMappings")) {
 
         if (isEmpty(dataObject.data)) { return response; }
 
@@ -275,16 +309,16 @@ function buildResponse(dataObject, reqData, basePath) {
             contexts.push(selfCtxItem);
         }
 
+        var contextMap = [];
+
         for (let contextItem of data.contexts) {
             var currContext = contextItem.context;
 
             var ctxKey = sharedDataObjectFalcorUtil.createCtxKey(currContext);
             var ctxBasePath = mergePathSets(basePath, ['data', 'contexts', ctxKey]);
 
-            var attrs = contextItem.attributes;
-
             if (!isEmpty(reqData.attrNames)) {
-                
+                var attrs = contextItem.attributes;    
                 if (!isEmpty(contextItem.properties) && reqData.attrNames.indexOf('properties') >= 0) {
                     _addCtxPropertiesToAttributes(attrs, reqData.attrNames, contextItem.properties);
                 }
@@ -305,10 +339,22 @@ function buildResponse(dataObject, reqData, basePath) {
                 }
             }
             
-            if(reqData.operation == "getJsonData" && !isEmpty(contextItem.jsonData)) {
+            if(reqData.jsonData && !isEmpty(contextItem.jsonData)) {
                 var jsonDataBasePath = mergePathSets(ctxBasePath, ['jsonData']);
                 response.push.apply(response, _buildJsonDataResponse(contextItem.jsonData, jsonDataBasePath));
             }
+
+            if(reqData.operation == "getMappings") {
+                response.push.apply(response, _buildMappingsResponse(contextItem, reqData, ctxBasePath));
+            }
+
+            if(reqData.operation == "getMappings" && arrayContains(reqData.mapKeys, "contextMap")) {
+                contextMap.push(contextItem.currContext);
+            }
+        }
+
+        if(reqData.operation == "getMappings" && arrayContains(reqData.mapKeys, "contextMap")) {
+            response.push(mergeAndCreatePath(basePath, ['data', 'mappings', 'contextMap'], $atom(contextMap)));
         }
     }
 

@@ -16,20 +16,20 @@
             var mergedAttributeModels = {};
 
             //put default model as base
-            if (compositeModel.data && compositeModel.data.attributes) {
+            if (compositeModel && compositeModel.data && compositeModel.data.attributes) {
                 mergedAttributeModels = DataMergeHelper.mergeAttributes(mergedAttributeModels, compositeModel.data.attributes, true);
-                for(var attrKey in mergedAttributeModels) {
+                for (var attrKey in mergedAttributeModels) {
                     var dataAttrModel = mergedAttributeModels[attrKey];
                     dataAttrModel.selfContext = 1;
                 }
             }
 
-            if(!_.isEmpty(firstDataContext)) {
+            if (!_.isEmpty(firstDataContext)) {
                 //apply contexts specific model on top of default
                 var specificCtxAttributeModels = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(compositeModel, firstDataContext);
                 mergedAttributeModels = DataMergeHelper.mergeAttributes(mergedAttributeModels, specificCtxAttributeModels, true);
             }
-            
+
             this._fillModels(mergedAttributeModels);
 
             //console.log(mergedAttributeModels);
@@ -44,19 +44,19 @@
             //put default model as base
             if (compositeModel.data && compositeModel.data.relationships) {
                 mergedRelationshipModels = DataMergeHelper.mergeRelationships(mergedRelationshipModels, compositeModel.data.relationships, true);
-                for(var relKey in mergedRelationshipModels) {
+                for (var relKey in mergedRelationshipModels) {
                     var dataRelModel = mergedRelationshipModels[relKey];
                     dataRelModel.selfContext = 1;
                 }
             }
 
-            for(var i = 0; i < dataContexts.length; i++) {
+            for (var i = 0; i < dataContexts.length; i++) {
                 var dataContext = dataContexts[i];
                 //apply contexts specific model on top of default
                 var specificCtxRelationshipModels = SharedUtils.DataObjectFalcorUtil.getRelationshipsByCtx(compositeModel, dataContext);
-                for(var relKey in specificCtxRelationshipModels) {
+                for (var relKey in specificCtxRelationshipModels) {
                     var dataRelModel = mergedRelationshipModels[relKey];
-                    if(!_.isEmpty(dataRelModel)) {
+                    if (!_.isEmpty(dataRelModel)) {
                         dataRelModel.selfContext = 0;
                     }
                 }
@@ -73,24 +73,24 @@
 
             var mergedAttributes = {};
 
-            if(entity && entity.data && entity.data.attributes) {
+            if (entity && entity.data && entity.data.attributes) {
                 mergedAttributes = DataMergeHelper.mergeAttributes(mergedAttributes, entity.data.attributes, true);
             }
 
-            if(firstDataContext) {
+            if (firstDataContext) {
                 var ctxAttributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, firstDataContext);
-                if(!_.isEmpty(ctxAttributes)) {
+                if (!_.isEmpty(ctxAttributes)) {
                     mergedAttributes = DataMergeHelper.mergeAttributes(mergedAttributes, ctxAttributes, true);
                 }
             }
-            
+
             var transformedAttributes = this._transformAttributes(mergedAttributes, attributeModels, firstValueContext);
 
             var outputData = undefined;
-        
-            if(outputSchema == "array") {
+
+            if (outputSchema == "array") {
                 //manage returns output as array...instead of keyed attributes
-                outputData = _.map(transformedAttributes, function(value, index) { return value; });
+                outputData = _.map(transformedAttributes, function (value, index) { return value; });
             }
             else {
                 outputData = transformedAttributes;
@@ -100,20 +100,86 @@
             return outputData;
         };
 
-        DataTransformHelper.transformEntitiesToGridFormat = function (entities, attributeModels, contextData) {
-            var transformedEntities = [];
+        DataTransformHelper.transformAttributesWithoutSelfcontext = function (entity, contextData, outputSchema) {
+            var firstDataContext = ContextHelper.getFirstDataContext(contextData);
+            var firstValueContext = ContextHelper.getFirstValueContext(contextData);
 
+            var mergedAttributes = {};
+
+            if (entity && entity.data && entity.data.attributes) {
+                mergedAttributes = DataMergeHelper.mergeAttributes(mergedAttributes, entity.data.attributes, true);
+            }
+
+            if (firstDataContext) {
+                var ctxAttributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, firstDataContext);
+                if (!_.isEmpty(ctxAttributes)) {
+                    mergedAttributes = DataMergeHelper.mergeAttributes(mergedAttributes, ctxAttributes, true);
+                }
+            }
+
+            var transformedAttributes = this._transformAttributesWithoutSelfContext(mergedAttributes, firstValueContext);
+
+            var outputData = undefined;
+
+            if (outputSchema == "array") {
+                //manage returns output as array...instead of keyed attributes
+                outputData = _.map(transformedAttributes, function (value, index) { return value; });
+            }
+            else {
+                outputData = transformedAttributes;
+            }
+
+            //console.log(outputData);
+            return outputData;
+        };
+
+        DataTransformHelper.transformEntitiesToGridFormat = function (entities, attributeModels, contextData, columns) {
+            var transformedEntities = [];
+            var metaDataColumns;
+            var contextDataColumns;
+            if (columns && columns.length) {
+                metaDataColumns = columns.filter(function (column) {
+                    return column.isMetaDataColumn == true;
+                });
+                contextDataColumns = columns.filter(function (column) {
+                    return column.isContextDataColumn == true;
+                });
+            }
             if (entities && entities.length > 0) {
                 var entitiesToBeRemoved = [];
-                
+
                 for (var i = 0; i < entities.length; i++) {
                     var entity = entities[i];
-                    
-                    var transformedAttributes = {};
-                    if (entity && entity.data) {
-                        transformedAttributes = DataTransformHelper.transformAttributes(entity, attributeModels, contextData, "objects");
 
-                        if(!_.isEmpty(transformedAttributes)) {
+                    var transformedAttributes = {};
+                    if (entity) {
+                        transformedAttributes = DataTransformHelper.transformAttributes(entity, attributeModels, contextData, "objects");
+                        if (metaDataColumns && metaDataColumns.length) {
+                            for (var j = 0; j < metaDataColumns.length; j++) {
+                                var columnName = metaDataColumns[j].name;
+                                var attributeJSON = AttributeHelper.getEmptyValue(ContextHelper.getFirstValueContext(contextData));
+                                if (entity[columnName]) {
+                                    attributeJSON.value = entity[columnName];
+                                }
+                                transformedAttributes[columnName] = attributeJSON;
+                            }
+                        }
+                        if (contextDataColumns && contextDataColumns.length) {
+                            for (var j = 0; j < contextDataColumns.length; j++) {
+                                var columnName = contextDataColumns[j].name;
+                                var attributeJSON = AttributeHelper.getEmptyValue(ContextHelper.getFirstValueContext(contextData));
+                                //ToDo: get datacontext & valuecontext info from entity (when entity is coming from different contexts)
+                                if (contextData.dataContexts && contextData.dataContexts.length && contextData.dataContexts[0][columnName]) {
+                                    attributeJSON.value = contextData.dataContexts[0][columnName];
+                                }
+                                if (contextData.ValContexts && contextData.ValContexts.length && contextData.ValContexts[0][columnName]) {
+                                    attributeJSON.value = contextData.ValContexts[0][columnName];
+                                }
+                                transformedAttributes[columnName] = attributeJSON;
+                            }
+                        }
+
+                        if (!_.isEmpty(transformedAttributes)) {
                             //delete entity.data;
                             //var transformedEntity = DataHelper.cloneObject(entity);
                             var transformedEntity = entity;
@@ -140,8 +206,8 @@
             for (var i = 0; i < attributesJSON.length; i++) {
                 var attributeJSON = attributesJSON[i];
                 var attr = this._createAttributeInstance(attributeJSON, firstValueContext);
-                
-                if(attributeJSON.selfContext) {
+
+                if (attributeJSON.selfContext) {
                     dataAttributes[attributeJSON.name] = attr;
                 }
                 else {
@@ -151,13 +217,13 @@
 
             var newEntity = {};
 
-            var newData = {'contexts': []};
-            
-            if(!_.isEmpty(dataAttributes)) {
+            var newData = { 'contexts': [] };
+
+            if (!_.isEmpty(dataAttributes)) {
                 newData.attributes = dataAttributes;
             }
 
-            if(!_.isEmpty(firstContextAttributes)) {
+            if (!_.isEmpty(firstContextAttributes)) {
                 var entityContextItem = SharedUtils.DataObjectFalcorUtil.getCtxItem(entity.data.contexts, firstDataContext);
                 var newContexts = {};
                 var newCtxItem = {};
@@ -189,8 +255,8 @@
             for (var i = 0; i < attributesJSON.length; i++) {
                 var attributeJSON = attributesJSON[i];
                 var attr = this._createAttributeInstance(attributeJSON, firstValueContext);
-                
-                if(attributeJSON.selfContext) {
+
+                if (attributeJSON.selfContext) {
                     dataAttributes[attributeJSON.name] = attr;
                 }
                 else {
@@ -201,11 +267,11 @@
             var newEntity = {};
             var newData = {};
 
-            if(!_.isEmpty(dataAttributes)) {
+            if (!_.isEmpty(dataAttributes)) {
                 newData.attributes = dataAttributes;
             }
 
-            if(!_.isEmpty(firstDataContext) && !_.isEmpty(firstContextAttributes)) {
+            if (!_.isEmpty(firstDataContext) && !_.isEmpty(firstContextAttributes)) {
                 var newCtxItem = {};
                 newCtxItem.context = firstDataContext;
                 newCtxItem.attributes = firstContextAttributes;
@@ -215,13 +281,13 @@
             newEntity.id = entityId;
             newEntity.type = entityType;
             newEntity.data = newData;
-            newEntity.properties = { "createdBy" : createdBy };
-            
+            newEntity.properties = { "createdBy": createdBy };
+
             return newEntity;
         };
-        
+
         DataTransformHelper._createAttributeInstance = function (attributeJSON, valueContext) {
-            var attributeValues = []; 
+            var attributeValues = [];
             delete attributeJSON.errors;
             if (Array.isArray(attributeJSON.value)) {
                 for (var j = 0; j < attributeJSON.value.length; j++) {
@@ -233,7 +299,7 @@
                 }
             } else {
                 var attributeValue = { "value": attributeJSON.value };
-                
+
                 AttributeHelper.populateValueContext(attributeValue, valueContext);
                 attributeValues.push(attributeValue);
             }
@@ -241,7 +307,39 @@
             return { "values": attributeValues };
         };
 
-        DataTransformHelper._transformAttributes = function(attributes, attributeModels, valueContext) { 
+        DataTransformHelper._transformAttributesWithoutSelfContext = function (attributes, valueContext) {
+            var transformedAttributes = {};
+
+            for (var attributeName in attributes) {
+                var attribute = attributes[attributeName];
+                if (attribute) {
+                    var attributeJSON = {};
+                    if (attribute && attribute.values) {
+                        if (attribute.values) {
+                            for (var i = 0; i < attribute.values.length; i++) {
+                                var currentValue = attribute.values[i];
+                                attributeJSON = DataHelper.cloneObject(currentValue);
+                                break;
+                            }
+                        }
+                        if (attributeJSON != undefined && attributeJSON.hasOwnProperty('invalidValue')) {
+                            attributeJSON["value"] = attributeJSON.invalidValue;
+                        }
+
+                        if (attributeJSON == undefined || !attributeJSON.hasOwnProperty('value')) {
+                            attributeJSON = AttributeHelper.getEmptyValue(valueContext);
+                        }
+
+                        attributeJSON.name = attributeName;
+                        transformedAttributes[attributeName] = attributeJSON;
+                    }
+                }
+            }
+
+            return transformedAttributes;
+        };
+
+        DataTransformHelper._transformAttributes = function (attributes, attributeModels, valueContext) {
             var transformedAttributes = {};
 
             for (var attributeModelName in attributeModels) {
@@ -276,9 +374,13 @@
                 for (var prop in model.properties) {
                     model[prop] = model.properties[prop];
                 }
-                if (model.displayType != 'referenceList') {
+                if (!model.dataType) {
+                    model.dataType = "string";
+                }
+                if (!model.displayType) {
                     model.displayType = AttributeHelper.getDisplayType(model.dataType);
-                } else {
+                }
+                if (model.displayType.toLowerCase() == 'referencelist') {
                     model.referenceEntityTypes = DataHelper._getEntityTypesForLov(model);
                 }
 
@@ -286,19 +388,19 @@
             }
         };
 
-        DataTransformHelper.prepareEntitiesForCreate = function(data, contextData, attributeModels) {
+        DataTransformHelper.prepareEntitiesForCreate = function (data, contextData, attributeModels) {
             var entities = [];
             var firstValueContext = ContextHelper.getFirstValueContext(contextData);
             var firstItemContext = ContextHelper.getFirstItemContext(contextData);
-            if(data && data.length > 0) {
-                for(var i=0; i<data.length; i++) {
+            if (data && data.length > 0) {
+                for (var i = 0; i < data.length; i++) {
                     var rowData = data[i];
                     var keys = Object.keys(rowData);
                     var attributesJson = [];
-                    if(keys && keys.length > 0) {
-                        for(var j=0; j<keys.length; j++) {
+                    if (keys && keys.length > 0) {
+                        for (var j = 0; j < keys.length; j++) {
                             var key = keys[j];
-                            if(attributeModels[key]) {
+                            if (attributeModels[key]) {
                                 var attribute = {
                                     "name": key,
                                     "value": rowData[key],
@@ -310,13 +412,169 @@
                             }
                         }
                     }
-                    var entityId = rowData.id;
+                    var entityId = rowData.rowId;
                     var entityType = firstItemContext.type;
                     var entity = DataTransformHelper.prepareEntityForCreate(entityId, entityType, attributesJson, contextData, "John");
                     entities.push(entity);
                 }
             }
             return entities;
+        };
+
+        DataTransformHelper.transformEntityForDimensionGrid = function (entity, dimensions, attributeModel) {
+            if (!_.isEmpty(entity) && !_.isEmpty(dimensions) && !_.isEmpty(attributeModel)) {
+
+                var valContextFlat = {};
+                if (!_.isEmpty(dimensions.locales)) {
+                    valContextFlat.locale = [...new Set(dimensions.locales.map((obj) => obj.id))];
+                }
+
+                if (!_.isEmpty(dimensions.sources)) {
+                    valContextFlat.source = [...new Set(dimensions.sources.map((obj) => obj.id))];
+                }
+
+                var valContexts = _.createCartesianObjects(valContextFlat);
+                if (_.isEmpty(entity.data)) {
+                    entity.data = {};
+                    entity.data.contexts = [];
+                    entity.data.attributes = {};
+                }
+
+                if (!_.isEmpty(dimensions.channels)) {
+                    var entityContexts = entity.data.contexts;
+                    dimensions.channels.forEach(function (channel) {
+                        var ctx = entityContexts.filter(ctx => ctx.context.list == channel.id);
+                        if (ctx) {
+                            if (_.isEmpty(ctx.attributes)) {
+                                ctx.attributes = {};
+                            }
+
+                            this._transformAttributesForDimensionGrid(ctx.attributes, attributeModel, valContexts);
+                        } else {
+                            var context = {};
+                            context.context = {
+                                "list": channel.id
+                            };
+                            context.attributes = {};
+
+                            this._transformAttributesForDimensionGrid(context.attributes, attributeModel, valContexts);
+                            entityContexts.push(context);
+                        }
+                    }, this);
+
+                    var selContextAttributes = entity.data.attributes;
+                    if (_.isEmpty(selContextAttributes)) {
+                        selContextAttributes = {};
+                    }
+                    this._transformAttributesForDimensionGrid(selContextAttributes, attributeModel, valContexts);
+                } else {
+                    var selfContextAttributes = entity.data.attributes;
+                    if (_.isEmpty(selfContextAttributes)) {
+                        selfContextAttributes = {};
+                    }
+                    this._transformAttributesForDimensionGrid(selfContextAttributes, attributeModel, valContexts);
+                    entity.data.attributes = selfContextAttributes;
+                }
+            }
+        };
+
+        DataTransformHelper.transformSavedSearches = function(savedSearches, searchMappings, userContext) {
+            if(!savedSearches || savedSearches.length == 0)
+            {
+                return;
+            }
+            var _favorites = [];            
+            //Favourites list, getting the mappings based on user and role, so fetching the first obj for the process 
+            if(searchMappings && searchMappings.length > 0)
+            {
+                _favorites = searchMappings[0].data.contexts[0].jsonData.config.favoriteSavedSearches;                
+            }
+
+            //Prepare initial object
+            var _savedSearches = {
+                "workflowSavedSearch": [],
+                "favourites": [],
+                "my-searches": [],
+                "shared-searches": []
+            }
+
+            for(var i = 0; i < savedSearches.length; i++)
+            {
+                if(savedSearches[i].type == "workflowSavedSearch")
+                {
+                    if(!savedSearches[i].data)
+                    {
+                        _savedSearches.workflowSavedSearch.push(savedSearches[i].data.contexts[0].jsonData.config);
+                    }
+                }
+                else if(savedSearches[i].type == "savedSearch")
+                {
+                    var _searchData = {};
+                    if(savedSearches[i].data)
+                    {
+                        _searchData = savedSearches[i].data.contexts[0].jsonData.config;
+                        _searchData["searchname"] = savedSearches[i].name;
+                        _searchData["searchid"] = savedSearches[i].id;
+                    }
+
+                    if(!_.isEmpty(_searchData))
+                    {
+                        var _favFlag = false;   
+                        // Check is the current search in favourites, if yes directly push to favourites section
+                        for (var j = 0; j < _favorites.length; j++)
+                        {
+                            if(_favorites[j] == _searchData.searchname)
+                            {
+                                _savedSearches.favourites.push(_searchData);
+                                _favFlag = true;
+                                break;
+                            }
+                        }                        
+                        // If not favourites, then check for user, if user is current user, then push to my searches section
+                        if(!_favFlag)
+                        {                        
+                            if(_searchData.user == userContext.user)
+                            {
+                                _savedSearches["my-searches"].push(_searchData);
+                            }
+                            else if(!_searchData.user || _searchData.user == "_ALL")
+                            {
+                                _savedSearches["shared-searches"].push(_searchData);
+                            }
+                            else if(_searchData.role && _searchData.role == userContext.role)
+                            {
+                                _savedSearches["shared-searches"].push(_searchData);
+                            }
+                        }                        
+                    }                    
+                }
+            }
+
+            return _savedSearches;
+        },
+
+        DataTransformHelper._transformAttributesForDimensionGrid = function (attributes, attributeModel, valueContexts) {
+            if (valueContexts) {
+                if (!_.isEmpty(attributes) && attributes[attributeModel.name]) {
+                    var values = attributes[attributeModel.name].values;
+                    if (!_.isEmpty(values)) {
+                        valueContexts.forEach(function (valCtx) {
+                            var value = values.filter(val => val.locale == valCtx.locale && val.source == valCtx.source);
+                            if (_.isEmpty(value)) {
+                                var val = AttributeHelper.getEmptyValue(valCtx);
+                                if (val) {
+                                    values.push(val);
+                                }
+                            }
+                        }, this);
+                    } else {
+                        attributes[attributeModel.name] = AttributeHelper.getEmptyValues(valueContexts);
+                    }
+                } else {
+                    attributes[attributeModel.name] = {}
+                    attributes[attributeModel.name] = AttributeHelper.getEmptyValues(valueContexts);
+                }
+            }
         };
 
     })();

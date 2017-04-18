@@ -17,41 +17,6 @@
             return JSON.parse(JSON.stringify(o));
         };
 
-        DataHelper.transformAttributeModelsToUIFormat = function (compositeModel, modelContext) {
-            var mergedAttributeModels = {};
-
-            //put default model as base
-            if (compositeModel.data && compositeModel.data.attributes) {
-                DataHelper._mergeObjects(mergedAttributeModels, compositeModel.data.attributes, true);
-            }
-
-            //apply ctx specific model on top of default
-            var specificCtxAttributeModels = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(compositeModel,
-                modelContext);
-            DataHelper._mergeObjects(mergedAttributeModels, specificCtxAttributeModels, true);
-
-            this._fillModels(mergedAttributeModels);
-
-            //console.log(mergedAttributeModels);
-
-            return mergedAttributeModels;
-        };
-
-        DataHelper._fillModels = function (attributeModelObjects) {
-            for (var attributeName in attributeModelObjects) {
-                var model = attributeModelObjects[attributeName];
-                for (var prop in model.properties) {
-                    model[prop] = model.properties[prop];
-                }
-                if (model.displayType != 'referenceList') {
-                    model.displayType = this._getDisplayType(model.dataType);
-                } else {
-                    model.referenceEntityTypes = DataHelper._getEntityTypesForLov(model);
-                }
-                model.name = attributeName;
-            }
-        };
-
         DataHelper._getEntityTypesForLov = function (attributeModel) {
             var info = [];
             //find from manage model, looks like this:
@@ -71,35 +36,6 @@
             }
 
             return info;
-        };
-
-        DataHelper._getDisplayType = function (dataType) {
-            var displayType = 'textbox';
-
-            switch (dataType) {
-                case 'boolean':
-                    {
-                        displayType = 'boolean';
-                        break;
-                    }
-                case 'date':
-                    {
-                        displayType = 'date';
-                        break;
-                    }
-                case 'datetime':
-                    {
-                        displayType = 'datetime';
-                        break;
-                    }
-                case 'decimal':
-                    {
-                        displayType = 'textbox';
-                        break;
-                    }
-            }
-
-            return displayType;
         };
 
         DataHelper._mergeObjects = function (target, source, addMissing = false) {
@@ -140,10 +76,6 @@
             }
 
             return target;
-        };
-
-        DataHelper.getRelationshipsByCtx = function (entityModel, modelContext) {
-            return SharedUtils.DataObjectFalcorUtil.getRelationshipsByCtx(entityModel, modelContext);
         };
 
         DataHelper.transformAttributeFromUIFormat = function (attributesJSON) {
@@ -393,6 +325,24 @@
             return attributeValueObject;
         };
 
+        DataHelper.transformAtributeModelsToLovSchema=function (attributeModels,lovColumnNameValueCollection) {
+            var formattedAttributeModels=[];
+            if(attributeModels && lovColumnNameValueCollection){
+                for(var i in attributeModels){
+                    var formattedAttributeModel={};
+                    var attributeModel=attributeModels[i];
+                    for(var columnName in lovColumnNameValueCollection){
+                        var fieldName=lovColumnNameValueCollection[columnName];
+                        if(fieldName){
+                            attributeModel[columnName]=attributeModel[fieldName];
+                        }
+                    }
+                    formattedAttributeModels.push(attributeModel);
+                }
+            }
+            return formattedAttributeModels;
+        };
+
         DataHelper.transformEntityModelSchemaToLovSchema = function (entityModels, lovColumnNameValueCollection) {
             var formattedEntityModels = [];
 
@@ -480,20 +430,29 @@
             return true;
         };
 
-        //TODO: Remove this after dimension selector starts using _.isEmpty
-        DataHelper.isEmptyObject = function (obj) {
-            for (var prop in obj) {
-                if (Object.prototype.hasOwnProperty.call(obj, prop)) {
-                    return false;
-                }
-            }
+        DataHelper.containsObject = function(obj, list) {
+            var res = _.find(list, function(val) { 
+                return _.isEqual(obj, val)
+            });
 
-            return true;
+            return (_.isObject(res))? true : false;
         };
 
-        DataHelper._getCurrentValue = function (values, valueContexts, model) {
+       DataHelper.isValidObjectPath = function(base, path) {
+            var current = base;
+            var components = path.split(".");
+            for (var i = 0; i < components.length; i++) {
+                if ((typeof current !== "object") || (!current.hasOwnProperty(components[i]))) {
+                    return false;
+                }
+                current = current[components[i]];
+            }
+            return true;
+       };
 
-            if ((model.displayType == "textbox" || model.displayType == "referenceList") && model.isCollection) {
+       DataHelper._getCurrentValue = function (values, valueContexts, model) {
+            var displayType = model.displayType ? model.displayType.toLowerCase() : model.displayType;
+            if ((displayType == "textbox" || displayType == "referencelist") && model.isCollection) {
                 return this._getCurrentValues(values, valueContexts, model);
             }
 
@@ -521,8 +480,8 @@
         };
 
         DataHelper._getCurrentValues = function (values, valueContexts, model) {
-
-            if (!((model.displayType == "textbox" || model.displayType == "referenceList") && model.isCollection)) {
+            var displayType = model.displayType ? model.displayType.toLowerCase() : model.displayType;
+            if (!((displayType == "textbox" || displayType == "referencelist") && model.isCollection)) {
                 return;
             }
 
@@ -720,6 +679,26 @@
             return tenantId;
         };
 
+        DataHelper.getUserId = function () {
+            var userId = 'admin';
+            var mainApp = document.querySelector("main-app");
+            if (mainApp && mainApp.userId) {
+                userId = mainApp.userId;
+            }
+
+            return userId;
+        };
+
+        DataHelper.getUserRole = function () {
+            var userRole;
+            var mainApp = document.querySelector("main-app");
+            if (mainApp && mainApp.roleId) {
+                userRole = mainApp.roleId;
+            }
+
+            return userRole;
+        };
+
         DataHelper.arrayRemove = function (arr, val) {
             var index = -1;
             index = arr.indexOf(val);
@@ -728,7 +707,6 @@
                 index = arr.indexOf(val);
             }
         };
-
 
         DataHelper.getAttributeValues = function (values, valueContext) {
             var _values = [];
@@ -778,7 +756,7 @@
             if(relationships && relationships.length > 0) {
                 var relToNames = [];
                 for(var i=0; i<relationships.length; i++) {
-                    var relToName = relationships[0].relTo.name;
+                    var relToName = relationships[i].relTo.name;
                     relToNames.push(relToName);
                 }
                 return relToNames;

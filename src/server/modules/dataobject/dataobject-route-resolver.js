@@ -5,9 +5,10 @@ const jsonGraph = require('falcor-json-graph'),
     $error = jsonGraph.error,
     $atom = jsonGraph.atom;
 
-const   arrayRemove = require('../common/utils/array-remove'),
-        isEmpty = require('../common/utils/isEmpty'),
-        uuidV1 = require('uuid/v1');
+const arrayRemove = require('../common/utils/array-remove'),
+    arrayContains = require('../common/utils/array-contains'),
+    isEmpty = require('../common/utils/isEmpty'),
+    uuidV1 = require('uuid/v1');
 
 var sharedDataObjectFalcorUtil = require('../../../shared/dataobject-falcor-util');
 
@@ -45,7 +46,14 @@ async function initiateSearch(callPath, args) {
         dataIndex = callPath[1],
         basePath = [pathKeys.root, dataIndex, pathKeys.searchResults, requestId];
 
+    var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
     request.dataIndex = dataIndex;
+
+    if (request.params) {
+        var options = sharedDataObjectFalcorUtil.getOrCreate(request.params, 'options', {});
+        options.totalRecords = dataIndexInfo.totalRecordsToReturn || 2000;
+    }
+
     //console.log('request str', JSON.stringify(request, null, 4));
 
     delete request.params.fields; // while initiating search, we dont want any of the fields to be returned..all we want is resulted ids..
@@ -56,7 +64,6 @@ async function initiateSearch(callPath, args) {
 
     var totalRecords = 0;
 
-    var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
     var collectionName = dataIndexInfo.collectionName;
 
     var dataObjectResponse = res ? res[dataIndexInfo.responseObjectName] : undefined;
@@ -108,19 +115,29 @@ function createGetRequest(reqData) {
     var valContexts = sharedDataObjectFalcorUtil.createCtxItems(reqData.valCtxKeys);
 
     var fields = {
-        ctxTypes: ["properties"]
+        'ctxTypes': ["properties"]
     };
 
-    var attrNames = reqData.attrNames;
-    if (attrNames !== undefined && attrNames.length > 0) {
-        var clonedAttrNames = sharedDataObjectFalcorUtil.cloneObject(attrNames);
-        arrayRemove(clonedAttrNames, 'properties');
-        fields.attributes = clonedAttrNames;
+    if (reqData.operation == "getMappings" && arrayContains(reqData.mapKeys, "attributeMap")) {
+        fields.attributes = ['_ALL'];
+    }
+    else {
+        var attrNames = reqData.attrNames;
+        if (attrNames !== undefined && attrNames.length > 0) {
+            var clonedAttrNames = sharedDataObjectFalcorUtil.cloneObject(attrNames);
+            arrayRemove(clonedAttrNames, 'properties');
+            fields.attributes = clonedAttrNames;
+        }
     }
 
-    var relTypes = reqData.relTypes;
-    if (relTypes !== undefined && relTypes.length > 0) {
-        fields.relationships = relTypes;
+    if (reqData.operation == "getMappings" && arrayContains(reqData.mapKeys, "relationshipMap")) {
+        fields.relationships = ['_ALL'];
+    }
+    else {
+        var relTypes = reqData.relTypes;
+        if (relTypes !== undefined && relTypes.length > 0) {
+            fields.relationships = relTypes;
+        }
     }
 
     var relIds = reqData.relIds;
@@ -128,9 +145,14 @@ function createGetRequest(reqData) {
         fields.relIds = relIds;
     }
 
-    var relAttrNames = reqData.relAttrNames;
-    if (relAttrNames !== undefined && relAttrNames.length > 0) {
-        fields.relationshipAttributes = relAttrNames;
+    if (reqData.operation == "getMappings" && arrayContains(reqData.mapKeys, "relationshipAttributeMap")) {
+        fields.relationshipAttributes = ['_ALL'];
+    }
+    else {
+        var relAttrNames = reqData.relAttrNames;
+        if (relAttrNames !== undefined && relAttrNames.length > 0) {
+            fields.relationshipAttributes = relAttrNames;
+        }
     }
 
     var options = {
@@ -144,17 +166,21 @@ function createGetRequest(reqData) {
         filters.typesCriterion = reqData.dataObjectTypes;
     }
 
-    var query = {'id': ''};
+    var query = { 'id': '' };
 
-    if(!isEmpty(contexts)) {
+    if (!isEmpty(contexts)) {
         query.contexts = contexts;
     }
 
-    if(!isEmpty(valContexts)) {
+    if (!isEmpty(valContexts)) {
         query.valueContexts = valContexts;
     }
 
-    if(!isEmpty(filters)) {
+    if (reqData.dataIndex == "config" && contexts && contexts.length > 0) {
+        filters.excludeNonContextual = true;
+    }
+
+    if (!isEmpty(filters)) {
         query.filters = filters;
     }
 
@@ -182,8 +208,21 @@ async function getSingle(dataObjectId, reqData) {
     request.params.query.id = dataObjectId;
 
     //console.log('req to api ', JSON.stringify(request));
-    var res = await dataObjectManageService.get(request);
-    //console.log('get res from api', JSON.stringify(res, null, 4));
+    var res = undefined;
+    //Temp: work in progress for getcoalesce call integration hence placed 1 == 2 condtion to always go to normal get for now
+    if (request.dataIndex == "entityModel" && 1 == 2) {
+        if (!isEmpty(request.params.query.contexts) && (!isEmpty(reqData.attrNames) || !isEmpty(reqData.relationships))) {
+            res = await dataObjectManageService.getCoalesce(request);
+        }
+        else {
+            res = await dataObjectManageService.get(request);
+        }
+    }
+    else {
+        res = await dataObjectManageService.get(request);
+    }
+
+    //console.log('get res from api ', JSON.stringify(res, null, 4));
 
     var basePath = [pathKeys.root, reqData.dataIndex];
     var dataObject;
@@ -236,22 +275,24 @@ async function getByIds(pathSet, operation) {
         'relFields': pathSet.relFields === undefined ? [] : pathSet.relFields,
         'valCtxKeys': pathSet.valCtxKeys === undefined ? [] : pathSet.valCtxKeys,
         'valFields': pathSet.valFields === undefined ? [] : pathSet.valFields,
+        'mapKeys': pathSet.mapKeys == undefined ? [] : pathSet.mapKeys,
+        'jsonData': operation == "getJsonData" ? true : false,
         'operation': operation
     }
 
     var response = [];
-    //console.log('reqData', JSON.stringify(reqData));
+    //console.log('reqData ', JSON.stringify(reqData));
 
     for (let dataObjectId of reqData.dataObjectIds) {
         var singleDataObjectResponse = await getSingle(dataObjectId, reqData);
         response.push.apply(response, singleDataObjectResponse);
     }
 
-    //console.log('getDataObjects response :', JSON.stringify(response, null, 4));
+    //console.log('getByIds response ', JSON.stringify(response, null, 4));
     return response;
 }
 
-async function processData(dataIndex, dataObjects, dataObjectAction, operation) {
+async function processData(dataIndex, dataObjects, dataObjectAction, operation, clientState) {
     //console.log(dataObjectAction, operation);
 
     var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
@@ -264,7 +305,7 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation) 
         formatDataObjectForSave(dataObject);
         //console.log('dataObject data', JSON.stringify(dataObject, null, 4));
 
-        var apiRequestObj = { 'includeRequest': false, 'dataIndex': dataIndex };
+        var apiRequestObj = { 'includeRequest': false, 'dataIndex': dataIndex, 'clientState': clientState };
         apiRequestObj[dataIndexInfo.name] = dataObject;
         //console.log('api request data for process dataObjects', JSON.stringify(apiRequestObj));
 
@@ -292,6 +333,8 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation) 
                 'relAttrNames': [CONST_ALL],
                 'relFields': [CONST_ALL],
                 'valFields': [CONST_ALL],
+                'mapKeys': [CONST_ALL],
+                'jsonData': true,
                 'operation': operation
             };
 
@@ -311,8 +354,14 @@ async function create(callPath, args, operation) {
     var dataIndex = callPath.dataIndexes[0];
     var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
     var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
+    var clientState = jsonEnvelope.json.clientState;
     var dataObjectIds = Object.keys(dataObjects);
     //console.log(dataObjects);
+
+    //TODO: made showNotificationToUser flag false for entity create till we decide how it has to be.
+    if (clientState && clientState.notificationInfo) {
+        clientState.notificationInfo.showNotificationToUser = false;
+    }
 
     // create new guids for the dataObjects to be created..
     for (let dataObjectId of dataObjectIds) {
@@ -325,7 +374,7 @@ async function create(callPath, args, operation) {
         }
     }
 
-    return processData(dataIndex, dataObjects, "create", operation);
+    return processData(dataIndex, dataObjects, "create", operation, clientState);
 }
 
 async function update(callPath, args, operation) {
@@ -334,8 +383,9 @@ async function update(callPath, args, operation) {
     var dataIndex = callPath.dataIndexes[0];
     var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
     var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
+    var clientState = jsonEnvelope.json.clientState;
 
-    return processData(dataIndex, dataObjects, "update", operation);
+    return processData(dataIndex, dataObjects, "update", operation, clientState);
 }
 
 async function deleteDataObjects(callPath, args, operation) {
@@ -343,7 +393,9 @@ async function deleteDataObjects(callPath, args, operation) {
     var jsonEnvelope = args[0];
     var dataIndex = callPath.dataIndexes[0];
     var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][pathKeys.byIds];
-    return processData(dataIndex, dataObjects, "delete", operation);
+    var clientState = jsonEnvelope.json.clientState;
+
+    return processData(dataIndex, dataObjects, "delete", operation, clientState);
 }
 
 module.exports = {

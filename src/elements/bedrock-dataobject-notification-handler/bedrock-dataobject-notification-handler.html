@@ -1,0 +1,287 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-enums-util/bedrock-enums-util.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-helpers/component-helper.html">
+
+<link rel="import" href="../bedrock-datachannel/bedrock-datachannel.html">
+
+<link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
+
+<link rel="import" href="../pebble-toast/pebble-toast.html">
+
+<!--
+`bedrock-dataobject-notification-handler`
+-->
+
+<dom-module id="bedrock-dataobject-notification-handler">
+    <template>
+        <bedrock-pubsub event-name="dataobject-notification" handler="_onDataObjectNotification"></bedrock-pubsub>
+    </template>
+
+    <script>
+        (function () {
+            'use strict';
+
+            Polymer({
+                is: 'bedrock-dataobject-notification-handler',
+                properties: {
+
+                },
+                behaviors: [
+                    RUFBehaviors.UIBehavior
+                ],
+
+                attached: function () {
+                    RUFEventHandlers.reloadClick = function () {
+                        if (event.currentTarget) {
+                            var appId = event.currentTarget.getAttribute('appId');
+                            if (appId) {
+                                var appElement = ComponentHelper.getAppById(appId);
+                                if (appElement && appElement.refresh) {
+                                    appElement.refresh();
+                                    RUFEventHandlers.continueClick();
+                                }
+                            }
+                        }
+                    };
+
+                    RUFEventHandlers.continueClick = function () {
+                        if (event.target) {
+                            if (event.target.parentElement && event.target.parentElement.close) {
+                                event.target.parentElement.close();
+                            }
+                        }
+                    };
+                },
+
+                _onDataObjectNotification: function (e) {
+                    var self = this;
+                    var data = e.detail;
+                    var actions = SharedEnumsUtil.Enums.actions;
+                    if (data) {
+                        switch (data.action) {
+                            case actions.SaveComplete:
+                                // clear cache
+                                self._fireNotificationEvent("save-complete", data);
+                                break;
+                            case actions.GovernComplete:
+                                self._updateCache(data);
+                                if (data.showNotificationToUser) {
+                                    this.debounce(data.requestId, function () {
+                                        self._onGovernComplete(data);
+                                    }, 1000);
+                                }
+                                break;
+                            case actions.WorkflowTransitionComplete:
+                                self._updateCache(data);
+                                if (data.showNotificationToUser) {
+                                    self._onWorkflowTransitionComplete(data);
+                                }
+                                break;
+                            case actions.SaveFail:
+                            case actions.GovernFail:
+                                self._onSaveAndGovernFail(data);
+                                break;
+                            case actions.WorkflowTransitionFail:
+                                self._onWorkflowTransitionFail(data);
+                                break;
+                        }
+                    }
+                },
+
+                _updateCache: function (data) {
+                    if (data && data.context) {
+                        var model = RUFBehaviors.DataChannel.getModel(dataObjectChanelName);
+                        if (model) {
+                            var dataObjectId = data.context.id;
+                            var dataObjectType = data.context.type;
+                            var entityDataIndex = "entityData";
+                            var entityGovernDataIndex = "entityGovernData";
+                            var dataObjectChanelName = "dataObjectChannel";
+
+                            var utils = SharedUtils.DataObjectFalcorUtil;
+
+                            var pathKeys = utils.getPathKeys();
+
+                            if (pathKeys) {
+                                //var paths = [];
+                                model.invalidate([pathKeys.root, entityDataIndex, dataObjectType, pathKeys.byIds, dataObjectId]);
+                                model.invalidate([pathKeys.root, entityGovernDataIndex, dataObjectType, pathKeys.byIds, dataObjectId]);
+                                //model.invalidate(paths);   
+                            }
+                        }
+                    }
+                },
+
+                // if app is active: auto refresh workflow panel by firing workflow-transition-complete event.
+                // if app is minimized: send pebble toast with link saying wants to open entity. 
+                _onWorkflowTransitionComplete: function (data) {
+                    if (data.context && data.tenantId) {
+                        if (data.context.appInstanceId) {
+                            var activeApp = ComponentHelper.getCurrentActiveApp();
+
+                            if (activeApp && activeApp.id == data.context.appInstanceId) {
+                                activeApp.fireBedrockEvent("workflow-transition-complete", data, { ignoreId: true });
+                            } else {
+                                var app = ComponentHelper.getAppById(data.context.appInstanceId);
+                                if (app) {
+                                    var link = "/" + data.tenantId + "/entity-manage?id=" + data.context.id + "&type=" + data.context.type;
+
+                                    var description = "";
+                                    var actions = "";
+                                    if (!isEmpty(link)) {
+                                        description = data.context.workflowAction + " in " + data.context.workflowName + ": " + data.context.workflowActivityName + " has been successfully done for a/an " + data.context.type + " with ID " + data.context.id + ". Do you want to refresh the page to see the changes?";
+                                        actions = " <a href=" + link + " onclick='RUFEventHandlers.reloadClick()' appId='" + data.context.appInstanceId + "'>Reload and open</a>";
+                                        actions = actions + " <a href='' onclick='RUFEventHandlers.reloadClick()' appId='" + data.context.appInstanceId + "'>Reload and keep minimized</a>";
+                                        actions = actions + " <a href='' onclick='RUFEventHandlers.continueClick()'>Continue without Reload</a>";
+                                    }
+                                    data.description = description + actions;
+                                    this._sendToast(data);
+                                }
+                            }
+                        }
+                    }
+                },
+
+                //if app is active: send pebble toast with link saying wants to refresh entity.
+                // if app is minimized: send pebble toast with link saying wants to open entity.                 
+                _onGovernComplete: function (data) {
+                    if (data.context && data.tenantId) {
+                        var link = "/" + data.tenantId + "/entity-manage?id=" + data.context.id + "&type=" + data.context.type;
+                        var isActiveApp = false;
+                        var isMinimizedApp = false;
+
+                        isActiveApp = this._isActiveApp(data.context.appInstanceId);
+                        if (!isActiveApp) {
+                            var app = ComponentHelper.getAppById(data.context.appInstanceId);
+                            if (app) {
+                                isMinimizedApp = true;
+                            }
+                        }
+
+                        if (isActiveApp || isMinimizedApp) {
+                            var description = "";
+                            var actions = "";
+                            if (!_.isEmpty(link)) {
+                                if (isActiveApp) {
+                                    description = "Some changes that you made have been verified by the system. Do you want to refresh the page to see the changes?";
+                                    actions = " <a href=" + link + " onclick='RUFEventHandlers.reloadClick()' appId='" + data.context.appInstanceId + "'>Reload</a>";
+                                    actions = actions + " <a href='' onclick='RUFEventHandlers.continueClick()'>Continue without Reload</a>";
+                                } else if (isMinimizedApp) {
+                                    description = "Some changes that you made have been verified by the system for a/an " + data.context.type + " with ID " + data.context.id + ". Do you want to refresh the page to see the changes?";
+                                    actions = " <a href=" + link + " onclick='RUFEventHandlers.reloadClick()' appId='" + data.context.appInstanceId + "'>Reload and open</a>";
+                                    actions = actions + " <a href='' onclick='RUFEventHandlers.reloadClick()' appId='" + data.context.appInstanceId + "'>Reload and keep minimized</a>";
+                                    actions = actions + " <a href='' onclick='RUFEventHandlers.continueClick()'>Continue without Reload</a>";
+                                }
+                            }
+                            data.description = description + actions;
+                            this._sendToast(data);
+                        }
+                    }
+
+                    //incase needs to do some other stuff. right now not in use.
+                    this._fireNotificationEvent("govern-complete", data);
+                },
+
+                // update notification badge and notification list.
+                _onSaveAndGovernFail: function (data) {
+                    if (data && data.context) {
+                        data.description = data.context.type + " " + data.context.id + " has some errors. Please resolve.";
+                        this._notifyUIOnBadge(data);
+                    }
+                },
+
+                // update notification badge and notification list.
+                _onWorkflowTransitionFail: function (data) {
+                    if (data && data.context) {
+                        if (data && data.context) {
+                            data.description = data.context.type + " " + data.context.id + " could not be " + data.context.workflowAction + " in " + data.context.workflowName + ": " + data.context.workflowActivityName;
+                            this._notifyUIOnBadge(data);
+                        }
+                    }
+                },
+
+                //if app is active: fire event with given event name for active app.
+                _fireNotificationEvent: function (eventName, data) {
+                    if (data.context) {
+                        if (data.context.appInstanceId) {
+                            var activeApp = ComponentHelper.getCurrentActiveApp();
+                            if (activeApp.id == data.context.appInstanceId) {
+                                activeApp.fireBedrockEvent(eventName, data, { ignoreId: true });
+                            }
+                        }
+                    }
+                },
+
+                // update notification badge and notification list.
+                _notifyUIOnBadge: function (data) {
+                    var mainApp = document.querySelector("main-app");
+
+                    if (!mainApp) {
+                        return;
+                    }
+
+                    var notificationElement = mainApp.$$('#notificationsList');
+
+                    if (!notificationElement) {
+                        return;
+                    }
+
+                    var notificationLabelElement = mainApp.$$('#mdmNotifications');
+
+                    if (notificationElement) {
+                        var notifications = notificationElement.notifications;
+                        notificationElement.notifications = [];
+
+                        notifications.unshift({
+                            src: data.source || '',
+                            alt: data.alt || '',
+                            when: moment(data.timestamp).format("DD MMM YYYY hh:mm a") || '',
+                            desc: data.description || ''
+                        });
+
+                        notificationElement.notifications = notifications;
+                        notificationElement.notifyPath("notifications", notificationElement.notifications.slice());
+
+                        if (notificationLabelElement) {
+                            notificationLabelElement.label += 1;
+                        }
+                    }
+                },
+
+                _isActiveApp: function (id) {
+                    var active = false;
+                    if (id) {
+                        var activeApp = ComponentHelper.getCurrentActiveApp();
+                        if (activeApp) {
+                            if (id == activeApp.id) {
+                                active = true;
+                            }
+                        }
+                    }
+                    return active;
+                },
+
+                _sendToast: function (data) {
+                    if (data) {
+                        var mainApp = document.querySelector('main-app');
+                        if (mainApp) {
+                            var pebbleToastElement = document.createElement("pebble-toast");
+                            pebbleToastElement.setAttribute('id', Date.parse(new Date())); //Just unique id  
+                            pebbleToastElement.innerHTML = data.description;
+                            pebbleToastElement.toastType = data.status;
+                            pebbleToastElement.alignToast = "top";
+                            pebbleToastElement.toastDuration = 45000;
+                            pebbleToastElement.autoClose = true;
+                            mainApp.root.appendChild(pebbleToastElement);
+                            pebbleToastElement.show();
+                        }
+                    }
+                }
+            });
+        })();
+    </script>
+
+</dom-module>

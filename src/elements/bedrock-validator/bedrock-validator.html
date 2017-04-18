@@ -26,6 +26,10 @@
                     notify:true,
                     observer: 'inputChanged'
                 },
+                // Indicates an input data type.
+                inputDataType:{
+                    type: String
+                },
                 // Indicates the type of the validator. If there are multiple validators, then they can be passed as comma separated strings. Possible validation types are required, minLength, maxLength, range, email, pattern, decimalPrecision, timeRange, dateRange, and fileExtension. Some common validation types like required, minLength, and maxLength can be directly passed as attributes. There is no need to add them in the type.
                 type:{
                     type:String,
@@ -98,12 +102,20 @@
                     type:Boolean,
                     value: false,
                     notify:true
+                },
+                minInclusive: {
+                    type: Boolean,
+                    value: false
+                },
+                maxInclusive: {
+                    type: Boolean,
+                    value: false
                 }
             },
             // Can be used to observe the input. It is called whenever any change is made to the input.
             inputChanged: function (input) {
                 this.validate(input);
-            },
+            },            
             // Can be used to validate the input. It invokes the required validator based on the given validation type.
             validate: function(input) {
                 this.errorMessage='';
@@ -113,6 +125,42 @@
                     if(!ValidationHelper.requiredValidator(input)) {
                         this.invalid =true;
                         this.push('validationErrors', "Required");
+                    }
+                }
+                if(input && this.inputDataType && this.inputDataType.toLowerCase() == "integer")
+                {
+                    if(!ValidationHelper.integerValidator(input))
+                    {
+                        this.invalid =true;
+                        this.push('validationErrors', "Provide integer value");
+                    }
+                }
+                if(input && this.inputDataType && this.inputDataType.toLowerCase() == "decimal")
+                {
+                    if(!ValidationHelper.decimalValidator(input))
+                    {
+                        this.invalid =true;
+                        this.push('validationErrors', "Provide decimal value");
+                    }
+                }
+                if(input && 
+                   this.inputDataType && 
+                   this.inputDataType.toLowerCase() == "decimal" &&
+                   this.precision)
+                {                    
+                    if(!ValidationHelper.decimalPrecisionValidator(input, this.precision))
+                    {
+                        this.invalid =true;
+                        this.push('validationErrors', "Value should have a decimal precision of " + this.precision);
+                    }
+                }
+                if(input && this.inputDataType && (this.inputDataType.toLowerCase() == "date" || 
+                                                   this.inputDataType.toLowerCase() == "datetime"))
+                {
+                    if(!ValidationHelper.dateTimeValidator(input, this.inputDataType.toLowerCase(), this.dateFormat))
+                    {
+                        this.invalid =true;
+                        this.push('validationErrors', "Provide valid date");
                     }
                 }
                 if(this.minLength && input){
@@ -142,18 +190,38 @@
                                 this.push('validationErrors', "Required");
                             }
                         } else if(input) {
+                            var _greaterEqual = "greater than or equal to ";
+                            var _greater = "greater than ";
+                            var _lesserEqual = "less than or equal to ";
+                            var _lesser = "less than ";
                             switch (types[i]) {
                                 case 'range':
-                                    invalid = !ValidationHelper.numberRangeValidator(input, this.min, this.max);
-                                    this.push('validationErrors',"Value should be between  " + this.min + " and " + this.max );
+                                    invalid = !ValidationHelper.numberRangeValidator(input, this.min, this.max, this.minInclusive, this.maxInclusive);
+
+                                    var message = "Value should be " + 
+                                                  (this.minInclusive ? _greaterEqual : _greater) + 
+                                                  this.min + " and " + 
+                                                  (this.maxInclusive ? _lesserEqual : _lesser) + 
+                                                  this.max;
+
+                                    this.push('validationErrors', message);
                                     break;
                                 case 'rangeTo':
-                                    invalid = !ValidationHelper.numberRangeValidator(input, '', this.max);
-                                    this.push('validationErrors', "Value should be smaller than " + this.max);
+                                    invalid = !ValidationHelper.numberRangeValidator(input, '', this.max, this.minInclusive, this.maxInclusive);
+
+                                    var message = "Value should be " +
+                                                  (this.maxInclusive ? _lesserEqual : _lesser) + 
+                                                  this.max;
+
+                                    this.push('validationErrors', message);
                                     break;
                                 case 'rangeFrom':
-                                    invalid = !ValidationHelper.numberRangeValidator(input, this.min, '');
-                                    this.push('validationErrors',  "Value should be greater than " + this.min);
+                                    invalid = !ValidationHelper.numberRangeValidator(input, this.min, '', this.minInclusive, this.maxInclusive);
+                                     var message = "Value should be " +
+                                                  (this.minInclusive ? _greaterEqual : _greater) +
+                                                  this.min;
+
+                                    this.push('validationErrors', message);
                                     break;
                                 case 'email':
                                     invalid = !ValidationHelper.emailValidator(input);
@@ -173,12 +241,26 @@
                                     this.push('validationErrors', "File with the given extension is not supported");
                                     break;
                                 case 'timeRange':
-                                    invalid =  !ValidationHelper.dateRangeValidator(input,this.dateFormat, this.min, this.max);
-                                    this.push('validationErrors', "Time should be between "+ ValidationHelper.getDateByFormat(this.min,this.dateFormat) +" and "+ ValidationHelper.getDateByFormat(this.max,this.dateFormat));
+                                    invalid =  !ValidationHelper.dateRangeValidator(input,this.dateFormat, this.min, this.max, this.minInclusive, this.maxInclusive);
+
+                                    var message = "Time should be " + 
+                                                  (this.minInclusive ? _greaterEqual : _greater) + 
+                                                  ValidationHelper.getDateByFormat(this.min,this.dateFormat) + " and " + 
+                                                  (this.maxInclusive ? _lesserEqual : _lesser) + 
+                                                  ValidationHelper.getDateByFormat(this.max,this.dateFormat);
+
+                                    this.push('validationErrors', message);
                                     break;
                                 case 'dateRange':
-                                    invalid =  !ValidationHelper.dateRangeValidator(input,this.dateFormat, this.min, this.max);
-                                    this.push('validationErrors', "Date should be between "+ ValidationHelper.getDateByFormat(this.min,this.dateFormat) +" and "+ ValidationHelper.getDateByFormat(this.max,this.dateFormat));
+                                    invalid =  !ValidationHelper.dateRangeValidator(input,this.dateFormat, this.min, this.max, this.minInclusive, this.maxInclusive);
+
+                                    var message = "Date should be " + 
+                                                  (this.minInclusive ? _greaterEqual : _greater) + 
+                                                  ValidationHelper.getDateByFormat(this.min,this.dateFormat) + " and " + 
+                                                  (this.maxInclusive ? _lesserEqual : _lesser) + 
+                                                  ValidationHelper.getDateByFormat(this.max,this.dateFormat);
+
+                                    this.push('validationErrors', message);
                                     break;
                             }
                         }

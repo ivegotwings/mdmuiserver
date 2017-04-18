@@ -1,5 +1,9 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="context-helper.html">
+<link rel="import" href="component-helper.html">
+<link rel="import" href="data-transform-helper.html">
+
+<link rel="import" href="../bedrock-enums-util/bedrock-enums-util.html">
 
 <script>
     DataRequestHelper = {};
@@ -53,12 +57,36 @@
             var valueContexts = ContextHelper.getValueContexts(contextData);
 
             var filteredIds = [];
-            var ids = [...new Set(itemContexts.map((obj) => obj.id))];
-            ids = ids.filter(id => typeof (id) !== "undefined" && typeof (id) !== "null");
 
-            // May Need Fix...  Array inside Array[[]]
-            // Ask Vishal
-            var types = [...new Set(itemContexts.map((obj) => obj.type))];
+            var ids = [];
+            var types = [];
+            for(var i = 0; i < itemContexts.length; i++) {
+                var currentItemContext = itemContexts[i];
+                //ids
+                if(currentItemContext.id instanceof Array) {
+                    var itemContextIds = currentItemContext.id;
+                    for(var j = 0; j < itemContextIds.length; j++) {
+                        ids.push(itemContextIds[j]);
+                    }
+                } else {
+                    var itemContextId = currentItemContext.id;
+                    ids.push(itemContextId);
+                }
+                //types
+                if(currentItemContext.type instanceof Array) {
+                    var itemContextTypes = currentItemContext.type;
+                    for(var j = 0; j < itemContextTypes.length; j++) {
+                        types.push(itemContextTypes[j]);
+                    }
+                } else {
+                    var itemContextType = currentItemContext.type;
+                    types.push(itemContextType);
+                }
+            }
+
+            //remove falsy items
+            ids = ids.filter(Boolean);
+            types = types.filter(Boolean);
 
             var firstItemContext = ContextHelper.getFirstItemContext(contextData);
             var attributeNames = firstItemContext.attributeNames;
@@ -103,7 +131,7 @@
             var typeName = "workflowDefinitionMapping";
             var entityType = firstItemContext.type;
 
-            var relationships = [ "hasWorkflowsDefined" ];
+            var relationships = ["hasWorkflowsDefined"];
 
             var req = {
                 "params": {
@@ -122,7 +150,7 @@
                 }
             };
 
-            if(firstDataContext) {
+            if (firstDataContext) {
                 req.params.query.contexts = [firstDataContext];
             }
 
@@ -135,8 +163,13 @@
             var firstItemContext = ContextHelper.getFirstItemContext(contextData);
 
             var typeName = "workflowDefinition";
-            var workflowNames = firstItemContext.workflowNames;
-            var attributeNames = firstItemContext.atttributeNames ? firstItemContext.attributeNames : ["workflows"];
+
+            var workflowNames = [];
+            var attributeNames = ["workflows"];
+            if(firstItemContext) {
+                workflowNames = firstItemContext.workflowNames;
+                attributeNames.push(firstItemContext.atttributeNames);
+            }
 
             var workflowDefinitionIds = [];
             for (var i = 0; i < workflowNames.length; i++) {
@@ -146,8 +179,7 @@
 
             var req = {
                 "params": {
-                    "query": {
-                        "ids": workflowDefinitionIds,
+                    "query": {                        
                         "filters": {
                             "typesCriterion": [typeName]
                         }
@@ -161,8 +193,13 @@
                 }
             };
 
-            if(firstDataContext) {
+            if (firstDataContext) {
                 req.params.query.contexts = [firstDataContext];
+            }
+
+            if (!_.isNull(workflowDefinitionIds) && workflowDefinitionIds.length >
+                0) {
+                req.params.query.ids = workflowDefinitionIds;
             }
 
             //console.log('workflow def req get ', JSON.stringify(req, null, 2));
@@ -221,10 +258,15 @@
 
             var firstDataContext = ContextHelper.getFirstDataContext(contextData);
             var firstItemContext = ContextHelper.getFirstItemContext(contextData);
-
+            var operations = SharedEnumsUtil.Enums.operations;
             var entityId = firstItemContext.id;
             var entityType = firstItemContext.type;
             var transitionTo = firstItemContext.transitionTo;
+            var currentActiveApp = ComponentHelper.getCurrentActiveApp();
+            var appInstanceId = "";
+            if (currentActiveApp) {
+                appInstanceId = currentActiveApp.id;
+            }
 
             var req = {
                 "params": {
@@ -237,16 +279,27 @@
                         }
                     }
                 },
+                "clientState": {
+                    "notificationInfo": {
+                        "operation": operations.WorkflowTransition,
+                        "showNotificationToUser": true,
+                        "context": {
+                            "appInstanceId": appInstanceId,
+                            "workflowName": transitionTo.workflowName,
+                            "workflowActivityName": transitionTo.activityName,
+                            "workflowAction": transitionTo.action
+                        }
+                    }
+                },
                 "entity": {
                     "id": entityId,
                     "name": entityId,
                     "type": entityType,
-                    "data": {
-                    }
+                    "data": {}
                 }
             };
 
-            if(firstDataContext) {
+            if (firstDataContext) {
                 req.entity.data.contexts = [firstDataContext];
             }
             
@@ -272,12 +325,11 @@
                     "id": entityId,
                     "name": entityId,
                     "type": entityType,
-                    "data": {
-                    }
+                    "data": {}
                 }
             };
 
-            if(firstDataContext) {
+            if (firstDataContext) {
                 req.entity.data.contexts = [firstDataContext];
             }
             
@@ -285,12 +337,68 @@
             return req;
         };
 
-        DataRequestHelper.createConfigGetRequest = function(appName, context, componentName) {
-            if(componentName) {
+        DataRequestHelper.createSavedSearchInitialRequest = function (context) {
+            var _context =  ContextHelper.getFirstDataContext(context);
+            var _typesCriterion = ContextHelper.getItemContexts(context);
+            
+            var req = {
+                "params": {
+                    "query": {
+                        "contexts": [
+                                        _context
+                                    ],
+                        "filters": {
+                                        "typesCriterion": _typesCriterion,
+                                        "excludeNonContextual": true
+                                   }
+                    },
+                    "fields": {
+                        "jsonData": true
+                    }
+                }                
+            };
+
+            return req;
+        };
+
+        DataRequestHelper.savedSearchCreateRequest = function (context, type, appName) {
+            var _context =  ContextHelper.getFirstDataContext(context);            
+            var _details = {};
+
+            _details["id"] = appName + "_" + type + "_" + ElementHelper.getRandomString();
+            _details["name"] = type + "_" + ElementHelper.getRandomString();
+
+            if(type == "savedsearch")
+            {                
+                _details["type"] = "savedSearch";
+            }
+            else
+            {
+                _details["type"] = "savedSearchMappings";
+            }
+
+            var req = {
+                "id": _details["id"],
+                "name": _details["name"],
+                "version": {},
+                "type":  _details["type"],
+                "properties": {},
+                "data": {
+                    "contexts": [
+                        _context
+                    ]
+                }
+            };
+
+            return req;
+        };        
+
+        DataRequestHelper.createConfigGetRequest = function (appName, context, componentName) {
+            if (componentName) {
                 context.component = componentName;
             }
             
-            if(_.isEmpty(context.component)) {
+            if (_.isEmpty(context.component)) {
                 context.component = "_ALL";
             }
 
@@ -316,13 +424,23 @@
             //console.log('config get request ', JSON.stringify(req, null, 2));
             return req;
         };
+
+        DataRequestHelper.createSyncValidationRequest = function(entityId, entityType, entityData) {
+            return {
+                "entity": {
+                    "id": entityId,
+                    "type": entityType,
+                    "data": entityData
+                }
+            }
+        };
         
-        DataRequestHelper._createConfigName = function(context) {
+        DataRequestHelper._createConfigName = function (context) {
             var name = undefined;
-            for(var field in context) {
+            for (var field in context) {
                 var value = context[field];
-                if(value != "_ALL") {    
-                    if(name) {
+                if (value != "_ALL") {
+                    if (name) {
                         name = name + "_" + context[field];
                     } else {
                         name = context[field];
@@ -333,5 +451,4 @@
             return name;
         };
     })();
-
 </script>
