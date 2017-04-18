@@ -63,7 +63,9 @@ var DFServiceBase = function (options) {
             timeout: this._timeout
         };
 
-        //console.log('RDP call: ', JSON.stringify(options, null, 4));
+        // console.log('------------------RDF CALL ------------------------------');
+        // console.log(JSON.stringify(options, null, 4));
+        // console.log('-----------------------------------------------------------------\n\n');
 
         var reqPromise = this._restRequest(options)
             .catch(function (errors) {

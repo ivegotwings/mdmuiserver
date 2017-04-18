@@ -210,15 +210,22 @@ async function getSingle(dataObjectId, reqData) {
     //console.log('req to api ', JSON.stringify(request));
     var res = undefined;
     //Temp: work in progress for getcoalesce call integration hence placed 1 == 2 condtion to always go to normal get for now
+    var doSimpleGet = true;
+
     if (request.dataIndex == "entityModel" && 1 == 2) {
         if (!isEmpty(request.params.query.contexts) && (!isEmpty(reqData.attrNames) || !isEmpty(reqData.relationships))) {
-            res = await dataObjectManageService.getCoalesce(request);
-        }
-        else {
-            res = await dataObjectManageService.get(request);
+            var contexts = request.params.query.contexts;
+            if (contexts && contexts.length == 1) {
+                var firstContext = contexts[0];
+                if (firstContext && firstContext.classification !== undefined) {
+                    res = await dataObjectManageService.getCoalesce(request);
+                    doSimpleGet = false;
+                }
+            }
         }
     }
-    else {
+
+    if (doSimpleGet) {
         res = await dataObjectManageService.get(request);
     }
 
