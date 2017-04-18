@@ -163,7 +163,7 @@ function _buildRelationshipsResponse(rels, reqData, basePath) {
                 }
             }
 
-            if (operation === "getRelIdOnly") {
+            if (operation === "getRelIdOnly" || operation === "update" || operation === "create") {
                 response.push(mergeAndCreatePath(relBasePath, ["relIds"], $atom(relIds)));
             }
         }
