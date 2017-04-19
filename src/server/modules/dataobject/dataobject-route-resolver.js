@@ -156,7 +156,7 @@ function createGetRequest(reqData) {
     }
 
     var options = {
-        totalRecords: 1,
+        totalRecords: 2000,
         includeRequest: false
     };
 
@@ -166,7 +166,7 @@ function createGetRequest(reqData) {
         filters.typesCriterion = reqData.dataObjectTypes;
     }
 
-    var query = { 'id': '' };
+    var query = {};
 
     if (!isEmpty(contexts)) {
         query.contexts = contexts;
@@ -198,26 +198,32 @@ function createGetRequest(reqData) {
     return request;
 }
 
-async function getSingle(dataObjectId, reqData) {
+async function get(dataObjectIds, reqData) {
 
     var response = [];
 
     var request = createGetRequest(reqData);
 
     //update dataObject id in request query for current id
-    request.params.query.id = dataObjectId;
+    if(dataObjectIds.length > 1) {
+        request.params.query.ids = dataObjectIds;
+    }
+    else {
+        request.params.query.id = dataObjectIds[0];
+    }
 
     //console.log('req to api ', JSON.stringify(request));
     var res = undefined;
     //Temp: work in progress for getcoalesce call integration hence placed 1 == 2 condtion to always go to normal get for now
     var doSimpleGet = true;
 
+    //HACK: this is hard coded for now as RDF getcoalesce is not having same behavior as normal get..so calling only when its absoultely needed
     if (request.dataIndex == "entityModel" && 1 == 2) {
         if (!isEmpty(request.params.query.contexts) && (!isEmpty(reqData.attrNames) || !isEmpty(reqData.relationships))) {
             var contexts = request.params.query.contexts;
             if (contexts && contexts.length == 1) {
                 var firstContext = contexts[0];
-                if (firstContext && firstContext.classification !== undefined) {
+                if (firstContext && firstContext.classification) {
                     res = await dataObjectManageService.getCoalesce(request);
                     doSimpleGet = false;
                 }
@@ -249,16 +255,10 @@ async function getSingle(dataObjectId, reqData) {
                 var dataObjectType = dataObject.type;
                 var dataObjectBasePath = mergePathSets(basePath, dataObjectType, pathKeys.byIds, dataObject.id);
 
-                if (dataObject.id == dataObjectId) {
-                    //console.log('building response...', JSON.stringify(dataObject, null, 2));
-                    response.push.apply(response, buildResponse(dataObject, reqData, dataObjectBasePath));
-                }
+                //console.log('building response...', JSON.stringify(dataObject, null, 2));
+                response.push.apply(response, buildResponse(dataObject, reqData, dataObjectBasePath));
             }
         }
-    }
-
-    if (dataObject === undefined) {
-        //response.push(createPath([pathRootKey, dataObjectId], $error(dataObjectId + ' is not found in system for the requested context'), 0));
     }
 
     //console.log('res', JSON.stringify(response, null, 4));
@@ -289,10 +289,18 @@ async function getByIds(pathSet, operation) {
 
     var response = [];
     //console.log('reqData ', JSON.stringify(reqData));
+    var bulkGetEnabled = true;
 
-    for (let dataObjectId of reqData.dataObjectIds) {
-        var singleDataObjectResponse = await getSingle(dataObjectId, reqData);
-        response.push.apply(response, singleDataObjectResponse);
+    if(bulkGetEnabled) {
+        var dataObjectsGetResponse = await get(reqData.dataObjectIds, reqData);
+        response.push.apply(response, dataObjectsGetResponse);
+    }
+    else {
+        for (let dataObjectId of reqData.dataObjectIds) {
+            var dataObjectIdsBatch = [ dataObjectId ];
+            var singleDataObjectResponse = await get(dataObjectIdsBatch, reqData);
+            response.push.apply(response, singleDataObjectResponse);
+        }
     }
 
     //console.log('getByIds response ', JSON.stringify(response, null, 4));
