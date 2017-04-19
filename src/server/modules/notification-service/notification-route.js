@@ -11,14 +11,17 @@ function prepareNotificationObject(data) {
         var jsonData = data.jsonData;
         if (!isEmpty(attributes) && !isEmpty(jsonData)) {
             var clientState = jsonData['clientState'];
-            var requestStatus = attributes['requestStatus'];
-            var serviceName = attributes['serviceName'];
 
             if (!isEmpty(clientState)) {
                 notificationInfo = clientState.notificationInfo;
 
                 if (!isEmpty(notificationInfo)) {
-                    if (!isEmpty(serviceName) && !isEmpty(requestStatus)) {
+                    var requestStatus = attributes['requestStatus'];
+                    var serviceName = attributes['serviceName'];
+                    var requestGroupId = attributes['requestGroupId'];
+
+                    if (!isEmpty(serviceName) && !isEmpty(requestStatus) && !isEmpty(requestGroupId)) {
+                        notificationInfo.requestId = requestGroupId.values[0].value;
                         notificationInfo.status = requestStatus.values[0].value;
                         notificationInfo.action = getAction(serviceName.values[0].value, notificationInfo.status, notificationInfo.operation);
                         notificationInfo.description = "";

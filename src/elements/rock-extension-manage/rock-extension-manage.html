@@ -69,7 +69,7 @@ Can manage current extensions, create new extensions etc.
         </style>
             <div class="extensions-container" align="center">
                     <div class="tree-heading">Container & Catagory Context</div>
-                    <rock-classification-tree id="contextTree" taxonomy="[[taxonomy]]" context-data="{{contextData}}" selected-items="{{_selectedItems}}"></rock-classification-tree>
+                    <rock-classification-tree id="contextTree" multi-select="[[multiSelect]]" taxonomy="[[taxonomy]]" context-data="{{contextData}}" selected-item="{{_selectedItem}}" selected-items="{{_selectedItems}}"></rock-classification-tree>
             </div>
         <div id="buttonContainer" align="center">
             <pebble-button id="cancel" class="btn btn-secondary m-r-10" button-text="Skip" on-tap="_skipSelection" elevation=1 raised></pebble-button>
@@ -94,6 +94,10 @@ Can manage current extensions, create new extensions etc.
                         type: Array,
                         value: function() {return [];}
                     },
+                    _selectedItem: {
+                        type: Object,
+                        value: function() {return {};}
+                    },
                     taxonomy:{
                         type:String ,
                         value:""
@@ -101,6 +105,10 @@ Can manage current extensions, create new extensions etc.
                     businessFunctionData: {
                         type: Object,
                         value: function() { return {}; }
+                    },
+                    multiSelect:{
+                        type:Boolean,
+                        value:false
                     }
 
                 },
@@ -109,14 +117,25 @@ Can manage current extensions, create new extensions etc.
                     RUFBehaviors.ComponentContextBehavior
                 ],
                 _save:function () {
-                    if(!this._selectedItems || this._selectedItems.length == 0) {
+                    var selectedItems=[];
+                    if(this.multiSelect){
+                        if(this._selectedItems && this._selectedItems.length) {
+                            selectedItems = this._selectedItems;
+                        }
+                    } else {
+                        if(this._selectedItem && !_.isEmpty(this._selectedItem)){
+                            selectedItems=[this._selectedItem];
+                        }
+                    }
+                    if(selectedItems.length==0) {
                         this.showErrorToast("No context data selected to save.");
                         return;
                     }
                     var updatedDataContexts=[];
-                    for(var i in this._selectedItems){
+
+                    for(var i in selectedItems){
                         var context={};
-                        var valuePath=this._selectedItems[i].valuePath;
+                        var valuePath=selectedItems[i].valuePath;
                         if(valuePath){
                             valuePath=valuePath.replace(/#@#/g, "\/");
                         }
@@ -134,7 +153,17 @@ Can manage current extensions, create new extensions etc.
                         "type":firstItemContext.type,
                         "data":data
                     };
-                    this.set("_saveRequest",{"entities":[entity]});
+
+                    //TODO:: This will be temporary fix needs to come up with good solution.
+                    if(this._isNotificationDisabled()) {
+                        var clientState = {};
+                        clientState.notificationInfo = {};
+                        clientState.notificationInfo.showNotificationToUser = false;
+                        this.set("_saveRequest",{"clientState": clientState, "entities":[entity]});
+                    } else {
+                        this.set("_saveRequest",{"entities":[entity]});                        
+                    }
+
                     var liquidSave=this.$$("#attributeSaveDataService");
                     if(liquidSave){
                         liquidSave.generateRequest();
@@ -144,7 +173,7 @@ Can manage current extensions, create new extensions etc.
                     this._selectedItems=[];
                     var eventName = "onSkip";
                     var eventDetail = {
-                        name: eventName,
+                        name: eventName
                     }
                     this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
                 },
@@ -152,9 +181,16 @@ Can manage current extensions, create new extensions etc.
                     this.showSuccessToast("Context data saved successfully.");
                     var eventName = "onSave";
                     var eventDetail = {
-                        name: eventName,
+                        name: eventName
                     }
                     this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                },
+                _isNotificationDisabled: function() {
+                    var app = ComponentHelper.getCurrentActiveApp();
+                    if(app.is == "app-business-function") {
+                        return true;
+                    }
+                    return false;
                 }
 
             });

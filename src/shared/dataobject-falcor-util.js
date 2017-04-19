@@ -15,22 +15,26 @@ DataObjectFalcorUtil.getPathKeys = function () {
             "entityData": {
                 "name": "entity",
                 "collectionName": "entities",
-                "responseObjectName": "response"
+                "responseObjectName": "response",
+                "totalRecordsToReturn": 200
             },
             "entityGovernData": {
                 "name": "entityGovernData",
                 "collectionName": "entities",
-                "responseObjectName": "response"
+                "responseObjectName": "response",
+                "totalRecordsToReturn": 2000
             },
             "entityModel": {
                 "name": "entityModel",
                 "collectionName": "entityModels",
-                "responseObjectName": "response"
+                "responseObjectName": "response",
+                "totalRecordsToReturn": 2000
             },
             "config": {
                 "name": "configObject",
                 "collectionName": "configObjects",
-                "responseObjectName": "response"
+                "responseObjectName": "response",
+                "totalRecordsToReturn": 100
             }
         }
     };

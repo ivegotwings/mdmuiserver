@@ -51,7 +51,13 @@ COPService.prototype = {
         var profileName = request.body.profileName;
         var processRequest = this._prepareCOPRequestForProcess(fileName, profileName);
         //console.log('processRequest: ', JSON.stringify(processRequest.dataObject.properties, null, 2));
-        return await this.post(processURL, processRequest);
+        var result = await this.post(processURL, processRequest);
+
+        // console.log('------------------RDF CALL RESPONSE ------------------------------');
+        // console.log(JSON.stringify(result, null, 4));
+        // console.log('-----------------------------------------------------------------\n\n');
+
+        return result;
     },
     processmodel: async function (request) {
         var processModelURL = "copservice/processmodel";
