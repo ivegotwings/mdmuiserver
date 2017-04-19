@@ -70,6 +70,7 @@ Custom property | Description | Default
             }
 
             .tofix-data-container {
+                min-height: 120px;
                 max-height: 250px;
                 overflow: auto;
                 position: relative;
@@ -78,7 +79,7 @@ Custom property | Description | Default
             .title {
                 font-size: var(--default-font-size, 14px);
                 color: var(--link-text-color, #036Bc3);
-                margin-top: 15px;
+                margin-top: 5px;
                 font-weight: 500
             }
 
@@ -162,13 +163,6 @@ Custom property | Description | Default
                     }
                 },
 
-                _entityBusinessConditions: {
-                    type: Array,
-                    value: function () {
-                        return [];
-                    }
-                },
-
                 _entityBusinessConditionsGovernData: {
                     type: Array,
                     value: function () {
@@ -197,7 +191,7 @@ Custom property | Description | Default
                     }
                 },
 
-                _formattedWorkflowDefinitions: {
+                _workflowDefinitions: {
                     type: Array,
                     value: function () {
                         return [];
@@ -303,7 +297,7 @@ Custom property | Description | Default
 
                     if (this.verbose) {
                         console.info(JSON.stringify({
-                            "MappedWorkflowNames": mappedWorkflowNames
+                            "EntityType WorkflowMappings": mappedWorkflowNames
                         }));
                     }
 
@@ -334,31 +328,13 @@ Custom property | Description | Default
                 var clonedContextData = DataHelper.cloneObject(this.contextData);
 
                 var itemContext = ContextHelper.getFirstItemContext(clonedContextData);
-                itemContext.attributeNames = ['_ALL'];
-                itemContext.relationships = [];
-                itemContext.relationshipAttributes = [];
 
                 // Prepare DataContext
                 // Note: Can be possible that No Workflow is available for Current EntityType
-                if (typeof (this._entityTypeWorkflowMappings) !== "undefined" && this._entityTypeWorkflowMappings.length >
-                    0) {
-
-                    var dataContext = ContextHelper.getFirstDataContext(clonedContextData);
-                    if (typeof (dataContext) === "undefined") {
-                        dataContext = [];
-                    }
-
-                    for (var i = 0; i < this._entityTypeWorkflowMappings.length; i++) {
-                        var workflowDataContext = {};
-                        workflowDataContext.self = "self/" + itemContext.id;
-                        workflowDataContext.workflow = this._entityTypeWorkflowMappings[i];
-
-                        dataContext.push(workflowDataContext);
-                    }
-
-                    clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = dataContext;
+                var dataContexts = this._prepareWorkflowDataContext(clonedContextData, itemContext);
+                if (dataContexts.length > 0) {
+                    clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = dataContexts;
                 }
-
 
                 // Create Request and Get
                 entityGovernDataGet.requestData = DataRequestHelper.createEntityGetRequest(
@@ -427,23 +403,20 @@ Custom property | Description | Default
 
                     if (typeof (workflowDefintions) !== "undefined" && workflowDefintions.length > 0) {
                         for (var i = 0; i < workflowDefintions.length; i++) {
-                            var workflowDefinition = workflowDefintions[i];
-
-                            var formattedWorflowDefintion = {};
-                            formattedWorflowDefintion["name"] = workflowDefinition.name;
-                            formattedWorflowDefintion["attributes"] = workflowDefinition.data.attributes;
-                            this.push("_formattedWorkflowDefinitions", formattedWorflowDefintion);
+                            var workflowDefinition = {};
+                            workflowDefinition["name"] = workflowDefintions[i].name;
+                            workflowDefinition["attributes"] = workflowDefintions[i].data.attributes;
+                            this.push("_workflowDefinitions", workflowDefinition);
                         }
                     }
 
                     if (this.verbose) {
                         console.info(JSON.stringify({
-                            "FormattedWorkflowDefinitions:- ": this._formattedWorkflowDefinitions
+                            "WorkflowDefinitions:- ": this._workflowDefinitions
                         }));
                     }
 
-                    this._generateToFixData();
-
+                    this._prepareToFixData();
                 } else {
                     console.error("EntityGovernDataGetResponse Content not found.");
                 }
@@ -511,7 +484,7 @@ Custom property | Description | Default
                         }));
                     }
 
-                    this._generateToFixData();
+                    this._prepareToFixData();
                 } else {
                     console.error("EntityModelGetByIdsResponse Content not found.");
                     this._showMessage(this._errorMessage);
@@ -545,28 +518,17 @@ Custom property | Description | Default
                     var requestedId = itemContext.type + "_" + requestedType;
                     itemContext.id = requestedId;
                     itemContext.type = requestedType;
+                    itemContext.attributeNames = [];
                     itemContext.relationships = ["hasBusinessConditions"];
-                    itemContext.relationshipAttributes = ['stepName'];
+                    itemContext.relationshipAttributes = ['isDeleted', 'enabled', 'stepName'];
                     clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
 
                     // Prepare DataContext
                     // This should be optional because entity can be in workflow or cannot be in workflow
-                    var dataContext = ContextHelper.getFirstDataContext(clonedContextData);
-                    if (typeof (dataContext) === "undefined") {
-                        dataContext = [];
+                    var dataContexts = this._prepareWorkflowDataContext(clonedContextData, itemContext);
+                    if (dataContexts.length > 0) {
+                        clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = dataContexts;
                     }
-
-                    if (this._entityTypeWorkflowMappings.length > 0) {
-                        for (var i = 0; i < this._entityTypeWorkflowMappings.length; i++) {
-                            var workflowDataContext = {};
-                            workflowDataContext.self = "self/" + requestedId;
-                            workflowDataContext.workflow = this._entityTypeWorkflowMappings[i];
-
-                            dataContext.push(workflowDataContext);
-                        }
-                    }
-
-                    clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = dataContext;
 
 
                     // Create Request and Get
@@ -635,7 +597,7 @@ Custom property | Description | Default
                         }
                     }
 
-                    this._generateToFixData();
+                    this._prepareToFixData();
                 } else {
                     console.error("RuleContextMappingsGetResponseContent not found.");
                     this._showMessage(this._errorMessage);
@@ -751,29 +713,35 @@ Custom property | Description | Default
             },
 
 
-            _generateToFixData: function () {
+            _prepareToFixData: function () {
                 if (this._isDataSetPrepared()) {
 
                     if (this._entityWorkflowGovernData.length > 0 && this._contextSpecificBusinessConditions
                         .length > 0) {
                         for (var j = 0; j < this._entityWorkflowGovernData.length; j++) {
-                            var workflowData = this._entityWorkflowGovernData[j];
-                            workflowData.name = this._getWorkflowNameById(workflowData.id);
+                            var workflowGovernData = this._entityWorkflowGovernData[j];
+                            workflowGovernData.name = this._getWorkflowNameById(workflowGovernData.id);
+                            var workflowMappedBusinessConditions = this._getWorkflowMappedBusinessConditions(
+                                workflowGovernData.id);
 
-                            var workflowActivityNames = this._getWorkflowAcitivityNames(workflowData.attributes);
-
+                            var workflowActivityNames = this._getWorkflowActivityNames(
+                                workflowGovernData.attributes);
                             for (var k = 0; k < workflowActivityNames.length; k++) {
                                 var tofixWorkflowData = {};
                                 var workflowBusinessConditions = [];
                                 var globalBusinessConditions = [];
-                                var workflowActivityName = workflowActivityNames[k];
 
-                                var workflowLabel = workflowActivityName + " - [" + workflowData.name + "]";
+
+                                var workflowActivityName = workflowActivityNames[k];
+                                var workflowLabel = workflowActivityName + " - [" +
+                                    workflowGovernData.name +
+                                    "]";
                                 tofixWorkflowData["label"] = workflowLabel;
                                 tofixWorkflowData["type"] = "Workflow";
 
                                 for (var i = 0; i < this._entityBusinessConditionsGovernData.length; i++) {
-                                    var businessCondition = this._entityBusinessConditionsGovernData[i];
+                                    var businessCondition = this._entityBusinessConditionsGovernData[
+                                        i];
 
                                     if (DataHelper.containsObject(businessCondition,
                                             workflowBusinessConditions) || DataHelper.containsObject(
@@ -786,7 +754,7 @@ Custom property | Description | Default
 
                                     var isMapped = this._isBusinessConditionMappedToCurrentActivity(
                                         businessCondition.id,
-                                        workflowActivityName);
+                                        workflowActivityName, workflowMappedBusinessConditions);
 
                                     if (isMapped) {
                                         workflowBusinessConditions.push(businessCondition);
@@ -795,11 +763,16 @@ Custom property | Description | Default
                                     }
                                 }
 
-                                tofixWorkflowData["businessConditions"] = workflowBusinessConditions;
-                                this.push("_tofixData", tofixWorkflowData);
+                                tofixWorkflowData["businessConditions"] =
+                                    workflowBusinessConditions;
+                                if (workflowBusinessConditions.length > 0) {
+                                    this.push("_tofixData", tofixWorkflowData);
+                                }
                             }
 
-                            this._prepareGlobalToFixData(globalBusinessConditions);
+                            if (globalBusinessConditions.length > 0) {
+                                this._prepareGlobalToFixData(globalBusinessConditions);
+                            }
                         }
                     } else {
                         this._prepareGlobalToFixData(this._entityBusinessConditionsGovernData);
@@ -831,25 +804,25 @@ Custom property | Description | Default
                 var originalBCAvailable = false;
 
                 if (this._entityBusinessConditionNames.length > 0) {
-
                     if (this._entityGovernWorkflowNames.length > 0) {
-                        isWorkflowDefinitionAvailable = this._formattedWorkflowDefinitions.length > 0;
+                        isWorkflowDefinitionAvailable = this._workflowDefinitions.length > 0;
                     }
 
-                    isGovernDataBCAvailable = this._contextSpecificBusinessConditions.length > 0 ==
-                        0 || this._globalBusinessConditions.length > 0;
+                    isGovernDataBCAvailable = this._contextSpecificBusinessConditions.length > 0 || this._globalBusinessConditions
+                        .length > 0;
 
                     originalBCAvailable = this._originalBusinessConditions.length > 0;
                 }
 
-                if (this._formattedWorkflowDefinitions.length > 0) {
-                    return isWorkflowDefinitionAvailable && isGovernDataBCAvailable && originalBCAvailable;
+                if (this._workflowDefinitions.length > 0) {
+                    return isWorkflowDefinitionAvailable && isGovernDataBCAvailable &&
+                        originalBCAvailable;
                 } else {
                     return isGovernDataBCAvailable && originalBCAvailable;
                 }
             },
 
-            _getWorkflowAcitivityNames: function (workflowAttributes) {
+            _getWorkflowActivityNames: function (workflowAttributes) {
                 var workflowActivityNames = [];
 
                 if (typeof (workflowAttributes) !== "undefined" && typeof (workflowAttributes.activities) !==
@@ -872,19 +845,20 @@ Custom property | Description | Default
                 return workflowActivityNames;
             },
 
-            _isBusinessConditionMappedToCurrentActivity: function (businessConditionName, workflowActivityName) {
+            _isBusinessConditionMappedToCurrentActivity: function (businessConditionName,
+                workflowActivityName, workflowMappedBusinessConditions) {
                 var isMapped = false;
 
-                var context = this._contextSpecificBusinessConditions[0]; // Could be Critical?
+                if (workflowMappedBusinessConditions instanceof Array) {
+                    for (var i = 0; i < workflowMappedBusinessConditions.length; i++) {
+                        var contextSpecificBusinessCondition = workflowMappedBusinessConditions[i];
+                        var mappedActivityName = AttributeHelper.getFirstAttributeValue(
+                            contextSpecificBusinessCondition.attributes.stepName);
 
-                for (var i = 0; i < context.businessConditions.length; i++) {
-                    var contextSpecificBusinessCondition = context.businessConditions[i];
-                    var mappedActivityName = AttributeHelper.getFirstAttributeValue(
-                        contextSpecificBusinessCondition.attributes.stepName);
-
-                    if (contextSpecificBusinessCondition.relTo.id == businessConditionName &&
-                        mappedActivityName == workflowActivityName) {
-                        return isMapped = true;
+                        if (contextSpecificBusinessCondition.relTo.id == businessConditionName &&
+                            mappedActivityName == workflowActivityName) {
+                            return isMapped = true;
+                        }
                     }
                 }
 
@@ -892,11 +866,11 @@ Custom property | Description | Default
             },
 
             _getWorkflowNameById: function (workflowId) {
-                for (var i = 0; i < this._formattedWorkflowDefinitions.length; i++) {
-                    var workflowDefinition = this._formattedWorkflowDefinitions[i];
+                for (var i = 0; i < this._workflowDefinitions.length; i++) {
+                    var workflowDefinition = this._workflowDefinitions[i];
 
                     if (workflowDefinition.name === workflowId) {
-                        var workflowAttributes = workflowDefinition.attributes.workflows.group; // To be Changed
+                        var workflowAttributes = workflowDefinition.attributes.workflows.group; // To be Changed in Future
                         return AttributeHelper.getFirstAttributeValue(workflowAttributes[0].workflowName);
                     }
                 }
@@ -921,6 +895,17 @@ Custom property | Description | Default
                 this.push("_tofixData", tofixGlobalData);
             },
 
+            _getWorkflowMappedBusinessConditions: function (workflowName) {
+                if (typeof (this._contextSpecificBusinessConditions) && this._contextSpecificBusinessConditions
+                    .length > 0) {
+                    for (var i = 0; i < this._contextSpecificBusinessConditions.length; i++) {
+                        if (this._contextSpecificBusinessConditions[i].workflowName === workflowName) {
+                            return this._contextSpecificBusinessConditions[i].businessConditions;
+                        }
+                    }
+                }
+            },
+
             _showMessage: function (message) {
                 this.$$("#messagePanel").innerHTML = message;
                 this._isToFixDataExists = true;
@@ -932,7 +917,7 @@ Custom property | Description | Default
                     data: e.currentTarget.data
                 }
 
-                this.firebedrockevent('tofix-item-tap', eventDetail);
+                this.fireBedrockEvent('tofix-item-tap', eventDetail);
             },
 
             _getIconByType: function (type) {
@@ -950,7 +935,28 @@ Custom property | Description | Default
                 }
 
                 return false;
+            },
+
+            _prepareWorkflowDataContext: function (clonedContextData, itemContext) {
+                var workflowDataContexts = [];
+
+                if (typeof (this._entityTypeWorkflowMappings) !== "undefined" && this._entityTypeWorkflowMappings
+                    .length >
+                    0) {
+
+                    for (var i = 0; i < this._entityTypeWorkflowMappings.length; i++) {
+                        var workflowDataContext = {};
+                        workflowDataContext.self = "self/" + itemContext.id;
+                        workflowDataContext.workflow = this._entityTypeWorkflowMappings[i];
+
+                        workflowDataContexts.push(workflowDataContext);
+                    }
+                }
+
+                return workflowDataContexts
             }
+
+
         });
     </script>
 </dom-module>
