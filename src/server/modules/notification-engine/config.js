@@ -1,5 +1,5 @@
 var clientConfig = {
-    "url": "https://rst-engjaybp.riversand.com",
+    "url": "http://localhost:5005",
     "isDevEnvironment": false
 }
 
