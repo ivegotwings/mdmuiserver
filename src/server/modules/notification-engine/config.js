@@ -1,5 +1,6 @@
 var clientConfig = {
-    "url": "http://localhost:5005"
+    "url": "https://rst-engjaybp.riversand.com",
+    "isDevEnvironment": false
 }
 
 module.exports = {

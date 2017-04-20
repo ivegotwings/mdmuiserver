@@ -6,6 +6,7 @@ var randomId = require('../utils/getRandomId');
 var isEmpty = require('../utils/isEmpty');
 var cryptoJS = require("crypto-js");
 var moment = require('moment');
+var notificationConfig = require('../../notification-engine/config');
 
 var DFServiceBase = function (options) {
     var _dataConnection = new DFConnection();
@@ -98,6 +99,10 @@ function updateRequestObjectForNotification(request, userId, timeStamp) {
                 notificationInfo.source = "ui";
                 notificationInfo.userId = userId;
                 notificationInfo.connectionId = "";
+
+                if(notificationConfig && notificationConfig.clientConfig.isDevEnvironment) {
+                    notificationInfo.callbackUrl = notificationConfig.clientConfig.url + "/api/notify";
+                }
 
                 if (isEmpty(notificationInfo.context)) {
                     notificationInfo.context = {};
