@@ -1,7 +1,7 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="../../../bower_components/iron-list/iron-list.html">
 <link rel="import" href="../../../bower_components/iron-scroll-threshold/iron-scroll-threshold.html">
-<link rel="import" href="../../../bower_components/paper-spinner/paper-spinner.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
 <link rel="import" href="../../../bower_components/paper-icon-button/paper-icon-button.html">
 <link rel="import" href="../../../bower_components/paper-item/paper-item.html">
 
@@ -25,15 +25,10 @@
          <style is="custom-style">
             .loadingIndicator {
                 text-align: center;
-                height: 40px;
-            }
-            
-            .loadingIndicator paper-spinner {
                 width: 20px;
                 height: 20px;
-                margin-right: 10px;
             }
-            
+
             #scrollingRegion {
                 top: 10vh;
                 left: 25vh;
@@ -184,11 +179,11 @@
             }
         </style>
         <div class="top">
-            <check-box-with-indeterminate-state  hidden="![[multiSelection]]" header class="header-button-container" on-tap="_toggleSelectAll" checked="[[_isSelectAllChecked(selectedItems.length, selectedItems.inverted, cachedItems.length)]]" indeterminate="[[_isSelectAllIndeterminate(selectedItems.length, cachedItems.length)]]"></check-box-with-indeterminate-state>
+            <check-box-with-indeterminate-state  hidden="![[multiSelection]]" header class="header-button-container" on-tap="_toggleSelectAll" checked="[[_isSelectAllChecked(selectedItems.length, selectedItems.inverted, items.length)]]" indeterminate="[[_isSelectAllIndeterminate(selectedItems.length, items.length)]]"></check-box-with-indeterminate-state>
             <!--<span class="actions">Actions</span>-->
         </div>
         <div id="scrollingRegion">
-            <iron-list id="list" items="{{cachedItems}}" as="item" scroll-target="html" selection-enabled>
+            <iron-list id="list" items="{{items}}" as="item" scroll-target="html" selection-enabled>
                 <template>
                     <!--<grid-list-item item="{{item}}" index = "[[index]]" list-items="{{listItems}}"></grid-list-item>-->
                     <div class="container" on-tap="_tapEvent">
@@ -250,13 +245,10 @@
                     </div>
                 </template>
             </iron-list>
-            <template is="dom-if" if="{{loading}}">
-                <div class="loadingIndicator">
-                    <paper-spinner active="{{loading}}"></paper-spinner>
-                </div>
-            </template>
-            <!-- this element will load more data when the user scrolls down and reached the lower threshold -->
-            <iron-scroll-threshold id="scrollTheshold" lower-threshold="500" on-lower-threshold="_loadMoreData" scroll-target="scrollingRegion">
+            <div class="loadingIndicator">
+                <pebble-spinner active="[[loading]]"></pebble-spinner>
+            </div>
+            <iron-scroll-threshold id="scrollTheshold"  on-lower-threshold="_loadMoreData" scroll-target="scrollingRegion">
             </iron-scroll-threshold>
         </div>
     </template>
@@ -267,31 +259,26 @@
             Polymer( {
                 is: 'grid-list-view', 
                  properties: {
-
-                     /**
-                      * Indicates the cached items in the list view. It grows in size as you 
-                      * scroll in the grid-list-view. 
-                      */
-                     cachedItems : {
-                          type : Array,
-                          notify:true,
-                          value :[]
-                        },
-
                      /**
                       * Indicates an array of items that needs the display in the grid-list-view.
                       */   
                      items : {
                          type : Array,
                          value : [],
-                          notify:true,
-                         observer : '_dataChanged'
+                          notify:true
+                     },
+                     dataSource: {
+                         type: Object,
+                         value: function () {
+                             return {};
+                         },
+                         notify: true
                      },
 
                      /**
                       * Indicates the current page in the grid-list-view.
                       */
-                     currentPage : {
+                     page : {
                          type: Number,
                          value : 0,
                          notify : true
@@ -302,7 +289,7 @@
                       */
                      pageSize : {
                          type : Number,
-                         value : 15,
+                         value : 10,
                          notify : true
                      },
 
@@ -397,35 +384,25 @@
                      _actionsPresent:{
                          type:Boolean,
                          computed:'_hasActions(actions)'
+                     },
+                     schemaType: {
+                         type: String,
+                         value:""
+                     },
+                     dataSourceElement:{
+                         type:Element
                      }
                  },
 
                  observers: [
-                    //'_selectedItemsChanged(selectedItems.splices)'
-                ],
+                     '_pageChanged(dataSource, page)'
+                 ],
                  _loadMoreData : function() {
-                      this.loading=true;
-                     if(this.items && this.items.length > 0) { 
-                        var newItems = this.items.slice(this.currentPage*this.pageSize,(this.currentPage*this.pageSize)+ this.pageSize);
-                        var that = this;
-                        newItems.forEach(function(product) {
-                            that.push('cachedItems',product);
-                        });
-                    
-                        this.currentPage+=1;
-                    }
-                     this.$.scrollTheshold.clearTriggers();
-                    this.loading=false;
+                      this.page++;
                  },
                 _hasActions:function (actions) {
                     return actions && actions.length;
                 },
-
-
-                 _dataChanged : function() {
-                    this._loadMoreData();
-                 },
-
                  _selectedItemsChanged : function() {
                      console.log(this.selectedItems)
                  }  ,
@@ -509,12 +486,22 @@
                  * This is an internal function, used to compute the title based on the config.
                  */
                 _computeTitle : function(item,title) {
+                    if (this.schemaType == "attribute") {
+                        if (item.attributes && item.attributes.hasOwnProperty(title)) {
+                            return   item.attributes[title].value;
+                        }
+                    }
                     return item[title];
                 },
                 /**
                  * This is an internal function, used to compute the id based on the config.
                  */
                 _computeSubtitle : function(item,subtitle) {
+                    if (this.schemaType == "attribute") {
+                        if (item.attributes && item.attributes.hasOwnProperty(subtitle)) {
+                            return   item.attributes[subtitle].value;
+                        }
+                    }
                     return item[subtitle];
                 },
 
@@ -522,6 +509,11 @@
                  * This is an internal function, used to compute the value of the attribute to be displayed.
                  */
                 _computeValue : function(item,field) {
+                    if (this.schemaType == "attribute") {
+                        if (item.attributes && item.attributes.hasOwnProperty(field)) {
+                            return   item.attributes[field].value;
+                        }
+                    }
                     return item[field];
                 },
 
@@ -620,7 +612,7 @@
                 },
 
                 _toggleSelectAll: function() {
-                    if (this._isSelectAllChecked(this.selectedItems.length, this.selectedItems.inverted, this.cachedItems.length)) {
+                    if (this._isSelectAllChecked(this.selectedItems.length, this.selectedItems.inverted, this.items.length)) {
                         this._fireEvent("deselecting-all-items", {items: this.selectedItems}, this.clearSelection);
                     } else {
                         this._fireEvent("selecting-all-items", {items: this.selectedItems}, this.selectAll);
@@ -647,10 +639,56 @@
                             eventName = "grid-edit-item";
                         } 
                     }
-    //				alert("fired " + eventName);
                     this.fire('bedrock-event', { name: eventName, data: e.target.item });
                     var id = 'action_list_' + e.target.item.id;
                     this.$$('#' + id).hide();
+                },
+                _visibleItemsCount: function () {
+                    var firstItemIndex = this.$.list._physicalStart;
+                    var firstItemHeight = this.$.list._physicalSizes[firstItemIndex];
+                    var viewportHeight = this.$.list._viewportHeight || this.$.list._viewportSize;
+                    if (firstItemHeight && viewportHeight) {
+                        var visibleItems = (viewportHeight - this._viewportTotalPadding) / firstItemHeight;
+                        return Math.floor(visibleItems);
+                    }
+                },
+                _lastVisibleIndex: function () {
+                    if (this._visibleItemsCount()) {
+                        return this.$.list.firstVisibleIndex + this._visibleItemsCount() - 1;
+                    }
+                },
+                _pageChanged: function (dataSource, currentPage) {
+                    if (typeof (dataSource) == 'function' && currentPage > 0) {
+                        if(currentPage==1){
+                            if(this.dataSourceElement) {
+                                this.dataSourceElement._resetDataSource();
+                            }
+                        }
+                        this.loading = true;
+                        var success = this._success.bind(this);
+                        var error = this._error.bind(this);
+                        dataSource({
+                            page: this.page,
+                            pageSize: this.pageSize,
+                            sortOrder: this.sortOrder
+                        }, success, error);
+                    }
+                },
+                _success: function (data) {
+                    if (data.length > 0) {
+                        var lastVisibleIndex = this._lastVisibleIndex();
+                        for (var i = 0; i < data.length; i++) {
+                            this.push('items', data[i]);
+                        }
+                        this.$.list.scrollToIndex(lastVisibleIndex);
+                        this.$.scrollTheshold.clearTriggers();
+                    } else {
+                        this.page = -1; // Future Enhancement
+                    }
+                    this.loading = false;
+                },
+                _error: function () {
+                    this.loading = false;
                 }
             });
         })();
