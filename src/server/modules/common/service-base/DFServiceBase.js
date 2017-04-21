@@ -2,8 +2,6 @@
 
 var DFConnection = require('./DFConnection');
 var executionContext = require('../context-manager/execution-context');
-var randomId = require('../utils/getRandomId');
-var isEmpty = require('../utils/isEmpty');
 var cryptoJS = require("crypto-js");
 var moment = require('moment');
 var notificationConfig = require('../../notification-engine/config');
@@ -45,11 +43,8 @@ var DFServiceBase = function (options) {
         }
 
         var timeStamp = moment().toISOString();
-        
-        
-        //Below function will update clientState in request Object with required info in notification object.
-        updateRequestObjectForNotification(request, userId, timeStamp);
-        //console.log(JSON.stringify(request));
+
+        console.log(JSON.stringify(request));
 
         url = this._serverUrl + '/' + tenantId + '/api' + url + '?timeStamp=' + timeStamp;
         this._headers["x-rdp-authtoken"] = cryptoJS.HmacSHA256(url.split('?')[1], securityContext.clientAuthKey).toString(cryptoJS.enc.Base64);
@@ -87,36 +82,6 @@ var DFServiceBase = function (options) {
     };
 
     //console.log('Data platform service instance initiated with ', JSON.stringify({options: options, baseUrl: this.baseUrl}, null, 4));
-};
-
-function updateRequestObjectForNotification(request, userId, timeStamp) {
-    if (request && request.clientState) {
-        if (!isEmpty(request.clientState)) {
-            var notificationInfo = request.clientState.notificationInfo;
-            if (!isEmpty(notificationInfo)) {  
-                notificationInfo.id = randomId();
-                notificationInfo.timeStamp = timeStamp;
-                notificationInfo.source = "ui";
-                notificationInfo.userId = userId;
-                notificationInfo.connectionId = "";
-
-                if(notificationConfig && notificationConfig.clientConfig.isDevEnvironment) {
-                    notificationInfo.callbackUrl = notificationConfig.clientConfig.url + "/api/notify";
-                }
-
-                if (isEmpty(notificationInfo.context)) {
-                    notificationInfo.context = {};
-                }
-                
-                if (request.entity) {
-                    notificationInfo.context.id = request.entity.id;
-                    notificationInfo.context.type = request.entity.type;
-                }
-                
-                notificationInfo.context.dataIndex = request.dataIndex;
-            }
-        }
-    }
 };
 
 module.exports = DFServiceBase;
