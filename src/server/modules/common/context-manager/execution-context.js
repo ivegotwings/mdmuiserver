@@ -40,6 +40,25 @@ function getSecurityContext() {
     return session.get('securityContext');
 }
 
+function createCallerContext(req) {
+
+    var callerContext = {
+        "url": "https://rst1014.riversand.com/api/dataObjects.json?x=1",
+        "hostName": "rst1014.riversand.com",
+        "protocol": "https",
+        "method": "GET",
+        "port": "443"
+    };
+
+    var session = getNamespace('User Session');
+    session.set('callerContext', callerContext);
+}
+
+function getCallerContext() {
+    var session = getNamespace('User Session');
+    return session.get('callerContext');
+}
+
 module.exports = {
     createSecurityContext: createSecurityContext,
     getSecurityContext: getSecurityContext
