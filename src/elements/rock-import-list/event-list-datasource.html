@@ -1,0 +1,168 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-datasource-behavior/bedrock-datasource-behavior.html">
+
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+
+<dom-module id="event-list-datasource">
+    <template>
+        <liquid-entity-data-get id="initGeteventSearch" operation="initiatesearch" request-data="{{request}}" last-response="{{_initGeteventSearchResponse}}"
+                                on-error="_onGetSearchError" exclude-in-progress></liquid-entity-data-get>
+        <liquid-entity-data-get id="geteventSearchResults" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[_initGeteventSearchResponse.content.requestId]]"
+                                last-response="{{geteventSearchResultsResponse}}" on-error="_onGetSearchError" exclude-in-progress></liquid-entity-data-get>
+    </template>
+    <script>
+        Polymer({
+            is: 'event-list-datasource',
+            properties: {
+                _liquidInitSearchElement: {
+                    type: Object,
+                    value: function () {
+                        return {}
+                    }
+                },
+
+                _liquidGetSearchElement: {
+                    type: Object,
+                    value: function () {
+                        return {}
+                    }
+                },
+
+                _isResponseAttached: {
+                    type: Boolean,
+                    value: false
+                },
+
+                _isRequestInitiated: {
+                    type: Boolean,
+                    value: false
+                }
+            },
+
+            behaviors: [
+                RUFBehaviors.DataSourceBehavior
+            ],
+
+            ready: function () {
+                this._liquidInitSearchElement = Polymer.dom(this).node.$$(
+                    "liquid-entity-data-get[id='initGeteventSearch']");
+                this._liquidGetSearchElement = Polymer.dom(this).node.$$(
+                    "liquid-entity-data-get[id='geteventSearchResults']");
+
+                this.dataSource = this._dataSource.bind(this);
+            },
+
+            _dataSource: function (data, success, error) {
+
+                if (_.isEmpty(this.request)) {
+                    return;
+                }
+
+                // Bind Reponse
+                if (!this._isResponseAttached) {
+                    this._liquidInitSearchElement.addEventListener('response', this._onInitSearchResponse.bind(
+                        this));
+                    this._liquidGetSearchElement.addEventListener('response', this._onGetSearchResponse.bind(
+                        this, success, error));
+                    // this._liquidGetSearchElement.addEventListener('error', this._onGetSearchError.bind(
+                    // this, success, error));
+                    this._error = error;
+                    this._isResponseAttached = true;
+                }
+
+                // Filter
+                var keywordsCriterion;
+                if (this.keywordsCriterionBuilder && this.keywordsCriterionBuilder instanceof Function) {
+                    keywordsCriterion = this.keywordsCriterionBuilder(data.filter);
+                }
+
+                if (keywordsCriterion) {
+                    this.set("request.params.query.filters.keywordsCriterion", keywordsCriterion);
+                } else if (typeof (this.request.params.query.filters.keywordsCriterion !== undefined)) {
+                    delete this.request.params.query.filters.keywordsCriterion;
+                }
+                //TODO add atribute criterion also to filter by type
+                if (this._checkIfRequestChanged()) {
+                    this._isRequestInitiated = false;
+                    data.page = 1;
+                }
+
+                // Set Range
+                var from = data.page > 0 ? (data.page - 1) * data.pageSize : 0;
+                var to = data.page > 0 ? data.page * data.pageSize - 1 : 0;
+
+                var options = {
+                    "from": from,
+                    "to": to
+                };
+                this.set("request.params.options", options);
+
+                // Initiate Request only for First Time.
+                if (!this._isRequestInitiated) {
+                    this._liquidInitSearchElement.generateRequest();
+                } else {
+                    this._liquidGetSearchElement.generateRequest();
+                }
+            },
+
+            resetDataSource: function() {
+                this._isRequestInitiated = false;
+            },
+
+            reTriggerRequest: function(){
+                // Initiate Request only for First Time.
+                if (!this._isRequestInitiated) {
+                    this._liquidInitSearchElement.generateRequest();
+                } else {
+                    this._liquidGetSearchElement.generateRequest();
+                }
+            },
+
+            _onInitSearchResponse: function () {
+                this._lastRequest = DataHelper.cloneObject(this.request);
+                this._liquidGetSearchElement.generateRequest();
+                this._isRequestInitiated = true;
+            },
+
+            _onGetSearchResponse: function (success, error) {
+                if (typeof (this.dataFormatter) == 'function') {
+                    if (this.geteventSearchResultsResponse.status === "success") {
+                        success(this.dataFormatter(this.geteventSearchResultsResponse));
+                    } else {
+                        error();
+                    }
+                }
+            },
+
+            _onGetSearchError: function () {
+                this._error();
+            },
+
+            _checkIfRequestChanged: function () {
+                var utils = SharedUtils.DataObjectFalcorUtil;
+                var requestFilterExists = false;
+                var lastRequestFilterExists = false;
+                if (this.request && this.request.params && this.request.params.query.filters) {
+                    requestFilterExists = true;
+                }
+                if (this._lastRequest && this._lastRequest.params && this._lastRequest.params.query.filters) {
+                    lastRequestFilterExists = true;
+                }
+                if (requestFilterExists != lastRequestFilterExists) {
+                    return true;
+                }
+                if (!utils.compareObjects(this.request.params.query.filters.keywordsCriterion, this._lastRequest
+                        .params.query.filters.keywordsCriterion)) {
+                    return true;
+                }
+                if (!utils.compareObjects(this.request.params.query.filters.typesCriterion, this._lastRequest
+                        .params.query.filters.typesCriterion)) {
+                    return true;
+                }
+                return false;
+            }
+        });
+    </script>
+</dom-module>

@@ -44,14 +44,14 @@
         <bedrock-pubsub event-name="rock-search-clear" handler="_onSearchClear" target-id="searchBar"></bedrock-pubsub>
         <rock-search-bar id="searchBar" placeholder="Enter Search text"></rock-search-bar>
         <bedrock-pubsub event-name="toolbar-button-event" handler="_onToolbarEvent" target-id="gridToolbar"></bedrock-pubsub>
-        <pebble-button id="stateButton" button-text="State" icon="pebble-sm-icons:Filter-wt" class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" noink dropdown-icon on-tap="_onStateButtonTap"></pebble-button>
-        <pebble-popover id="statesPopover" for="stateButton" auto-fit-on-attach no-overlap horizontal-align="right">
+        <pebble-button id="stateButton" button-text="Status" icon="pebble-sm-icons:Filter-wt" class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" noink dropdown-icon on-tap="_onStateButtonTap"></pebble-button>
+        <pebble-popover id="statesPopover" for="stateButton" >
            <pebble-lov id="filterLov" multi-select selected-items="{{selectedItems}}"  items="[[stateFilters]]"></pebble-lov>
         </pebble-popover>
-        <pebble-dropdown id="sortDropdown" label="Sort By" items="Batiste,Velvet,Denim,Jersey,Chiffon" selected-value="{{sortCondition}}"></pebble-dropdown>
+        <pebble-dropdown id="sortDropdown" label="Sort By" items="[[sortingAttributes]]" selected-value="{{sortCondition}}"></pebble-dropdown>
         <pebble-button icon="icons:arrow-downward" class="iconButton btn " hidden="[[descending]]" on-tap="_sortByDesecnding"></pebble-button>
         <pebble-button icon="icons:arrow-upward" class="iconButton btn" hidden="[[!descending]]" on-tap="_sortByAsecnding"></pebble-button>
-        <rock-grid no-header data="{{data}}" config="{{config}}" ></rock-grid>
+        <rock-grid no-header data="{{events}}" config="{{config}}" ></rock-grid>
 
     </template>
 
@@ -89,6 +89,14 @@
                     sortCondition:{
                         type:String,
                         observer:'_sortCondtionChanged'
+                    },
+                    data:{
+                        type:Object,
+                        observer:'_dataChanged'
+                    },
+                    sortingAttributes:{
+                        type:String,
+                        value:"Name,File Type,Status,Last Modified Date,Success Count, Failure Count "
                     }
 
                 },
@@ -100,16 +108,22 @@
                     'filterLov.lov-confirm-button-tap': '_onLovConfirmButtonTapped',
                     'filterLov.lov-close-button-tap': '_onLovCloseButtonTapped'
                 },
+                ready:function () {
+                    this._attributesCriterionBuilder = this._prepareAttributesCriteria.bind(this);
+                    this._keywordsCriterionBuilder = this._prepareKeywordsCriteria.bind(this);
+                    this._dataFormatter = this._getEventFormattedData.bind(this);
+                },
+                _dataChanged:function (data) {
+                    this.events=this._getEventFormattedData(data);
+                },
                 _onStateButtonTap:function () {
-                    this.$$("#statesPopover").open();
+                    this.$$("#statesPopover").show();
                 },
                 _sortByDesecnding:function () {
                     this.descending=true;
-                    alert("sort Condition " + this.sortCondition + " sort order: Descending");
                 },
                 _sortByAsecnding:function () {
                     this.descending=false;
-                    alert("sort Condition " + this.sortCondition + " sort order: Ascending");
                 },
                 _sortCondtionChanged:function (sortCondition) {
                     if(sortCondition) {
@@ -128,6 +142,58 @@
                 },
                 _onLovSelectionChanged:function () {
                     alert("filter selection changed");
+                },
+                _prepareKeywordsCriteria: function (searchText) {
+                    if (searchText) {
+                        var keywordsCriterion = {};
+
+                        keywordsCriterion.keywords = searchText;
+                        keywordsCriterion.operator = "and";
+
+                        return keywordsCriterion;
+                    }
+                },
+                _prepareAttributesCriteria: function () {
+                    //TODO will have to prepare it based on request 
+                },
+                _getAttributeNamesFromListConfig: function (config) {
+                   var listItems=config.list.listItems;
+                   var attributeNames=[];
+                   attributeNames.push(listItems.image);
+                   attributeNames.push(listItems.title);
+                   attributeNames.push(listItems.subtitle);
+                   attributeNames.push(listItems.id);
+                   for(var i in listItems.fields){
+                       var field=listItems.fields[i];
+                       attributeNames.push(field.name);
+                   }
+                   return attributeNames;
+
+                },
+                _getImagePathByType:function (type) {
+                    switch(type) {
+                        case "Excel":
+                            return "/src/images/Microsoft Excel 50, 100, 500 px/Microsoft Excel_100.svg";
+                        default:
+                            return "";
+                    }
+                },
+                _getEventFormattedData:function (data) {
+                    var contextData={"Contexts":[{"list":"self"}]};  //TODO get it from app contextData when this control is integrated in app
+                    var attributeNames=this._getAttributeNamesFromListConfig(this.config);
+                    if (data && data.content) {
+                        var events = data.content.events;
+                        if (events) {
+                            events = DataHelper.transformEventSchemaToListSchema(events, attributeNames,contextData);
+                        }
+                    }
+                    for(var i in events){
+                        events[i].fileTypeImage=this._getImagePathByType(events[i].fileType);
+                        events[i].successCount += " Passed";
+                        events[i].failureCount+= " Errors";
+                    }
+
+                    return events;
                 }
             });
         })();
