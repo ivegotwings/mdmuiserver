@@ -13,7 +13,9 @@ const arrayRemove = require('../common/utils/array-remove'),
 var sharedDataObjectFalcorUtil = require('../../../shared/dataobject-falcor-util');
 
 const CONST_ALL = sharedDataObjectFalcorUtil.CONST_ALL,
-    CONST_ANY = sharedDataObjectFalcorUtil.CONST_ANY;
+    CONST_ANY = sharedDataObjectFalcorUtil.CONST_ANY,
+    CONST_CTX_PROPERTIES = sharedDataObjectFalcorUtil.CONST_CTX_PROPERTIES,
+    CONST_DATAOBJECT_METADATA_FIELDS = sharedDataObjectFalcorUtil.CONST_DATAOBJECT_METADATA_FIELDS;
 
 const DataObjectManageService = require('./DataObjectManageService');
 
@@ -125,7 +127,8 @@ function createGetRequest(reqData) {
         var attrNames = reqData.attrNames;
         if (attrNames !== undefined && attrNames.length > 0) {
             var clonedAttrNames = sharedDataObjectFalcorUtil.cloneObject(attrNames);
-            arrayRemove(clonedAttrNames, 'properties');
+            arrayRemove(clonedAttrNames, CONST_DATAOBJECT_METADATA_FIELDS);
+            arrayRemove(clonedAttrNames, CONST_CTX_PROPERTIES);
             fields.attributes = clonedAttrNames;
         }
     }
@@ -289,7 +292,7 @@ async function getByIds(pathSet, operation) {
 
     var response = [];
     //console.log('reqData ', JSON.stringify(reqData));
-    var bulkGetEnabled = true;
+    var bulkGetEnabled = false;
 
     if(bulkGetEnabled) {
         var dataObjectsGetResponse = await get(reqData.dataObjectIds, reqData);

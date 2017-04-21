@@ -1,9 +1,12 @@
 'use strict';
 
 var DataObjectFalcorUtil = function () { };
-const CONTEXT_KEY_DEFAULT_VAL = 'xzx';
-const CONST_ANY = '_ANY';
-const CONST_ALL = '_ALL';
+
+DataObjectFalcorUtil.CONTEXT_KEY_DEFAULT_VAL = 'xzx';
+DataObjectFalcorUtil.CONST_ANY = '_ANY';
+DataObjectFalcorUtil.CONST_ALL = '_ALL';
+DataObjectFalcorUtil.CONST_CTX_PROPERTIES = 'INTERNAL_CTX_PROPERTIES';
+DataObjectFalcorUtil.CONST_DATAOBJECT_METADATA_FIELDS = 'INTERNAL_DATAOBJECT_METADATA_FIELDS';
 
 DataObjectFalcorUtil.getPathKeys = function () {
     return {
@@ -184,11 +187,6 @@ DataObjectFalcorUtil.transformToExternal = function (dataObject) {
         }
     }
 
-    //TODO: AS OF NOW, API is not processing properties so blank it out :)
-    transDataObject.properties = {};
-
-    var contexts = [];
-
     if (dataObject.data && dataObject.data.contexts) {
 
         var transContexts = [];
@@ -200,30 +198,41 @@ DataObjectFalcorUtil.transformToExternal = function (dataObject) {
                 var ctxKey = ctxKeys[i];
                 var transContextsItem = {};
 
-                var context = DataObjectFalcorUtil.createCtxItem(ctxKey);
+                var transContext = DataObjectFalcorUtil.createCtxItem(ctxKey);
 
-                transContextsItem.context = context;
+                transContextsItem.context = transContext;
 
-                var enContexts = dataObject.data.contexts[ctxKey];
+                var enContextData = dataObject.data.contexts[ctxKey];
 
-                if (enContexts.attributes) {
-                    transContextsItem.attributes = DataObjectFalcorUtil.transformAttributesToExternal(enContexts.attributes);
+                if (enContextData.attributes) {
+                    transContextsItem.attributes = DataObjectFalcorUtil.transformAttributesToExternal(enContextData.attributes);
                 }
 
-                if (enContexts.relationships) {
-                    transContextsItem.relationships = DataObjectFalcorUtil.transformRelationshipsToExternal(enContexts.relationships);
+                if (enContextData.relationships) {
+                    transContextsItem.relationships = DataObjectFalcorUtil.transformRelationshipsToExternal(enContextData.relationships);
+                }
+            
+                if (enContextData.jsonData) {
+                    transContextsItem.jsonData = enContextData.jsonData;
                 }
 
-                if (transContextsItem.attributes && transContextsItem.attributes.properties) {
-                    transContextsItem.properties = DataObjectFalcorUtil.transformPropertiesToExternal(transContextsItem.attributes.properties);
-                    delete transContextsItem.attributes.properties;
+                //read dataobject' metadata fields from the attributes.metadataFields, if available
+                if (transContextsItem.attributes && transContextsItem.attributes[DataObjectFalcorUtil.CONST_DATAOBJECT_METADATA_FIELDS]) {
+                    var metadataFields = DataObjectFalcorUtil.transformPropertiesToExternal(transContextsItem.attributes[DataObjectFalcorUtil.CONST_DATAOBJECT_METADATA_FIELDS]);
+                    for (var dataObjectField in metadataFields) {
+                        transDataObject[dataObjectField] = metadataFields[dataObjectField];
+                    }
+
+                    delete transContextsItem.attributes[DataObjectFalcorUtil.CONST_DATAOBJECT_METADATA_FIELDS];
                 }
 
-                if (enContexts.jsonData) {
-                    transContextsItem.jsonData = enContexts.jsonData;
+                //read context's properties from the attributes.properties, if available
+                if (transContextsItem.attributes && transContextsItem.attributes[DataObjectFalcorUtil.CONST_CTX_PROPERTIES]) {
+                    transContextsItem.properties = DataObjectFalcorUtil.transformPropertiesToExternal(transContextsItem.attributes[DataObjectFalcorUtil.CONST_CTX_PROPERTIES]);
+                    delete transContextsItem.attributes[DataObjectFalcorUtil.CONST_CTX_PROPERTIES];
                 }
 
-                if (context.selfContext) {
+                if (transContext.selfContext) {
                     selfCtxItem = transContextsItem;
                 }
                 else {
@@ -328,6 +337,10 @@ DataObjectFalcorUtil.transformPropertiesToExternal = function (properties) {
     var transProperties = {};
 
     if (isEmpty(properties)) {
+        return transProperties;
+    }
+
+    if (!properties.properties) {
         return transProperties;
     }
 
