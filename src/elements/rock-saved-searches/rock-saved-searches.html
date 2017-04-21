@@ -76,7 +76,7 @@
             rock-tabs::shadow pebble-tab-group {
                 margin-bottom: 15px;
             }
-            
+
             rock-tabs::shadow pebble-tab-group pebble-tab {
                 margin-left: 0;
             }
@@ -92,21 +92,28 @@
             
             #createEditSavedSearch::shadow paper-button {
                 font-size: 12px !important;
-            }            
+            }
+
+            rock-tabs {
+                --rock-tab-content: {
+                    @apply(--saved-search-tab-content);
+                }
+            }
+
         </style>
         <!--Liquid start-->
         <liquid-config-get id="liqInitiateSearch" auto$="[[auto]]" operation="initiatesearch" request-data="{{initiateSearchRequestData}}"
             last-response="{{initiateSearchResponse}}" on-response="_onInitiateSearchResponse">
         </liquid-config-get>
-        <liquid-config-get id="liqGetSearchResultDetail" verbose operation="getsearchresultdetail" on-response="_onGetSearchResultDetailResponse">
+        <liquid-config-get id="liqGetSearchResultDetail" operation="getsearchresultdetail" on-response="_onGetSearchResultDetailResponse">
         </liquid-config-get>
-        <liquid-config-save verbose name="configSaveService" on-response="_onSaveSearchResponse"></liquid-config-save>
+        <liquid-config-save name="configSaveService" on-response="_onSaveSearchResponse"></liquid-config-save>
         <!--Liquid end-->
         <bedrock-pubsub event-name="component-creating" handler="_onComponentCreating"></bedrock-pubsub>
         <bedrock-pubsub event-name="favourite-saved-search" handler="_onTapSavedSearchFavourite" target-id=""></bedrock-pubsub>
         <bedrock-pubsub event-name="delete-saved-search" handler="_onTapSavedSearchDelete" target-id=""></bedrock-pubsub>
         <!--Title, Settings and Create/Edit link-->
-        <div id="newSavedSearch" class="m-b-20">
+        <div id="newSavedSearch">
             <template is="dom-if" if="[[showTitle]]">
                 <div class="savedSearchLabel">Saved Searches</div>
             </template>
@@ -376,11 +383,13 @@
                         var userContext = ContextHelper.getFirstUserContext(this.contextData);
                         this.savedSearches = DataTransformHelper.transformSavedSearches(this._originalSearches, this._originalSearchMappings, userContext);
 
-                        //Reload tabs to get updated tags
-                        if (this.$$('rock-tabs') && this.$$('rock-tabs').$$('rock-saved-searches-tags'))
-                        {
-                            this.$$('rock-tabs').reloadTabs();                       
-                        }
+                        this.async(function() {
+                            //Reload tabs to get updated tags
+                            if (this.$$('rock-tabs') && this.$$('rock-tabs').$$('rock-saved-searches-tags'))
+                            {
+                                this.$$('rock-tabs').reloadTabs();
+                            }
+                        });
                     }
                 },
 
@@ -461,6 +470,39 @@
                         }
                     }
 
+                },
+
+                // Is search name already exists in the system
+                isSearchNameAlreadyExists: function(search, isUpdate){
+                    //Todo: IF service available for duplicate search, then change this logic to liquid search
+                    if(this._originalSearches)
+                    {
+                        for(var i = 0; i < this._originalSearches.length; i++)
+                        {
+                            if(DataHelper.isValidObjectPath(this._originalSearches[i], "data.contexts.0.jsonData.config"))
+                            {
+                                var _search = this._originalSearches[i].data.contexts[0].jsonData.config;
+                                if(_search.name &&
+                                   _search.name.toLowerCase() == search.name.toLowerCase())
+                                {
+                                    if(!isUpdate)
+                                    {
+                                        return true;
+                                    }
+                                    else
+                                    {
+                                        //For update, ignore current search name
+                                        if(search.selectedSearch && search.selectedSearch.id != _search.id)
+                                        {
+                                            return true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    return false;
                 },
 
                 // Get search list name
@@ -544,7 +586,7 @@
                             this._originalSearches = [];
                             this._originalSearches =  _originalSearches;
                         }
-                    }                   
+                    }
 
                     var requestedOptions = e.detail.request.requestData.params.options;
 
@@ -612,12 +654,6 @@
                     this._originalSearches = [];
                     
                     this.generateRequest(this._searchRequest);
-                    
-                    //Reload tabs to get updated tags
-                    if (this.$$('rock-tabs') && this.$$('rock-tabs').$$('rock-saved-searches-tags'))
-                    {
-                        this.$$('rock-tabs').reloadTabs();                       
-                    }
                 },
 
                 // Create and Update saved search
@@ -713,21 +749,14 @@
 
                     if(searchInfo.accesstype)
                     {
-                        if(searchInfo.accesstype == "everyone")
-                        {
-                            return {
-                                "user": "_ALL",
-                                "role": ""
-                            }                            
-                        }
-                        else if(searchInfo.accesstype == "samerole") // Set role only for same role
+                        if(searchInfo.accesstype == "_ROLE")
                         {
                             return {
                                 "user": userContext.user,
                                 "role": userContext.role
                             }                           
-                        }
-                        else //Default as current user
+                        }                       
+                        else
                         {                            
                             return {
                                 "user": userContext.user,
