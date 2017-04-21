@@ -10,6 +10,7 @@ module.exports = function(app) {
     app.use(function(req, res, next) {
         session.run(function(){
             executionContext.createSecurityContext(req);
+            //executionContext.createCallerContext(req);
             next();
         });
         
