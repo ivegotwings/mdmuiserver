@@ -292,7 +292,7 @@ async function getByIds(pathSet, operation) {
 
     var response = [];
     //console.log('reqData ', JSON.stringify(reqData));
-    var bulkGetEnabled = false;
+    var bulkGetEnabled = true;
 
     if(bulkGetEnabled) {
         var dataObjectsGetResponse = await get(reqData.dataObjectIds, reqData);

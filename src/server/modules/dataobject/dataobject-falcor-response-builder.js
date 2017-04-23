@@ -129,10 +129,11 @@ function _buildAttributesResponse(attrs, attrNames, reqData, basePath) {
             var selfValCtxItem = {};
             var selfValCtxKey = sharedDataObjectFalcorUtil.createCtxKey(selfValCtxItem);
             response.push(mergeAndCreatePath(basePath, [attrKey, 'valContexts', selfValCtxKey, 'properties'], $atom(attr.properties)));
+
             // console.log(selfValCtxKey);
             if (reqData.valCtxKeys) {
                 for (let valCtxKey of reqData.valCtxKeys) {
-                    if (valCtxKey !== '{}') {
+                    if (valCtxKey != '{}') {
                         response.push(mergeAndCreatePath(basePath, [attrKey, 'valContexts', valCtxKey, 'properties'], $atom(attr.properties)));
                     }
                 }
@@ -257,19 +258,15 @@ function _buildMappingsResponse(ctxItem, reqData, ctxBasePath) {
     return response;
 }
 
-function _addCtxPropertiesToAttributes(attrs, properties) {
+function _createCtxPropertiesAttribute(ctxProperties) {
     var ctxProperties = {
         'properties': properties
     };
 
-    if (!attrs) {
-        attrs = {};
-    }
-    
-    attrs[CONST_CTX_PROPERTIES] = ctxProperties;
+    return ctxProperties;
 }
 
-function _addMetadataFieldsToAttributes(attrs, dataObject) {
+function _createMetadataFieldsAttribute(dataObject) {
 
     var metadataFields = {
         'id': dataObject.id,
@@ -283,11 +280,7 @@ function _addMetadataFieldsToAttributes(attrs, dataObject) {
         'properties': metadataFields
     };
 
-    if (!attrs) {
-        attrs = {};
-    }
-
-    attrs[CONST_DATAOBJECT_METADATA_FIELDS] = metadataProperties;
+    return metadataProperties;
 }
 
 function formatDataObjectForSave(dataObject) {
@@ -334,15 +327,17 @@ function buildResponse(dataObject, reqData, basePath) {
             || data.jsonData || reqData.attrNames.indexOf(CONST_DATAOBJECT_METADATA_FIELDS) >= 0) {
             var contexts = sharedDataObjectFalcorUtil.getOrCreate(data, "contexts", []);
 
-            var dataAttributes = data.attributes;
-
             if (reqData.attrNames.indexOf(CONST_DATAOBJECT_METADATA_FIELDS) >= 0) {
-                _addMetadataFieldsToAttributes(dataAttributes, dataObject);
+                var metadataFieldAttr = _createMetadataFieldsAttribute(dataObject);
+                if(!data.attributes) {
+                    data.attributes = {};
+                }
+                data.attributes[CONST_DATAOBJECT_METADATA_FIELDS] = metadataFieldAttr;
             }
 
             var selfCtxItem = {
                 'context': sharedDataObjectFalcorUtil.getSelfCtx(),
-                'attributes': dataAttributes,
+                'attributes': data.attributes,
                 'relationships': data.relationships,
                 'properties': data.properties,
                 'jsonData': data.jsonData
@@ -362,7 +357,11 @@ function buildResponse(dataObject, reqData, basePath) {
             if (!isEmpty(reqData.attrNames)) {
                 var attrs = contextItem.attributes;
                 if (!isEmpty(contextItem.properties) && reqData.attrNames.indexOf(CONST_CTX_PROPERTIES) >= 0) {
-                    _addCtxPropertiesToAttributes(attrs, contextItem.properties);
+                    var ctxPropertiesAttr = _createCtxPropertiesAttribute(contextItem.properties);
+                    if(!attrs) {
+                        attrs = {};
+                    }
+                    attrs[CONST_CTX_PROPERTIES] = ctxPropertiesAttr;
                 }
 
                 if (!isEmpty(attrs)) {
