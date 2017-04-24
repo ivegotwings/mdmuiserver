@@ -44,7 +44,7 @@ var DFServiceBase = function (options) {
 
         var timeStamp = moment().toISOString();
 
-        console.log(JSON.stringify(request));
+        //console.log(JSON.stringify(request));
 
         url = this._serverUrl + '/' + tenantId + '/api' + url + '?timeStamp=' + timeStamp;
         this._headers["x-rdp-authtoken"] = cryptoJS.HmacSHA256(url.split('?')[1], securityContext.clientAuthKey).toString(cryptoJS.enc.Base64);
