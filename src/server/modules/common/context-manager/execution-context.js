@@ -1,4 +1,5 @@
 const getNamespace = require('continuation-local-storage').getNamespace;
+var urlModule = require('url');
 
 function createSecurityContext(req) {
     var tid = req.headers['tid'];
@@ -42,12 +43,21 @@ function getSecurityContext() {
 
 function createCallerContext(req) {
 
+    var hostName = "";
+    var protocol = "";
+
+    if(req.headers && req.headers['referer']) {
+        var urlFragments = urlModule.parse(req.headers['referer']);
+
+        if(urlFragments) {
+            hostName = urlFragments.hostname;
+            protocol = urlFragments.protocol;
+        }
+    }
+
     var callerContext = {
-        "url": "https://rst1014.riversand.com/api/dataObjects.json?x=1",
-        "hostName": "rst1014.riversand.com",
-        "protocol": "https",
-        "method": "GET",
-        "port": "443"
+        "hostName": hostName,
+        "protocol": protocol
     };
 
     var session = getNamespace('User Session');
@@ -61,7 +71,9 @@ function getCallerContext() {
 
 module.exports = {
     createSecurityContext: createSecurityContext,
-    getSecurityContext: getSecurityContext
+    getSecurityContext: getSecurityContext,
+    createCallerContext: createCallerContext,
+    getCallerContext: getCallerContext
 }
 
 
