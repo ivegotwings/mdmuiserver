@@ -53,8 +53,11 @@ DataObjectManageService.prototype = {
         else if(request.dataIndex == "entityModel") {
             return "entitymodelservice";
         }
-         else if(request.dataIndex == "config") {
+        else if(request.dataIndex == "config") {
             return "configurationservice";
+        }
+        else if(request.dataIndex == "eventData") {
+            return "eventservice";
         }
         else {
             return "entityservice";
