@@ -381,11 +381,33 @@
                     model.displayType = AttributeHelper.getDisplayType(model.dataType);
                 }
                 if (model.displayType.toLowerCase() == 'referencelist') {
-                    model.referenceEntityTypes = DataHelper._getEntityTypesForLov(model);
+                    model.referenceEntityTypes = DataTransformHelper._getEntityTypesForLov(model);
                 }
 
                 model.name = attributeName;
             }
+        };
+
+        
+        DataTransformHelper._getEntityTypesForLov = function (attributeModel) {
+            var info = [];
+            //find from manage model, looks like this:
+            // "referenceEntityInfo": [
+            //                     {
+            //                         "refRelationshipName": "hasReferenceTo",
+            //                         "refEntityType": "color"
+            //                     }
+            //                 ]
+            if (attributeModel.referenceEntityInfo) {
+                for (var i = 0; i < attributeModel.referenceEntityInfo.length; i++) {
+                    var refInfo = attributeModel.referenceEntityInfo[i];
+                    if (refInfo.refRelationshipName == 'hasReferenceTo' && refInfo.refEntityType) {
+                        info.push(refInfo.refEntityType);
+                    }
+                }
+            }
+
+            return info;
         };
 
         DataTransformHelper.prepareEntitiesForCreate = function (data, contextData, attributeModels) {
@@ -552,6 +574,161 @@
 
             return _savedSearches;
         },
+        
+        DataTransformHelper.transformEntitySchemaToLovSchema = function (entities, lovColumnNameValueCollection) {
+            // Note: We will go by the assumption that id or value field is going to be unique
+            //       if id or name is provided do not put it into attributes fields
+
+            var formattedEntities = [];
+
+            if (entities && entities.length) {
+                var entitiesToBeRemoved = [];
+
+                for (var i = 0; i < entities.length; i++) {
+                    if (typeof (entities[i]) == "object") {
+                        var formattedEntity = {};
+
+                        Object.keys(lovColumnNameValueCollection).map(function (columnName) {
+                            var attributeValue;
+
+                            if (lovColumnNameValueCollection[columnName] == "id") {
+                                formattedEntity[columnName] = entities[i].id;
+                            } else if (lovColumnNameValueCollection[columnName] == "name") {
+                                formattedEntity[columnName] = entities[i].name;
+                            } else if (columnName == "type") {
+                                var entityTypes = lovColumnNameValueCollection[columnName];
+
+                                if (typeof (entityTypes !== "undefined" && entityTypes instanceof Array)) {
+                                    for (j = 0; j < entityTypes.length; j++) {
+                                        if (entityTypes[j] === entities[i].type) {
+                                            formattedEntity[columnName] = entityTypes[j];
+                                        }
+                                    }
+                                }
+                            } else {
+                                if (entities[i].data) {
+                                    attributeValue = DataTransformHelper._transformEntityAttributesForLovSchema(entities[i].data.attributes, lovColumnNameValueCollection[columnName]);
+                                    formattedEntity[columnName] = attributeValue.value;
+                                }
+                            }
+                        });
+
+                        if (!_.isEmpty(formattedEntity)) {
+                            formattedEntities.push(formattedEntity);
+                        }
+                    } else {
+                        //if the array has a bad item (non-entity, or entity with no data) then mark it for delete
+                        entitiesToBeRemoved.push(i);
+                    }
+                }
+
+                // Make it Private
+                entitiesToBeRemoved.forEach(function (entityToBeRemoved) {
+                    for (var i = 0; i < entities.length; i++) {
+                        if (entities[i].id === entityToBeRemoved) {
+                            var currentEntity = entities[i];
+                            entities.splice(currentEntity, 1);
+                        }
+                    }
+                });
+            }
+
+            return formattedEntities;
+        };
+        
+        DataTransformHelper.transformEntityModelSchemaToLovSchema = function (entityModels, lovColumnNameValueCollection) {
+            var formattedEntityModels = [];
+
+            if (entityModels && entityModels.length) {
+                var entityModelsToBeRemoved = [];
+
+                for (var i = 0; i < entityModels.length; i++) {
+                    if (typeof (entityModels[i]) == "object") {
+
+                        var formattedEntityModel = {};
+
+                        Object.keys(lovColumnNameValueCollection).map(function (columnName) {
+                            var attributeValue;
+
+                            if (lovColumnNameValueCollection[columnName] == "id") {
+                                formattedEntityModel[columnName] = entityModels[i].id;
+                            } else if (lovColumnNameValueCollection[columnName] == "name") {
+                                formattedEntityModel[columnName] = entityModels[i].name;
+                            } else if (columnName == "type") {
+                                formattedEntityModel[columnName] = "";
+                                var entityTypes = lovColumnNameValueCollection[columnName];
+
+                                if (typeof (entityTypes !== "undefined" && entityTypes instanceof Array)) {
+                                    for (j = 0; j < entityTypes.length; j++) {
+                                        if (entityTypes[j] === entityModels[i].type) {
+                                            formattedEntityModel[columnName] = entityTypes[j];
+                                        }
+                                    }
+                                }
+
+                            } else {
+                                var data = entityModels[i].data;
+                                if (typeof (data) !== "undefined") {
+                                    attributeValue = DataTransformHelper._transformEntityAttributesForLovSchema(data.contexts, lovColumnNameValueCollection[columnName]);
+                                    formattedEntityModel[columnName] = attributeValue.value;
+                                }
+                            }
+                        });
+
+                        formattedEntityModels.push(formattedEntityModel);
+                    } else {
+                        entityModelsToBeRemoved.push(i);
+                    }
+                }
+
+                entityModelsToBeRemoved.forEach(function (entityModelToBeRemoved) {
+                    for (var i = 0; i < entityModels.length; i++) {
+                        if (entityModels[i].id === entityModelToBeRemoved) {
+                            var currentEntityModel = entityModels[i];
+                            entityModels.splice(currentEntityModel, 1);
+                        }
+                    }
+                });
+            }
+
+            return formattedEntityModels;
+        };
+        
+        DataTransformHelper.transformAtributeModelsToLovSchema = function (attributeModels, lovColumnNameValueCollection) {
+            var formattedAttributeModels = [];
+            if (attributeModels && lovColumnNameValueCollection) {
+                for (var i in attributeModels) {
+                    var formattedAttributeModel = {};
+                    var attributeModel = attributeModels[i];
+                    for (var columnName in lovColumnNameValueCollection) {
+                        var fieldName = lovColumnNameValueCollection[columnName];
+                        if (fieldName) {
+                            attributeModel[columnName] = attributeModel[fieldName];
+                        }
+                    }
+                    formattedAttributeModels.push(attributeModel);
+                }
+            }
+            return formattedAttributeModels;
+        };
+
+        DataTransformHelper._transformEntityAttributesForLovSchema = function (attributes, attributeName) {
+            var attributeValueObject = {};
+
+            if (!attributes) {
+                return;
+            }
+
+            Object.keys(attributes).map(function (key) {
+                if (key == attributeName
+                    && attributes[key].values
+                    && attributes[key].values.length > 0) {
+                    attributeValueObject = attributes[key].values[0];
+                }
+            });
+
+            return attributeValueObject;
+        };
 
         DataTransformHelper._transformAttributesForDimensionGrid = function (attributes, attributeModel, valueContexts) {
             if (valueContexts) {
