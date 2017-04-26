@@ -1,0 +1,142 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+
+<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+
+<dom-module id="relationships-tab-menu-provider">
+    <template>
+        <liquid-entity-model-get id="liquidModeleGet" operation="getbyids" request-data={{_request}} on-response="_onModelReceived"
+            on-error="_onModelGetFailed"></liquid-entity-model-get>
+    </template>
+    <script>
+        Polymer({
+            is: 'relationships-tab-menu-provider',
+            properties: {
+                _callback: {
+                    type: Function
+                },
+                _tabItem: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+                _request: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                }
+            },
+            behaviors: [
+                RUFBehaviors.UIBehavior,
+                RUFBehaviors.ComponentContextBehavior
+            ],
+
+            getMenu: function (tabItem, callback) {
+                this._callback = callback;
+                this._tabItem = tabItem;
+                this._setRequestObject();
+                var liquid = this.$.liquidModeleGet;
+                if (liquid) {
+                    liquid.generateRequest();
+                }
+            },
+
+            _onModelReceived: function (e) {
+                var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response)
+                if (responseContent) {
+                    var relationshipEntityTypeMappings = this._getRelationshipEntityTypeMappings(responseContent.entityModels);
+                    var menuItems = this._buildMenuItems(relationshipEntityTypeMappings);
+                    this._callback(menuItems);
+                }
+            },
+
+            _onModelGetFailed: function (e) {
+                console.log('Model get call failed for relationship tab menu provider: ', JSON.stringify(e));
+            },
+
+            _getRelationshipEntityTypeMappings: function (entityModels) {
+                var relationshipEntityTypeMappings = [];
+
+                if (entityModels && entityModels.length > 0) {
+                    var relationshipModels = entityModels[0].data.relationships;
+
+                    Object.keys(relationshipModels).map(function (relationshipTypeName) {
+                        var relationshipModel = {};
+                        relationshipModel.relationshipTypeName = relationshipTypeName;
+                        relationshipModel.relatedEntityTypes = relationshipModels[
+                            relationshipTypeName];
+                        relationshipEntityTypeMappings.push(relationshipModel);
+                    });
+                }
+
+                return relationshipEntityTypeMappings;
+            },
+
+            _buildMenuItems: function (relationshipEntityTypeMappings) {
+                var menuItems = [];
+
+                if (relationshipEntityTypeMappings && relationshipEntityTypeMappings instanceof Array && relationshipEntityTypeMappings.length > 0) {
+                    for (var i = 0; i < relationshipEntityTypeMappings.length; i++) {
+                        var relationshipTypeName = relationshipEntityTypeMappings[i].relationshipTypeName;
+                        var relatedEntityTypes = relationshipEntityTypeMappings[i].relatedEntityTypes;
+
+                        if (relatedEntityTypes && relatedEntityTypes instanceof Array) {
+                            for (var j = 0; j < relatedEntityTypes.length; j++) {
+                                var relatedEntityTypeProps = relatedEntityTypes[j].properties;
+                                if (relatedEntityTypeProps) {
+                                    var menuItem = {};
+                                    menuItem.name = relationshipTypeName;
+                                    menuItem.title = relatedEntityTypeProps.externalName;
+                                    menuItem.component = DataHelper.cloneObject(this._tabItem.component);
+
+                                    var configContext = {};
+                                    configContext.relationshipTitle = relatedEntityTypeProps.externalName;
+                                    configContext.relationshipTypeName = relationshipTypeName;
+                                    if (!menuItem.properties) {
+                                        menuItem.properties = {};
+                                    }
+                                    menuItem.component.properties["config-context"] = configContext;
+
+                                    menuItems.push(menuItem);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                return menuItems;
+            },
+
+            _setRequestObject: function () {
+                var firstDataContext = this.getFirstDataContext();
+                var firstItemContext = this.getFirstItemContext();
+
+                var entityType = firstItemContext.type;
+
+                var req = {
+                    "params": {
+                        "query": {
+                            "id": entityType + "_entityManageModel",
+                            "filters": {
+                                "typesCriterion": ["entityManageModel"]
+                            }
+                        },
+                        "fields": {
+                            "properties": ["_ALL"],
+                            "relationships": ["_ALL"]
+                        }
+                    }
+                };
+
+                if (firstDataContext) {
+                    req.params.query.contexts = [firstDataContext];
+                }
+
+                this._request = req;
+            }
+        });
+    </script>
+</dom-module>
