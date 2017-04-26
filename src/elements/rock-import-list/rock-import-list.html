@@ -10,9 +10,11 @@
 <link rel="import" href="../pebble-lov/pebble-lov.html">
 <link rel="import" href="../pebble-dropdown/pebble-dropdown.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../pebble-toggle-button/pebble-toggle-button.html">
 
 <link rel="import" href="../rock-search-bar/rock-search-bar.html">
 <link rel="import" href="../rock-grid/rock-grid.html">
+<link rel="import" href="event-list-datasource.html">
 
 <!--
 `<rock-import-list>`
@@ -34,18 +36,19 @@
                 margin-left: 10px;
             }
 
-            #sortDropdown{
-                margin-top: 10px;
-                display: inline-block;
-                width: 30%;
+            .iconButton{
+                margin-top:15px ;
             }
 
             rock-grid::shadow #pebbleGridContainer{
                 margin: 0;
             }
-
-
-
+            pebble-toggle-button {
+                margin-top:10px ;
+                --pebble-toggle-button-checked-bar-color:  var(--success-color,#4caf50);
+                --pebble-toggle-button-checked-button-color:  var(--success-color,#4caf50);
+                --pebble-toggle-button-checked-ink-color: var(--success-color,#4caf50);
+            }
         </style>
 
         <!--TODO remove these iron-ajax after api integration-->
@@ -58,10 +61,19 @@
         <pebble-popover id="statesPopover" for="stateButton" >
            <pebble-lov id="filterLov" multi-select selected-items="{{selectedItems}}"  items="[[stateFilters]]"></pebble-lov>
         </pebble-popover>
-        <pebble-dropdown id="sortDropdown" label="Sort By" items="[[sortingAttributes]]" selected-value="{{sortCondition}}"></pebble-dropdown>
-        <pebble-button icon="icons:arrow-downward" class="iconButton btn " hidden="[[descending]]" on-tap="_sortByDesecnding"></pebble-button>
-        <pebble-button icon="icons:arrow-upward" class="iconButton btn" hidden="[[!descending]]" on-tap="_sortByAsecnding"></pebble-button>
-        <rock-grid no-header data="{{events}}" config="{{config}}" ></rock-grid>
+        <div class="layout horizontal ">
+            <pebble-dropdown id="sortDropdown" label="Sort By" items="[[sortingAttributes]]" selected-value="{{sortCondition}}"></pebble-dropdown>
+            <div class="flex">
+                <pebble-button icon="icons:arrow-downward" class="iconButton btn " hidden="[[descending]]" on-tap="_sortByDesecnding"></pebble-button>
+                <pebble-button icon="icons:arrow-upward" class="iconButton btn" hidden="[[!descending]]" on-tap="_sortByAsecnding"></pebble-button>
+            </div>
+            <pebble-toggle-button checked="{{getOwnEvents}}"></pebble-toggle-button>
+
+        </div>
+        <event-list-datasource id="eventDataSource" request="[[request]]" data-source="{{dataSource}}" data-formatter="{{_dataFormatter}}"
+                               keywords-criterion-builder="{{_keywordsCriterionBuilder}}">
+        </event-list-datasource>
+        <rock-grid no-header  config="{{config}}" page-size="10" data-source="{{dataSource}}" data-source-id="eventDataSource"></rock-grid>
     </template>
 
     <script>
@@ -100,12 +112,49 @@
                         observer:'_sortCondtionChanged'
                     },
                     data:{
-                        type:Object,
-                        observer:'_dataChanged'
+                        type:Object
                     },
                     sortingAttributes:{
                         type:String,
                         value:"Name,File Type,Status,Last Modified Date,Success Count, Failure Count "
+                    },
+                    getOwnEvents:{
+                        type:Boolean,
+                        value:false,
+                        observer:'_userStateChanged'
+                    },
+                    request:{
+                        type:Object,
+                        value:function () {
+                            return {
+                                "params": {
+                                    "query": {
+                                        "valueContexts": [
+                                            {
+                                                "locale": "en-US",
+                                                "source": "internal"
+                                            }
+                                        ],
+                                        "filters": {
+                                            "typesCriterion": [
+                                                "externalevent"
+                                            ],
+                                            "attributesCriterion": [
+                                                {
+                                                    "eventSubType": {
+                                                        "eq": "batchCompleted"
+                                                    }
+                                                }
+                                            ]
+
+                                        }
+                                    },
+                                    "fields": {
+                                        "attributes": ["_ALL"]
+                                    }
+                                }
+                            }
+                        }
                     }
 
                 },
@@ -121,9 +170,6 @@
                     this._attributesCriterionBuilder = this._prepareAttributesCriteria.bind(this);
                     this._keywordsCriterionBuilder = this._prepareKeywordsCriteria.bind(this);
                     this._dataFormatter = this._getEventFormattedData.bind(this);
-                },
-                _dataChanged:function (data) {
-                    this.events=this._getEventFormattedData(data);
                 },
                 _onStateButtonTap:function () {
                     this.$$("#statesPopover").show();
@@ -188,21 +234,27 @@
                     }
                 },
                 _getEventFormattedData:function (data) {
-                    var contextData={"Contexts":[{"list":"self"}]};  //TODO get it from app contextData when this control is integrated in app
                     var attributeNames=this._getAttributeNamesFromListConfig(this.config);
                     if (data && data.content) {
                         var events = data.content.events;
                         if (events) {
-                            events = DataTransformHelper.transformEventSchemaToListSchema(events, attributeNames,contextData);
+                            events = DataTransformHelper.transformEventSchemaToListSchema(events, attributeNames,this.contextData);
                         }
                     }
                     for(var i in events){
                         events[i].fileTypeImage=this._getImagePathByType(events[i].fileType);
-                        events[i].successCount += " Passed";
-                        events[i].failureCount+= " Errors";
+                        if(events[i].successCount) {
+                            events[i].successCount += " Passed";
+                        }
+                        if(events[i].failureCount) {
+                            events[i].failureCount+= " Errors";
+                        }
                     }
 
                     return events;
+                },
+                _userStateChanged:function (getOwnEvents) {
+                    //alert(getOwnEvents);
                 }
             });
         })();
