@@ -38,6 +38,12 @@ DataObjectFalcorUtil.getPathKeys = function () {
                 "collectionName": "configObjects",
                 "responseObjectName": "response",
                 "totalRecordsToReturn": 100
+            },
+            "eventData": {
+                "name": "event",
+                "collectionName": "events",
+                "responseObjectName": "response",
+                "totalRecordsToReturn": 50
             }
         }
     };
@@ -685,8 +691,6 @@ DataObjectFalcorUtil.test = function () {
     console.log('test success');
 };
 
-var SharedUtils = SharedUtils || {};
-
 function isEmpty(obj) {
     //if (obj === undefined) { return true };
 
@@ -695,17 +699,19 @@ function isEmpty(obj) {
     return true;
 }
 
+var SharedUtils = SharedUtils || {};
+
+if (!SharedUtils) {
+    SharedUtils = {};
+}
+
+SharedUtils.DataObjectFalcorUtil = DataObjectFalcorUtil;
+
 //register as module or as js 
 if (typeof exports !== 'undefined') {
     if (typeof module !== 'undefined' && module.exports) {
         exports = module.exports = DataObjectFalcorUtil
     }
-    exports.DataObjectFalcorUtil = DataObjectFalcorUtil
-}
-else {
-    if (!SharedUtils) {
-        SharedUtils = {};
-    }
-    SharedUtils.DataObjectFalcorUtil = DataObjectFalcorUtil
+    exports.DataObjectFalcorUtil = DataObjectFalcorUtil;
 }
 

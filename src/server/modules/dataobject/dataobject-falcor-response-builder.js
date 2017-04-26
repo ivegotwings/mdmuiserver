@@ -15,14 +15,14 @@ const createPath = pathUtils.createPath,
     mergeAndCreatePath = pathUtils.mergeAndCreatePath,
     mergePathSets = pathUtils.mergePathSets;
 
-const sharedDataObjectFalcorUtil = require('../../../shared/dataobject-falcor-util');
+const falcorUtil = require('../../../shared/dataobject-falcor-util');
 
-const CONST_ALL = sharedDataObjectFalcorUtil.CONST_ALL,
-    CONST_ANY = sharedDataObjectFalcorUtil.CONST_ANY,
-    CONST_CTX_PROPERTIES = sharedDataObjectFalcorUtil.CONST_CTX_PROPERTIES,
-    CONST_DATAOBJECT_METADATA_FIELDS = sharedDataObjectFalcorUtil.CONST_DATAOBJECT_METADATA_FIELDS;
+const CONST_ALL = falcorUtil.CONST_ALL,
+    CONST_ANY = falcorUtil.CONST_ANY,
+    CONST_CTX_PROPERTIES = falcorUtil.CONST_CTX_PROPERTIES,
+    CONST_DATAOBJECT_METADATA_FIELDS = falcorUtil.CONST_DATAOBJECT_METADATA_FIELDS;
 
-const pathKeys = sharedDataObjectFalcorUtil.getPathKeys();
+const pathKeys = falcorUtil.getPathKeys();
 
 function _createRelUniqueId(rel) {
     if (rel) {
@@ -96,10 +96,10 @@ function _buildAttributesResponse(attrs, attrNames, reqData, basePath) {
                 var locale = val.locale || undefined;
 
                 var valCtxItem = { 'source': source, 'locale': locale }; //TODO: Here, source and locale are hard coded... How to find out val contexts keys from the flat list of values object..??
-                var valCtxKey = sharedDataObjectFalcorUtil.createCtxKey(valCtxItem);
+                var valCtxKey = falcorUtil.createCtxKey(valCtxItem);
 
-                var valCtxItem = sharedDataObjectFalcorUtil.getOrCreate(valCtxItems, valCtxKey, {});
-                var values = sharedDataObjectFalcorUtil.getOrCreate(valCtxItem, 'values', []);
+                var valCtxItem = falcorUtil.getOrCreate(valCtxItems, valCtxKey, {});
+                var values = falcorUtil.getOrCreate(valCtxItem, 'values', []);
 
                 values.push(val);
             }
@@ -119,7 +119,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, basePath) {
         if (attr.group) {
             //var valCtxItem = { 'source': CONST_ANY, 'locale': CONST_ANY }; //TODO: How to find out val contexts keys from the flat list of values object..??
             var valCtxItem = {};
-            var valCtxKey = sharedDataObjectFalcorUtil.createCtxKey(valCtxItem);
+            var valCtxKey = falcorUtil.createCtxKey(valCtxItem);
             //console.log('attr group', JSON.stringify(attr.group));
             response.push(mergeAndCreatePath(basePath, [attrKey, 'valContexts', valCtxKey, 'group'], $atom(attr.group)));
         }
@@ -127,7 +127,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, basePath) {
         if (attr.properties) {
             //var valCtxItem = { 'source': CONST_ANY, 'locale': CONST_ANY }; //TODO: How to find out val contexts keys from the flat list of values object..??
             var selfValCtxItem = {};
-            var selfValCtxKey = sharedDataObjectFalcorUtil.createCtxKey(selfValCtxItem);
+            var selfValCtxKey = falcorUtil.createCtxKey(selfValCtxItem);
             response.push(mergeAndCreatePath(basePath, [attrKey, 'valContexts', selfValCtxKey, 'properties'], $atom(attr.properties)));
 
             // console.log(selfValCtxKey);
@@ -325,7 +325,7 @@ function buildResponse(dataObject, reqData, basePath) {
         //add data level attrs, rels and props as self context item in falcor response..
         if (data.attributes || data.relationships || data.properties
             || data.jsonData || reqData.attrNames.indexOf(CONST_DATAOBJECT_METADATA_FIELDS) >= 0) {
-            var contexts = sharedDataObjectFalcorUtil.getOrCreate(data, "contexts", []);
+            var contexts = falcorUtil.getOrCreate(data, "contexts", []);
 
             if (reqData.attrNames.indexOf(CONST_DATAOBJECT_METADATA_FIELDS) >= 0) {
                 var metadataFieldAttr = _createMetadataFieldsAttribute(dataObject);
@@ -336,7 +336,7 @@ function buildResponse(dataObject, reqData, basePath) {
             }
 
             var selfCtxItem = {
-                'context': sharedDataObjectFalcorUtil.getSelfCtx(),
+                'context': falcorUtil.getSelfCtx(),
                 'attributes': data.attributes,
                 'relationships': data.relationships,
                 'properties': data.properties,
@@ -351,7 +351,7 @@ function buildResponse(dataObject, reqData, basePath) {
         for (let contextItem of data.contexts) {
             var currContext = contextItem.context;
 
-            var ctxKey = sharedDataObjectFalcorUtil.createCtxKey(currContext);
+            var ctxKey = falcorUtil.createCtxKey(currContext);
             var ctxBasePath = mergePathSets(basePath, ['data', 'contexts', ctxKey]);
 
             if (!isEmpty(reqData.attrNames)) {
