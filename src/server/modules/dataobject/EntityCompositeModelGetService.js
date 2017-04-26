@@ -52,7 +52,7 @@ EntityCompositeModelGetService.prototype = {
         }
 
         var res = await this.post(serviceName + "/" + serviceOperation, internalRequest);
-        //console.log('composite model get RDF ', JSON.stringify(response));
+        //console.log('composite model get RDF ', JSON.stringify(res));
 
         var mergedModel = this._mergeModels(request, objectName, res);
 
@@ -77,16 +77,19 @@ EntityCompositeModelGetService.prototype = {
         var allModels = response.response.entityModels;
 
         var mergedModel = {};
+        var localeContext = undefined;
 
-        var localeContext = request.params.query.contexts[0];
-
+        if(request.params && request.params.query && request.params.query.contexts && request.params.query.contexts.length > 0) {
+            localeContext = request.params.query.contexts[0];
+        }
+        
         var mergedLocaleCtxItem = {};
         if (allModels && allModels.length > 0) {
             var manageModel = allModels.find(obj => obj.type == "entityManageModel");
 
             if (!manageModel) {
                 console.log('manage model not found');
-                return undefined;
+                return {};
             }
             
             mergedModel = manageModel;
@@ -99,7 +102,7 @@ EntityCompositeModelGetService.prototype = {
 
                     mergedModel = mergeUtil.mergeDataObjects(mergedModel, model);
 
-                    if (model.data && model.data.contexts) {
+                    if (model.data && model.data.contexts && localeContext) {
                         var modelLocaleCtxItem = falcorUtil.getCtxItem(model.data.contexts, localeContext);
 
                         if (modelLocaleCtxItem) {
