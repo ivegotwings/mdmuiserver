@@ -6,6 +6,7 @@
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-helpers/data-request-helper.html">
 <link rel="import" href="../bedrock-helpers/data-merge-helper.html">
+<link rel="import" href="../bedrock-helpers/component-helper.html">
 
 <link rel="import" href="../liquid-entity-govern-data-get/liquid-entity-govern-data-get.html">
 <link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
@@ -102,10 +103,15 @@
             pebble-accordion::shadow .header .header-text {
                 padding-top: 2px !important;
             }
-            
-            pebble-accordion::shadow .header .header-text iron-icon {
-                margin: 0 5px 0 10px;
-                float: left;
+
+            pebble-accordion::shadow .accordion-content-wrapper .card-actions {
+                overflow: auto;
+            }
+            pebble-button[disabled] {
+                pointer-events: none;
+                color: #c1cad4;
+                background-color: #c1cad4;
+                border-color: #c1cad4;
             }
         </style>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
@@ -115,7 +121,7 @@
             on-response="_onWfMappingsReceived" on-error="_onMappingsGetFailed"></liquid-entity-model-get>
         <liquid-entity-model-get id="entityGetWorkflowDefinition" operation="getbyids" request-id="req1" request-data={{workflowDefinitionRequest}}
             on-response="_onDefinitionReceived" on-error="_onDefinitionGetFailed"></liquid-entity-model-get>
-        <liquid-entity-govern-data-get id="entityGetRunningInstance" no-cache operation="getbyids" request-id="req2" request-data={{runningInstanceRequest}}
+        <liquid-entity-govern-data-get id="entityGetRunningInstance" operation="getbyids" request-id="req2" request-data={{runningInstanceRequest}}
             on-response="_onRunningInstanceReceived" on-error="_onRunningInstanceGetFailed"></liquid-entity-govern-data-get>
         <liquid-rest id="entityWfTransition" url="/pass-through/entitygovernservice/transitionWorkflow" method="POST" request-data={{_transitionRequest}}
             on-liquid-response="_onTransitionSuccess" on-liquid-error="_onTransitionFailure"></liquid-rest>
@@ -127,8 +133,8 @@
                 <div id="workflow-description">
                     <span class="workflowtext">[[_getWorkFlowDescription(_workflowstepperData)]]</span>
                 </div>
-                <div id="workflow-stepper">
-                    <pebble-stepper id="workflowStepper" stepper-config="[[_workflowstepperData]]">
+                <div id="workflow-stepper_[[_workflowstepperData.workflowId]]">
+                    <pebble-stepper id="workflowStepper_[[_workflowstepperData.workflowId]]" stepper-config="[[_workflowstepperData]]">
                         <template is="dom-repeat" items="[[_workflowstepperData.items]]" as="item">
                             <pebble-step class="workflow-stepper" data="{{item}}">
                                 <div class="step-badge-content">
@@ -152,13 +158,13 @@
                                     </template>
                                     <template is="dom-if" if="[[_isCommentsEnabled(item)]]">
                                         <div id="step-comments">
-                                            <pebble-textarea id="stepComments-[[item.id]]" required="[[_isRequired(item.stepDetails)]]" autofocus label="ADD A COMMENT"
+                                            <pebble-textarea id="stepComments-[[item.id]]" required="[[_isRequired(item.stepDetails)]]" disabled="[[_isDisabled(item)]]" autofocus label="ADD A COMMENT"
                                                 invalid="" error-message="Comments Required." value=""></pebble-textarea>
                                         </div>
                                         <div id="step-actions">
                                             <template is="dom-repeat" items="[[item.stepDetails.actions]]" as="button">
                                                 <pebble-button class$="[[_getActionButtonClass(button)]]" raised icon="[[button.actionIcon]]" button-text="[[button.action]]"
-                                                    on-tap="_onStepActionTap" data="[[_getDataforButton(button, item.id)]]"></pebble-button>
+                                                    on-tap="_onStepActionTap" data="[[_getDataforButton(button, item.id, _workflowstepperData.workflowId)]]" disabled="[[_isDisabled(item)]]"></pebble-button>
                                             </template>
                                         </div>
                                     </template>
@@ -230,6 +236,9 @@
                     RUFBehaviors.UIBehavior,
                     RUFBehaviors.ComponentContextBehavior
                 ],
+                listeners: {
+                    'accordion-transition-end': '_accordionTransitionEnd'
+                },
                 refresh: function () {
                     this._contextChanged(this.contextData);
                 },
@@ -329,7 +338,7 @@
 
                             if (entityModel.data && entityModel.data.attributes) {
                                 
-                                var wfAttributes = entityModel.data.attributes.workflows.group[0]; 
+                                var wfAttributes = entityModel.data.attributes; 
 
                                 var riAttributes = this._runningInstances[workflowName].attributes;
 
@@ -342,6 +351,13 @@
                         this.set("_workflowsData", workflowData);
                         this.$$("#workflowsTemplate").render();
                         //this._loading = false;
+                        this.async(function() {
+                            var stepper = this.$$("#workflow-stepper_" + workflowData[0].workflowId);
+                            var step = stepper.querySelector('pebble-step[opened]');
+                            if(step) {
+                                step.scrollIntoView(false);
+                            }
+                        }, 1000);//ToDo: need to figure out better way. As of now delay to let the stepper to load with workflow data properly.
                     }
                 },
                 _onDefinitionGetFailed: function (e) {
@@ -365,17 +381,18 @@
                         var activitiesJson = wfActivities;
                         var riActivity = riActivities.group[0];
 
-                        var riActivityGuid = AttributeHelper.getFirstAttributeValue(riActivity.activityGuid);
+                        var riActivityName = AttributeHelper.getFirstAttributeValue(riActivity.activityName);
                         var riActivityStatus = AttributeHelper.getFirstAttributeValue(riActivity.status);
 
                         for (var i = 0; i < activitiesJson.group.length; i++) {
                             var wfActivity = activitiesJson.group[i];
 
-                            var wfActivityGuid = AttributeHelper.getFirstAttributeValue(wfActivity.activityGuid);
-                            if (riActivityGuid == wfActivityGuid) {
+                            var wfActivityName = AttributeHelper.getFirstAttributeValue(wfActivity.activityName);
+                            if (riActivityName == wfActivityName) {
                                 riActivity["sequence"] = wfActivity["sequence"];
                                 riActivity["activityName"] = wfActivity["activityName"];
                                 riActivity["activityDescription"] = wfActivity["activityDescription"];
+                                riActivity["allowedRoles"] = wfActivity["allowedRoles"];
                                 
                                 riActivity["actions"] = wfActivity["actions"];
                                 
@@ -436,7 +453,8 @@
                                     "subtitle": this._getItemSubtitle(group.action, group.endDateTime),
                                     "status": this._getItemStatus(group.status, config.status),
                                     "selected": this._getSelected(group.status),
-                                    "workflowName": workflowName
+                                    "workflowName": workflowName,
+                                    "allowedRoles": group.allowedRoles
                                 };
                                 item["stepDetails"] = this._getItemFullDetails(item, attributes, actions);
                                 items.push(item);
@@ -452,10 +470,10 @@
                     var description = "";
                     if (config) {
                         if (config.status == "Completed") {
-                            description = "The workflow completed on " + this._formatDate(config.endDateTime);
+                            description = "The workflow completed on " + this._formatDate(config.endDateTime) + ".";
                         }
                         else if (config.status == "Executing") {
-                            description = "The workflow started on " + this._formatDate(config.startDateTime) + " and should complete by " + this._getSLADate(config.startDateTime, 21) + " to complete SLA of 21 days.";
+                            description = "The workflow started on " + this._formatDate(config.startDateTime) + ".";
                         }
                     }
                     return description;
@@ -471,7 +489,7 @@
                 _onStepActionTap: function (e) {
                     var data = e.target.data;
                     var commentsEl = this.$$("#stepComments-" + data.id);
-                    var currentStepItem = this.$$("#workflowStepper").selectedItem;
+                    var currentStepItem = this.$$("#workflowStepper_"+ data.workflowId).selectedItem;
                     var stepComments = "";
                     var curretStepDetails;
                     var currentWorkflowName;
@@ -522,14 +540,24 @@
                     //this._loading = true;
                 },
                 _onTransitionSuccess: function (e) {
+                    var request = e.detail.request;
                     var response = e.detail.response.response; //need to check why this is response.response
-                    if (response && response.status == 'success') {
+                    if (response && response.statusDetail && response.statusDetail.isCriteriaValid == false) {
+                        var actionItem = "Workflow";
+
+                        if (request.requestData && request.requestData.params && request.requestData.params.workflow) {
+                            var workflow = request.requestData.params.workflow;
+                            if(workflow && workflow.activity && workflow.activity.action) {
+                                actionItem = workflow.activity.action;
+                            }
+                        }
+                        
+                        this.showErrorToast("'" + actionItem + "' action failed. Please check the business conditions in Summary tab.");
+                    } else {
                         this.async(function () {
                             this.showSuccessToast("Workflow action completed succesfully.");
                             this.$$('#entityGetRunningInstance').generateRequest();
                         }, 6000)
-                    } else {
-                        this.showErrorToast("Workflow action failed. Please check the business conditions.");
                     }
                 },
                 _onTransitionFailure: function (e) {
@@ -545,7 +573,7 @@
                         if (status == "Closed") {
                             return "completed";
                         }
-                        else if (status == "Executing") {
+                        else if (status == "Executing" || status == "AssignmentChange") {
                             return "inprogress";
                         }
                         else if (status == "Faulted") {
@@ -558,7 +586,7 @@
                 },
                 _getSelected: function (stepStatus) {
                     var status = AttributeHelper.getFirstAttributeValue(stepStatus);
-                    if (status && status == "Executing") {
+                    if (status && status == "Executing" || status == "AssignmentChange") {
                         return true;
                     }
                     return false;
@@ -613,8 +641,8 @@
                         for (var i = 0; i < workflowAttributes.activities.group.length; i++) {
                             var group = workflowAttributes.activities.group[i];
                             
-                            var activityId = AttributeHelper.getFirstAttributeValue(group.activityGuid);
-                            if (activityId && activityId == stepItem.id) {
+                            var activityName = AttributeHelper.getFirstAttributeValue(group.activityName);
+                            if (activityName && activityName == stepItem.title) {
                                 currentActivity = group;
                                 break;
                             }
@@ -625,12 +653,9 @@
                         if(currentActivity) {
                             var itemDescription = AttributeHelper.getFirstAttributeValue(currentActivity.activityDescription);
                             var assignedUser = AttributeHelper.getFirstAttributeValue(currentActivity.assignedUser);
-                            if (!assignedUser) {
-                                assignedUser = "cfadmin";
-                            }
 
                             var wfStatus = AttributeHelper.getFirstAttributeValue(workflowAttributes.status);
-                            var itemDetail = this._getItemDetail(currentActivity, wfStatus);
+                            var itemDetail = this._getItemDetail(currentActivity, wfStatus, assignedUser);
                             itemDetailsJson["description"] = itemDescription;
                             itemDetailsJson["assignedUser"] = assignedUser;
                             itemDetailsJson["details"] = itemDetail;
@@ -640,7 +665,7 @@
                         return itemDetailsJson;
                     }
                 },
-                _getItemDetail: function (group, wfStatus) {
+                _getItemDetail: function (group, wfStatus, assignedUser) {
                     var status = this._getItemStatus(group.status, wfStatus);
                     var startDate = AttributeHelper.getFirstAttributeValue(group.startDateTime);
                     var endDate = AttributeHelper.getFirstAttributeValue(group.endDateTime);
@@ -648,13 +673,17 @@
                     var comments = AttributeHelper.getFirstAttributeValue(group.comments);
                     var itemDetail = "";
                     if (status == "inprogress") {
-                        itemDetail = "  was assigned task on " + this._formatDate(startDate) + " and should complete by " + this._getSLADate(startDate, 21) + " to follow SLA of 21 Days.";
+                        if(!assignedUser || assignedUser == "_UNASSIGNED") {
+                            itemDetail = "";
+                        } else {
+                            itemDetail = "  was assigned task on " + this._formatDate(startDate) + ".";
+                        }
                     }
                     if (status == "failed") {
                         itemDetail = "  was failed due to technical reason.";
                     }
                     if (status == "completed") {
-                        itemDetail = " completed step just a while ago."
+                        itemDetail = " Completed step just a while ago."
                     }
                     return itemDetail;
                 },
@@ -677,7 +706,7 @@
                     return false;
                 },
                 _stepHasDetails: function (stepDetails) {
-                    if (stepDetails && stepDetails.assignedUser && stepDetails.details) {
+                    if (stepDetails && stepDetails.assignedUser || stepDetails.details) {
                         return true;
                     }
                     return false;
@@ -704,12 +733,54 @@
                         }
                     }
                 },
-                _getDataforButton: function (button, id) {
+                _getDataforButton: function (button, id, workflowId) {
                     var data = {
                         "event": button.event,
-                        "id": id
+                        "id": id,
+                        "workflowId": workflowId
                     };
                     return data;
+                },
+                _isDisabled: function(item) {
+                    if(item && item.allowedRoles) {
+                        var currentUserRole = DataHelper.getUserRole();
+                        if (typeof (currentUserRole) === "undefined") {
+                            return true;
+                        }
+                        var allowedRoles = AttributeHelper.getAttributeValues(item.allowedRoles);
+                        if(typeof(allowedRoles) !== "undefined" && allowedRoles instanceof Array && allowedRoles.length > 0) {
+                            if (allowedRoles.indexOf(currentUserRole) != -1){
+                                return false;
+                            }
+                        }
+                    }
+                    return true;
+                },
+                _accordionTransitionEnd: function(e) {
+                    if(this._workflowsData.length == 1 && e && e.detail) {
+                        var isCollapsed = e.detail.isCollapsed;
+                        var accordionEl = e.detail.accordion;
+                        if(accordionEl && isCollapsed) {
+                            var actionsDiv = Polymer.dom(accordionEl.root).querySelector(".card-actions");
+                            var activeApp = ComponentHelper.getCurrentActiveApp();
+                            var sidebar;
+                            var sidebarContainer;
+                            var sideBarHeight;
+                            if(activeApp) {
+                                sidebar = activeApp.$$("#rockSideBar");
+                            }
+                            if(sidebar) {
+                                sidebarContainer = sidebar.$$("#rockSidebarContainer");
+                                sideBarHeight = sidebar.getBoundingClientRect()['height'] - 10;
+                            }
+                            if(actionsDiv && sideBarHeight && sidebarContainer) {
+                                sidebarContainer.style.overflow = 'hidden';
+                                sidebar.updateStyles();
+                                actionsDiv.style.height = (sideBarHeight - 60) + 'px';
+                                accordionEl.updateStyles();
+                            }
+                        }
+                    }
                 }
             });
         })();

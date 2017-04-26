@@ -39,5 +39,5 @@
         return true;
     };
 })(document);
-
-
+window.RUFEventHandlers = window.RUFEventHandlers || {};
+ 

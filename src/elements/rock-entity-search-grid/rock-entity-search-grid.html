@@ -7,6 +7,7 @@
 <link rel="import" href="../bedrock-helpers/data-transform-helper.html">
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 
+<link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../liquid-entity-govern-data-get/liquid-entity-govern-data-get.html">
@@ -33,7 +34,7 @@ It filters the data as per filter criteria.
                 current-record-size="{{size}}" total-records="{{totalRecords}}" total-count="{{totalCount}}"></entity-search-grid-datasource>
             <rock-grid id="entityGrid" data-source="{{dataSource}}" data-source-id="searchGrid" record-size="{{totalRecords}}" config="{{gridConfig}}"
                 grid-data-size="{{size}}" attribute-models="{{attributeModels}}" page-size="[[pageSize]]" selected-item="{{selectedItem}}"
-                selected-items="{{selectedItems}}" total-count="{{totalCount}}"></rock-grid>
+                selected-items="{{selectedItems}}" total-count="{{totalCount}}" max-configured-count="[[maxConfiguredCount]]"></rock-grid>
         </template>
     </template>
 
@@ -185,6 +186,32 @@ It filters the data as per filter criteria.
                         notify: true
                     },
 
+                    savedSearchCriterion: {
+                        type: Object,
+                        value: function () {
+                            return true;
+                        }
+                    },
+
+                    savedSearchCriterion: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    savedSearchId: {
+                        type: String,
+                        value: ""
+                    },
+
+                    maxConfiguredCount: {
+                        type: Number,
+                        value: function(){
+                            return DataObjectFalcorUtil.getPathKeys().dataIndexInfo.entityData.totalRecordsToReturn;
+                        }
+                    },
+
                     _governDataRequest: {
                         type: Object,
                         value: function () {
@@ -207,7 +234,7 @@ It filters the data as per filter criteria.
                 ],
 
                 observers: [
-                    '_onGridConfigChange(gridConfig)'
+                    '_onGridConfigChange(gridConfig, savedSearchCriterion)'
                 ],
 
 
@@ -272,22 +299,12 @@ It filters the data as per filter criteria.
                 getSelectedItemIndex: function () {
                     return this._getEntityGrid().getSelectedItemIndex();
                 },
-                _addWorkflowDetailsToConfig:function () {
-                    if(!(this.workflowCriterion && this.workflowCriterion.dataRequest && this.workflowCriterion.dataRequest.params && this.workflowCriterion.dataRequest.params.query )){
+                _addWorkflowDetailsToConfig: function () {
+                    if (!(this.workflowCriterion && this.workflowCriterion.workflowName && this.workflowCriterion.workflowActivityName)) {
                         return;
                     }
-                    var query=this.workflowCriterion.dataRequest.params.query;
-                    var workflow,workflowStatus;
-                    if(query.contexts && query.contexts.length ) {
-                        workflow = query.contexts[0].workflow;
-                    }
-                    if(query.filters && query.filters.attributesCriterion && query.filters.attributesCriterion.length) {
-                        var workflowStatusObj = query.filters.attributesCriterion[0]["activities/activityName"];
-                        if(workflowStatusObj){
-                            workflowStatus=workflowStatusObj.eq;
-                        }
-                    }
-                    this.set('gridConfig.workflowDetails',{"workflow":workflow,"workflowStatus":workflowStatus});
+
+                    this.set('gridConfig.workflowDetails', { "workflow": this.workflowCriterion.workflowName, "workflowStatus": this.workflowCriterion.workflowActivityName });
                 },
                 /**
                  * Can be used to reload the grid.
@@ -297,8 +314,39 @@ It filters the data as per filter criteria.
                         this._addWorkflowDetailsToConfig();
                         var governDataLiquid = this.$$("[name=governDataGet]");
                         if (governDataLiquid) {
-                            var req = this.workflowCriterion.dataRequest;
-                            req.params.query.filters.typesCriterion = this.gridConfig.dataRequest.typesCriterion;
+                            var workflowName = this.workflowCriterion.workflowName;
+                            var workflowActivityName = this.workflowCriterion.workflowActivityName;
+                            var userId = this.workflowCriterion.userId;
+                            var req = {
+                                "params": {
+                                    "query": {
+                                        "contexts": [
+                                            {
+                                                "workflow": workflowName
+                                            }
+                                        ],
+                                        "filters": {
+                                            "attributesCriterion": [
+                                                {
+                                                    "activities/activityName": {
+                                                        "eq": workflowActivityName
+                                                    }
+                                                }
+                                            ],
+                                            "typesCriterion": this.gridConfig.dataRequest.typesCriterion
+                                        }
+                                    }
+                                }
+                            };
+
+                            if (!_.isEmpty(userId)) {
+                                req.params.query.filters.attributesCriterion.push({
+                                    "activities/assignedUser": {
+                                        "eq": userId
+                                    }
+                                });
+                            }
+
                             req.params.options = { "from": 0, "to": 0 };
 
                             this._governDataRequest = req;
@@ -311,10 +359,16 @@ It filters the data as per filter criteria.
                     }
                 },
 
-                _onGridConfigChange: function (gridConfig) {
+                _onGridConfigChange: function (gridConfig, savedSearchCriterion) {
                     var dataRequest = {};
 
                     if (_.isEmpty(this.contextData) || _.isEmpty(this.gridConfig)) {
+                        return;
+                    }
+
+                    //TODO:: Search has to be restructured.
+                    // Below is temporary fix.
+                    if (!_.isEmpty(this.savedSearchId) && _.isEmpty(this.savedSearchCriterion)) {
                         return;
                     }
 
@@ -379,7 +433,7 @@ It filters the data as per filter criteria.
                         var entities = data.content.entities;
                         if (entities && entities.length > 0) {
                             formattedEntities = DataTransformHelper.transformEntitiesToGridFormat(
-                                entities, this.attributeModels, this.contextData);
+                                entities, this.attributeModels, this.contextData, this.gridConfig.tabular.columns);
                         }
                     }
 
@@ -391,10 +445,35 @@ It filters the data as per filter criteria.
                     var dataSource = Polymer.dom(this).node.$$('entity-search-grid-datasource');
 
                     if (dataSource && grid && this.searchFilters) {
-                        this.request.params.query.filters.attributesCriterion = this.searchFilters;
+                        this.request.params.query.filters.attributesCriterion = this._removeUnSupportedFilters(this.searchFilters);
                         dataSource.resetDataSource();
                         grid.reRenderGrid();
                     }
+                },
+
+                // Remove unsupported filters which were added for tags
+                _removeUnSupportedFilters: function(filters) {                    
+                    for(var i = 0; i < filters.length; i++)
+                    {
+                        if(filters[i] && !_.isEmpty(filters[i]))
+                        {
+                            for (var key in filters[i]) {
+                                if (!filters[i].hasOwnProperty(key)) continue;
+                                for (var j in filters[i][key]) {
+                                    if (!filters[i][key].hasOwnProperty(j)) continue;
+                                    if(j != 'eq' &&
+                                       j != 'gte' &&
+                                       j != 'lte' &&
+                                       j != 'contains')
+                                    {
+                                        delete filters[i][key][j];
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    return filters;                        
                 },
 
                 _loadSearchResultsByQuery: function () {
@@ -445,19 +524,25 @@ It filters the data as per filter criteria.
                     this.request = DataRequestHelper.createEntityGetRequest(this.contextData);
                     if (!_.isEmpty(ids)) {
                         this.request.params.query.ids = ids;
-                    }                    
+                    }
 
                     if (this.searchFilters && !_.isEmpty(this.searchFilters)) {
-                        this.request.params.query.filters.attributesCriterion = this.searchFilters;                        
+                        this.request.params.query.filters.attributesCriterion = this.searchFilters;
                     }
 
                     if (this.searchQuery && this.searchQuery != "") {
                         this.request.params.query.filters.keywordsCriterion = {
-                             "keywords": this.searchQuery,
-                             "operator": "and"
+                            "keywords": this.searchQuery,
+                            "operator": "and"
                         }
                     }
+                    var grid = Polymer.dom(this).node.$$('rock-grid');
+                    var dataSource = Polymer.dom(this).node.$$('entity-search-grid-datasource');
 
+                    if (dataSource && grid) {
+                        dataSource.resetDataSource();
+                        grid.reRenderGrid();
+                    }
                     setTimeout(function () {
                         this._setGridHeight();
                     }.bind(this), 100);
@@ -486,10 +571,10 @@ It filters the data as per filter criteria.
                             rockGridHeight = rockGridHeight - footer.offsetHeight;
                         }
                     }
-                    
+
                     var rockGrid = Polymer.dom(this).node.$$('rock-grid');
                     if (rockGrid && rockGridHeight > 0) {
-                        rockGrid._getIronDataTable().style.height = rockGridHeight - 62 + 'px';
+                        rockGrid._getIronDataTable().style.height = rockGridHeight - 80 + 'px';
                     }
                 }
 

@@ -1,10 +1,6 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="../liquid-base-behavior/liquid-base-behavior.html">
 <link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
-<link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
-
-<link rel="import" href="../bedrock-helpers/data-merge-helper.html">
-
 
 <!--
 `liquid-entity-model-composite-get`
@@ -38,29 +34,18 @@ Boolean control
                         value: function () {
                             return this.$$('#liquidEntityModelGet');
                         }
-                    },
-                    localeCtx: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
                     }
                 },
                 generateRequest: function () {
-
                     if (!this._validate(this.requestData)) {
                         return;
                     }
-
-                    var reqData = this.requestData;
-
-                    var utils = SharedUtils.DataObjectFalcorUtil;
-
-                    var internalRequestData = utils.cloneObject(reqData);
+                    
+                    var internalRequestData = this.requestData;
 
                     if (internalRequestData.params && internalRequestData.params.query) {
                         var query = internalRequestData.params.query;
-
+                        
                         if (query.valueContexts) {
                             delete query.valueContexts;
                         }
@@ -74,135 +59,31 @@ Boolean control
                             this.localeCtx = localeCtx;
                             query.contexts.push(localeCtx);
                         }
-
                         if (!query.filters) {
                             query.filters = {};
                         }
 
-                        query.filters.typesCriterion = ['entityManageModel', 'entityValidationModel', 'entityDefaultValueModel', 'entityDisplayModel'];
+                        query.filters.typesCriterion = ['entityCompositeModel'];
                     }
 
-                    // start liquid calls with basic model get..
-                    this._generateLiquidRequest('req-basic-model-get', internalRequestData);
+                    var liqModelGet = this.liquidEntityModelGet;
+
+                    liqModelGet.requestData = internalRequestData;
+                    liqModelGet.bubbles = false;
+                    liqModelGet.generateRequest();
                 },
                 _validate: function (reqData) {
                     return true;
                 },
-                _generateLiquidRequest: function (requestId, requestData) {
-                    var liqModelGet = this.liquidEntityModelGet;
-
-                    liqModelGet.requestId = requestId;
-                    liqModelGet.requestData = requestData;
-
-                    liqModelGet.bubbles = false;
-
-                    liqModelGet.generateRequest();
-                },
-                _mergeModels: function (response) {
-
-                    var allModels = response;
-
-                    var mergedModel = {};
-
-                    var localeContext = { 'locale': this.requestData.params.query.locale };
-                    var name = this.requestData.params.query.name;
-
-                    if(this.verbose) {
-                        console.log('respons received from internal get call ', JSON.stringify(allModels, null, 2));
-                    }
-
-                    var mergedLocaleCtxItem = {};
-                    if (allModels && allModels.length > 0) {
-                        var manageModel = allModels.find(obj => obj.type == "entityManageModel");
-
-                        if(!manageModel) {
-                            return undefined;
-                        }
-                        mergedModel = manageModel;
-                        
-                        for (var i = 0; i < allModels.length; i++) {
-                            var model = allModels[i];
-
-                            if (model && model.id != manageModel.id) {
-                                mergedModel = DataMergeHelper.mergeDataObjects(mergedModel, model);
-
-                                if(model.data && model.data.contexts) {
-                                    var modelLocaleCtxItem = SharedUtils.DataObjectFalcorUtil.getCtxItem(model.data.contexts, localeContext);
-
-                                    if (modelLocaleCtxItem) {
-                                        mergedLocaleCtxItem = DataMergeHelper.mergeCtxItems(mergedLocaleCtxItem, modelLocaleCtxItem, true);
-                                    }
-                                }
-                            }
-                        }
-
-                        mergedModel.id = name + "_entityCompositeModel";
-                        mergedModel.type = "entityCompositeModel";
-                    }
-
-                    if(this.verbose) {
-                        console.log('default merged model ', JSON.stringify(mergedModel, null, 4));
-                        console.log('default merged locale contexts item ', JSON.stringify(mergedLocaleCtxItem, null, 4));
-                    }
-                    
-                    if (mergedModel && mergedModel.data && mergedLocaleCtxItem != {}) {
-
-                        var mergedData = mergedModel.data;
-
-                        var selfCtxItem = { 'attributes': mergedData.attributes, 'relationships': mergedData.relationships, 'properties': mergedData.properties };
-
-                        selfCtxItem = DataMergeHelper.mergeCtxItems(selfCtxItem, mergedLocaleCtxItem, false);
-
-                        var mergedContexts = mergedData.contexts;
-
-                        if (mergedContexts) {
-                            for (var j = 0; j < mergedContexts.length; j++) {
-                                var ctxItem = mergedContexts[j];
-                                ctxItem = DataMergeHelper.mergeCtxItems(ctxItem, mergedLocaleCtxItem, false);
-                            }
-                        }
-                    }
-
-                    return mergedModel;
-                },
                 _onResponse: function (e) {
-                    var request = e.detail.request;
-                    var reqId = request.requestId;
-                    var response = e.detail.response.content["entityModels"];
-
-                    this._handleResponse(response);
-                },
-                _onError: function (e) {
-                    this._handleError(e);
-                },
-                _handleResponse: function (response) {
-                    var mergedModel = this._mergeModels(response);
-
-                    var responseData = {'entityModels': [mergedModel] };
-
-                    var response = this._createSuccessResponse(responseData);
-
-                    var eventDetail = {
-                        "request": { "requestData": this.requestData },
-                        "response": response
-                    };
-
+                    var eventDetail = e.detail;
                     this.fire('entity-model-composite-get-response', eventDetail, { bubbles: this.bubbles });
                     this.fire('liquid-entity-model-composite-get-response', eventDetail, { bubbles: this.bubbles });
                 },
-                _handleError: function (e) {
+                _onError: function (e) {
                     var eventDetail = e.detail;
-
                     this.fire('error', eventDetail, { bubbles: this.bubbles });
                     this.fire('liquid-error', eventDetail, { bubbles: this.bubbles });
-                },
-                _createSuccessResponse: function (data) {
-                    var clonedData = SharedUtils.DataObjectFalcorUtil.cloneObject(data);
-
-                    return {
-                        'status': 'success',
-                        'content': clonedData
-                    };
                 }
             });
         })();

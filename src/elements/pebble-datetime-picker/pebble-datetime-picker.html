@@ -7,6 +7,9 @@
 <link rel="import" href="../pebble-textbox/pebble-textbox.html">
 <link rel="import" href="pebble-datetime-picker-overlay.html">
 
+<link rel="import" href="../bedrock-helpers/format-helper.html">
+<link rel="import" href="../bedrock-validator/bedrock-validator.html">
+
 <!--
 `<pebble-datetime-picker>` Represents an element that provides the date and time with default picker text box and icon.
 
@@ -127,27 +130,26 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
     <div class="datetimepicker-container">
          <template is="dom-if" if="[[!noDefaultInput]]"> 
             <div id="inputDiv">
-                 <pebble-textbox id="datetimePickerText" readonly="{{isReadonlyInput}}" value="{{datetimePickerTextValue}}" on-tap="_showPicker"></pebble-textbox>
+                 <pebble-textbox id="datetimePickerText" label="{{label}}" readonly="{{isReadonlyInput}}" value="{{text}}" on-tap="_showPicker"></pebble-textbox>
             </div>
-             <bedrock-validator  show-error validation-errors="{{validationErrors}}" input="[[datetimePickerTextValue]]"  required="[[required]]"
-                                 invalid="{{invalid}}" error-message="{{errorMessage}}" type="[[validationType]]"
+             <bedrock-validator  show-error validation-errors="{{validationErrors}}" input="[[value]]"  required="[[required]]" invalid="{{invalid}}" error-message="{{errorMessage}}" type="[[validationType]]"
              ></bedrock-validator>
          </template>
          <div id="iconDiv">
-                <pebble-icon id="datetimePickerIcon" icon="pebble-icons:Event" on-tap="_showPicker"></pebble-icon>
+             <pebble-icon id="datetimePickerIcon" icon="pebble-icons:Event" on-tap="_showPicker"></pebble-icon>
          </div>
     </div>
     <div class="error"> {{errorMessage}}</div>
       <pebble-datetime-picker-overlay id="datetimepicker"
-                                    for="[[_target]]" 
-                                    value="{{datetimePickerTextValue}}" 
+                                    for="[[_target]]"
                                     picker-type="{{pickerType}}"
-                                    datetime-format="{{datetimeFormat}}"                            
+                                    datetime-format="{{datetimeFormat}}"
                                     date-format="{{dateFormat}}"
                                     time-format="{{timeFormat}}" 
                                     date-value="{{dateValue}}" 
                                     time-value="{{timeValue}}"
                                     utc-value="{{utcDateTime}}"
+                                    value="{{value}}"                                   
                                     horizontal-align="{{horizontalAlign}}"
                                     vertical-align="{{verticalAlign}}"
                                     min-date="[[minDate]]"
@@ -167,11 +169,21 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
         },
         properties: {
             /**
+             * Indicates text datetime, date, and time 
+             */
+            text: {
+                type: String,
+                notify: true,
+                observer: '_onDateTextChange'
+            },
+
+            /**
              * Indicates datetime, date, and time as per pickerType. 
              */
             value: {
                 type: String,
-                notify: true
+                notify: true,
+                observer: '_onDateValueChange'
             },
 
             /**
@@ -182,27 +194,7 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
                 value: null,
                 readonly: true,
                 notify: true
-            },
-
-            /**
-             * Specifies the value of the start date.
-             */
-            startDateValue: {
-                type: String,
-                value: null,
-                readonly: true,
-                notify: true
-            },
-
-            /**
-             * Specifies the value of the end date.
-             */
-            endDateValue: {
-                type: String,
-                value: null,
-                readonly: true,
-                notify: true
-            },
+            },           
 
             /**
              * Specifies the value of the time.
@@ -257,6 +249,18 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
                 value: "hh:mm:ss A"
             },
 
+            _isoDateTimeFormat: {
+                type: String,
+                readonly: true,
+                value: "YYYY-MM-DDTHH:mm:ss+00:00"
+            },
+
+            _isoDateFormat: {
+                type: String,
+                readonly: true,
+                value: "YYYY-MM-DD"
+            },
+
             /*
             *  Indicates the "vertical" alignment of the picker.            
             *  If <b>value</b> is selected as "top", then picker is aligned below the target.  
@@ -265,7 +269,7 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
 
             verticalAlign: {
                 type: String,
-                value: "top"
+                value: "auto"
             },
 
             /*
@@ -275,7 +279,7 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
             */
             horizontalAlign: {
                 type: String,
-                value: "left"
+                value: "auto"
             },
 
             /*
@@ -335,7 +339,7 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
 
         attached: function(){
           this.$$('#datetimepicker').showButtons = this.showButtons;          
-        },
+        },        
 
         _showPicker: function(){
             this.$$('#datetimepicker').show();
@@ -346,8 +350,40 @@ See the docs for `Polymer.IronOverlayBehavior` for accessibility features implem
             {
                 this._target = "datetimePickerIcon";
             }
-        }     
-          
+        },
+
+        // When textbox value change, set the value to date value for validation
+        _onDateTextChange: function() {
+            var _format = this.pickerType == "datetime" ? this.datetimeFormat : this.dateFormat;
+            var _isoFormat = this.pickerType == "datetime" ? this._isoDateTimeFormat : this._isoDateFormat;
+            var isoDateFromText = moment(this.text, _format, true).format(_isoFormat);
+
+            if(this.value == isoDateFromText)
+            {
+                return;
+            }
+
+            if(isoDateFromText == "Invalid date")
+            {
+                this.value = this.text;
+                return;
+            }
+
+            this.value = isoDateFromText;
+        },
+
+        // When date value change, set the textbox value in UI format
+        _onDateValueChange: function() {
+            if(this.value && this.pickerType)
+            {
+                var format = this.pickerType == "datetime" ? this.datetimeFormat : this.dateFormat;
+                this.text = FormatHelper.convertFromISODateTime(this.value, this.pickerType, format);
+            }
+            else
+            {
+                this.text = this.value;
+            }            
+        }
       });
     })();
   </script>

@@ -14,6 +14,13 @@ DataObjectManageService.prototype = {
         // console.log('-----------------------------------------------------------------\n\n');
         return this.post(serviceName + "/get", request);
     },
+    getCoalesce: async function (request) {
+        var serviceName = this._getServiceName(request);
+        // console.log('------------------' + serviceName + '------------------------------');
+        // console.log('GET CALL: ', JSON.stringify(request));
+        // console.log('-----------------------------------------------------------------\n\n');
+        return this.post(serviceName + "/getcoalesce", request);
+    },
     create: async function (request) {
         var serviceName = this._getServiceName(request);
         // console.log('------------------' + serviceName + '------------------------------');
@@ -46,8 +53,11 @@ DataObjectManageService.prototype = {
         else if(request.dataIndex == "entityModel") {
             return "entitymodelservice";
         }
-         else if(request.dataIndex == "config") {
+        else if(request.dataIndex == "config") {
             return "configurationservice";
+        }
+        else if(request.dataIndex == "eventData") {
+            return "eventservice";
         }
         else {
             return "entityservice";

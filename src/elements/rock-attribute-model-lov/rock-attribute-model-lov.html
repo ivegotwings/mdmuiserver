@@ -1,0 +1,219 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/data-transform-helper.html">
+<link rel="import" href="../bedrock-helpers/element-helper.html">
+<link rel="import" href="../bedrock-lov-behavior/bedrock-lov-behavior.html">
+
+<link rel="import" href="../pebble-lov/pebble-lov.html">
+
+<link rel="import" href="attribute-model-datasource.html">
+
+<!--
+`rock-attribute-model-datasource` component is used to render model entities in refine more
+-->
+
+<dom-module id="rock-attribute-model-lov">
+    <template>
+        <attribute-model-datasource id="attributeModelDataSource" request="[[requestData]]" data-formatter="{{_dataFormatter}}">
+        </attribute-model-datasource>
+        <pebble-lov id="attributeModelLov" page-size="[[pageSize]]" multi-select="[[multiSelect]]" show-image="[[showImage]]" show-color="[[showColor]]"
+            no-sub-title="[[noSubTitle]]" show-action-buttons="[[showActionButtons]]" items="[[items]]" selected-item="{{selectedItem}}"
+            selected-items="{{selectedItems}}">
+        </pebble-lov>
+    </template>
+    <script>
+        Polymer({
+            is: 'rock-attribute-model-lov',
+            properties: {
+                contextData: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    },
+                    observer: "_getAttributeModels"
+                },
+                requestData: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+                _currentIndex: {
+                    type: Number,
+                    value: function () {
+                        return {};
+                    }
+                },
+                _currentItems: {
+                    type: Array,
+                    value: function () {
+                        return [];
+                    }
+                },
+                _lovColumnNameValueCollection: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+                /**
+                 * Specifies whether or not to generate console logs.
+                 */
+                verbose: {
+                    type: Boolean,
+                    value: false
+                },
+                /*
+                 * Indicates the attribute of an entity which will be used as id for the item
+                 */
+                idField: {
+                    type: String,
+                    value: ""
+                },
+                /*
+                 * Indicates the attribute of an entity which will be used as title for the item
+                 */
+                titlePattern: {
+                    type: String,
+                    value: ""
+                },
+                /*
+                 * Indicates the attribute of an entity which will be used as subtitle for the item
+                 */
+                subTitlePattern: {
+                    type: String,
+                    value: ""
+                },
+                /*
+                 * Indicates the attribute of an entity which will be used as image for the item
+                 */
+                imageField: {
+                    type: String,
+                    value: ""
+                },
+                /*
+                 * Indicates the attribute of an entity which will be used as color for the item
+                 */
+                colorField: {
+                    type: String,
+                    value: ""
+                },
+                /*
+                 * Indicates the attribute of an entity which will be used as value for the item
+                 */
+                valueField: {
+                    type: String,
+                    value: ""
+                },
+                /*
+                 * Indicates the attribute of an entity which will be used as value for the item
+                 */
+                typeField: {
+                    type: Array,
+                    value: []
+                },
+                _dataFormatter: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                }
+            },
+
+            behaviors: [
+                RUFBehaviors.UIBehavior,
+                RUFBehaviors.LovBehavior
+            ],
+
+            listeners: {
+                'attributeModelLov.selection-changed': '_onLovSelectionChanged'
+            },
+
+
+            ready: function () {
+                this._dataFormatter = this._getAttributeFormattedData.bind(this);
+                this._prepareAttributeMaps();
+                if (this.verbose) {
+                    console.log("Request Object for the Element: " + this.id + "is" + JSON.stringify(this.requestData));
+                }
+            },
+
+
+            reTriggerRequest: function () {
+                this.$$('#attributeModelDataSource').reTriggerRequest();
+            },
+
+            _prepareAttributeMaps: function () {
+                this._lovColumnNameValueCollection.id = this.idField;
+                this._lovColumnNameValueCollection.title = this.titlePattern;
+                this._lovColumnNameValueCollection.subtitle = this.subTitlePattern;
+                this._lovColumnNameValueCollection.image = this.imageField;
+                this._lovColumnNameValueCollection.color = this.colorField;
+                this._lovColumnNameValueCollection.value = this.valueField;
+            },
+
+            _getAttributeModels: function () {
+                var contextData = DataHelper.cloneObject(this.contextData);
+                if (this.contextData.ItemContexts) {
+                    this._currentIndex = this.contextData.ItemContexts.length;
+
+                }
+
+                if (_.isEmpty(contextData)) {
+                    return;
+                }
+
+                if (contextData && contextData.ItemContexts) {
+                    for (var i in this.contextData.ItemContexts) {
+
+                        contextData.ItemContexts = [this.contextData.ItemContexts[i]];
+                        var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(
+                            contextData);
+                        if (compositeModelGetRequest && compositeModelGetRequest.params) {
+                            compositeModelGetRequest.params.fields.attributes = ["_ALL"];
+                        }
+                        this.set('requestData', compositeModelGetRequest);
+                    }
+                }
+
+            },
+
+            _getAttributeFormattedData: function (data) {
+                if (data && data.content && data.content.entityModels) {
+                    var atributeModels = DataTransformHelper.transformAttributeModels(data.content.entityModels[0], this.contextData);
+                    if (atributeModels) {
+                        this.push('_currentItems', DataTransformHelper.transformAtributeModelsToLovSchema(atributeModels, this._lovColumnNameValueCollection))
+                    }
+                    if (this._currentItems.length == this._currentIndex) {
+                        var currentItems = this._currentItems;
+                        currentItems = currentItems.reduce(function (array1, array2) {
+                            return array1.concat(array2);
+                        })
+                        for (var i = 0; i < currentItems.length; ++i) {
+                            for (var j = i + 1; j < currentItems.length; ++j) {
+                                if (currentItems[i].title === currentItems[j].title)
+                                    currentItems.splice(j--, 1);
+                            }
+                        }
+                        
+                        this.items = DataHelper.sort(currentItems, 'title');
+                    }
+
+
+                }
+
+
+            },
+            _onLovSelectionChanged: function (event) {
+                var eventDetail = {
+                    data: event.detail.item
+                }
+
+                this.fireBedrockEvent("attribute-model-lov-selection-changed", eventDetail);
+            },
+
+        });
+    </script>
+</dom-module>
