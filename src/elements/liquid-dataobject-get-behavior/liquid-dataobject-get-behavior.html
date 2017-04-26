@@ -21,14 +21,9 @@
         ready: function () {
         },
         properties: {
-            _dataChannelName: {
-                type: String,
-                value: 'dataObjectChannel',
-                readonly: true
-            },
             dataIndex: {
                 type: String,
-                value: 'entityData'
+                value: 'Unknown'
             },
             _pathKeys: {
                 type: Object,
@@ -74,7 +69,7 @@
             else if (op === 'getsearchresultdetail') {
                 var formattedDataObjects = [];
                 if (rawResponsePkg != undefined && rawResponsePkg.json && rawResponsePkg.json[pathKeys.root]) {
-                    var dataObjects = rawResponsePkg.json[pathKeys.root][dataIndex][pathKeys.searchResults][request.requestId][pathKeys.searchResultItems];
+                    var dataObjects = this._getDataObjects(rawResponsePkg, dataIndex, request);
                     formattedDataObjects = this._formatData(dataIndex, dataObjects);
                 }
 
@@ -85,7 +80,7 @@
             else if (op === 'getbyids') {
                 var formattedDataObjects = [];
                 if (rawResponsePkg !== undefined && rawResponsePkg.json && rawResponsePkg.json[pathKeys.root]) {
-                    var dataObjects = this._getDataObjects(rawResponsePkg, dataIndex);
+                    var dataObjects = this._getDataObjects(rawResponsePkg, dataIndex, request);
                     formattedDataObjects = this._formatData(dataIndex, dataObjects);
                 }
 
@@ -214,8 +209,8 @@
                     responsePromise.then(function (responsePkg) {
                         self.removeFalcorKeys(responsePkg);
                         var clonedReqData = utils.cloneObject(reqData);
-                        request.requestData = self._appendObjectKeysToRequest(responsePkg, loadAllFlags, ctxKeys, clonedReqData);
-                        return self._callGetPaths(model, request);
+                        request.requestData = self._appendObjectKeysToRequest(responsePkg, loadAllFlags, ctxKeys, clonedReqData, request, basePath);
+                        return self._callGetPaths(model, request, basePath);
                     });
                 } else {
                     return this._callGetPaths(model, request, basePath);
@@ -477,7 +472,7 @@
 
             return formattedDataObjects;
         },
-        _appendObjectKeysToRequest: function (responsePkg, loadAllFlags, ctxKeys, reqData) {
+        _appendObjectKeysToRequest: function (responsePkg, loadAllFlags, ctxKeys, reqData, request, basePath) {
             var allAttrNames = [];
             var allRelTypes = [];
             var allContexts = [];
@@ -489,7 +484,8 @@
             }
 
             if (responsePkg) {
-                var dataObjects = this._getDataObjects(responsePkg, this.dataIndex);
+                
+                var dataObjects = this._getDataObjects(responsePkg, this.dataIndex, request);
 
                 for (var dataObjectIdIdx in dataObjects) {
                     var resDataObject = dataObjects[dataObjectIdIdx];
@@ -704,15 +700,20 @@
 
             return dataObjectTypes;
         },
-        _getDataObjects: function (rawResponsePkg, dataIndex) {
+        _getDataObjects: function (rawResponsePkg, dataIndex, request) {
             var pathKeys = this._pathKeys;
             var dataObjects = {};
             var dataByIndex = rawResponsePkg.json[pathKeys.root][this.dataIndex];
             if (dataByIndex) {
-                for (var dataObjectType in dataByIndex) {
-                    var dataObjectTypeJson = dataByIndex[dataObjectType][pathKeys.byIds];
-                    for (var dataObjectId in dataObjectTypeJson) {
-                        dataObjects[dataObjectId] = dataObjectTypeJson[dataObjectId];
+                if(request && request.operation === 'getsearchresultdetail') {
+                    dataObjects = dataByIndex[pathKeys.searchResults][request.requestId][pathKeys.searchResultItems];
+                }
+                else {
+                    for (var dataObjectType in dataByIndex) {
+                        var dataObjectTypeJson = dataByIndex[dataObjectType][pathKeys.byIds];
+                        for (var dataObjectId in dataObjectTypeJson) {
+                            dataObjects[dataObjectId] = dataObjectTypeJson[dataObjectId];
+                        }
                     }
                 }
             }
@@ -726,7 +727,7 @@
             return mergedPathSets;
         },
         _makeFalcorGetCall: function (model, paths, noCache) {
-            if (noCache) {
+            if (noCache && paths) {
                 for (var i = 0; i < paths.length; i++) {
                     var path = paths[i];
                     model.invalidate(path);
