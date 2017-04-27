@@ -272,6 +272,7 @@ function _createMetadataFieldsAttribute(dataObject) {
         'id': dataObject.id,
         'type': dataObject.type || '',
         'name': dataObject.name || '',
+        'properties': dataObject.properties || {},
         'version': dataObject.version || '',
         'domain': dataObject.domain || ''
     };
