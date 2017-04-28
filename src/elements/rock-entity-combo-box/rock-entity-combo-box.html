@@ -85,17 +85,41 @@
                     value: ""
                 },
                 /*
-                 * Indicates the attribute of an entity which will be used as value for the item
+                 * Indicates the attribute of an entity which will be used as type for the item
                  */
                 typeField: {
                     type: Array,
                     value: []
                 },
+                /*
+                 * Indicates the attribute of an entity which will be used for sorting the items
+                 * Note: This has to come from Model
+                 *       By default it should be name for which QA has to log a Bug
+                 */
+                sortField: {
+                    type: String,
+                    value: "entity.attributes.code" 
+                },
+               /**
+                * Indicates is-readonly or not
+                */
+                isReadonly: {
+                    type: Boolean,
+                    value: false
+                },
 
-                _lovColumnNameValueCollection: {
+                _lovColumnMap: {
                     type: Object,
                     value: function () {
-                        return {};
+                        return {
+                            "id": "",
+                            "title": "",
+                            "subtitle": "",
+                            "image": "",
+                            "color": "",
+                            "value": "",
+                            "type": [],
+                        };
                     }
                 },
 
@@ -118,14 +142,6 @@
                     value: function () {
                         return {};
                     }
-                },
-
-               /**
-                * Indicates is-readonly or not
-                */
-                isReadonly: {
-                    type: Boolean,
-                    value: false
                 }
             },
 
@@ -139,49 +155,58 @@
             ],
 
             ready: function () {
-                this._prepareAttributeMaps();
-
                 this._keywordsCriterionBuilder = this._prepareKeywordsCriteria.bind(this);
                 this._dataFormatter = this._getAttributeFormattedData.bind(this);
             },
 
-            _prepareAttributes: function (idField, titlePattern, subTitlePattern, imageField, colorField,
-                valueField) {
+            _prepareAttributes: function (idField, titlePattern, subTitlePattern, imageField, colorField, valueField) {
                 var defaultAttributes = this._attributes;
                 this._attributes = [];
-                var attributes = [];
+                var attributes = []; // Attributes which will be part of Request Object
 
                 if (typeof (this.idField) !== 'undefined' && this.idField !== "") {
                     attributes.push(this.idField);
+                    this._lovColumnMap.id = this.idField;
                 }
 
                 if (typeof (this.titlePattern) !== 'undefined' && this.titlePattern !== "") {
                     if (!attributes.includes(this.titlePattern)) {
-                        attributes.push(this.titlePattern);
+                        var titleFields = DataHelper.getAttributesBetweenCurlies(this.titlePattern);
+                        if(titleFields && titleFields instanceof Array) {
+                            attributes.push(...titleFields);
+                            this._lovColumnMap.title = this.titlePattern;
+                        }
                     }
                 }
 
                 if (typeof (this.subTitlePattern) !== 'undefined' && this.subTitlePattern !== "") {
                     if (!attributes.includes(this.subTitlePattern)) {
-                        attributes.push(this.subTitlePattern);
+                        var subtitleFields = DataHelper.getAttributesBetweenCurlies(this.subTitlePattern);
+                        if(subtitleFields && subtitleFields instanceof Array) {
+                            attributes.push(...subtitleFields);
+                            this._lovColumnMap.subtitle = this.subTitlePattern;
+                        }
                     }
                 }
 
                 if (typeof (this.imageField) !== 'undefined' && this.imageField !== "") {
                     if (!attributes.includes(this.imageField)) {
                         attributes.push(this.imageField);
+                        this._lovColumnMap.imageField = this.imageField;
                     }
                 }
 
                 if (typeof (this.colorField) !== 'undefined' && this.colorField !== "") {
                     if (!attributes.includes(this.colorField)) {
                         attributes.push(this.colorField);
+                        this._lovColumnMap.colorField = this.colorField;
                     }
                 }
 
                 if (typeof (this.valueField) == 'undefined' && this.valueField !== "") {
                     if (!attributes.includes(this.valueField)) {
                         attributes.push(this.valueField);
+                        this._lovColumnMap.valueField = this.valueField;
                     }
                 }
 
@@ -197,16 +222,20 @@
                     }
                     this.set('requestData.params.fields.attributes', attributes);
                 }
-            },
 
-            _prepareAttributeMaps: function () {
-                this._lovColumnNameValueCollection.id = this.idField;
-                this._lovColumnNameValueCollection.title = this.titlePattern;
-                this._lovColumnNameValueCollection.subtitle = this.subTitlePattern;
-                this._lovColumnNameValueCollection.image = this.imageField;
-                this._lovColumnNameValueCollection.color = this.colorField;
-                this._lovColumnNameValueCollection.value = this.valueField;
-                this._lovColumnNameValueCollection.type = this.typeField;
+                if(!DataHelper.isEmptyObject(this.sortField)) {
+                    var attributeName = this.sortField.replace("entity.attributes.", "");;
+                    var sortAttributes = [];
+
+                    var sortAttribute = {};
+                    sortAttribute[attributeName] = "_AESC";
+                    sortAttributes.push(sortAttribute);
+                    
+                    if (DataHelper.isEmptyObject(this.requestData.params.sort)) {
+                        this.set('requestData.params.sort', {});
+                    }
+                    this.set('requestData.params.sort.attributes', sortAttributes);
+                }
             },
 
             _getAttributeFormattedData: function (data) {
@@ -214,7 +243,7 @@
                 if (data && data.content) {
                     entities = data.content.entities;
                     if (entities) {
-                        entities = DataHelper.transformEntitySchemaToLovSchema(entities, this._lovColumnNameValueCollection);
+                        entities = DataHelper.transformReferenceEntitySchemaToLovSchema(entities, this._lovColumnMap);
                     }
                 }
                 return entities;

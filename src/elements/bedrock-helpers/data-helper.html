@@ -153,7 +153,7 @@
             var contexts = DataHelper.prepareCtx(dataContext);
             var valueContexts = DataHelper.prepareValCtx(dataContext);
 
-            var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, contexts);
+             var attributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, contexts);
 
             return DataHelper.transformAttributesToManageFormat(attributes, attributeModels, valueContexts);
         };
@@ -273,16 +273,12 @@
                                 }
                             } else {
                                 if (entities[i].data) {
-                                    attributeValue = DataHelper._transformEntityAttributesForLovSchema(
-                                        entities[i].data
-                                            .attributes,
-                                        lovColumnNameValueCollection[columnName]);
+                                   attributeValue = DataHelper._transformEntityAttributesForLovSchema(entities[i].data.attributes, lovColumnNameValueCollection[columnName]);
                                     formattedEntity[columnName] = attributeValue.value;
                                 }
                             }
                         });
-
-                        if (!_.isEmpty(formattedEntity)) {
+                        if (!!DataHelper.isEmptyObject(formattedEntity)) {
                             formattedEntities.push(formattedEntity);
                         }
                     } else {
@@ -290,7 +286,6 @@
                         entitiesToBeRemoved.push(i);
                     }
                 }
-
                 // Make it Private
                 entitiesToBeRemoved.forEach(function (entityToBeRemoved) {
                     for (var i = 0; i < entities.length; i++) {
@@ -305,6 +300,82 @@
             return formattedEntities;
         };
 
+        DataHelper.transformReferenceEntitySchemaToLovSchema = function (entities, lovColumnMap) {
+            // Note: We will go by the assumption that id or value field is going to be unique
+            //       if id or name is provided do not put it into attributesWithPattern fields
+
+            var formattedEntities = [];
+            var ignoreColumnList = ["id", "image", "color", "type"];
+
+            if (entities && entities.length) {
+                var entitiesToBeRemoved = [];
+
+                for (var i = 0; i < entities.length; i++) {
+                    if (typeof (entities[i]) === "object") {
+                        var formattedEntity = {};
+
+                        Object.keys(lovColumnMap).map(function (lovColumnName) {
+                            var fieldPattern = lovColumnMap[lovColumnName];
+
+                            if (typeof (fieldPattern) === "string" && !DataHelper.isEmptyObject(fieldPattern) && ignoreColumnList.indexOf(lovColumnName) == -1) {
+                                var attributesWithPattern = DataHelper.getWordsBetweenCurlies(fieldPattern);
+
+                                if (!DataHelper.isEmptyObject(attributesWithPattern) && attributesWithPattern instanceof Array) {
+                                    for (var j = 0; j < attributesWithPattern.length; j++) {
+                                        var attributeName = DataHelper.readAttributeFromPattern(attributesWithPattern[j]);
+
+                                        // Replace Field Pattern with Values
+                                        fieldPattern = fieldPattern.replace(attributesWithPattern[j], DataHelper._getAttributeValue(entities[i], attributeName));
+                                    }
+
+                                    // Remove Curly Braces
+                                    formattedEntity[lovColumnName] = fieldPattern.replace(/[{}]/g, '');
+                                }
+                            } else {
+                                formattedEntity[lovColumnName] = DataHelper._getAttributeValue(entities[i], lovColumnMap[lovColumnName]);
+                            }
+                        });
+
+                        if (!DataHelper.isEmptyObject(formattedEntity)) {
+                            formattedEntities.push(formattedEntity);
+                        }
+                    } else {
+                        //if the array has a bad item (non-entity, or entity with no data) then mark it for delete
+                        entitiesToBeRemoved.push(i);
+                    }
+                }
+
+                entitiesToBeRemoved.forEach(function (entityToBeRemoved) {
+                    for (var i = 0; i < entities.length; i++) {
+                        if (entities[i].id === entityToBeRemoved) {
+                            var currentEntity = entities[i];
+                            entities.splice(currentEntity, 1);
+                        }
+                    }
+                });
+            }
+
+            return formattedEntities;
+        };
+
+        DataHelper._getAttributeValue = function (entity, attributeName) {
+            var attributeValue = "";
+
+            if (attributeName == "id") {
+                attributeValue = entity.id;
+            } else if (attributeName == "name") {
+                attributeValue = entity.name;
+            } else {
+                if (entity.data && entity.data.attributes) {
+                    var entityAttributes = entity.data.attributes;
+                    var attribute = DataHelper._transformEntityAttributesForLovSchema(entityAttributes, attributeName);
+                    attributeValue = !DataHelper.isEmptyObject(attribute) ? attribute.value : "";
+                }
+            }
+
+            return attributeValue;
+        }
+
         DataHelper._transformEntityAttributesForLovSchema = function (attributes, attributeName) {
             var attributeValueObject = {};
 
@@ -312,7 +383,7 @@
                 return;
             }
 
-            Object.keys(attributes).map(function (key) {
+             Object.keys(attributes).map(function (key) {
                 if (key == attributeName
                     && attributes[key].values
                     && attributes[key].values.length > 0) {
@@ -580,7 +651,7 @@
         DataHelper.validateGetModelsResponse = function (modelsResponse) {
             if (modelsResponse && modelsResponse.content &&
                 modelsResponse.content.entityModels && modelsResponse.content.entityModels
-                    .length >
+                .length >
                 0) {
 
                 return true;
@@ -711,12 +782,10 @@
             if (values) {
                 for (var i = 0; i < values.length; i++) {
                     var currentValue = values[i];
-                    if (valueContext.locale && currentValue.locale && currentValue.locale.toLowerCase() != valueContext.locale
-                        .toLowerCase()) {
+                    if (valueContext.locale && currentValue.locale && currentValue.locale.toLowerCase() != valueContext.locale.toLowerCase()) {
                         continue;
                     }
-                    if (valueContext.source && currentValue.source && currentValue.source.toLowerCase() != valueContext.source
-                        .toLowerCase()) {
+                    if (valueContext.source && currentValue.source && currentValue.source.toLowerCase() != valueContext.source.toLowerCase()) {
                         continue;
                     }
                     if (Array.isArray(currentValue.value)) //When save, already array, then no change
@@ -768,12 +837,50 @@
         };
 
         DataHelper.sort = function (arrayOfObjects, sortByProperty) {
-           if(arrayOfObjects && sortByProperty) {
-               return _.sortBy(arrayOfObjects, function(item){ return item[sortByProperty].toLowerCase(); });
-           }
+            if (arrayOfObjects && sortByProperty) {
+                return _.sortBy(arrayOfObjects, function (item) {
+                    return item[sortByProperty].toLowerCase();
+                });
+            }
 
-           return arrayOfObjects;
+            return arrayOfObjects;
         };
-    })();
 
+        DataHelper.readAttributeFromPattern = function (word) {
+            if (word.indexOf("entity.name") >= 0) {
+                return word.replace("entity.", "");
+            } else {
+                return word.replace("entity.attributes.", "");
+            }
+        }
+
+        DataHelper.getWordsBetweenCurlies = function (str) {
+            var results = [],
+                re = /{([^}]+)}/g,
+                text;
+
+            while (text = re.exec(str)) {
+                results.push(text[1]);
+            }
+            return results;
+        }
+
+        DataHelper.getAttributesBetweenCurlies = function (fieldPattern) {
+            var attributeNames = [];
+
+            var attributesWithPattern = DataHelper.getWordsBetweenCurlies(fieldPattern);
+            if (!DataHelper.isEmptyObject(attributesWithPattern) && attributesWithPattern instanceof Array) {
+                for (var j = 0; j < attributesWithPattern.length; j++) {
+                    var attributeWithPattern = attributesWithPattern[j];
+                    attributeNames.push(DataHelper.readAttributeFromPattern(attributeWithPattern));
+                }
+            }
+
+            return attributeNames;
+        }
+
+        DataHelper.isEmptyObject = function (obj) {
+            return _.isEmpty(obj);
+        }
+    })();
 </script>
