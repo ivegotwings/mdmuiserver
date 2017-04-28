@@ -71,11 +71,9 @@ function getAction(serviceName, status, operation) {
 
 module.exports = function (app) {
     app.post('/api/notify', function (req, res) {
-        if(notificationConfig.clientConfig.enableLogs) {
-            console.log('------------------ notification from RDF ------------------------------');
-            console.log(JSON.stringify(req.body));
-            console.log('-------------------------------------------------------------------\n\n');
-        }
+        // console.log('------------------ notification from RDF ------------------------------');
+        // console.log(JSON.stringify(req.body));
+        // console.log('-------------------------------------------------------------------\n\n');
 
         var notificationObject = req.body.notificationObject;
 
