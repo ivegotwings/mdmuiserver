@@ -1,4 +1,15 @@
 <link rel="import" href="../../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../../rock-saved-searches/rock-saved-searches-tags.html">
+
+<link rel="import" href="../../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../../bedrock-helpers/data-helper.html">
+<link rel="import" href="../../bedrock-helpers/context-helper.html">
+<link rel="import" href="../../bedrock-helpers/data-request-helper.html">
+
+<link rel="import" href="../../liquid-entity-model-get/liquid-entity-model-get.html">
+
 <dom-module id="my-todo-summary">
     <template>
         <style include="pebble-styles-shared">
@@ -73,18 +84,19 @@
                 <div class="to-do-body">Workflow : [[myTodo.workflow]]</div>
             </div>
             <div class="sub-content text-right m-r-10">
-                <div id="viewDetails" class="text-link" data="[[myTodo.assignedData]]" on-tap="_showHideDetails">
+                <div id="viewDetails" class="text-link" on-tap="_showHideDetails">
                     [[_detailsToggleText]] >>
                 </div>
             </div>
         </div>
         <div id="moreDetails" hidden="true">
-            <div id="unAssignedContainer" class="text-link" data="[[myTodo.unassignedData]]">
-                tags
-            </div>
+            tags
         </div>
         <div class="clearfix"></div>
         </div>
+
+        <liquid-entity-model-get id="businessConditionsGet" operation="getbyids" request-id="businessConditionsGet" on-response="_onBusinessConditionsGetResponse"
+            on-error="_onBusinessConditionsGetError"></liquid-entity-model-get>
     </template>
     <script>
         Polymer({
@@ -101,7 +113,7 @@
 
                 /**
                  * myTodo represents the data
-                 */
+                */
                 myTodo: {
                     type: Object,
                     notify: true,
@@ -136,40 +148,89 @@
                     if (moreDetails.hidden) {
                         moreDetails.hidden = false;
                         this._detailsToggleText = "Hide details";
+
+                        if (this.myTodo) {
+
+                        }
+
                     } else {
                         moreDetails.hidden = true;
                         this._detailsToggleText = "View details";
                     }
                 }
-            }
+            },
 
             /**
              * This is internal function used to fire an rock-my-todo-click when my-todo element is tapped
              */
-            // _onTapEvent: function (e) {
-            //     var workflowContextId = "";
-            //     if (Polymer.dom(e).path.indexOf(this.$.workflowMetadataContainer) !== -1) {
-            //         workflowContextId = this.$.workflowMetadataContainer.data;
-            //     }
+            _onActivityTap: function () {
+                var eventData = {
+                    name: "rock-my-todo-click",
+                    data: {
+                        wfcId: this.$.workflowMetadataContainer.data
+                    },
+                }
+                this.fire('bedrock-event', eventData);
+            },
 
-            //     if (Polymer.dom(e).path.indexOf(this.$.viewDetails) !== -1) {
-            //         workflowContextId = this.$.viewDetails.data;
-            //     }
+            _requestBusinessConditions: function () {
+                if (this._entityBusinessConditionNames.length) {
 
+                    var businessConditionsGet = this.$$('#businessConditionsGet');
+                    if (typeof (businessConditionsGet) === "undefined" || businessConditionsGet == null) {
+                        console.error("Element having id businessConditionsGet not found.");
+                        this._showMessage(this._errorMessage);
+                        return;
+                    }
 
+                    var clonedContextData = DataHelper.cloneObject(this.contextData);
 
-            //     // if (Polymer.dom(e).path.indexOf(this.$.unAssignedContainer) !== -1) {
-            //     //     workflowContextId = this.$.unAssignedContainer.data;
-            //     // }
+                    // Prepare ItemContext
+                    var itemContext = ContextHelper.getFirstItemContext(clonedContextData);
+                    itemContext.id = this._entityBusinessConditionNames;
+                    itemContext.type = "businessCondition";
+                    clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
 
-            //     // var eventData = {
-            //     //     name: "rock-my-todo-click",
-            //     //     data: {
-            //     //         wfcId: workflowContextId
-            //     //     },
-            //     // }
-            //     // this.fire('bedrock-event', eventData);
-            // }
+                    // Create Request and Get
+                    businessConditionsGet.requestData = DataRequestHelper.createEntityGetRequest(clonedContextData);
+                    businessConditionsGet.generateRequest();
+                }
+            },
+
+            _onBusinessConditionsGetResponse: function (e) {
+                var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response);
+
+                if (responseContent) {
+                    var businessConditions = responseContent.entityModels;
+
+                    if (typeof (businessConditions) !== "undefined" && businessConditions.length > 0) {
+                        for (var i = 0; i < businessConditions.length; i++) {
+                            var businessCondition = {};
+                            businessCondition["id"] = businessConditions[i].id;
+                            businessCondition["name"] = businessConditions[i].name;
+
+                            // LongNames are required for Displaying BusinessConditions
+                            var formattedBusinessCondition = this._entityBusinessConditionsGovernData.find(businessCondition => businessCondition.id === businessConditions[i].id);
+
+                            if (formattedBusinessCondition) {
+                                formattedBusinessCondition["name"] = businessConditions[i].name;
+                            }
+
+                            this.push("_originalBusinessConditions", businessCondition);
+                        }
+                    }
+
+                    this._prepareToFixData();
+                } else {
+                    console.error("EntityModelGetByIdsResponse Content not found.");
+                    this._showMessage(this._errorMessage);
+                }
+            },
+
+            _onBusinessConditionsGetError: function (e) {
+                console.error("EntityModelGetByIdsError:- " + e.detail.response.reason.message);
+                this._showMessage(this._errorMessage);
+            }
         });
     </script>
 </dom-module>
