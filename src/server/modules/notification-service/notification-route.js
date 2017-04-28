@@ -1,5 +1,6 @@
 'use strict';
 var notificationManager = require('../notification-engine/api/notification-manager');
+var notificationConfig = require('../notification-engine/config');
 var isEmpty = require('../common/utils/isEmpty');
 var enums = require('../../../shared/enums-util');
 
@@ -70,9 +71,11 @@ function getAction(serviceName, status, operation) {
 
 module.exports = function (app) {
     app.post('/api/notify', function (req, res) {
-        // console.log('------------------ notification from RDF ------------------------------');
-        // console.log(JSON.stringify(req.body));
-        // console.log('-------------------------------------------------------------------\n\n');
+        if(notificationConfig.clientConfig.enableLogs) {
+            console.log('------------------ notification from RDF ------------------------------');
+            console.log(JSON.stringify(req.body));
+            console.log('-------------------------------------------------------------------\n\n');
+        }
 
         var notificationObject = req.body.notificationObject;
 
