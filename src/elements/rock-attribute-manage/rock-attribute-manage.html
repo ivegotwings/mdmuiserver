@@ -77,14 +77,14 @@ It is responsible to get and save the attributes.
         <pebble-dialog id="errorsDialog" dialog-title="Errors on page">
             <p>Found below errors in entity details: </p>
             <ul>
-                <template is="dom-repeat" items="[[_errorMessages]]">
-                    <li>[[item.attributeName]] with error: [[item.message]]</li>
+                <template is="dom-repeat" items="[[_syncValidationErrors]]">
+                    <li>[[item.attributeExternalName]] with error: [[item.message]]</li>
                 </template>
             </ul>             
             <p>Do you want to fix the errors or continue?</p>  
             <div class="buttons">                
-                <paper-button dialog-confirm class="btn btn-secondary" on-tap="_skipErrors">Skip & Continue</paper-button>
-                <paper-button dialog-confirm class="btn btn-success">Fix</paper-button>
+                <paper-button dialog-confirm class="btn btn-secondary" on-tap="_skipServerErrors" >Skip & Continue</paper-button>
+                <paper-button dialog-confirm class="btn btn-success" on-tap="_fixServerErrors" >Fix</paper-button>
             </div>
         </pebble-dialog>
         <pebble-dialog id="cancelDialog" dialog-title="Confirmation">
@@ -267,7 +267,7 @@ It is responsible to get and save the attributes.
                         type: Object,
                         value: function() { return {}; }
                     },
-                    _errorMessages: {
+                    _syncValidationErrors: {
                         type: Array,
                         value: function() { return []; }
                     }
@@ -432,8 +432,7 @@ It is responsible to get and save the attributes.
                     var attributeList = Polymer.dom(this).node.$$('rock-attribute-list');
 
                     //If have errors return
-                    if(!this.allowSaveOnError && this._hasErrors(attributeList))
-                    {
+                    if(!this.allowSaveOnError && attributeList.hasModelErrors()) {
                         this.showErrorToast("Cannot save the entity, please resolve the errors.");
                         return;
                     }
@@ -498,24 +497,6 @@ It is responsible to get and save the attributes.
                     if (liquidSave) {
                         liquidSave.generateRequest();
                     }
-                },
-                _hasErrors: function(attributeList) {
-                    var _attributes = [];
-
-                    if(attributeList)
-                    {
-                        _attributes = Polymer.dom(attributeList.root).querySelectorAll('rock-attribute');
-                    }                    
-
-                    for (var i = 0; i < _attributes.length; i++)
-                    {
-                        if(_attributes[i].validationErrors.length > 0)
-                        {
-                            return true;
-                        }
-                    }
-
-                    return false;
                 },
                 _onSaveResponse: function (e) {
                     var mainApp = document.querySelector('#app');
@@ -585,7 +566,7 @@ It is responsible to get and save the attributes.
                         }                      
                         if(!_.isEmpty(attrMessages)) {
                             var errorMessages = MessageHelper.getErrorsFromAttrMessages(attrMessages, this._attributeModels);
-                            this.set("_errorMessages", errorMessages);
+                            this.set("_syncValidationErrors", errorMessages);
                             this.$$('#errorsDialog').open();
                             return;
                         } else {
@@ -600,8 +581,26 @@ It is responsible to get and save the attributes.
                     console.warn('Failed in validation service with errors ', JSON.stringify(e));
                     this.showErrorToast("There is a problem in validation service. Please contact administrator.");
                 },
-                _skipErrors: function() {
+                _skipServerErrors: function() {
                     this._saveEntity();
+                },
+                _fixServerErrors: function() {
+                    if(this._syncValidationErrors) {
+                        var newAttributeMessages = {};
+                        for(var i=0;i<this._syncValidationErrors.length;i++) {
+                            var attributeMessages = this._syncValidationErrors[i];
+                            var attributeName = attributeMessages.attributeName;
+                            var message = attributeMessages.message;
+                            if(attributeName && message) {
+                                var newMessages = [];
+                                newAttributeMessages[attributeName] = newMessages;
+                                if(newMessages.indexOf(message) < 0) {
+                                    newMessages.unshift(message);
+                                }
+                            }
+                        }
+                    }
+                    this.set('_attributeMessages', newAttributeMessages);
                 },
                 /**
                  * Can be used to get the elements if they are dirty.
