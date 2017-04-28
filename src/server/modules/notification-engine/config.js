@@ -1,6 +1,5 @@
 var clientConfig = {
-    "url": "http://localhost:5005",
-    "isDevEnvironment": false
+    "url": "http://localhost:5005"
 }
 
 module.exports = {
