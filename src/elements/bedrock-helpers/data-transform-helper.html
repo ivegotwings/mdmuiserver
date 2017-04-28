@@ -580,7 +580,9 @@
                             } else {
                                 if (entities[i].data) {
                                     attributeValue = DataTransformHelper._transformEntityAttributesForLovSchema(entities[i].data.attributes, lovColumnNameValueCollection[columnName]);
-                                    formattedEntity[columnName] = attributeValue.value;
+                                    if(attributeValue && attributeValue.value){
+                                        formattedEntity[columnName] = attributeValue.value;
+                                    }
                                 }
                             }
                         });
@@ -642,7 +644,9 @@
                                 var data = entityModels[i].data;
                                 if (typeof (data) !== "undefined") {
                                     attributeValue = DataTransformHelper._transformEntityAttributesForLovSchema(data.contexts, lovColumnNameValueCollection[columnName]);
-                                    formattedEntityModel[columnName] = attributeValue.value;
+                                    if(attributeValue && attributeValue.value){
+                                        formattedEntityModel[columnName] = attributeValue.value;
+                                    }
                                 }
                             }
                         });
@@ -687,7 +691,7 @@
         DataTransformHelper._transformEntityAttributesForLovSchema = function (attributes, attributeName) {
             var attributeValueObject = {};
 
-            if (!attributes) {
+            if (!attributes || _.isEmpty(attributes)) {
                 return;
             }
 
@@ -726,6 +730,83 @@
             }
         };
 
+        DataTransformHelper.transformReferenceEntitySchemaToLovSchema = function (entities, lovColumnMap, contextData) {
+            // Note: We will go by the assumption that id or value field is going to be unique
+            //       if id or name is provided do not put it into attributesWithPattern fields
+
+            var formattedEntities = [];
+            var ignoreColumnList = ["id", "image", "color", "type"];
+
+            if (entities && entities.length) {
+                var entitiesToBeRemoved = [];
+
+                for (var i = 0; i < entities.length; i++) {
+                    if (typeof (entities[i]) === "object") {
+                        var formattedEntity = {};
+
+                        Object.keys(lovColumnMap).map(function (lovColumnName) {
+                            var fieldPattern = lovColumnMap[lovColumnName];
+
+                            if (typeof (fieldPattern) === "string" && !DataHelper.isEmptyObject(fieldPattern) && ignoreColumnList.indexOf(lovColumnName) == -1) {
+                                var attributesWithPattern = DataHelper.getWordsBetweenCurlies(fieldPattern);
+
+                                if (!DataHelper.isEmptyObject(attributesWithPattern) && attributesWithPattern instanceof Array) {
+                                    for (var j = 0; j < attributesWithPattern.length; j++) {
+                                        var attributeName = DataHelper.readAttributeFromPattern(attributesWithPattern[j]);
+
+                                        // Replace Field Pattern with Values
+                                        var attributeValue = DataTransformHelper._getAttributeValue(entities[i], attributeName, lovColumnName, contextData);
+                                        fieldPattern = fieldPattern.replace(attributesWithPattern[j], attributeValue);
+                                    }
+
+                                    // Remove Curly Braces
+                                    formattedEntity[lovColumnName] = fieldPattern.replace(/[{}]/g, '');
+                                }
+                            } else {
+                                formattedEntity[lovColumnName] = DataTransformHelper._getAttributeValue(entities[i], lovColumnMap[lovColumnName], lovColumnName, contextData);
+                            }
+                        });
+
+                        if (!DataHelper.isEmptyObject(formattedEntity)) {
+                            formattedEntities.push(formattedEntity);
+                        }
+                    } else {
+                        //if the array has a bad item (non-entity, or entity with no data) then mark it for delete
+                        entitiesToBeRemoved.push(i);
+                    }
+                }
+
+                entitiesToBeRemoved.forEach(function (entityToBeRemoved) {
+                    for (var i = 0; i < entities.length; i++) {
+                        if (entities[i].id === entityToBeRemoved) {
+                            var currentEntity = entities[i];
+                            entities.splice(currentEntity, 1);
+                        }
+                    }
+                });
+            }
+
+            return formattedEntities;
+        };
+
+        DataTransformHelper._getAttributeValue = function (entity, attributeName, lovColumnName, contextData) {
+            var attributeValue = "";
+
+            if(["id", "name"].indexOf(lovColumnName) >= 0) {
+                // Properties
+                attributeValue = DataHelper.getValue(entity, attributeName);
+            } else {
+                // Attribute
+                var attributeValues = DataHelper.getValue(entity, attributeName);
+                var firstValueContext = ContextHelper.getFirstValueContext(contextData);
+                var contextualValues = AttributeHelper.getAttributeValues(attributeValues.values, firstValueContext);
+                if (contextualValues && contextualValues instanceof Array && contextualValues.length > 0) {
+                    attributeValue = contextualValues[0];
+                }
+            }
+
+            return attributeValue;
+        }
     })();
 
 </script>
