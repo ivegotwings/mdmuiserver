@@ -33,7 +33,6 @@ var DFServiceBase = function (options) {
             if (securityContext.headers) {
                 this._headers["x-rdp-clientid"] = securityContext.headers.clientId || "";
                 this._headers["x-rdp-tenantid"] = tenantId;
-                this._headers["x-rdp-vendorname"] = securityContext.headers.vendorName || "";
                 this._headers["x-rdp-ownershipdata"] = securityContext.headers.ownershipData || "";
                 this._headers["x-rdp-userid"] = userId || "";
                 this._headers["x-rdp-username"] = securityContext.headers.userName || "";
@@ -59,10 +58,8 @@ var DFServiceBase = function (options) {
             timeout: this._timeout
         };
 
-        // console.log('------------------RDF CALL ------------------------------');
-        // console.log(JSON.stringify(options, null, 4));
-        // console.log('-----------------------------------------------------------------\n\n');
-
+        //var hrstart = process.hrtime();
+                
         var reqPromise = this._restRequest(options)
             .catch(function (errors) {
                 var err = {
@@ -78,7 +75,15 @@ var DFServiceBase = function (options) {
                 console.error(err); // This will print any error that was thrown in the previous error handler.
             });
 
-        return await reqPromise;
+        var result = await reqPromise;
+
+        // console.log('------------------RDF CALL ------------------------------');
+        // var hrend = process.hrtime(hrstart);
+        // options.taken = hrend[1]/1000000;
+        // console.log(JSON.stringify(options, null, 2));
+        // console.log('-----------------------------------------------------------------\n\n');
+
+        return result;
     };
 
     //console.log('Data platform service instance initiated with ', JSON.stringify({options: options, baseUrl: this.baseUrl}, null, 4));
