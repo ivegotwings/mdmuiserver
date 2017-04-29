@@ -1,12 +1,12 @@
 <link rel="import" href="../../../../bower_components/polymer/polymer.html">
 
-<link rel="import" href="../../rock-saved-searches/rock-saved-searches-tags.html">
-
 <link rel="import" href="../../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 <link rel="import" href="../../bedrock-helpers/data-helper.html">
 <link rel="import" href="../../bedrock-helpers/context-helper.html">
 <link rel="import" href="../../bedrock-helpers/data-request-helper.html">
+
+<link rel="import" href="../../pebble-button/pebble-button.html">
 
 <link rel="import" href="../../liquid-entity-model-get/liquid-entity-model-get.html">
 
@@ -73,30 +73,81 @@
             .border-left-6 {
                 background: rgba(238, 32, 76, 1);
             }
+            
+            pebble-button.action {
+                display: inline-block;
+                margin-right: 7px;
+                --pebble-button: {
+                    height: 30px !important;
+                    border-left: 1px solid var(--palette-cerulean);
+                    border-top: 1px solid var(--palette-cerulean);
+                    border-bottom: 1px solid var(--palette-cerulean);
+                    color: var(--palette-cerulean);
+                    font-size: var(--default-font-size, 14px);
+                }
+                --pebble-button-iron-icon: {
+                    padding: 0 5px 0 0;
+                }
+                --pebble-menu-button: {
+                    height: 30px !important;
+                    border-top: 1px solid var(--palette-cerulean);
+                    border-right: 1px solid var(--palette-cerulean);
+                    border-bottom: 1px solid var(--palette-cerulean);
+                    background: #FFFFFF;
+                    box-sizing: border-box;
+                }
+                --actions-icon-button: {
+                    height: 16px;
+                    width: 16px;
+                    background: #FFFFFF;
+                    color: var(--palette-cerulean);
+                    padding: 0 !important;
+                    margin: 0 5px;
+                    top: -2px;
+                }
+                --pebble-button-paper-menu: {
+                    background: #FFFFFF;
+                }
+                --pebble-button-paper-menu-item: {
+                    background: #FFFFFF;
+                    color: var(--palette-cerulean);
+                    padding: 0px 8px;
+                }
+            }
         </style>
-        <div class="list-item row layout-middle" on-tap="_onTapEvent">
+        <div class="list-item row layout-middle">
             <div class$="{{_computeClass(myTodo.status)}} todo-status"></div>
-            <div class="circle">
-                <!--[[myToDo.numberOfTasks]] -->
-            </div>
-            <div id="workflowMetadataContainer" class="content-div list-content" data="[[myTodo.workflowData]]">
-                <div class="to-do-name block-text">[[myTodo.name]]</div>
-                <div class="to-do-body">Workflow : [[myTodo.workflow]]</div>
-            </div>
-            <div class="sub-content text-right m-r-10">
-                <div id="viewDetails" class="text-link" on-tap="_showHideDetails">
-                    [[_detailsToggleText]] >>
+            <div class="list-item row layout-middle" on-tap="_onTapEvent">
+
+                <div class="circle">
+                    <!--[[myToDo.numberOfTasks]] -->
+                </div>
+                <div id="workflowMetadataContainer" class="content-div list-content" data="[[myTodo.workflowData]]">
+                    <div class="to-do-name block-text">[[myTodo.name]]</div>
+                    <div class="to-do-body">Workflow : [[myTodo.workflow]]</div>
+                </div>
+                <div class="sub-content text-right m-r-10">
+                    <div id="viewDetails" class="text-link" on-tap="_showHideDetails">
+                        [[_detailsToggleText]] >>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div id="moreDetails" hidden="true">
-            tags
+            <div id="moreDetails" hidden="true">
+                <template is="dom-repeat" items="[[_businessConditionButtons]]" as="businessCondition">
+                    <pebble-button class="action" noink raised action-menu elevation="0" horizontal-align="right" vertical-align="top" button-text="[[businessCondition.name]]"
+                        data="[[businessCondition]]">
+                    </pebble-button>
+                </template>
+            </div>
         </div>
         <div class="clearfix"></div>
         </div>
 
-        <liquid-entity-model-get id="businessConditionsGet" operation="getbyids" request-id="businessConditionsGet" on-response="_onBusinessConditionsGetResponse"
-            on-error="_onBusinessConditionsGetError"></liquid-entity-model-get>
+        <liquid-entity-model-get id="initBusinessConditionsGet" operation="initiatesearch" last-response="{{initBusinessConditionsGet}}"
+            on-response="_onInitBusinessConditionsGetResponse" on-error="_onInitBusinessConditionsGetError"></liquid-entity-model-get>
+
+        <liquid-entity-model-get id="businessConditionsGet" operation="getsearchresultdetail" request-id="[[initBusinessConditionsGet.content.requestId]]"
+            on-response="_onBusinessConditionsGetResponse" on-error="_onBusinessConditionsGetError"></liquid-entity-model-get>
     </template>
     <script>
         Polymer({
@@ -123,6 +174,20 @@
                 _detailsToggleText: {
                     type: String,
                     value: 'View details'
+                },
+
+                _contexts: {
+                    type: Array,
+                    value: function () {
+                        return ['self/sku_ruleContextMappings', 'self/lot_ruleContextMappings']
+                    }
+                },
+
+                _businessConditionButtons: {
+                    type: Array,
+                    value: function () {
+                        return [];
+                    }
                 }
             },
 
@@ -148,9 +213,59 @@
                     if (moreDetails.hidden) {
                         moreDetails.hidden = false;
                         this._detailsToggleText = "Hide details";
+                        this._businessConditionButtons = [];
+                        var contexts = [];
+                        this._contexts.forEach(function (element) {
+                            contexts.push({
+                                "self": element,
+                                "workflow": this.myTodo.workflowName
+                            });
+                        }, this);
 
                         if (this.myTodo) {
-                            this._requestBusinessConditions();
+                            var req = {
+                                "params": {
+                                    "query": {
+                                        "contexts": contexts,
+                                        "filters": {
+                                            "typesCriterion": [
+                                                "ruleContextMappings"
+                                            ],
+                                            "relationshipsCriterion": [
+                                                {
+                                                    "hasBusinessConditions": {
+                                                        "attributes": [
+                                                            {
+                                                                "stepName": {
+                                                                    "eq": this.myTodo.name
+                                                                }
+                                                            }
+                                                        ]
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "fields": {
+                                        "relationships": [
+                                            "hasBusinessConditions"
+                                        ],
+                                        "relationshipAttributes": [
+                                            "stepName"
+                                        ]
+                                    }
+                                }
+                            };
+
+                            var initBusinessConditionsGet = this.$$('#initBusinessConditionsGet');
+
+                            if (typeof (initBusinessConditionsGet) === "undefined" || initBusinessConditionsGet == null) {
+                                console.error("Element having id initBusinessConditionsGet not found.");
+                                return;
+                            }
+
+                            initBusinessConditionsGet.requestData = req;
+                            initBusinessConditionsGet.generateRequest();
                         }
 
                     } else {
@@ -173,15 +288,20 @@
                 this.fire('bedrock-event', eventData);
             },
 
-            _requestBusinessConditions: function () {
+            _onInitBusinessConditionsGetResponse: function () {
+
+                var contexts = [];
+                this._contexts.forEach(function (element) {
+                    contexts.push({
+                        "self": element,
+                        "workflow": this.myTodo.workflowName
+                    });
+                }, this);
+
                 var req = {
                     "params": {
                         "query": {
-                            "contexts": [
-                                {
-                                    "workflow": this.myTodo.workflowName
-                                }
-                            ],
+                            "contexts": contexts,
                             "filters": {
                                 "typesCriterion": [
                                     "ruleContextMappings"
@@ -211,6 +331,7 @@
                         }
                     }
                 };
+
                 var businessConditionsGet = this.$$('#businessConditionsGet');
                 if (typeof (businessConditionsGet) === "undefined" || businessConditionsGet == null) {
                     console.error("Element having id businessConditionsGet not found.");
@@ -224,28 +345,47 @@
 
             _onBusinessConditionsGetResponse: function (e) {
                 var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response);
-                debugger;
                 if (responseContent) {
-                    var businessConditions = responseContent.entityModels;
+                    var ruleContextMappings = responseContent.entityModels;
 
-                    if (typeof (businessConditions) !== "undefined" && businessConditions.length > 0) {
-                        for (var i = 0; i < businessConditions.length; i++) {
-                            var businessCondition = {};
-                            businessCondition["id"] = businessConditions[i].id;
-                            businessCondition["name"] = businessConditions[i].name;
+                    if (ruleContextMappings && ruleContextMappings.length) {
+                        var firstRuleContextMapping = ruleContextMappings[0];
 
-                            // LongNames are required for Displaying BusinessConditions
-                            var formattedBusinessCondition = this._entityBusinessConditionsGovernData.find(businessCondition => businessCondition.id === businessConditions[i].id);
+                        if (firstRuleContextMapping && firstRuleContextMapping.data) {
+                            var contextBaseMappings = firstRuleContextMapping.data.contexts;
 
-                            if (formattedBusinessCondition) {
-                                formattedBusinessCondition["name"] = businessConditions[i].name;
+                            if (contextBaseMappings && contextBaseMappings.length) {
+                                var businessConditions = [];
+                                contextBaseMappings.forEach(function (ctxMapping) {
+                                    if (ctxMapping && ctxMapping.relationships) {
+                                        var hasBusinessConditions = ctxMapping.relationships['hasBusinessConditions'];
+
+                                        if (hasBusinessConditions && hasBusinessConditions.length) {
+                                            hasBusinessConditions.forEach(function (businessCondition) {
+                                                if (businessCondition && businessCondition.attributes) {
+                                                    var stepNameAttr = businessCondition.attributes['stepName'];
+
+                                                    if (stepNameAttr) {
+                                                        var value = AttributeHelper.getFirstAttributeValue(stepNameAttr);
+
+                                                        if (value && value == this.myTodo.name) {
+                                                            businessConditions.push({
+                                                                "id": businessCondition.relTo.id,
+                                                                "name": businessCondition.relTo.name
+                                                            });
+                                                        }
+
+                                                    }
+                                                }
+                                            }, this);
+                                        }
+                                    }
+                                }, this);
+                                this._prepareBusinessConditions(businessConditions);
                             }
-
-                            this.push("_originalBusinessConditions", businessCondition);
                         }
                     }
 
-                    this._prepareToFixData();
                 } else {
                     console.error("EntityModelGetByIdsResponse Content not found.");
                     this._showMessage(this._errorMessage);
@@ -255,6 +395,12 @@
             _onBusinessConditionsGetError: function (e) {
                 console.error("EntityModelGetByIdsError:- " + e.detail.response.reason.message);
                 this._showMessage(this._errorMessage);
+            },
+
+            _prepareBusinessConditions: function (businessConditions) {
+                if (businessConditions && businessConditions.length) {
+                    this._businessConditionButtons = businessConditions;
+                }
             }
         });
     </script>
