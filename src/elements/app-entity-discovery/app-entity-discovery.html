@@ -378,13 +378,11 @@
                         type: Array,
                         value: function () { return []; }
                     },
-                    _failedEntities: {
-                        type: Number,
-                        value: 0
-                    },
-                    _doneEntities: {
-                        type: Number,
-                        value: 0
+                    selectedEntityIds:{
+                        type:Array,
+                        value:function(){
+                            return [];
+                        }
                     },
                     _selectedSearchFilters: {
                         type: Array,
@@ -397,6 +395,18 @@
                         value: false
                     },
                     _failedEntityTypes:{
+                        type:Array,
+                        value:function(){
+                            return [];
+                        }
+                    },
+                    failedEntityIds:{
+                        type:Array,
+                        value:function(){
+                            return [];
+                        }
+                    },
+                    successEntityIds:{
                         type:Array,
                         value:function(){
                             return [];
@@ -837,6 +847,9 @@
                     this.$$('#actionsPopover').show();
                 },
                 _onActionItemTap: function (e, detail, sender) {
+                    this.successEntityIds = [];
+                    this.failedEntityIds  = [];
+                    this.selectedEntityIds = [];
                     this._currentEntityIndex = 0;
                     var searchGrid = this.$$("#entitySearchGrid");
                     if (searchGrid && searchGrid.selectedItems && searchGrid.selectedItems.length > 0) {
@@ -845,6 +858,13 @@
                             return;
                         } else {
                             this._selectedEntities = searchGrid.selectedItems;
+                            var selectedEntityIds = [];
+                            for(var i in searchGrid.selectedItems){
+                                if(searchGrid.selectedItems[i].id){
+                                    selectedEntityIds.push(searchGrid.selectedItems[i].id);
+                                }
+                            }
+                            this.set('selectedEntityIds',selectedEntityIds)
                         }
                     } else {
                         this.showErrorToast("Select atleast one entity for which you want to perform this action.");
@@ -892,29 +912,47 @@
                 },
                  _onAssignmentSuccess: function(e) {
                     var response = e.detail.response;
-                    if (response && response.response && response.response.status && response.response.status.toLowerCase() == "success" && response.response.statusDetail) {
+                    var failedEntityIds = this.failedEntityIds;
+                    var successEntityIds = this.successEntityIds;
+                    var requestId;
+                    if(e.detail.request && e.detail.request.requestData && e.detail.request.requestData.entity && e.detail.request.requestData.entity.id){
+                        requestId = e.detail.request.requestData.entity.id;
+                    }
+                    if (requestId && response && response.response && response.response.status && response.response.status.toLowerCase() == "success" && response.response.statusDetail) {
                         var statusDetail = response.response.statusDetail;
-                        if (statusDetail.messages && statusDetail.messages.length > 0) {
-                            this._failedEntities++;
+                        if (failedEntityIds.indexOf(requestId)<0 && statusDetail.messages && statusDetail.messages.length > 0) {
                             var _failedEntityTypes = this._failedEntityTypes;
+                            this.push('failedEntityIds',requestId);
                             if(_failedEntityTypes.indexOf(this._selectedEntities[this._currentEntityIndex].type) < 0 ){
                                 this.push('_failedEntityTypes',this._selectedEntities[this._currentEntityIndex].type)
                             }
-                        } else if(statusDetail.message) {
-                            this._doneEntities++;
+                        } else if(successEntityIds.indexOf(requestId) < 0 && statusDetail.message) {
+                            this.push('successEntityIds',requestId);
                         }
                     this._currentEntityIndex++;
                     }
                     if (this._currentEntityIndex < this._selectedEntities.length) {
                         this._generateAssignmentRequest();
+                    } else if(response && response.response && response.response.status && response.response.status.toLowerCase() == "success" && response.response.statusDetail) {
+                            var stringifiedSelectedEntityIds = JSON.stringify(this.selectedEntityIds);
+                            var stringifiedsuccessEntityIds;
+                            var stringifiedfailedEntityIds;
+                            if(this.successEntityIds){
+                                stringifiedsuccessEntityIds = JSON.stringify(this.successEntityIds)
+                            }
+                            if(this.failedEntityIds){
+                                stringifiedfailedEntityIds  =  JSON.stringify(this.failedEntityIds) 
+                            }                         }
+                        if ( stringifiedSelectedEntityIds == stringifiedsuccessEntityIds) {
+                            this.showSuccessToast("{0} action of step {1} as part of the {2} for the selected entities is completed successfully.".format(this._currentWorkflowAction, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName),10000);
+                      } else if(stringifiedSelectedEntityIds == stringifiedfailedEntityIds) {
+                            this.showErrorToast("{0} action of step {1} as part of the {2} for the selected entities is failed. Please contact your administrator.".format(this._currentWorkflowAction, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName),10000);
                     } else {
-                        if (this._selectedEntities.length == this._doneEntities) {
-                            this.showSuccessToast("{0} action of step {1} as part of the {2} for the selected entities is completed successfully.".format(this._currentWorkflowAction, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName));
-                      } else if(this._selectedEntities.length == this._failedEntities) {
-                            this.showErrorToast("{0} action of step {1} as part of the {2} for the selected entities is failed. Please contact your administrator.".format(this._currentWorkflowAction, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName));
-                    } else {
-                            this.showSuccessToast("Some {0} you are trying to assign to yourself for {1} as part of the {2} business process could not be assigned to you as you do not have permissions as part of this workflow step to take the {0} for assignment. Please contact your business administrator if you need to be assigned to a different role.".format(this._failedEntityTypes,this._workflowCriterion.workflowActivityName,this._workflowCriterion.workflowName));
+                            this.showSuccessToast("Some {0} you are trying to assign to yourself for {1} as part of the {2} business process could not be assigned to you as you do not have permissions as part of this workflow step to take the {3} for assignment. Please contact your business administrator if you need to be assigned to a different role.".format(this._failedEntityTypes,this._workflowCriterion.workflowActivityName,this._workflowCriterion.workflowName,this._failedEntityTypes),10000);
                         }
+                    }
+                    else{
+                        this.showErrorToast("There is some problem with the server.Please try again after some time");
                     }
                 },
                 _onAssignmentFailure: function (e) {
