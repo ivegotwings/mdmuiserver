@@ -56,7 +56,7 @@ var _updateRequestObject = function (request) {
     var clientUrl = "";
 
     if (callerContext) {
-        clientUrl = callerContext.protocol + "//" + callerContext.hostName + "/api/notify";
+        clientUrl = "http://" + callerContext.hostName + ":5005/api/notify";
     }
 
     if (notifyUtil) {
