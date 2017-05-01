@@ -13,6 +13,7 @@
 <link rel="import" href="../rock-grid/rock-grid.html">
 <link rel="import" href="../rock-entity-search-filter/rock-entity-search-filter.html">
 
+<link rel="import" href="job-entity-detail-datasource.html">
 <!--
 `<rock-job-entity-detail-grid>`
 
@@ -41,7 +42,12 @@
         </style>
             <!--TODO remove these iron-ajax after api integration-->
             <iron-ajax auto url="demo/data.json" handle-as="json" last-response="{{data}}"></iron-ajax>
-            <rock-grid id="entityGrid" selection-enabled no-header data="{{data}}" config="{{gridConfig}}" page-size="10" selecting-item="{{selectedEntity}}"></rock-grid>
+
+            <rock-grid id="entityGrid" selection-enabled no-header data="{{data}}"
+                   config="{{gridConfig}}" record-size="{{totalRecords}}" grid-data-size="{{size}}"  page-size="10"
+                   selected-item="{{selectedEntity}}" total-count="{{totalCount}}" max-configured-count="[[maxConfiguredCount]]"></rock-grid>
+            <job-entity-detail-datasource id="entityGridDataSource" request="{{request}}" data-source="{{dataSource}}" data-formatter="{{dataFormatter}}"
+                                       current-record-size="{{size}}" total-records="{{totalRecords}}" total-count="{{totalCount}}"></job-entity-detail-datasource>
             <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="entityGrid"></bedrock-pubsub>
     </template>
 
@@ -59,14 +65,48 @@
                             return {};
                         },
                         notify:true
+                    },
+                    request: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    gridConfig:{
+                        type:Object,
+                        value:function () {
+                            return {};
+                        }
                     }
-
                 },
                 behaviors: [
                     RUFBehaviors.UIBehavior
                 ],
-                listeners: {
+                observers: [
+                   '_gridConfigChanged(gridConfig,contextData)'
 
+                ],
+                _gridConfigChanged:function (gridConfig,contextData) {
+                    if(!gridConfig || _.isEmpty(gridConfig) || !contextData || _.isEmpty(contextData)){
+                        return;
+                    }
+                    var attributes=[];
+                    if(gridConfig.dataRequest){
+                        attributes=gridConfig.dataRequest.attributes;
+                    }
+                    var clonedContextData=DataHelper.cloneObject(contextData);
+                    clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM]=[{"type":"requestObject"}];
+                    var req=DataRequestHelper.createEntityGetRequest(clonedContextData);
+                    req.params.fields.attributes=attributes;
+                    req.params.query.filters.attributesCriterion=[
+                        {
+                            "taskId": {
+                                "eq": this.id
+                            }
+                        }
+                    ];
+                    this.set('request',req);
+                    this._getEntityGrid().reRenderGrid();
                 },
                 _getEntityGrid:function () {
                     return ElementHelper.getElement(this, "#entityGrid");

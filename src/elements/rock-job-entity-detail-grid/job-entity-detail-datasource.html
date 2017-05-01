@@ -1,0 +1,150 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-grid-datasource-behavior/bedrock-grid-datasource-behavior.html">
+
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+
+<dom-module id="job-entity-detail-datasource">
+    <template>
+        <liquid-entity-data-get id="initiateSearchResult" operation="initiatesearch" request-data="[[request]]" last-response="{{_initSearchResponse}}"
+                                exclude-in-progress></liquid-entity-data-get>
+        <liquid-entity-data-get id="getSearchResultDetail" operation="getsearchresultdetail" request-data="[[request]]" request-id="[[_initSearchResponse.content.requestId]]"
+                                last-response="{{searchResultResponse}}" exclude-in-progress></liquid-entity-data-get>
+    </template>
+    <script>
+        Polymer({
+            is: 'job-entity-detail-datasource',
+            properties: {
+                _liquidInitSearchElement: {
+                    type: Object,
+                    value: function () {
+                        return {}
+                    }
+                },
+
+                _liquidGetSearchElement: {
+                    type: Object,
+                    value: function () {
+                        return {}
+                    }
+                },
+
+                _isRequestInitiated: {
+                    type: Boolean,
+                    value: false
+                },
+
+                _options: {
+                    type: Object,
+                    value: function () {
+                        return {}
+                    }
+                },
+                _totalCount:{
+                    type:Number,
+                    notify:true,
+                    value: 0
+                }
+            },
+
+            behaviors: [
+                RUFBehaviors.GridDataSourceBehavior
+            ],
+
+            ready: function () {
+                this._liquidInitSearchElement = Polymer.dom(this).node.$$(
+                    "liquid-entity-data-get[id='initiateSearchResult']");
+                this._liquidGetSearchElement = Polymer.dom(this).node.$$(
+                    "liquid-entity-data-get[id='getSearchResultDetail']");
+
+                this.dataSource = this._dataSource.bind(this);
+            },
+
+            resetDataSource: function() {
+                this._isRequestInitiated = false;
+                this._resetDataSource();
+            },
+
+            _dataSource: function (data, success, error) {
+                // Bind Reponse Methods
+                DataHelper.oneTimeEvent(this._liquidInitSearchElement, 'response', this._onInitSearchResponse.bind(
+                    this));
+
+                DataHelper.oneTimeEvent(this._liquidGetSearchElement, 'response', this._onGetSearchResponse.bind(
+                    this, success, error));
+
+                // Set Options
+                this._options = data;
+                if(data.filter && data.filter.length){
+                    var attributesCriterion=this._createAttributesCriterion(data.filter);
+                    var taskCriteria=this.request.query.filters.attributesCriterion.find(function (attrCriteria) {
+                            return attrCriteria.taskId;
+                    });
+                    if(taskCriteria){
+                        attributesCriterion.push(taskCriteria);
+                    }
+                    this.set("request.params.query.filters.attributesCriterion", attributesCriterion);
+                }
+                if(data.sortOrder && data.sortOrder.length){
+                    var sortCriterion =this._createSortCriterion(data.filter);
+                    this.set("request.params.sort.attributes", sortCriterion);
+                }
+                // Set Range
+                var requestOptions = this._prepareRequestOptions(this._options);
+                this.set("request.params.options", requestOptions);
+
+                // Initiate Request only for First Time.
+                if (!this._isRequestInitiated) {
+                    this._liquidInitSearchElement.generateRequest();
+                } else {
+                    this._liquidGetSearchElement.generateRequest();
+                }
+            },
+            _createAttributesCriterion:function (filter) {
+                var attrsCriterion=[];
+                for(var i=0;i<filter.length;i++){
+                    var criteria={};
+                    criteria[filter[i].path]={"eq":filter[i].filter};
+                    attrsCriterion.push(criteria);
+                }
+                return attrsCriterion;
+            },
+            _createSortCriterion:function (sortOrder) {
+                var sortCriterion=[];
+                for(var i=0;i<sortOrder.length;i++){
+                    var criteria={};
+                    criteria[sortOrder[i].path]=sortOrder[i].direction=="desc"?"_DESC":"_ASC";
+                    sortCriterion.push(criteria);
+                }
+                return sortCriterion;
+            },
+            _onInitSearchResponse: function (e) {
+                this._totalCount=e.detail.response.content.totalRecords;
+                this._liquidGetSearchElement.generateRequest();
+                this._isRequestInitiated = true;
+            },
+
+            _onGetSearchResponse: function (success, error) {
+                if (this._lastPage < this._options.page) {
+                    if(this.searchResultResponse.status == "success") {
+                        // Format ResponseData
+                        var searchResults = this._formatResponse(this.searchResultResponse);
+                        if (typeof (searchResults) == 'undefined') {
+                            searchResults = [];
+                        }
+
+                        // UpdateCurrent RecordSize
+                        this._updateCurrentRecordSize(this._options, searchResults,this._totalCount);
+
+                        // Invoke Callback
+                        success(searchResults);
+                    } else {
+                        error();
+                    }
+                }
+            }
+
+        });
+    </script>
+</dom-module>
