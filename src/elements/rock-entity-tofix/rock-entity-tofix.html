@@ -17,6 +17,8 @@
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
 
+<link rel="import" href="../rock-business-function-dialog/rock-business-function-dialog.html">
+
 <!--
 `<rock-entity-tofix>` Represents an element that displays the errors, warnings, and information 
 of an entity as a list.
@@ -116,7 +118,7 @@ Custom property | Description | Default
 
         <liquid-entity-model-get id="businessConditionsGet" operation="getbyids" request-id="businessConditionsGet" on-response="_onBusinessConditionsGetResponse"
             on-error="_onBusinessConditionsGetError"></liquid-entity-model-get>
-
+        <rock-business-function-dialog id="attributeDialog"></rock-business-function-dialog>
         <div class="tofix-data-container">
             <pebble-spinner active="[[!_isToFixDataExists]]"></pebble-spinner>
             <template is="dom-if" if="[[_isToFixDataExists]]">
@@ -430,6 +432,11 @@ Custom property | Description | Default
                     var itemContext = ContextHelper.getFirstItemContext(clonedContextData);
                     itemContext.id = this._entityBusinessConditionNames;
                     itemContext.type = "businessCondition";
+                    if(!itemContext.attributes){
+                        itemContext.attributes=["impactAttributes"];
+                    } else {
+                        itemContext.attributes.push("impactAttributes");
+                    }
                     clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
 
                     // Create Request and Get
@@ -443,13 +450,27 @@ Custom property | Description | Default
 
                 if (responseContent) {
                     var businessConditions = responseContent.entityModels;
+                    var dataContext = ContextHelper.getFirstDataContext(this.contextData);
 
                     if (typeof (businessConditions) !== "undefined" && businessConditions.length > 0) {
                         for (var i = 0; i < businessConditions.length; i++) {
                             var businessCondition = {};
                             businessCondition["id"] = businessConditions[i].id;
                             businessCondition["name"] = businessConditions[i].name;
-
+                            var attributes={};
+                            if(dataContext && businessConditions[i].data){
+                                attributes= SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(businessConditions[i], dataContext);
+                            } else {
+                                attributes=businessConditions[i].data.attributes;
+                            }
+                            if(attributes && attributes["impactAttributes"] && attributes["impactAttributes"].values){
+                                var impactAttributes=[];
+                                var values=attributes["impactAttributes"].values;
+                                for(var counter=0;counter<values.length;counter++){
+                                    impactAttributes.push(values[counter].value);
+                                }
+                                businessCondition["impactAttributes"]=impactAttributes;
+                            }
                             // LongNames are required for Displaying BusinessConditions
                             var formattedBusinessCondition = this._entityBusinessConditionsGovernData.find(businessCondition => businessCondition.id === businessConditions[i].id);
 
@@ -774,8 +795,15 @@ Custom property | Description | Default
                 var eventDetail = {
                     name: e.currentTarget.data.eventName,
                     data: e.currentTarget.data
-                }
-
+                };
+                var contextData=DataHelper.cloneObject(this.contextData);
+                var itemContext=ContextHelper.getFirstItemContext(contextData);
+                itemContext.attributeNames=["id","displayName","brand"];
+//                itemContext=formattedItemContext;
+                contextData[ContextHelper.CONTEXT_TYPE_VALUE] =[{"source":"internal","locale":"en-US"}];
+                this.$$("#attributeDialog").name = "fix-attribute-errors";
+                this.$$("#attributeDialog").sharedData={"context-data":contextData,"configContext":{}};
+                this.$$("#attributeDialog").open();
                 this.fireBedrockEvent('tofix-item-tap', eventDetail);
             },
 
