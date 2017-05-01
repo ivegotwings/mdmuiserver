@@ -258,7 +258,7 @@ function _buildMappingsResponse(ctxItem, reqData, ctxBasePath) {
     return response;
 }
 
-function _createCtxPropertiesAttribute(ctxProperties) {
+function _createCtxPropertiesAttribute(properties) {
     var ctxProperties = {
         'properties': properties
     };

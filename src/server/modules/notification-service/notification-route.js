@@ -55,6 +55,12 @@ function getAction(serviceName, status, operation) {
                     } else {
                         action = enums.actions.WorkflowTransitionFail;
                     }
+                } else if (operation == enums.operations.WorkflowAssignment) {
+                    if (status.toLowerCase() == "success") {
+                        action = enums.actions.WorkflowAssignmentComplete;
+                    } else {
+                        action = enums.actions.WorkflowAssignmentFail;
+                    }
                 }
             } else {
                 if (status.toLowerCase() == "success") {
@@ -71,7 +77,7 @@ function getAction(serviceName, status, operation) {
 
 module.exports = function (app) {
     app.post('/api/notify', function (req, res) {
-        if(notificationConfig.clientConfig.enableLogs) {
+        if (notificationConfig.clientConfig.enableLogs) {
             console.log('------------------ notification from RDF ------------------------------');
             console.log(JSON.stringify(req.body));
             console.log('-------------------------------------------------------------------\n\n');
