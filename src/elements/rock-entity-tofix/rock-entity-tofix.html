@@ -625,53 +625,70 @@ Custom property | Description | Default
             _prepareToFixData: function () {
                 if (this._isDataSetPrepared()) {
 
-                    if (this._entityWorkflowGovernData.length > 0 && this._contextSpecificBusinessConditions
-                        .length > 0) {
+                    var tofixGlobalData = {};
+                    tofixGlobalData["id"] = "general";
+                    tofixGlobalData["label"] = "General";
+                    tofixGlobalData["type"] = "Global";
+                    tofixGlobalData["businessConditions"] = [];
+                    if (this._entityWorkflowGovernData.length > 0 && this._contextSpecificBusinessConditions.length > 0) {
+
+                        var tofixWorkflowDataSet = [];
                         for (var j = 0; j < this._entityWorkflowGovernData.length; j++) {
+                            var tofixWorkflowData = {}
                             var workflowGovernData = this._entityWorkflowGovernData[j];
-                            workflowGovernData.name = this._getWorkflowNameById(workflowGovernData.id);
-                            var workflowMappedBusinessConditions = this._getWorkflowMappedBusinessConditions(workflowGovernData.id);
+                            tofixWorkflowData["id"] = workflowGovernData.id;
+                            tofixWorkflowData["label"] = this._getWorkflowNameById(workflowGovernData.id);
+                            tofixWorkflowData["type"] = "Workflow";
+                            tofixWorkflowData["workflowActivityNames"] = this._getWorkflowActivityNames(workflowGovernData.attributes);
+                            tofixWorkflowData["businessConditions"] = [];
+                            tofixWorkflowDataSet.push(tofixWorkflowData);
+                        }
 
-                            var workflowActivityNames = this._getWorkflowActivityNames(workflowGovernData.attributes);
-                            for (var k = 0; k < workflowActivityNames.length; k++) {
-                                var tofixWorkflowData = {};
-                                var workflowBusinessConditions = [];
-                                var globalBusinessConditions = [];
+                        for (var l = 0; l < tofixWorkflowDataSet.length; l++) {
+                            var tofixWorkflowData = tofixWorkflowDataSet[l];
 
+                            for (var i = 0; i < this._entityBusinessConditionsGovernData.length; i++) {
+                                var entityBusinessCondition = this._entityBusinessConditionsGovernData[i];
 
-                                var workflowActivityName = workflowActivityNames[k];
-                                var workflowLabel = workflowActivityName + " - [" + workflowGovernData.name + "]";
-                                tofixWorkflowData["label"] = workflowLabel;
-                                tofixWorkflowData["type"] = "Workflow";
-
-                                for (var i = 0; i < this._entityBusinessConditionsGovernData.length; i++) {
-                                    var businessCondition = this._entityBusinessConditionsGovernData[i];
-
-                                    if (DataHelper.containsObject(businessCondition, workflowBusinessConditions) || DataHelper.containsObject(businessCondition, globalBusinessConditions)) {
-                                        continue;
+                                for(var k = 0; k < tofixWorkflowData.workflowActivityNames.length; k++) {
+                                    var isMapped = this._isBusinessConditionMappedToCurrentActivity(entityBusinessCondition.id, tofixWorkflowData.id, tofixWorkflowData.workflowActivityNames[k]);
+                                    if(isMapped) {
+                                        if (!DataHelper.containsObject(entityBusinessCondition, tofixWorkflowData.businessConditions)) {
+                                            tofixWorkflowData.businessConditions.push(entityBusinessCondition);
+                                        }
                                     }
-
-                                    var isMapped = this._isBusinessConditionMappedToCurrentActivity(businessCondition.id, workflowActivityName, workflowMappedBusinessConditions);
-
-                                    if (isMapped) {
-                                        workflowBusinessConditions.push(businessCondition);
-                                    } else {
-                                        globalBusinessConditions.push(businessCondition);
-                                    }
-                                }
-
-                                tofixWorkflowData["businessConditions"] = workflowBusinessConditions;
-                                if (workflowBusinessConditions.length > 0) {
-                                    this.push("_tofixData", tofixWorkflowData);
                                 }
                             }
 
-                            if (globalBusinessConditions.length > 0) {
-                                this._prepareGlobalToFixData(globalBusinessConditions);
+                            // If the BC is not mapped to any of the workflow then it should become Global
+                            if(tofixWorkflowData.businessConditions.length > 0) {
+                                this.push("_tofixData", tofixWorkflowData);
                             }
                         }
+
+                        if(tofixWorkflowDataSet.length > 0) {
+                            for (var x = 0; x < this._entityBusinessConditionsGovernData.length; x++) {
+                                var entityBusinessCondition = this._entityBusinessConditionsGovernData[x];
+                                var isExits = false;
+                                for (var y = 0; y < tofixWorkflowDataSet.length; y++) {
+                                    if(DataHelper.containsObject(entityBusinessCondition, tofixWorkflowDataSet[y].businessConditions)) {
+                                        isExits = true;
+                                        break;
+                                    }
+                                }
+                                if(!isExits) {
+                                    tofixGlobalData.businessConditions.push(entityBusinessCondition);
+                                }
+                            }
+                        } else {
+                            tofixGlobalData.businessConditions = this._entityBusinessConditionsGovernData;
+                        }
                     } else {
-                        this._prepareGlobalToFixData(this._entityBusinessConditionsGovernData);
+                        tofixGlobalData.businessConditions = this._entityBusinessConditionsGovernData;
+                    }
+
+                    if(tofixGlobalData.businessConditions.length > 0) {
+                        this.push("_tofixData", tofixGlobalData);
                     }
 
                     this._isToFixDataExists = true;
@@ -700,6 +717,17 @@ Custom property | Description | Default
                 }
             },
 
+            _getWorkflowNameById: function (workflowId) {
+                for (var i = 0; i < this._workflowDefinitions.length; i++) {
+                    var workflowDefinition = this._workflowDefinitions[i];
+
+                    if (workflowDefinition.name === workflowId) {
+                        var workflowAttributes = workflowDefinition.attributes;
+                        return AttributeHelper.getFirstAttributeValue(workflowAttributes.workflowName);
+                    }
+                }
+            },
+
             _getWorkflowActivityNames: function (workflowAttributes) {
                 var workflowActivityNames = [];
 
@@ -710,8 +738,7 @@ Custom property | Description | Default
 
                         var workflowActivityGroups = workflowActivities.group;
                         for (var i = 0; i < workflowActivityGroups.length; i++) {
-                            workflowActivityNames.push(AttributeHelper.getFirstAttributeValue(
-                                workflowActivityGroups[i].activityName));
+                            workflowActivityNames.push(AttributeHelper.getFirstAttributeValue(workflowActivityGroups[i].activityName));
                         }
                     }
                 }
@@ -719,9 +746,10 @@ Custom property | Description | Default
                 return workflowActivityNames;
             },
 
-            _isBusinessConditionMappedToCurrentActivity: function (businessConditionName, workflowActivityName, workflowMappedBusinessConditions) {
+            _isBusinessConditionMappedToCurrentActivity: function (businessConditionName, workflowName, workflowActivityName) {
                 var isMapped = false;
 
+                var workflowMappedBusinessConditions = this._getWorkflowMappedBusinessConditions(workflowName);
                 if (workflowMappedBusinessConditions instanceof Array) {
                     for (var i = 0; i < workflowMappedBusinessConditions.length; i++) {
                         var contextSpecificBusinessCondition = workflowMappedBusinessConditions[i];
@@ -734,25 +762,6 @@ Custom property | Description | Default
                 }
 
                 return isMapped;
-            },
-
-            _getWorkflowNameById: function (workflowId) {
-                for (var i = 0; i < this._workflowDefinitions.length; i++) {
-                    var workflowDefinition = this._workflowDefinitions[i];
-
-                    if (workflowDefinition.name === workflowId) {
-                        var workflowAttributes = workflowDefinition.attributes;
-                        return AttributeHelper.getFirstAttributeValue(workflowAttributes.workflowName);
-                    }
-                }
-            },
-
-            _prepareGlobalToFixData: function (globalBusinessConditions) {
-                var tofixGlobalData = {};
-                tofixGlobalData["label"] = "General";
-                tofixGlobalData["type"] = "Global";
-                tofixGlobalData["businessConditions"] = globalBusinessConditions;
-                this.push("_tofixData", tofixGlobalData);
             },
 
             _getWorkflowMappedBusinessConditions: function (workflowName) {
