@@ -44,6 +44,12 @@ DataObjectFalcorUtil.getPathKeys = function () {
                 "collectionName": "events",
                 "responseObjectName": "response",
                 "totalRecordsToReturn": 50
+            },
+             "requestTracking": {
+                "name": "requestobject",
+                "collectionName": "requestobjects",
+                "responseObjectName": "response",
+                "totalRecordsToReturn": 50
             }
         }
     };
