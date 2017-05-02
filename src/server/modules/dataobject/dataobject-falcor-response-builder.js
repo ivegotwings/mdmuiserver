@@ -25,11 +25,11 @@ const CONST_ALL = falcorUtil.CONST_ALL,
 
 const pathKeys = falcorUtil.getPathKeys();
 
-function _createRelUniqueId(rel) {
+function _createRelUniqueId(rel, index) {
     if (rel) {
         var relDataObjectId = rel.relTo && rel.relTo.id && rel.relTo.id !== "" ? rel.relTo.id : "-1";
         var source = rel.source !== undefined && rel.source !== "" ? rel.source : "ANY";
-        return relDataObjectId.concat("#@#", source);
+        return relDataObjectId.concat("#@#", source, "#@#", index);
     }
 
     return "";
@@ -205,9 +205,10 @@ function _buildRelationshipsResponse(rels, reqData, currentDataContextJson, path
             var relsJson = {};
             var relIds = [];
 
+            var relIdIndex = 0;
             for (var relKey in relTypeData) {
                 var rel = relTypeData[relKey];
-                rel.id = _createRelUniqueId(rel);
+                rel.id = _createRelUniqueId(rel, relIdIndex++);
 
                 if (reqRelIds && reqRelIds.length > 0 && !arrayContains(reqRelIds, rel.id)) {
                     continue;
