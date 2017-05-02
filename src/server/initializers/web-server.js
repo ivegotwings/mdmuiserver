@@ -7,6 +7,8 @@ var express = require('express');
 var history = require('connect-history-api-fallback');
 var cors = require('cors');
 var bodyParser = require('body-parser');
+var compression = require('compression');
+
 var notificationEngine = require("../modules/notification-engine/socket");
 
 var buildPath = process.cwd();
@@ -21,18 +23,19 @@ console.log('buildPath:', buildPath);
 
 var app = express();
 
+app.use(compression());
+
 //We are setting view engine and path for views for express js
 app.set('views', buildPath + '/src/views');
 app.set('view engine', 'hjs');
 
 // parse application/x-www-form-urlencoded
-app.use(bodyParser.urlencoded({
-    extended: true
-}));
+app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 // register cors to allow cross domain calls
 app.use(cors());
+
 
 //handling root path (specifically for SAML type of authentication)
 app.get('/', function (req, res) {

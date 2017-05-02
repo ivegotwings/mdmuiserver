@@ -226,7 +226,7 @@ performed.
                 on-entity-model-composite-get-response = "_onCompositeModelGetResponse" >
         <liquid-entity-model-get id="getWorkflowMappingDefinition" operation="getbyids" request-id="req1" request-data={{workflowMappingDefinitionRequest}}
             on-response="_onWfMappingsReceived" on-error="_onMappingsGetFailed"></liquid-entity-model-get>
-        <liquid-entity-govern-data-get id="entityGetRunningInstance" no-cache operation="getbyids" request-id="req2" request-data={{runningInstanceRequest}}
+        <liquid-entity-govern-data-get id="entityGetRunningInstance" operation="getbyids" request-id="req2" request-data={{runningInstanceRequest}}
             on-response="_onRunningInstanceReceived" on-error="_onRunningInstanceGetFailed"></liquid-entity-govern-data-get>
         <liquid-entity-model-get id="entityGetWorkflowDefinition" operation="getbyids" request-id="req1" request-data={{workflowDefinitionRequest}}
             on-response="_onDefinitionReceived" on-error="_onDefinitionGetFailed"></liquid-entity-model-get>
@@ -648,6 +648,7 @@ performed.
             },
             _onAssignmentSuccess: function(e) {
                 var response = e.detail.response;
+                var entity = this._getEntityObject();
                 if(response && response.response && response.response.status && response.response.status.toLowerCase() == "success" && response.response.statusDetail) {
                     var statusDetail = response.response.statusDetail;
                     var workflowJson = this._runningInstances[this._foundWorkflowNames[this._currentWfIndex]];
@@ -660,16 +661,9 @@ performed.
                 this._currentWfIndex++;
                 if(this._currentWfIndex < this._foundWorkflowNames.length) {
                     this._generateAssignmentRequest();
-                } else {
-                    if(this._foundWorkflowNames.length == this._doneWorkflows.length == 1) {
-                        var workflowJson = this._doneWorkflows[0];
-                        this.showSuccessToast("{0} action for the step {1} as part of {2} is completed successfully.".format(this._currentWorkflowAction, workflowJson.activityName, workflowJson.wfLongName));
-                    } else if(this._foundWorkflowNames.length == this._failedWorkflows.length == 1) {
-                        var workflowJson = this._failedWorkflows[0];
-                        this.showErrorToast("{0} action for the step {1} as part of {2} is failed. Please contact your administrator.".format(this._currentWorkflowAction, workflowJson.activityName, workflowJson.wfLongName));
-                    } else {
-                        this.showSuccessToast("{0} action is completed successfully for {1} workflows, and failed for {2} workflows.".format(this._currentWorkflowAction, this._doneWorkflows.length, this._failedWorkflows.length));
-                    }
+                } else if(response.response && response.response.status && response.response.status.toLowerCase() == "success" && response.response.statusDetail){
+                    var messageObject = this._getMessageObject();
+                    this._showToastMessage(messageObject);
                     this.async(function() {
                         //this._refreshView();
                         var eventName = "workflow-assignment-complete";
@@ -678,6 +672,9 @@ performed.
                         }
                         this.fireBedrockEvent(eventName, eventDetail,{ ignoreId: true });
                     }, 5000)
+                }
+                else{
+                    this.showErrorToast("There is a problem with the server.Please try after some time")
                 }
             },
             _onAssignmentFailure: function (e) {
@@ -692,6 +689,70 @@ performed.
                 }
                 if (contentView) {
                     contentView.render();
+                }
+            },
+            _buildMessage: function(workflows, message) {
+                for(var i=0; i<workflows.length; i++) {
+                    message = message + "{0} as part of {1} business process, ".format(workflows[i].activityName, workflows[i].wfLongName)
+                }
+                return message;
+            },
+            _getMessageObject: function() {
+                var entity = this._getEntityObject();
+                var messageObject = {
+                    "message": "",
+                    "type": ""
+                };
+                var actionDone;
+                if(this._currentWorkflowAction == "take") {
+                    actionDone = "assigned to";
+                }
+                if(this._currentWorkflowAction == "release") {
+                    actionDone = "released from";
+                }
+                if(this._foundWorkflowNames.length == this._doneWorkflows.length && this._foundWorkflowNames.length == 1) {
+                    var workflowJson = this._doneWorkflows[0];
+                    messageObject.message = "The {0} of type {1} selected is in {2} as part of {3} business process has been {4} you.".format(entity.id, entity.type,workflowJson.activityName, workflowJson.wfLongName, actionDone);
+                    messageObject.type = "success";  
+                } else if(this._foundWorkflowNames.length == this._failedWorkflows.length &&this._foundWorkflowNames.length == 1) {
+                    var workflowJson = this._failedWorkflows[0];
+                    messageObject.message = "You do not have permission to take an action on this {1} as part of {2} as part of {3} as you do not belong to role mapped to this workflow step in the system. \nPlease contact your administrator.".format(entity.id, entity.type,workflowJson.activityName, workflowJson.wfLongName);
+                    messageObject.type = "error"; 
+                } else if(this._foundWorkflowNames.length == this._doneWorkflows.length) {
+                    var message = "The {0} of type {1} selected is in ".format(entity.id, entity.type);
+                    message = this._buildMessage(this._doneWorkflows, message);
+                    message = message + "have been {0} you".format(actionDone);
+                    messageObject.message = message;
+                    messageObject.type = "success"; 
+                }
+                else if(this._foundWorkflowNames.length == this._failedWorkflows.length) {
+                    var message = "You do not have permission to take an action on this {1} as part of ".format(entity.id, entity.type);
+                    message = this._buildMessage(this._failedWorkflows, message);
+                    message = message + "as you do not belong to role mapped to the workflow steps in the system. \nPlease contact your administrator.";
+                    messageObject.message = message;
+                    messageObject.type = "error"; 
+                }
+                else {   
+                    var message1 = "The {0} of type {1} selected is in ".format(entity.id, entity.type);
+                    message1 = this._buildMessage(this._doneWorkflows, message1);
+                    message1 = message1 + "have been {0} you.".format(actionDone) + '<br>';
+
+                    var message2 = "You do not have permission to take an action on this {1} as part of ".format(entity.id, entity.type);
+                    message2 = this._buildMessage(this._failedWorkflows, message2);
+                    message2 = message2 + "as you do not belong to role mapped to the workflow steps in the system. \nPlease contact your administrator.";
+
+                    messageObject.message = message1 + message2;
+                    messageObject.type = "success"; 
+                }
+                return messageObject;
+            },
+            _showToastMessage: function(msgObject) {
+                if(msgObject) {
+                    if(msgObject.type == "error") {
+                        this.showErrorToast(msgObject.message, 10000);
+                    } else if(msgObject.type == "success") {
+                        this.showSuccessToast(msgObject.message, 10000);
+                    }
                 }
             },
         });

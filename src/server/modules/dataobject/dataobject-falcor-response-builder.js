@@ -13,22 +13,23 @@ const jsonGraph = require('falcor-json-graph'),
 
 const createPath = pathUtils.createPath,
     mergeAndCreatePath = pathUtils.mergeAndCreatePath,
-    mergePathSets = pathUtils.mergePathSets;
+    mergePathSets = pathUtils.mergePathSets,
+    prepareValueJson = pathUtils.prepareValueJson;
 
-const sharedDataObjectFalcorUtil = require('../../../shared/dataobject-falcor-util');
+const falcorUtil = require('../../../shared/dataobject-falcor-util');
 
-const CONST_ALL = sharedDataObjectFalcorUtil.CONST_ALL,
-    CONST_ANY = sharedDataObjectFalcorUtil.CONST_ANY,
-    CONST_CTX_PROPERTIES = sharedDataObjectFalcorUtil.CONST_CTX_PROPERTIES,
-    CONST_DATAOBJECT_METADATA_FIELDS = sharedDataObjectFalcorUtil.CONST_DATAOBJECT_METADATA_FIELDS;
+const CONST_ALL = falcorUtil.CONST_ALL,
+    CONST_ANY = falcorUtil.CONST_ANY,
+    CONST_CTX_PROPERTIES = falcorUtil.CONST_CTX_PROPERTIES,
+    CONST_DATAOBJECT_METADATA_FIELDS = falcorUtil.CONST_DATAOBJECT_METADATA_FIELDS;
 
-const pathKeys = sharedDataObjectFalcorUtil.getPathKeys();
+const pathKeys = falcorUtil.getPathKeys();
 
-function _createRelUniqueId(rel) {
+function _createRelUniqueId(rel, index) {
     if (rel) {
         var relDataObjectId = rel.relTo && rel.relTo.id && rel.relTo.id !== "" ? rel.relTo.id : "-1";
         var source = rel.source !== undefined && rel.source !== "" ? rel.source : "ANY";
-        return relDataObjectId.concat("#@#", source);
+        return relDataObjectId.concat("#@#", source, "#@#", index);
     }
 
     return "";
@@ -51,8 +52,7 @@ function _getKeyNames(obj, reqKeys) {
     return keys;
 }
 
-function _buildFieldsResponse(dataObject, reqData, basePath) {
-    var response = [];
+function _buildFieldsResponse(dataObject, reqData, baseJson, paths) {
 
     var dataObjectFieldKeys = _getKeyNames(dataObject, reqData.dataObjectFields);
 
@@ -61,21 +61,27 @@ function _buildFieldsResponse(dataObject, reqData, basePath) {
     for (let dataObjectFieldKey of dataObjectFieldKeys) {
         if (dataObjectFieldKey !== "data") {
             var dataObjectFieldValue = dataObject[dataObjectFieldKey] !== undefined ? dataObject[dataObjectFieldKey] : {};
-            response.push(mergeAndCreatePath(basePath, [dataObjectFieldKey], $atom(dataObjectFieldValue)));
+            baseJson[dataObjectFieldKey] = prepareValueJson($atom(dataObjectFieldValue));
+
+            //build paths if requested
+            if(reqData.buildPaths){
+                paths.push(mergePathSets(reqData.basePath, [dataObjectFieldKey]));
+            }
         }
     }
 
     //console.log('response:', JSON.stringify(response));
-    return response;
+    return;
 }
 
-function _buildAttributesResponse(attrs, attrNames, reqData, basePath) {
+function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJson, paths, basePath) {
     //console.log('reqAttrNames ', attrNames);
-    var response = [];
 
     if (isEmpty(attrs)) {
-        return response;
+        return;
     }
+
+    var attributesJson = currentDataContextJson['attributes'] = {};
 
     var attrKeys = _getKeyNames(attrs, attrNames);
 
@@ -89,6 +95,9 @@ function _buildAttributesResponse(attrs, attrNames, reqData, basePath) {
             //console.log('attr key:', attrKey, ' attr json:', JSON.stringify(attr));
         }
 
+        var attributeJson = attributesJson[attrKey] = {};
+        var valContextsJson = attributeJson['valContexts'] = {};
+
         if (attr.values) {
             var valCtxItems = {};
             for (let val of attr.values) {
@@ -96,10 +105,10 @@ function _buildAttributesResponse(attrs, attrNames, reqData, basePath) {
                 var locale = val.locale || undefined;
 
                 var valCtxItem = { 'source': source, 'locale': locale }; //TODO: Here, source and locale are hard coded... How to find out val contexts keys from the flat list of values object..??
-                var valCtxKey = sharedDataObjectFalcorUtil.createCtxKey(valCtxItem);
+                var valCtxKey = falcorUtil.createCtxKey(valCtxItem);
 
-                var valCtxItem = sharedDataObjectFalcorUtil.getOrCreate(valCtxItems, valCtxKey, {});
-                var values = sharedDataObjectFalcorUtil.getOrCreate(valCtxItem, 'values', []);
+                var valCtxItem = falcorUtil.getOrCreate(valCtxItems, valCtxKey, {});
+                var values = falcorUtil.getOrCreate(valCtxItem, 'values', []);
 
                 values.push(val);
             }
@@ -112,28 +121,60 @@ function _buildAttributesResponse(attrs, attrNames, reqData, basePath) {
             for (var valCtxKey in valCtxItems) {
                 var valCtxItem = valCtxItems[valCtxKey];
                 //console.log('valCtxItem.values', JSON.stringify(valCtxItem.values));
-                response.push(mergeAndCreatePath(basePath, [attrKey, 'valContexts', valCtxKey, 'values'], $atom(valCtxItem.values), expires));
+                var valContextJson = {};
+                valContextJson['values'] = prepareValueJson($atom(valCtxItem.values), expires);
+                valContextsJson[valCtxKey] = valContextJson;
+
+                //build paths if requested
+                if(reqData.buildPaths){
+                    paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', valCtxKey, 'values']));
+                }
             }
         }
 
         if (attr.group) {
             //var valCtxItem = { 'source': CONST_ANY, 'locale': CONST_ANY }; //TODO: How to find out val contexts keys from the flat list of values object..??
             var valCtxItem = {};
-            var valCtxKey = sharedDataObjectFalcorUtil.createCtxKey(valCtxItem);
+            var valCtxKey = falcorUtil.createCtxKey(valCtxItem);
             //console.log('attr group', JSON.stringify(attr.group));
-            response.push(mergeAndCreatePath(basePath, [attrKey, 'valContexts', valCtxKey, 'group'], $atom(attr.group)));
+            var groupJson = {};
+            groupJson['group'] = $atom(attr.group);
+            valContextsJson[valCtxKey] = groupJson;
+
+            //build paths if requested
+            if(reqData.buildPaths){
+                    paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', valCtxKey, 'group']));
+            }
         }
 
         if (attr.properties) {
             //var valCtxItem = { 'source': CONST_ANY, 'locale': CONST_ANY }; //TODO: How to find out val contexts keys from the flat list of values object..??
             var selfValCtxItem = {};
-            var selfValCtxKey = sharedDataObjectFalcorUtil.createCtxKey(selfValCtxItem);
-            response.push(mergeAndCreatePath(basePath, [attrKey, 'valContexts', selfValCtxKey, 'properties'], $atom(attr.properties)));
+            var selfValCtxKey = falcorUtil.createCtxKey(selfValCtxItem);
+            var propertiesJson = {};
+            propertiesJson['properties'] = $atom(attr.properties);
+            valContextsJson[selfValCtxKey] = propertiesJson;
+
+            //build paths if requested
+            if(reqData.buildPaths){
+                    paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', selfValCtxKey, 'properties']));
+            }
+
             // console.log(selfValCtxKey);
+            
             if (reqData.valCtxKeys) {
                 for (let valCtxKey of reqData.valCtxKeys) {
-                    if (valCtxKey !== '{}') {
-                        response.push(mergeAndCreatePath(basePath, [attrKey, 'valContexts', valCtxKey, 'properties'], $atom(attr.properties)));
+                    if (valCtxKey != '{}') {
+                        var valContextJson = valContextsJson[valCtxKey];
+                        if(valContextJson == undefined || valContextJson == null){
+                            valContextJson= valContextsJson[valCtxKey] = {};
+                        }
+                        valContextJson['properties'] = prepareValueJson($atom(attr.properties));
+
+                        //build paths if requested
+                        if(reqData.buildPaths){
+                                paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', valCtxKey, 'properties']));
+                        }
                     }
                 }
             }
@@ -143,14 +184,15 @@ function _buildAttributesResponse(attrs, attrNames, reqData, basePath) {
     }
 
     //console.log('attr response: ', JSON.stringify(response));
-    return response;
+    return;
 }
 
-function _buildRelationshipsResponse(rels, reqData, basePath) {
-    var response = [];
+function _buildRelationshipsResponse(rels, reqData, currentDataContextJson, paths, basePath) {
 
     var reqRelIds = reqData.relIds,
         operation = reqData.operation;
+
+    var relationshipsJson = currentDataContextJson['relationships'] = {};
 
     //console.log('rels', JSON.stringify(rels)); 
     var relTypeKeys = _getKeyNames(rels, reqData.relTypes);
@@ -159,12 +201,14 @@ function _buildRelationshipsResponse(rels, reqData, basePath) {
         var relTypeData = rels[relTypeKey];
 
         if (!isEmpty(relTypeData)) {
-            var relBasePath = mergePathSets(basePath, [relTypeKey]);
+            var relTypeJson = relationshipsJson[relTypeKey] = {};
+            var relsJson = {};
             var relIds = [];
 
+            var relIdIndex = 0;
             for (var relKey in relTypeData) {
                 var rel = relTypeData[relKey];
-                rel.id = _createRelUniqueId(rel);
+                rel.id = _createRelUniqueId(rel, relIdIndex++);
 
                 if (reqRelIds && reqRelIds.length > 0 && !arrayContains(reqRelIds, rel.id)) {
                     continue;
@@ -173,26 +217,37 @@ function _buildRelationshipsResponse(rels, reqData, basePath) {
                 relIds.push(rel.id);
 
                 if (operation.toLowerCase() !== "getrelidonly") {
-                    response.push.apply(response, _buildRelationshipDetailsResponse(rel, reqData, relBasePath));
+                    _buildRelationshipDetailsResponse(rel, reqData, relTypeKey, relsJson, paths, basePath);
                 }
             }
 
             if (operation.toLowerCase() === "getrelidonly" || operation.toLowerCase() === "update" || operation.toLowerCase() === "create") {
-                response.push(mergeAndCreatePath(relBasePath, ["relIds"], $atom(relIds)));
+                relTypeJson['relIds'] = prepareValueJson($atom(relIds));
+
+                //build paths if requested
+                if(reqData.buildPaths){
+                    paths.push(mergePathSets(basePath, ['relationships', relTypeKey, 'relIds']));
+                }
+            }
+            else {
+                relTypeJson['rels'] = relsJson;
             }
         }
     }
 
-    //console.log('rels response', JSON.stringify(response));
-    return response;
+    return;
 }
 
-function _buildRelationshipDetailsResponse(enRel, reqData, basePath) {
-    var response = [];
+function _buildRelationshipDetailsResponse(enRel, reqData, relTypeKey, relsJson, paths, basePath) {
 
-    var relBasePath = mergePathSets(basePath, ["rels", enRel.id]);
-
+    var relJson = relsJson[enRel.id] = {};
     var dataObjectsByIdBasePath = [pathKeys.root, reqData.dataIndex];
+    var relBasePath;
+
+    if(reqData.buildPaths){
+        relBasePath = mergePathSets(basePath, ['relationships', relTypeKey, 'rels', enRel.id]);
+    }
+
     //TODO:: NOT using input relFields yet..
     //var relFieldKeys = _getKeyNames(enRel, reqData.relFields);
 
@@ -202,42 +257,47 @@ function _buildRelationshipDetailsResponse(enRel, reqData, basePath) {
 
     for (let relFieldKey of allRelObjFields) {
         if (relFieldKey == "attributes") {
-            var relAttributesBasePath = mergePathSets(relBasePath, ["attributes"]);
             var attrs = enRel[relFieldKey];
             if (!isEmpty(attrs) && !isEmpty(relAttrNames)) {
-                response.push.apply(response, _buildAttributesResponse(attrs, relAttrNames, reqData, relAttributesBasePath));
+                _buildAttributesResponse(attrs, relAttrNames, reqData, relJson, paths, basePath);
             }
         }
         else if (relFieldKey == "relTo") {
             var dataObjectType = enRel[relFieldKey].type;
             var dataObjectsByIdPath = mergePathSets(dataObjectsByIdBasePath, dataObjectType, pathKeys.byIds);
-            response.push(mergeAndCreatePath(relBasePath, relFieldKey, $ref(mergePathSets(dataObjectsByIdPath, [enRel[relFieldKey].id]))));
+            relJson[relFieldKey] = prepareValueJson($ref(mergePathSets(dataObjectsByIdPath, [enRel[relFieldKey].id])));
+
+            if(reqData.buildPaths){
+                paths.push(mergePathSets(relBasePath, [relFieldKey]));
+             }
         }
         else {
-            response.push(mergeAndCreatePath(relBasePath, relFieldKey, $atom(enRel[relFieldKey])));
+            relJson[relFieldKey] = prepareValueJson($atom(enRel[relFieldKey]));
+
+             if(reqData.buildPaths){
+                paths.push(mergePathSets(relBasePath, [relFieldKey]));
+             }
         }
     }
 
-    return response;
+    return;
 }
 
-function _buildJsonDataResponse(jsonData, basePath) {
+function _buildJsonDataResponse(jsonData, baseJson) {
     //console.log('reqAttrNames ', attrNames);
-    var response = [];
-
     if (isEmpty(jsonData)) {
         return response;
     }
 
-    response.push(createPath(basePath, $atom(jsonData)));
+    baseJson['jsonData'] = prepareValueJson($atom(jsonData));
 
     //console.log('json data response: ', JSON.stringify(response));
-    return response;
+    return;
 }
 
-function _buildMappingsResponse(ctxItem, reqData, ctxBasePath) {
+function _buildMappingsResponse(ctxItem, reqData, currentDataContextJson, paths, basePath) {
     var mapKeys = reqData.mapKeys;
-    var response = [];
+    var mappingsJson = currentDataContextJson['mappings'] = {};
 
     var attrs = ctxItem.attributes;
     var rels = ctxItem.relationships;
@@ -246,35 +306,40 @@ function _buildMappingsResponse(ctxItem, reqData, ctxBasePath) {
         if (mapKey == "attributeMap" && !isEmpty(attrs)) {
             var attrMap = Object.keys(attrs);
             //console.log('attrs map ', JSON.stringify(attrMap));
-            response.push(mergeAndCreatePath(ctxBasePath, ['mappings', 'attributeMap'], $atom(attrMap)));
+            mappingsJson['attributeMap'] = $atom(attrMap);
+
+            if(reqData.buildPaths){
+                paths.push(mergePathSets(basePath, ['mappings', 'attributeMap']))
+            }
         }
         else if (mapKey == "relationshipMap" && !isEmpty(rels)) {
             var relTypeMap = Object.keys(rels);
-            response.push(mergeAndCreatePath(ctxBasePath, ['mappings', 'relationshipMap'], $atom(relTypeMap)));
+            mappingsJson['relationshipMap'] = $atom(relTypeMap);
+
+            if(reqData.buildPaths){
+                paths.push(mergePathSets(basePath, ['mappings', 'attributeMap']))
+            }
         }
     }
 
-    return response;
+    return;
 }
 
-function _addCtxPropertiesToAttributes(attrs, properties) {
+function _createCtxPropertiesAttribute(properties) {
     var ctxProperties = {
         'properties': properties
     };
 
-    if (!attrs) {
-        attrs = {};
-    }
-    
-    attrs[CONST_CTX_PROPERTIES] = ctxProperties;
+    return ctxProperties;
 }
 
-function _addMetadataFieldsToAttributes(attrs, dataObject) {
+function _createMetadataFieldsAttribute(dataObject) {
 
     var metadataFields = {
         'id': dataObject.id,
         'type': dataObject.type || '',
         'name': dataObject.name || '',
+        'properties': dataObject.properties || {},
         'version': dataObject.version || '',
         'domain': dataObject.domain || ''
     };
@@ -283,11 +348,7 @@ function _addMetadataFieldsToAttributes(attrs, dataObject) {
         'properties': metadataFields
     };
 
-    if (!attrs) {
-        attrs = {};
-    }
-
-    attrs[CONST_DATAOBJECT_METADATA_FIELDS] = metadataProperties;
+    return metadataProperties;
 }
 
 function formatDataObjectForSave(dataObject) {
@@ -312,15 +373,15 @@ function formatDataObjectForSave(dataObject) {
     }
 }
 
-function buildResponse(dataObject, reqData, basePath) {
-    var response = [];
+function buildResponse(dataObject, reqData, paths) {
+    var dataObjectResponseJson = {};
 
     if (isEmpty(dataObject)) {
-        return response;
+        return dataObjectResponseJson;
     }
 
     if (!isEmpty(reqData.dataObjectFields)) {
-        response.push.apply(response, _buildFieldsResponse(dataObject, reqData, basePath));
+         _buildFieldsResponse(dataObject, reqData, dataObjectResponseJson, paths);
     }
 
     if (!(isEmpty(reqData.attrNames) && isEmpty(reqData.relTypes) && !reqData.jsonData && reqData.operation != "getMappings")) {
@@ -332,17 +393,19 @@ function buildResponse(dataObject, reqData, basePath) {
         //add data level attrs, rels and props as self context item in falcor response..
         if (data.attributes || data.relationships || data.properties
             || data.jsonData || reqData.attrNames.indexOf(CONST_DATAOBJECT_METADATA_FIELDS) >= 0) {
-            var contexts = sharedDataObjectFalcorUtil.getOrCreate(data, "contexts", []);
-
-            var dataAttributes = data.attributes;
+            var contexts = falcorUtil.getOrCreate(data, "contexts", []);
 
             if (reqData.attrNames.indexOf(CONST_DATAOBJECT_METADATA_FIELDS) >= 0) {
-                _addMetadataFieldsToAttributes(dataAttributes, dataObject);
+                var metadataFieldAttr = _createMetadataFieldsAttribute(dataObject);
+                if(!data.attributes) {
+                    data.attributes = {};
+                }
+                data.attributes[CONST_DATAOBJECT_METADATA_FIELDS] = metadataFieldAttr;
             }
 
             var selfCtxItem = {
-                'context': sharedDataObjectFalcorUtil.getSelfCtx(),
-                'attributes': dataAttributes,
+                'context': falcorUtil.getSelfCtx(),
+                'attributes': data.attributes,
                 'relationships': data.relationships,
                 'properties': data.properties,
                 'jsonData': data.jsonData
@@ -353,22 +416,33 @@ function buildResponse(dataObject, reqData, basePath) {
 
         var contextMap = [];
 
+        var dataJson = dataObjectResponseJson['data'] = {};
+        var dataContextsJson = dataJson['contexts'] = {};
+
         for (let contextItem of data.contexts) {
             var currContext = contextItem.context;
 
-            var ctxKey = sharedDataObjectFalcorUtil.createCtxKey(currContext);
-            var ctxBasePath = mergePathSets(basePath, ['data', 'contexts', ctxKey]);
+            var ctxKey = falcorUtil.createCtxKey(currContext);
+            var currentDataContextJson = dataContextsJson[ctxKey] = {}; //TODO:: Is there possibility of duplicate contexts?
+            var currentContextBasePath;
+
+            if(reqData.buildPaths){
+                currentContextBasePath = mergePathSets(reqData.basePath, ['data', 'contexts', ctxKey])
+            }
 
             if (!isEmpty(reqData.attrNames)) {
                 var attrs = contextItem.attributes;
                 if (!isEmpty(contextItem.properties) && reqData.attrNames.indexOf(CONST_CTX_PROPERTIES) >= 0) {
-                    _addCtxPropertiesToAttributes(attrs, contextItem.properties);
+                    var ctxPropertiesAttr = _createCtxPropertiesAttribute(contextItem.properties);
+                    if(!attrs) {
+                        attrs = {};
+                    }
+                    attrs[CONST_CTX_PROPERTIES] = ctxPropertiesAttr;
                 }
 
                 if (!isEmpty(attrs)) {
                     //console.log('attrs', JSON.stringify(attrs));
-                    var attrsBasePath = mergePathSets(ctxBasePath, ['attributes']);
-                    response.push.apply(response, _buildAttributesResponse(attrs, reqData.attrNames, reqData, attrsBasePath));
+                    _buildAttributesResponse(attrs, reqData.attrNames, reqData, currentDataContextJson, paths, currentContextBasePath);
                 }
             }
 
@@ -376,18 +450,20 @@ function buildResponse(dataObject, reqData, basePath) {
             if (!isEmpty(reqData.relTypes)) {
                 var rels = contextItem.relationships;
                 if (!isEmpty(rels)) {
-                    var relsBasePath = mergePathSets(ctxBasePath, ['relationships']);
-                    response.push.apply(response, _buildRelationshipsResponse(rels, reqData, relsBasePath));
+                    _buildRelationshipsResponse(rels, reqData, currentDataContextJson, paths, currentContextBasePath);
                 }
             }
 
             if (reqData.jsonData && !isEmpty(contextItem.jsonData)) {
-                var jsonDataBasePath = mergePathSets(ctxBasePath, ['jsonData']);
-                response.push.apply(response, _buildJsonDataResponse(contextItem.jsonData, jsonDataBasePath));
+                _buildJsonDataResponse(contextItem.jsonData, currentDataContextJson);
+
+                if(reqData.buildPaths){
+                    paths.push(mergePathSets(currentContextBasePath, ['jsonData']))
+                }
             }
 
             if (reqData.operation == "getMappings") {
-                response.push.apply(response, _buildMappingsResponse(contextItem, reqData, ctxBasePath));
+                _buildMappingsResponse(contextItem, reqData, currentDataContextJson, paths, currentContextBasePath);
             }
 
             if (reqData.operation == "getMappings" && arrayContains(reqData.mapKeys, "contextMap")) {
@@ -396,11 +472,16 @@ function buildResponse(dataObject, reqData, basePath) {
         }
 
         if (reqData.operation == "getMappings" && arrayContains(reqData.mapKeys, "contextMap")) {
-            response.push(mergeAndCreatePath(basePath, ['data', 'mappings', 'contextMap'], $atom(contextMap)));
+            var mappingsJson = dataJson['mappings'] = {};
+            mappingsJson['contextMap'] = $atom(contextMap);
+
+            if(reqData.buildPaths){
+                paths.push(mergePathSets(reqData.basePath, ['data', 'mappings', 'contextMap']));
+            }
         }
     }
 
-    return response;
+    return dataObjectResponseJson;
 }
 
 module.exports = {
@@ -409,5 +490,6 @@ module.exports = {
     createPath: createPath,
     mergeAndCreatePath: mergeAndCreatePath,
     mergePathSets: mergePathSets,
+    prepareValueJson: prepareValueJson,
     pathKeys: pathKeys
 };

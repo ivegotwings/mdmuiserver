@@ -634,8 +634,11 @@ The following JSON object is a config sample which configures the grid in all ab
 			}
 			
 			pebble-toolbar::shadow paper-button-group pebble-button#pageRange::shadow paper-button {
-				width: 100px!important;
+				width: auto!important;
 				border: 0px;
+				display: inline-block;
+				vertical-align: bottom;
+				line-height: 16px;
 			}
 			
 			#gridHeader .grid-actions {
@@ -695,7 +698,7 @@ The following JSON object is a config sample which configures the grid in all ab
 										</a>
 									</template>
 									<template is="dom-if" if="[[!_hasLinkTemplate(column.columnObject, item)]]">
-										<rock-attribute functional-mode="grid" id="row[[index]]col[[column.columnIndex]]" class="attribute" mode="[[config.mode]]"
+										<rock-attribute index="[[index]]" functional-mode="grid" id="row[[index]]col[[column.columnIndex]]" class="attribute" mode="[[config.mode]]"
 										 attribute-model-object="[[column.modelObject]]" attribute-object="{{_getAttributeObject(item, column.columnIndex,index)}}"
 										 on-attribute-value-changed="_updateValue"></rock-attribute>
 									</template>
@@ -705,8 +708,9 @@ The following JSON object is a config sample which configures the grid in all ab
 						</template>
 					</iron-data-table>
 					<pebble-popover id="errorPopover" no-overlap>
-						<pebble-error-list></pebble-error-list>
+						<pebble-error-list id="errorList"></pebble-error-list>
 					</pebble-popover>
+					<bedrock-pubsub target-id="errorList" event-name="fix-error" handler="_fixError"></bedrock-pubsub>
 				</template>
 				<template is="dom-if" if="{{_isTileMode(config.viewMode)}}">
 					<grid-tile-view items="{{data}}" multi-selection="{{config.tile.settings.isMultiSelect}}" selected-item="{{selectedItem}}"
@@ -1005,7 +1009,7 @@ The following JSON object is a config sample which configures the grid in all ab
 				addNewRecords: function (records) {
 					if (records && records.length > 0) {
 						var data = this.getData();
-						
+
 						records.forEach(function (record) {
 							record._rowStatus = {
 								"status": "new",
@@ -1017,7 +1021,8 @@ The following JSON object is a config sample which configures the grid in all ab
 						this.data = data;
 						var ironDataTable = this._getIronDataTable();
 						if (ironDataTable) {
-							ironDataTable.size = data.length;
+							var oldSize = ironDataTable.size;
+                            ironDataTable.size = oldSize + data.length;
 						}
 						this.reRenderGrid();
 
@@ -1091,29 +1096,33 @@ The following JSON object is a config sample which configures the grid in all ab
 					this.reRenderGrid();
 				},
 				getData: function () {
-					var allData = this._getIronDataTable().$.list.items;
 					var filteredData = [];
-					if (allData && allData.length > 0) {
-						var lastPageData = allData.slice(allData.length - this.pageSize, allData.length);
-						var lastPageFilteredData = lastPageData.filter(function (element) {
-							if (element != undefined) {
-								var keys = Object.keys(element);
-								if (!(keys.length <= 0 || (keys.length == 1 && keys[0] == "errors"))) {
-									return element;
+					var ironDataTable = this._getIronDataTable();
+					if (ironDataTable) {
+						var allData = ironDataTable.$.list.items;
+						if (allData && allData.length > 0) {
+							var lastPageData = allData.slice(allData.length - this.pageSize, allData.length);
+							var lastPageFilteredData = lastPageData.filter(function (element) {
+								if (element != undefined) {
+									var keys = Object.keys(element);
+									if (!(keys.length <= 0 || (keys.length == 1 && keys[0] == "errors"))) {
+										return element;
+									}
 								}
+							});
+							if (allData.length > this.pageSize) {
+								filteredData = allData.slice(0, allData.length - this.pageSize);
+								if (lastPageFilteredData && lastPageFilteredData.length) {
+									lastPageFilteredData.forEach(function (item) {
+										filteredData.push(item);
+									}, this);
+								}
+							} else {
+								filteredData = lastPageFilteredData;
 							}
-						});
-						if (allData.length > this.pageSize) {
-							filteredData = allData.slice(0, allData.length - this.pageSize);
-							if (lastPageFilteredData && lastPageFilteredData.length) {
-								lastPageFilteredData.forEach(function (item) {
-									filteredData.push(item);
-								}, this);
-							}
-						} else {
-							filteredData = lastPageFilteredData;
 						}
 					}
+					
 					return filteredData;
 				},
                 /*
@@ -1331,10 +1340,13 @@ The following JSON object is a config sample which configures the grid in all ab
 					this.set('title', status);
 				},
 				_calculatePageRange: function (recordSize, pageSize, totalCount) {
+
+					var from = recordSize && recordSize > 0 ? 1 : 0;
+
 					if (totalCount) {
-						this._pageRange = "1 - " + recordSize + " / " + (totalCount > 0 && totalCount == this.maxConfiguredCount ? this.maxConfiguredCount + "+" : totalCount);
+						this._pageRange = from + " - " + recordSize + " / " + (totalCount > 0 && totalCount == this.maxConfiguredCount ? this.maxConfiguredCount + "+" : totalCount);
 					} else {
-						this._pageRange = "1 - " + recordSize + " / " + recordSize;
+						this._pageRange = from + " - " + recordSize + " / " + recordSize;
 					}
 
 					//Set range to pebble-toolbar
@@ -1521,6 +1533,11 @@ The following JSON object is a config sample which configures the grid in all ab
 							};
 						}
 					}
+					var index=e.currentTarget.index;
+					this.async(function () {
+						this._updateError(item, index);
+					})
+
 				},
 				_fireActionEvent: function (e) {
 					var action = this.config.tabular.settings.actions[e.currentTarget.actionIndex];
@@ -1555,10 +1572,13 @@ The following JSON object is a config sample which configures the grid in all ab
 					for (var i = 0; i < this.config.tabular.columns.length; i++) {
 						var attr = this.$$("#row" + index + "col" + i);
 						if (attr && attr.errors.length > 0) {
-							var error = {};
-							error.name = this.config.tabular.columns[i].name;
-							error.error = attr.errors;
-							errors.push(error);
+							var errorObj = {};
+                            errorObj.name = this.config.tabular.columns[i].name;
+                            errorObj.externalName = this.config.tabular.columns[i].header;
+                            errorObj.type = "error";
+                            errorObj.message = attr.errors;
+                            errorObj.index = index;
+							errors.push(errorObj);
 						}
 					}
 					item.errors = errors;
@@ -1759,7 +1779,14 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 
 					return -1;
-				}
+				},
+				_fixError:function (e,detail) {
+				    var errors=detail.data;
+				    if(errors.length){
+				        this.editInline(errors[0].index);
+					}
+                    this.$$("#errorPopover").hide();
+                }
 			});
 		})();
 	</script>

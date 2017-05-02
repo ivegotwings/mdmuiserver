@@ -14,7 +14,8 @@ Enums.actions = {
 }
 
 Enums.operations = {
-    WorkflowTransition: 1
+    WorkflowTransition: 1,
+    WorkflowAssignment: 2
 }
 
 var SharedEnumsUtil = SharedEnumsUtil || {};

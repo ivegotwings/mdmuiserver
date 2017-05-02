@@ -80,7 +80,23 @@ module.exports = function () {
 };
 
 module.exports = function (app) {
-    app.use('/data/dataObjects.json',
+    app.use('/data/entityData.json',
+        falcorExpress.dataSourceRoute(function (req, res) {
+            return new DataObjectRouter(routerOptions);
+        }));
+    app.use('/data/entityModelData.json',
+        falcorExpress.dataSourceRoute(function (req, res) {
+            return new DataObjectRouter(routerOptions);
+        }));
+    app.use('/data/entityGovernData.json',
+        falcorExpress.dataSourceRoute(function (req, res) {
+            return new DataObjectRouter(routerOptions);
+        }));
+    app.use('/data/configData.json',
+        falcorExpress.dataSourceRoute(function (req, res) {
+            return new DataObjectRouter(routerOptions);
+        }));
+    app.use('/data/eventData.json',
         falcorExpress.dataSourceRoute(function (req, res) {
             return new DataObjectRouter(routerOptions);
         }));
