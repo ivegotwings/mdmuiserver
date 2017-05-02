@@ -9,6 +9,8 @@
 <link rel="import" href="../../pebble-button/pebble-button.html">
 
 <link rel="import" href="../../liquid-entity-model-get/liquid-entity-model-get.html">
+<link rel="import" href="../../liquid-entity-govern-data-get/liquid-entity-govern-data-get.html">
+
 
 <dom-module id="my-todo-summary">
     <template>
@@ -117,37 +119,41 @@
         </style>
         <div class="list-item row layout-middle">
             <div class$="{{_computeClass(myTodo.status)}} todo-status"></div>
-            <div class="list-item row layout-middle" on-tap="_onTapEvent">
-
-                <div class="circle">
-                    <!--[[myToDo.numberOfTasks]] -->
-                </div>
-                <div id="workflowMetadataContainer" class="content-div list-content" data="[[myTodo.workflowData]]">
-                    <div class="to-do-name block-text">[[myTodo.name]]</div>
-                    <div class="to-do-body">Workflow : [[myTodo.workflow]]</div>
-                </div>
-                <div class="sub-content text-right m-r-10">
-                    <div id="viewDetails" class="text-link" on-tap="_showHideDetails">
-                        [[_detailsToggleText]] >>
+            <div style="width: 100%; padding:5px">
+                <div class="row layout-middle">
+                    <div class="circle">
+                        [[_numberOfTasks]]
+                    </div>
+                    <div id="workflowMetadataContainer" class="content-div list-content" data="[[myTodo.workflowData]]" on-tap="_onActivityTap">
+                        <div class="to-do-name block-text">[[myTodo.name]]</div>
+                    </div>
+                    <div class="sub-content text-right m-r-10">
+                        <div id="viewDetails" class="text-link" on-tap="_showHideDetails">
+                            [[_detailsToggleText]] >>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div id="moreDetails" hidden="true">
-                <template is="dom-repeat" items="[[_businessConditionButtons]]" as="businessCondition">
-                    <pebble-button class="action" noink raised action-menu elevation="0" horizontal-align="right" vertical-align="top" button-text="[[businessCondition.name]]"
-                        data="[[businessCondition]]">
-                    </pebble-button>
-                </template>
+                <div class="clearfix"></div>
+                <div id="moreDetails" hidden="true" style="padding-top: 15px; padding-left: 15px;">
+                    <template is="dom-repeat" items="[[_businessConditionButtons]]" as="businessCondition">
+                        <pebble-button class="action" noink raised action-menu elevation="0" horizontal-align="right" vertical-align="top" button-text="[[businessCondition.businessConditionName]]"
+                            data="[[businessCondition.data]]">
+                        </pebble-button>
+                    </template>
+                </div>
             </div>
         </div>
         <div class="clearfix"></div>
         </div>
 
-        <liquid-entity-model-get id="initBusinessConditionsGet" operation="initiatesearch" last-response="{{initBusinessConditionsGet}}"
-            on-response="_onInitBusinessConditionsGetResponse" on-error="_onInitBusinessConditionsGetError"></liquid-entity-model-get>
+        <liquid-entity-model-get id="initBusinessConditionsGet" operation="initiatesearch" request-data="[[_businessConditionRequest]]"
+            last-response="{{initBusinessConditionsGet}}" on-response="_onInitBusinessConditionsGetResponse" on-error="_onInitBusinessConditionsGetError"></liquid-entity-model-get>
 
-        <liquid-entity-model-get id="businessConditionsGet" operation="getsearchresultdetail" request-id="[[initBusinessConditionsGet.content.requestId]]"
-            on-response="_onBusinessConditionsGetResponse" on-error="_onBusinessConditionsGetError"></liquid-entity-model-get>
+        <liquid-entity-model-get id="businessConditionsGet" operation="getsearchresultdetail" request-data="[[_businessConditionRequest]]"
+            request-id="[[initBusinessConditionsGet.content.requestId]]" on-response="_onBusinessConditionsGetResponse" on-error="_onBusinessConditionsGetError"></liquid-entity-model-get>
+
+        <liquid-entity-govern-data-get name="governDataGet" operation="initiatesearch" request-data="{{_governDataRequest}}" on-response="_onGovernDataResponse"></liquid-entity-govern-data-get>
+
     </template>
     <script>
         Polymer({
@@ -187,6 +193,92 @@
                     type: Array,
                     value: function () {
                         return [];
+                    }
+                },
+
+                _numberOfTasks: {
+                    type: Number,
+                    value: 0
+                },
+
+                _governDataRequest: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+
+                _businessConditionRequest: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                }
+            },
+
+            attached: function () {
+                var governDataLiquid = this.$$("[name=governDataGet]");
+                if (governDataLiquid) {
+                    var req = {
+                        "params": {
+                            "query": {
+                                "contexts": [
+                                    {
+                                        "workflow": this.myTodo.workflowName
+                                    }
+                                ],
+                                "filters": {
+                                    "attributesCriterion": [
+                                        {
+                                            "activities/activityName": {
+                                                "eq": this.myTodo.name
+                                            }
+                                        }
+                                    ],
+                                    "typesCriterion": ["sku", "lot", "productPresentation"]
+                                }
+                            }
+                        }
+                    };
+
+                    if (!_.isEmpty(this.myTodo.workflowData.user)) {
+                        var userId = "";
+                        var user = this.myTodo.workflowData.user;
+
+                        if (user.toLowerCase() == "all") {
+                            userId = "";
+                        } else if (user.toLowerCase() == "currentuser") {
+                            userId = DataHelper.getUserId();
+                        } else if (user.toLowerCase() == "unassigned") {
+                            userId = "_UNASSIGNED";
+                        }
+
+                        if (userId) {
+                            req.params.query.filters.attributesCriterion.push({
+                                "activities/assignedUser": {
+                                    "eq": userId
+                                }
+                            });
+                        }
+                    }
+
+                    req.params.options = { "from": 0, "to": 0 };
+
+                    this._governDataRequest = req;
+                    governDataLiquid.generateRequest();
+                }
+            },
+
+            _onGovernDataResponse: function (e) {
+                if (e.detail && e.detail.response) {
+                    var response = e.detail.response;
+                    if (response) {
+                        if (response.content && response.content.items) {
+                            var items = response.content.items;
+                            if (items.length) {
+                                this._numberOfTasks = items.length;
+                            }
+                        }
                     }
                 }
             },
@@ -263,8 +355,7 @@
                                 console.error("Element having id initBusinessConditionsGet not found.");
                                 return;
                             }
-
-                            initBusinessConditionsGet.requestData = req;
+                            this._businessConditionRequest = req;
                             initBusinessConditionsGet.generateRequest();
                         }
 
@@ -281,56 +372,12 @@
             _onActivityTap: function () {
                 var eventData = {
                     name: "rock-my-todo-click",
-                    data: {
-                        wfcId: this.$.workflowMetadataContainer.data
-                    },
+                    data: this.myTodo.workflowData,
                 }
                 this.fire('bedrock-event', eventData);
             },
 
             _onInitBusinessConditionsGetResponse: function () {
-
-                var contexts = [];
-                this._contexts.forEach(function (element) {
-                    contexts.push({
-                        "self": element,
-                        "workflow": this.myTodo.workflowName
-                    });
-                }, this);
-
-                var req = {
-                    "params": {
-                        "query": {
-                            "contexts": contexts,
-                            "filters": {
-                                "typesCriterion": [
-                                    "ruleContextMappings"
-                                ],
-                                "relationshipsCriterion": [
-                                    {
-                                        "hasBusinessConditions": {
-                                            "attributes": [
-                                                {
-                                                    "stepName": {
-                                                        "eq": this.myTodo.name
-                                                    }
-                                                }
-                                            ]
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                        "fields": {
-                            "relationships": [
-                                "hasBusinessConditions"
-                            ],
-                            "relationshipAttributes": [
-                                "stepName"
-                            ]
-                        }
-                    }
-                };
 
                 var businessConditionsGet = this.$$('#businessConditionsGet');
                 if (typeof (businessConditionsGet) === "undefined" || businessConditionsGet == null) {
@@ -339,7 +386,6 @@
                     return;
                 }
 
-                businessConditionsGet.requestData = req;
                 businessConditionsGet.generateRequest();
             },
 
@@ -369,10 +415,17 @@
                                                         var value = AttributeHelper.getFirstAttributeValue(stepNameAttr);
 
                                                         if (value && value == this.myTodo.name) {
-                                                            businessConditions.push({
-                                                                "id": businessCondition.relTo.id,
-                                                                "name": businessCondition.relTo.name
-                                                            });
+                                                            var businessConditionItem = {
+                                                                "businessConditionName": businessCondition.relTo.name,
+                                                                "data": {
+                                                                    "wfName": this.myTodo.workflowName,
+                                                                    "wfActivityName": this.myTodo.name,
+                                                                    "bcId": businessCondition.relTo.id,
+                                                                    "user": this.myTodo.user
+                                                                }
+                                                            };
+
+                                                            businessConditions.push(businessConditionItem);
                                                         }
 
                                                     }

@@ -42,6 +42,7 @@
             on-response="_onWorkflowDefinitionsGetResponse" on-error="_onWorkflowDefinitionsGetError"></liquid-entity-model-get>
 
         <pebble-dropdown id="assignedTo" label="Assigned To" selected-value="All" items="All,Assigned to me,Unassigned"></pebble-dropdown>
+
         <rock-tabs id="rock-my-todos-tabs"></rock-tabs>
 
         <bedrock-pubsub event-name="component-creating" handler="_onComponentCreating"></bedrock-pubsub>
@@ -60,6 +61,11 @@
                         value: function () {
                             return {};
                         }
+                    },
+
+                    _assignedTo: {
+                        type: String,
+                        value: 'All'
                     }
                 },
 
@@ -67,6 +73,10 @@
                     RUFBehaviors.UIBehavior,
                     RUFBehaviors.ComponentContextBehavior
                 ],
+
+                listeners: {
+                    'change': '_onDropdownChange'
+                },
 
                 attached: function () {
                     if (!_.isEmpty(this.contextData)) {
@@ -136,9 +146,36 @@
                             if (typeof (workflowDefinition.data) !== "undefined" && typeof (
                                 workflowDefinition.data.attributes) !== "undefined") {
                                 var workflowAttributes = workflowDefinition.data.attributes;
+
+                                var workflowActivities = AttributeHelper.getNestedAttributeValues(workflowAttributes.activities);
+                                var noOfAllowedActivities = 0;
+                                for (var j = 0; j < workflowActivities.length; j++) {
+                                    var workflowActivity = workflowActivities[j];
+
+                                    // Validate if current loggedin user has a role to work on the activity
+
+                                    var allowedRoles = undefined;
+                                    if (workflowActivity && workflowActivity.allowedRoles && workflowActivity.allowedRoles.values) {
+                                        allowedRoles = AttributeHelper.getAttributeValues(
+                                            workflowActivity.allowedRoles.values);
+                                    }
+                                    if (typeof (allowedRoles) !== "undefined" && allowedRoles instanceof Array &&
+                                        allowedRoles.length > 0) {
+                                        if (allowedRoles.indexOf(currentUserRole) == -1) {
+                                            continue;
+                                        } else {
+                                            noOfAllowedActivities++;
+                                        }
+                                    }
+                                }
+
+                                if(noOfAllowedActivities < 1) {
+                                    continue;
+                                }
+
                                 var workflowName = AttributeHelper.getFirstAttributeValue(workflowAttributes.workflowName);
                                 var tabItem = {
-                                    "name": "summary",
+                                    "name": workflowName.replace(/\W/g,'_'),
                                     "title": workflowName,
                                     "enableDropdownMenu": false,
                                     "selected": true,
@@ -147,8 +184,9 @@
                                         "path": "/src/elements/rock-my-todos/child-elements/my-todo-summary-list.html",
                                         "properties": {
                                             "config-context": {
-                                                "workflowName": workflowDefinition.name
-                                            }
+                                                "workflowName": workflowDefinition.name,
+                                            },
+                                            "assigned-to": this._assignedTo
                                         }
                                     }
                                 };
@@ -169,6 +207,33 @@
                 _onWorkflowDefinitionsGetError: function (e) {
                     console.error("WorkflowDefinitionsGetError:- " + e.detail.response.reason.message);
                 },
+
+                _onDropdownChange: function(e, details) {
+                    if(details) {
+                        var assignedToList = this.$$("#assignedTo");
+                        var rockTabs = this.$$('rock-tabs');
+
+                        if(assignedToList) {
+                            this._assignedTo = assignedToList.itemsArray[details.newValue];
+                        }
+
+                        if(rockTabs) {
+                            var tabConfig  = rockTabs.config;
+
+                            if(tabConfig && tabConfig.tabItems && tabConfig.tabItems.length) {
+                                tabConfig.tabItems.forEach(function(tabItem) {
+                                    if(tabItem && tabItem.component) {
+                                        tabItem.component.properties["assigned-to"] = this._assignedTo;
+                                    }
+                                }, this);
+                            }
+
+                            // rockTabs.config = undefined;
+                            // rockTabs.config = tabConfig;
+                            rockTabs.reloadTabs();
+                        }
+                    }
+                }
 
             });
         })();
