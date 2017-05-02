@@ -4,6 +4,7 @@
 <link rel="import" href="../bedrock-helpers/attribute-helper.html">
 <link rel="import" href="../bedrock-helpers/context-helper.html">
 <link rel="import" href="../bedrock-helpers/data-merge-helper.html">
+<link rel="import" href="../bedrock-helpers/entity-helper.html">
 
 <script>
     DataTransformHelper = {};
@@ -773,10 +774,14 @@
 
                                 if (!DataHelper.isEmptyObject(attributesWithPattern) && attributesWithPattern instanceof Array) {
                                     for (var j = 0; j < attributesWithPattern.length; j++) {
-                                        var attributeName = DataHelper.readAttributeFromPath(attributesWithPattern[j]);
+                                        var attributeValue = "";
 
-                                        // Replace Field Pattern with Values
-                                        var attributeValue = DataTransformHelper._getAttributeValue(entities[i], attributeName, lovColumnName, contextData);
+                                        var attributeName = DataHelper.readAttributeFromPath(attributesWithPattern[j]);
+                                        if(attributeName) {
+                                            // Replace Field Pattern with Values
+                                            attributeValue = DataTransformHelper._getLovAttributeValue(entities[i], attributeName, lovColumnName, contextData);    
+                                        }
+
                                         fieldPattern = fieldPattern.replace(attributesWithPattern[j], attributeValue);
                                     }
 
@@ -784,8 +789,14 @@
                                     formattedEntity[lovColumnName] = fieldPattern.replace(/[{}]/g, '');
                                 }
                             } else {
+                                var attributeValue = "";
+
                                 var attributeName = DataHelper.readAttributeFromPath(lovColumnMap[lovColumnName]);
-                                formattedEntity[lovColumnName] = DataTransformHelper._getAttributeValue(entities[i], attributeName, lovColumnName, contextData);
+                                if(attributeName) {
+                                    attributeValue = DataTransformHelper._getLovAttributeValue(entities[i], attributeName, lovColumnName, contextData);
+                                }
+
+                                formattedEntity[lovColumnName] = attributeValue;
                             }
                         });
 
@@ -811,20 +822,35 @@
             return formattedEntities;
         };
 
-        DataTransformHelper._getAttributeValue = function (entity, attributeName, lovColumnName, contextData) {
-            var attributeValue = "";
+        DataTransformHelper._getLovAttributeValue = function (entity, attributeName, lovColumnName, contextData) {
+            var attributeValue = undefined;
 
             if(["id", "name"].indexOf(lovColumnName) >= 0) {
                 // Properties
                 attributeValue = DataHelper.getValue(entity, attributeName);
             } else {
                 // Attribute
-                var attributeValues = DataHelper.getValue(entity, attributeName);
-                var firstValueContext = ContextHelper.getFirstValueContext(contextData);
-                var contextualValues = AttributeHelper.getAttributeValues(attributeValues.values, firstValueContext);
-                if (contextualValues && contextualValues instanceof Array && contextualValues.length > 0) {
-                    attributeValue = contextualValues[0];
+                var attribute = EntityHelper.getAttribute(entity, attributeName);
+                
+                if(attribute && attribute.values) {
+                    var firstValueContext = ContextHelper.getFirstValueContext(contextData);
+                    
+                    if(firstValueContext) {
+                        var contextualValues = AttributeHelper.getAttributeValues(attribute.values, firstValueContext);
+                        
+                        if (contextualValues && contextualValues instanceof Array && contextualValues.length > 0) {
+                            attributeValue = contextualValues[0].value;
+                        }
+                    }
+
+                    if(!attributeValue) {
+                        attributeValue =  AttributeHelper.getFirstAttributeValue(attribute);
+                    }
                 }
+            }
+
+            if(!attributeValue) {
+                attributeValue = entity.name;
             }
 
             return attributeValue;
