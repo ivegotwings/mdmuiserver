@@ -376,7 +376,7 @@ function buildResponse(dataObject, reqData, paths) {
     var dataObjectResponseJson = {};
 
     if (isEmpty(dataObject)) {
-        return response;
+        return dataObjectResponseJson;
     }
 
     if (!isEmpty(reqData.dataObjectFields)) {
