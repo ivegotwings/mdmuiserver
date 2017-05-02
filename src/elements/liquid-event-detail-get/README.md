@@ -1,1 +1,0 @@
-liquid-event-detail-get
