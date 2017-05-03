@@ -20,8 +20,8 @@
     <template>
         <liquid-config-get id="liquidConfigGet" $verbose="[[verbose]]" operation="getbyids" on-response="_onResponse"
             on-error="_onError"></liquid-config-get>
-        <liquid-entity-model-composite-get id="liquidEntityModelCompositeGet" $verbose="[[verbose]]" operation="getbyids" on-response="_onEntityCompositeModelGetResponse"
-            on-error="_onEntityCompositeModelGetError"></liquid-entity-model-composite-get>
+        <liquid-entity-model-composite-get id="liquidEntityModelCompositeGet" $verbose="[[verbose]]" operation="getbyids" on-entity-model-composite-get-response="_onResponse"
+            on-error="_onError"></liquid-entity-model-composite-get>
         <liquid-entity-model-get id="liquidEntityModelGet" $verbose="[[verbose]]" operation="getbyids" on-response="_onResponse"
             on-error="_onError"></liquid-entity-model-get>
         <liquid-entity-data-get id="liquidEntityDataGet" $verbose="[[verbose]]" operation="getbyids" on-response="_onResponse"
@@ -55,13 +55,13 @@
                                             {"appName": "main-app", "contextData": {'ItemContexts': []}},
                                             {"appName": "app-dashboard", "contextData": {'ItemContexts': []}},
                                             {"appName": "app-entity-discovery", "contextData": {'ItemContexts': []}},
-                                            {"appName": "app-entity-manage", "contextData": {'ItemContexts': [{'entityType': 'sku'}]}},
-                                            {"appName": "app-business-function", "contextData": {'ItemContexts': [{'entityType': 'sku'}]}}
+                                            {"appName": "app-entity-manage", "contextData": {'ItemContexts': [{'type': 'sku'}]}},
+                                            {"appName": "app-business-function", "contextData": {'ItemContexts': [{'type': 'sku'}]}}
                                         ]
-                                     }//,
-                                    // "entityCompositeModel": {
-                                    //     "byNames": ["sku", "lot"]
-                                    // }//,
+                                    },
+                                    "entityCompositeModel": {
+                                         "byNames": ["sku", "lot"]
+                                    } //,
                                     // "config": {
                                     //     "bySearch": ["savedsearch", "workflowSavedSearch"]
                                     // },
@@ -75,41 +75,71 @@
                             };
                         }
                     },
-                    requestTracker: {
+                    requestTrackerTemplate: {
                         "type": Object,
                         "value": function () {
                             return {
-                                "aggregateConfig": {
-                                    'startTime': '',
+                                "all": {
+                                    "startTime": "",
+                                    "total": 0,
                                     "sent": 0,
                                     "received": 0,
-                                    "errored": 0
+                                    "errored": 0,
+                                    "timeTaken": 0,
+                                    "progress": 0
+                                },
+                                "aggregateConfig": {
+                                    "startTime": "",
+                                    "total": 0,
+                                    "sent": 0,
+                                    "received": 0,
+                                    "errored": 0,
+                                    "timeTaken": 0,
+                                    "progress": 0
                                 },
                                 "config": {
-                                    'startTime': '',
+                                    "startTime": "",
+                                    "total": 0,
                                     "sent": 0,
                                     "received": 0,
-                                    "errored": 0
+                                    "errored": 0,
+                                    "timeTaken": 0,
+                                    "progress": 0
                                 },
                                 "entityCompositeModel": {
-                                    'startTime': '',
+                                    "startTime": "",
+                                    "total": 0,
                                     "sent": 0,
                                     "received": 0,
-                                    "errored": 0
+                                    "errored": 0,
+                                    "timeTaken": 0,
+                                    "progress": 0
                                 },
                                 "entityModel": {
-                                    'startTime': '',
+                                    "startTime": "",
+                                    "total": 0,
                                     "sent": 0,
                                     "received": 0,
-                                    "errored": 0
+                                    "errored": 0,
+                                    "timeTaken": 0,
+                                    "progress": 0
                                 },
-                                "entityData": {
-                                    'startTime': '',
+                                "entity": {
+                                    "startTime": "",
+                                    "total": 0,
                                     "sent": 0,
                                     "received": 0,
-                                    "errored": 0
+                                    "errored": 0,
+                                    "timeTaken": 0,
+                                    "progress": 0
                                 }
                             };
+                        }
+                    },
+                    requestTracker: {
+                        "type": Object,
+                        "value": function () {
+                            return {};
                         }
                     }
                 },
@@ -117,6 +147,8 @@
                     if (!this._validate(this.requestData)) {
                         return;
                     }
+
+                    this.requestTracker = DataHelper.cloneObject(this.requestTrackerTemplate);
 
                     var requests = this.prepareRequests();
                     
@@ -136,16 +168,10 @@
                             case "aggregateConfig": {
                                 var liquidConfigAggregateGet = document.createElement("liquid-config-aggregate-get");
                                 liquidConfigAggregateGet.name = requestData.appName + DataHelper.getRandomString();
-                                liquidConfigAggregateGet.addEventListener("config-get-response", this._onApplicationConfigGetResponse.bind(this));
-                                liquidConfigAggregateGet.addEventListener("error", this._onApplicationConfigError.bind(this));
+                                liquidConfigAggregateGet.addEventListener("config-get-response", this._onResponse.bind(this));
+                                liquidConfigAggregateGet.addEventListener("error", this._onError.bind(this));
                                 liquidConfigAggregateGet.appName = requestData.appName;
                                 liquidConfigAggregateGet.contextData = contextData;
-
-                                if(this.requestTracker.aggregateConfig.sent == 0) {
-                                    this.requestTracker.aggregateConfig.startTime = Date.now();
-                                }
-                                this.requestTracker[request.type].sent++;
-                                
                                 liquidConfigAggregateGet.refresh();
                                 break;
                             }
@@ -153,20 +179,12 @@
                                 liquidConfigGet.operation = operation;
                                 liquidConfigGet.requestData = requestData;
                                 liquidConfigGet.contextData = contextData;
-                                counter++;
                                 liquidConfigGet.generateRequest();
                                 break;
                             }
                             case "entityCompositeModel": {
                                 liquidEntityModelCompositeGet.operation = operation;
                                 liquidEntityModelCompositeGet.requestData = requestData;
-                                
-                                if(this.requestTracker[request.type].sent == 0) {
-                                    this.requestTracker[request.type].startTime = Date.now();
-                                }
-
-                                this.requestTracker[request.type].sent++;
-                                
                                 liquidEntityModelCompositeGet.generateRequest();
                                 break;
                             }
@@ -174,7 +192,6 @@
                                 liquidEntityModelGet.operation = operation;
                                 liquidEntityModelGet.requestData = requestData;
                                 liquidEntityModelGet.contextData = contextData;
-                                counter++;
                                 liquidEntityModelGet.generateRequest();
                                 break;
                             }
@@ -182,11 +199,24 @@
                                 liquidEntityDataGet.operation = operation;
                                 liquidEntityDataGet.requestData = requestData;
                                 liquidEntityDataGet.contextData = contextData;
-                                counter++;
                                 liquidEntityDataGet.generateRequest();
                                 break;
                             }
                         }
+
+                        var reqTrackerItem = this.requestTracker[request.type];
+                        var overallReqTrackerItem = this.requestTracker.all;
+
+                        if(overallReqTrackerItem.sent == 0) {
+                            overallReqTrackerItem.startTime = Date.now();
+                        }
+
+                        if(reqTrackerItem.sent == 0) {
+                            reqTrackerItem.startTime = Date.now();
+                        }
+
+                        overallReqTrackerItem.sent++;
+                        reqTrackerItem.sent++;
                     }
                 },
                 prepareRequests: function () {
@@ -218,6 +248,8 @@
                         }
                     }
 
+                    this.requestTracker.all.total = allRequests.length;
+
                     return allRequests;
                 },
                 _validate: function (reqData) {
@@ -243,6 +275,8 @@
                             requests.push(request);
                         }
                     }
+
+                    this.requestTracker.aggregateConfig.total = requests.length;
 
                     return requests;
                 },
@@ -274,6 +308,8 @@
                         }
                     }
 
+                    this.requestTracker.config.total = requests.length;
+
                     return requests;
                 },
                 prepareEntityCompositeModelGetRequests: function (preLoadConfig) {
@@ -302,6 +338,8 @@
                             requests.push(request);
                         }
                     }
+
+                    this.requestTracker.entityCompositeModel.total = requests.length;
 
                     return requests;
                 },
@@ -333,6 +371,8 @@
                         }
                     }
 
+                    this.requestTracker.entityModel.total = requests.length;
+
                     return requests;
                 },
                 prepareEntityGetRequests: function (preLoadConfig) {
@@ -363,59 +403,97 @@
                         }
                     }
 
+                    this.requestTracker.entity.total = requests.length;
                     return requests;
                 },
-                _onApplicationConfigGetResponse: function(e) {
-                    var reqTrackerItem = this.requestTracker.aggregateConfig;
+                _onResponse: function(e) {
+                    
+                    var reqType = this._getRequestTypeByTarget(e.target);
 
+                    var overallReqTrackerItem = this.requestTracker.all;
+                    var reqTrackerItem = this.requestTracker[reqType];
+
+                    overallReqTrackerItem.received++;
                     reqTrackerItem.received++;
-                    if(reqTrackerItem.sent == reqTrackerItem.received) {
+
+                    this._verifyCompletion(reqTrackerItem);
+                },
+                _onError: function(e) {
+                    var reqType = this._getRequestTypeByTarget(e.target);
+
+                    var overallReqTrackerItem = this.requestTracker.all;
+                    var reqTrackerItem = this.requestTracker[reqType];
+
+                    overallReqTrackerItem.errored++;
+                    reqTrackerItem.errored++;
+
+                    this._verifyCompletion(reqTrackerItem);
+                },
+                _verifyCompletion: function (reqTrackerItem) {
+                    var overallReqTrackerItem = this.requestTracker.all;
+
+                    if(overallReqTrackerItem.total > 0) {
+                        overallReqTrackerItem.progress = ((overallReqTrackerItem.received + overallReqTrackerItem.errored) * 100) / overallReqTrackerItem.total;
+                    }
+
+                    if(reqTrackerItem.total > 0) {
+                        reqTrackerItem.progress = ((reqTrackerItem.received + reqTrackerItem.errored) * 100) / reqTrackerItem.total;
+                    }
+                    
+                    if((reqTrackerItem.total == reqTrackerItem.sent)
+                        && (reqTrackerItem.total == (reqTrackerItem.received + reqTrackerItem.errored))) {
+
                         var startTime = reqTrackerItem.startTime;
                         var endTime = Date.now();
-                        var taken = endTime - startTime;
+                        var timeTaken = endTime - startTime;
+                        reqTrackerItem.timeTaken = timeTaken;
+                    }
 
-                        console.log('application configs load completed in ' + taken + ' ms');
+                    if((overallReqTrackerItem.total == overallReqTrackerItem.sent)
+                        && (overallReqTrackerItem.total == (overallReqTrackerItem.received + overallReqTrackerItem.errored))) {
+
+                        var startTime = overallReqTrackerItem.startTime;
+                        var endTime = Date.now();
+                        var timeTaken = endTime - startTime;
+                        overallReqTrackerItem.timeTaken = timeTaken;
+
                         var eventDetail = {
-                            'totalRecordsLoaded': reqTrackerItem.received,
-                            'timeTaken': taken
+                            'timeTaken': overallReqTrackerItem.timeTaken,
+                            'requestTracker': this.requestTracker
                         }
 
                         this.fire('dataobject-preload-completed', eventDetail, {'bubbles': false});
                         this.fire('liquid-dataobject-preload-completed', eventDetail, {'bubbles': false});
                     }
                 },
-                _onApplicationConfigError: function(e) {
-                    this.requestTracker.aggregateConfig.errored++;
-                },
-                _onEntityCompositeModelGetResponse: function(e) {
-                    var reqTrackerItem = this.requestTracker.entityCompositeModel;
+                _getRequestTypeByTarget: function (target) {
+                    var reqType = 'unknown';
+                    var tagName = target ? target.tagName.toLowerCase() : "unknown";
 
-                    reqTrackerItem.received++;
-                    if(reqTrackerItem.sent == reqTrackerItem.received) {
-                        var startTime = reqTrackerItem.startTime;
-                        var endTime = Date.now();
-                        var taken = endTime - startTime;
-                        console.log('entity composite model load completed in ' + taken + ' ms');
-                        var eventDetail = {
-                            'totalRecordsLoaded': reqTrackerItem.received
+                    switch(tagName) {
+                        case "liquid-config-get": {
+                            reqType = "config";
+                             break;
                         }
-
-                        this.fire('response', eventDetail, {'bubbles': false});
-                        this.fire('liquid-response', eventDetail, {'bubbles': false});
+                        case "liquid-config-aggregate-get": {
+                            reqType = "aggregateConfig";
+                             break;
+                        }
+                        case "liquid-entity-model-composite-get": {
+                            reqType = "entityCompositeModel";
+                             break;
+                        }
+                        case "liquid-entity-model-get": {
+                            reqType = "entityModel";
+                             break;
+                        }
+                        case "liquid-entity-data-get": {
+                            reqType = "entity";
+                             break;
+                        }
                     }
-                },
-                _onEntityCompositeModelGetError: function(e) {
-                    this.requestTracker.entityCompositeModel.errored++;
-                },
-                _onResponse: function (e) {
-                    var eventDetail = e.detail;
-                    this.fire('entity-dataobject-preload-response', eventDetail, { bubbles: this.bubbles });
-                    this.fire('liquid-dataobject-preload-response', eventDetail, { bubbles: this.bubbles });
-                },
-                _onError: function (e) {
-                    var eventDetail = e.detail;
-                    this.fire('error', eventDetail, { bubbles: this.bubbles });
-                    this.fire('liquid-error', eventDetail, { bubbles: this.bubbles });
+
+                    return reqType;
                 }
             });
         })();
