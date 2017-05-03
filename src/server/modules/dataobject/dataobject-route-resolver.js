@@ -227,17 +227,16 @@ async function get(dataObjectIds, reqData) {
 
     //console.log('req to api ', JSON.stringify(request));
     var res = undefined;
-    //Temp: work in progress for getcoalesce call integration hence placed 1 == 2 condtion to always go to normal get for now
     var isCoalesceGet = false;
 
     var service = _getService(reqData.dataObjectType);
 
-    //HACK: this is hard coded for now as RDF getcoalesce is not having same behavior as normal get..so calling only when its absoultely needed
-    if (request.dataIndex == "entityModel" && 1 == 2) {
-        if (!isEmpty(request.params.query.contexts) && (!isEmpty(reqData.attrNames) || !isEmpty(reqData.relationships))) {
+    if (request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel') {
+        if (!isEmpty(request.params.query.contexts)) {
             var contexts = request.params.query.contexts;
             if (contexts && contexts.length == 1) {
                 var firstContext = contexts[0];
+                //TODO: We need a fix to remove this classification context check when RDF fixes
                 if (firstContext && firstContext.classification) {
                     res = await service.getCoalesce(request);
                     isCoalesceGet = true;
