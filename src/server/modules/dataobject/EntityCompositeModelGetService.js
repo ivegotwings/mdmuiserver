@@ -14,7 +14,7 @@ EntityCompositeModelGetService.prototype = {
         return this._get(request, 'get');
     },
     getCoalesce: async function (request) {
-        return this._get(request, 'getCoalesce');
+        return this._getCoalesce(request, 'getcoalesce');
     },
     _get: async function (request, serviceOperation) {
         var serviceName = "entitymodelservice";
@@ -54,7 +54,7 @@ EntityCompositeModelGetService.prototype = {
         var res = await this.post(serviceName + "/" + serviceOperation, internalRequest);
         //console.log('composite model get RDF ', JSON.stringify(res));
 
-        var mergedModel = this._mergeModels(request, objectName, res);
+        var mergedModel = this._mergeModels(request, objectName, res, serviceOperation);
 
         var response = {
             'response': {
@@ -67,14 +67,86 @@ EntityCompositeModelGetService.prototype = {
 
         return response;
     },
+    _getCoalesce: async function (request, serviceOperation) {
+        var serviceName = "entitymodelservice";
+
+        if (!this._validate(request)) {
+            return;
+        }
+
+        var internalRequests = [];
+        var reqTypes = ['entityManageModel', 'entityValidationModel', 'entityDefaultValueModel', 'entityDisplayModel'];
+
+        for(var type of reqTypes) {
+
+            var internalRequest = falcorUtil.cloneObject(request);
+            
+            var objectName = '';
+            
+            if (internalRequest.params && internalRequest.params.query) {
+                var query = internalRequest.params.query;
+
+                if (query.valueContexts) {
+                    delete query.valueContexts;
+                }
+
+                if (!query.filters) {
+                    query.filters = {};
+                }
+
+                objectName = query.id.replace('_entityCompositeModel', '');
+                
+                delete query.ids;
+
+                query.id = objectName + "_" + type;
+                query.filters.typesCriterion = [type];
+            }
+
+            internalRequests.push(internalRequest);
+        }
+
+        var serviceUrl = serviceName + "/" + serviceOperation;
+
+        var res = [];
+
+        for (var req of internalRequests) {
+            var oneRes = await this.post(serviceUrl, req);
+            res.push(oneRes);
+            
+        }
+        //console.log('composite model get RDF ', JSON.stringify(res));
+
+        var mergedModel = this._mergeModels(request, objectName, res, serviceOperation);
+
+        var response = {
+            'response': {
+                'status': 'success',
+                'entityModels': [mergedModel]
+            }
+        };
+
+        //console.log('composite model get merged response ', JSON.stringify(response));
+
+        return response;
+        
+    },
     _validate: function (reqData) {
         return true;
     },
-    _mergeModels: function (request, objectName, response) {
+    _mergeModels: function (request, objectName, response, serviceOperation) {
 
-        //console.log('response ', JSON.stringify(response));
+        var allModels = [];
 
-        var allModels = response.response.entityModels;
+        if(serviceOperation == 'getcoalesce') {
+            for(var res of response) {
+                allModels.push.apply(allModels, res.response.entityModels);
+            }
+        }
+        else {
+            allModels = response.response.entityModels;
+        }
+
+        //console.log('all models ', JSON.stringify(allModels));
 
         var mergedModel = {};
         var localeContext = undefined;
