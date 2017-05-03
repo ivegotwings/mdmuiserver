@@ -1,0 +1,636 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../../../bower_components/iron-pages/iron-pages.html">
+<link rel="import" href="../../../bower_components/iron-icon/iron-icon.html">
+<link rel="import" href="../../../bower_components/paper-menu/paper-menu.html">
+<link rel="import" href="../../../bower_components/paper-item/paper-item.html">
+
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-helpers/component-helper.html">
+
+<link rel="import" href="../pebble-tab/pebble-tab.html">
+<link rel="import" href="../pebble-tab-group/pebble-tab-group.html">
+<link rel="import" href="../pebble-horizontal-divider/pebble-horizontal-divider.html">
+<link rel="import" href="../pebble-styles-app/pebble-styles-app.html">
+<link rel="import" href="../pebble-badge/pebble-badge.html">
+<link rel="import" href="../pebble-dialog/pebble-dialog.html">
+
+<!--
+`<rock-tabs>` Represents a wrapper on top of the `<pebble-tab-group>` element. 
+This element generates the tabs with material design styling based on the configuration provided by the user.
+It makes it easy to explore and switch between different views or functional aspects of an App or to browse the categorized data sets dynamically.
+
+@demo demo/index.html
+-->
+<dom-module id="rock-tabs">
+    <template>
+        <style include="pebble-styles-app">
+            pebble-horizontal-divider {
+                --pebble-horizontal-divider-color:var(--border-black, #000);
+            }
+            
+            pebble-tab {
+                margin-right: 25px;
+                margin-left: 20px;
+                overflow: inherit;
+            }
+            
+            pebble-tab:last-of-type {
+                margin-right: 0;
+            }
+            
+            iron-icon {
+                margin-right: var(--tab-icon-spacing, 0.5em);
+            }
+            
+            paper-menu iron-icon {
+                --iron-icon-height: 20px;
+                --iron-icon-width: 20px;
+                margin-right: 10px;
+            }
+            pebble-tab .dropdown-content{
+				box-sizing: border-box;
+    			position: fixed;
+   				border-radius: 3px;
+                border: 1px solid rgba(27,31,35,0.15);
+    			max-height:250px;
+                overflow: auto;
+    			/*padding: 5px 0;*/
+                -webkit-box-shadow: 0 3px 12px rgba(27,31,35,0.15);
+                -moz-box-shadow: 0 3px 12px rgba(27,31,35,0.15);
+                -o-box-shadow: 0 3px 12px rgba(27,31,35,0.15);
+                box-shadow: 0 3px 12px rgba(27,31,35,0.15);
+			}
+
+            pebble-tab .dropdown-content paper-item{
+                padding: 0 10px;
+            }
+            pebble-tab .dropdown-content paper-item:hover{
+                color:var(--focused-line, #026bc3);
+                background-color:var(--bgColor-hover,#e8f4f9);
+            }
+            paper-menu {
+                @apply --common-popup;
+                margin-top: var(--default-tab-height,38px);
+            }
+            
+            .tab-subtitle {
+                font-size: var(--font-size-sm,12px);
+                font-weight: var(--font-regular,400);
+                position: absolute;
+                top: var(--subtitle-abs-position, -4px);
+            }
+            
+            .iron-selected .tab-subtitle {
+                color: var(--palette-cerulean,#036bc3);
+            }
+            
+            .tab-subtitle-wrapper>pebble-badge {
+                --pebble-badge-margin-left: 2%;
+                --pebble-badge-margin-bottom: 1%;
+            }
+            
+            .tab-title iron-icon {
+                width: var(--tab-icon-dimension, 18px);
+                height: var(--tab-icon-dimension, 18px);
+            }
+            
+            .hide-element {
+                display: none;
+            }
+            
+            .truncate {
+                width: 75px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                font-weight: var(--font-bold, bold);
+            }
+            
+            pebble-tab[class="iron-selected"] .truncate,
+            pebble-tab .truncate:hover {
+                color: var(--palette-cerulean,#036bc3)
+            }
+            
+            paper-item {
+                /* this can be moved if paper item is moved inside the pebble tab*/
+                --paper-item-min-height: 30px;
+                --paper-item-selected-weight: 100;
+                --paper-item: {
+                    font-size: var(--default-font-size, 14px);
+                }
+            }
+
+            .tab-content {
+                @apply(--rock-tab-content);
+            }
+        </style>
+        <div id="menuProviders" hidden></div>
+        <pebble-tab-group id$="{{id}}" selected="{{selectedTabIndex}}" on-iron-select="_onIronSelect" noink>
+            <template  is="dom-repeat" items="[[_calculatedTabItems]]" as="tabItem">
+                <pebble-tab id="[[tabItem.name]]" display-menu="[[arrayItem(_calculatedTabItems.*, index, 'enableDropdownMenu')]]" tab-config="{{tabItem}}">
+                    <div class="tab-title-content">
+                        <div class="tab-subtitle">
+                            <span class="tab-subtitle-content truncate">[[tabItem.subtitle]]</span>
+                        </div>
+                        <div class="tab-badge">
+                            <pebble-badge hidden></pebble-badge>
+                        </div>
+                        <div class="tab-title">
+                            <template is="dom-if" if="[[tabItem.icon]]">
+                                <iron-icon icon="[[tabItem.icon]]"></iron-icon>
+                            </template>
+                            <span class="truncate">[[_temp(tabItem.title)]]</span>
+                        </div>
+                    </div>
+                    <paper-menu class="dropdown-content">
+                        <template is="dom-repeat" items="[[arrayItem(_calculatedTabItems.*, index, 'menuItems')]]" as="menuItem">
+                            <template is="dom-if" if="[[!_isDivider(menuItem)]]">
+                                <paper-item id="[[tabItem.name]]-[[menuItem.name]]" tab-config="[[tabItem]]" menu-item-config="[[menuItem]]">
+                                    <!--<iron-icon icon="[[menuItem.icon]]"></iron-icon>-->
+                                    [[menuItem.title]]
+                                </paper-item>
+                            </template>
+                            <template is="dom-if" if="[[_isDivider(menuItem)]]">
+                                <pebble-horizontal-divider></pebble-horizontal-divider>
+                            </template>
+                        </template>
+                    </paper-menu>
+                </pebble-tab>
+            </template>
+        </pebble-tab-group>
+        <template is="dom-repeat" items="[[_calculatedTabItems]]" as="tabItemContent">
+            <div id="content-[[tabItemContent.name]]" hidden class="tab-content"></div>
+            <template is="dom-if" if="[[tabItemContent]]">
+                <template is="dom-repeat" items="[[arrayItem(_calculatedTabItems.*, index, 'menuItems')]]" as="menuItemContent">
+                    <template is="dom-if" if="[[!_isDivider(menuItemContent)]]">
+                        <div id="content-[[tabItemContent.name]]-[[menuItemContent.name]]" class="tab-content" hidden></div>
+                    </template>
+                </template>
+            </template>
+        </template>
+        <bedrock-pubsub event-name="selection-changed" handler="_onSelectionChange" target-id=""></bedrock-pubsub>
+    </template>
+    <script>
+        (function () {
+            'use strict';
+
+            Polymer({
+                properties: {
+
+                    /**
+                     * Indicates the unique identification string of an `element`.
+                     */
+                    id: {
+                        type: String,
+                        notify: true
+                    },
+
+                    /**
+                     * Indicates the configuration of an `element`.
+                     */
+                    config: {
+                        type: Object,
+                        observer: '_configChanged',
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _calculatedTabItems: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+
+                    /**
+                     * Indicates the selected index of a tab.
+                     */
+                    selectedTabIndex: {
+                        type: Number,
+                        reflectToAttribute: true,
+                        notify: true
+                    },
+
+                    _currentTabName: {
+                        type: String
+                    },
+
+                    /**
+                     * Indicates the selected tab's configuration.
+                     */
+                    selectedTab: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        },
+                        notify: true
+                    },
+
+                    _currentTabErrorLength: {
+                        type: Number,
+                        value: 0,
+                        notify: true,
+                        observer: '_errorLengthChanged'
+                    },
+
+                    _selectedTabConfig: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        },
+                        notify: true
+                    }
+                },
+                behaviors: [
+                    RUFBehaviors.UIBehavior
+                ],
+
+                /*
+                 * Can be used to get the value of a badge for tab-name specified by the user.
+                 */
+                getTabByName: function (tabName) {
+                    var pebbleTabGroup = this.$$("#" + this.id);
+                    if (pebbleTabGroup) {
+                        return pebbleTabGroup.querySelector("#" + tabName);
+                    }
+                },
+
+                /*
+                 * Can be used to set the value of a badge for tab-name specified by the user.
+                 */
+                setBadgeValue: function (tabName, value) {
+                    var self = this;
+                    var tab = self.$$("#" + this.id).querySelector("#" + tabName);
+                    if (tab) {
+                        var badge = tab.querySelector("pebble-badge");
+                        if (badge && value) {
+                            badge.label = value;
+                            self.toggleBadge(tab, true);
+                        } else {
+                            self.toggleBadge(tab, false);
+                        }
+                    } else {
+                        console.log("Tab having a name " + tabName + " does not exists");
+                    }
+                },
+
+                /*
+                 * Can be used to return the value of a badge for tab-name specified by the user.
+                 */
+                getBadgeValue: function (tabName) {
+                    var pebbleTabGroup = this.$$("#" + this.id);
+                    if (pebbleTabGroup) {
+                        var tab = pebbleTabGroup.querySelector("#" + tabName);
+                        if (tab) {
+                            var badge = tab.querySelector("pebble-badge");
+                            if (badge) {
+                                return badge.label;
+                            }
+                        } else {
+                            console.log("Tab having a name " + tabName + " does not exists");
+                        }
+                    }
+                },
+
+                /*
+                 * Can be used to toggle the display value of the badge element.
+                 */
+                toggleBadge: function (tab, showHide) {
+                    if (tab) {
+                        var badge = tab.querySelector("pebble-badge");
+                        if (badge) {
+                            if (showHide) {
+                                badge.removeAttribute("hidden");
+                            } else {
+                                badge.setAttribute("hidden", "");
+                            }
+                        } else {
+                            console.log("Pebble badge element does not exits");
+                        }
+                    } else {
+                        console.log("Tab having a name " + tabName + " does not exists");
+                    }
+                },
+
+                _configChanged: function (config) {
+                    if (config != null && config != undefined) {
+                        if (config.tabItems) {
+                            var tabItems = config.tabItems;
+                            if (tabItems != null && tabItems != undefined && tabItems.length > 0) {
+                                for (var tabItemIndex in tabItems) {
+                                    var tabItem = tabItems[tabItemIndex];
+                                    tabItem.index = tabItemIndex;
+                                    if (tabItem.selected) {
+                                        this.selectedTabIndex = tabItemIndex;
+                                    }
+                                }
+                            }
+
+                            this._calculatedTabItems = DataHelper.cloneObject(tabItems);
+                            for (var tabItemIndex in tabItems) {
+                                var tabItem = tabItems[tabItemIndex];
+                                //fill menuitems auto
+                                this._fillMenuItems(tabItem);
+                            }
+                        }
+
+                        var pebbleTabGroup = this.$$("#" + this.id);
+                        if (pebbleTabGroup) {
+                            if (config.scrollable) {
+                                pebbleTabGroup.scrollable = true;
+                            } else {
+                                pebbleTabGroup.setAttribute("fitContainer", "");
+                            }
+                        }
+                    }
+                },
+
+                _fillMenuItems: function(tabItem) {
+                    var menuProviders = this.$.menuProviders;
+                    if(tabItem.menuProviderComponent) {
+                        tabItem.menuProviderComponent.properties = DataHelper.cloneObject(tabItem.component.properties);
+                        ComponentHelper.loadContent(menuProviders, tabItem.menuProviderComponent, this, this._menuProviderCreated.bind(this, tabItem));
+                    }
+                },
+                
+                _menuProviderCreated: function(tabItem, menuProviderElement) {
+                    if(menuProviderElement) {
+                        if(tabItem && menuProviderElement.getMenu) {
+                            menuProviderElement.getMenu(tabItem, this._menuProviderCallback.bind(this, tabItem));
+                        }
+                    }
+                },
+
+                _menuProviderCallback: function(tabItem, menuItems) {
+                    if(tabItem) {
+                        this.set('_calculatedTabItems.'+tabItem.index, tabItem);
+                        if(menuItems && menuItems.length > 0) {
+                            var origCount = 0;
+                            if(tabItem.menuItems) {
+                                origCount = tabItem.menuItems.length;
+                            }
+                            if(menuItems.length > 0 && origCount != menuItems.length) {
+                                this.set('_calculatedTabItems.'+tabItem.index+".enableDropdownMenu",true);
+                                this.set('_calculatedTabItems.'+tabItem.index+".menuItems",menuItems);
+                            }
+                        } else {
+                            this.set('_calculatedTabItems.'+tabItem.index+".enableDropdownMenu",false);
+                        }
+                    }
+                },
+
+                _isDivider: function (item) {
+                    return item.name == "divider";
+                },
+
+                _onIronSelect: function (e) {
+                    if (e && e.detail && e.detail.item) {
+                        // Capturing selected tab configuration
+                        var tabConfig = this.selectedTab = e.detail.item.tabConfig;
+                        var menuItemConfig = e.detail.item.menuItemConfig;
+                        var subTitle = tabConfig.subtitle == undefined ? "" : tabConfig.subtitle;
+
+                        //Capturing for Quick Manage, reload tab with this configuration
+                        this._selectedTabConfig = {
+                            "tabConfig": tabConfig,
+                            "menuItemConfig": menuItemConfig,
+                            "subTitle": subTitle
+                        };
+
+                        if (tabConfig && menuItemConfig) {
+                            subTitle = menuItemConfig.title;
+                            this._loadContent(menuItemConfig, tabConfig.name);
+                        } else {
+                            this._loadContent(tabConfig);
+                        }
+
+                        this._resetSubTitles(tabConfig);
+
+                        var tabSubTitle = this.$$("#" + tabConfig.name + " .tab-subtitle-content");
+                        if (tabSubTitle && subTitle) {
+                            tabSubTitle.textContent = subTitle;
+                        }
+
+                        if (subTitle) {
+                            this._applyMargin(tabConfig.name, true);
+                        } else {
+                            this._applyMargin(tabConfig.name, false);
+                        }
+                    }
+                },
+
+                _resetSubTitles: function (currentTabConfig) {
+                    var tabsConfig = this.config.tabItems;
+                    var pebbleTabGroup = this.$$("#" + this.id);
+
+                    if (tabsConfig && pebbleTabGroup) {
+                        for (var index in tabsConfig) {
+                            var tabConfig = tabsConfig[index];
+                            var tab = pebbleTabGroup.querySelector("#" + tabConfig.name);
+
+                            if (tab) {
+                                var tabSubTtile = tab.querySelector(".tab-subtitle-content");
+                                if (tabConfig && tabSubTtile) {
+                                    tabSubTtile.textContent = "";
+                                }
+
+                                var menu = tab.querySelector("paper-menu");
+                                if (currentTabConfig.name !== tab.id && menu && menu.selected >= 0) {
+                                    menu.selected = -1;
+                                }
+                            }
+                        }
+                    }
+                },
+
+                _loadContent: function (config, tabName) {
+                    if (config) {
+                        var viewName = config.name;
+                        viewName = tabName ? tabName + '-' + viewName : viewName;
+                        var contentElement = this.$$("#content-" + viewName);
+                        
+                        if (config.component) {
+                            ComponentHelper.loadContent(contentElement, config.component, this);
+                            this._showView(viewName);
+                            if (this._currentTabName && this._currentTabName != viewName) {
+                                this._hideView(this._currentTabName);
+                            }
+                            this._currentTabName = viewName;
+                        }
+
+                        if (config.errorLength) {
+                            this._updateErrorVis(config.errorLength);
+                        } else {
+                            this._updateErrorVis(0);
+                        }
+                    } else {
+                        console.log("Tabconfig not available");
+                    }
+                },
+
+                _showView: function (viewName) {
+                    if (viewName) {
+                        var contentView = this.$$("#content-" + viewName);
+                        if (contentView) {
+                            contentView.removeAttribute("hidden");
+                        }
+                    }
+                },
+
+                _hideView: function (viewName) {
+                    if (viewName) {
+                        var contentView = this.$$("#content-" + viewName);
+                        if (contentView) {
+                            contentView.setAttribute("hidden", "");
+                        }
+                    }
+                },
+
+                _applyMargin: function (tabName, apply) {
+                    var tab = this.getTabByName(tabName);
+
+                    if (tab) {
+                        var dropdownWrapper = tab.querySelector("#dropdown-wrapper");
+
+                        if (dropdownWrapper && apply) {
+                            if (apply) {
+                                dropdownWrapper.style.marginTop = "2%";
+                            } else {
+                                dropdownWrapper.style.marginTop = "0%";
+                            }
+                        }
+                    }
+                },
+                /**
+                * Can be used to reload the current tab content.
+                */
+                reloadCurrentTab: function (isReloadByConfig) {
+                    //to reload the current selected tab after any changes to tabItemConfig
+                    //no inputs to this method. Find out the current selected tab and call _loadContent()
+                    var currentItem = this.$$("#" + this.id).selectedItem;
+
+                    if(isReloadByConfig && this._selectedTabConfig.tabConfig)
+                    {
+                        var currentTabConfig = this._selectedTabConfig.tabConfig;
+                        var currentTabMenuConfig = this._selectedTabConfig.menuItemConfig;
+                    }
+                    else if (currentItem) {
+                        var currentTabConfig = currentItem.tabConfig;
+                        var menu = currentItem.querySelector('paper-menu');
+                        var currentMenuItem;
+                        var currentTabMenuConfig;
+                        if(menu) {
+                            currentMenuItem = menu.selectedItem;
+                        }
+                        if(currentMenuItem) {
+                            currentTabMenuConfig = currentMenuItem.menuItemConfig;
+                        }
+                    }
+
+                    if (currentTabConfig && currentTabMenuConfig) {
+                        this._loadContent(currentTabMenuConfig, currentTabConfig.name);
+                    } else {
+                        this._loadContent(currentTabConfig, null);
+                    }
+                },
+                /**
+                * Can be used to reload all tabs of a component.
+                */
+                reloadTabs: function () {
+                    if (this.config && this.config.tabItems && this.config.tabItems.length > 0) {
+                        var tabItems = this.config.tabItems;
+                        for (var i = 0; i < tabItems.length; i++) {
+                            var tabItem = tabItems[i];
+                            var tabName = tabItem.name;
+                            var contentElement = this.$$('#content-' + tabName);
+                            var contentTab = this.$$('pebble-tab[id='+ tabName +']');
+                            if(contentTab) {
+                                contentTab.tabConfig = tabItem;
+                            }
+                            if (contentElement && contentElement.firstChild) {
+                                Polymer.dom(contentElement).removeChild(contentElement.firstChild);
+                            }
+                            if (tabItem.menuItems && tabItem.menuItems.length > 0) {
+                                for (var j = 0; j < tabItem.menuItems.length; j++) {
+                                    var meuItemName = tabItem.menuItems[j].name;
+                                    var menuContentElement = this.$$('#content-' + tabName + '-' +
+                                        meuItemName);
+                                    if (menuContentElement && menuContentElement.firstChild) {
+                                        Polymer.dom(menuContentElement).removeChild(menuContentElement.firstChild);
+                                    }
+                                }
+                            }
+                            this._fillMenuItems(tabItem);
+                        }
+                    }
+
+                    this.reloadCurrentTab();
+
+                    var selectedTab = this.$$('pebble-tab-group').querySelector('pebble-tab[aria-selected="true"]');
+                    if(selectedTab) {
+                        var subTitleComponent = selectedTab.querySelector('.tab-subtitle>span');
+                        if(subTitleComponent) {
+                            subTitleComponent.innerText = "";
+                        }
+                    }
+                },
+                _onSelectionChange: function (e, detail, sender) {
+                    var isDirty = this.getIsDirty();
+                    if (isDirty) {
+                        this._showWarning(e);
+                    }
+                },
+                /**
+                * Can be used to get whether the current tab content is dirty or not.
+                */
+                getIsDirty: function () {
+                    if (this._currentTabName) {
+                        var content = this.$$('#content-' + this._currentTabName);
+                        if (content && content.firstChild && content.firstChild.getIsDirty) {
+                            var isTabDirty = content.firstChild.getIsDirty();
+                            return isTabDirty;
+                        }
+                    }
+                },
+                _showWarning: function (event) {
+                    if (!window.confirm(
+                            "There are unsaved changes. Do you want to discard the changes?")) {
+                        event.preventDefault();
+                    }
+                },
+                _errorLengthChanged: function (errorLength) {
+                    var currentItem = this.$$("#" + this.id).querySelector("#" + this._currentTabName);
+                    if (currentItem) {
+                        var currentTabConfig = currentItem.tabConfig;
+                        var currentTabMenuConfig = currentItem.menuItemConfig;
+                        if (currentTabConfig && currentTabMenuConfig) {
+                            currentTabMenuConfig.errorLength = errorLength;
+                        } else {
+                            currentTabConfig.errorLength = errorLength;
+                        }
+                        this._updateErrorVis(errorLength);
+                    }
+                },
+                _updateErrorVis: function (errorLength) {
+                    var currentItem = this.$$("#" + this.id).selectedItem;
+                    var errorCircle = currentItem.$$(".error-circle");
+                    if (errorLength > 0) {
+                        errorCircle.hidden = false;
+                        errorCircle.textContent = errorLength;
+                    } else {
+                        errorCircle.hidden = true;
+                        errorCircle.textContent = "";
+                    }
+                },
+                _temp: function(x){
+                    return x;
+                },
+                arrayItem: function(change, index, path) {
+                    return this.get(path, change.base[index]);
+                },
+            });
+        })();
+    </script>
+</dom-module>

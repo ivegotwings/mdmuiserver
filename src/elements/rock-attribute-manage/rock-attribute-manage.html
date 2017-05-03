@@ -1,0 +1,608 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/data-request-helper.html">
+<link rel="import" href="../bedrock-helpers/data-transform-helper.html">
+<link rel="import" href="../bedrock-helpers/message-helper.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+<link rel="import" href="../liquid-entity-govern-data-get/liquid-entity-govern-data-get.html">
+<link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
+<link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
+<link rel="import" href="../liquid-rest/liquid-rest.html">
+
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+
+<link rel="import" href="../rock-attribute-list/rock-attribute-list.html">
+
+<!--
+`rock-attribute-manage` Represents the component to manage the attribute values.
+It renders the rock-attribute-list with the specified context parameters. 
+It is responsible to get and save the attributes.
+
+@demo demo/index.html 
+-->
+<dom-module id="rock-attribute-manage">
+    <template>
+        <style include="pebble-styles-shared">
+            .button {
+                --pebble-button: {
+                    height: 30px;
+                    width: 100px;
+                    background: var(--white);
+                    border: 1px solid var(--cloudy-blue-color);
+                    font-size: 15px;
+                }
+            }
+            
+            .focus {
+                --pebble-button: {
+                    height: 30px;
+                    width: 100px;
+                    font-size: 15px;
+                    background: var(--button-bg-color);
+                    color: var(--white);
+                }
+            }
+            
+            #buttonContainer {        
+                position: fixed;
+                bottom: 27px;
+                left: 66px;
+                padding: 0;       
+                display: none;
+                text-align: center;
+                z-index: 99;
+            }
+            #errorsDialog {
+                --popup-header-color:var(--palette-pinkish-red, #ee204c);
+            }
+            pebble-dialog::shadow ::content > ul {
+                padding-left: 50px !important;
+            }
+            pebble-dialog > ul > li {
+                list-style-type: disc;
+            }
+        </style>
+        <pebble-dialog id="errorsDialog" dialog-title="Errors on page">
+            <p>Found below errors in entity details: </p>
+            <ul>
+                <template is="dom-repeat" items="[[_syncValidationErrors]]">
+                    <li>[[item.attributeExternalName]] with error: [[item.message]]</li>
+                </template>
+            </ul>             
+            <p>Do you want to fix the errors or continue?</p>  
+            <div class="buttons">                
+                <paper-button dialog-confirm class="btn btn-secondary" on-tap="_skipServerErrors" >Skip & Continue</paper-button>
+                <paper-button dialog-confirm class="btn btn-success" on-tap="_fixServerErrors" >Fix</paper-button>
+            </div>
+        </pebble-dialog>
+        <pebble-dialog id="cancelDialog" dialog-title="Confirmation" modal show-cancel show-ok no-cancel-on-outside-click no-cancel-on-esc-key small>
+            <p>Are you sure you want to discard the unsaved changes.</p>
+        </pebble-dialog>
+        <bedrock-pubsub event-name="on-buttonok-clicked" handler="_revertAll" target-id="cancelDialog"></bedrock-pubsub>
+        <rock-attribute-list context-data="[[contextData]]" show-group-name$=[[showGroupName]] group-name="[[groupName]]" attribute-values="[[_attributeValues]]"
+            attribute-models="[[_attributeModels]]" no-of-columns="[[noOfColumns]]" mode="{{mode}}" attribute-messages="{{_attributeMessages}}"></rock-attribute-list>
+        <liquid-entity-data-get name="attributeGetDataService" operation="getbyids" request-data="{{_attributeRequest}}" last-response="{{_attributeResponse}}"></liquid-entity-data-get>
+        <liquid-entity-govern-data-get id="attributeGetMessageService" operation="getbyids" request-data={{_attributeMessageRequest}}
+            on-response="_onAttributesMessageReceived" on-error="_onEntityGetFailed"></liquid-entity-govern-data-get>
+        <liquid-entity-data-save name="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}"
+            on-response="_onSaveResponse"></liquid-entity-data-save>
+        <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{_attributeModelRequest}}" 
+            on-entity-model-composite-get-response = "_onCompositeModelGetResponse">
+        </liquid-entity-model-composite-get>
+        <liquid-rest id="entityGovernService" 
+                     url="/pass-through/entitygovernservice/validate" 
+                     method="POST" 
+                     request-data={{_entityGovernRequest}}
+                     on-liquid-response="_onEntityGovernResponse" 
+                     on-liquid-error="_onEntityGovernFailed">
+        </liquid-rest>
+        <div id="buttonContainer" align="center">
+            <pebble-button id="cancel" class="btn btn-secondary m-r-10" button-text="Cancel" on-tap="_openCancelDialog" elevation=1 raised></pebble-button>
+            <pebble-button id="save" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
+        </div>
+    </template>
+    <script>
+        (function () {
+            'use strict';
+            Polymer({
+                is: 'rock-attribute-manage',
+                created: function () {
+                    if (this.verbose)
+                        console.log('attribute manage created');
+                },
+                attached: function () {
+                    if (this.verbose)
+                        console.log('attribute manage attached');
+                },
+                ready: function () {
+                    this.messageCodeMapping = this.getParentAppConfig('rock-attribute-manage', '', 'messageCodeMapping');
+                    if (this.verbose)
+                        console.log('attribute manage ready');
+                },
+                properties: {
+                        /**
+                        * Indicates whether the attribute is rendered in the edit mode or view mode. 
+                        * The two possible values are <b>view</b> and <b>edit</b>.
+                        */
+                        mode: {
+                            type: String,
+                            value: "view",
+                            notify: true
+                        },
+                        contextData: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                        },
+                        configContext: {
+                            type: Object,
+                            value: function() {
+                                return {};
+                            }                        
+                    },
+                    /**
+                     * Indicates the number of columns in which the attributes is rendered. Possible values are one, two,
+                      and theree.
+                     */
+                    noOfColumns: {
+                        type: Number,
+                        value: 1
+                    },
+                    
+                    allowSaveOnError: {
+					    type: Boolean,
+                        value: false
+				    },
+                    doSyncValidation: {
+                        type: Boolean,
+                        value: false
+                    },
+                    /**
+                    * Indicates the request object that is passed to the data element to retrive the attribute data.
+                      Sample: { 
+                                action: "getAttributes" 
+                              }
+                    */
+                    _attributeRequest: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    /**
+                     * Indicates the response object that is received from the data element for the attribute `get request`.
+                     */
+                    _attributeResponse: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    /**
+                    * Indicates the request object that is passed to the data element to retrive attribute model data.
+                      Sample: {
+                              }
+                    */
+                    _attributeModelRequest: {
+                        type: Object,
+                        value: function () {
+                            return { };
+                        }
+                    },
+                    /**
+                     * Indicates the response object that is received from the data element for the attribute get request.
+                     */
+                    _attributeModelResponse: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _saveRequest: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _saveResponse: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _attributeValues: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _attributeModels: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    showGroupName: {
+                        type: Boolean,
+                        value: false
+                    },
+                    groupName: {
+                        type: String,
+                        value: "My Attributes"
+                    },
+                    /**
+                     * Specifies whether or not to write the logs.
+                     */
+                    verbose: {
+                        type: Boolean,
+                        value: false
+                    },
+                    /**
+                     * Indicates the attribute value objects which renders the attributes.
+                     * JSON sample to be added here.
+                     */
+                    _attributeMessages: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    messageCodeMapping: {
+                        type: Object,
+                        value: function() { return {}; }
+                    },
+                    _syncValidationErrors: {
+                        type: Array,
+                        value: function() { return []; }
+                    }
+                },
+                behaviors: [
+                    RUFBehaviors.UIBehavior,
+                    RUFBehaviors.ComponentContextBehavior
+                ],
+                observers: [
+                    '_attributeResponseChanged(_attributeResponse)',
+                    '_contextChanged(contextData.ValContexts)',
+                    '_modeChanged(mode)'
+                ],                             
+                refresh: function() {
+				    this._configContextChanged(this.getFirstValueContext());
+			    },
+                _modeChanged: function (mode) {
+                    if (mode == 'edit') {
+                        var width = Polymer.dom(this).parentNode.clientWidth;
+                        this.$.buttonContainer.style.width = width + "px";
+                        this.$.buttonContainer.style.display = "inline-block";
+                        this.$$("rock-attribute-list").style.paddingBottom = "120px";
+                    } else {
+                        this.$.buttonContainer.style.display = "none";
+                        this.$$("rock-attribute-list").style.paddingBottom = "10px";
+                    }
+                },
+                _contextChanged: function (valueContexts) {
+                    if (this.verbose) {
+                        console.log("_configContextChanged context: " + JSON.stringify(contextData, null, 2));
+                    }
+
+                    if(_.isEmpty(valueContexts) || _.isEmpty(this.contextData) || _.isEmpty(this.configContext)) {
+                        return;
+                    }
+
+                    if(this.configContext) {
+                        this.groupName = this.configContext.groupName ? this.configContext.groupName : this.groupName;
+                    }
+
+                    var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+
+                    this.set("_attributeModelRequest", compositeModelGetRequest);
+                    var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
+                    if (liquidModelGet) {
+                        liquidModelGet.generateRequest();
+                    }
+                },
+                _onCompositeModelGetResponse: function (e) {
+                    if (this.verbose) {
+                        console.log("_attributeModelResponseChanged _attributeModelResponse: " + JSON.stringify(_attributeModelResponse, null, 2), +" entityId: " + entityId);
+                    }
+
+                    if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+
+                        this._attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
+
+                        var attributeNames = Object.keys(this._attributeModels);
+
+                        if (attributeNames.length > 0) {
+                            var itemContext = this.getFirstItemContext();
+
+                            //add attribute names in item context
+                            itemContext.attributeNames = attributeNames;
+
+                            var req = DataRequestHelper.createEntityGetRequest(this.contextData);
+
+                            this.set("_attributeRequest", req);
+
+                            var messageReq = DataHelper.cloneObject(req);
+
+                            delete messageReq.params.query.valueContexts;
+
+                            this.set("_attributeMessageRequest", messageReq);
+                            var liquidGovernGet = this.$.attributeGetMessageService;
+                            if (liquidGovernGet) {
+                                liquidGovernGet.generateRequest();
+                            }
+                            var liquidDataGet = this.$$("[name=attributeGetDataService]");
+                            if (liquidDataGet) {
+                                liquidDataGet.generateRequest();
+                            }
+                        }
+                    }
+                },
+                _onAttributesMessageReceived: function (e) {
+                    //TODO: Needs to check with Vishal.
+                    this._attributeMessages = {};
+                    var res = e.detail.response;
+                    var values = [];
+                    var itemContext = this.getFirstItemContext();
+                    var entityId;
+                    if(itemContext) {
+                        entityId = itemContext.id;
+                    }
+                    
+                    var dataContext = {
+                        "locale": this.locale,
+                        "time": "now",
+                        "source": this.source,
+                        "list": this.list,
+                        "classification": this.classification
+                    };
+                    var entity = DataHelper.findEntityById(res.content.entities, entityId);
+                    if (!entity || !entity.data || !entity.data.attributes) {
+                        this._attributeMessages = {};
+                        return;
+                    }
+                 
+                    var attributes = entity.data.attributes;
+                    var attrMessages = MessageHelper.getAttributeMessages(attributes, this._attributeModels, this.messageCodeMapping);
+                    this.set('_attributeMessages', attrMessages);                     
+                },
+                _onEntityGetFailed: function (e) {
+                    console.error('Entity get failed with error: ', JSON.stringify(e));
+                },
+                _attributeResponseChanged: function (_attributeResponse) {
+                    if (this.verbose) {
+                        console.log("_attributeResponseChanged _attributeResponse: " + JSON.stringify(
+                            _attributeResponse, null, 2));
+                    }
+
+                    var attributes = [];
+                    
+                    if (DataHelper.validateGetEntitiesResponse(_attributeResponse) && this._attributeModels) {
+                        var entity = _attributeResponse.content.entities[0];
+
+                        if (entity) {
+                            attributes = DataTransformHelper.transformAttributes(entity, this._attributeModels, this.contextData, "array");
+                            //Removed the code for rock-title bar
+                        }
+                    }
+
+                    //attributes = this._sortByViewName(attributes, this._attributeModels)
+
+                    this._attributeValues = attributes;
+                },
+                _sortByViewName: function (values, models) {
+                    var sortedValues = [];
+                    var sortedModels = _.sortBy(models, function (o) { return o.viewName });
+
+                    for (var i = 0; i < sortedModels.length; i++) {
+                        var model = sortedModels[i];
+                        for (var j = 0; j < values.length; j++) {
+                            var value = values[j];
+                            if (value.name === model.name) {
+                                sortedValues.push(value);
+                            }
+                        }
+                    }
+
+                    return sortedValues;
+                },
+                _save: function () {
+                    //TODO: Needs to check with Vishal.
+                    var mainApp = document.querySelector('#app');
+
+                    mainApp.$$("#pebbleAppToast").fitInto = mainApp.$$("#toastArea");
+
+                    //check if any changes
+                    //if none, then return operationResult with warning message else proceed
+                    var attributeList = Polymer.dom(this).node.$$('rock-attribute-list');
+
+                    //If have errors return
+                    if(!this.allowSaveOnError && attributeList.hasModelErrors()) {
+                        this.showErrorToast("Cannot save the entity, please resolve the errors.");
+                        return;
+                    }
+
+                    var changedAttributeElements = attributeList.getChangedAttributeElements();
+                    if (changedAttributeElements == undefined || changedAttributeElements.length == 0) {
+                        mainApp.toastText = "No changes to save";
+                        var toastElement = mainApp.$$("#pebbleAppToast");
+                        toastElement.toastType = "information";
+                        toastElement.heading = "Information";
+                        toastElement.autoClose = true;
+                        toastElement.show();
+                        return {
+                            "message": "No changes to save"
+                        }; //TODO: Prepare OR
+                    }
+
+                    //TODO: Temporary, need to send all the attributes for save as API is not supporting delta comparion within entity content and replacing complete entity object...
+                    //changedAttributeElements = attributeList.root.querySelectorAll('rock-attribute');
+
+                    //validate - if error then return operationResult, else proceed
+                    //prepare attribute JSON from changed attributes
+                    var attributesJSON = [];
+                    for (var i = 0; i < changedAttributeElements.length; i++) {
+                        var attributeElement = changedAttributeElements[i];
+                        var attributeJSON = attributeElement.attributeObject;
+                        attributesJSON.push(attributeJSON);
+                    }
+
+                    if (this.verbose) {
+                        console.log('_save attributesJSON: ', JSON.stringify(attributesJSON, null, 2));
+                    }
+                    var newEntity = {};
+                    if (this._attributeResponse && this._attributeResponse.content && this._attributeResponse.content.entities && this._attributeResponse.content.entities.length > 0) {
+                        var originalEntity = this._attributeResponse.content.entities[0];
+                        newEntity = DataTransformHelper.prepareEntityForAttributesSave(originalEntity, attributesJSON, this.contextData);
+                    }
+
+                    if (!_.isEmpty(newEntity)) {
+                        //set requestObject for save liquid
+                        this._saveRequest = {
+                            "entities": [newEntity]
+                        };
+                        if(this.doSyncValidation) {
+                            var req = DataRequestHelper.createSyncValidationRequest(newEntity.id, newEntity.type, newEntity.data);
+                            
+                            this.set("_entityGovernRequest", req);
+                            var liquidGovernGet = this.$.entityGovernService;
+                            if (liquidGovernGet) {
+                                liquidGovernGet.generateRequest();
+                            } 
+                        } else {
+                            this._saveEntity();
+                        }
+                    }
+
+                    //this return isnt useful for now
+                    return newEntity;
+                },
+                _saveEntity: function() {
+                    var liquidSave = this.$$("[name=attributeSaveDataService]");
+                    if (liquidSave) {
+                        liquidSave.generateRequest();
+                    }
+                },
+                _onSaveResponse: function (e) {
+                    var mainApp = document.querySelector('#app');
+                    var liquidGet = this.$$("[name=attributeGetDataService]");
+                    if (liquidGet) {
+                        this.mode = "view";
+                        var attributeList = Polymer.dom(this).node.$$('rock-attribute-list');
+                        attributeList.resetChanged();
+                        liquidGet.generateRequest();
+                    }
+                    var liquidGovernGet = this.$.attributeGetMessageService;
+                    if (liquidGovernGet) {
+                        liquidGovernGet.generateRequest();
+                    }
+                    mainApp.toastText = "Attribute save request is submitted successfully!!";
+                    var toastElement = mainApp.$$("#pebbleAppToast");
+                    toastElement.toastType = "success";
+                    toastElement.heading = "Success";
+                    toastElement.toastDuration = 15000;
+                    toastElement.autoClose = true;
+                    
+                    toastElement.show();
+                    //Raise event on attributes save
+                    this.fireBedrockEvent("on-attribute-save", null, { ignoreId: true });
+                },
+                _openCancelDialog:function () {
+                    if(this.getIsDirty()) {
+                        this.$$("#cancelDialog").open();
+                    } else {
+                        this._revertAll();
+                    }
+                },
+                _revertAll: function () {
+                    var attributeList = Polymer.dom(this).node.$$('rock-attribute-list');
+                    attributeList.revertAll();
+                    this.mode = "view";
+                },
+                _setTitleBar: function (values) {
+                    var mainApp = document.querySelector('main-app');
+                    if (mainApp) {
+                        var contentViewMgr = mainApp.$$("rock-content-view-manager");
+                        if (contentViewMgr) {
+                            var activeContentView = contentViewMgr.$.contentViewManager.querySelector(
+                                "rock-content-view:not([hidden])");
+                            if (activeContentView) {
+                                var contentComponent = activeContentView.$$("app-entity-manage");
+                                if (contentComponent) {
+                                    contentComponent.setTitleBar(values);
+                                }
+                            }
+                        }
+                    }
+                },
+                _onEntityGovernResponse: function(e) {
+                    if(e && e.detail && e.detail.response && e.detail.response.response && e.detail.response.response.status == "success") {
+                        var res = e.detail.response.response;
+                        var itemContext = this.getFirstItemContext();
+                        var entityId;
+                        if(itemContext) {
+                            entityId = itemContext.id;
+                        }
+                        var entity = DataHelper.findEntityById(res.entities, entityId);
+                        var attrMessages = {};
+                        if (entity && entity.data && entity.data.attributes) {
+                            var attributes = entity.data.attributes;
+                            attrMessages = MessageHelper.getAttributeMessages(attributes, this._attributeModels, this.messageCodeMapping);
+                        }                      
+                        if(!_.isEmpty(attrMessages)) {
+                            var errorMessages = MessageHelper.getErrorsFromAttrMessages(attrMessages, this._attributeModels);
+                            this.set("_syncValidationErrors", errorMessages);
+                            this.$$('#errorsDialog').open();
+                            return;
+                        } else {
+                            this._saveEntity();
+                        }
+                    } else {
+                        console.warn("Failed in validation service with errors: ", detail);
+                        this.showErrorToast("There is a problem in validation service. Please contact administrator.");
+                    }
+                },
+                _onEntityGovernFailed: function (e) {
+                    console.warn('Failed in validation service with errors ', JSON.stringify(e));
+                    this.showErrorToast("There is a problem in validation service. Please contact administrator.");
+                },
+                _skipServerErrors: function() {
+                    this._saveEntity();
+                },
+                _fixServerErrors: function() {
+                    if(this._syncValidationErrors) {
+                        var newAttributeMessages = {};
+                        for(var i=0;i<this._syncValidationErrors.length;i++) {
+                            var attributeMessages = this._syncValidationErrors[i];
+                            var attributeName = attributeMessages.attributeName;
+                            var message = attributeMessages.message;
+                            if(attributeName && message) {
+                                var newMessages = [];
+                                newAttributeMessages[attributeName] = newMessages;
+                                if(newMessages.indexOf(message) < 0) {
+                                    newMessages.unshift(message);
+                                }
+                            }
+                        }
+                    }
+                    this.set('_attributeMessages', newAttributeMessages);
+                },
+                /**
+                 * Can be used to get the elements if they are dirty.
+                 */
+                getIsDirty: function () {
+                    var attributeList = this.$$("rock-attribute-list");
+                    if (attributeList && attributeList.getIsDirty) {
+                        return attributeList.getIsDirty();
+                    }
+                }
+            });
+        })();
+    </script>
+</dom-module>

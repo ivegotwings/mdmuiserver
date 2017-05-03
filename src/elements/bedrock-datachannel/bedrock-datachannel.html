@@ -1,0 +1,149 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../bedrock-externalref-falcor/bedrock-externalref-falcor.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+
+<script>
+  /*
+  * @demo demo/index.html
+  * @polymerBehavior RUFBehaviors.DataChannel
+  */
+  'use strict';
+
+  var RUFBehaviors = RUFBehaviors || {};
+
+  RUFBehaviors.DataChannel = {
+
+    properties: {
+      /**
+        * Indicates key for the translation.If it is set to <b>true</b>, then it uses provided key when
+        * the translation does not exist for that key.
+        */
+      _models: {
+        type: Object,
+        value: {}
+      },
+      callCounters: {
+        type: Object,
+        value: function () {
+          return {};
+        }
+      }
+    },
+    getCallCounters: function () {
+      return JSON.stringify(this.callCounters);
+    },
+    updateCallCounters: function (operation) {
+
+      if (this.callCounters === undefined) {
+        this.callCounters = {}
+      };
+
+      if (this.callCounters[operation] !== undefined) {
+        this.callCounters[operation] = this.callCounters[operation] + 1
+      }
+      else {
+        this.callCounters[operation] = 1;
+      }
+    },
+    getModel: function (channelName) {
+      if (!channelName) {
+        throw "channelName is not provided";
+      }
+
+      var model = null;
+
+      if (this._models === undefined) {
+        this._models = {};
+      }
+
+      if (this._models === {} || this._models[channelName] === undefined) {
+        model = this._createModel(channelName);
+        if (this._models[channelName] === undefined) { //just double check..
+          this._models[channelName] = model;
+        }
+      }
+      else {
+        model = this._models[channelName];
+      }
+
+      return model;
+    },
+    _createModel: function (channelName) {
+      var channelConfig = this._getChannelConfig(channelName);
+
+      if (!channelConfig) {
+        throw 'channel config not fonud the given channel name ' + channelName;
+      }
+
+      var tenantId = DataHelper.getTenantId();
+      var userId = DataHelper.getUserId();
+
+      channelConfig.path = channelConfig.path;
+
+      var headers = { 'tid': tenantId, 'uid': userId };
+
+      var falcorDataSource = new falcor.HttpDataSource(channelConfig.path, { 'headers': headers, 'crossDomain': true, 'withCredentials': false, 'timeout': 60000 });
+      
+      var model = new falcor.Model({
+        source: falcorDataSource,
+        maxSize: channelConfig.maxSize,
+        collectRatio: channelConfig.collectRatio,
+        errorSelector: function(error){
+            error.$expires = -1000 * 60 * 2;
+        } 
+      });
+
+      if (channelConfig.treatErrorsAsValues) {
+        model.treatErrorsAsValues();
+      }
+
+      return model;
+    },
+    _getChannelConfig: function (channelName) {
+      var allConfigs = this._getAllChannelConfigs();
+      if (allConfigs.channels[channelName] !== undefined) {
+        return allConfigs.channels[channelName];
+      }
+      else {
+        throw "Requested data channel " + channelName + " does not exist in channel config";
+      }
+    },
+    _getAllChannelConfigs: function () {
+      return {
+        'channels': {
+          'entityData': {
+            'path': '/data/entityData.json',
+            'maxSize': 100000000,
+            'collectRatio': 0.75,
+            'treatErrorsAsValues': false
+          },
+          'entityGovernData': {
+            'path': '/data/entityGovernData.json',
+            'maxSize': 100000000,
+            'collectRatio': 0.75,
+            'treatErrorsAsValues': false
+          },
+          'entityModel': {
+            'path': '/data/entityModelData.json',
+            'maxSize': 1000000,
+            'collectRatio': 0.75,
+            'treatErrorsAsValues': false
+          },
+          'config': {
+            'path': '/data/configData.json',
+            'maxSize': 1000000,
+            'collectRatio': 0.75,
+            'treatErrorsAsValues': false
+          },
+          'eventData': {
+            'path': '/data/eventData.json',
+            'maxSize': 1000000,
+            'collectRatio': 0.75,
+            'treatErrorsAsValues': false
+          }
+        }
+      };
+    }
+  };
+
+</script>

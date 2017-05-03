@@ -1,0 +1,698 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-helpers/data-transform-helper.html">
+
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+<link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
+
+<link rel="import" href="../pebble-checkbox/pebble-checkbox.html">
+<link rel="import" href="../pebble-accordion/pebble-accordion.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-tree/pebble-tree.html">
+<link rel="import" href="../pebble-lov/pebble-lov.html">
+<link rel="import" href="../pebble-horizontal-divider/pebble-horizontal-divider.html">
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+
+<link rel="import" href="../rock-grid/rock-grid.html">
+<link rel="import" href="../rock-layout/rock-layout.html">
+<link rel="import" href="../rock-layout/rock-titlebar/rock-titlebar.html">
+
+<!--
+`rock-dimension-grid` Represents a component that is used to view the dimension value of the given attribute.
+It is also used to update or add current and future value for that attribute.
+
+It displays dimensions like locale, source, context, and time.
+User can select any dimension where locale, source, and context is shown in multiselect LOVs. 
+And time is displayed in date time picker control where user can select time range to list the attribute's 
+history and future value if added any.
+
+The grid renders the data based on the selected dimensions from left panel.
+The user can view the past data but cannot modify it. However the current and future value can be added or updated.
+
+@demo demo/index.html
+-->
+
+<dom-module id="rock-dimension-grid">
+  <template>
+    <style include="pebble-styles-shared">
+      #dimensionGridContainer {
+        height: 450px;
+      }
+      
+      #dimensionFilters {
+        width: 310px;
+        float: left;
+        height: 100%;
+        padding-right: 10px;
+        overflow: auto;
+      }
+      
+      #dimensionGrid {
+        width: calc(100% - 320px);
+        float: right;
+      }
+      
+      #dimensionGrid rock-grid::shadow #pebbleGridContainer {
+        margin: 0;
+      }
+      
+      pebble-lov {
+        width: 100%;
+        position: static !important;
+      }
+      
+      .action-container {
+        text-align: center;
+      }
+      
+      pebble-lov {
+        --pebble-lov-height: 125px;
+      }
+      
+      pebble-accordion {
+        --accordion-header: {
+          height: 30px;
+        }
+      }
+      
+      pebble-checkbox {
+        margin-top: 3px;
+      }
+      
+      rock-grid {
+        --rock-grid-height: 350px;
+      }
+    </style>
+    <div id="dimensionGridContainer">
+      <div id="dimensionFilters">
+        <template is="dom-repeat" items="[[dimensionConfigs]]" as="configDataItem" notify-dom-change>
+          <pebble-accordion header-text="[[configDataItem.title]]" default-icon="expand-less" open-icon="expand-more">
+            <div class="header-content">
+              <pebble-checkbox id="[[configDataItem.id]]Chk" on-change="_onSelectAll"></pebble-checkbox>
+            </div>
+            <template id="[[configDataItem.id]]" is="dom-if" if="[[_compareRequestType(configDataItem.dataRequestType, 'entity')]]" notify-dom-change>
+              <rock-entity-lov id="[[configDataItem.id]]" config-data-item-id="[[configDataItem.id]]" id-field="[[configDataItem.dataMappings.id]]"
+                title-pattern="[[configDataItem.dataMappings.title]]" type-field="[[configDataItem.dataMappings.type]]" request-data="[[configDataItem.dataRequest]]"
+                on-selection-changed="_onDimensionChange" multi-select no-sub-title></rock-entity-lov>
+            </template>
+            <template id="[[configDataItem.id]]" is="dom-if" if="[[_compareRequestType(configDataItem.dataRequestType, 'entity-model')]]"
+              notify-dom-change>
+              <rock-entity-model-lov id="[[configDataItem.id]]" config-data-item-id="[[configDataItem.id]]" id-field="[[configDataItem.dataMappings.id]]"
+                title-pattern="[[configDataItem.dataMappings.title]]" type-field="[[configDataItem.dataMappings.type]]" request-data="[[configDataItem.dataRequest]]"
+                on-selection-changed="_onDimensionChange" multi-select no-sub-title></rock-entity-model-lov>
+            </template>
+          </pebble-accordion>
+        </template>
+      </div>
+      <div id="dimensionGrid">
+        <pebble-button icon="pebble-md-icons:actions" class="dropdownText dropdownIcon btn dropdown-success pull-right" menu-button
+          dropdown-icon button-text="Action" on-click=""></pebble-button>
+        <div class="clearfix"></div>
+        <rock-grid config="[[_gridConfig]]" page-size="10" attribute-models="[[gridAttributeModel]]"></rock-grid>
+      </div>
+      <div class="clearfix"></div>
+    </div>
+    <div class="action-container m-t-10">
+      <pebble-button class="btn btn-secondary m-r-10" button-text="Cancel" on-tap="_cancelAction" noink></pebble-button>
+      <pebble-button class="btn btn-success" button-text="Save" on-tap="_saveAction" noink></pebble-button>
+    </div>
+    <liquid-entity-data-get verbose name="attributeGetDataService" operation="getbyids" request-data="{{_request}}" last-response="{{response}}"></liquid-entity-data-get>
+    <liquid-entity-data-save name="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" last-response="{{saveResponse}}"
+      on-response="_onSaveResponse"></liquid-entity-data-save>
+  </template>
+  <script>
+    (function () {
+      'use strict';
+
+      Polymer({
+        is: 'rock-dimension-grid',
+        properties: {
+          /*
+           * Indicates an entity identification.
+           */
+          dataId: {
+            type: String,
+            notify: true,
+            value: ""
+          },
+
+          /*
+           * Indicates an array of locales for the dimension panel.
+           */
+          locales: {
+            type: Array,
+            value: function () {
+              return [];
+            }
+          },
+
+          /*
+           * Indicates an array of channels for the dimension panel.
+           */
+          channels: {
+            type: Array,
+            value: function () {
+              return [];
+            }
+          },
+
+          /*
+           * Indicates an array of sources for the dimension panel.
+           */
+          sources: {
+            type: Array,
+            value: function () {
+              return [];
+            }
+          },
+
+          /*
+           * Indicates an attribute model object of the given entity identification 
+           * for which dimension values are rendered.
+           */
+          attributeModelObject: {
+            type: String,
+            value: function () {
+              return {};
+            }
+          },
+
+          /*
+           * Indicates current selected locales in dimension grid.
+           */
+          _selectedLocales: {
+            type: Array,
+            value: function () {
+              return [];
+            }
+          },
+
+          /*
+           * Indicates current selected contexts in dimension grid.
+           */
+          _selectedChannels: {
+            type: Array,
+            value: function () {
+              return [];
+            }
+          },
+
+          /*
+           * Indicates current selected sources in dimension grid.
+           */
+          _selectedSources: {
+            type: Array,
+            value: function () {
+              return [];
+            }
+          },
+
+          /*
+           * Indicates request object based on current selected dimension objects.
+           */
+          _request: {
+            type: Object,
+            value: function () {
+              return {};
+            }
+          },
+
+          /*
+           * Indicates save request object based on current selected dimension objects.
+           */
+          _saveRequest: {
+            type: Object,
+            value: function () {
+              return {};
+            }
+          },
+
+          _gridConfig: {
+            type: Object,
+            value: function () {
+              return {};
+            }
+          }
+        },
+
+        observers: [
+          '_onSelectionChange(_selectedLocales, _selectedChannels, _selectedSources)',
+          '_entityGet(response)'
+        ],
+
+        behaviors: [
+          RUFBehaviors.UIBehavior,
+          RUFBehaviors.ComponentContextBehavior
+        ],
+
+        ready: function () {
+          this._setInitDimensions();
+        },
+
+        _onDimensionChange: function (e) {
+          if (e.currentTarget.selectedItems) {
+            var selectedItems = e.currentTarget.selectedItems;
+
+            if (e.currentTarget.id == "locale") {
+              this._selectedLocales = undefined;
+              this._selectedLocales = selectedItems;
+            } else if (e.currentTarget.id == "channel") {
+              this._selectedChannels = undefined;
+              this._selectedChannels = selectedItems;
+            } else if (e.currentTarget.id == "source") {
+              this._selectedSources = undefined;
+              this._selectedSources = selectedItems;
+            }
+          }
+        },
+
+        _onSelectionChange: function () {
+          if (this.dataId) {
+            var attributeNames = [];
+            var valueContexts = [];
+            var contexts = [];
+            var typesCriterion = [];
+
+            attributeNames.push(this.attributeModelObject.name);
+            if (this._selectedLocales && this._selectedSources) {
+              this._selectedSources.forEach(function (sourceItem) {
+                this._selectedLocales.forEach(function (localeItem) {
+                  valueContexts.push({
+                    "source": sourceItem.title,
+                    "locale": localeItem.title
+                  });
+                }, this);
+              }, this);
+            }
+
+            if (this._selectedChannels) {
+              this._selectedChannels.forEach(function (contextItem) {
+                contexts.push({
+                  "classification": "_ALL",
+                  "list": contextItem.title
+                });
+              }, this);
+            }
+
+            var itemContext = this.getFirstItemContext();
+
+            if (!_.isEmpty(itemContext)) {
+              typesCriterion.push(itemContext.type);
+            }
+
+            //TODO: need to check how can we replace this request with request-helper.
+            // Here this component has it's own set of contexts.
+            //TODO: Overall comment for this is dimensions of this component's are working only on locale, source, channel. It has to br dynamic.
+            var req = {
+              "params": {
+                "query": {
+                  "contexts": contexts,
+                  "valueContexts": valueContexts,
+                  "filters": {
+                    "attributesCriterion": [],
+                    "typesCriterion": typesCriterion
+                  },
+                  "id": this.dataId
+                },
+                "fields": {
+                  "ctxTypes": [
+                    "properties"
+                  ],
+                  "attributes": attributeNames
+                }
+              }
+            };
+
+            this._request = req;
+
+            var liquidGet = Polymer.dom(this).node.$$('liquid-entity-data-get');
+
+            if (liquidGet && valueContexts.length > 0) {
+              liquidGet.generateRequest();
+            }
+          }
+        },
+
+        _onSelectAll: function (e) {
+          if (e.currentTarget.id == 'localeChk') {
+            var localeLov = Polymer.dom(this).node.$$('rock-entity-model-lov[id="locale"]');
+            localeLov.selectedItems = undefined;
+            this._selectedLocales = undefined;
+            if (e.currentTarget.checked) {
+                var items = this._getAllItemsOfLov(localeLov);
+                localeLov.selectedItems = items;
+                this._selectedLocales = items;
+            } else {
+              localeLov.selectedItems = [];
+              this._selectedLocales = [];
+            }
+          } else if (e.currentTarget.id == 'sourceChk') {
+            var sourceLov = Polymer.dom(this).node.$$('rock-entity-model-lov[id="source"]');
+            sourceLov.selectedItems = undefined;
+            this._selectedSources = undefined;
+            if (e.currentTarget.checked) {
+              var items = this._getAllItemsOfLov(sourceLov);
+              sourceLov.selectedItems = items;
+              this._selectedSources = items;
+            } else {
+              sourceLov.selectedItems = [];
+              this._selectedSources = [];
+            }
+          } else if (e.currentTarget.id == 'channelChk') {
+            var channelLov = Polymer.dom(this).node.$$('rock-entity-lov[id="channel"]');
+            channelLov.selectedItems = undefined;
+            this._selectedChannels = undefined;
+            if (e.currentTarget.checked) {
+              var items = this._getAllItemsOfLov(channelLov);
+              channelLov.selectedItems = items;
+              this._selectedChannels = items;
+            } else {
+              channelLov.selectedItems = [];
+              this._selectedChannels = [];
+            }
+          }
+        },
+
+        _getAllItemsOfLov: function (lovElement) {
+          var items = [];
+
+          if (lovElement) {
+            var pebbleLov = Polymer.dom(lovElement).node.$$('pebble-lov');
+            if (pebbleLov) {
+              items = pebbleLov.$.selector.items;
+            }
+          }
+
+          return items;
+        },
+
+        _saveAction: function (e) {
+          var attributesJSON = {};
+          var grid = Polymer.dom(this).node.$$('rock-grid');
+          var attrName = this.attributeModelObject.name;
+
+          if (grid) {
+            var data = grid.data;
+
+            var entityData = {};
+            if (this.response && this.response.content && this.response.content.entities) {
+              var entities = DataHelper.cloneObject(this.response.content.entities);
+              if (!_.isEmpty(entities)) {
+                entityData = entities[0];
+              }
+            }
+
+            if (!_.isEmpty(entityData)) {
+
+              data.forEach(function (item) {
+                item.Channel = _.isEmpty(item.Channel) ? item.Channel = 'self' : item.Channel;
+                if (attributesJSON[item.Channel] == undefined) {
+                  attributesJSON[item.Channel] = {};
+                  attributesJSON[item.Channel][attrName] = {};
+                  attributesJSON[item.Channel][attrName].values = [];
+                }
+
+                if (attributesJSON[item.Channel][attrName]) {
+                  attributesJSON[item.Channel][attrName].values.push({
+                    "value": item[attrName],
+                    "source": item.Source,
+                    "locale": item.Locale
+                  })
+                }
+              }, this);
+
+              if (this.dataId == entityData.id) {
+                if (entityData.data) {
+                  if (!_.isEmpty(entityData.data.contexts)) {
+                    entityData.data.contexts.forEach(function (item) {
+                      if (attributesJSON[item.context.channel]) {
+                        item.attributes = attributesJSON[item.context.channel];
+                      }
+                    }, this);
+                  }
+
+                  if (!_.isEmpty(entityData.data.attributes)) {
+                    entityData.data.attributes = attributesJSON['self'];
+                  }
+                }
+
+              }
+
+              //set requestObject for save liquid
+              this._saveRequest = {
+                "entities": entityData
+              };
+
+              var liquidSave = this.$$("[name=attributeSaveDataService]");
+              if (liquidSave) {
+                liquidSave.generateRequest();
+              }
+            }
+          }
+        },
+
+        _cancelAction: function (e) {
+          var dimGrid = Polymer.dom(this).node.$$('rock-grid');
+          var pebbleDialog = this._getParentPebbleDialog(Polymer.dom(this).node.parentElement);
+
+          if (dimGrid) {
+            dimGrid.changeToReadMode();
+          }
+
+          if (pebbleDialog) {
+            pebbleDialog._close();
+          }
+          Polymer.dom(this).node.parentElement.removeChild(this);
+        },
+
+        _getParentPebbleDialog: function (element) {
+          if (element) {
+            if (element.is == "pebble-dialog") {
+              return element;
+            } else {
+              return this._getParentPebbleDialog(element.parentNode);
+            }
+          }
+          return undefined;
+        },
+
+        _onSaveResponse: function () {
+          var mainApp = document.querySelector('#app');
+          mainApp.toastText = this.saveResponse.content.msg;
+          var toastElement = mainApp.$$("#pebbleAppToast");
+          toastElement.toastType = "success";
+          toastElement.heading = "Success";
+          toastElement.autoClose = true;
+
+          toastElement.show();
+          this._cancelAction();
+        },
+
+        _entityGet: function () {
+          var dimGrid = Polymer.dom(this).node.$$('rock-grid');
+          var data = [];
+          var attrName = this.attributeModelObject.name;
+          var dimensions = {
+            "locales": this._selectedLocales,
+            "channels": this._selectedChannels,
+            "sources": this._selectedSources
+          };
+
+          if (this.response && this.response.content && this.response.content.entities) {
+            var entity = this.response.content.entities[0];
+            if (entity) {
+              DataTransformHelper.transformEntityForDimensionGrid(entity, dimensions, this.attributeModelObject);
+              var currentContexts = entity.data.contexts;
+              var selfAttributes = entity.data.attributes;
+
+              if (selfAttributes) {
+                var values = selfAttributes[attrName].values;
+                if (values) {
+                  values.forEach(function (valueItem) {
+                    var record = {};
+                    record[attrName] = valueItem.value;
+                    record.Locale = valueItem.locale;
+                    record.Source = valueItem.source;
+                    record.Channel = "";
+                    data.push(record);
+                  }, this);
+                }
+              }
+
+              if (currentContexts) {
+                currentContexts.forEach(function (item) {
+
+                  var attributes = item.attributes;
+
+                  if (attributes) {
+                    var values = attributes[attrName].values;
+                    if (values) {
+                      values.forEach(function (valueItem) {
+                        var record = {};
+                        record[attrName] = valueItem.value;
+                        record.Locale = valueItem.locale;
+                        record.Source = valueItem.source;
+                        record.Channel = item.context.list;
+                        data.push(record);
+                      }, this);
+                    }
+                  }
+                }, this);
+              }
+            }
+
+            if (data) {
+              var grid = Polymer.dom(this).node.$$('rock-grid');
+              grid.data = data;
+              if (grid._getIronDataTable()) {
+                grid._getIronDataTable()._sizeChanged(data.length, 0);
+                grid.reRenderGrid();
+              }
+            }
+          }
+        },
+
+        _initDimensionGrid: function () {
+          if (!_.isEmpty(this.contextData)) {
+            var dataContexts = this.getDataContexts();
+            var valueContexts = this.getValueContexts();
+
+            var locales = [];
+            var sources = [];
+            var channels = [];
+
+            var selectedLocales = [];
+            var selectedSources = [];
+            var selectedChannels = [];
+
+            if (!_.isEmpty(dataContexts)) {
+              channels = [...new Set(dataContexts.map((obj) => obj.channel))];
+            }
+
+            if (!_.isEmpty(valueContexts)) {
+              locales = [...new Set(valueContexts.map((obj) => obj.locale))];
+              sources = [...new Set(valueContexts.map((obj) => obj.source))];
+            }
+
+            if (!_.isEmpty(locales)) {
+              locales.forEach(function (locale) {
+                selectedLocales.push({
+                  "id": locale,
+                  "title": locale
+                });
+              }, this);
+            }
+
+            if (!_.isEmpty(channels)) {
+              channels.forEach(function (channel) {
+                selectedChannels.push({
+                  "id": channel,
+                  "title": channel
+                });
+              }, this);
+            }
+
+            if (!_.isEmpty(sources)) {
+              sources.forEach(function (source) {
+                selectedSources.push({
+                  "id": source,
+                  "title": source
+                });
+              }, this);
+            }
+
+            this._selectedLocales = selectedLocales;
+            this._selectedChannels = selectedChannels;
+            this._selectedSources = selectedSources;
+
+            this._gridConfig = undefined;
+            this._gridConfig = this._getGridConfig();
+
+            var attrModels = {};
+            attrModels[this.attributeModelObject.name] = this.attributeModelObject;
+
+            this.gridAttributeModel = undefined;
+            this.gridAttributeModel = attrModels;
+
+            this._setDimensionSelection();
+          }
+        },
+
+        _getIdsFromObject: function (arrayObject) {
+          var ids = [];
+          if (arrayObject) {
+            arrayObject.forEach(function (item) {
+              ids.push(item.id);
+            }, this);
+          }
+          return ids;
+        },
+
+        _compareRequestType: function (dataRequestType, entityTypeInfo) {
+          return dataRequestType === entityTypeInfo;
+        },
+
+        _setInitDimensions: function () {
+          var repeat = Polymer.dom(this).node.$$("template[is='dom-repeat']");
+          if (repeat) {
+            repeat.addEventListener("dom-change", function (event) {
+              this._initDimensionGrid();
+            }.bind(this));
+          }
+        },
+
+        _setDimensionSelection: function () {
+          var domIfs = this.$.dimensionFilters.querySelectorAll("template[is='dom-if']");
+          if (domIfs) {
+            domIfs.forEach(function (domIf) {
+              domIf.addEventListener("dom-change", function (event) {
+                if (event.currentTarget.id == "locale") {
+                  var localeLov = Polymer.dom(this).node.$$('rock-entity-model-lov[id="locale"]');
+
+                  if (localeLov) {
+                    localeLov.selectedItems = this._selectedLocales;
+                  }
+                }
+                else if (event.currentTarget.id == "source") {
+                  var sourceLov = Polymer.dom(this).node.$$('rock-entity-model-lov[id="source"]');
+
+                  if (sourceLov) {
+                    sourceLov.selectedItems = this._selectedSources;
+                  }
+                }
+                else if (event.currentTarget.id == "channel") {
+                  var channelLov = Polymer.dom(this).node.$$('rock-entity-lov[id="channel"]');
+
+                  if (localeLov) {
+                    channelLov.selectedItems = this._selectedChannels;
+                  }
+                }
+              }.bind(this));
+            }, this);
+          }
+        },
+
+        _getGridConfig: function () {
+          var config = this.getParentAppConfig('rock-dimension-grid', '', 'dimension-gridConfig');
+
+          if (!_.isEmpty(config)) {
+            var columns = config.tabular.columns;
+
+            if (!_.isEmpty(columns)) {
+              for (var i = 0; i < columns.length; i++) {
+                if (columns[i].header.toLowerCase() == "value") {
+                  columns[i].name = this.attributeModelObject.name;
+                }
+              }
+            }
+          }
+
+          return config;
+        }
+      });
+    })();
+  </script>
+</dom-module>

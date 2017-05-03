@@ -1,0 +1,526 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="context-helper.html">
+<link rel="import" href="component-helper.html">
+<link rel="import" href="data-transform-helper.html">
+
+<link rel="import" href="../bedrock-enums-util/bedrock-enums-util.html">
+
+<script>
+    DataRequestHelper = {};
+
+    (function () {
+
+        DataRequestHelper.createEntityModelCompositeGetRequest = function (contextData) {
+            var contextData = DataHelper.cloneObject(contextData);//to avoid live reference change
+            var dataContexts = ContextHelper.getDataContexts(contextData);
+            var valContexts = ContextHelper.getValueContexts(contextData);
+            var itemContexts = ContextHelper.getItemContexts(contextData);
+
+            var locale = valContexts && valContexts.length > 0 && valContexts[0].locale ? valContexts[0].locale : 'en-US';
+            var typeName = itemContexts && itemContexts.length > 0 && itemContexts[0].type ? itemContexts[0].type : undefined;
+            var attributeNames = itemContexts && itemContexts.length > 0 && itemContexts[0].attributeNames ? itemContexts[0].attributeNames : undefined;
+            var relationships = itemContexts && itemContexts.length > 0 && itemContexts[0].relationships ? itemContexts[0].relationships : undefined;
+            var relationshipAttributes = itemContexts && itemContexts.length > 0 && itemContexts[0].relationshipAttributes ? itemContexts[0].relationshipAttributes : undefined;
+
+            if (!typeName) {
+                return undefined;
+            };
+
+            var req = {
+                "params": {
+                    "query": {
+                        "locale": locale,
+                        "name": typeName
+                    },
+                    "fields": {
+                        "ctxTypes": [
+                            "properties"
+                        ],
+                        "attributes": attributeNames,
+                        "relationships": relationships,
+                        "relationshipAttributes": relationshipAttributes
+                    }
+                }
+            };
+
+             if (!_.isEmpty(dataContexts) && !_.isEmpty(dataContexts[0])) {
+                req.params.query.contexts = dataContexts;
+            }
+
+            return req;
+        };
+
+        DataRequestHelper.createEntityGetRequest = function (contextData) {
+            var contextData = DataHelper.cloneObject(contextData);//to avoid live reference change
+            var itemContexts = ContextHelper.getItemContexts(contextData);
+
+            if (!(itemContexts && itemContexts.length > 0)) {
+                return undefined;
+            };
+
+            var dataContexts = ContextHelper.getDataContexts(contextData);
+            var valueContexts = ContextHelper.getValueContexts(contextData);
+
+            var filteredIds = [];
+
+            var ids = [];
+            var types = [];
+            for(var i = 0; i < itemContexts.length; i++) {
+                var currentItemContext = itemContexts[i];
+                //ids
+                if(currentItemContext.id instanceof Array) {
+                    var itemContextIds = currentItemContext.id;
+                    for(var j = 0; j < itemContextIds.length; j++) {
+                        ids.push(itemContextIds[j]);
+                    }
+                } else {
+                    var itemContextId = currentItemContext.id;
+                    ids.push(itemContextId);
+                }
+                //types
+                if(currentItemContext.type instanceof Array) {
+                    var itemContextTypes = currentItemContext.type;
+                    for(var j = 0; j < itemContextTypes.length; j++) {
+                        types.push(itemContextTypes[j]);
+                    }
+                } else {
+                    var itemContextType = currentItemContext.type;
+                    types.push(itemContextType);
+                }
+            }
+
+            //remove falsy items
+            ids = ids.filter(Boolean);
+            types = types.filter(Boolean);
+
+            var firstItemContext = ContextHelper.getFirstItemContext(contextData);
+            var attributeNames = firstItemContext.attributeNames;
+            var relationships = firstItemContext.relationships;
+            var relationshipAttributes = firstItemContext.relationshipAttributes;
+            
+            var req = {
+                "params": {
+                    "query": {
+                        "filters": {
+                            "typesCriterion": types
+                        }
+                    },
+                    "fields": {
+                        "ctxTypes": [
+                            "properties"
+                        ],
+                        "attributes": attributeNames,
+                        "relationships": relationships,
+                        "relationshipAttributes": relationshipAttributes
+                    },
+                    "options": {
+                        "totalRecords": 1,
+                        "includeRequest": false
+                    }
+                }
+            };
+
+            if (!_.isNull(ids) && !_.isEmpty(ids) && ids) {
+                req.params.query.ids = ids;
+            }
+
+             if (!_.isEmpty(dataContexts) && !_.isEmpty(dataContexts[0])) {
+                req.params.query.contexts = dataContexts;
+            }
+
+            if (!_.isEmpty(valueContexts) && !_.isEmpty(valueContexts[0])) {
+                req.params.query.valueContexts = valueContexts;
+            }
+
+            return req;
+        };
+
+        DataRequestHelper.createWorkflowMappingGetRequest = function (contextData) {
+            var contextData = DataHelper.cloneObject(contextData);//to avoid live reference change
+            var firstDataContext = ContextHelper.getFirstDataContext(contextData);
+            var firstItemContext = ContextHelper.getFirstItemContext(contextData);
+
+            var typeName = "workflowDefinitionMapping";
+            var entityType = firstItemContext.type;
+
+            var relationships = ["hasWorkflowsDefined"];
+
+            var req = {
+                "params": {
+                    "query": {
+                        "name": entityType,
+                        "filters": {
+                            "typesCriterion": [typeName]
+                        }
+                    },
+                    "fields": {
+                        "properties": [
+                            "_ALL"
+                        ],
+                        "relationships": relationships
+                    }
+                }
+            };
+
+            if (!_.isEmpty(firstDataContext)) {
+                req.params.query.contexts = [firstDataContext];
+            }
+
+            //console.log('workflow def mapping req get ', JSON.stringify(req, null, 2));
+            return req;
+        };
+
+        DataRequestHelper.createWorkflowDefinitionGetRequest = function (contextData) {
+            var contextData = DataHelper.cloneObject(contextData);//to avoid live reference change
+            var firstDataContext = ContextHelper.getFirstDataContext(contextData);
+            var firstItemContext = ContextHelper.getFirstItemContext(contextData);
+
+            var typeName = "workflowDefinition";
+
+            var workflowNames = [];
+            var attributeNames = ["_ALL"];
+            if(firstItemContext) {
+                if(typeof(firstItemContext.workflowNames) !== "undefined") {
+                    workflowNames = firstItemContext.workflowNames;
+                }
+                
+                if(typeof(firstItemContext.atttributeNames) !== "undefined") {
+                    attributeNames = firstItemContext.atttributeNames;
+                }
+            }
+
+            var workflowDefinitionIds = [];
+            for (var i = 0; i < workflowNames.length; i++) {
+                var workflowName = workflowNames[i];
+                workflowDefinitionIds.push(workflowName + "_" + typeName);
+            }
+
+            var req = {
+                "params": {
+                    "query": {                        
+                        "filters": {
+                            "typesCriterion": [typeName]
+                        }
+                    },
+                    "fields": {
+                        "properties": [
+                            "_ALL"
+                        ],
+                        "attributes": attributeNames
+                    }
+                }
+            };
+
+            if (!_.isEmpty(firstDataContext)) {
+                req.params.query.contexts = [firstDataContext];
+            }
+
+            if (!_.isNull(workflowDefinitionIds) && workflowDefinitionIds.length >
+                0) {
+                req.params.query.ids = workflowDefinitionIds;
+            }
+
+            //console.log('workflow def req get ', JSON.stringify(req, null, 2));
+            return req;
+        };
+
+        DataRequestHelper.createWorkflowRuntimeInstanceGetRequest = function (contextData) {
+            var contextData = DataHelper.cloneObject(contextData);//to avoid live reference change
+            var firstDataContext = ContextHelper.getFirstDataContext(contextData);
+            var firstItemContext = ContextHelper.getFirstItemContext(contextData);
+
+            var entityId = firstItemContext.id;
+            var entityType = firstItemContext.type;
+            var workflowNames = firstItemContext.workflowNames;
+            var attributeNames = firstItemContext.atttributeNames ? firstItemContext.attributeNames : ["workflowInstanceId", "status", "startDateTime", "endDateTime", "activities"];
+
+            var workflowContexts = [];
+
+            for (var i = 0; i < workflowNames.length; i++) {
+                var workflowName = workflowNames[i];
+                var workflowContext = undefined;
+
+                if (!_.isEmpty(firstDataContext)) {
+                    workflowContext = DataHelper.cloneObject(firstDataContext);
+                    workflowContext.workflow = workflowName;
+                    workflowContext.self = "self/" + entityId;
+                } else {
+                    workflowContext = { "workflow": workflowName, "self": "self/" + entityId };
+                }
+
+                workflowContexts.push(workflowContext);
+            }
+
+            var req = {
+                "params": {
+                    "query": {
+                        "contexts": workflowContexts,
+                        "id": entityId,
+                        "filters": {
+                            "typesCriterion": [entityType]
+                        }
+                    },
+                    "fields": {
+                        "ctxTypes": [
+                            "properties"
+                        ],
+                        "attributes": attributeNames
+                    }
+                }
+            };
+            
+            //console.log('workflow runtime instance get req ', JSON.stringify(req, null, 2));
+            return req;
+        };
+
+        DataRequestHelper.createWorkflowTransitionRequest = function (contextData) {
+            var contextData = DataHelper.cloneObject(contextData);//to avoid live reference change
+            var firstDataContext = ContextHelper.getFirstDataContext(contextData);
+            var firstItemContext = ContextHelper.getFirstItemContext(contextData);
+            var operations = SharedEnumsUtil.Enums.operations;
+            var entityId = firstItemContext.id;
+            var entityType = firstItemContext.type;
+            var transitionTo = firstItemContext.transitionTo;
+            var currentActiveApp = ComponentHelper.getCurrentActiveApp();
+            var appInstanceId = "";
+            if (currentActiveApp) {
+                appInstanceId = currentActiveApp.id;
+            }
+
+            var req = {
+                "params": {
+                    "workflow": {
+                        "workflowName": transitionTo.workflowName,
+                        "activity": {
+                            "activityName": transitionTo.activityName,
+                            "action": transitionTo.action,
+                            "comment": transitionTo.comments
+                        }
+                    }
+                },
+                "clientState": {
+                    "notificationInfo": {
+                        "operation": operations.WorkflowTransition,
+                        "showNotificationToUser": true,
+                        "context": {
+                            "appInstanceId": appInstanceId,
+                            "workflowName": transitionTo.workflowName,
+                            "workflowActivityName": transitionTo.activityName,
+                            "workflowAction": transitionTo.action
+                        }
+                    }
+                },
+                "entity": {
+                    "id": entityId,
+                    "name": entityId,
+                    "type": entityType,
+                    "data": {}
+                }
+            };
+
+            if (!_.isEmpty(firstDataContext)) {
+                req.entity.data.contexts = [firstDataContext];
+            }
+            
+            //console.log('workflow transition req ', JSON.stringify(req, null, 2));
+            return req;
+        };
+
+        DataRequestHelper.createInvokeWorkflowRequest = function (contextData) {
+            var contextData = DataHelper.cloneObject(contextData);//to avoid live reference change
+            var firstDataContext = ContextHelper.getFirstDataContext(contextData);
+            var firstItemContext = ContextHelper.getFirstItemContext(contextData);
+
+            var entityId = firstItemContext.id;
+            var entityType = firstItemContext.type;
+            var invokeWorkflowData = firstItemContext.invokeWorkflowData;
+
+            var req = {
+                "params": {
+                    "workflow": {
+                        "workflowName": invokeWorkflowData.workflowName
+                    }
+                },
+                "entity": {
+                    "id": entityId,
+                    "name": entityId,
+                    "type": entityType,
+                    "data": {}
+                }
+            };
+
+            if (!_.isEmpty(firstDataContext)) {
+                req.entity.data.contexts = [firstDataContext];
+            }
+            
+            //console.log('workflow invoke req ', JSON.stringify(req, null, 2));
+            return req;
+        };
+
+
+        DataRequestHelper.createSavedSearchInitialRequest = function (contextData) {
+            var contextData = DataHelper.cloneObject(contextData);//to avoid live reference change
+            var _context =  ContextHelper.getFirstDataContext(contextData);
+            var _typesCriterion = ContextHelper.getItemContexts(contextData);
+            
+            var req = {
+                "params": {
+                    "query": {
+                        "contexts": [
+                                        _context
+                                    ],
+                        "filters": {
+                                        "typesCriterion": _typesCriterion,
+                                        "excludeNonContextual": true
+                                   }
+                    },
+                    "fields": {
+                        "jsonData": true
+                    }
+                }                
+            };
+
+            return req;
+        };
+
+        DataRequestHelper.savedSearchCreateRequest = function (contextData, type, appName) {
+            var contextData = DataHelper.cloneObject(contextData);//to avoid live reference change
+            var _context =  ContextHelper.getFirstDataContext(contextData);            
+            var _details = {};
+
+            _details["id"] = appName + "_" + type + "_" + ElementHelper.getRandomString();
+            _details["name"] = type + "_" + ElementHelper.getRandomString();
+
+            if(type == "savedsearch")
+            {                
+                _details["type"] = "savedSearch";
+            }
+            else
+            {
+                _details["type"] = "savedSearchMappings";
+            }
+
+            var req = {
+                "id": _details["id"],
+                "name": _details["name"],
+                "version": {},
+                "type":  _details["type"],
+                "properties": {},
+                "data": {
+                    "contexts": [
+                        _context
+                    ]
+                }
+            };
+
+            return req;
+        };        
+
+        DataRequestHelper.createConfigGetRequest = function (appName, context, componentName) {
+            if (componentName) {
+                context.component = componentName;
+            }
+            
+            if (_.isEmpty(context.component)) {
+                context.component = "_ALL";
+            }
+
+            var name = this._createConfigName(context);
+            
+            var req = {
+                "params": {
+                    "query": {          
+                        "name": name,
+                        "contexts": [
+                            context
+                        ],
+                        "filters": {
+                            "typesCriterion": ["uiConfig"]
+                        }
+                    },
+                    "fields": {
+                        "jsonData": true
+                    }
+                }
+            };
+
+            //console.log('config get request ', JSON.stringify(req, null, 2));
+            return req;
+        };
+
+        DataRequestHelper.createSyncValidationRequest = function(entityId, entityType, entityData) {
+            return {
+                "entity": {
+                    "id": entityId,
+                    "type": entityType,
+                    "data": entityData
+                }
+            }
+        };
+        
+        DataRequestHelper._createConfigName = function (context) {
+            var name = undefined;
+            for (var field in context) {
+                var value = context[field];
+                if (value != "_ALL") {
+                    if (name) {
+                        name = name + "_" + context[field];
+                    } else {
+                        name = context[field];
+                    }
+                }
+            }
+
+            return name;
+        };
+
+        DataRequestHelper.createWfChangeAssignmentRequest = function(entity, wfCriterion, contextData, action) {
+            var contextData = DataHelper.cloneObject(contextData);//to avoid live reference change
+            var userContext = ContextHelper.getFirstUserContext(contextData);
+            var userName;
+            var currentActiveApp = ComponentHelper.getCurrentActiveApp();
+            var appInstanceId = "";
+            var operations = SharedEnumsUtil.Enums.operations;
+            if (currentActiveApp) {
+                appInstanceId = currentActiveApp.id;
+            }
+
+            switch(action) {
+                case 'take': 
+                    userName = userContext.user
+                    break;
+                case 'release': 
+                    userName = ""
+                    break;
+            }
+            var request = {
+                "params": {
+                    "workflow": {
+                        "workflowName": wfCriterion.workflowShortName,
+                        "activity": {
+                            "activityName": wfCriterion.workflowActivityName,
+                            "newlyAssignedUserName": userName
+                        }
+                    }
+                },
+                "clientState": {
+                    "notificationInfo": {
+                        "operation": operations.WorkflowAssignment,
+                        "showNotificationToUser": true,
+                        "context": {
+                            "appInstanceId": appInstanceId,
+                            "workflowName": wfCriterion.workflowShortName,
+                            "workflowActivityName": wfCriterion.workflowActivityName,
+                            "workflowAction": "assigned to '" + userName +"'"
+                        }
+                    }
+                },
+                "entity": {
+                    "id": entity.id,
+                    "type": entity.type
+                }
+            };
+            return request;
+        }
+    })();
+</script>

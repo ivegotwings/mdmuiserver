@@ -1,0 +1,434 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/data-transform-helper.html">
+<link rel="import" href="../bedrock-helpers/attribute-helper.html">
+
+<link rel="import" href="../pebble-icons/pebble-icons.html">
+<link rel="import" href="../pebble-icon/pebble-icon.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-lov/pebble-lov.html">
+<link rel="import" href="../pebble-textbox/pebble-textbox.html">
+<link rel="import" href="../pebble-horizontal-divider/pebble-horizontal-divider.html">
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../pebble-combo-box/pebble-combo-box.html">
+<link rel="import" href="../pebble-tags/pebble-tags.html">
+
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+<link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
+
+<link rel="import" href="../rock-entity-combo-box/rock-entity-combo-box.html">
+
+
+<!--
+`rock-variants-option-select`
+
+@demo demo/index.html
+-->
+<dom-module id="rock-variants-option-select">
+    <template>
+        <style include="pebble-styles-app"></style>
+        <style>
+            p {
+                text-align: center;
+            }
+            
+            .flexbox-container {
+                display: -ms-flex;
+                display: -webkit-flex;
+                display: flex;
+                padding: 20px 10px 20px 10px;
+            }
+            
+            .box1 {
+                width: 12%;
+            }
+            
+            .box2 {
+                margin-right: 10px;
+                width: 40%;
+            }
+            
+            .box3 {
+                margin-left: 10px;
+                width: 40%;
+            }
+            
+            pebble-button.removeButton {
+                color: #C1CAD4;
+                --pebble-button: {
+                    min-width: 40px;
+                    height: 40px;
+                }
+            }
+            
+            pebble-button.addButton {
+                color: #09C021;
+                --pebble-button: {
+                    min-width: 40px;
+                    height: 40px;
+                }
+            }
+            
+            .optionButton {
+                float: right;
+                /*--pebble-button: {*/
+                /*border-bottom: 1px solid #036BC3;*/
+                /*}*/
+            }
+            
+            pebble-horizontal-divider {
+                --pebble-horizontal-divider-color: #ccc;
+                float: left;
+                width: calc(100% - 20px);
+            }
+            
+            .label {
+                color: #C1CAD4;
+            }
+            .error  {
+                color: var(--error-color);
+                font-size: var(--font-size-sm, 12px);
+                font-weight: var(--font-regular, 400);
+                letter-spacing: 0.011em;
+                line-height: 20px;
+                width: 92%;
+                word-wrap: break-word;
+            }
+        </style>
+        <div>
+            <p>You can select multiple <b>Options</b> to create <b>SKUs</b></p>
+        </div>
+        <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{_attributeModelRequest}}"
+                                           on-entity-model-composite-get-response = "_onCompositeModelGetResponse">
+        </liquid-entity-model-composite-get>
+        <liquid-entity-data-get  id="getData" operation="getbyids" request-data="[[_request]]" last-response="{{remoteData}}"
+            on-response="_onResponse">
+        </liquid-entity-data-get>
+        <liquid-entity-data-save name="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}"
+            on-response="_onSaveResponse"></liquid-entity-data-save>
+        <template is="dom-repeat" items="{{selectedOptions}}">
+            <div class="flexbox-container" id="row[[index]]">
+                <div class="box1">
+                    <pebble-button class="removeButton" icon="pebble-icons:RemoveCircle" item="[[item]]" on-tap="_removeOption"></pebble-button>
+                    <span style="vertical-align: super;">[[_getSerialNumber(index)]]</span>
+                </div>
+                <div class="box2">
+                    <div class="label">OPTION</div>
+                    <pebble-combo-box items="[[options]]" selected-id="{{item.option}}" index="[[index]]" on-selection-changed="_optionLovSelectionChanged"></pebble-combo-box>
+                </div>
+                <div class="box3">
+                    <div class="label">VALUES</div>
+                    <rock-entity-combo-box id="combo-box" id-field="name" title-pattern="name" multi-select
+                                           request-data='[[_prepareRequestObjectForValues(item.option)]]'  selected-ids="{{item.values}}">
+                    </rock-entity-combo-box>
+                </div>
+            </div>
+        </template>
+        <div class="flexbox-container">
+            <div class="box1">
+                <pebble-button class="addButton" icon="icons:add-circle" on-tap="_addNewRow"></pebble-button>
+            </div>
+        </div>
+        <div class="error">[[_errorMessage]]</div>
+        <div id="content-actions" align="center">
+            <pebble-button class="action-button btn btn-secondary m-r-5" id="skip" button-text="Cancel" raised on-tap="_onCancelTap"></pebble-button>
+            <pebble-button class="action-button-focus dropdownText btn btn-success " id="next" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
+        </div>
+
+    </template>
+    <script>
+        Polymer({
+            is: 'rock-variants-option-select',
+            properties: {
+                /**
+                 * List of attributes
+                 */
+                attributesList: {
+                    type: Array
+                },
+                selectedOptions: {
+                    type: Array,
+                    value: function () {
+                        return [];
+                    },
+                    notify: true
+                },
+                _reupdateOptions: {
+                    type: Boolean,
+                    value: false
+                },
+                options: {
+                    type: Array,
+                    computed: '_getOptions(variantDefinition, selectedOptions,_attributeModels,_reupdateOptions)',
+                    notify: true
+                },
+                variantDefinition: {
+                    type: Object
+                },
+                _saveRequest: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+                _request:{
+                    type:Object
+                },
+                /**
+                 * Indicates the request object that is passed to the data element to retrive the attribute model data.
+                 */
+                _attributeModelRequest: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+                _attributeModels: {
+                    type: Object
+                },
+                _errorMessage:{
+                    type:String,
+                    value:""
+                },
+                contextData: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                }
+            },
+            behaviors: [
+                RUFBehaviors.UIBehavior
+            ],
+            observers:[
+                '_optionLovSelectionChanged(selectedOptions,selectedOptions.*)',
+                '_onVariantDefinitionGet(variantDefinition,contextData)'
+            ],
+            attached:function () {
+                this.variantDefinition=this.getParentAppConfig("rock-variants-create-grid", '', 'variantDefinitionUI');
+            },
+            _onVariantDefinitionGet:function (variantDefinition) {
+                if (!variantDefinition || _.isEmpty(variantDefinition) || _.isEmpty(this.contextData)) {
+                    return;
+                }
+                var attrNames = [];
+                var attributesList = [];
+                variantDefinition.levels.forEach(function (level) {
+                    for (var i = 0; i < level.dimensionAttributes.length; i++) {
+                        attrNames.push(level.dimensionAttributes[i].sourceAttribute);
+                        attributesList.push({ "name": level.dimensionAttributes[i].sourceAttribute, "optional": level.dimensionAttributes[i].optional });
+                    }
+                });
+                this.attributesList = attributesList;
+                this.attributeNames = attrNames;
+                var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+                if(attrNames && attrNames.length) {
+                    compositeModelGetRequest.params.fields.attributes = attrNames;
+                }
+                this.set("_attributeModelRequest", compositeModelGetRequest);
+                var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
+                if (liquidModelGet) {
+                    liquidModelGet.generateRequest();
+                }
+            },
+            _onCompositeModelGetResponse: function (e) {
+                if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+                    this._attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
+                    var liquidGet = this.$.getData;
+                    liquidGet.requestData=this._getRequest(this.variantDefinition);
+                    if (liquidGet) {
+                        liquidGet.generateRequest();
+                    }
+                }
+            },
+            _getRequest: function (variantDefinition) {
+                var req= DataRequestHelper.createEntityGetRequest(this.contextData);
+                req.params.fields.attributes = this.attributeNames;
+                return req;
+            },
+            _onResponse: function () {
+                var data = this.remoteData;
+                if (data && data.content) {
+                    this.selectedOptions=[];
+                    var entities = data.content.entities;
+                    if (entities) {
+                        var entity = entities[0];
+                        this.originalEntity = entity;
+                        if (entity.data) {
+                            var attributes = EntityHelper.getAllAttributes(entity);
+                            for(var i in attributes){
+                                var attribute = attributes[i];
+                                if (attribute && attribute.values) {
+                                    var values =  AttributeHelper.getAttributeValues(attribute.values, this.contextData[ContextHelper.CONTEXT_TYPE_VALUE][0]);
+                                    this.push('selectedOptions', {
+                                        "option":i,
+                                        "values": values
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+                this._initialSelectedOptions = DataHelper.cloneObject(this.selectedOptions);
+            },
+            _addNewRow: function () {
+                var newOption = { "option": "", "values": [] };
+                this.push('selectedOptions', newOption);
+                //TODO open lov for option
+                var newOptionIndex = this.selectedOptions.length - 1;
+            },
+            _getSerialNumber: function (index) {
+                return index + 1;
+            },
+            _removeOption: function (e) {
+                var item = e.target.item;
+                var index = this.selectedOptions.indexOf(item);
+                this.splice('selectedOptions', index, 1);
+            },
+            _onCancelTap: function (e) {
+                //raise event with name given for onbackAction in configuration
+                var eventName = "onBack";
+                var eventDetail = {
+                    name: eventName
+                };
+                this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+            },
+            _onSaveTap: function (e) {
+                this._errorMessage="";
+                if (this.selectedOptions.length == 0) {
+                    this._errorMessage="Please select at least 1 option";
+                    return;
+                }
+                var selectedOptions = this.selectedOptions;
+                var attrNames = selectedOptions.map(function (selectedItem) {
+                    if (selectedItem.option && selectedItem.values && selectedItem.values.length > 0) {
+                        return selectedItem.option;
+                    }
+                });
+                var compulsaryAttrs=[];
+                for (i = 0; i < this.attributesList.length; i++) {
+                    var attribute = this.attributesList[i];
+                    if (!attribute.optional) {
+                        if (attrNames.indexOf(attribute.name) == -1) {
+                            compulsaryAttrs.push(attribute.name)
+                        }
+                    }
+                }
+                if(compulsaryAttrs.length){
+                    this._errorMessage="Adding values for " + compulsaryAttrs + " is compulsary";
+                    return;
+                }
+                var attributes = [];
+                for (var i = 0; i < selectedOptions.length; i++) {
+                    if (selectedOptions[i].option && selectedOptions[i].values && selectedOptions[i].values.length > 0) {
+                        var attributeModel=this._attributeModels[selectedOptions[i].option];
+                        var attrJson={
+                            "value":selectedOptions[i].values,
+                            "selfContext": attributeModel.selfContext,
+                            "name":selectedOptions[i].option
+                        };
+                        attributes.push(attrJson);
+                    }
+                }
+                var entityData = DataTransformHelper.prepareEntityForAttributesSave(this.originalEntity, attributes, this.contextData);
+                if (!_.isEmpty(entityData)) {
+                    this._saveRequest = {
+                        "entities": [entityData]
+                    };
+                    var liquidSave = this.$$("[name=attributeSaveDataService]");
+                    if (liquidSave) {
+                        liquidSave.generateRequest();
+                    }
+                }
+            },
+            _onSaveResponse: function () {
+                var attributesList=this.selectedOptions.map(function(selectedOption){
+                    return selectedOption.option;
+                });
+                var eventName = "onSave";
+                var eventDetail = {
+                    name: eventName,
+                    data: {"attributes-list":attributesList,"context-data":this.contextData }
+                };
+                this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+            },
+            _openOptionPopover: function (e) {
+                var index = e.currentTarget.index;
+                this.$$("#optionPopover" + index).open();
+                this.$$('#lov' + index).activate();
+            },
+            _openValuesPopover: function (e) {
+                var index = e.currentTarget.index;
+                this.$$("#valuesPopover" + index).open();
+                this.$$('#vLov' + index).activate();
+            },
+            _getOptions: function (variantDefinition, selectedOptions,attributeModels) {
+                var options = [];
+                if(variantDefinition && Object.keys(variantDefinition).length) {
+                    variantDefinition.levels.forEach(function (level) {
+                        for (var i = 0; i < level.dimensionAttributes.length; i++) {
+                            options.push(level.dimensionAttributes[i].sourceAttribute);
+                        }
+                    });
+                }
+                for (var i = 0; i < this.selectedOptions.length; i++) {
+                    var index = options.indexOf(this.selectedOptions[i].option);
+                    if (index > -1) {
+                        delete options[index];
+                    }
+                }
+                var lovOptions = [];
+                options.forEach(function (option) {
+                    var name;
+                    if(attributeModels[option]) {
+                        name = attributeModels[option].externalName;
+                    }
+                    if(!name){
+                        name=option;
+                    }
+                    lovOptions.push({ "id": option, "title": name });
+                });
+                return lovOptions;
+            },
+            _optionLovSelectionChanged: function (e) {
+                this._reupdateOptions = !this._reupdateOptions;
+            },
+            getIsDirty:function () {
+                var utils = SharedUtils.DataObjectFalcorUtil;
+                if(utils.compareObjects(this.selectedOptions,this._initialSelectedOptions)){
+                    return false;
+                }
+                return true;
+            },
+            _prepareRequestObjectForValues: function (option) {
+                if(!option || this._attributeModels[option]==undefined){
+                    return {};
+                }
+                var  attributeModel=this._attributeModels[option];
+                var refEntityTypes = [];
+                if (attributeModel.referenceEntityInfo) {
+                    for (var i = 0; i < attributeModel.referenceEntityInfo.length; i++) {
+                        var refEntityInfo = attributeModel.referenceEntityInfo[i];
+                        if (refEntityInfo.refRelationshipName == 'hasReferenceTo' && refEntityInfo.refEntityType) {
+                            refEntityTypes.push(refEntityInfo.refEntityType);
+                        }
+                    }
+                }
+
+                var clonedContextData = DataHelper.cloneObject(this.contextData);
+                clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+
+                var itemContext = {
+                    'type': refEntityTypes
+                };
+
+                clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+
+                return DataRequestHelper.createEntityGetRequest(clonedContextData);
+            }
+
+        });
+    </script>
+</dom-module>

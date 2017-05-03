@@ -1,0 +1,198 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../liquid-base-falcor-behavior/liquid-base-falcor-behavior.html">
+<link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
+
+<link rel="import" href="../bedrock-helpers/component-helper.html">
+
+<!--
+`liquid-dataobject-save-behavior`
+-->
+
+<script>
+    /*
+     * @polymerBehavior RUFBehaviors.LiquidDataObjectSaveBehavior
+     * @demo demo/index.html 
+     */
+    var RUFBehaviors = RUFBehaviors || {};
+    var liquidDataObjectSaveBehavior = {
+        attached: function() {
+        },
+        ready: function() {
+        },
+        properties: {
+            dataIndex: {
+                type: String,
+                value: 'Unknown'
+            },
+            _pathKeys: {
+                type: Object,
+                value: function() {
+                    return this._getDataObjectPathKeys();
+                }
+            }
+        },
+        _executeRequest: function (model, request) {
+            var op = request.operation;
+
+            if (op === 'create') {
+                return this._callCreate(model, request);
+            }
+            else if (op === 'update') {
+                return this._callUpdate(model, request);
+            }
+            else {
+                throw 'exception: operation ' + op + ' is not supported in ' + this.is + ' element.';
+            }
+        },
+        _formatResponse: function(request, rawResponsePkg) {
+            var op = request.operation;
+
+            if(!rawResponsePkg) {
+                return rawResponsePkg;
+            }
+
+            if (op === 'update') {
+                var statusResponse = rawResponsePkg;
+
+                if(!rawResponsePkg.status) {
+                    statusResponse = { 'msg': "entity submitted for save successfully", 'reqTrackingId': 100 };
+                }
+
+                if(this.verbose) {
+                    console.log('save entity call raw response ', rawResponsePkg);
+                    var model = RUFBehaviors.DataChannel.getModel(this.dataIndex);
+                    console.log('model cache after save call', model.getCache());
+                }
+
+                return statusResponse;
+            }
+            else if (op === "create") {
+                var statusResponse = rawResponsePkg;
+
+                if(!rawResponsePkg.status) {
+                    statusResponse = { 'msg': "entities submitted for save successfully", 'reqTrackingId': 100 };
+                }
+
+                if(this.verbose) {
+                    console.log('save entity call raw response ', rawResponsePkg);
+                    var model = RUFBehaviors.DataChannel.getModel(this.dataIndex);
+                    console.log('model cache after save call', model.getCache());
+                }
+
+                return statusResponse;
+            }
+            else {
+                return rawResponsePkg;
+            }
+        },
+        _callCreate: function(model, request) {
+            var jsonEnvelopeCreateResponse = this._createJsonEnvelope(request);
+            var jsonEnvelope = jsonEnvelopeCreateResponse.jsonEnvelope;
+
+            if(jsonEnvelope === {}) {
+                return;
+            }
+
+            var pathKeys = this._pathKeys;
+            var dataIndex = this.dataIndex;
+            var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
+
+            var dataObjectTypes = jsonEnvelopeCreateResponse.dataObjectTypes;
+
+            if(this.verbose) {
+                console.log('dataobject json envelope', jsonEnvelope);
+                console.log('model cache before save call', model.getCache());
+            }
+
+            return model.call([pathKeys.root, this.dataIndex, dataObjectTypes, "create"], [jsonEnvelope], [], []);
+        },
+        _callUpdate: function(model, request) {
+            var jsonEnvelopeCreateResponse = this._createJsonEnvelope(request);
+            var jsonEnvelope = jsonEnvelopeCreateResponse.jsonEnvelope;
+
+            if(jsonEnvelope === {}) {
+                return;
+            }
+
+            var pathKeys = this._pathKeys;
+            var dataIndex = this.dataIndex;
+            var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
+
+            var dataObjectIds = jsonEnvelopeCreateResponse.dataObjectIds;
+            var dataObjectTypes = jsonEnvelopeCreateResponse.dataObjectTypes;
+
+            if(this.verbose) {
+                console.log('dataobject json envelope', jsonEnvelope);
+                console.log('model cache before save call', model.getCache());
+            }
+
+            return model.call([pathKeys.root, this.dataIndex, dataObjectTypes, pathKeys.byIds, dataObjectIds, "update"], [jsonEnvelope], [], []);
+        },
+        _createJsonEnvelope: function(request) {
+            var reqData = request.requestData;
+            var pathKeys = this._pathKeys;
+            var dataIndex = this.dataIndex;
+            var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
+
+            if(reqData === undefined || !Object.keys(reqData[dataIndexInfo.collectionName]).length) {
+                return {};
+            }
+
+            var dataObjects = reqData[dataIndexInfo.collectionName];
+
+            if(this.verbose) {
+                console.log('Request for save data objects call...data objects: ', dataObjects);
+            }
+
+            var jsonEnvelope = { "json": {} };
+            jsonEnvelope.json[pathKeys.root] = {};
+            var dataObjectsBaseJson = jsonEnvelope.json[pathKeys.root][dataIndex] = {};
+
+            if (reqData.clientState) { 
+                jsonEnvelope.json.clientState = reqData.clientState;
+            } else {
+                jsonEnvelope.json.clientState = {};
+                jsonEnvelope.json.clientState.notificationInfo = {};
+                jsonEnvelope.json.clientState.notificationInfo.showNotificationToUser = true;
+            }
+
+
+            jsonEnvelope.json.clientState.notificationInfo.context = {};
+            var currentActiveApp = ComponentHelper.getCurrentActiveApp();
+            if(currentActiveApp) {
+                jsonEnvelope.json.clientState.notificationInfo.context.appInstanceId = currentActiveApp.id;
+            }
+
+            if(dataObjects.length == 0) {
+                var reason = { 'status': 'error', 'msg': 'No data objects found for save' };
+                return reason;
+            }
+
+            var dataObjectIds = [];
+            var dataObjectTypes = [];
+
+            for(var i = 0; i < dataObjects.length; i++) {
+                var dataObject = dataObjects[i];
+                var dataObjectId = dataObject.id;
+                var dataObjectType = dataObject.type;
+
+                var dataObjectTypeJson = SharedUtils.DataObjectFalcorUtil.getOrCreate(dataObjectsBaseJson, dataObjectType, {});
+                dataObjectsByIdJson = SharedUtils.DataObjectFalcorUtil.getOrCreate(dataObjectTypeJson, pathKeys.byIds, {});
+                dataObjectsByIdJson[dataObjectId] = dataObject; //SharedUtils.DataObjectFalcorUtil.boxDataObject(dataObject, SharedUtils.DataObjectFalcorUtil.boxJsonObject);
+
+                dataObjectIds.push(dataObjectId);
+
+                if(dataObjectTypes.indexOf(dataObjectType) === -1) {
+                    dataObjectTypes.push(dataObjectType);
+                }
+            }
+
+            return { 'jsonEnvelope': jsonEnvelope, 'dataObjectIds': dataObjectIds, 'dataObjectTypes': dataObjectTypes };
+        },
+        _getDataObjectPathKeys: function() {
+            return SharedUtils.DataObjectFalcorUtil.getPathKeys();
+        }
+    };
+
+    RUFBehaviors.LiquidDataObjectSaveBehavior = [RUFBehaviors.LiquidBaseFalcorBehavior, liquidDataObjectSaveBehavior];
+</script>

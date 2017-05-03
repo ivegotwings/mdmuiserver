@@ -1,0 +1,452 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/iron-flex-layout/iron-flex-layout.html">
+<link rel="import" href="../../../bower_components/iron-icons/iron-icons.html">
+<link rel="import" href="../../../bower_components/iron-icons/device-icons.html">
+<link rel="import" href="../../../bower_components/paper-dropdown-menu/paper-dropdown-menu.html" />
+<link rel="import" href="../../../bower_components/paper-listbox/paper-listbox.html">
+<link rel="import" href="../../../bower_components/paper-item/paper-item.html">
+
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-externalref-underscore/bedrock-externalref-underscore.html">
+
+<link rel="import" href="../rock-entity-lov/rock-entity-lov.html">
+<link rel="import" href="../rock-context-lov/rock-context-lov.html">
+<link rel="import" href="../rock-entity-model-lov/rock-entity-model-lov.html">
+
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-icons/pebble-icons.html">
+<link rel="import" href="../pebble-popover/pebble-popover.html">
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<!--
+`<rock-dimension-selector>` Represents a component to hold a container, source, date, and locale information.
+The elements inside this component are dyncamically loaded based on the config json.
+
+### Styling
+
+The following custom properties and mixins are available for styling:
+
+Custom property | Description | Default
+----------------|-------------|----------
+`--dimesion-selector-container-popover` | Mixin applied to container selector dropdown  | `{}`
+`--dimesion-selector-source-popover` | Mixin applied to source selector dropdown   | `{}`
+`--dimesion-selector-locale-popover` | Mixin applied to locale selector dropdown   | `{}`
+
+@group rock Elements
+@element rock-dimension-selector
+@demo demo/index.html
+-->
+<dom-module id="rock-dimension-selector">
+    <template>
+        <style include="pebble-styles-shared"></style>
+        <style is="custom-style" include="iron-flex"></style>
+        <style is="custom-style">
+             :host {
+                display: inline-block;
+            }
+
+            #listPopover {
+                @apply(--dimesion-selector-container-popover);
+                --pebble-popover-width: 160px;
+            }
+
+            #sourcePopover {
+                @apply(--dimesion-selector-source-popover);
+                --pebble-popover-width: 160px;
+            }
+
+            #localePopover {
+                @apply(--dimesion-selector-locale-popover);
+                --pebble-popover-width: 160px;
+            }
+
+            .btn.dropdownText::shadow paper-button iron-icon#leftIcon {
+                width: 20px!important;
+                height: 20px!important;
+            }
+
+            .btn.dropdownText::shadow paper-button iron-icon,
+            .btn.dropdownText::shadow paper-button {
+                color: var(--pagetitle-text-color, #034c89) !important;
+                padding:0px;
+            }
+            pebble-button{
+                margin:0px 5px;
+            }
+        </style>
+        <div class="horizontal layout container">
+            <template is="dom-repeat" items="[[configData]]" as="configDataItem">
+                <div id="[[configDataItem.id]]" hidden="[[!configDataItem.visible]]">
+                    <div>
+                        <pebble-button id="[[configDataItem.id]]-toggle-button" popover="[[configDataItem.id]]-popover" lov="[[configDataItem.id]]-lov"
+                            icon="[[configDataItem.icon]]" button-text="[[configDataItem.title]]" class="dropdownText dropdownIcon btn dropdown"
+                            noink raised no-overlap vertical-offset="-211" horizontal-offset="11" menu-button dropdown-icon on-tap="_onToggleButtonTap">
+                        </pebble-button>
+                    </div>
+                    <template is="dom-if" if="[[_compareRequestType(configDataItem.dataRequestType, 'entity')]]">
+                        <pebble-popover id="[[configDataItem.id]]-popover" for="[[configDataItem.id]]-toggle-button" auto-fit-on-attach no-overlap horizontal-align="right">
+                            <rock-entity-lov id="[[configDataItem.id]]-lov" config-data-item-id="[[configDataItem.id]]" id-field="[[configDataItem.dataMappings.id]]"
+                                title-pattern="[[configDataItem.dataMappings.title]]" type-field="[[configDataItem.dataMappings.type]]"
+                                request-data="[[configDataItem.dataRequest]]" selected-items="[[_getSelectedItems(configDataItem.selectedItem)]]"
+                                multi-select no-sub-title show-action-buttons></rock-entity-lov>
+                        </pebble-popover>
+                        <bedrock-pubsub event-name="entity-lov-confirm-button-tap" handler="_onEntityLovConfirmButtonTapped" target-id="[[configDataItem.id]]-lov"></bedrock-pubsub>
+                        <bedrock-pubsub event-name="entity-lov-close-button-tap" handler="_onEntityLovCloseButtonTapped" target-id="[[configDataItem.id]]-lov"></bedrock-pubsub>
+                    </template>
+
+                    <template is="dom-if" if="[[_compareRequestType(configDataItem.dataRequestType, 'entity-context')]]">
+                        <pebble-popover id="[[configDataItem.id]]-popover" for="[[configDataItem.id]]-toggle-button" auto-fit-on-attach no-overlap horizontal-align="right">
+                            <rock-context-lov id="[[configDataItem.id]]-lov" entity-id="[[entityId]]" entity-type="[[entityType]]" context-name="[[configDataItem.id]]" config-data-item-id="[[configDataItem.id]]"
+                                               selected-items="[[_getSelectedItems(configDataItem.selectedItem)]]"
+                                              multi-select no-sub-title show-action-buttons></rock-context-lov>
+                        </pebble-popover>
+                        <bedrock-pubsub event-name="context-lov-confirm-button-tap" handler="_onEntityLovConfirmButtonTapped" target-id="[[configDataItem.id]]-lov"></bedrock-pubsub>
+                        <bedrock-pubsub event-name="context-lov-close-button-tap" handler="_onEntityLovCloseButtonTapped" target-id="[[configDataItem.id]]-lov"></bedrock-pubsub>
+                    </template>
+                    <template is="dom-if" if="[[_compareRequestType(configDataItem.dataRequestType, 'entity-model')]]">
+                        <pebble-popover id="[[configDataItem.id]]-popover" for="[[configDataItem.id]]-toggle-button" auto-fit-on-attach no-overlap horizontal-align="right">
+                            <rock-entity-model-lov id="[[configDataItem.id]]-lov" config-data-item-id="[[configDataItem.id]]" id-field="[[configDataItem.dataMappings.id]]"
+                                title-pattern="[[configDataItem.dataMappings.title]]" type-field="[[configDataItem.dataMappings.type]]"
+                                request-data="[[configDataItem.dataRequest]]" selected-items="[[_getSelectedItems(configDataItem.selectedItem)]]"
+                                multi-select no-sub-title show-action-buttons></rock-entity-model-lov>
+                        </pebble-popover>
+                        <bedrock-pubsub event-name="entity-model-lov-confirm-button-tap" handler="_onEntityLovConfirmButtonTapped" target-id="[[configDataItem.id]]-lov"></bedrock-pubsub>
+                        <bedrock-pubsub event-name="entity-model-lov-close-button-tap" handler="_onEntityLovCloseButtonTapped" target-id="[[configDataItem.id]]-lov"></bedrock-pubsub>
+                    </template>
+                </div>
+            </template>
+        </div>
+    </template>
+</dom-module>
+<script>
+    Polymer({
+        is: "rock-dimension-selector",
+        properties: {
+            /**
+             * Indicates the list of items which you must place in the dimension selector component.
+             */
+            configData: {
+                type: Array,
+                value: function () {
+                    return [];
+                },
+                'observer': '_configDataChanged'
+            },
+            /**
+             * Indicates the selected values of all dimensions in the dimension selector.
+             */
+            selectedDimensions: {
+                type: Object,
+                notify: true,
+                value: function () {
+                    return {};
+                }
+            },
+             /**
+             * Indicates the selected values of all dimensions in the dimension selector.
+             */
+            allMultiSelect: {
+                type: Boolean,
+                value: false
+            },
+
+            _currentDimensionSelector: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            _default: {
+                type: Array,
+                value: [{
+                    "id": "default",
+                    "title": "default",
+                    "type": "default"
+                }]
+            }
+        },
+
+        behaviors: [
+            RUFBehaviors.UIBehavior
+        ],
+
+        refresh: function() {
+            //Temporary fix until we decide how refresh has to be.
+            var configData = this.configData;
+            this.configData = undefined;
+            this.configData = configData;
+        },
+
+        _compareRequestType: function (dataRequestType, entityTypeInfo) {
+            return dataRequestType === entityTypeInfo;
+        },
+
+        _getSelectedItems: function (selectedItem) {
+            // Todo.. This is not a correct code lov must support selectedid
+            
+            if(!_.isEmpty(selectedItem)) {
+                var formattedSelectedItems = [];
+                var formattedSelectedItem = {};
+
+                var itemId = typeof (selectedItem) !== "undefined" && selectedItem !== "" ? selectedItem.id :
+                    _default.id;
+                var itemType = typeof (selectedItem) !== "undefined" && selectedItem !== "" ? selectedItem.type :
+                    _default.type;
+
+                formattedSelectedItem["id"] = itemId;
+                formattedSelectedItem["type"] = itemType;
+
+                formattedSelectedItems.push(formattedSelectedItem);
+
+                return formattedSelectedItems
+            }
+        },
+
+        _configDataChanged: function () {
+            this._updateSelectedDimensions();
+        },
+
+        _onToggleButtonTap: function (event) {
+            if (typeof (event.srcElement) !== "undefined") {
+                this._currentDimensionSelector = event.srcElement;
+                this._toggleLovPopover(this._currentDimensionSelector.popover);
+            }
+        },
+
+        _onEntityLovConfirmButtonTapped: function (event) {
+            if (!this.allMultiSelect) {
+                var currentLovId = event.detail.data.id;
+                var currentRockLov = this.$$("#" + currentLovId);
+                var switchToMultiSelect = true;
+
+                if (currentRockLov.multiSelect) {
+                    if (currentRockLov.selectedItems.length > 1) {
+                        switchToMultiSelect = !currentRockLov.multiSelect;
+                    }
+
+                    for (var i = 0; i < this.configData.length; i++) {
+                        var configDataItem = this.configData[i];
+                        var rockLov;
+
+                        if(configDataItem.dataRequestType == "entity") {
+                            rockLov = this.$$("#" + configDataItem.id).querySelector("rock-entity-lov");
+                        }
+                        if(configDataItem.dataRequestType == "entity-context") {
+                            rockLov = this.$$("#" + configDataItem.id).querySelector("rock-context-lov");
+                        }
+
+                        if(configDataItem.dataRequestType == "entity-model") {
+                            rockLov = this.$$("#" + configDataItem.id).querySelector("rock-entity-model-lov");
+                        }
+                        
+                        if (typeof(rockLov) !== "undefined" && rockLov.id !== currentLovId && rockLov.multiSelect !== switchToMultiSelect) {
+                            this._toggleLovSelectionMode(rockLov, switchToMultiSelect);
+                        }
+                    }
+                }
+            }
+            
+            this._updateSelectedDimensions();
+            this._toggleLovPopover(this._currentDimensionSelector.popover);
+        },
+
+        _toggleLovSelectionMode: function (rockLov, switchToMultiSelect) {
+            if (switchToMultiSelect) {
+                var selectedItem = rockLov.selectedItem;
+                rockLov.multiSelect = switchToMultiSelect;
+
+                if (typeof (selectedItem) !== "undefined" && !_.isEmpty(selectedItem)) {
+                    rockLov.push("selectedItems", selectedItem);
+                }
+
+                rockLov.refershTemplate();
+            } else {
+                var selectedItems = rockLov.selectedItems
+                rockLov.multiSelect = switchToMultiSelect;
+
+                if (typeof (selectedItems) !== "undefined" && selectedItems.length > 0) {
+                    rockLov.selectedItem = selectedItems[0];
+                } else {
+                    rockLov.selectedItem = {};
+                }
+
+                rockLov.refershTemplate();
+            }
+        },
+
+        _onEntityLovCloseButtonTapped: function () {
+            this._toggleLovPopover(this._currentDimensionSelector.popover);
+        },
+
+        _updateSelectedDimensions: function () {
+            this.debounce('set-selected-items', function () {
+                this._setSelectedDimensions();
+            }, 100)
+        },
+
+        _setSelectedDimensions: function () {
+            var selectedDimensions = {};
+
+            if (typeof (this.configData) !== "undefined") {
+                for (var i = 0; i < this.configData.length; i++) {
+                    var configDataItem = this.configData[i];
+                    var rockLov;
+
+                    if (this._compareRequestType(configDataItem.dataRequestType, 'entity')) {
+                        rockLov = this.$$("#" + configDataItem.id).querySelector("rock-entity-lov");
+                    }
+                    if (this._compareRequestType(configDataItem.dataRequestType, 'entity-context')) {
+                        rockLov = this.$$("#" + configDataItem.id).querySelector("rock-context-lov");
+                    }
+
+                    if (this._compareRequestType(configDataItem.dataRequestType, 'entity-model')) {
+                        rockLov = this.$$("#" + configDataItem.id).querySelector("rock-entity-model-lov");
+                    }
+
+                    if (typeof (rockLov) !== "undefined") {
+                        var entityTypes = configDataItem.dataMappings.type;
+
+                        if(typeof(entityTypes) !== "undefined") {
+                            for (var j = 0; j < entityTypes.length; j++) {
+                                if (!rockLov.multiSelect) {
+                                    var itemId = this._getItemId(rockLov.selectedItem);
+                                    selectedDimensions[entityTypes[j]] = [itemId] ;
+                                } else {
+                                    selectedDimensions[entityTypes[j]] = this._getItemsIdsByType(
+                                    rockLov.selectedItems, entityTypes[j]);
+                                }
+                            }
+                        }
+                    }
+
+                    // this._updateToggleButtonText(configDataItem, rockLov);
+                }
+
+                this.set("selectedDimensions", selectedDimensions);
+
+                var dimEventDetail = {
+                    'dimensions': selectedDimensions
+                };
+                this.fire("rock-dimension-selector-data-changed-" + this.getAppId(), dimEventDetail);
+            }
+        },
+
+        _toggleLovPopover: function (popoverId) {
+            var currentPopover = this.$$("#" + popoverId);
+            if (!_.isEmpty(currentPopover)) {
+                if (!currentPopover.opened) {
+                    currentPopover.show();
+                } else {
+                    currentPopover.hide();
+                }
+            }
+        },
+
+        _updateToggleButtonText: function (configDataItem, rockLov) {
+            var toggleButton = this.$$("#" + configDataItem.id).querySelector("pebble-button");
+            var buttonText = configDataItem.title;
+
+            if (!rockLov.multiSelect) {
+                // Ask Jimmy.... What should be label field for selected dimension
+                buttonText = rockLov.selectedItem.id
+            } else {
+                buttonText = rockLov.selectedItems.length + "" + configDataItem.title + "s " +
+                    "Selected";
+            }
+
+            toggleButton.buttonText = buttonText;
+        },
+
+        _getSelectedItemsInfo: function (dimensionSelector) {
+            var dimensionSelectedItem;
+            var dimensionSelectedItems = [];
+
+            if (dimensionSelector.lov.multiSelect) {
+                if (dimensionSelector.lov.selectedItems.length > 0) {
+                    dimensionSelectedItem = dimensionSelector.lov.selectedItems[0];
+                    dimensionSelectedItems = dimensionSelector.lov.selectedItems;
+                }
+            } else {
+                if (dimensionSelector.lov.selectedItem) {
+                    dimensionSelectedItems.push(dimensionSelector.lov.selectedItem);
+                    dimensionSelectedItem = dimensionSelector.lov.selectedItem;
+                }
+            }
+
+            return {
+                multiSelect: dimensionSelector.lov.multiSelect,
+                selectedItem: dimensionSelectedItem,
+                selectedItems: dimensionSelectedItems,
+            }
+        },
+
+        getSelectedDimensions: function () {
+            // Todo.. DimensionSelector Grid will be affected
+            // var dimensionData = {};
+
+            // dimensionData.selectedContexts = [this._getSelectedValue(this.configData.catalogSelector.catalogItems,
+            //     this.configData.catalogSelector.selectedCatalogItems)];
+            // dimensionData.selectedSources = [this._getSelectedValue(this.configData.sourceSelector.sourceItems,
+            //     this.configData.sourceSelector.selectedSourceItems)];
+            // dimensionData.selectedLocales = [this._getSelectedValue(this.configData.localeSelector.localeItems,
+            //     this.configData.localeSelector.selectedLocaleItems)];
+
+            // return dimensionData;
+        },
+
+        _getSelectedValue: function (data, selectedItems) {
+            if (data != undefined && data != null) {
+                for (var i = 0; i < data.length; i++) {
+                    if (this._indexOfItem(selectedItems, data[i])) {
+                        return data[i].value;
+                    }
+                }
+            }
+        },
+
+        _indexOfItem: function (selectedItems, selectedItemToCompare) {
+            var isSelected = false;
+
+            selectedItems.forEach(function (item) {
+                if (item.id == selectedItemToCompare.id) {
+                    isSelected = true;
+                }
+            }, this);
+
+            return isSelected;
+        },
+
+        _setSelectedDimension: function () {
+            this.selectedDimensions = undefined;
+            this.selectedDimensions = {
+                "lists": this.listSelector.selectedItems,
+                "sources": this.sourceSelector.selectedItems,
+                "locales": this.localeSelector.selectedItems
+            };
+        },
+
+        _getItemsIdsByType: function (items, type) {
+            var itemsIds = [];
+            if (items) {
+                for (var i = 0; i < items.length; i++) {
+                    if (items[i].type === type) {
+                        var itemId = this._getItemId(items[i]);
+                        itemsIds.push(itemId);
+                    }
+                }
+            }
+            return itemsIds;
+        },
+
+        _getItemId: function (item) {
+            var itemId = this.get("id", item);
+
+            if (typeof(itemId) == "undefined" || typeof(itemId) == "null") {
+                itemId = ""; // Could be -1 or ""?
+            }
+
+            return itemId;
+        }
+    });
+</script>

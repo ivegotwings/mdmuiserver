@@ -1,0 +1,209 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="element-helper.html">
+
+<script>
+    ComponentHelper = {};
+
+
+    (function () {
+        ComponentHelper.fireBedrockEvent = function (name, data, settings, element) {
+            if ((!settings || !settings.ignoreId) && element.id) {
+                name = name + "-" + element.id;
+            }
+            var cancelable = false;
+            if (settings && settings.cancelable) {
+                cancelable = true;
+            }
+
+            if (element.appId) {
+                name = name + "-" + element.getAppId();
+            }
+
+            return element.fire('bedrock-event' + "-" + name, data, { cancelable: cancelable });
+        };
+
+        ComponentHelper.loadContent = function (contentElement, component, element, callback) {
+            //if properties bag is not created then create it
+            if (!component.properties) {
+                component.properties = {};
+            }
+
+            element.importHref(component.path, function (e) {
+                //import successfull
+                ComponentHelper._componentCreating(component, element);
+                var dynamicEl = document.createElement(component.name);
+                for (var property in component.properties) {
+                    if (component.properties.hasOwnProperty(property)) {
+                        var val = component.properties[property];
+                        if (typeof val == "object") {
+                            dynamicEl.setAttribute(property, JSON.stringify(
+                                val));
+                        } else {
+                            //Polymer takes default as true, so do not set attribute for boolean false
+                            if(typeof val != "boolean" || (typeof val == "boolean" && val)) 
+                            {
+                                dynamicEl.setAttribute(property, val);
+                            }                            
+                        }
+                    }
+                }
+                if (element.nodeName == "ROCK-CONTENT-VIEW") {
+                    dynamicEl.contentViewManager = element.manager;
+                }
+                dynamicEl.setAttribute("id", component.name + "-component-" + ElementHelper.getRandomId());
+                dynamicEl.setAttribute("class", dynamicEl.getAttribute(
+                    "class") + " view-component");
+
+                //remove any existing child elements
+                var contentElementPolymerDom = Polymer.dom(contentElement);
+                if (contentElementPolymerDom && contentElementPolymerDom.childNodes.length) {
+                    while(contentElementPolymerDom.childNodes.length ) {
+                        Polymer.dom(contentElement).removeChild(Polymer.dom(contentElement).firstChild);
+                    }
+                }
+                contentElementPolymerDom.appendChild(dynamicEl);
+                Polymer.dom.flush();
+                ComponentHelper._componentCreated(component, element);
+                if(callback) {
+                    callback(dynamicEl);
+                }
+            }, function (e) {
+                //import failed
+                console.log(e);
+            });
+        };
+
+        ComponentHelper._componentCreating = function (component, element) {
+            //event to let consumer change component configuration before creating it
+            var eventName = "component-creating";
+            var eventData = component;
+            var eventDetail = {
+                name: eventName,
+                data: eventData
+            }
+            this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true }, element);
+        };
+
+        ComponentHelper._componentCreated = function (component, element) {
+            var eventName = "component-created";
+            var eventData = component;
+            var eventDetail = {
+                name: eventName,
+                data: eventData
+            }
+            this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true }, element);
+        };
+
+        ComponentHelper.getCurrentActiveApp = function () {
+            var mainApp = document.querySelector("main-app");
+            if (mainApp) {
+                var contentViewMgr = mainApp.$$("rock-content-view-manager");
+                if (contentViewMgr) {
+                    var activeContentView = contentViewMgr.$.contentViewManager.querySelector(
+                        "rock-content-view:not([hidden])");
+                    if (activeContentView) {
+                        var viewComponent = activeContentView.$$("#content-view-container").querySelector(".view-component");
+                        return viewComponent;
+                    } else {
+                        return mainApp;
+                    }
+                }
+            }
+            return undefined;
+        };
+
+        ComponentHelper.getAppById = function (appId) {
+            var mainApp = document.querySelector("main-app");
+            var app;
+            if (mainApp) {
+                var contentViewMgr = mainApp.$$("rock-content-view-manager");
+                if (contentViewMgr) {
+                    var openedContentViews = contentViewMgr.$.contentViewManager.querySelectorAll("rock-content-view");
+                    if (openedContentViews) {
+                        openedContentViews.forEach(function (element) {
+                            var viewComponent = element.$$("#content-view-container").querySelector(".view-component");
+                            if(viewComponent && viewComponent.id == appId) {
+                                app = viewComponent;
+                            }
+                        }, this);
+                    }
+                }
+            }
+            return app;
+        };
+
+        ComponentHelper.getAppContainerById = function(appId) {
+            var contentView = undefined;
+            if(appId) {
+                var app = ComponentHelper.getAppById(appId);
+                if(app) {
+                    contentView = ComponentHelper.getComponentContainer(app);
+                }
+            }
+            return contentView;
+        };
+
+        ComponentHelper.getComponentContainer = function (element) {
+            var parentNode = element.parentNode;
+            if (parentNode) {
+                if (parentNode.isRufComponent) {
+                    return parentNode;
+                }
+                else if (parentNode.host && parentNode.host.isRufComponent) {
+                    return parentNode.host;
+                }
+                else {
+                    return this.getComponentContainer(Polymer.dom(parentNode));
+                }
+            }
+            return parentNode;
+        };
+
+        ComponentHelper.getProgressBar = function () {
+            var mainApp = document.querySelector("main-app");
+            if (mainApp) {
+                return mainApp.$$("paper-progress");
+            }
+            return undefined;
+        };
+
+        ComponentHelper.getViewNameWithQueryParams = function (queryParams, viewName) {
+            if (queryParams && !isEmpty(queryParams)) {
+                var queryString = JSON.stringify(queryParams).replace(/,/g, '');
+                queryString = queryString.replace(/"|{|}\s*/g, "").replace(/:\s*/g, "-");
+                viewName += queryString;
+            }
+            return viewName;
+        };
+
+        ComponentHelper.getParentElement = function (component) {
+            if (component) {
+                var parentNode = component.parentNode;
+                if (parentNode) {
+                    if (parentNode.isRufComponent) {
+                        return parentNode;
+                    }
+                    else if (parentNode.host && parentNode.host.isRufComponent) {
+                        return parentNode.host;
+                    }
+                    else {
+                        return ComponentHelper.getParentElement(Polymer.dom(parentNode));
+                    }
+                }
+            }
+        };
+
+        ComponentHelper.closeCurrentApp = function() {
+            var activeApp = ComponentHelper.getCurrentActiveApp();
+            var contentView = ComponentHelper.getComponentContainer(activeApp);
+            var manager;
+            if(contentView) {
+                manager = contentView.manager;
+            }
+            if(manager) {
+                manager.closeView(contentView.name);
+            }
+        };
+    })();
+
+</script>
