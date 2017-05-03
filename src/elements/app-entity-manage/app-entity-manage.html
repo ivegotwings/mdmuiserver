@@ -1,6 +1,5 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
-<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
-<link rel="import" href="../bedrock-app-context-behavior/bedrock-app-context-behavior.html">
+<link rel="import" href="../bedrock-app-behavior/bedrock-app-behavior.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-helpers/component-helper.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
@@ -23,6 +22,7 @@
 <link rel="import" href="../rock-entity-header/rock-entity-header.html">
 <link rel="import" href="../rock-dimension-grid/rock-dimension-grid.html">
 <link rel="import" href="../rock-workflow-panel/rock-workflow-panel.html">
+<link rel="import" href="../rock-business-function-dialog/rock-business-function-dialog.html">
 
 <dom-module id="app-entity-manage">
     <template>
@@ -104,16 +104,17 @@
             
             rock-tabs::shadow .tab-content {
                 overflow-y: auto;
-                height: var(--rock-tab-content-height);
+                height: calc(var(--rock-tab-content-height) - 54px);
             }
         </style>
 
         <rock-layout hide-footer>
             <liquid-config-aggregate-get id="getManageAppConfig" verbose operation="getbyids" request-id="req1" app-name="app-entity-manage"
                 context-data="[[contextData]]" on-config-get-response="_onApplicationConfigReceived"></liquid-config-aggregate-get>
-            <rock-titlebar icon="dashboard" title="" sub-title="" config="{{getConfig('rock-titlebar')}}" closable minimizable>
+            <rock-titlebar icon="dashboard" main-title="" sub-title="" config="{{getConfig('rock-titlebar')}}" closable minimizable>
                 <div id="dimensionContainer" align="right">
-                    <rock-dimension-selector id="dimensionSelector" config-data="{{getConfig('rock-dimension-selector')}}"></rock-dimension-selector>
+                    <rock-dimension-selector id="dimensionSelector" config-data="{{getConfig('rock-dimension-selector')}}" entity-id="[[_entityId]]"
+                        entity-type="[[_entityType]]"></rock-dimension-selector>
                 </div>
             </rock-titlebar>
             <rock-header frozen>
@@ -121,7 +122,7 @@
                     <bedrock-pubsub event-name="toolbar-button-event" handler="_onToolbarEvent" target-id="entityManageHeader"></bedrock-pubsub>
                     <bedrock-pubsub on-bedrock-event-route-changed="onRouteChange"></bedrock-pubsub>
                     <rock-entity-header id="entityManageHeader" context-data="[[contextData]]" header-config="{{getConfig('rock-entity-header','','headerConfig')}}"
-                        buttons="{{getConfig('rock-entity-header','','toolbarConfig')}}" to-fix-data="{{getConfig('rock-entity-header','','summaryToFix')}}"></rock-entity-header>
+                        buttons="{{getConfig('rock-entity-header','','toolbarConfig')}}" to-fix-data="{{getConfig('rock-entity-header','','summaryToFix')}}" assignment-actions-config="{{getConfig('rock-entity-header','','assignmentActionsConfig')}}"></rock-entity-header>
                 </div>
             </rock-header>
             <rock-sidebar id="rockSideBar" position="right">
@@ -140,16 +141,16 @@
                     <bedrock-pubsub event-name="dimension-grid-open" handler="onDimensionGridOpen"></bedrock-pubsub>
                 </template>
             </div>
-            <pebble-dialog id="dimensionGridDialog" show-close-icon>
-                <div id="dimensionGridContent">
-
-                </div>
+            <pebble-dialog id="dimensionGridDialog" modal show-close-icon>
             </pebble-dialog>
         </rock-layout>
         <bedrock-pubsub event-name="app-context-changed" handler="_onAppContextChanged"></bedrock-pubsub>
         <bedrock-pubsub event-name="workflow-transition-complete" handler="_onWorkflowTransitionComplete"></bedrock-pubsub>
+        <bedrock-pubsub event-name="workflow-assignment-complete" handler="_onWorkflowAssignmentComplete"></bedrock-pubsub>
         <bedrock-pubsub event-name="on-attribute-save" handler="_refreshRockEntityHeader"></bedrock-pubsub>
-
+        <rock-business-function-dialog id="contextDialog"></rock-business-function-dialog>
+        <liquid-entity-data-get name="attributeGetDataServiceForTitleBar" operation="getbyids" request-data="{{titleAttributeRequest}}"
+            on-response="_onTitleAttributesGetResponse"></liquid-entity-data-get>
     </template>
     <script>
         (function () {
@@ -158,8 +159,10 @@
             Polymer({
                 is: 'app-entity-manage',
                 created: function () {
-                    if (this.verbose)
+                    if (this.verbose) {
                         console.log('app entity manage created');
+                    }
+                    this.contentHeightVariable = "--rock-tab-content-height";
                 },
                 attached: function () {
                     if (this.verbose) {
@@ -172,22 +175,17 @@
                     };
 
                     this.contextData[this.CONTEXT_TYPE_USER] = [userContext];
-
-                    setTimeout(function () {
-                        this._setTabContentHeight();
-                    }.bind(this), 50);
-
                 },
                 ready: function () {
                     if (this.verbose)
                         console.log('app entity manage ready');
 
-                    var entityId = DataHelper.getParamValue('id');
-                    var entityType = DataHelper.getParamValue('type');
+                    this._entityId = DataHelper.getParamValue('id');
+                    this._entityType = DataHelper.getParamValue('type');
 
                     var itemContext = {
-                        'id': entityId,
-                        'type': entityType
+                        'id': this._entityId,
+                        'type': this._entityType
                     };
 
                     this.updateContext(this.CONTEXT_TYPE_ITEM, [itemContext]);
@@ -222,6 +220,13 @@
                         }
                     },
 
+                    titleAttributeRequest: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
                     dimensions: {
                         type: Object,
                         value: function () {
@@ -236,8 +241,7 @@
                     }
                 },
                 behaviors: [
-                    RUFBehaviors.UIBehavior,
-                    RUFBehaviors.AppContextBehavior
+                    RUFBehaviors.AppBehavior
                 ],
                 refresh: function () {
                     var isDirty = false;
@@ -247,11 +251,11 @@
                     if (isDirty) {
                         if (window.confirm(
                             "There are unsaved changes. Do you want to discard the changes?")) {
-                            this._refreshView();
+                            this.$$('rock-dimension-selector').refresh();
                             this._reRenderOnDimensionChange();
                         }
                     } else {
-                        this._refreshView();
+                        this.$$('rock-dimension-selector').refresh();
                         this._reRenderOnDimensionChange();
                     }
                 },
@@ -259,9 +263,16 @@
                     //console.log('Received configs ', JSON.stringify(e, null, 2));
                     this.set('applicationConfig', e.detail);
                 },
+                _openContextManagement: function (taxonomy) {
+                    this.$$("#contextDialog").name = "extension-manage-" + taxonomy;
+                    this.$$("#contextDialog").sharedData = { "context-data": this.contextData };
+                    this.$$("#contextDialog").open();
+                },
                 _onToolbarEvent: function (e, detail) {
                     var event = detail.name;
-
+                    if (event.toLowerCase().indexOf("taxonomy") > -1) {
+                        this._openContextManagement(event);
+                    }
                     switch (event.toLowerCase()) {
                         case "search":
                             this._searchEvent(e, detail);
@@ -315,7 +326,18 @@
                 },
                 _searchEvent: function (e, detail, sender) { },
                 _refreshEvent: function (e, detail, sender) {
-                    this.refresh();
+                    var isDirty = false;
+                    if (this.getIsDirty) {
+                        isDirty = this.getIsDirty();
+                    }
+                    if (isDirty) {
+                        if (window.confirm(
+                            "There are unsaved changes. Do you want to discard the changes?")) {
+                            this._refreshView();
+                        }
+                    } else {
+                        this._refreshView();
+                    }
                 },
                 _copyEvent: function (e, detail, sender) {
                     document.querySelector('#app').$.pebbleAppToast.fitInto = document.querySelector(
@@ -323,6 +345,7 @@
                     document.querySelector('#app').toastText = "Attribute Data Copied successfully!!";
                     document.querySelector('#app').$.pebbleAppToast.show();
                 },
+
                 _pasteEvent: function (e, detail, sender) {
                     alert("event triggered: " + detail.name);
                 },
@@ -357,30 +380,33 @@
                         'rock-dimension-selector[id="dimensionSelector"]')._getSelectedDimensions();
                 },
                 onDimensionGridOpen: function (e, detail, sender) {
-                    this.$.dimensionGridDialog.dialogTitle = "Detailed Dimensional Edit for : " +
-                        detail.data.externalName;
+                    var dialog = Polymer.dom(this).node.$.dimensionGridDialog;
 
-                    var dimension = this.dimensions;
-                    var dimensionGridElement = document.createElement("rock-dimension-grid");
-                    dimensionGridElement.dimensionConfigs = this.getConfig('rock-dimension-selector');
+                    if (dialog) {
+                        this._clearDimensionGridDialog();
+                        this.$.dimensionGridDialog.dialogTitle = "Detailed Dimensional Edit for : " +
+                            detail.data.externalName;
 
-                    dimensionGridElement.attributeModelObject = detail.data;
-                    dimensionGridElement.locales = dimension["locales"];
-                    dimensionGridElement.sources = dimension["sources"];
-                    dimensionGridElement.contexts = dimension["contexts"];
-                    dimensionGridElement.dataId = DataHelper.getParamValue('id');
-                    dimensionGridElement.dataContext = Polymer.dom(this).node.$$(
-                        'rock-dimension-selector[id="dimensionSelector"]').getSelectedDimensions();
-                    dimensionGridElement.contextData = this.contextData;
+                        var dimension = this.dimensions;
+                        var dimensionGridContainer = document.createElement('div');
+                        dimensionGridContainer.setAttribute('id', 'dimensionGridContent');
 
-                    var dimensionGridContent = Polymer.dom(this).node.$.dimensionGridDialog.querySelector(
-                        '#dimensionGridContent');
+                        var dimensionGridElement = document.createElement("rock-dimension-grid");
+                        dimensionGridElement.dimensionConfigs = this.getConfig('rock-dimension-selector');
 
-                    if (dimensionGridContent) {
-                        dimensionGridContent.appendChild(dimensionGridElement);
+                        dimensionGridElement.attributeModelObject = detail.data;
+                        dimensionGridElement.locales = dimension["locales"];
+                        dimensionGridElement.sources = dimension["sources"];
+                        dimensionGridElement.contexts = dimension["contexts"];
+                        dimensionGridElement.dataId = DataHelper.getParamValue('id');
+                        dimensionGridElement.dataContext = Polymer.dom(this).node.$$(
+                            'rock-dimension-selector[id="dimensionSelector"]').getSelectedDimensions();
+                        dimensionGridElement.contextData = this.contextData;
+                        dimensionGridContainer.appendChild(dimensionGridElement);
+
+                        dialog.appendChild(dimensionGridContainer);
+                        dialog.open();
                     }
-
-                    this.$.dimensionGridDialog.open();
                 },
                 buttonOkClicked: function (event) {
                     alert("Hello");
@@ -392,17 +418,9 @@
                     this.$$('rock-tabs')._currentTabErrorLength = detail;
                 },
                 _refreshView: function () {
-                    var contentView = undefined;
-                    if (this.appId) {
-                        contentView = ComponentHelper.getAppContainerById(this.appId);
-                    } else {
-                        contentView = document.querySelector("main-app").$$("rock-content-view-manager")
-                            .$$("rock-content-view:not([hidden])");
-                    }
-
-                    if (contentView) {
-                        contentView.render();
-                    }
+                    this._refreshRockEntityHeader();
+                    this._refreshWorkflowPanel();
+                    this.$$('rock-tabs').reloadCurrentTab();
                 },
                 getIsDirty: function () {
                     var tabs = this.$$("rock-tabs");
@@ -410,27 +428,83 @@
                         return tabs.getIsDirty();
                     }
                 },
-                setTitleBar: function (values) {
+                _onTitleAttributesGetResponse: function (e) {
+
+                    var titleAttributeResponse = e.detail.response;
+                    if (this.verbose) {
+                        console.log('on entity title response event ', JSON.stringify(titleAttributeResponse, null, 2));
+                    }
+
+                    var attributesData = [];
+                    if (DataHelper.validateGetEntitiesResponse(titleAttributeResponse)) {
+
+                        var entity = titleAttributeResponse.content.entities[0];
+
+                        if (entity) {
+                            var attributesWithoutModel = DataTransformHelper.transformAttributes(entity, undefined, this.contextData, "array");
+                            this.setTitleBar(entity, attributesWithoutModel);
+                        }
+                    }
+                },
+                 setTitleBar: function (entity, values) {
                     var titlebar = this.$$('rock-titlebar');
-                    titlebar.title = "";
+                    titlebar.mainTitle = "";
                     titlebar.subTitle = "";
                     var config = titlebar.config;
+
+                    titlebar.mainTitle = entity.Id;
+                    titlebar.subTitle = entity.type;
+
                     for (var i = 0; i < values.length; i++) {
                         var value = values[i];
                         if (value.name == config.titleAttribute) {
-                            titlebar.title = value.value !== "" ? value.value : "No Title";
+                            titlebar.mainTitle = value.value !== "" ? value.value : titlebar.mainTitle;
                         }
                         if (value.name == config.subtitleAttribute) {
-                            titlebar.subTitle = value.value !== "" ? value.value : "No Sub Title";
+                            titlebar.subTitle = value.value !== "" ? value.value : titlebar.subTitle;
                         }
-                        if (titlebar.title != "" && titlebar.subTitle != "") {
+                        if (titlebar.mainTitle != "" && titlebar.subTitle != "") {
                             break;
+                        }
+                    }
+
+                    if(!titlebar.mainTitle || titlebar.mainTitle == ""){
+                        titlebar.mainTitle = "No Title";
+                    }
+                    if(!titlebar.subTitle || titlebar.subTitle == ""){
+                        titlebar.subTitle = "No Sub-Title";
+                    }
+                },
+                _refreshTitleBar: function () {
+                    var titlebar = this.$$('rock-titlebar');
+                    var config = titlebar.config;
+                    if (config) {
+                        var attributeNames = new Array();
+                        if (config.titleAttribute != "") {
+                            attributeNames.push(config.titleAttribute);
+                        }
+                        if (config.subtitleAttribute != "") {
+                            attributeNames.push(config.subtitleAttribute);
+                        }
+                        if (attributeNames.length > 0) {
+                            if (this.contextData && this.contextData.ItemContexts && this.contextData.ItemContexts.length > 0) {
+                                var itemContext = this.contextData.ItemContexts[0];
+                                //add attribute names in item context
+                                itemContext.attributeNames = attributeNames;
+                                var req = DataRequestHelper.createEntityGetRequest(this.contextData);
+                                this.set("titleAttributeRequest", req);
+                                var liquidDataGet = this.$$("[name=attributeGetDataServiceForTitleBar]");
+                                if (liquidDataGet) {
+                                    liquidDataGet.generateRequest();
+                                }
+                            }
                         }
                     }
                 },
                 _reRenderOnDimensionChange: function () {
                     this._refreshRockEntityHeader();
                     this._refreshWorkflowPanel();
+                    this._refreshTitleBar();
 
                     var valContexts = this.getValueContexts();
                     if (valContexts && valContexts.length) {
@@ -447,7 +521,13 @@
 
                 },
 
+                _onWorkflowAssignmentComplete: function (e) {
+                    this._refreshWorkflowPanel();
+
+                },
+
                 _refreshRockEntityHeader: function () {
+                    this._refreshTitleBar();
                     var entityHeaderEle = Polymer.dom(this).node.$$('rock-entity-header');
                     if (entityHeaderEle && entityHeaderEle.refresh) {
                         entityHeaderEle.refresh();
@@ -461,27 +541,14 @@
                     }
                 },
 
-                _setTabContentHeight: function () {
-                    var viewPortHeight = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
-                    var appHeader = document.querySelector("main-app").$$("app-header");
-                    var tabGroup = this.$$("rock-tabs").$$('pebble-tab-group');
-                    var entityHeader = this.$.entityManageHeader;
-                    var rockTitle = this.$$("rock-layout").querySelector("rock-titlebar");
-                    if (appHeader) {
-                        viewPortHeight -= appHeader.offsetHeight;
+                _clearDimensionGridDialog: function() {
+                    var dialog = Polymer.dom(this).node.$.dimensionGridDialog;
+                    if (dialog) { 
+                        var childContent = dialog.firstElementChild;
+                        if(childContent) {
+                            dialog.removeChild(childContent);
+                        }
                     }
-                    if (tabGroup) {
-                        viewPortHeight -= tabGroup.offsetHeight;
-                    }
-                    if (entityHeader) {
-                        viewPortHeight -= entityHeader.offsetHeight;
-                    }
-                    if (rockTitle) {
-                        viewPortHeight -= rockTitle.offsetHeight;
-                    }
-
-                    this.customStyle['--rock-tab-content-height'] = parseInt(viewPortHeight) - 33 + 'px';
-                    this.updateStyles();
                 }
             });
         })();

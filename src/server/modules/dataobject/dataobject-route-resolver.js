@@ -5,27 +5,30 @@ const jsonGraph = require('falcor-json-graph'),
     $error = jsonGraph.error,
     $atom = jsonGraph.atom;
 
-const   arrayRemove = require('../common/utils/array-remove'),
-        arrayContains = require('../common/utils/array-contains'),
-        isEmpty = require('../common/utils/isEmpty'),
-        uuidV1 = require('uuid/v1');
+const arrayRemove = require('../common/utils/array-remove'),
+    arrayContains = require('../common/utils/array-contains'),
+    isEmpty = require('../common/utils/isEmpty'),
+    uuidV1 = require('uuid/v1');
 
-var sharedDataObjectFalcorUtil = require('../../../shared/dataobject-falcor-util');
+var falcorUtil = require('../../../shared/dataobject-falcor-util');
 
-const CONST_ALL = sharedDataObjectFalcorUtil.CONST_ALL,
-    CONST_ANY = sharedDataObjectFalcorUtil.CONST_ANY;
+const CONST_ALL = falcorUtil.CONST_ALL,
+    CONST_ANY = falcorUtil.CONST_ANY,
+    CONST_CTX_PROPERTIES = falcorUtil.CONST_CTX_PROPERTIES,
+    CONST_DATAOBJECT_METADATA_FIELDS = falcorUtil.CONST_DATAOBJECT_METADATA_FIELDS;
 
 const DataObjectManageService = require('./DataObjectManageService');
+const EntityCompositeModelGetService = require('./EntityCompositeModelGetService');
 
 //falcor utilty functions' references
-const futil = require('./dataobject-falcor-response-builder');
+const responseBuilder = require('./dataobject-falcor-response-builder');
 
-const createPath = futil.createPath,
-    buildResponse = futil.buildResponse,
-    formatDataObjectForSave = futil.formatDataObjectForSave,
-    mergeAndCreatePath = futil.mergeAndCreatePath,
-    mergePathSets = futil.mergePathSets,
-    pathKeys = futil.pathKeys;
+const createPath = responseBuilder.createPath,
+    buildResponse = responseBuilder.buildResponse,
+    formatDataObjectForSave = responseBuilder.formatDataObjectForSave,
+    mergeAndCreatePath = responseBuilder.mergeAndCreatePath,
+    mergePathSets = responseBuilder.mergePathSets,
+    pathKeys = responseBuilder.pathKeys;
 
 var options = {};
 var runOffline = process.env.RUN_OFFLINE;
@@ -35,6 +38,7 @@ if (runOffline) {
 }
 
 const dataObjectManageService = new DataObjectManageService(options);
+const entityCompositeModelGetService = new EntityCompositeModelGetService(options);
 
 async function initiateSearch(callPath, args) {
 
@@ -46,7 +50,14 @@ async function initiateSearch(callPath, args) {
         dataIndex = callPath[1],
         basePath = [pathKeys.root, dataIndex, pathKeys.searchResults, requestId];
 
+    var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
     request.dataIndex = dataIndex;
+
+    if (request.params) {
+        var options = falcorUtil.getOrCreate(request.params, 'options', {});
+        options.totalRecords = dataIndexInfo.totalRecordsToReturn || 2000;
+    }
+
     //console.log('request str', JSON.stringify(request, null, 4));
 
     delete request.params.fields; // while initiating search, we dont want any of the fields to be returned..all we want is resulted ids..
@@ -57,7 +68,6 @@ async function initiateSearch(callPath, args) {
 
     var totalRecords = 0;
 
-    var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
     var collectionName = dataIndexInfo.collectionName;
 
     var dataObjectResponse = res ? res[dataIndexInfo.responseObjectName] : undefined;
@@ -105,26 +115,27 @@ async function getSearchResultDetail(pathSet) {
 
 function createGetRequest(reqData) {
 
-    var contexts = sharedDataObjectFalcorUtil.createCtxItems(reqData.ctxKeys);
-    var valContexts = sharedDataObjectFalcorUtil.createCtxItems(reqData.valCtxKeys);
+    var contexts = falcorUtil.createCtxItems(reqData.ctxKeys);
+    var valContexts = falcorUtil.createCtxItems(reqData.valCtxKeys);
 
     var fields = {
         'ctxTypes': ["properties"]
     };
 
-    if(reqData.operation == "getMappings" && arrayContains(reqData.mapKeys, "attributeMap")) {
+    if (reqData.operation == "getMappings" && arrayContains(reqData.mapKeys, "attributeMap")) {
         fields.attributes = ['_ALL'];
     }
     else {
         var attrNames = reqData.attrNames;
         if (attrNames !== undefined && attrNames.length > 0) {
-            var clonedAttrNames = sharedDataObjectFalcorUtil.cloneObject(attrNames);
-            arrayRemove(clonedAttrNames, 'properties');
+            var clonedAttrNames = falcorUtil.cloneObject(attrNames);
+            arrayRemove(clonedAttrNames, CONST_DATAOBJECT_METADATA_FIELDS);
+            arrayRemove(clonedAttrNames, CONST_CTX_PROPERTIES);
             fields.attributes = clonedAttrNames;
         }
     }
 
-    if(reqData.operation == "getMappings" && arrayContains(reqData.mapKeys, "relationshipMap")) {
+    if (reqData.operation == "getMappings" && arrayContains(reqData.mapKeys, "relationshipMap")) {
         fields.relationships = ['_ALL'];
     }
     else {
@@ -133,13 +144,13 @@ function createGetRequest(reqData) {
             fields.relationships = relTypes;
         }
     }
-    
+
     var relIds = reqData.relIds;
     if (relIds !== undefined && relIds.length > 0) {
         fields.relIds = relIds;
     }
 
-    if(reqData.operation == "getMappings" && arrayContains(reqData.mapKeys, "relationshipAttributeMap")) {
+    if (reqData.operation == "getMappings" && arrayContains(reqData.mapKeys, "relationshipAttributeMap")) {
         fields.relationshipAttributes = ['_ALL'];
     }
     else {
@@ -150,31 +161,31 @@ function createGetRequest(reqData) {
     }
 
     var options = {
-        totalRecords: 1,
+        totalRecords: 2000,
         includeRequest: false
     };
 
     var filters = {};
 
-    if (reqData.dataObjectTypes) {
-        filters.typesCriterion = reqData.dataObjectTypes;
+    if (reqData.dataObjectType) {
+        filters.typesCriterion = [ reqData.dataObjectType ];
     }
 
-    var query = {'id': ''};
+    var query = {};
 
-    if(!isEmpty(contexts)) {
+    if (!isEmpty(contexts)) {
         query.contexts = contexts;
     }
 
-    if(!isEmpty(valContexts)) {
+    if (!isEmpty(valContexts)) {
         query.valueContexts = valContexts;
     }
 
-    if(reqData.dataIndex == "config" && contexts && contexts.length > 0) {
+    if (reqData.dataIndex == "config" && contexts && contexts.length > 0) {
         filters.excludeNonContextual = true;
     }
 
-    if(!isEmpty(filters)) {
+    if (!isEmpty(filters)) {
         query.filters = filters;
     }
 
@@ -192,33 +203,54 @@ function createGetRequest(reqData) {
     return request;
 }
 
-async function getSingle(dataObjectId, reqData) {
+function _getService(dataObjectType) {
+    if (dataObjectType == 'entityCompositeModel') {
+        return entityCompositeModelGetService;
+    }
+    else {
+        return dataObjectManageService;
+    }
+}
 
-    var response = [];
+async function get(dataObjectIds, reqData) {
+    var response = {};
 
     var request = createGetRequest(reqData);
-    
+
     //update dataObject id in request query for current id
-    request.params.query.id = dataObjectId;
+    if(dataObjectIds.length > 1) {
+        request.params.query.ids = dataObjectIds;
+    }
+    else {
+        request.params.query.id = dataObjectIds[0];
+    }
 
     //console.log('req to api ', JSON.stringify(request));
     var res = undefined;
-    //Temp: work in progress for getcoalesce call integration hence placed 1 == 2 condtion to always go to normal get for now
-    if(request.dataIndex == "entityModel" && 1 == 2) {
-        if(!isEmpty(reqData.attrNames) || !isEmpty(reqData.relationships)) {
-            res = await dataObjectManageService.getCoalesce(request);
+    var isCoalesceGet = false;
+
+    var service = _getService(reqData.dataObjectType);
+
+    if (request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel') {
+        if (!isEmpty(request.params.query.contexts)) {
+            var contexts = request.params.query.contexts;
+            if (contexts && contexts.length == 1) {
+                var firstContext = contexts[0];
+                //TODO: We need a fix to remove this classification context check when RDF fixes
+                if (firstContext && firstContext.classification) {
+                    res = await service.getCoalesce(request);
+                    isCoalesceGet = true;
+                }
+            }
         }
-        else {
-            res = await dataObjectManageService.get(request);
-        }        
     }
-    else {
-        res = await dataObjectManageService.get(request);
+
+    if (!isCoalesceGet) {
+        res = await service.get(request);
     }
-    
+
     //console.log('get res from api ', JSON.stringify(res, null, 4));
 
-    var basePath = [pathKeys.root, reqData.dataIndex];
     var dataObject;
     //console.log(JSON.stringify(pathKeys, null, 4));
 
@@ -232,20 +264,16 @@ async function getSingle(dataObjectId, reqData) {
         var dataObjects = dataObjectResponse[collectionName];
 
         if (dataObjects !== undefined) {
+            var byIdsJson = response[pathKeys.byIds] = {};
             for (let dataObject of dataObjects) {
                 var dataObjectType = dataObject.type;
-                var dataObjectBasePath = mergePathSets(basePath, dataObjectType, pathKeys.byIds, dataObject.id);
 
-                if (dataObject.id == dataObjectId) {
-                    //console.log('building response...', JSON.stringify(dataObject, null, 2));
-                    response.push.apply(response, buildResponse(dataObject, reqData, dataObjectBasePath));
-                }
+                //console.log('building response...', JSON.stringify(dataObject, null, 2));
+                var dataObjectResponseJson = buildResponse(dataObject, reqData);
+
+                byIdsJson[dataObject.id] = dataObjectResponseJson;
             }
         }
-    }
-
-    if (dataObject === undefined) {
-        //response.push(createPath([pathRootKey, dataObjectId], $error(dataObjectId + ' is not found in system for the requested context'), 0));
     }
 
     //console.log('res', JSON.stringify(response, null, 4));
@@ -256,9 +284,10 @@ async function getByIds(pathSet, operation) {
     /*
     */
     //console.log('---------------------' , operation, ' dataObjectsById call pathset requested:', pathSet, ' operation:', operation);
+    var reqDataObjectTypes = pathSet.dataObjectTypes;
+
     const reqData = {
         'dataIndex': pathSet.dataIndexes[0],
-        'dataObjectTypes': pathSet.dataObjectTypes,
         'dataObjectIds': pathSet.dataObjectIds,
         'dataObjectFields': pathSet.dataObjectFields === undefined ? [] : pathSet.dataObjectFields,
         'ctxKeys': pathSet.ctxKeys === undefined ? [] : pathSet.ctxKeys,
@@ -274,12 +303,16 @@ async function getByIds(pathSet, operation) {
         'operation': operation
     }
 
-    var response = [];
-    //console.log('reqData ', JSON.stringify(reqData));
+    var response = {};
+    var jsonGraphResponse = response['jsonGraph'] = {};
+    var rootJson = jsonGraphResponse[pathKeys.root] = {};
+    var dataJson = rootJson[reqData.dataIndex] = {};
 
-    for (let dataObjectId of reqData.dataObjectIds) {
-        var singleDataObjectResponse = await getSingle(dataObjectId, reqData);
-        response.push.apply(response, singleDataObjectResponse);
+    // system flow supports only 1 type at time for bulk get..this is needed to make sure we have specialized code flow for the given data object types
+    for (let dataObjectType of reqDataObjectTypes) {
+        reqData.dataObjectType = dataObjectType;
+        var dataByObjectTypeJson = await get(reqData.dataObjectIds, reqData);
+        dataJson[dataObjectType] = dataByObjectTypeJson;
     }
 
     //console.log('getByIds response ', JSON.stringify(response, null, 4));
@@ -290,9 +323,12 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
     //console.log(dataObjectAction, operation);
 
     var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
-    var response = [];
-
-    var basePath = [pathKeys.root, dataIndex];
+    
+    var response = {};
+    var responsePaths = [];
+    var jsonGraphResponse = response['jsonGraph'] = {};
+    var rootJson = jsonGraphResponse[pathKeys.root] = {};
+    var dataJson = rootJson[dataIndex] = {};
 
     for (var dataObjectId in dataObjects) {
         var dataObject = dataObjects[dataObjectId];
@@ -318,9 +354,12 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
 
         if (dataObject) {
 
+            var dataObjectType = dataObject.type;
+            var basePath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds, dataObjectId];
+
             var reqData = {
                 'dataIndex': dataIndex,
-                'dataObjectTypes': [CONST_ALL],
+                'dataObjectType': CONST_ALL,
                 'dataObjectFields': [CONST_ALL],
                 'attrNames': [CONST_ALL],
                 'relTypes': [CONST_ALL],
@@ -329,14 +368,29 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
                 'valFields': [CONST_ALL],
                 'mapKeys': [CONST_ALL],
                 'jsonData': true,
-                'operation': operation
+                'operation': operation,
+                'buildPaths': true,
+                'basePath': basePath
             };
 
-            var dataObjectType = dataObject.type;
-            var dataObjectBasePath = mergePathSets(basePath, dataObjectType, pathKeys.byIds, dataObjectId);
-            response.push.apply(response, buildResponse(dataObject, reqData, dataObjectBasePath));
+            
+            var dataByObjectTypeJson = dataJson[dataObjectType];
+            var byIdsJson;
+
+            if(dataByObjectTypeJson == undefined || dataByObjectTypeJson == null){
+                dataByObjectTypeJson = dataJson[dataObjectType] = {};
+                byIdsJson = dataByObjectTypeJson[pathKeys.byIds] = {};
+            }
+            else {
+                byIdsJson = dataByObjectTypeJson[pathKeys.byIds];
+            }
+
+            var dataObjectResponseJson = buildResponse(dataObject, reqData, responsePaths);
+            byIdsJson[dataObjectId] = dataObjectResponseJson;
         }
     }
+
+    response['paths'] = responsePaths;
 
     //console.log(JSON.stringify(response, null, 4));
     return response;
@@ -351,6 +405,11 @@ async function create(callPath, args, operation) {
     var clientState = jsonEnvelope.json.clientState;
     var dataObjectIds = Object.keys(dataObjects);
     //console.log(dataObjects);
+
+    //TODO: made showNotificationToUser flag false for entity create till we decide how it has to be.
+    if (clientState && clientState.notificationInfo) {
+        clientState.notificationInfo.showNotificationToUser = false;
+    }
 
     // create new guids for the dataObjects to be created..
     for (let dataObjectId of dataObjectIds) {
@@ -372,7 +431,7 @@ async function update(callPath, args, operation) {
     var dataIndex = callPath.dataIndexes[0];
     var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
     var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
-    var clientState = jsonEnvelope.json.clientState;    
+    var clientState = jsonEnvelope.json.clientState;
 
     return processData(dataIndex, dataObjects, "update", operation, clientState);
 }
@@ -383,7 +442,7 @@ async function deleteDataObjects(callPath, args, operation) {
     var dataIndex = callPath.dataIndexes[0];
     var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][pathKeys.byIds];
     var clientState = jsonEnvelope.json.clientState;
-    
+
     return processData(dataIndex, dataObjects, "delete", operation, clientState);
 }
 

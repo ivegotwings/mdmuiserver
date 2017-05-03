@@ -1,13 +1,14 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
-<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
-<link rel="import" href="../bedrock-app-context-behavior/bedrock-app-context-behavior.html">
+<link rel="import" href="../bedrock-app-behavior/bedrock-app-behavior.html">
 
 <link rel="import" href="../liquid-config-aggregate-get/liquid-config-aggregate-get.html">
+<link rel="import" href="../liquid-rest/liquid-rest.html">
 
 <link rel="import" href="../pebble-actions/pebble-actions.html">
 <link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-popover/pebble-popover.html">
 <link rel="import" href="../pebble-vertical-divider/pebble-vertical-divider.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 
@@ -70,6 +71,29 @@
                 min-height: 40px;
             }
             
+            #savedSearchPopover {
+                width: 360px;
+                max-height: none!important;
+                --pebble-popover-max-width: 100%;
+                --pebble-popover-max-height: 360px;
+                overflow: auto;
+            }
+            
+            #savedSearchPopover::shadow>.arrow_box {
+                padding: 5px 10px 10px 10px;
+            }
+            
+            #savedSearchPopover::shadow .arrow_box .popover {
+                overflow: inherit;
+            }
+            
+            #rockSavedSearch {
+                --saved-search-tab-content: {
+                    max-height: 250px;
+                    overflow: auto;
+                }
+            }
+            
             pebble-button::shadow paper-button::shadow iron-icon {
                 color: var(--palette-white, #fff) !important;
             }
@@ -111,7 +135,6 @@
                 height: auto;
                 width: 50%;
                 display: block;
-                overflow: auto;
             }
             
             pebble-vertical-divider {
@@ -127,38 +150,58 @@
                 width: 100%;
             }
             
-            #actionsButton::shadow pebble-popover paper-item {
+            pebble-actions::shadow pebble-popover paper-item {
                 /*display: block;*/
                 padding: 5px 10px;
                 text-align: left;
             }
             
-            #actionsButton::shadow pebble-popover {
+            pebble-actions::shadow pebble-popover {
                 color: var(--palette-white, #fff);
             }
             
-            #actionsButton::shadow pebble-popover paper-item #actionItem {
+            pebble-actions::shadow pebble-popover paper-item #actionItem {
                 /*display: inline-block;*/
                 font-size: var(--font-size-sm, 12px);
                 color: var(--palette-steel-grey);
             }
             
-            #actionsButton::shadow pebble-popover paper-item #actionItem:hover {
+            pebble-actions::shadow pebble-popover paper-item #actionItem:hover {
                 color: var(--focused-line, #026bc3);
                 background-color: var(--bgColor-hover, #e8f4f9);
             }
             
-            #actionsButton::shadow pebble-popover paper-item #actionItem:focus {
+            pebble-actions::shadow pebble-popover paper-item #actionItem:focus {
                 color: var(--primary-button-color, #036bc3);
-            }            
-            #actionsButton::shadow #actionsPopover {
+            }
+            
+            pebble-actions::shadow #actionsPopover {
+                margin-top: 3px;
+            }
+            
+            .resetsearch {
+                position: absolute;
+                right: 205px;
+                top: 140px;
+                font-size: var(--font-size-xs);
+                color: var(--link-text-color);
+            }
+            
+            .resetsearch pebble-button::shadow paper-button {
+                font-size: var(--font-size-xs);
+            }
+            
+            .resetsearch pebble-button::shadow iron-icon {
+                width: 14px !important;
+                height: 14px!important;
+                margin-right: 2px;
                 margin-top: 3px;
             }
         </style>
         <rock-layout>
-            <liquid-config-aggregate-get id="getEntityDiscoveryAppConfig" verbose operation="getbyids" request-id="req1" app-name="app-entity-discovery" 
+            <liquid-config-aggregate-get id="getEntityDiscoveryAppConfig" verbose operation="getbyids" request-id="req1" app-name="app-entity-discovery"
                 context-data="[[contextData]]" on-config-get-response="_onApplicationConfigReceived"></liquid-config-aggregate-get>
-            <rock-titlebar icon="pebble-md-icons:Advancesearch" title="Entity Search & Discovery" closable minimizable>
+            <rock-titlebar icon="pebble-md-icons:Advancesearch" main-title="Entity Search & Discovery" closable minimizable>
                 <div id="dimensionContainer" align="right">
                     <rock-dimension-selector id="dimensionSelector" config-data="[[getConfig('rock-dimension-selector')]]" all-multi-select></rock-dimension-selector>
                 </div>
@@ -169,31 +212,40 @@
                         <div class="flex">
                             <!-- search bar-->
                             <bedrock-pubsub event-name="rock-search" handler="_onSearch" target-id="searchBar"></bedrock-pubsub>
-                            <bedrock-pubsub event-name="rock-search-clear" handler="_onSearchClear" target-id="searchBar"></bedrock-pubsub>
+                            <bedrock-pubsub event-name="rock-search-update" handler="_showResetSearch" target-id="searchBar"></bedrock-pubsub>
                             <rock-search-bar id="searchBar" placeholder="Enter Search text"></rock-search-bar>
+                            <div class="resetsearch" hidden$="[[!_resetSearchEnabled]]">
+                                <pebble-button icon="pebble-sm-icons:Resetsearch" class="btn-link" on-tap="_resetSearch" button-text="Reset Search"></pebble-button>
+                            </div>
                         </div>
                         <div>
                             <!-- Saved Search button & its popover-->
-                            <rock-saved-searches id="rockSavedSearch" saved-searches="{{_savedSearches}}" saved-search-id="{{_savedSearchId}}" icon="pebble-md-icons:SavedSearch"
-                                button-text="Saved Search" dropdown-icon></rock-saved-searches>
+                            <pebble-button id="savedSearchButton" icon="pebble-md-icons:SavedSearch" button-text="Load Saved Search" noink raised dropdown-icon
+                                on-tap="_onSavedSearchTap" class="dropdownIcon dropdownText btn dropdown-outline-primary"></pebble-button>
+                            <pebble-popover id="savedSearchPopover" for="savedSearchButton" auto-fit-on-attach no-overlap horizontal-align="right" allow-multiple>
+                                <rock-saved-searches id="rockSavedSearch" saved-searches="{{_savedSearches}}" saved-search-id="{{_savedSearchId}}" show-title
+                                    allow-create-edit-search show-settings></rock-saved-searches>
+                            </pebble-popover>
                             <bedrock-pubsub event-name="saved-search-save" handler="_onCreateEditSavedSearch"></bedrock-pubsub>
                             <bedrock-pubsub event-name="saved-search-cancel" handler="_onCancelSavedSearch"></bedrock-pubsub>
                             <bedrock-pubsub event-name="actions-parent-button-tap" handler="_loadSavedSearch" target-id=""></bedrock-pubsub>
-                            <bedrock-pubsub event-name="favourite-saved-search" handler="_markSavedSearchAsFavourite" target-id=""></bedrock-pubsub>
-                            <bedrock-pubsub event-name="delete-saved-search" handler="_markSavedSearchAsDelete" target-id=""></bedrock-pubsub>
                         </div>
                     </div>
                     <div class="layout horizontal p-t-10">
                         <div class="flex searchFilterTag">
                             <!-- Search Filter Tags -->
-                            <rock-entity-search-filter id="searchFilter" _selected-search-filters="{{_selectedSearchFilters}}"
-                                context-data="{{contextData}}" types-criterion="[[_typesCriterion]]" tags="{{tags}}"></rock-entity-search-filter>
+                            <rock-entity-search-filter id="searchFilter" _selected-search-filters="{{_selectedSearchFilters}}" context-data="{{contextData}}"
+                                types-criterion="[[_typesCriterion]]" tags="{{tags}}"></rock-entity-search-filter>
+                            <bedrock-pubsub event-name="tag-item-added" handler="_showResetSearch"></bedrock-pubsub>
+                            <bedrock-pubsub event-name="tag-item-remove" handler="_showResetSearch"></bedrock-pubsub>
                         </div>
                         <div class="action-buttons">
                             <!-- Actions buttons and its popover -->
+                            <pebble-actions id="assignmentActions" hidden button-icon="pebble-md-icons:assignedactions" class="dropdownText dropdownIcon btn btn-actions dropdown-success"
+                                button-text="Assignment Actions" actions-data="[[getConfig('assignment-actions')]]"></pebble-actions>
                             <pebble-button class="btn btn-primary m-r-5" button-text="Quick Manage" on-tap="_onTapQuickManage"></pebble-button>
                             <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
-                            <pebble-actions id="actionsButton" button-icon="pebble-md-icons:actions" class="dropdownText dropdownIcon btn-actions dropdown-success"
+                            <pebble-actions id="actionsButton" button-icon="pebble-md-icons:actions" class="dropdownText dropdownIcon btn btn-actions dropdown-success"
                                 button-text="Actions" actions-data="[[getConfig('pebble-actions')]]"></pebble-actions>
                         </div>
                     </div>
@@ -204,8 +256,8 @@
             <div class="layout horizontal">
                 <div id="entityGridContainer" class$="[[_applyClass(_quickManageEnabled)]]">
                     <rock-entity-search-grid id="entitySearchGrid" context-data="[[contextData]]" grid-config="[[getConfig('rock-entity-search-grid')]]"
-                        search-filters="{{_selectedSearchFilters}}" search-query="{{_searchQuery}}" workflow-criterion="{{_workflowCriterion}}"
-                        total-records="{{_gridFullLength}}"></rock-entity-search-grid>
+                        search-filters="[[_selectedSearchFilters]]" search-query="[[_searchQuery]]" workflow-criterion="[[_workflowCriterion]]"
+                        total-records="{{_gridFullLength}}" saved-search-id="[[_savedSearchId]]"></rock-entity-search-grid>
                     <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="entityGrid"></bedrock-pubsub>
                 </div>
                 <template is="dom-if" if="[[_quickManageEnabled]]">
@@ -224,6 +276,8 @@
             </div>
         </rock-layout>
         <bedrock-pubsub event-name="app-context-changed" handler="_onAppContextChanged"></bedrock-pubsub>
+        <liquid-rest id="entityWfAssignment" url="/pass-through/entitygovernservice/workflowChangeAssignment" method="POST" request-data={{_wfAssignmentRequest}}
+            on-liquid-response="_onAssignmentSuccess" on-liquid-error="_onAssignmentFailure"></liquid-rest>
     </template>
     <script>
         (function () {
@@ -246,15 +300,13 @@
                         notify: true
                     },
                     _savedSearchId: {
-                        type: Number
+                        type: String
                     },
                     _savedSearches: {
                         type: Object,
                         value: function () {
                             return {};
                         },
-                        notify: true,
-                        computed: 'getConfig("rock-saved-searches")',
                         observer: '_savedSeachesChanged'
                     },
                     _gridConfig: {
@@ -298,12 +350,66 @@
                         value: function () {
                             return {};
                         }
+                    },
+                    _rockEntitySearchFilter: {
+                        type: Object
+                    },
+                    _rockSearchFilter: {
+                        type: Object
+                    },
+                    _rockSavedSearch: {
+                        type: Object
+                    },
+                    _currentWorkflowAction: {
+                        type: String
+                    },
+                    _currentEntityIndex: {
+                        type: Number,
+                        value: 0
+                    },
+                    _wfAssignmentRequest: {
+                        type: Object,
+                        value: function () { return {}; }
+                    },
+                    _selectedEntities: {
+                        type: Array,
+                        value: function () { return []; }
+                    },
+                    selectedEntityIds:{
+                        type:Array,
+                        value:function(){
+                            return [];
+                        }
+                    },
+                    _selectedSearchFilters: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _resetSearchEnabled: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _failedEntityType: {
+                        type:String,
+                    },
+                    failedEntityIds: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    successEntityIds: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
                     }
                 },
 
                 behaviors: [
-                    RUFBehaviors.UIBehavior,
-                    RUFBehaviors.AppContextBehavior
+                    RUFBehaviors.AppBehavior
                 ],
 
                 ready: function () {
@@ -311,8 +417,34 @@
 
                     //get saved search id from query string
                     var _savedSearchId = DataHelper.getParamValue('_savedSearchId');
+                    var workflowName = DataHelper.getParamValue('wfName');
                     if (_savedSearchId && _savedSearchId != this._savedSearchId) {
                         this._savedSearchId = _savedSearchId;
+                    } else if (!_.isEmpty(workflowName)) {
+                        var workflowActivityName = DataHelper.getParamValue('wfActivityName');
+                        var businessConditionName = DataHelper.getParamValue('bcId');
+                        var user = DataHelper.getParamValue('user');
+                        var userId = "";
+
+                        if(user.toLowerCase() == "all") {
+                            userId = "";
+                        } else if(user.toLowerCase() == "currentuser") {
+                            userId = DataHelper.getUserId();
+                        } else if (user.toLowerCase() == "unassigned") {
+                            userId = "_UNASSIGNED";
+                        }
+
+                        var workflowCriterion = {
+                            "workflowName": workflowName,
+                            "workflowActivityName": workflowActivityName,
+                            "businessConditionName": businessConditionName,
+                            "userId": userId
+                        };
+
+                        if (!_.isEmpty(workflowCriterion)) {
+                            this._workflowCriterion = workflowCriterion;
+                            this.$$("#assignmentActions").hidden = false;
+                        }
                     }
 
                     this._searchQuery = DataHelper.getParamValue('searchtext');
@@ -347,7 +479,7 @@
                 },
 
                 //Rock search clear
-                _onSearchClear: function (e, detail, sender) {
+                _resetSearch: function () {
                     var defaultButtonText = "Saved Search";
 
                     this._searchQuery = '';
@@ -358,39 +490,15 @@
                         rockSavedSearchElement.buttonText = defaultButtonText;
                     }
 
-                    // dimensionselector info
-                    // Todo.. Low Priority
-                    // var dimensionSelector = this.$.dimensionSelector;
-                    // if (dimensionSelector) {
-                    //     var selectedDimensions = dimensionSelector.getSelectedDimensions();
+                    var rockSearchBar = this.$$('#searchBar');
+                    if (rockSearchBar) {
+                        rockSearchBar.query = "";
+                    }
 
-                    //     if (selectedDimensions) {
-                    //         // TODO this code has been doe ans a hack for JCP demo it has to be restructured.
-                    //         var sources = [];
-                    //         selectedDimensions.selectedSources.forEach(function (item) {
-                    //             sources.push({ 'value': item });
-                    //         }, this);
-
-                    //         var locales = [];
-                    //         selectedDimensions.selectedLocales.forEach(function (item) {
-                    //             locales.push({ 'value': item });
-                    //         }, this);
-
-                    //         var lists = [];
-                    //         selectedDimensions.selectedContexts.forEach(function (item) {
-                    //             lists.push({ 'value': item });
-                    //         }, this);
-
-
-                    //         this._selectedDimensions = {};
-                    //         this._selectedDimensions = {
-                    //             "lists": lists,
-                    //             "locales": locales,
-                    //             "sources": sources
-                    //         };
-                    //     }
-                    // }
                     this._selectedSearchFilters = [];
+                    this.$.searchFilter.clearSearchFilters();
+
+                    this._resetSearchEnabled = false;
                 },
 
                 // Grid
@@ -416,7 +524,7 @@
                     }
                 },
                 _onAttributeSave: function (e, detail, sender) {
-                    //Changing the row style of the updated record 
+                    //Changing the row style of the updated record
                     var selectedRow = this._getSearchGrid().getSelectedGridRow();
                     selectedRow.style['font-style'] = 'italic';
                 },
@@ -526,79 +634,102 @@
 
                 _onCreateEditSavedSearch: function (e, detail, sender) {
                     if (detail) {
-                        // create or edit form info
-                        var savedSearchInfo = detail;
 
-                        // search input info
-                        var searchQuery = this.$$("#searchBar").query;
+                        var _isUpdate = false;
 
-                        //search filters
-                        var searchFilters = this.$$("#searchFilter").filters;
-                        var searchTags = this.$$("#searchFilter").tags;
+                        //Check for permission to Update
+                        if (!_.isEmpty(detail.selectedSearch)) {
+                            var _currentUser = ContextHelper.getFirstUserContext(this.contextData);
+                            _isUpdate = true;
 
-                        // dimension selectors info
-                        // Todo.. Low Priority
-                        // var dimensionsInfo = {};
-                        // var dimensionSelector = this.$.dimensionSelector;
-                        // if (dimensionSelector) {
-                        //     dimensionsInfo.selectedLists = dimensionSelector.listSelector.selectedItems;
-                        //     dimensionsInfo.selectedSources = dimensionSelector.sourceSelector.selectedItems;
-                        //     dimensionsInfo.selectedLocales = dimensionSelector.localeSelector.selectedItems;
-                        // }
-
-                        // var savedSearchObject = {
-                        //     "savedSearch": savedSearchInfo,
-                        //     "dimensions": dimensionsInfo,
-                        //     "searchQuery": searchQuery,
-                        //     "searchFilters": searchFilters,
-                        //     "searchTags": searchTags
-                        // };
-                    }
-                },
-                // Note - this will be modified based on liquid integration
-                _markSavedSearchAsFavourite: function (e, detail, sender) {
-                    if (detail) {
-                        var searchId = detail.parentButton.id;
-                        var searchItem = this._getSearchListNameBySearchId(searchId);
-
-                        if (searchItem) {
-                            if (searchItem.name == 'my-searches') {
-                                this.push('_savedSearches.favourites', this._savedSearches[
-                                    "my-searches"][searchItem.index]);
-                                this.splice('_savedSearches.my-searches', searchItem.index, 1);
-                            } else if (searchItem.name == 'favourites') {
-                                this.push('_savedSearches.my-searches', this._savedSearches.favourites[
-                                    searchItem.index]);
-                                this.splice('_savedSearches.favourites', searchItem.index, 1);
-                            } else // shared-searches
+                            if (_currentUser &&
+                                _currentUser.user != detail.selectedSearch.user &&
+                                _currentUser.role != "admin") //Todo: admin role may changed
                             {
-                                // Nothing as of now.
+                                this.showErrorToast("You do not have permissions to update the saved search, please contact administrator.");
+                                return;
                             }
                         }
 
-                        var tmpSaverSearches = this._savedSearches;
-                        this._savedSearches = {};
-                        this._savedSearches = tmpSaverSearches;
+                        //Check duplicate for Create/Update
+                        var _isSearchNameAlreadyExists = true;
+                        if (this._getElement('rockSavedSearch')) {
+                            _isSearchNameAlreadyExists = this._getElement('rockSavedSearch').isSearchNameAlreadyExists(detail, _isUpdate);
+                        }
+                        if (_isSearchNameAlreadyExists) {
+                            this.showErrorToast("Search name is already exists, please create search with different name.");
+                            return;
+                        }
 
-                        var favTab = this.$$('#rockSavedSearch').$$('rock-tabs').$$(
-                            'rock-saved-searches-tags[saved-search-category="favourites"]');
-                        var mySearchTab = this.$$('#rockSavedSearch').$$('rock-tabs').$$(
-                            'rock-saved-searches-tags[saved-search-category="my-searches"]');
-                        var sharedSearchTab = this.$$('#rockSavedSearch').$$('rock-tabs').$$(
-                            'rock-saved-searches-tags[saved-search-category="shared-searches"]');
+                        //Initiate
+                        var _savedSearchDetails = {
+                            "saved-search-info": "",
+                            "search-query": "",
+                            "workflowCriterion": this._workflowCriterion,
+                            "search-tags": [],
+                            "dimensions": {}
+                        }
 
-                        this._updateTabSearches(favTab);
-                        this._updateTabSearches(mySearchTab);
-                        this._updateTabSearches(sharedSearchTab);
+                        // create or edit form info
+                        _savedSearchDetails["saved-search-info"] = detail;
+
+                        // search input info
+                        if (this.$$("#searchBar")) {
+                            _savedSearchDetails["search-query"] = this.$$("#searchBar").query;
+                        }
+
+                        //search filters
+                        if (this._getElement('rockEntitySearchFilter') && this._getElement('rockSearchFilter')) {
+                            _savedSearchDetails["search-tags"] = this._getElement('rockSearchFilter').tags;
+                        }
+
+                        // dimension selectors info
+                        var dimensionSelector = this.$.dimensionSelector;
+                        if (dimensionSelector) {
+                            _savedSearchDetails["dimensions"] = dimensionSelector.selectedDimensions;
+                        }
+
+                        if (detail.selectedSearch && !_.isEmpty(detail.selectedSearch)) {
+                            if (this._getElement('rockSavedSearch')) {
+                                this._getElement('rockSavedSearch').createUpdateSavedSearch(_savedSearchDetails, "update");
+                                this.showSuccessToast([[detail.name]] + " is updated");
+                        }
+
+                            return;
+                        }
+
+                        //Use rock-saved-searches to create new search
+                        if (this._getElement('rockSavedSearch')) {
+                            this._getElement('rockSavedSearch').createUpdateSavedSearch(_savedSearchDetails, "create");
+                            this.showSuccessToast([[detail.name]] + " is saved successfully");
+                    }
                     }
                 },
-                // Note - this will be removed once we integrated with liquid
-                _updateTabSearches: function (tab) {
-                    if (tab) {
-                        tab.savedSearches = {};
-                        tab.savedSearches = this._savedSearches;
+
+                _getElement: function (element) {
+                    if (element == "rockEntitySearchFilter") {
+                        if (!this._rockEntitySearchFilter) {
+                            this._rockEntitySearchFilter = this.$$("#searchFilter");
+                        }
+
+                        return this._rockEntitySearchFilter
+                    }
+                    else if (element == "rockSearchFilter") {
+                        if (!this._rockSearchFilter) {
+                            this._rockSearchFilter = this._getElement("rockEntitySearchFilter").$$("rock-search-filter");
+                        }
+
+                        return this._rockSearchFilter
+                    }
+                    else if (element == "rockSavedSearch") {
+                        if (!this._rockSavedSearch) {
+                            this._rockSavedSearch = this.$$("rock-saved-searches");
+                        }
+
+                        return this._rockSavedSearch
                     }
                 },
+
                 // Get search list name & item index
                 // Note - this will be removed once we integrated with liquid
                 _getSearchListNameBySearchId: function (searchId) {
@@ -639,16 +770,12 @@
                         }
                     }
                 },
-                _markSavedSearchAsDelete: function (e, detail, sender) {
-                    if (detail) {
-                        // detail object has info of the delete action button, its parent button and tab info.
-                    }
-                },
                 _savedSeachesChanged: function (newValue, oldValue) {
                     if (newValue != oldValue) {
                         if (this._savedSearchId && this._savedSearches) {
                             var savedSearch = this._getSavedSearches(this._savedSearches, this._savedSearchId);
                             this._populateHeaderControls(savedSearch);
+                            this.$$('rock-entity-search-grid').savedSearchCriterion = savedSearch;
                         }
                     }
                 },
@@ -683,7 +810,6 @@
                         // search filter info
                         var searchFilter = this.$$("#searchFilter");
                         if (searchFilter) {
-                            searchFilter.filters = savedSearch.searchFilters;
                             searchFilter.tags = savedSearch.searchTags ? savedSearch.searchTags : [];
 
                             this._selectedSearchFilters = [];
@@ -697,27 +823,20 @@
                         }
 
                         // dimensionselector info
-                        // var dimensionSelector = this.$.dimensionSelector;
-                        // if (dimensionSelector) {
-                        //     if (dimensionSelector.listSelector) {
-                        //         dimensionSelector.selectedLists = savedSearch.dimensions.selectedLists;
-                        //     }
-                        //     if (dimensionSelector.sourceSelector) {
-                        //         dimensionSelector.selectedSources = savedSearch.dimensions.selectedSources;
-                        //     }
-                        //     if (dimensionSelector.localeSelector) {
-                        //         dimensionSelector.selectedLocales = savedSearch.dimensions.selectedLocales;
-                        //     }
-                        // }
+                        var dimensionSelector = this.$.dimensionSelector;
+                        if (dimensionSelector) {
+                            dimensionSelector.selectedDimensions = savedSearch.dimensions;
+                            dimensionSelector.$$('rock-entity-lov').refershTemplate();
+                        }
 
-                        var rockSavedSearchElement = this.$$("#rockSavedSearch");
-                        if (rockSavedSearchElement) {
-                            rockSavedSearchElement.buttonText = savedSearch.name;
+                        var _savedSearchButton = this.$$("#savedSearchButton");
+                        if (_savedSearchButton) {
+                            _savedSearchButton.buttonText = savedSearch.name;
                         }
                         this._searchQuery = savedSearch.searchQuery;
 
-                        if (!_.isEmpty(savedSearch.workflowSearchCriterion)) {
-                            this._workflowCriterion = savedSearch.workflowSearchCriterion;
+                        if (!_.isEmpty(savedSearch.workflowCriterion)) {
+                            this._workflowCriterion = savedSearch.workflowCriterion;
                         }
                     }
                 },
@@ -738,7 +857,38 @@
                     this.$$('#actionsPopover').show();
                 },
                 _onActionItemTap: function (e, detail, sender) {
-                    alert("event triggered: " + JSON.stringify(detail));
+                    this.successEntityIds = [];
+                    this.failedEntityIds = [];
+                    this.selectedEntityIds = [];
+                    this._currentEntityIndex = 0;
+                    var searchGrid = this.$$("#entitySearchGrid");
+                    if (searchGrid && searchGrid.selectedItems && searchGrid.selectedItems.length > 0) {
+                        if (searchGrid.selectedItems.length > 5) {
+                            this.showErrorToast("Maximum 5 entities can be selected.");
+                            return;
+                        } else {
+                            this._selectedEntities = searchGrid.selectedItems;
+                            var selectedEntityIds = [];
+                            for (var i in searchGrid.selectedItems) {
+                                if (searchGrid.selectedItems[i].id) {
+                                    selectedEntityIds.push(searchGrid.selectedItems[i].id);
+                                }
+                            }
+                            this.set('selectedEntityIds', selectedEntityIds)
+                        }
+                    } else {
+                        this.showErrorToast("Select atleast one entity for which you want to perform this action.");
+                        return;
+                    }
+                    if (detail) {
+                        if (detail.data.eventName == "action-takeTask") {
+                            this._currentWorkflowAction = "take";
+                        }
+                        if (detail.data.eventName == "action-releaseTask") {
+                            this._currentWorkflowAction = "release";
+                        }
+                        this._generateAssignmentRequest();
+                    }
                 },
                 _onAppContextChanged: function (e) {
                     if (this.verbose) {
@@ -747,17 +897,139 @@
 
                     this.contextData = {}; // To notify
                     this.contextData = e.detail.contextData;
-                    
+
                     //this.$$("#getEntityDiscoveryAppConfig").refresh();
-                    
+
                     if (this._quickManageEnabled) {
-                        if(this.$$("#entityQuickManage"))
-                        {
-                             this.$$("#entityQuickManage").reload();
-                        }                      
+                        if (this.$$("#entityQuickManage")) {
+                            this.$$("#entityQuickManage").reload();
+                        }
                     } else {
                         this.$$("#entitySearchGrid").refresh();
                     }
+                },
+                _onSavedSearchTap: function (e) {
+                    this.$$('#rockSavedSearch').contextData = this.contextData;
+                    this.$$('#savedSearchPopover').show();
+                },
+                _generateAssignmentRequest: function () {
+                    var req = DataRequestHelper.createWfChangeAssignmentRequest(this._selectedEntities[this._currentEntityIndex], this._workflowCriterion, this.contextData, this._currentWorkflowAction);
+                    this.set("_wfAssignmentRequest", req);
+                    var liquidWfAssign = this.$$("#entityWfAssignment");
+                    if (liquidWfAssign) {
+                        liquidWfAssign.generateRequest();
+                    }
+                },
+                 _onAssignmentSuccess: function (e) {
+                    var response = e.detail.response;
+                    var failedEntityIds = this.failedEntityIds;
+                    var successEntityIds = this.successEntityIds;
+                    var requestId;
+                    if (e.detail.request && e.detail.request.requestData && e.detail.request.requestData.entity && e.detail.request.requestData.entity.id) {
+                        requestId = e.detail.request.requestData.entity.id;
+                    }
+                    if (requestId && response && response.response && response.response.status && response.response.status.toLowerCase() == "success" && response.response.statusDetail) {
+                        var statusDetail = response.response.statusDetail;
+                        if (failedEntityIds.indexOf(requestId)<0 && statusDetail.messages && statusDetail.messages.length > 0) {
+                            this._failedEntityType = this._selectedEntities[this._currentEntityIndex].type;
+                            this.push('failedEntityIds',requestId);
+                        } else if(successEntityIds.indexOf(requestId) < 0 && statusDetail.message) {
+                            this._successEntityType = this._selectedEntities[this._currentEntityIndex].type;
+                            this.push('successEntityIds',requestId);
+                        }
+                    this._currentEntityIndex++;
+                    }
+                    if (this._currentEntityIndex < this._selectedEntities.length) {
+                        this._generateAssignmentRequest();
+                    } else if(response && response.response && response.response.status && response.response.status.toLowerCase() == "success" && response.response.statusDetail) {
+                            var messageObject = this._getMessageObject();
+                            this._showToastMessage(messageObject);                 
+                        }
+                        else{
+                            this.showErrorToast("There is some problem with the server.Please try again after some time");
+                        }
+                },
+                _onAssignmentFailure: function (e) {
+                    console.warn("Failed to perform the workflow assignment with error: ", e.detail);
+                    this.showErrorToast("Failed to perform the workflow assignment. Please contact administrator.");
+                },
+                _showResetSearch: function (e) {
+                    var rockSearchBar = this.$$('#searchBar');
+                    var rockSearchFilter = this._getElement('rockSearchFilter');
+                    var query = '';
+                    var tags = [];
+
+                    if (rockSearchBar) {
+                        query = rockSearchBar.query;
+                    }
+
+                    if (rockSearchFilter) {
+                        tags = rockSearchFilter.tags;
+                    }
+
+                    if (!_.isEmpty(query) || tags.length > 0) {
+                        this._resetSearchEnabled = true;
+                    } else {
+                        this._resetSearchEnabled = false;
+                    }
+                },
+                _showToastMessage: function(msgObject) {
+                    if(msgObject) {
+                        if(msgObject.type == "error") {
+                            this.showErrorToast(msgObject.message, 10000);
+                        } else if(msgObject.type == "success") {
+                            this.showSuccessToast(msgObject.message, 10000);
+                        }
+                    }
+                },
+                _getMessageObject: function() {
+                    var stringifiedSelectedEntityIds = JSON.stringify(this.selectedEntityIds);
+                    var stringifiedsuccessEntityIds;
+                    var stringifiedfailedEntityIds;
+                    var messageObject = {
+                        "message": "",
+                        "type": ""
+                    };
+                    if(this.successEntityIds){
+                        stringifiedsuccessEntityIds = JSON.stringify(this.successEntityIds)
+                    }
+                    if(this.failedEntityIds){
+                        stringifiedfailedEntityIds  =  JSON.stringify(this.failedEntityIds) 
+                    }
+                    if(this._currentWorkflowAction == "take") {
+                        if(this.successEntityIds.length == this.selectedEntityIds.length && this.selectedEntityIds.length == 1) {
+                            messageObject.message = "The {0} of type {1} selected is in {1} as part of the {2} business process has been assigned to you. ".format(this.successEntityIds[0], this._successEntityType, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName);
+                            messageObject.type = "success";
+                        }
+                        if(this.failedEntityIds.length == this.selectedEntityIds.length && this.selectedEntityIds.length == 1) {
+                            messageObject.message = "The {0} of type {1} selected is in {2} as part of the {3} business process. You do not have permissions as part of this workflow step to take the workflow step for assignment. /nPlease contact your business administrator if you need to be assigned to this role.".format(this.successEntityIds[0],this._failedEntityType, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName);
+                            messageObject.type = "error";
+                        }
+                        if (stringifiedSelectedEntityIds == stringifiedsuccessEntityIds) {
+                            messageObject.message = "The {0} of type {1} selected is in {2} as part of the {3} business process has been assigned to you.".format(stringifiedsuccessEntityIds, this._successEntityType, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName);
+                            messageObject.type = "success";
+                        } else if(stringifiedSelectedEntityIds == stringifiedfailedEntityIds) {
+                                messageObject.message = "The {0} of {1} selected is in {2} as part of the {3} business process. You do not have permissions as part of this workflow step to take the entities for assignment. /nPlease contact your business administrator if you need to be assigned to this role.".format(stringifiedSelectedEntityIds, this._failedEntityType, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName);
+                                messageObject.type = "error";
+                        }
+                    } else if(this._currentWorkflowAction == "release") {
+                        if(this.successEntityIds.length == this.selectedEntityIds.length == 1) {
+                            messageObject.message = "The {0} of type {1} selected is in {1} as part of the {2} business process has been released from you. ".format(this.successEntityIds[0], this._successEntityType, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName);
+                            messageObject.type = "success";
+                        }
+                        if(this.failedEntityIds.length == this.selectedEntityIds.length == 1) {
+                            messageObject.message = "The {0} of type {1} selected is in {2} as part of the {3} business process. You do not have permissions as part of this workflow step to release the workflow step from assignment. /nPlease contact your business administrator if you need to be released from this role.".format(this.successEntityIds[0],this._failedEntityType, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName);
+                            messageObject.type = "error";
+                        }
+                        if (stringifiedSelectedEntityIds == stringifiedsuccessEntityIds) {
+                            messageObject.message = "The {0} of type {1} selected are in {2} as part of the {3} business process have been released from you.".format(stringifiedsuccessEntityIds, this._successEntityType, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName);
+                            messageObject.type = "success";
+                        } else if(stringifiedSelectedEntityIds == stringifiedfailedEntityIds) {
+                                messageObject.message = "The {0} of {1} selected is in {2} as part of the {3} business process. You do not have permissions as part of this workflow step to release the entities from assignment. /nPlease contact your business administrator if you need to be released from this role.".format(stringifiedSelectedEntityIds, this._failedEntityType, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName);
+                                messageObject.type = "error";
+                        }
+                    }
+                    return messageObject;
                 }
             });
         })();
