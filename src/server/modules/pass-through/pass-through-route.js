@@ -26,7 +26,7 @@ var PassThroughRouter = function (app) {
         res.status(200).send(response);
 
     });
-    app.post('/pass-through/matchservice/search', async function (req, res) {
+    app.post('/pass-through-bulk/matchservice/search', async function (req, res) {
         var response = await passThroughService.bulkCall(req);
         res.status(200).send(response);
     });
