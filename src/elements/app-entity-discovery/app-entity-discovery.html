@@ -59,6 +59,7 @@
             rock-search-filter::shadow paper-menu-button pebble-button::shadow paper-button:not([raised]) {
                 font-weight: normal;
             }
+
             
              :host {
                 --pebble-popover-max-width: 100%;
@@ -72,19 +73,16 @@
             }
             
             #savedSearchPopover {
-                width: 360px;
+                width: 400px;
                 max-height: none!important;
                 --pebble-popover-max-width: 100%;
                 --pebble-popover-max-height: 360px;
                 overflow: auto;
             }
             
-            #savedSearchPopover::shadow>.arrow_box {
-                padding: 5px 10px 10px 10px;
-            }
-            
             #savedSearchPopover::shadow .arrow_box .popover {
                 overflow: inherit;
+                @apply --popup-item;
             }
             
             #rockSavedSearch {
@@ -149,32 +147,7 @@
             .container {
                 width: 100%;
             }
-            
-            pebble-actions::shadow pebble-popover paper-item {
-                /*display: block;*/
-                padding: 5px 10px;
-                text-align: left;
-            }
-            
-            pebble-actions::shadow pebble-popover {
-                color: var(--palette-white, #fff);
-            }
-            
-            pebble-actions::shadow pebble-popover paper-item #actionItem {
-                /*display: inline-block;*/
-                font-size: var(--font-size-sm, 12px);
-                color: var(--palette-steel-grey);
-            }
-            
-            pebble-actions::shadow pebble-popover paper-item #actionItem:hover {
-                color: var(--focused-line, #026bc3);
-                background-color: var(--bgColor-hover, #e8f4f9);
-            }
-            
-            pebble-actions::shadow pebble-popover paper-item #actionItem:focus {
-                color: var(--primary-button-color, #036bc3);
-            }
-            
+
             pebble-actions::shadow #actionsPopover {
                 margin-top: 3px;
             }
@@ -201,7 +174,7 @@
         <rock-layout>
             <liquid-config-aggregate-get id="getEntityDiscoveryAppConfig" verbose operation="getbyids" request-id="req1" app-name="app-entity-discovery"
                 context-data="[[contextData]]" on-config-get-response="_onApplicationConfigReceived"></liquid-config-aggregate-get>
-            <rock-titlebar icon="pebble-md-icons:Advancesearch" title="Entity Search & Discovery" closable minimizable>
+            <rock-titlebar icon="pebble-md-icons:Advancesearch" main-title="Entity Search & Discovery" closable minimizable>
                 <div id="dimensionContainer" align="right">
                     <rock-dimension-selector id="dimensionSelector" config-data="[[getConfig('rock-dimension-selector')]]" all-multi-select></rock-dimension-selector>
                 </div>
@@ -345,9 +318,6 @@
                         notify: true,
                         value: ''
                     },
-                    _workflowCriterionId: {
-                        type: Number
-                    },
                     _workflowCriterion: {
                         type: Object,
                         value: function () {
@@ -378,13 +348,11 @@
                         type: Array,
                         value: function () { return []; }
                     },
-                    _failedEntities: {
-                        type: Number,
-                        value: 0
-                    },
-                    _doneEntities: {
-                        type: Number,
-                        value: 0
+                    selectedEntityIds:{
+                        type:Array,
+                        value:function(){
+                            return [];
+                        }
                     },
                     _selectedSearchFilters: {
                         type: Array,
@@ -396,9 +364,18 @@
                         type: Boolean,
                         value: false
                     },
-                    _failedEntityTypes:{
-                        type:Array,
-                        value:function(){
+                    _failedEntityType: {
+                        type:String,
+                    },
+                    failedEntityIds: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    successEntityIds: {
+                        type: Array,
+                        value: function () {
                             return [];
                         }
                     }
@@ -413,16 +390,32 @@
 
                     //get saved search id from query string
                     var _savedSearchId = DataHelper.getParamValue('_savedSearchId');
-                    var _workflowCriterionId = DataHelper.getParamValue('_workflowContextId');
-
+                    var workflowName = DataHelper.getParamValue('wfName');
                     if (_savedSearchId && _savedSearchId != this._savedSearchId) {
                         this._savedSearchId = _savedSearchId;
-                    } else if (_workflowCriterionId && _workflowCriterionId != this._workflowCriterionId) {
-                        this._workflowCriterionId = _workflowCriterionId;
-                        var workflowCriterion = sessionStorage[this._workflowCriterionId];
+                    } else if (!_.isEmpty(workflowName)) {
+                        var workflowActivityName = DataHelper.getParamValue('wfActivityName');
+                        var businessConditionName = DataHelper.getParamValue('bcId');
+                        var user = DataHelper.getParamValue('user');
+                        var userId = "";
+
+                        if(user.toLowerCase() == "all") {
+                            userId = "";
+                        } else if(user.toLowerCase() == "currentuser") {
+                            userId = DataHelper.getUserId();
+                        } else if (user.toLowerCase() == "unassigned") {
+                            userId = "_UNASSIGNED";
+                        }
+
+                        var workflowCriterion = {
+                            "workflowName": workflowName,
+                            "workflowActivityName": workflowActivityName,
+                            "businessConditionName": businessConditionName,
+                            "userId": userId
+                        };
 
                         if (!_.isEmpty(workflowCriterion)) {
-                            this._workflowCriterion = JSON.parse(workflowCriterion);
+                            this._workflowCriterion = workflowCriterion;
                             this.$$("#assignmentActions").hidden = false;
                         }
                     }
@@ -672,7 +665,7 @@
                         if (detail.selectedSearch && !_.isEmpty(detail.selectedSearch)) {
                             if (this._getElement('rockSavedSearch')) {
                                 this._getElement('rockSavedSearch').createUpdateSavedSearch(_savedSearchDetails, "update");
-                                this.showSuccessToast([[detail.name]]+" is updated");
+                                this.showSuccessToast([[detail.name]] + " is updated");
                         }
 
                             return;
@@ -681,7 +674,7 @@
                         //Use rock-saved-searches to create new search
                         if (this._getElement('rockSavedSearch')) {
                             this._getElement('rockSavedSearch').createUpdateSavedSearch(_savedSearchDetails, "create");
-                            this.showSuccessToast([[detail.name]]+" is saved successfully");
+                            this.showSuccessToast([[detail.name]] + " is saved successfully");
                     }
                     }
                 },
@@ -837,6 +830,9 @@
                     this.$$('#actionsPopover').show();
                 },
                 _onActionItemTap: function (e, detail, sender) {
+                    this.successEntityIds = [];
+                    this.failedEntityIds = [];
+                    this.selectedEntityIds = [];
                     this._currentEntityIndex = 0;
                     var searchGrid = this.$$("#entitySearchGrid");
                     if (searchGrid && searchGrid.selectedItems && searchGrid.selectedItems.length > 0) {
@@ -845,6 +841,13 @@
                             return;
                         } else {
                             this._selectedEntities = searchGrid.selectedItems;
+                            var selectedEntityIds = [];
+                            for (var i in searchGrid.selectedItems) {
+                                if (searchGrid.selectedItems[i].id) {
+                                    selectedEntityIds.push(searchGrid.selectedItems[i].id);
+                                }
+                            }
+                            this.set('selectedEntityIds', selectedEntityIds)
                         }
                     } else {
                         this.showErrorToast("Select atleast one entity for which you want to perform this action.");
@@ -890,32 +893,34 @@
                         liquidWfAssign.generateRequest();
                     }
                 },
-                 _onAssignmentSuccess: function(e) {
+                 _onAssignmentSuccess: function (e) {
                     var response = e.detail.response;
-                    if (response && response.response && response.response.status && response.response.status.toLowerCase() == "success" && response.response.statusDetail) {
+                    var failedEntityIds = this.failedEntityIds;
+                    var successEntityIds = this.successEntityIds;
+                    var requestId;
+                    if (e.detail.request && e.detail.request.requestData && e.detail.request.requestData.entity && e.detail.request.requestData.entity.id) {
+                        requestId = e.detail.request.requestData.entity.id;
+                    }
+                    if (requestId && response && response.response && response.response.status && response.response.status.toLowerCase() == "success" && response.response.statusDetail) {
                         var statusDetail = response.response.statusDetail;
-                        if (statusDetail.messages && statusDetail.messages.length > 0) {
-                            this._failedEntities++;
-                            var _failedEntityTypes = this._failedEntityTypes;
-                            if(_failedEntityTypes.indexOf(this._selectedEntities[this._currentEntityIndex].type) < 0 ){
-                                this.push('_failedEntityTypes',this._selectedEntities[this._currentEntityIndex].type)
-                            }
-                        } else if(statusDetail.message) {
-                            this._doneEntities++;
+                        if (failedEntityIds.indexOf(requestId)<0 && statusDetail.messages && statusDetail.messages.length > 0) {
+                            this._failedEntityType = this._selectedEntities[this._currentEntityIndex].type;
+                            this.push('failedEntityIds',requestId);
+                        } else if(successEntityIds.indexOf(requestId) < 0 && statusDetail.message) {
+                            this._successEntityType = this._selectedEntities[this._currentEntityIndex].type;
+                            this.push('successEntityIds',requestId);
                         }
                     this._currentEntityIndex++;
                     }
                     if (this._currentEntityIndex < this._selectedEntities.length) {
                         this._generateAssignmentRequest();
-                    } else {
-                        if (this._selectedEntities.length == this._doneEntities) {
-                            this.showSuccessToast("{0} action of step {1} as part of the {2} for the selected entities is completed successfully.".format(this._currentWorkflowAction, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName));
-                      } else if(this._selectedEntities.length == this._failedEntities) {
-                            this.showErrorToast("{0} action of step {1} as part of the {2} for the selected entities is failed. Please contact your administrator.".format(this._currentWorkflowAction, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName));
-                    } else {
-                            this.showSuccessToast("Some {0} you are trying to assign to yourself for {1} as part of the {2} business process could not be assigned to you as you do not have permissions as part of this workflow step to take the {0} for assignment. Please contact your business administrator if you need to be assigned to a different role.".format(this._failedEntityTypes,this._workflowCriterion.workflowActivityName,this._workflowCriterion.workflowName));
+                    } else if(response && response.response && response.response.status && response.response.status.toLowerCase() == "success" && response.response.statusDetail) {
+                            var messageObject = this._getMessageObject();
+                            this._showToastMessage(messageObject);                 
                         }
-                    }
+                        else{
+                            this.showErrorToast("There is some problem with the server.Please try again after some time");
+                        }
                 },
                 _onAssignmentFailure: function (e) {
                     console.warn("Failed to perform the workflow assignment with error: ", e.detail);
@@ -940,6 +945,64 @@
                     } else {
                         this._resetSearchEnabled = false;
                     }
+                },
+                _showToastMessage: function(msgObject) {
+                    if(msgObject) {
+                        if(msgObject.type == "error") {
+                            this.showErrorToast(msgObject.message, 10000);
+                        } else if(msgObject.type == "success") {
+                            this.showSuccessToast(msgObject.message, 10000);
+                        }
+                    }
+                },
+                _getMessageObject: function() {
+                    var stringifiedSelectedEntityIds = JSON.stringify(this.selectedEntityIds);
+                    var stringifiedsuccessEntityIds;
+                    var stringifiedfailedEntityIds;
+                    var messageObject = {
+                        "message": "",
+                        "type": ""
+                    };
+                    if(this.successEntityIds){
+                        stringifiedsuccessEntityIds = JSON.stringify(this.successEntityIds)
+                    }
+                    if(this.failedEntityIds){
+                        stringifiedfailedEntityIds  =  JSON.stringify(this.failedEntityIds) 
+                    }
+                    if(this._currentWorkflowAction == "take") {
+                        if(this.successEntityIds.length == this.selectedEntityIds.length && this.selectedEntityIds.length == 1) {
+                            messageObject.message = "The {0} of type {1} selected is in {1} as part of the {2} business process has been assigned to you. ".format(this.successEntityIds[0], this._successEntityType, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName);
+                            messageObject.type = "success";
+                        }
+                        if(this.failedEntityIds.length == this.selectedEntityIds.length && this.selectedEntityIds.length == 1) {
+                            messageObject.message = "The {0} of type {1} selected is in {2} as part of the {3} business process. You do not have permissions as part of this workflow step to take the workflow step for assignment. /nPlease contact your business administrator if you need to be assigned to this role.".format(this.successEntityIds[0],this._failedEntityType, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName);
+                            messageObject.type = "error";
+                        }
+                        if (stringifiedSelectedEntityIds == stringifiedsuccessEntityIds) {
+                            messageObject.message = "The {0} of type {1} selected is in {2} as part of the {3} business process has been assigned to you.".format(stringifiedsuccessEntityIds, this._successEntityType, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName);
+                            messageObject.type = "success";
+                        } else if(stringifiedSelectedEntityIds == stringifiedfailedEntityIds) {
+                                messageObject.message = "The {0} of {1} selected is in {2} as part of the {3} business process. You do not have permissions as part of this workflow step to take the entities for assignment. /nPlease contact your business administrator if you need to be assigned to this role.".format(stringifiedSelectedEntityIds, this._failedEntityType, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName);
+                                messageObject.type = "error";
+                        }
+                    } else if(this._currentWorkflowAction == "release") {
+                        if(this.successEntityIds.length == this.selectedEntityIds.length == 1) {
+                            messageObject.message = "The {0} of type {1} selected is in {1} as part of the {2} business process has been released from you. ".format(this.successEntityIds[0], this._successEntityType, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName);
+                            messageObject.type = "success";
+                        }
+                        if(this.failedEntityIds.length == this.selectedEntityIds.length == 1) {
+                            messageObject.message = "The {0} of type {1} selected is in {2} as part of the {3} business process. You do not have permissions as part of this workflow step to release the workflow step from assignment. /nPlease contact your business administrator if you need to be released from this role.".format(this.successEntityIds[0],this._failedEntityType, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName);
+                            messageObject.type = "error";
+                        }
+                        if (stringifiedSelectedEntityIds == stringifiedsuccessEntityIds) {
+                            messageObject.message = "The {0} of type {1} selected are in {2} as part of the {3} business process have been released from you.".format(stringifiedsuccessEntityIds, this._successEntityType, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName);
+                            messageObject.type = "success";
+                        } else if(stringifiedSelectedEntityIds == stringifiedfailedEntityIds) {
+                                messageObject.message = "The {0} of {1} selected is in {2} as part of the {3} business process. You do not have permissions as part of this workflow step to release the entities from assignment. /nPlease contact your business administrator if you need to be released from this role.".format(stringifiedSelectedEntityIds, this._failedEntityType, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName);
+                                messageObject.type = "error";
+                        }
+                    }
+                    return messageObject;
                 }
             });
         })();
