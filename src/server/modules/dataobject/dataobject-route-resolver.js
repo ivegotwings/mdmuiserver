@@ -213,8 +213,7 @@ function _getService(dataObjectType) {
 }
 
 async function get(dataObjectIds, reqData) {
-
-    var response = [];
+    var response = {};
 
     var request = createGetRequest(reqData);
 
@@ -228,17 +227,16 @@ async function get(dataObjectIds, reqData) {
 
     //console.log('req to api ', JSON.stringify(request));
     var res = undefined;
-    //Temp: work in progress for getcoalesce call integration hence placed 1 == 2 condtion to always go to normal get for now
     var isCoalesceGet = false;
 
     var service = _getService(reqData.dataObjectType);
 
-    //HACK: this is hard coded for now as RDF getcoalesce is not having same behavior as normal get..so calling only when its absoultely needed
-    if (request.dataIndex == "entityModel" && 1 == 2) {
-        if (!isEmpty(request.params.query.contexts) && (!isEmpty(reqData.attrNames) || !isEmpty(reqData.relationships))) {
+    if (request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel') {
+        if (!isEmpty(request.params.query.contexts)) {
             var contexts = request.params.query.contexts;
             if (contexts && contexts.length == 1) {
                 var firstContext = contexts[0];
+                //TODO: We need a fix to remove this classification context check when RDF fixes
                 if (firstContext && firstContext.classification) {
                     res = await service.getCoalesce(request);
                     isCoalesceGet = true;
@@ -253,7 +251,6 @@ async function get(dataObjectIds, reqData) {
 
     //console.log('get res from api ', JSON.stringify(res, null, 4));
 
-    var basePath = [pathKeys.root, reqData.dataIndex];
     var dataObject;
     //console.log(JSON.stringify(pathKeys, null, 4));
 
@@ -267,12 +264,14 @@ async function get(dataObjectIds, reqData) {
         var dataObjects = dataObjectResponse[collectionName];
 
         if (dataObjects !== undefined) {
+            var byIdsJson = response[pathKeys.byIds] = {};
             for (let dataObject of dataObjects) {
                 var dataObjectType = dataObject.type;
-                var dataObjectBasePath = mergePathSets(basePath, dataObjectType, pathKeys.byIds, dataObject.id);
 
                 //console.log('building response...', JSON.stringify(dataObject, null, 2));
-                response.push.apply(response, buildResponse(dataObject, reqData, dataObjectBasePath));
+                var dataObjectResponseJson = buildResponse(dataObject, reqData);
+
+                byIdsJson[dataObject.id] = dataObjectResponseJson;
             }
         }
     }
@@ -304,13 +303,16 @@ async function getByIds(pathSet, operation) {
         'operation': operation
     }
 
-    var response = [];
-    
+    var response = {};
+    var jsonGraphResponse = response['jsonGraph'] = {};
+    var rootJson = jsonGraphResponse[pathKeys.root] = {};
+    var dataJson = rootJson[reqData.dataIndex] = {};
+
     // system flow supports only 1 type at time for bulk get..this is needed to make sure we have specialized code flow for the given data object types
     for (let dataObjectType of reqDataObjectTypes) {
         reqData.dataObjectType = dataObjectType;
-        var dataObjectsGetResponse = await get(reqData.dataObjectIds, reqData);
-        response.push.apply(response, dataObjectsGetResponse);
+        var dataByObjectTypeJson = await get(reqData.dataObjectIds, reqData);
+        dataJson[dataObjectType] = dataByObjectTypeJson;
     }
 
     //console.log('getByIds response ', JSON.stringify(response, null, 4));
@@ -321,9 +323,12 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
     //console.log(dataObjectAction, operation);
 
     var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
-    var response = [];
-
-    var basePath = [pathKeys.root, dataIndex];
+    
+    var response = {};
+    var responsePaths = [];
+    var jsonGraphResponse = response['jsonGraph'] = {};
+    var rootJson = jsonGraphResponse[pathKeys.root] = {};
+    var dataJson = rootJson[dataIndex] = {};
 
     for (var dataObjectId in dataObjects) {
         var dataObject = dataObjects[dataObjectId];
@@ -349,6 +354,9 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
 
         if (dataObject) {
 
+            var dataObjectType = dataObject.type;
+            var basePath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds, dataObjectId];
+
             var reqData = {
                 'dataIndex': dataIndex,
                 'dataObjectType': CONST_ALL,
@@ -360,14 +368,29 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
                 'valFields': [CONST_ALL],
                 'mapKeys': [CONST_ALL],
                 'jsonData': true,
-                'operation': operation
+                'operation': operation,
+                'buildPaths': true,
+                'basePath': basePath
             };
 
-            var dataObjectType = dataObject.type;
-            var dataObjectBasePath = mergePathSets(basePath, dataObjectType, pathKeys.byIds, dataObjectId);
-            response.push.apply(response, buildResponse(dataObject, reqData, dataObjectBasePath));
+            
+            var dataByObjectTypeJson = dataJson[dataObjectType];
+            var byIdsJson;
+
+            if(dataByObjectTypeJson == undefined || dataByObjectTypeJson == null){
+                dataByObjectTypeJson = dataJson[dataObjectType] = {};
+                byIdsJson = dataByObjectTypeJson[pathKeys.byIds] = {};
+            }
+            else {
+                byIdsJson = dataByObjectTypeJson[pathKeys.byIds];
+            }
+
+            var dataObjectResponseJson = buildResponse(dataObject, reqData, responsePaths);
+            byIdsJson[dataObjectId] = dataObjectResponseJson;
         }
     }
+
+    response['paths'] = responsePaths;
 
     //console.log(JSON.stringify(response, null, 4));
     return response;
