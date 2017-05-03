@@ -1,0 +1,282 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/data-transform-helper.html">
+<link rel="import" href="../bedrock-lov-behavior/bedrock-lov-behavior.html">
+
+<link rel="import" href="../pebble-lov/pebble-lov.html">
+
+<link rel="import" href="entity-model-lov-datasource.html">
+
+<!--
+`rock-entity-model-lov` component is used to render entity model in lov, it filters data as per filter criteria.
+
+@demo demo/index.html
+-->
+
+<dom-module id="rock-entity-model-lov">
+    <template>
+        <entity-model-lov-datasource id="entityModelLovDataSource" request="[[requestData]]" data-source="{{dataSource}}" data-formatter="{{_dataFormatter}}"
+            keywords-criterion-builder={{_keywordsCriterionBuilder}}>
+        </entity-model-lov-datasource>
+        <pebble-lov id="entityModelLov" page-size="[[pageSize]]" multi-select="[[multiSelect]]" show-image="[[showImage]]" show-color="[[showColor]]"
+            no-sub-title="[[noSubTitle]]" show-action-buttons="[[showActionButtons]]" data-source="{{dataSource}}" items="[[items]]"
+            selected-item="{{selectedItem}}" selected-items="{{selectedItems}}">
+        </pebble-lov>
+    </template>
+    <script>
+        Polymer({
+            is: 'rock-entity-model-lov',
+            properties: {
+                requestData: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+                /**
+                 * Specifies whether or not to generate console logs.
+                 */
+                verbose: {
+                    type: Boolean,
+                    value: false
+                },
+                /*
+                 * Indicates the attribute of an entity which will be used as id for the item
+                 */
+                idField: {
+                    type: String,
+                    value: ""
+                },
+                /*
+                 * Indicates the attribute of an entity which will be used as title for the item
+                 */
+                titlePattern: {
+                    type: String,
+                    value: ""
+                },
+                /*
+                 * Indicates the attribute of an entity which will be used as subtitle for the item
+                 */
+                subTitlePattern: {
+                    type: String,
+                    value: ""
+                },
+                /*
+                 * Indicates the attribute of an entity which will be used as image for the item
+                 */
+                imageField: {
+                    type: String,
+                    value: ""
+                },
+                /*
+                 * Indicates the attribute of an entity which will be used as color for the item
+                 */
+                colorField: {
+                    type: String,
+                    value: ""
+                },
+                /*
+                 * Indicates the attribute of an entity which will be used as value for the item
+                 */
+                valueField: {
+                    type: String,
+                    value: ""
+                },
+                /*
+                 * Indicates the attribute of an entity which will be used as value for the item
+                 */
+                typeField: {
+                    type: Array,
+                    value: []
+                },
+                _lovColumnNameValueCollection: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+                _attributesCriterionBuilder: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+                _keywordsCriterionBuilder: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+                _dataFormatter: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                }
+            },
+
+            behaviors: [
+                RUFBehaviors.UIBehavior,
+                RUFBehaviors.LovBehavior
+            ],
+
+            listeners: {
+                'entityModelLov.selection-changed': '_onLovSelectionChanged',
+                'entityModelLov.lov-confirm-button-tap': '_onLovConfirmButtonTapped',
+                'entityModelLov.lov-close-button-tap': '_onLovCloseButtonTapped',
+            },
+
+            observers: [
+                '_prepareAttributes(idField, titlePattern, subTitlePattern, imageField, colorField, valueField, typeField)'
+            ],
+
+            ready: function () {
+                // Note: This file contains lot of duplicate code..... Confirm with Jimmy and Prepare Rock Lov Behavior which inherits Base Lov Behavior
+                this._prepareAttributeMaps();
+
+                this._keywordsCriterionBuilder = this._prepareKeywordsCriteria.bind(this);
+                this._dataFormatter = this._getAttributeFormattedData.bind(this);
+
+                if (this.verbose) {
+                    // Todo..  Id may not be available every time
+                    console.log("Request Object for the Element: " + this.id + "is" + JSON.stringify(this.requestData));
+                }
+            },
+
+            _prepareAttributes: function (idField, titlePattern, subTitlePattern, imageField, colorField,
+                valueField) {
+                var defaultAttributes = this._attributes;
+                this._attributes = [];
+                var attributes = [];
+
+                if (typeof (this.idField) !== 'undefined' && this.idField !== "") {
+                    attributes.push(this.idField);
+                }
+
+                if (typeof (this.titlePattern) !== 'undefined' && this.titlePattern !== "") {
+                    if (!attributes.includes(this.titlePattern)) {
+                        attributes.push(this.titlePattern);
+                    }
+                }
+
+                if (typeof (this.subTitlePattern) !== 'undefined' && this.subTitlePattern !== "") {
+                    if (!attributes.includes(this.subTitlePattern)) {
+                        attributes.push(this.subTitlePattern);
+                    }
+                }
+
+                if (typeof (this.imageField) !== 'undefined' && this.imageField !== "") {
+                    if (!attributes.includes(this.imageField)) {
+                        attributes.push(this.imageField);
+                    }
+                }
+
+                if (typeof (this.colorField) !== 'undefined' && this.colorField !== "") {
+                    if (!attributes.includes(this.colorField)) {
+                        attributes.push(this.colorField);
+                    }
+                }
+
+                if (typeof (this.valueField) == 'undefined' && this.valueField !== "") {
+                    if (!attributes.includes(this.valueField)) {
+                        attributes.push(this.valueField);
+                    }
+                }
+
+                DataHelper.arrayRemove(attributes, "id");
+                DataHelper.arrayRemove(attributes, "name");
+
+                if (attributes.length == 0) {
+                    this._attributes = defaultAttributes;
+                } else {
+                    // Todo.. This will not work in a scenario where request object is not initialized
+                    if (typeof (this.requestData.params.fields) === "undefined") {
+                        this.set('requestData.params.fields', {});
+                    }
+                    this.set('requestData.params.fields.attributes', attributes);
+                }
+            },
+
+            _prepareAttributeMaps: function () {
+                this._lovColumnNameValueCollection.id = this.idField;
+                this._lovColumnNameValueCollection.title = this.titlePattern;
+                this._lovColumnNameValueCollection.subtitle = this.subTitlePattern;
+                this._lovColumnNameValueCollection.image = this.imageField;
+                this._lovColumnNameValueCollection.color = this.colorField;
+                this._lovColumnNameValueCollection.value = this.valueField;
+                this._lovColumnNameValueCollection.type = this.typeField;
+            },
+
+            _getAttributeFormattedData: function (data) {
+                if (data && data.content.entityModels) {
+                    var entityModels = data.content.entityModels;
+
+                    if (entityModels) {
+                        return DataTransformHelper.transformEntityModelSchemaToLovSchema(entityModels, this._lovColumnNameValueCollection);
+                    }
+                }
+            },
+
+            _prepareAttributesCriteria: function (searchText) {
+                if (searchText) {
+                    var attributesCriterion = [];
+                    var searchKey = new Object();
+                    var searchValue = new Object();
+                    searchValue.eq = searchText ? searchText : '';
+
+                    // Todo.. When Pattern comes into picture this one is effected
+                    searchKey[this.titlePattern] = searchValue;
+                    attributesCriterion.push(searchKey);
+                    return attributesCriterion;
+                }
+            },
+
+            _prepareKeywordsCriteria: function (searchText) {
+                if (searchText) {
+                    var keywordsCriterion = {};
+
+                    keywordsCriterion.keywords = searchText;
+                    keywordsCriterion.operator = "and";
+
+                    return keywordsCriterion;
+                }
+            },
+
+            _onLovSelectionChanged: function (event) {
+                var eventDetail = {
+                    data: event.detail.item
+                }
+
+                this.fireBedrockEvent("entity-model-lov-selection-changed", eventDetail);
+            },
+
+            _onLovConfirmButtonTapped: function (event) {
+                var eventDetail = {
+                    data: {
+                        id: this.id
+                    },
+                    name: "entity-model-lov-confirm-button-tap"
+                }
+
+                this.fireBedrockEvent("entity-model-lov-confirm-button-tap", eventDetail);
+            },
+
+            _onLovCloseButtonTapped: function (event) {
+                var eventDetail = {
+                    data: {
+                        id: this.id
+                    },
+                    name: "entity-model-lov-close-button-tap"
+                }
+
+                this.fireBedrockEvent("entity-model-lov-close-button-tap", eventDetail);
+            },
+
+            refershTemplate: function () {
+                this.$$("#entityModelLov").refereshTemplate();
+            },
+        });
+    </script>
+</dom-module>

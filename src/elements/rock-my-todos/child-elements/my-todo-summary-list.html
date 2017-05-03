@@ -1,0 +1,231 @@
+<link rel="import" href="../../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../../bedrock-helpers/data-helper.html">
+<link rel="import" href="../../bedrock-helpers/context-helper.html">
+<link rel="import" href="../../bedrock-helpers/data-request-helper.html">
+
+<link rel="import" href="../../liquid-entity-model-get/liquid-entity-model-get.html">
+
+<link rel="import" href="../../pebble-list-view/pebble-list-view.html">
+<link rel="import" href="../../pebble-list-item/pebble-list-item.html">
+<link rel="import" href="my-todo-summary.html">
+
+<dom-module id="my-todo-summary-list">
+    <template>
+        <style include="pebble-styles-shared">
+            .list-group {
+                /*height: 490px;*/
+                overflow-y: auto;
+                /*padding: 0px 5px 0 0;*/
+            }
+            
+            pebble-list-item:last-child .list-item {
+                margin-bottom: 0!important;
+            }
+        </style>
+
+        <liquid-entity-model-get id="workflowDefinitionsGet" operation="getbyids" request-id="[[initWorkflowDefinitionsGet.content.requestId]]"
+            on-response="_onWorkflowDefinitionsGetResponse" on-error="_onWorkflowDefinitionsGetError"></liquid-entity-model-get>
+
+        <pebble-list-view class="list-group column">
+            <template is="dom-if" if="[[_isWorkflowDefinitionAvailable]]">
+                <template is="dom-repeat" items="[[_getLists()]]">
+                    <pebble-list-item>
+                        <my-todo-summary my-todo="[[item]]"></my-todo-summary>
+                    </pebble-list-item>
+                </template>
+            </template>
+        </pebble-list-view>
+    </template>
+    <script>
+        (function () {
+            'use strict';
+
+            Polymer({
+                is: 'my-todo-summary-list',
+
+                properties: {
+                    contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    configContext: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    /**
+                     * This property represents the list of my-todos
+                     */
+                    lists: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        },
+                        notify: true,
+                    },
+
+                    verbose: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    assignedTo: {
+                        type: String,
+                        value: ''
+                    },
+
+                    _isWorkflowDefinitionAvailable: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    _activitiesCount: {
+                        type: Number,
+                        value: 0
+                    }
+                },
+
+                behaviors: [
+                    RUFBehaviors.UIBehavior,
+                    RUFBehaviors.ComponentContextBehavior
+                ],
+
+                observers: [
+                    '_initSummaryList(contextData, assignedTo)'
+                ],
+
+                _initSummaryList: function (contextData, assignedTo) {
+                    if (!_.isEmpty(this.contextData) && !_.isEmpty(this.assignedTo)) {
+                        var workflowDefinitionsGet = this.$$('#workflowDefinitionsGet');
+
+                        if (typeof (workflowDefinitionsGet) === "undefined" ||
+                            workflowDefinitionsGet == null) {
+                            console.error("Element having id workflowDefinitionsGet not found.");
+                            return;
+                        }
+
+                        var clonedContextData = DataHelper.cloneObject(this.contextData);
+
+                        if (this.configContext && this.configContext.workflowName) {
+                            var itemContext = clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM];
+
+                            if (itemContext) {
+                                var firstItemContext = itemContext[0];
+                                firstItemContext.workflowNames = [this.configContext.workflowName];
+                            } else {
+                                var itemContext = {
+                                    "workflowNames": [this.configContext.workflowName],
+                                    "attributes": ["activities"]
+                                }
+                                clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+                            }
+                        }
+
+                        workflowDefinitionsGet.requestData = DataRequestHelper.createWorkflowDefinitionGetRequest(clonedContextData);
+                        workflowDefinitionsGet.generateRequest();
+                    }
+                },
+
+                _onWorkflowDefinitionsGetResponse: function (e) {
+                    var workflowDefinitionResponse = e.detail.response;
+                    var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response);
+
+                    var currentUserRole = DataHelper.getUserRole();
+                    if (typeof (currentUserRole) === "undefined") {
+                        console.error("CurrentUser role not found.");
+                    }
+
+                    if (responseContent) {
+                        var workflowDefinitions = responseContent.entityModels;
+
+                        for (var i = 0; i < workflowDefinitions.length; i++) {
+                            var workflowDefinition = workflowDefinitions[i];
+
+                            if (typeof (workflowDefinition.data) !== "undefined" && typeof (workflowDefinition.data.attributes) !== "undefined") {
+                                var workflowAttribtues = workflowDefinition.data.attributes;
+
+                                var workflowActivities = AttributeHelper.getNestedAttributeValues(workflowAttribtues.activities);
+
+                                for (var j = 0; j < workflowActivities.length; j++) {
+                                    var workflowActivity = workflowActivities[j];
+
+                                    // Validate if current loggedin user has a role to work on the activity
+
+                                    var allowedRoles = undefined;
+                                    if (workflowActivity && workflowActivity.allowedRoles && workflowActivity.allowedRoles.values) {
+                                        allowedRoles = AttributeHelper.getAttributeValues(
+                                            workflowActivity.allowedRoles.values);
+                                    }
+                                    if (typeof (allowedRoles) !== "undefined" && allowedRoles instanceof Array &&
+                                        allowedRoles.length > 0) {
+                                        if (allowedRoles.indexOf(currentUserRole) == -1) {
+                                            continue;
+                                        }
+                                    }
+
+                                    var listItem = {};
+                                    listItem.workflow = AttributeHelper.getFirstAttributeValue(workflowAttribtues.workflowName);
+                                    listItem.name = AttributeHelper.getFirstAttributeValue(workflowActivity.activityName);
+                                    listItem.workflowName = workflowDefinition.name;
+
+                                    var itemVariants = [];
+                                    var workflowData = {
+                                        wfName: listItem.workflow,
+                                        wfActivityName: listItem.name,
+                                        user: "all"                                   
+                                    };
+
+                                    if (this.assignedTo.toLowerCase() == "all") {
+                                        workflowData.user = "all";
+                                    } else if (this.assignedTo.toLowerCase() == "assigned to me") {
+                                        workflowData.user = "currentUser";
+                                    } else if (this.assignedTo.toLowerCase() == "unassigned") {
+                                        workflowData.user = "unassigned";
+                                    }
+
+                                    if (!_.isEmpty(workflowData)) {
+                                        listItem.workflowData = workflowData;
+                                    }
+
+                                    if (!_.isEmpty(listItem)) {
+                                        this.lists.push(listItem);
+                                    }
+                                }
+                            }
+                        }
+
+                        if (this.lists.length > 0) {
+                            this._isWorkflowDefinitionAvailable = true;
+                        }
+
+                        if (this.verbose) {
+                            console.log(JSON.stringify({
+                                "SummaryList:- ": this.lists
+                            }))
+                        }
+                    }
+                },
+
+                _onWorkflowDefinitionsGetError: function (e) {
+                    console.error("WorkflowDefinitionsGetError:- " + e.detail.response.reason.message);
+                },
+
+                _getLists: function () {
+                    if (this.lists && this.lists.length) {
+                        return this.lists;
+                    } else {
+                        return this.getParentAppConfig('my-todo-summary-list');
+                    }
+                }
+            });
+        })();
+    </script>
+</dom-module>

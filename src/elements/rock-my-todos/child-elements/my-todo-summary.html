@@ -1,0 +1,479 @@
+<link rel="import" href="../../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../../bedrock-helpers/data-helper.html">
+<link rel="import" href="../../bedrock-helpers/context-helper.html">
+<link rel="import" href="../../bedrock-helpers/data-request-helper.html">
+
+<link rel="import" href="../../pebble-button/pebble-button.html">
+
+<link rel="import" href="../../liquid-entity-model-get/liquid-entity-model-get.html">
+<link rel="import" href="../../liquid-entity-govern-data-get/liquid-entity-govern-data-get.html">
+
+
+<dom-module id="my-todo-summary">
+    <template>
+        <style include="pebble-styles-shared">
+            .list-item {
+                -webkit-flex-wrap: nowrap;
+                /* Safari 6.1+ */
+                flex-wrap: nowrap;
+                cursor: var(--list-item-cursor, pointer);
+                position: relative;
+                padding: 10px 10px 10px 8px;
+                min-height: 56px;
+                overflow: hidden;
+            }
+            
+            .content-div {
+                width: calc( 100% - 192px);
+            }
+            
+            .sub-content {
+                width: 130px;
+            }
+            
+            .circle {
+                width: 42px;
+                height: 42px;
+                text-align: center;
+                -moz-border-radius: 50%;
+                -webkit-border-radius: 50%;
+                border-radius: 50%;
+                border: 1px solid var(--palette-dark-two);
+                line-height: 42px;
+                color: var(--palette-dark);
+                font-size: var(--font-size-sm);
+                margin: 0 10px;
+                text-overflow: ellipsis;
+                overflow: hidden;
+                white-space: nowrap;
+            }
+            
+            .todo-status {
+                position: absolute;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                width: 8px;
+            }
+            
+            .border-left-1 {
+                background: rgba(18, 156, 230, 1);
+            }
+            
+            .border-left-2 {
+                background: rgba(54, 180, 74, 1);
+            }
+            
+            .border-left-3 {
+                background: rgba(120, 93, 168, 1);
+            }
+            
+            .border-left-4 {
+                background: rgba(247, 142, 30, 1);
+            }
+            
+            .border-left-5 {
+                background: rgba(246, 212, 12, 1);
+            }
+            
+            .border-left-6 {
+                background: rgba(238, 32, 76, 1);
+            }
+
+            .contentContainer {
+                width: 100%; 
+            }
+            
+            #moreDetails {
+                padding-top: 10px;
+                padding-left: 10px;
+            }
+
+            pebble-button.action {
+                display: inline-block;
+                margin-right: 7px;
+                --pebble-button: {
+                    height: 30px !important;
+                    border-left: 1px solid var(--palette-cerulean);
+                    border-top: 1px solid var(--palette-cerulean);
+                    border-bottom: 1px solid var(--palette-cerulean);
+                    color: var(--palette-cerulean);
+                    font-size: var(--default-font-size, 14px);
+                }
+                --pebble-button-iron-icon: {
+                    padding: 0 5px 0 0;
+                }
+                --pebble-menu-button: {
+                    height: 30px !important;
+                    border-top: 1px solid var(--palette-cerulean);
+                    border-right: 1px solid var(--palette-cerulean);
+                    border-bottom: 1px solid var(--palette-cerulean);
+                    background: #FFFFFF;
+                    box-sizing: border-box;
+                }
+                --actions-icon-button: {
+                    height: 16px;
+                    width: 16px;
+                    background: #FFFFFF;
+                    color: var(--palette-cerulean);
+                    padding: 0 !important;
+                    margin: 0 5px;
+                    top: -2px;
+                }
+                --pebble-button-paper-menu: {
+                    background: #FFFFFF;
+                }
+                --pebble-button-paper-menu-item: {
+                    background: #FFFFFF;
+                    color: var(--palette-cerulean);
+                    padding: 0px 8px;
+                }
+            }
+        </style>
+        <div class="list-item row layout-middle">
+            <div class$="{{_computeClass(myTodo.status)}} todo-status"></div>
+            <div class="contentContainer">
+                <div class="row layout-middle">
+                    <div class="circle">
+                        [[_numberOfTasks]]
+                    </div>
+                    <div id="workflowMetadataContainer" class="content-div list-content" data="[[myTodo.workflowData]]" on-tap="_onActivityTap">
+                        <div class="to-do-name block-text">[[myTodo.name]]</div>
+                    </div>
+                    <div class="sub-content text-right">
+                        <div id="viewDetails" class="text-link" on-tap="_showHideDetails">
+                            [[_detailsToggleText]] &raquo;
+                        </div>
+                    </div>
+                </div>
+                <div class="clearfix"></div>
+                <div id="moreDetails" hidden="true">
+                    <template is="dom-repeat" items="[[_businessConditionButtons]]" as="businessCondition">
+                        <pebble-button class="action" noink raised action-menu elevation="0" horizontal-align="right" vertical-align="top" button-text="[[businessCondition.businessConditionName]]"
+                            data="[[businessCondition.data]]">
+                        </pebble-button>
+                    </template>
+                </div>
+            </div>
+        </div>
+        <div class="clearfix"></div>
+        </div>
+
+        <liquid-entity-model-get id="initBusinessConditionsGet" operation="initiatesearch" request-data="[[_businessConditionRequest]]"
+            last-response="{{initBusinessConditionsGet}}" on-response="_onInitBusinessConditionsGetResponse" on-error="_onInitBusinessConditionsGetError"></liquid-entity-model-get>
+
+        <liquid-entity-model-get id="businessConditionsGet" operation="getsearchresultdetail" request-data="[[_businessConditionRequest]]"
+            request-id="[[initBusinessConditionsGet.content.requestId]]" on-response="_onBusinessConditionsGetResponse" on-error="_onBusinessConditionsGetError"></liquid-entity-model-get>
+
+        <liquid-entity-govern-data-get name="governDataGet" operation="initiatesearch" request-data="{{_governDataRequest}}" on-response="_onGovernDataResponse"></liquid-entity-govern-data-get>
+
+    </template>
+    <script>
+        Polymer({
+
+            is: 'my-todo-summary',
+
+            properties: {
+
+                /**
+                 * Fired when any of the my-todo is tapped in my-todo's widget with event name: "rock-my-todo-click" and data is the data of the clicked my-todo
+                 *
+                 * @event bedrock-event
+                 */
+
+                /**
+                 * myTodo represents the data
+                */
+                myTodo: {
+                    type: Object,
+                    notify: true,
+                    value: {}
+                },
+
+                _detailsToggleText: {
+                    type: String,
+                    value: 'View details'
+                },
+
+                _contexts: {
+                    type: Array,
+                    value: function () {
+                        return ['self/sku_ruleContextMappings', 'self/lot_ruleContextMappings', 'self/productPresentation_ruleContextMappings']
+                    }
+                },
+
+                _businessConditionButtons: {
+                    type: Array,
+                    value: function () {
+                        return [];
+                    }
+                },
+
+                _numberOfTasks: {
+                    type: Number,
+                    value: 0
+                },
+
+                _governDataRequest: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+
+                _businessConditionRequest: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                }
+            },
+
+            attached: function () {
+                var governDataLiquid = this.$$("[name=governDataGet]");
+                if (governDataLiquid) {
+                    var req = {
+                        "params": {
+                            "query": {
+                                "contexts": [
+                                    {
+                                        "workflow": this.myTodo.workflowName
+                                    }
+                                ],
+                                "filters": {
+                                    "attributesCriterion": [
+                                        {
+                                            "activities/activityName": {
+                                                "eq": this.myTodo.name
+                                            }
+                                        }
+                                    ],
+                                    "typesCriterion": ["sku", "lot", "productPresentation"]
+                                }
+                            }
+                        }
+                    };
+
+                    if (!_.isEmpty(this.myTodo.workflowData.user)) {
+                        var userId = "";
+                        var user = this.myTodo.workflowData.user;
+
+                        if (user.toLowerCase() == "all") {
+                            userId = "";
+                        } else if (user.toLowerCase() == "currentuser") {
+                            userId = DataHelper.getUserId();
+                        } else if (user.toLowerCase() == "unassigned") {
+                            userId = "_UNASSIGNED";
+                        }
+
+                        if (userId) {
+                            req.params.query.filters.attributesCriterion.push({
+                                "activities/assignedUser": {
+                                    "eq": userId
+                                }
+                            });
+                        }
+                    }
+
+                    req.params.options = { "from": 0, "to": 0 };
+
+                    this._governDataRequest = req;
+                    governDataLiquid.generateRequest();
+                }
+            },
+
+            _onGovernDataResponse: function (e) {
+                if (e.detail && e.detail.response) {
+                    var response = e.detail.response;
+                    if (response) {
+                        if (response.content && response.content.items) {
+                            var items = response.content.items;
+                            if (items.length) {
+                                this._numberOfTasks = items.length;
+                            }
+                        }
+                    }
+                }
+            },
+
+            /**
+             *  This s internal function used to compute the class based on the status of my-todo
+             */
+            _computeClass: function (status) {
+                if (status) {
+                    if (status == "red") {
+                        return 'border-left-1';
+                    } else if (status == "orange") {
+                        return 'border-left-2';
+                    } else {
+                        return 'border-left-3';
+                    }
+                }
+                return 'border-left-3';
+            },
+
+            _showHideDetails: function () {
+                var moreDetails = this.$$('#moreDetails');
+                if (moreDetails) {
+                    if (moreDetails.hidden) {
+                        moreDetails.hidden = false;
+                        this._showBusinessConditions();
+                    } else {
+                        moreDetails.hidden = true;
+                        this._detailsToggleText = "View details";
+                    }
+                }
+            },
+
+            /**
+             * This is internal function used to fire an rock-my-todo-click when my-todo element is tapped
+             */
+            _onActivityTap: function () {
+                var eventData = {
+                    name: "rock-my-todo-click",
+                    data: this.myTodo.workflowData,
+                }
+                this.fire('bedrock-event', eventData);
+            },
+
+            _onInitBusinessConditionsGetResponse: function () {
+
+                var businessConditionsGet = this.$$('#businessConditionsGet');
+                if (typeof (businessConditionsGet) === "undefined" || businessConditionsGet == null) {
+                    console.error("Element having id businessConditionsGet not found.");
+                    this._showMessage(this._errorMessage);
+                    return;
+                }
+
+                businessConditionsGet.generateRequest();
+            },
+
+            _onBusinessConditionsGetResponse: function (e) {
+                var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response);
+                if (responseContent) {
+                    var ruleContextMappings = responseContent.entityModels;
+
+                    if (ruleContextMappings && ruleContextMappings.length) {
+                        var firstRuleContextMapping = ruleContextMappings[0];
+
+                        if (firstRuleContextMapping && firstRuleContextMapping.data) {
+                            var contextBaseMappings = firstRuleContextMapping.data.contexts;
+
+                            if (contextBaseMappings && contextBaseMappings.length) {
+                                var businessConditions = [];
+                                contextBaseMappings.forEach(function (ctxMapping) {
+                                    if (ctxMapping && ctxMapping.relationships) {
+                                        var hasBusinessConditions = ctxMapping.relationships['hasBusinessConditions'];
+
+                                        if (hasBusinessConditions && hasBusinessConditions.length) {
+                                            hasBusinessConditions.forEach(function (businessCondition) {
+                                                if (businessCondition && businessCondition.attributes) {
+                                                    var stepNameAttr = businessCondition.attributes['stepName'];
+
+                                                    if (stepNameAttr) {
+                                                        var value = AttributeHelper.getFirstAttributeValue(stepNameAttr);
+
+                                                        if (value && value == this.myTodo.name) {
+                                                            var businessConditionItem = {
+                                                                "businessConditionName": businessCondition.relTo.name,
+                                                                "data": {
+                                                                    "wfName": this.myTodo.workflowName,
+                                                                    "wfActivityName": this.myTodo.name,
+                                                                    "bcId": businessCondition.relTo.id,
+                                                                    "user": this.myTodo.user
+                                                                }
+                                                            };
+
+                                                            businessConditions.push(businessConditionItem);
+                                                        }
+
+                                                    }
+                                                }
+                                            }, this);
+                                        }
+                                    }
+                                }, this);
+                                this._prepareBusinessConditions(businessConditions);
+                            }
+                        }
+                    }
+
+                } else {
+                    console.error("EntityModelGetByIdsResponse Content not found.");
+                    this._showMessage(this._errorMessage);
+                }
+            },
+
+            _onBusinessConditionsGetError: function (e) {
+                console.error("EntityModelGetByIdsError:- " + e.detail.response.reason.message);
+                this._showMessage(this._errorMessage);
+            },
+
+            _prepareBusinessConditions: function (businessConditions) {
+                if (businessConditions && businessConditions.length) {
+                    this._businessConditionButtons = businessConditions;
+                }
+            },
+
+            _showBusinessConditions: function () {
+                this._detailsToggleText = "Hide details";
+                this._businessConditionButtons = [];
+                var contexts = [];
+                this._contexts.forEach(function (element) {
+                    contexts.push({
+                        "self": element,
+                        "workflow": this.myTodo.workflowName
+                    });
+                }, this);
+
+                if (this.myTodo) {
+                    var req = {
+                        "params": {
+                            "query": {
+                                "contexts": contexts,
+                                "filters": {
+                                    "typesCriterion": [
+                                        "ruleContextMappings"
+                                    ],
+                                    "relationshipsCriterion": [
+                                        {
+                                            "hasBusinessConditions": {
+                                                "attributes": [
+                                                    {
+                                                        "stepName": {
+                                                            "eq": this.myTodo.name
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            "fields": {
+                                "relationships": [
+                                    "hasBusinessConditions"
+                                ],
+                                "relationshipAttributes": [
+                                    "stepName"
+                                ]
+                            }
+                        }
+                    };
+
+                    var initBusinessConditionsGet = this.$$('#initBusinessConditionsGet');
+
+                    if (typeof (initBusinessConditionsGet) === "undefined" || initBusinessConditionsGet == null) {
+                        console.error("Element having id initBusinessConditionsGet not found.");
+                        return;
+                    }
+                    this._businessConditionRequest = req;
+                    initBusinessConditionsGet.generateRequest();
+                }
+            }
+        });
+    </script>
+</dom-module>

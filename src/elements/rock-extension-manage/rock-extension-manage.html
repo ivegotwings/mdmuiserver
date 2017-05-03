@@ -1,0 +1,199 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
+
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+<link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
+<link rel="import" href="../liquid-rest/liquid-rest.html">
+
+<link rel="import" href="../pebble-accordion/pebble-accordion.html">
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../pebble-vertical-divider/pebble-vertical-divider.html">
+<link rel="import" href="../pebble-tree/pebble-tree.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+
+<link rel="import" href="../rock-attribute-list/rock-attribute-list.html">
+<link rel="import" href="../rock-classification-tree/rock-classification-tree.html">
+<!--<link rel="import" href="classification-get-data.html">-->
+<!--
+`rock-extension-manage` represents a component that renders all the extensions of the entity.
+Can manage current extensions, create new extensions etc.
+
+@element rock-extension-manage
+@group rock-elements
+@demo demo/index.html
+-->
+<dom-module id="rock-extension-manage">
+    <template>
+        <style include="pebble-styles-shared">
+
+            .extensions-container{
+                /*margin: inherit;*/
+            }
+            .tree-heading {
+                font-weight: bold;
+                font-size: var(--default-font-size, 14px);
+            }
+            .button {
+                --pebble-button: {
+                    height: 30px;
+                    width: 100px;
+                    background: var(--white);
+                    border: 1px solid var(--cloudy-blue-color);
+                    font-size: 15px;
+                }
+            }
+
+            .focus {
+                --pebble-button: {
+                    height: 30px;
+                    width: 100px;
+                    font-size: 15px;
+                    background: var(--button-bg-color);
+                    color: var(--white);
+                }
+            }
+
+            #buttonContainer {
+                bottom: 0;
+                padding: 20px 0;
+                background: rgba(255, 255, 255, 0.80);
+                text-align: center;
+                border-top: 1px solid var(--default-border-color, #c1cad4);
+                z-index: 9999;
+            }
+        </style>
+            <div class="extensions-container" align="center">
+                    <div class="tree-heading">Classification selection</div>
+                    <rock-classification-tree id="contextTree" multi-select="[[multiSelect]]" taxonomy="[[taxonomy]]" context-data="{{contextData}}" selected-item="{{_selectedItem}}" selected-items="{{_selectedItems}}"></rock-classification-tree>
+            </div>
+        <div id="buttonContainer" align="center">
+            <pebble-button id="cancel" class="btn btn-secondary m-r-10" button-text="Skip" on-tap="_skipSelection" elevation=1 raised></pebble-button>
+            <pebble-button id="save" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
+        </div>
+        <liquid-entity-data-save id="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" on-response="_onSaveResponse"></liquid-entity-data-save>
+    </template>
+    <script>
+        (function () {
+            'use strict';
+
+            Polymer({
+                is: "rock-extension-manage",
+                properties: {
+                    contextData:{
+                        type:Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _selectedItems: {
+                        type: Array,
+                        value: function() {return [];}
+                    },
+                    _selectedItem: {
+                        type: Object,
+                        value: function() {return {};}
+                    },
+                    taxonomy:{
+                        type:String ,
+                        value:""
+                    },
+                    businessFunctionData: {
+                        type: Object,
+                        value: function() { return {}; }
+                    },
+                    multiSelect:{
+                        type:Boolean,
+                        value:false
+                    }
+
+                },
+                behaviors: [
+                    RUFBehaviors.UIBehavior,
+                    RUFBehaviors.ComponentContextBehavior
+                ],
+                _save:function () {
+                    var selectedItems=[];
+                    if(this.multiSelect){
+                        if(this._selectedItems && this._selectedItems.length) {
+                            selectedItems = this._selectedItems;
+                        }
+                    } else {
+                        if(this._selectedItem && !_.isEmpty(this._selectedItem)){
+                            selectedItems=[this._selectedItem];
+                        }
+                    }
+                    if(selectedItems.length==0) {
+                        this.showErrorToast("No context data selected to save.");
+                        return;
+                    }
+                    var updatedDataContexts=[];
+
+                    for(var i in selectedItems){
+                        var context={};
+                        var valuePath=selectedItems[i].valuePath;
+                        if(valuePath){
+                            valuePath=valuePath.replace(/#@#/g, "\/");
+                        }
+                        context.classification=valuePath;
+                        if(this.taxonomy){
+                            context["taxonomy"]=this.taxonomy;
+                        }
+                        updatedDataContexts.push({"context":context});
+                    }
+                    var data={};
+                    data.contexts=updatedDataContexts;
+                    var firstItemContext=this.getFirstItemContext();
+                    var entity={
+                        "id":firstItemContext.id,
+                        "type":firstItemContext.type,
+                        "data":data
+                    };
+
+                    //TODO:: This will be temporary fix needs to come up with good solution.
+                    if(this._isNotificationDisabled()) {
+                        var clientState = {};
+                        clientState.notificationInfo = {};
+                        clientState.notificationInfo.showNotificationToUser = false;
+                        this.set("_saveRequest",{"clientState": clientState, "entities":[entity]});
+                    } else {
+                        this.set("_saveRequest",{"entities":[entity]});                        
+                    }
+
+                    var liquidSave=this.$$("#attributeSaveDataService");
+                    if(liquidSave){
+                        liquidSave.generateRequest();
+                    }
+                },
+                _skipSelection:function () {
+                    this._selectedItems=[];
+                    var eventName = "onSkip";
+                    var eventDetail = {
+                        name: eventName
+                    }
+                    this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                },
+                _onSaveResponse:function () {
+                    this.showSuccessToast("Context data saved successfully.");
+                    var eventName = "onSave";
+                    var eventDetail = {
+                        name: eventName
+                    }
+                    this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                },
+                _isNotificationDisabled: function() {
+                    var app = ComponentHelper.getCurrentActiveApp();
+                    if(app.is == "app-business-function") {
+                        return true;
+                    }
+                    return false;
+                }
+
+            });
+        })();
+    </script>
+</dom-module>

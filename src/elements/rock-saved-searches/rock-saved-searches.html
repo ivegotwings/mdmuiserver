@@ -1,0 +1,815 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
+
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../liquid-config-get/liquid-config-get.html">
+<link rel="import" href="../liquid-config-save/liquid-config-save.html">
+
+<link rel="import" href="../pebble-icons/pebble-icons.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-horizontal-divider/pebble-horizontal-divider.html">
+<link rel="import" href="../pebble-popover/pebble-popover.html">
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+
+<link rel="import" href="../rock-tabs/rock-tabs.html">
+
+<link rel="import" href="rock-create-edit-saved-searches.html">
+
+<!--
+`rock-saved-searches` Represents an element that displays the saved searches.
+
+@demo demo/index.html
+-->
+<dom-module id="rock-saved-searches">
+    <template>
+        <style include="pebble-styles-shared"></style>
+        <style is="custom-style" include="iron-flex">
+            /*#savedSearchButton {
+                --pebble-button: {
+                    height: 32px;
+                    padding: 1em 0em 1em 0.3em;
+                    color: #2068BD;
+                    border: 1px solid #2068BD;
+                    font-size: small;
+                    margin: 0;
+                }
+                --pebble-button-dropdown-icon: {
+                    height: 20px !important;
+                    width: 20px !important;
+                }
+            }*/
+            
+            #newSavedSearch {
+                font-weight: var(--font-bold, bold);
+                font-size: var(--font-size-md, 16px);
+            }
+            
+            #createEditSavedSearch {
+                /*padding-left: 5px;*/
+                --pebble-button: {
+                    font-size: var(--default-font-size, 14px)!important;
+                    color: #036BC3;
+                }
+                --pebble-button-iron-icon: {
+                    height: 16px !important;
+                    width: 16px !important;
+                    color: #036BC3 !important;
+                }
+            }
+            
+            pebble-horizontal-divider {
+                --pebble-horizontal-divider-color: #ccc;
+            }
+            
+            .savedSearchLabel {
+                color: var(--title-text-color, #191e22);
+                font-weight: var(--font-bold, bold);
+                font-size: var(--font-size-md, 16px);
+                display: inline-block;
+            }
+            
+            #createEditSavedSearch {
+                float: right;
+            }
+            
+            rock-tabs::shadow pebble-tab-group {
+                margin-bottom: 15px;
+            }
+
+            rock-tabs::shadow pebble-tab-group pebble-tab {
+                margin-left: 0;
+            }
+            
+            pebble-button::shadow iron-icon[icon="icons:add"] {
+                color: #036bc3!important;
+                margin-top: 1px;
+            }
+            
+            #savedSearchButton::shadow paper-button {
+                font-size: var(--default-font-size, 14px);
+            }
+            
+            #createEditSavedSearch::shadow paper-button {
+                font-size: 12px !important;
+            }
+
+            rock-tabs {
+                --rock-tab-content: {
+                    @apply(--saved-search-tab-content);
+                }
+            }
+
+        </style>
+        <!--Liquid start-->
+        <liquid-config-get id="liqInitiateSearch" auto$="[[auto]]" operation="initiatesearch" request-data="{{initiateSearchRequestData}}"
+            last-response="{{initiateSearchResponse}}" on-response="_onInitiateSearchResponse">
+        </liquid-config-get>
+        <liquid-config-get id="liqGetSearchResultDetail" operation="getsearchresultdetail" on-response="_onGetSearchResultDetailResponse">
+        </liquid-config-get>
+        <liquid-config-save name="configSaveService" on-response="_onSaveSearchResponse"></liquid-config-save>
+        <!--Liquid end-->
+        <bedrock-pubsub event-name="component-creating" handler="_onComponentCreating"></bedrock-pubsub>
+        <bedrock-pubsub event-name="favourite-saved-search" handler="_onTapSavedSearchFavourite" target-id=""></bedrock-pubsub>
+        <bedrock-pubsub event-name="delete-saved-search" handler="_onTapSavedSearchDelete" target-id=""></bedrock-pubsub>
+        <!--Title, Settings and Create/Edit link-->
+        <div id="newSavedSearch">
+            <template is="dom-if" if="[[showTitle]]">
+                <div class="savedSearchLabel">Saved Searches</div>
+            </template>
+            <template is="dom-if" if="[[showSettings]]">
+            <pebble-button icon="pebble-md-icons:Settings" data-tooltip="Settings" class="pebble-md-icons pull-right m-l-15 tooltip-bottom"></pebble-button>
+            </template>
+            <template is="dom-if" if="[[allowCreateEditSearch]]">
+                <pebble-button id="createEditSavedSearch" icon="pebble-sm-icons:Add" button-text="Create or Edit Saved Search" noink class="pebble-sm-icons createEditSavedSearch icon"
+                on-tap="_onCreateEditSavedSearchTap"></pebble-button>
+            </template>
+        </div>
+        <!--Tabs section-->
+        <template is="dom-if" if="[[!noTabs]]">    
+            <rock-tabs id="rock-saved-searches-tabs" config="[[_tabConfig]]" selected-tab="{{_selectedTab}}"></rock-tabs>
+        </template>
+        <!--Create/Update section-->
+        <template is="dom-if" if="[[noTabs]]">
+            <rock-create-edit-saved-searches edit-mode="{{noTabs}}" saved-search-id="[[savedSearchId]]" create-edit-model="[[savedSearches]]"></rock-create-edit-saved-searches>
+        </template>        
+    </template>
+    <script>
+        (function () {
+            'use strict';
+
+            var _favSearch = 'favourites';
+            var _mySearch = 'my-searches';
+            var _sharedSearch = 'shared-searches';
+            var tabs = { "favourites": 0, "my-searches": 1, "shared-searches": 2 };
+
+            Polymer({
+
+                is: 'rock-saved-searches',
+                /**
+                * Fired when the saved search is tapped in the 
+                * saved search widget with the name: `rock-saved-search-click`. 
+                * Here, data is the data of the clicked saved search.
+                *
+                * @event bedrock-event
+                */
+
+                /**
+                * Fired when the user taps or clicks on the save button inside `Create New Saved Search popover` 
+                * with the name: "saved-search-save".
+                *
+                * @event bedrock-event	
+                */
+                properties: {
+                    /**
+                    * Indicates the config for the tabs.
+                    */
+                    _tabConfig: {
+                        type: Object,
+                        notify: true,
+                        value: function () {
+                            return {
+                                "scrollable": false,
+                                "tabItems": [
+                                    {
+                                        "name": "favourites",
+                                        "title": "Favourites",
+                                        "selected": true,
+                                        "enableDropdownMenu": false,
+                                        "component": {
+                                            "name": "rock-saved-searches-tags",
+                                            "path": "/src/elements/rock-saved-searches/rock-saved-searches-tags.html",
+                                            "properties": {
+                                                "saved-search-category": "favourites"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "my-searches",
+                                        "title": "My Searches",
+                                        "enableDropdownMenu": false,
+                                        "component": {
+                                            "name": "rock-saved-searches-tags",
+                                            "path": "/src/elements/rock-saved-searches/rock-saved-searches-tags.html",
+                                            "properties": {
+                                                "saved-search-category": "my-searches"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "shared-searches",
+                                        "title": "Shared Searches",
+                                        "enableDropdownMenu": false,
+                                        "component": {
+                                            "name": "rock-saved-searches-tags",
+                                            "path": "/src/elements/rock-saved-searches/rock-saved-searches-tags.html",
+                                            "properties": {
+                                                "saved-search-category": "shared-searches"
+                                            }
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    },
+
+                    contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },             
+                    
+                    /**
+                     * Indicates the search identification which is selected by the consumer.
+                     */
+                    savedSearchId: {
+                        type: Number,
+                        value: null,
+                        notify: true
+                    },
+
+                    /** 
+                      * Indicates the saved searches.
+                      */
+                    savedSearches: {
+                        type: Object,
+                        value: function () { return {}; },
+                        notify: true,
+                        observer: '_onSavedSearchesChange'
+                    },
+
+                    // Indicates saved searches
+                    _allSavedSearches: {
+                        type: Object,
+                        value: function () { return { "favourites": {}, "my-searches": {}, "shared-searches": {} }; }
+                    },
+
+                    // Selected tab details
+                    _selectedTab: {
+                        type: Object,
+                        value: function () { return {}; },
+                        notify: true,
+                        observer: '_onSelectedTabChange'
+                    },
+
+                    allowCreateEditSearch: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    showSettings: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    noTabs: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    showTitle: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    auto: {
+                        type: Boolean,
+                        value: false
+                    },
+                    initiateSearchRequestData: {
+                        type: Object,
+                        value: function () { return {}; }
+                    },
+                    initiateSearchResponse: {
+                        type: Object,
+                        value: function () { return {}; },
+                        notify: true
+                    },
+                    resultedEntities: {
+                        type: Object,
+                        value: function () { return []; },
+                        notify: true
+                    },
+                    pageSize: {
+                        type: Number,
+                        value: 100
+                    },
+                    _originalSearches: {
+                        type: Array,
+                        value: function() { return []; }
+                    },
+                    _originalSearchMappings: {
+                        type: Array,
+                        value: function() { return []; }
+                    },
+                    appName: {
+                        type: String,
+                        value: "app-entity-discovery"
+                    },
+                    _searchRequest: {
+                        type: Object,
+                        value: function() { return {}; }
+                    },
+                    _mappingRequest: {
+                        type: Object,
+                        value: function() { return {}; }
+                    }
+                },               
+                
+                listeners: {
+                    'tag-item-select': '_onTagItemSelect'
+                },
+                behaviors: [
+                    RUFBehaviors.UIBehavior
+                ],
+                observers: [
+                    '_triggerSearchTransform(_originalSearches, _originalSearchMappings)',
+                    '_onContextDataChange(contextData, appName)'
+                ],
+
+                _onContextDataChange: function() {
+                    if(this.contextData && !_.isEmpty(this.contextData))
+                    {   
+                        var _clonedContextData = DataHelper.cloneObject(this.contextData);
+                        var _searchCtxData = DataHelper.cloneObject(this._prepareContext(_clonedContextData));
+                        var _mappingCtxData = DataHelper.cloneObject(this._prepareContext(_clonedContextData, "searchmapping"));
+
+                        this._searchRequest = DataRequestHelper.createSavedSearchInitialRequest(_searchCtxData);
+                        this._mappingRequest = DataRequestHelper.createSavedSearchInitialRequest(_mappingCtxData);
+
+                        //Raise initial request for search and on search response raise for mappings
+                        this.generateRequest(this._searchRequest);                        
+                    }                    
+                },
+
+                //Prepare context for mappings
+                _prepareContext: function(_clonedContextData, type) {
+                    var _context = {};
+                    var userContext = ContextHelper.getFirstUserContext(_clonedContextData);
+
+                    if(type == "searchmapping" && userContext)
+                    {
+                        _context = {
+                            "app": this.appName,
+                            "service": "_ALL",
+                            "component": "_ALL",
+                            "subComponent": "_ALL",
+                            "role": userContext.role,
+                            "user1": userContext.user                       
+                        };
+                        var _typesCriterion = ["savedSearchMappings"];
+                    }
+                    else
+                    {
+                        _context = {
+                            "app": this.appName,
+                            "service": "_ALL",
+                            "component": "_ALL",
+                            "subComponent": "_ALL"                        
+                        };
+                        var _typesCriterion = ["savedSearch"]; // , "workflowSavedSearch"
+                    }                    
+                    
+                    //Set context
+                    _clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [_context];
+                    _clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = _typesCriterion;                    
+                    
+                    return _clonedContextData;
+                },
+
+                _triggerSearchTransform: function() {                    
+                    if(this._originalSearches && this._originalSearchMappings) {
+                        var userContext = ContextHelper.getFirstUserContext(this.contextData);
+                        this.savedSearches = DataTransformHelper.transformSavedSearches(this._originalSearches, this._originalSearchMappings, userContext);
+
+                        this.async(function() {
+                            //Reload tabs to get updated tags
+                            if (this.$$('rock-tabs') && this.$$('rock-tabs').$$('rock-saved-searches-tags'))
+                            {
+                                this.$$('rock-tabs').reloadTabs();
+                            }
+                        });
+                    }
+                },
+
+                _onCreateEditSavedSearchTap: function (e) {
+                    this.noTabs = true;
+                    this.async(function () {
+                        //This is to execute the logic for all scenarios on create/edit link on-click
+                        this.$$('rock-create-edit-saved-searches').OnCreateEditButtonClick();
+                    });
+                },                                
+
+                // Fired when rock-tabs creates component
+                _onComponentCreating: function (e, detail, sender) {                    
+                    var component = detail.data;
+
+                    if (this.savedSearches) {
+                       component.properties["saved-searches"] = this.savedSearches;
+                    }
+                },
+
+                /**
+                * Fired when filter tag triggers a tag-item-select event.
+                */
+                _onTagItemSelect: function (e) {
+                    var eventData = {
+                        name: "rock-saved-search-click",
+                        data: e.detail
+                    };
+                    this.fire('bedrock-event', eventData);
+                },
+
+                // On tab change populate searches
+                // Note - this will be removed once we integrated with liquid
+                _onSelectedTabChange: function () {
+                    if(this.$$('rock-tabs'))
+                    {  
+                        this.async(function(){                            
+                            this.$$('rock-tabs').$$('pebble-tab-group').notifyResize();
+                        }, 600); //Delayed to populate the tabs properly                        
+                    }
+                },                
+
+                // On saved searches change, populate searches and select respected search tab
+                _onSavedSearchesChange: function () {
+                    this._populateAllSearches();
+
+                    if (this.savedSearchId && this.$$('rock-tabs')) 
+                    {
+                        var listName = this._getSearchListNameBySearchId();
+                        this.$$('rock-tabs').selectedTabIndex = tabs[listName];
+                    }
+
+                    if (this.$$('rock-tabs') && this.$$('rock-tabs').$$('rock-saved-searches-tags'))
+                    {
+                        this.$$('rock-tabs').reloadTabs();                       
+                    }
+                },
+
+                // Populate all searches
+                _populateAllSearches: function () {
+                    if (this.savedSearches) {
+                        if (this.savedSearches[_mySearch]) {
+                            for (var idx = 0; idx < this.savedSearches[_mySearch].length; idx++) {
+                                this._allSavedSearches[_mySearch][this.savedSearches[_mySearch][idx].id] = this.savedSearches[_mySearch][idx];
+                            }
+                        }
+
+                        if (this.savedSearches[_favSearch]) {
+                            for (var idx = 0; idx < this.savedSearches[_favSearch].length; idx++) {
+                                this._allSavedSearches[_favSearch][this.savedSearches[_favSearch][idx].id] = this.savedSearches[_favSearch][idx];
+                            }
+                        }
+
+                        if (this.savedSearches[_sharedSearch]) {
+                            for (var idx = 0; idx < this.savedSearches[_sharedSearch].length; idx++) {
+                                this._allSavedSearches[_sharedSearch][this.savedSearches[_sharedSearch][idx].id] = this.savedSearches[_sharedSearch][idx];
+                            }
+                        }
+                    }
+
+                },
+
+                // Is search name already exists in the system
+                isSearchNameAlreadyExists: function(search, isUpdate){
+                    //Todo: IF service available for duplicate search, then change this logic to liquid search
+                    if(this._originalSearches)
+                    {
+                        for(var i = 0; i < this._originalSearches.length; i++)
+                        {
+                            if(DataHelper.isValidObjectPath(this._originalSearches[i], "data.contexts.0.jsonData.config"))
+                            {
+                                var _search = this._originalSearches[i].data.contexts[0].jsonData.config;
+                                if(_search.name &&
+                                   _search.name.toLowerCase() == search.name.toLowerCase())
+                                {
+                                    if(!isUpdate)
+                                    {
+                                        return true;
+                                    }
+                                    else
+                                    {
+                                        //For update, ignore current search name
+                                        if(search.selectedSearch && search.selectedSearch.id != _search.id)
+                                        {
+                                            return true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    return false;
+                },
+
+                // Get search list name
+                _getSearchListNameBySearchId: function () {
+                    if (this._allSavedSearches[_favSearch][this.savedSearchId]) {
+                        return _favSearch;
+                    }
+
+                    if (this._allSavedSearches[_mySearch][this.savedSearchId]) {
+                        return _mySearch;
+                    }
+
+                    if (this._allSavedSearches[_sharedSearch][this.savedSearchId]) {
+                        return _sharedSearch;
+                    }
+                },
+                generateRequest: function (requestData) {
+                    if(requestData)
+                    {
+                        this.initiateSearchRequestData = requestData;
+                        this.$$('#liqInitiateSearch').generateRequest();
+                    }
+                },
+                _onInitiateSearchResponse: function (e) {
+                    var getDetailOptions = { 'from': 0, 'to': this.pageSize - 1 };
+                    this._makeGetSearchResultDetailCall(getDetailOptions, e);
+                },
+                _makeGetSearchResultDetailCall: function (options, event) {
+                    var liqGetSearchResultDetail = this.$$('#liqGetSearchResultDetail');
+
+                    var searchResultId = this.initiateSearchResponse.content.requestId;
+                    var totalRecords = this.initiateSearchResponse.content.totalRecords;
+
+                    if (options.from < totalRecords) {
+                        var reqData = this.initiateSearchRequestData;
+                        reqData.params.options = options;
+
+                        liqGetSearchResultDetail.requestId = searchResultId;
+                        liqGetSearchResultDetail.requestData = reqData;
+
+                        liqGetSearchResultDetail.generateRequest();
+                    }
+                    else
+                    {                       
+                        if(DataHelper.isValidObjectPath(event, "detail.request.requestData.params.query.filters.typesCriterion") &&event.detail.request.requestData.params.query.filters.typesCriterion[0] != "savedSearchMappings")
+                        {
+                            if(DataHelper.isValidObjectPath(this._mappingRequest, "params.options"))
+                            {
+                                delete this._mappingRequest.params.options;
+                            }
+                            this.generateRequest(this._mappingRequest);
+                        }
+                    }
+                },
+                _onGetSearchResultDetailResponse: function (e) {
+                    var _requestType;
+                    if(DataHelper.isValidObjectPath(event, "detail.request.requestData.params.query.filters.typesCriterion"))
+                    {
+                        _requestType = event.detail.request.requestData.params.query.filters.typesCriterion[0];
+                    }
+                    
+                    //Transform data and keep the data in savedSearches
+                    if(e.detail.response && 
+                       e.detail.response.status == "success" && 
+                       e.detail.response.content && 
+                       e.detail.response.content.configObjects)
+                    {
+                        if(_requestType == "savedSearchMappings")
+                        {
+                            //this._originalSearchMappings = e.detail.response.content.configObjects;
+                            this._originalSearchMappings.push.apply(this._originalSearchMappings, e.detail.response.content.configObjects);
+
+                            //Notify changes
+                            var _originalSearchMappings = this._originalSearchMappings;
+                            this._originalSearchMappings = [];
+                            this._originalSearchMappings =  _originalSearchMappings;
+                        }
+                        else
+                        {
+                            //this._originalSearches = e.detail.response.content.configObjects;
+                            this._originalSearches.push.apply(this._originalSearches, e.detail.response.content.configObjects);
+
+                            //Notify changes
+                            var _originalSearches = this._originalSearches;
+                            this._originalSearches = [];
+                            this._originalSearches =  _originalSearches;
+                        }
+                    }
+
+                    var requestedOptions = e.detail.request.requestData.params.options;
+
+                    if (requestedOptions) {
+                        requestedOptions.from = requestedOptions.to + 1;
+                        requestedOptions.to = requestedOptions.from + (this.pageSize - 1);
+
+                        this._makeGetSearchResultDetailCall(requestedOptions, e);
+                    }
+                },
+                
+                _onTapSavedSearchFavourite: function (e, detail, sender) {
+                    var _foundInFav = false;                    
+                    var _tag = detail.parentButton;
+
+                    // If mappings available then update
+                    if(this._originalSearchMappings && this._originalSearchMappings.length > 0)                           {            
+                        var _favourites = this._originalSearchMappings[0].data.contexts[0].jsonData.config.favoriteSavedSearches;
+                        
+                        for(var i = 0; i < _favourites.length; i++)
+                        {
+                            if(_favourites[i] == _tag.searchname)
+                            {
+                                _favourites.splice(i, 1);
+                                _foundInFav = true;
+                                this.showSuccessToast([[_tag.name]]+" is removed from favourites");
+                                break;                            
+                            }
+                        }
+
+                        if(!_foundInFav) //Its not fav, then make it fav now
+                        {
+                            _favourites.push(_tag.searchname);
+                            this.showSuccessToast([[_tag.name]]+ " is added to favourites");
+                        }
+
+                        var _reqData = { "configObjects" : [this._originalSearchMappings[0]] } //Mapping have only one record
+                        this.generateSaveRequest(_reqData, "update");
+                    }
+                    else // When no mapping, then create request and submit
+                    {
+                        var _clonedContextData = DataHelper.cloneObject(this.contextData);
+                        var _createMappingRequestData = DataRequestHelper.savedSearchCreateRequest(this._prepareCreateMappingContext(_clonedContextData, _tag), "savedsearchmapping", this.appName);
+                        
+                        var _reqData = { "configObjects" : [_createMappingRequestData] }
+                        this.generateSaveRequest(_reqData, "create");
+                        
+                    }
+                },
+                _onTapSavedSearchDelete: function (e, detail, sender) {
+                    console.log('Delete: ', detail);
+                },
+
+                // Generate save request
+                generateSaveRequest: function (reqData, operation) {
+                    var configSaveService = this.$$('[name="configSaveService"]');
+
+                    if(configSaveService) {
+                        configSaveService.operation = operation;
+                        configSaveService.requestData = reqData;
+                        configSaveService.generateRequest();
+                    }
+                },
+                _onSaveSearchResponse: function(e)
+                {
+                    this._originalSearchMappings = [];
+                    this._originalSearches = [];
+                    
+                    if(DataHelper.isValidObjectPath(this._searchRequest, "params.options"))
+                    {
+                        delete this._searchRequest.params.options;
+                    }
+
+                    this.generateRequest(this._searchRequest);
+                },
+
+                // Create and Update saved search
+                createUpdateSavedSearch: function(searchInfo, type) {
+                    //Prepare request
+                    if(type == "create")
+                    {
+                        var _clonedContextData = DataHelper.cloneObject(this.contextData);
+                        var _createRequestData = DataRequestHelper.savedSearchCreateRequest(this._prepareCreateContext(_clonedContextData, searchInfo), "savedsearch", this.appName);
+                        
+                        var _reqData = { "configObjects" : [_createRequestData] }
+                        this.generateSaveRequest(_reqData, "create");
+                    }
+                    else //update
+                    {
+                        var _selectedSearch = searchInfo["saved-search-info"].selectedSearch;
+                        var _originalSearch = {};
+                        //Find original search based on searchInfo - _originalSearches
+                        for(var i = 0; i < this._originalSearches.length; i++)
+                        {
+                            var _orginalName = this._originalSearches[i].data.contexts[0].jsonData.config.searchname;
+                            if(_orginalName == _selectedSearch.searchname)
+                            {
+                                _originalSearch = this._originalSearches[i];
+                                break;
+                            }
+                        }
+
+                        var _userContext = ContextHelper.getFirstUserContext(this.contextData);
+                        var _user = this._getUserRolePerAccessType(searchInfo["saved-search-info"], _userContext);
+                        
+                        // Original search details updated based on the changes
+                        _originalSearch.data.contexts[0].jsonData.config.name = searchInfo["saved-search-info"].name;
+                        _originalSearch.data.contexts[0].jsonData.config.accesstype = searchInfo["saved-search-info"].accesstype;
+                        _originalSearch.data.contexts[0].jsonData.config.dimensions = searchInfo["dimensions"];
+                        _originalSearch.data.contexts[0].jsonData.config.searchQuery = searchInfo["search-query"];
+                        _originalSearch.data.contexts[0].jsonData.config.searchTags = searchInfo["search-tags"];
+                        _originalSearch.data.contexts[0].jsonData.config.user = _user.user;
+                        _originalSearch.data.contexts[0].jsonData.config.role = _user.role;
+
+                        var _reqData = { "configObjects" : [_originalSearch] }
+                        this.generateSaveRequest(_reqData, "update");
+                    }                    
+                },
+
+                // Context for create saved search
+                _prepareCreateContext: function(_clonedContextData, searchInfo) {
+                    var _context = {};
+                    var userContext = ContextHelper.getFirstUserContext(_clonedContextData);                    
+                    _context = {
+                            "app": this.appName,
+                            "service": "_ALL",
+                            "component": "_ALL",
+                            "subComponent": "_ALL"
+                    };
+
+                    var _data = {};
+                    var _user = this._getUserRolePerAccessType(searchInfo["saved-search-info"], userContext);
+
+                    _data = {
+                        "config": {
+                                "id": ElementHelper.getRandomString(),
+                                "accesstype": searchInfo["saved-search-info"].accesstype,
+                                "name": searchInfo["saved-search-info"].name,
+                                "icon": "pebble-icons:SavedSearch",
+                                "user": _user.user,
+                                "role": _user.role,
+                                "dimensions": searchInfo["dimensions"],
+                                "searchQuery": searchInfo["search-query"],
+                                "searchTags": searchInfo["search-tags"],
+                                "workflowCriterion": searchInfo["workflowCriterion"]
+                            }
+                        };
+                    
+                    var _contextsObject = {
+                        "context": _context,
+                        "jsonData": _data
+                    }
+                    
+                    
+                    //Set context
+                    _clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [_contextsObject];
+                    
+                    return _clonedContextData;
+                },
+
+                _getUserRolePerAccessType: function(searchInfo, userContext) {
+
+                    if(!searchInfo || !userContext)
+                    {
+                        return;
+                    }
+
+                    if(searchInfo.accesstype)
+                    {
+                        if(searchInfo.accesstype == "_ROLE")
+                        {
+                            return {
+                                "user": userContext.user,
+                                "role": userContext.role
+                            }                           
+                        }                       
+                        else
+                        {                            
+                            return {
+                                "user": userContext.user,
+                                "role": ""
+                            }
+                        }
+                    }
+                },
+
+                // Context for create mappings
+                _prepareCreateMappingContext: function(_clonedContextData, tag) {
+                    var _context = {};
+                    var userContext = ContextHelper.getFirstUserContext(_clonedContextData);                    
+                    _context = {
+                            "app": this.appName,
+                            "service": "_ALL",
+                            "component": "_ALL",
+                            "subComponent": "_ALL",
+                            "role": userContext.role,
+                            "user1": userContext.user
+                    };
+
+                    var _data = {};
+
+                    _data = {
+                        "config": {
+                                    "favoriteSavedSearches": [ tag.searchname ]
+                                  }
+                        };
+                    
+                    var _contextsObject = {
+                        "context": _context,
+                        "jsonData": _data
+                    }
+                    
+                    
+                    //Set context
+                    _clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [_contextsObject];
+                    
+                    return _clonedContextData;
+                }
+            });
+        })();
+    </script>
+</dom-module>
