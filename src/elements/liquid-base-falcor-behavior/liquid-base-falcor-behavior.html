@@ -52,10 +52,9 @@
                 value: '',
                 notify: true
             },
-            _dataChannelName: {
+            dataIndex: {
                 type: String,
                 value: 'Unknown',
-                readonly: true
             },
             excludeInProgress: {
                 type: Boolean,
@@ -80,9 +79,14 @@
                 if (this.verbose) {
                     console.log('request operation is blank so NO request operation would be generated..terminating gracefully...');
                 }
+
                 return;
             }
 
+            if (!this._executeRequest) {
+                throw "_executeRequest method is not defined";
+                return;
+            }
             this._addRequestCount();
             this._handleProgress();
             this.push('activeRequests', request);
@@ -91,16 +95,16 @@
             this.fire('request', { request: request }, { bubbles: this.bubbles });
             this.fire('liquid-request', { request: request }, { bubbles: this.bubbles });
 
-            if (this._executeRequest) {
-                var model = RUFBehaviors.DataChannel.getModel(this._dataChannelName);
-                var modelResponse = this._executeRequest(model, request);
-                //console.log('response: ', JSON.stringify(modelResponse, null, 2));
-                if (!this._handleModelResponse(request, modelResponse)) //if mode response is not queued ...no need to create active request..
-                    return;
-            } else {
-                throw "_executeRequest method is not defined";
+            var model = RUFBehaviors.DataChannel.getModel(this.dataIndex);
+
+            var modelResponse = this._executeRequest(model, request);
+            //console.log('response: ', JSON.stringify(modelResponse, null, 2));
+            
+            if (!this._handleModelResponse(request, modelResponse)) {
+                //if moded response is not queued ...no need to create active request..
                 return;
             }
+
             return request;
         },
         _executeRequest: function (model, request) {
@@ -125,6 +129,7 @@
             var self = this;
             if (modelResponse && modelResponse.then) {
                 modelResponse.then(function (resPkg) {
+                        self.removeFalcorKeys(resPkg);
                         return self._handleResponse(request, resPkg);
                     },
                     function (errPkg) {
@@ -201,6 +206,16 @@
 
             this._addResponseCount();
             this._handleProgress();
+        },
+        removeFalcorKeys: function (obj) {
+            for(prop in obj) {
+                if (prop === '$__path') {
+                    delete obj[prop];
+                }
+                else if (typeof obj[prop] === 'object') {
+                    this.removeFalcorKeys(obj[prop]);
+                }
+            }
         },
         _addResponseCount: function () {
             if (!this.excludeInProgress) {

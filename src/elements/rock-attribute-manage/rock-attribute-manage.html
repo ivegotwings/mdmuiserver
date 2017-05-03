@@ -51,21 +51,15 @@ It is responsible to get and save the attributes.
             
             #buttonContainer {        
                 position: fixed;
-                bottom: 0;
-                left: 40px;       
-                padding: 20px 0;
-                background: rgba(255, 255, 255, 0.80);
+                bottom: 27px;
+                left: 66px;
+                padding: 0;       
                 display: none;
                 text-align: center;
-                border-top: 1px solid var(--default-border-color, #c1cad4);
-                z-index: 9999;
-            }
-            pebble-dialog::shadow #dialog { 
-                width: 400px;
-                top: 20% !important;
+                z-index: 99;
             }
             #errorsDialog {
-                --popup-header-color: red;
+                --popup-header-color:var(--palette-pinkish-red, #ee204c);
             }
             pebble-dialog::shadow ::content > ul {
                 padding-left: 50px !important;
@@ -77,27 +71,24 @@ It is responsible to get and save the attributes.
         <pebble-dialog id="errorsDialog" dialog-title="Errors on page">
             <p>Found below errors in entity details: </p>
             <ul>
-                <template is="dom-repeat" items="[[_errorMessages]]">
-                    <li>[[item.attributeName]] with error: [[item.message]]</li>
+                <template is="dom-repeat" items="[[_syncValidationErrors]]">
+                    <li>[[item.attributeExternalName]] with error: [[item.message]]</li>
                 </template>
             </ul>             
             <p>Do you want to fix the errors or continue?</p>  
             <div class="buttons">                
-                <paper-button dialog-confirm class="btn btn-secondary" on-tap="_skipErrors">Skip & Continue</paper-button>
-                <paper-button dialog-confirm class="btn btn-success">Fix</paper-button>
+                <paper-button dialog-confirm class="btn btn-secondary" on-tap="_skipServerErrors" >Skip & Continue</paper-button>
+                <paper-button dialog-confirm class="btn btn-success" on-tap="_fixServerErrors" >Fix</paper-button>
             </div>
         </pebble-dialog>
-        <pebble-dialog id="cancelDialog" dialog-title="Confirmation">
+        <pebble-dialog id="cancelDialog" dialog-title="Confirmation" modal show-cancel show-ok no-cancel-on-outside-click no-cancel-on-esc-key small>
             <p>Are you sure you want to discard the unsaved changes.</p>
-            <div class="buttons">                
-                <paper-button dialog-confirm class="btn btn-secondary">No</paper-button>
-                <paper-button dialog-confirm class="btn btn-success" on-tap="_revertAll">Yes</paper-button>
-            </div>
         </pebble-dialog>
+        <bedrock-pubsub event-name="on-buttonok-clicked" handler="_revertAll" target-id="cancelDialog"></bedrock-pubsub>
         <rock-attribute-list context-data="[[contextData]]" show-group-name$=[[showGroupName]] group-name="[[groupName]]" attribute-values="[[_attributeValues]]"
             attribute-models="[[_attributeModels]]" no-of-columns="[[noOfColumns]]" mode="{{mode}}" attribute-messages="{{_attributeMessages}}"></rock-attribute-list>
         <liquid-entity-data-get name="attributeGetDataService" operation="getbyids" request-data="{{_attributeRequest}}" last-response="{{_attributeResponse}}"></liquid-entity-data-get>
-        <liquid-entity-govern-data-get id="attributeGetMessageService" no-cache operation="getbyids" request-data={{_attributeMessageRequest}}
+        <liquid-entity-govern-data-get id="attributeGetMessageService" operation="getbyids" request-data={{_attributeMessageRequest}}
             on-response="_onAttributesMessageReceived" on-error="_onEntityGetFailed"></liquid-entity-govern-data-get>
         <liquid-entity-data-save name="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}"
             on-response="_onSaveResponse"></liquid-entity-data-save>
@@ -267,7 +258,7 @@ It is responsible to get and save the attributes.
                         type: Object,
                         value: function() { return {}; }
                     },
-                    _errorMessages: {
+                    _syncValidationErrors: {
                         type: Array,
                         value: function() { return []; }
                     }
@@ -289,8 +280,10 @@ It is responsible to get and save the attributes.
                         var width = Polymer.dom(this).parentNode.clientWidth;
                         this.$.buttonContainer.style.width = width + "px";
                         this.$.buttonContainer.style.display = "inline-block";
+                        this.$$("rock-attribute-list").style.paddingBottom = "120px";
                     } else {
                         this.$.buttonContainer.style.display = "none";
+                        this.$$("rock-attribute-list").style.paddingBottom = "10px";
                     }
                 },
                 _contextChanged: function (valueContexts) {
@@ -430,8 +423,7 @@ It is responsible to get and save the attributes.
                     var attributeList = Polymer.dom(this).node.$$('rock-attribute-list');
 
                     //If have errors return
-                    if(!this.allowSaveOnError && this._hasErrors(attributeList))
-                    {
+                    if(!this.allowSaveOnError && attributeList.hasModelErrors()) {
                         this.showErrorToast("Cannot save the entity, please resolve the errors.");
                         return;
                     }
@@ -496,24 +488,6 @@ It is responsible to get and save the attributes.
                     if (liquidSave) {
                         liquidSave.generateRequest();
                     }
-                },
-                _hasErrors: function(attributeList) {
-                    var _attributes = [];
-
-                    if(attributeList)
-                    {
-                        _attributes = Polymer.dom(attributeList.root).querySelectorAll('rock-attribute');
-                    }                    
-
-                    for (var i = 0; i < _attributes.length; i++)
-                    {
-                        if(_attributes[i].validationErrors.length > 0)
-                        {
-                            return true;
-                        }
-                    }
-
-                    return false;
                 },
                 _onSaveResponse: function (e) {
                     var mainApp = document.querySelector('#app');
@@ -583,7 +557,7 @@ It is responsible to get and save the attributes.
                         }                      
                         if(!_.isEmpty(attrMessages)) {
                             var errorMessages = MessageHelper.getErrorsFromAttrMessages(attrMessages, this._attributeModels);
-                            this.set("_errorMessages", errorMessages);
+                            this.set("_syncValidationErrors", errorMessages);
                             this.$$('#errorsDialog').open();
                             return;
                         } else {
@@ -598,8 +572,26 @@ It is responsible to get and save the attributes.
                     console.warn('Failed in validation service with errors ', JSON.stringify(e));
                     this.showErrorToast("There is a problem in validation service. Please contact administrator.");
                 },
-                _skipErrors: function() {
+                _skipServerErrors: function() {
                     this._saveEntity();
+                },
+                _fixServerErrors: function() {
+                    if(this._syncValidationErrors) {
+                        var newAttributeMessages = {};
+                        for(var i=0;i<this._syncValidationErrors.length;i++) {
+                            var attributeMessages = this._syncValidationErrors[i];
+                            var attributeName = attributeMessages.attributeName;
+                            var message = attributeMessages.message;
+                            if(attributeName && message) {
+                                var newMessages = [];
+                                newAttributeMessages[attributeName] = newMessages;
+                                if(newMessages.indexOf(message) < 0) {
+                                    newMessages.unshift(message);
+                                }
+                            }
+                        }
+                    }
+                    this.set('_attributeMessages', newAttributeMessages);
                 },
                 /**
                  * Can be used to get the elements if they are dirty.
