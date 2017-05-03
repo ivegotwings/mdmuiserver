@@ -11,6 +11,7 @@ const passThroughService = new PassThroughService(options);
 
 var PassThroughRouter = function (app) {
     app.post('/pass-through/*', async function (req, res) {
+        
         // var responseContent = "";
         // Object.keys(req).forEach(function(key){
         //     responseContent += (key + ": " + req[key]+ "<br>\n" );
@@ -24,6 +25,18 @@ var PassThroughRouter = function (app) {
         var response = await passThroughService.call(req);
         res.status(200).send(response);
 
+    });
+    app.post('/pass-through/matchservice/search', async function (req, res) {
+        var response = await passThroughService.bulkCall(req);
+        res.status(200).send(response);
+    });
+    app.post('/pass-through-bulk/entitygovernservice/workflowChangeAssignment', async function (req, res) {
+        var response = await passThroughService.bulkCall(req);
+        res.status(200).send(response);
+    });
+    app.post('/pass-through-bulk/entitygovernservice/transitionWorkflow', async function (req, res) {
+        var response = await passThroughService.bulkCall(req);
+        res.status(200).send(response);
     });
 };
 
