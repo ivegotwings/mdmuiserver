@@ -58,7 +58,7 @@ var DFServiceBase = function (options) {
             timeout: this._timeout
         };
 
-        //var hrstart = process.hrtime();
+       // var hrstart = process.hrtime();
                 
         var reqPromise = this._restRequest(options)
             .catch(function (errors) {
@@ -77,12 +77,12 @@ var DFServiceBase = function (options) {
 
         var result = await reqPromise;
 
-        // console.log('------------------RDF CALL ------------------------------');
-        // var hrend = process.hrtime(hrstart);
-        // options.taken = hrend[1]/1000000;
-        // console.log(JSON.stringify(options, null, 2));
-        // console.log('-----------------------------------------------------------------\n\n');
-
+        /*console.log('------------------RDF CALL ------------------------------');
+        var hrend = process.hrtime(hrstart);
+        options.taken = hrend[1]/1000000;
+        console.log(JSON.stringify(options, null, 2));
+        console.log('-----------------------------------------------------------------\n\n');
+*/
         return result;
     };
 
