@@ -1,0 +1,498 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+
+<link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
+
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+
+<link rel="import" href="../rock-entity-lov/rock-entity-lov.html">
+
+<dom-module id="rock-roll-up">
+    <template>
+        <style include="pebble-styles-shared">
+            rock-entity-lov::shadow pebble-lov {
+                width: 250px;
+                border: 1px solid rgba(27,31,35,0.15);
+                padding: 10px 0px;
+            }
+            rock-entity-lov {
+                margin: 0 auto;
+                display: inline-block;
+                padding: 20px;
+            }
+            .lovContainer {
+                text-align: center;                
+            }
+            .message {
+                text-align: center;
+            }
+            .buttons {
+                text-align: center;
+            }
+        </style>
+        <pebble-spinner active="[[_loading]]"></pebble-spinner>
+        <template is="dom-if" if="[[!_isInitiated(_initiated)]]">
+            <div class="buttons">                                 
+                 <paper-button class="btn btn-success" on-tap="_onTapProcess" data-args="new">Group to new Entity</paper-button>
+                 <paper-button class="btn btn-success" on-tap="_onTapProcess" data-args="existing">Group to existing Entity</paper-button>
+            </div>
+        </template>
+        <template is="dom-if" if="[[_isInitiated(_initiated)]]">                   
+            <div class="message m-t-10">[[_message]]</div>
+            <template is="dom-if" if="[[!_isNewRollup(_newRollup)]]">               
+                <template is="dom-if" if="[[!_doNotallowUserActions]]">        
+                    <div class="lovContainer m-t-10">
+                        <div>Select the entity to add relationship</div>
+                        <rock-entity-lov id="rockEntityLovForDropdown"
+                                        request-data="[[_lovRequestData]]"
+                                        selected-items="{{selectedItems}}"
+                                        id-field="[[_lovValueField]]"
+                                        title-pattern="[[titlePattern]]"
+                                        value-field="[[_lovValueField]]"
+                                        multi-select>                               
+                        </rock-entity-lov>
+                        <div class="buttons">                
+                            <paper-button class="btn btn-secondary" on-tap="_onCancel">Cancel</paper-button>
+                            <paper-button class="btn btn-success" on-tap="_onAddRelationships">Save</paper-button>
+                        </div>
+                    </div>
+                </template>
+            </template>
+        </template>
+        <liquid-entity-data-save name="entitySaveService" 
+                                 request-data="{{_saveRequest}}" 
+                                 last-response="{{_saveResponse}}"
+                                 on-response="_onSaveResponse" 
+                                 on-error="_onSaveError" >
+        </liquid-entity-data-save>               
+    </template>
+    <script>
+        (function () {
+            'use strict';
+
+            Polymer({
+                is: 'rock-roll-up',
+
+                properties: {
+                    contextData: {
+                         type:Object,
+                         value: function() {
+                            return {};
+                         }
+                    },
+
+                    selectedEntities: {
+                        type: Array,
+                        value: function() {
+                            return [];
+                        }
+                    },
+
+                    _newRollup: {
+                        type: Boolean  
+                    },
+
+                    _initiated: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    _lovRequestData: {
+                        type: Object,
+                        value: function() { return {}; }
+                    },
+
+                    businessFunctionData: {
+                        type: Object,
+                        value: function() { return {}; }
+                    },
+
+                    entityType: {
+                        type: String
+                    },
+
+                    relationshipType: {
+                        type: String
+                    },
+
+                    relationshipName: {
+                        type: String
+                    },
+
+                    sourceEntityType: {
+                        type: String
+                    },
+
+                    direction: {
+                        type: String
+                    },
+
+                    titlePattern: {
+                        type: String   
+                    },
+
+                    _loading: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    _message: {
+                        type: String
+                    },
+
+                    _doNotallowUserActions: {
+                        type: Boolean,
+                        value: false
+                    },
+                    
+                    _lovValueField: {
+                        type: String,
+                        value: "id"
+                    },
+
+                    _redirectEntity: {
+                        type: Object,
+                        value: function() { return {}; }
+                    }
+                },
+
+                behaviors: [
+                    RUFBehaviors.UIBehavior,
+                    RUFBehaviors.ComponentContextBehavior
+                ],
+
+                _onTapProcess: function(e) {
+                    var _processType = Polymer.dom(e).rootTarget.getAttribute('data-args');
+
+                    if(_processType == "new")
+                    {
+                        this._newRollup = true;
+                    }
+                    else
+                    {
+                        this._newRollup = false;
+                    }
+
+                    this._initiated = true;
+                    this._executeRollupProcess();
+                },
+
+                _isInitiated: function() {
+                    return this._initiated;
+                },
+
+                _isNewRollup: function() {
+                    return this._newRollup;
+                },
+
+                _executeRollupProcess: function () {
+                    // Start process when all the details are available
+                    if(this.contextData && !_.isEmpty(this.contextData) && 
+                       this.selectedEntities && this.selectedEntities.length > 0 &&
+                       this.entityType && this.relationshipType && this.relationshipName &&
+                       this.sourceEntityType && this._newRollup != undefined &&
+                       this.direction) {
+
+                           this._loading = true;
+
+                           //Remove selected entities which are not correct
+                           if(!this._isValidSelectedEntities())
+                           {
+                               this._message = "Some or all selected entities are not valid for the process, please select valid entities.";
+                               this._doNotallowUserActions = true;
+                               this._loading = false;
+                               return;
+                           }
+
+                           if(this._newRollup) // No LOV
+                           {                                
+                                this._createEntity();
+                           }
+                           else // LOV
+                           {
+                               this._loadEntitiesPerType();
+                           }
+                   }     
+                },
+
+                _isValidSelectedEntities: function() {                    
+                    for(var i = 0; i < this.selectedEntities.length; i++)
+                    {
+                        if(this.selectedEntities[i].type != this.sourceEntityType)
+                        {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                },
+
+                _loadEntitiesPerType: function() {
+                    var _clonedContextData = DataHelper.cloneObject(this.contextData);
+                    var _entityRequest = DataRequestHelper.createEntityGetRequest(_clonedContextData);
+                    if(_entityRequest && DataHelper.isValidObjectPath(_entityRequest, "params.query.filters.typesCriterion"))
+                    {
+                        //Prepare request to get all entities of the type
+                        _entityRequest.params.query.filters.typesCriterion = [];
+                        _entityRequest.params.query.filters.typesCriterion.push(this.entityType);
+                        delete _entityRequest.params.query.contexts;                        
+                        delete _entityRequest.params.fields;
+
+                        this._lovRequestData = _entityRequest;
+                    }
+
+                    this._loading = false;                    
+                },
+
+                // Entity can be created for lot, pp and ensemble
+                _createEntity: function() {
+                    this._message = "Creating the new entity";
+
+                    var _clonedContextData = DataHelper.cloneObject(this.contextData);
+                    var userContext = ContextHelper.getFirstUserContext(_clonedContextData);                   
+                   
+                    var entityId = "e" + ElementHelper.getRandomString();
+                    var itemCtx = ContextHelper.getFirstItemContext(_clonedContextData);
+                    itemCtx.id = entityId;
+                    itemCtx.type = this.entityType;
+
+                    // Todo - should be removed, once able to create entity without attributes
+                    var tempAttributes = [
+                        { 
+                            "value": entityId, 
+                            "source": "internal", 
+                            "locale": "en-US", 
+                            "selfContext": 1, 
+                            "name": "id" 
+                        }
+                    ];
+
+                    var newEntity = DataTransformHelper.prepareEntityForCreate(entityId, this.entityType, tempAttributes, _clonedContextData, userContext.user);
+
+                    this._saveRequest = {
+                        "entities": [newEntity]
+                    };
+
+                    var liquidSave = this.$$("[name=entitySaveService]");
+                    if (liquidSave) {
+                        liquidSave.operation = "create";
+                        liquidSave.generateRequest();
+                    }
+                },
+
+                _onSaveResponse: function(e, detail) {
+                    if(detail.request.operation != "update") // Once entity is created, then create relationships
+                    {
+                        if(DataHelper.isValidObjectPath(detail, "request.requestData.entities.0"))
+                        {
+                            var _entity = detail.request.requestData.entities[0];
+                            this._redirectEntity = {"id" : _entity.id, "type": _entity.type};
+
+                            var _targetList = [];
+                            _targetList.push({"id" : _entity.id, "type": _entity.type});
+
+                            if(this.direction == "up")
+                            {
+                               this._createRelationshipsUp(_targetList);
+                            }
+                            else
+                            {
+                                this._createRelationshipsDown(_targetList);
+                            }
+                        }                                                                        
+                    }
+                    else
+                    {
+                        this._triggerFinishStep();
+                    }
+                },
+
+                _onSaveError: function(e, detail) {
+                    this.showErrorToast("Unable to procecss the rollups now, please contact administrator.");
+                    console.warn(e);
+                },
+
+                // lot-sku (isChildOf)
+                _createRelationshipsUp: function(_targetList) {
+                        this._message = "Creating relationships";
+                        var _clonedContextData = DataHelper.cloneObject(this.contextData);                        
+                        if(this.selectedEntities && this.selectedEntities.length > 0 && _targetList && _targetList.length > 0)
+                        {
+                            var _relationshipList = [];
+                            for (var i = 0; i < _targetList.length; i++)
+                            {
+                                _relationshipList.push({  
+                                                            "direction": "both",
+                                                            "relationshipType": this.relationshipType,
+                                                            "relTo": {
+                                                                "id": _targetList[i].id,
+                                                                "type": _targetList[i].type
+                                                            }
+                                                        });
+                            }
+
+                            var upRelationshipRequests = [];
+                            for(var i = 0; i < this.selectedEntities.length; i++)
+                            {
+                                var upRelationshipRequest = {
+                                                    "id": this.selectedEntities[i].id,
+                                                    "type": this.selectedEntities[i].type,
+                                                    "data": {           
+                                                                "relationships": {}
+                                                            }                                                        
+                                                 };
+                                 
+                                 upRelationshipRequest.data.relationships[this.relationshipName] = _relationshipList;
+                                 upRelationshipRequests.push(upRelationshipRequest);
+                            }
+
+                            this._saveRequest = {
+                                "entities": upRelationshipRequests
+                            };
+
+                            var liquidSave = this.$$("[name=entitySaveService]");
+                            if (liquidSave) {
+                                liquidSave.operation = "update";
+                                liquidSave.generateRequest();
+                            }
+                        }                            
+                },
+
+                // ensembletopp
+                // productpresentationtolot
+                _createRelationshipsDown: function(_targetList) {
+                    this._message = "Creating relationships";
+                    var _clonedContextData = DataHelper.cloneObject(this.contextData);
+                    if (this.selectedEntities && this.selectedEntities.length > 0 && _targetList && _targetList.length > 0) {
+
+                        var relationshipRequests = [];
+
+                        var relationships = [];
+                        for (var i = 0; i < this.selectedEntities.length; i++) {
+                            relationships.push({                                
+                                "direction": "both",
+                                "relationshipType": this.relationshipType,
+                                "relTo": {
+                                    "id": this.selectedEntities[i].id,
+                                    "type": this.selectedEntities[i].type
+                                }
+                            });
+                        }
+
+                        for (var i = 0; i < _targetList.length; i++)
+                        {
+                            var relReq = {
+                                "id": _targetList[i].id,
+                                "type": _targetList[i].type,
+                                "data": {
+                                    "relationships": {}
+                                }
+                            };
+                            relReq.data.relationships[this.relationshipName] = relationships;
+                            relationshipRequests.push(relReq);
+                        }
+
+                        this._saveRequest = {
+                            "entities": relationshipRequests
+                        };
+
+                        var liquidSave = this.$$("[name=entitySaveService]");
+                        if (liquidSave) {
+                            liquidSave.operation = "update";
+                            liquidSave.generateRequest();
+                        }
+                    }                   
+                },
+
+                _onAddRelationships: function() {
+                    if(!this.selectedItems || this.selectedItems.length == 0)
+                    {
+                        return;
+                    }
+
+                    if(this.selectedItems.length == 1)
+                    {
+                        this._redirectEntity = {"id" : this.selectedItems[0].id, "type": this.entityType};
+                    }
+
+                    var _targetList = [];
+                    this._loading = true;
+
+                    for(var i = 0; i < this.selectedItems.length; i++)
+                    {
+                        _targetList.push({"id": this.selectedItems[i].id, "type": this.entityType});
+                    }
+                                        
+                    if(this.direction == "up")
+                    {
+                        this._createRelationshipsUp(_targetList);
+                    }
+                    else
+                    {
+                        this._createRelationshipsDown(_targetList);
+                    }
+                },
+
+                _onCancel: function() {
+                    //Reset
+                    this._message = "";
+                    this._doNotallowUserActions = false;
+
+                    var eventName = "onCancel";
+                        var eventDetail = {
+                            name: eventName
+                        }
+
+                    this.fireBedrockEvent(eventName, eventDetail, {
+                        ignoreId: true
+                    });
+                },
+
+                _triggerFinishStep: function() {
+                    var data = {
+                                "messages": [
+                                    {
+                                        "message": "Completed the entity creation with relationships. What do you want to do now?"
+                                    }
+                                ],
+                                "actions": [                                    
+                                    {
+                                        "name": "goBack",
+                                        "text": "Take me back to where I started",
+                                        "isNotApp": true
+                                    }                                    
+                                ]                                
+                            };
+                        
+                        if(this._redirectEntity && !_.isEmpty(this._redirectEntity)) {
+                            data.actions.push({
+                                        "name": "showEntity",
+                                        "text": "Show me the entity",
+                                        "isNotApp": true,
+                                        "dataRoute": "entity-manage",
+                                        "queryParams": { "id": this._redirectEntity.id, "type": this._redirectEntity.type}
+                                    });
+                        }
+
+                        this.businessFunctionData = data;
+                        var eventName = "onComplete";
+                        var eventDetail = {
+                            name: eventName
+                        }
+
+                        this.fireBedrockEvent(eventName, eventDetail, {
+                                ignoreId: true
+                        });
+                        
+                        this._message = "About to complete, please wait...";
+                        this._loading = true;
+                        this._doNotallowUserActions = true;
+                }              
+            });
+        })();
+    </script>
+</dom-module>
