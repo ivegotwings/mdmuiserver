@@ -216,6 +216,13 @@ Custom property | Description | Default
                     }
                 },
 
+                _entityTypeBusinessConditions: {
+                    type: Array,
+                    value: function () {
+                        return [];
+                    }
+                },
+
                 _originalBusinessConditions: {
                     type: Array,
                     value: function () {
@@ -444,6 +451,9 @@ Custom property | Description | Default
                     // Create Request and Get
                     businessConditionsGet.requestData = DataRequestHelper.createEntityGetRequest(clonedContextData);
                     businessConditionsGet.generateRequest();
+                } else {
+                    console.error("EntityBusinessConditions not found.");
+                    this._showMessage(this._nothingToFixMessage);
                 }
             },
 
@@ -525,8 +535,8 @@ Custom property | Description | Default
 
             _onRuleContextMappingsGetResponse: function (e) {
                 var ruleContextMappingsResponse = e.detail.response;
+                var allBusinessConditions = [];
                 var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response);
-
                 if (responseContent) {
                     var ruleContextMappings = responseContent.entityModels.length > 0 ? responseContent.entityModels[0].data : undefined;
 
@@ -542,6 +552,7 @@ Custom property | Description | Default
                             contextSpecificBusinessCondition["workflowName"] = workflowName;
                             contextSpecificBusinessCondition["businessConditions"] = businessConditions;
                             this.push("_contextSpecificBusinessConditions", contextSpecificBusinessCondition);
+                            allBusinessConditions = allBusinessConditions.concat(businessConditions);
                         }
                     }
 
@@ -557,8 +568,11 @@ Custom property | Description | Default
                                 globalBusinessCondition["attributes"] = globalBusinessConditions[j].attributes;
                                 this.push("_globalBusinessConditions", globalBusinessCondition);
                             }
+                            allBusinessConditions = allBusinessConditions.concat(globalBusinessConditions);
                         }
                     }
+
+                    this._entityTypeBusinessConditions = allBusinessConditions;
                     this._prepareToFixData();
                 } else {
                     console.error("RuleContextMappingsGetResponseContent not found.");
@@ -633,6 +647,8 @@ Custom property | Description | Default
             _prepareToFixData: function () {
                 if (this._isDataSetPrepared()) {
                     var _tofixData = [];
+                    var workflowBusinessConditions = [];
+
                     var tofixGlobalData = {};
                     tofixGlobalData["id"] = "general";
                     tofixGlobalData["label"] = "General";
@@ -656,39 +672,40 @@ Custom property | Description | Default
                             }
                         }
 
+                        
                         for (var i = 0; i < tofixWorkflowDataSet.length; i++) {
                             var tofixWorkflowData = tofixWorkflowDataSet[i];
 
-                            for (var j = 0; j < this._entityBusinessConditionsGovernData.length; j++) {
-                                var entityBusinessCondition = this._entityBusinessConditionsGovernData[j];
+                            //find business conditions mapped to current workflow - from model obejcts
+                            var workflowMappedBusinessConditions = this._getWorkflowMappedBusinessConditions(tofixWorkflowData.id);
 
-                                var isMapped = this._isBusinessConditionMappedToCurrentActivity(entityBusinessCondition.id, tofixWorkflowData.id, tofixWorkflowData.workflowActivityName);
-                                if(isMapped) {
-                                    if (!DataHelper.containsObject(entityBusinessCondition, tofixWorkflowData.businessConditions)) {
-                                        tofixWorkflowData.businessConditions.push(entityBusinessCondition);
-                                        this._entityBusinessConditionsGovernData[j].type = tofixWorkflowData.type;
+                            for (var j = 0; j < workflowMappedBusinessConditions.length; j++) {
+                                var businessConditionAttrs = workflowMappedBusinessConditions[j].attributes;
+                                if(businessConditionAttrs && AttributeHelper.getFirstAttributeValue(businessConditionAttrs.stepName) == tofixWorkflowData.workflowActivityName) {
+                                    workflowBusinessConditions.push(workflowMappedBusinessConditions[j].relTo.id);
+                                    var toFixBusinessCondition = this._getBusinessConditionStatusAndPrepareToFixData(workflowMappedBusinessConditions[j]);
+                                    if (toFixBusinessCondition && !DataHelper.containsObject(toFixBusinessCondition, tofixWorkflowData.businessConditions)) {
+                                        tofixWorkflowData.businessConditions.push(toFixBusinessCondition); 
                                     }
                                 }
                             }
 
-                            // If the BC is not mapped to any of the workflow then it should become Global
+                            //add current wf activity related info in main array
                             if(tofixWorkflowData.businessConditions.length > 0) {
                                 _tofixData.push(tofixWorkflowData);
                             }
                         }
+                    }
 
-                        if(tofixWorkflowDataSet.length > 0) {
-                            for (var x = 0; x < this._entityBusinessConditionsGovernData.length; x++) {
-                                var entityBusinessCondition = this._entityBusinessConditionsGovernData[x];
-                                if(entityBusinessCondition.type !== "Workflow") {
-                                    tofixGlobalData.businessConditions.push(entityBusinessCondition);
-                                }
+                    // If the BC is not mapped to any of the workflow then it should become Global
+                    for (var x = 0; x < this._entityTypeBusinessConditions.length; x++) {
+                        var businessCondition = this._entityTypeBusinessConditions[x];
+                        if(workflowBusinessConditions.indexOf(businessCondition.relTo.id) == -1) {
+                            var toFixBusinessCondition = this._getBusinessConditionStatusAndPrepareToFixData(businessCondition);
+                            if (toFixBusinessCondition && !DataHelper.containsObject(toFixBusinessCondition, tofixGlobalData.businessConditions)) {
+                                tofixGlobalData.businessConditions.push(toFixBusinessCondition);
                             }
-                        } else {
-                            tofixGlobalData.businessConditions = this._entityBusinessConditionsGovernData;
                         }
-                    } else {
-                        tofixGlobalData.businessConditions = this._entityBusinessConditionsGovernData;
                     }
 
                     if(tofixGlobalData.businessConditions.length > 0) {
@@ -751,23 +768,7 @@ Custom property | Description | Default
                 return workflowActivityNames;
             },
 
-            _isBusinessConditionMappedToCurrentActivity: function (businessConditionName, workflowName, workflowActivityName) {
-                var isMapped = false;
 
-                var workflowMappedBusinessConditions = this._getWorkflowMappedBusinessConditions(workflowName);
-                if (workflowMappedBusinessConditions instanceof Array) {
-                    for (var i = 0; i < workflowMappedBusinessConditions.length; i++) {
-                        var contextSpecificBusinessCondition = workflowMappedBusinessConditions[i];
-                        var mappedActivityName = AttributeHelper.getFirstAttributeValue(contextSpecificBusinessCondition.attributes.stepName);
-
-                        if (contextSpecificBusinessCondition.relTo.id == businessConditionName && mappedActivityName == workflowActivityName) {
-                            return isMapped = true;
-                        }
-                    }
-                }
-
-                return isMapped;
-            },
 
             _getWorkflowMappedBusinessConditions: function (workflowName) {
                 if (typeof (this._contextSpecificBusinessConditions) && this._contextSpecificBusinessConditions.length > 0) {
@@ -777,6 +778,20 @@ Custom property | Description | Default
                         }
                     }
                 }
+            },
+
+            _getBusinessConditionStatusAndPrepareToFixData: function(businessCondition) {
+               var unknown = {
+                    "id" : businessCondition.relTo.id,
+                    "name": businessCondition.relTo.name,
+                    "status": "unkown"
+                };
+                for (var i = 0; i < this._entityBusinessConditionsGovernData.length; i++) {
+                    if(this._entityBusinessConditionsGovernData[i].id == businessCondition.relTo.id) {
+                        return this._entityBusinessConditionsGovernData[i];
+                    }
+                }
+                return unknown;
             },
 
             _showMessage: function (message) {
@@ -791,10 +806,14 @@ Custom property | Description | Default
             },
 
             _getIconByType: function (type) {
-                if (type == 'false') {
-                    return 'pebble-sm-icons:errorcheck';
+                if(typeof(type) === "boolean") {
+                    if (type == false) {
+                        return 'pebble-sm-icons:errorcheck';
+                    } else {
+                        return 'pebble-sm-icons:successCheck';
+                    }
                 } else {
-                    return 'pebble-sm-icons:successCheck'
+                    return 'pebble-sm-icons:Clear';
                 }
             },
 
