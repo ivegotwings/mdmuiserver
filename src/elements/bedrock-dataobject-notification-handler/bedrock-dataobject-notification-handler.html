@@ -18,7 +18,7 @@
 <dom-module id="bedrock-dataobject-notification-handler">
     <template>
         <bedrock-pubsub event-name="dataobject-notification" handler="_onDataObjectNotification"></bedrock-pubsub>
-        <bedrock-pubsub event-name="notification-tap" handler="_onNotificationTap"></bedrock-pubsub>        
+        <bedrock-pubsub event-name="notification-tap" handler="_onNotificationTap"></bedrock-pubsub>
     </template>
 
     <script>
@@ -134,18 +134,10 @@
                             } else {
                                 var app = ComponentHelper.getAppById(data.context.appInstanceId);
                                 if (app) {
-                                    var link = "/" + data.tenantId + "/entity-manage?id=" + data.context.id + "&type=" + data.context.type;
-
-                                    var description = "";
-                                    var actions = "";
-                                    if (!isEmpty(link)) {
-                                        description = data.context.workflowAction + " in " + data.context.workflowName + ": " + data.context.workflowActivityName + " has been successfully done for a/an " + data.context.type + " with ID " + data.context.id + ". Do you want to refresh the page to see the changes?";
-                                        actions = " <a href=" + link + " onclick='RUFEventHandlers.reloadClick()' appId='" + data.context.appInstanceId + "'>Reload and open</a>";
-                                        actions = actions + " <a href='' onclick='RUFEventHandlers.reloadClick()' appId='" + data.context.appInstanceId + "'>Reload and keep minimized</a>";
-                                        actions = actions + " <a href='' onclick='RUFEventHandlers.continueClick()'>Continue without Reload</a>";
-                                    }
-                                    data.description = description + actions;
-                                    this._sendToast(data);
+                                    description = data.context.workflowAction + " in " + data.context.workflowName + ": " + data.context.workflowActivityName + " has been successfully done for a/an " + data.context.type + " with ID " + data.context.id + ".";
+                                    data.description = description;
+                                    this._prepareParamsForEntityManageApp(data);
+                                    this._notifyUIOnBadge(data);
                                 }
                             }
                         }
@@ -156,7 +148,6 @@
                 // if app is minimized: send pebble toast with link saying wants to open entity.                 
                 _onGovernComplete: function (data) {
                     if (data.context && data.tenantId) {
-                        var link = "/" + data.tenantId + "/entity-manage?id=" + data.context.id + "&type=" + data.context.type;
                         var isActiveApp = false;
                         var isMinimizedApp = false;
 
@@ -171,20 +162,21 @@
                         if (isActiveApp || isMinimizedApp) {
                             var description = "";
                             var actions = "";
-                            if (!_.isEmpty(link)) {
-                                if (isActiveApp) {
+                            if (isActiveApp) {
+                                if (!this._isToastAlreadyExist(data)) {
+                                    var link = "/" + data.tenantId + "/entity-manage?id=" + data.context.id + "&type=" + data.context.type;
                                     description = 'Some changes that you made have been verified by the system. Do you want to refresh the page to see the changes?';
-                                    actions = '<div id="toast-button"><a href="" onclick="RUFEventHandlers.continueClick()">Continue without Reload</a>';
-                                    actions = actions + '<a href=' + link + ' onclick="RUFEventHandlers.reloadClick()" appId="' + data.context.appInstanceId + '">Reload</a></div>';
-                                } else if (isMinimizedApp) {
-                                    description = 'Some changes that you made have been verified by the system for a/an ' + data.context.type + ' with ID ' + data.context.id + '. Do you want to refresh the page to see the changes?';
-                                    actions = '<div id="toast-button"><a href=' + link + ' onclick="RUFEventHandlers.reloadClick()" appId="' + data.context.appInstanceId + '">Reload and open</a>';
-                                    actions = actions + ' <a href="" onclick="RUFEventHandlers.reloadClick()" appId="' + data.context.appInstanceId + '">Reload and keep minimized</a>';
-                                    actions = actions + ' <a href="" onclick="RUFEventHandlers.continueClick()">Continue without Reload</a></div>';
+                                    actions = '<div id="toast-button"><a href=' + link + ' onclick="RUFEventHandlers.reloadClick()" appId="' + data.context.appInstanceId + '">Reload</a></div>';
+
+                                    data.description = description + actions;
+                                    this._sendToast(data);
                                 }
+                            } else if (isMinimizedApp) {
+                                description = 'Some changes that you made have been verified by the system for a/an ' + data.context.type + ' with ID ' + data.context.id + '.';
+                                data.description = description;
+                                this._prepareParamsForEntityManageApp(data);
+                                this._notifyUIOnBadge(data);
                             }
-                            data.description = description + actions;
-                            this._sendToast(data);
                         }
                     }
 
@@ -196,10 +188,7 @@
                 _onSaveAndGovernFail: function (data) {
                     if (data && data.context) {
                         data.description = data.context.type + " " + data.context.id + " has some errors. Please resolve.";
-                        data.paramData = {
-                            "id": data.context.id,
-                            "type": data.context.type
-                        };
+                        this._prepareParamsForEntityManageApp(data);
                         this._notifyUIOnBadge(data);
                     }
                 },
@@ -209,10 +198,7 @@
                     if (data && data.context) {
                         if (data && data.context) {
                             data.description = data.context.type + " " + data.context.id + " could not be " + data.context.workflowAction + " in " + data.context.workflowName + ": " + data.context.workflowActivityName;
-                            data.paramData = {
-                                "id": data.context.id,
-                                "type": data.context.type
-                            };
+                            this._prepareParamsForEntityManageApp(data);
                             this._notifyUIOnBadge(data);
                         }
                     }
@@ -285,7 +271,7 @@
                         var mainApp = document.querySelector('main-app');
                         if (mainApp) {
                             var pebbleToastElement = document.createElement("pebble-toast");
-                            pebbleToastElement.setAttribute('id', data.context.id); //Just unique id  
+                            pebbleToastElement.setAttribute('id', data.context.id);
                             pebbleToastElement.innerHTML = data.description;
                             pebbleToastElement.toastType = data.status;
                             pebbleToastElement.alignToast = "top";
@@ -307,8 +293,55 @@
                     }
                 },
 
-                _onNotificationTap: function(e, detail) {
-                    alert(JSON.stringify(detail));
+                _onNotificationTap: function (e, detail) {
+                    var appId = detail.appId;
+                    var params = {
+                        "id": detail.id,
+                        "type": detail.type
+                    };
+
+                    if (appId) {
+                        var appElement = ComponentHelper.getAppById(appId);
+                        if (appElement && appElement.refresh) {
+                            appElement.refresh();
+                        }
+                    }
+
+                    ComponentHelper.appRoute("entity-manage", params);
+
+                    var mainApp = document.querySelector("main-app");
+
+                    if (!mainApp) {
+                        return;
+                    }
+
+                    var notificationElementPopover = mainApp.$$('#popoverNotifications');
+
+                    if (notificationElementPopover) {
+                        notificationElementPopover.hide();
+                    }
+                },
+
+                _prepareParamsForEntityManageApp: function (data) {
+                    if (data) {
+                        data.paramData = {
+                            "id": data.context.id,
+                            "type": data.context.type,
+                            "appId": data.context.appInstanceId
+                        };
+                    }
+                },
+
+                _isToastAlreadyExist: function (data) {
+                    var mainApp = document.querySelector('main-app');
+
+                    if (mainApp) {
+                        var pebbleToastElement = mainApp.$$('#' + data.context.id);
+                        if (pebbleToastElement && pebbleToastElement.is == "pebble-toast") {
+                            return true;
+                        }
+                    }
+                    return false;
                 }
             });
         })();
