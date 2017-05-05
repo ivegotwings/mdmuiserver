@@ -27,14 +27,16 @@ DataObjectMergeUtil.mergeDataObjects = function (target, source) {
 
     targetSelfCtxItem = DataObjectMergeUtil.mergeCtxItems(targetSelfCtxItem, sourceSelfCtxItem, false);
 
-    for (var i = 0; i < targetContexts.length; i++) {
-        var targetCtxItem = targetContexts[i];
-        var targetContext = targetCtxItem.context;
+    if(targetContexts) {
+        for (var i = 0; i < targetContexts.length; i++) {
+            var targetCtxItem = targetContexts[i];
+            var targetContext = targetCtxItem.context;
 
-        var sourceCtxItem = falcorUtil.getCtxItem(sourceContexts, targetContext);
+            var sourceCtxItem = falcorUtil.getCtxItem(sourceContexts, targetContext);
 
-        if (sourceCtxItem) {
-            targetCtxItem = DataObjectMergeUtil.mergeCtxItems(targetCtxItem, sourceCtxItem, false);
+            if (sourceCtxItem) {
+                targetCtxItem = DataObjectMergeUtil.mergeCtxItems(targetCtxItem, sourceCtxItem, false);
+            }
         }
     }
 
