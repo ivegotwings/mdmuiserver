@@ -386,7 +386,7 @@ function buildResponse(dataObject, reqData, paths) {
 
     if (!(isEmpty(reqData.attrNames) && isEmpty(reqData.relTypes) && !reqData.jsonData && reqData.operation != "getMappings")) {
 
-        if (isEmpty(dataObject.data)) { return response; }
+        if (isEmpty(dataObject.data)) { return dataObjectResponseJson; }
 
         var data = dataObject.data;
 
