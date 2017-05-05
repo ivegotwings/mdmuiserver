@@ -41,7 +41,7 @@
                 --pebble-connected-badge-width: 30px;
                 --pebble-connected-badge-height: 30px;
                 --connectorLine-width: 2px;
-                --content-connectorLine-width: 3px;
+                --content-connectorLine-width: 2px;
                 --pebble-connected-badge-fontSize: 14px;
             }
             
@@ -139,6 +139,8 @@
             on-response="_onDefinitionReceived" on-error="_onDefinitionGetFailed"></liquid-entity-model-get>
         <liquid-entity-govern-data-get id="entityGetRunningInstance" operation="getbyids" request-id="req2" request-data={{runningInstanceRequest}}
             on-response="_onRunningInstanceReceived" on-error="_onRunningInstanceGetFailed"></liquid-entity-govern-data-get>
+        <liquid-rest id="entityWfEventsGet" url="/pass-through/eventservice/get" method="POST" request-data={{_eventsGetRequest}}
+            on-liquid-response="_onEventsGetResponse" on-liquid-error="_onEventsGetFailure"></liquid-rest>
         <liquid-rest id="entityWfTransition" url="/pass-through/entitygovernservice/transitionWorkflow" method="POST" request-data={{_transitionRequest}}
             on-liquid-response="_onTransitionSuccess" on-liquid-error="_onTransitionFailure"></liquid-rest>
         <pebble-button id="invokeButton" hidden raised class="iconButton btn btn-outline-primary m-r-5" button-text="Start Workflow"
@@ -165,7 +167,7 @@
                                     <div id="step-description">
                                         <span>[[item.stepDetails.description]]</span>
                                     </div>
-                                    <template is="dom-if" if="[[_stepHasDetails(item.stepDetails)]]">
+                                    <template is="dom-if" if="[[_stepHasDetails(item.stepDetails, item.status)]]">
                                         <div id="action-details">
                                             <pebble-image-viewer class="user-image" shape="circle" sizing="contain" src="../../images/no-photo.jpg"></pebble-image-viewer>
                                             <span class="user-details"><a class="user" href="#">[[item.stepDetails.assignedUser]]</a>[[item.stepDetails.details]]</span>
@@ -246,6 +248,10 @@
                     _loading: {
                         type: Boolean,
                         value: false
+                    },
+                    _eventsGetRequest: {
+                        type: Object,
+                        value: function() { return {}; }
                     }
                 },
                 behaviors: [
@@ -276,14 +282,62 @@
                             var itemContext = this.getFirstItemContext();
                             itemContext.workflowNames = this._mappedWorkflowNames;
                             
-                            this.runningInstanceRequest = DataRequestHelper.createWorkflowRuntimeInstanceGetRequest(this.contextData);
-                            this.$$('#entityGetRunningInstance').generateRequest();
+                            this._eventsGetRequest = DataRequestHelper.createWorkflowEventsGetRequest(this.contextData);
+                            this.$$("#entityWfEventsGet").generateRequest();
                         }
                     }
                 },
                 _onMappingsGetFailed: function(e) {
                     console.warn("Failed to get workflow mappings with error: ", e.detail);
                     this.showErrorToast("Failed to get workflow mappings. Please contact administrator.");
+                },
+                 _onEventsGetResponse: function(e) {
+                    var workflowEventsResponse = e.detail.response;
+                    var activitySequence = 0;
+                    var workflowPastEvents = [];
+                    if(workflowEventsResponse && workflowEventsResponse.response && workflowEventsResponse.response.events && workflowEventsResponse.response.events.length > 0) {
+                        var wfEvents = workflowEventsResponse.response.events;
+                        for(var i=0; i< wfEvents.length; i++) {
+                            var wfEvent = wfEvents[i];
+                            if(wfEvent && wfEvent.data && wfEvent.data.contexts && wfEvent.data.contexts.length > 0) {
+                                var context = wfEvent.data.contexts[0].context;
+                                var attributes = wfEvent.data.contexts[0].attributes;
+                                var workflow = context.workflow;
+                                if(!workflowPastEvents[workflow]) {
+                                    workflowPastEvents[workflow] = {
+                                        "attributes": {
+                                            "activities": {
+                                                "group": []
+                                            }
+                                        }
+                                    };
+                                } 
+                                var activity = attributes && attributes.activities && attributes.activities.group && attributes.activities.group.length && attributes.activities.group[0] ? attributes.activities.group[0] : {};
+                                if(!_.isEmpty(activity)) {
+                                    var activityStatus = AttributeHelper.getFirstAttributeValue(activity.status);
+                                    if(activityStatus == "Closed") {
+                                        var activityEndDateTime = AttributeHelper.getFirstAttributeValue(activity.endDateTime);
+                                        var parsedDateTime = Date.parse(activityEndDateTime);
+                                        activity["parsedEndDateTime"] = parsedDateTime;
+                                        workflowPastEvents[workflow].attributes.activities.group.push(activity); 
+                                    }
+                                }
+                            }
+                        } 
+                    }
+                    for(var workflow in workflowPastEvents) {
+                        if(workflowPastEvents[workflow].attributes && workflowPastEvents[workflow].attributes.activities && workflowPastEvents[workflow].attributes.activities.group && workflowPastEvents[workflow].attributes.activities.group.length > 0) {
+                            workflowPastEvents[workflow].attributes.activities.group.sort(function(a,b) {
+                                return b.parsedEndDateTime - a.parsedEndDateTime;
+                            });
+                            for(var i=0; i<workflowPastEvents[workflow].attributes.activities.group.length; i++) {
+                                workflowPastEvents[workflow].attributes.activities.group[i]["sequence"] = { "values": [ { "value": i + 1 } ] };
+                            }
+                        }
+                    }
+                    this.set("_workflowPastEvents", workflowPastEvents);
+                    this.runningInstanceRequest = DataRequestHelper.createWorkflowRuntimeInstanceGetRequest(this.contextData);
+                    this.$$('#entityGetRunningInstance').generateRequest();
                 },
                 _onRunningInstanceReceived: function (e) {
                     var showInvokeButton = true;
@@ -354,11 +408,13 @@
 
                             if (entityModel.data && entityModel.data.attributes) {
                                 
+                                var wfPastAttributes = this._workflowPastEvents[workflowName].attributes;
+
                                 var wfAttributes = entityModel.data.attributes; 
 
                                 var riAttributes = this._runningInstances[workflowName].attributes;
 
-                                var _stepperData = this._transformEntityResponseToStepperJson(wfAttributes, riAttributes, workflowName);
+                                var _stepperData = this._transformEntityResponseToStepperJson(wfPastAttributes, wfAttributes, riAttributes, workflowName);
 
                                 workflowData.push(_stepperData);
                             }
@@ -379,12 +435,13 @@
                 _onDefinitionGetFailed: function (e) {
                     Polymer.Base._error('workflow definition get failed with error ', e.detail);
                 },
-                _transformEntityResponseToStepperJson: function (wfAttributes, riAttributes, workflowName) {
-                    if (wfAttributes && riAttributes) {
+                _transformEntityResponseToStepperJson: function (wfPastAttributes, wfAttributes, riAttributes, workflowName) {
+                    if (wfPastAttributes && wfAttributes && riAttributes) {
+                        var wfPastActivities = wfPastAttributes.activities;
                         var riActivities = riAttributes.activities;
                         var wfActivities = wfAttributes.activities;
+                        var attributes = wfPastAttributes;
 
-                        var attributes = wfAttributes;
                         var keys = Object.keys(riAttributes);
 
                         for (var i = 0; i < keys.length; i++) {
@@ -393,41 +450,38 @@
                                 attributes[key] = riAttributes[key];
                             }
                         }
-
-                        var activitiesJson = wfActivities;
+                        var recentActivity = wfPastActivities.group[wfPastActivities.group.length - 1];
+                        var activitySequence = 0;
+                        if(recentActivity) {
+                            activitySequence = AttributeHelper.getFirstAttributeValue(recentActivity.sequence);
+                        }
+                        
+                        attributes["workflowName"] = wfAttributes["workflowName"];
                         var riActivity = riActivities.group[0];
+                        riActivity["sequence"] = { "values": [ { "value": ++activitySequence } ] };
 
                         var riActivityName = AttributeHelper.getFirstAttributeValue(riActivity.activityName);
                         var riActivityStatus = AttributeHelper.getFirstAttributeValue(riActivity.status);
 
-                        for (var i = 0; i < activitiesJson.group.length; i++) {
-                            var wfActivity = activitiesJson.group[i];
+                        var currentActivityIndex = -1;
+                        for (var i = 0; i < wfActivities.group.length; i++) {
+                            var wfActivity = wfActivities.group[i];
 
                             var wfActivityName = AttributeHelper.getFirstAttributeValue(wfActivity.activityName);
                             if (riActivityName == wfActivityName) {
-                                riActivity["sequence"] = wfActivity["sequence"];
-                                riActivity["activityName"] = wfActivity["activityName"];
+                                currentActivityIndex = i;
                                 riActivity["activityDescription"] = wfActivity["activityDescription"];
                                 riActivity["allowedRoles"] = wfActivity["allowedRoles"];
-                                
                                 riActivity["actions"] = wfActivity["actions"];
                                 
-                                activitiesJson.group[i] = riActivity;
-                                break;
-                            }
-                            else {
-                                activitiesJson.group[i]["status"] = {
-                                    "values": [
-                                        {
-                                            "value": "Closed"
-                                        }
-                                    ]
-                                };
-                                activitiesJson.group[i].actions = {};
+                                attributes.activities.group.push(riActivity);
+
+                            } else if(currentActivityIndex > -1) {
+                                wfActivity["sequence"] = { "values": [ { "value": ++activitySequence } ] };
+                                wfActivity.actions = {};
+                                attributes.activities.group.push(wfActivity);
                             }
                         }
-
-                        attributes["activities"] = activitiesJson;
 
                         if (attributes) {
                             var config = {
@@ -466,7 +520,7 @@
                                     "id": AttributeHelper.getFirstAttributeValue(group.activityGuid),
                                     "index": AttributeHelper.getFirstAttributeValue(group.sequence),
                                     "title": AttributeHelper.getFirstAttributeValue(group.activityName),
-                                    "subtitle": this._getItemSubtitle(group.action, group.endDateTime),
+                                    "subtitle": this._getItemSubtitle(group.performedAction, group.endDateTime),
                                     "status": this._getItemStatus(group.status, config.status),
                                     "selected": this._getSelected(group.status),
                                     "workflowName": workflowName,
@@ -677,10 +731,10 @@
 
                         if(currentActivity) {
                             var itemDescription = AttributeHelper.getFirstAttributeValue(currentActivity.activityDescription);
-                            var assignedUser = AttributeHelper.getFirstAttributeValue(currentActivity.assignedUser);
 
                             var wfStatus = AttributeHelper.getFirstAttributeValue(workflowAttributes.status);
-                            var itemDetail = this._getItemDetail(currentActivity, wfStatus, assignedUser);
+                            var itemDetail = this._getItemDetail(stepItem.workflowName, currentActivity, wfStatus);
+                            var assignedUser = AttributeHelper.getFirstAttributeValue(currentActivity.assignedUser);
                             itemDetailsJson["description"] = itemDescription;
                             itemDetailsJson["assignedUser"] = assignedUser;
                             itemDetailsJson["details"] = itemDetail;
@@ -690,12 +744,14 @@
                         return itemDetailsJson;
                     }
                 },
-                _getItemDetail: function (group, wfStatus, assignedUser) {
+                _getItemDetail: function (workflowName, group, wfStatus) {
                     var status = this._getItemStatus(group.status, wfStatus);
+                    var activityName = AttributeHelper.getFirstAttributeValue(group.activityName);
                     var startDate = AttributeHelper.getFirstAttributeValue(group.startDateTime);
                     var endDate = AttributeHelper.getFirstAttributeValue(group.endDateTime);
-                    var lastAction = AttributeHelper.getFirstAttributeValue(group.action);
+                    var lastAction = AttributeHelper.getFirstAttributeValue(group.performedAction);
                     var comments = AttributeHelper.getFirstAttributeValue(group.comments);
+                    var assignedUser = AttributeHelper.getFirstAttributeValue(group.assignedUser);
                     var itemDetail = "";
                     if (status == "inprogress") {
                         if(!assignedUser || assignedUser == "_UNASSIGNED") {
@@ -708,7 +764,13 @@
                         itemDetail = "  was failed due to technical reason.";
                     }
                     if (status == "completed") {
-                        itemDetail = " Completed step just a while ago."
+                        var msg = "";
+                        if(comments && comments != "") {
+                            msg = "the comment " + comments;
+                        } else {
+                            msg = "no comments.";
+                        }
+                        itemDetail = ' "' + lastAction + '"' + " on " + this._formatDate(endDate) + " with " + msg + ".";
                     }
                     return itemDetail;
                 },
@@ -730,8 +792,8 @@
                     }
                     return false;
                 },
-                _stepHasDetails: function (stepDetails) {
-                    if (stepDetails && stepDetails.assignedUser || stepDetails.details) {
+                _stepHasDetails: function (stepDetails, status) {
+                    if (stepDetails && (stepDetails.assignedUser || stepDetails.details) && status == "inprogress") {
                         return true;
                     }
                     return false;
