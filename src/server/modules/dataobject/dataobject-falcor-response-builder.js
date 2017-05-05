@@ -286,7 +286,7 @@ function _buildRelationshipDetailsResponse(enRel, reqData, relTypeKey, relsJson,
 function _buildJsonDataResponse(jsonData, baseJson) {
     //console.log('reqAttrNames ', attrNames);
     if (isEmpty(jsonData)) {
-        return response;
+        return;
     }
 
     baseJson['jsonData'] = prepareValueJson($atom(jsonData));

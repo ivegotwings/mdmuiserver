@@ -49,6 +49,8 @@
                 return this._callInitiateSearch(model, reqData);
             } else if (op === 'getsearchresultdetail') {
                 return this._callSearchResultDetail(model, request);
+            } else if (op === 'searchandget') {
+                return this._callSearchAndGet(model, request);
             } else if (op === 'getbyids') {
                 return this._callGetByIds(model, request);
             }
@@ -66,7 +68,7 @@
                 var resSearchResultId = Object.keys(rawResponsePkg.json[pathKeys.root][dataIndex][pathKeys.searchResults])[0];
                 return this._formatInitiateSearchResponse(rawResponsePkg.json[pathKeys.root][dataIndex][pathKeys.searchResults][resSearchResultId]);
             }
-            else if (op === 'getsearchresultdetail') {
+            else if (op === 'getsearchresultdetail' || op === 'searchandget') {
                 var formattedDataObjects = [];
                 if (rawResponsePkg != undefined && rawResponsePkg.json && rawResponsePkg.json[pathKeys.root]) {
                     var dataObjects = this._getDataObjects(rawResponsePkg, dataIndex, request);
@@ -90,7 +92,7 @@
             }
         },
         _validateAutoTriggerChanges: function (requestData, operation, requestId) {
-            if (operation === "initiatesearch" && (requestData.path == "requestData.params.fields" || requestData.path == "requestData.params.options")) {
+            if ((operation === "initiatesearch" || operation === "searchandget") && (requestData.path == "requestData.params.fields" || requestData.path == "requestData.params.options")) {
                 return false;
             }
 
@@ -99,7 +101,8 @@
         _validateRequest: function (request) {
             var requestData = request.requestData;
             var operation = request.operation;
-            var mainMessage = 'cannot make request for operation ' + operation + '{0} ... host: ' + this.domHost.localName + '... request: ' + JSON.stringify(requestData);
+            var hostName = this.domHost ? this.domHost.localName : this.localName;
+            var mainMessage = 'cannot make request for operation ' + operation + '{0} ... host: ' + hostName + '... request: ' + JSON.stringify(requestData);
 
             if (!requestData) {
                 console.warn(mainMessage.format(': requestData not found'));
@@ -326,6 +329,10 @@
             var totalRecordsResponse = this._callSearchResultTotalRecordsGet(model, reqId);
 
             totalRecordsResponse.then(function (totalRecordsPkg) {
+                if(!totalRecordsPkg) {
+                    return {};
+                }
+                
                 totalRecords = totalRecordsPkg.json[pathKeys.root][dataIndex][pathKeys.searchResults][reqId].totalRecords;
 
                 var from = reqData.params.options && reqData.params.options.from !== undefined ? reqData.params.options.from : 0;
@@ -365,6 +372,29 @@
 
                     if (self.verbose) {
                         self.log('no search results found for search request id ', reqId);
+                    }
+                }
+            });
+        },
+        _callSearchAndGet: function (model, request) {
+            var op = request.operation;
+            var pathKeys = this._pathKeys;
+            var dataIndex = this.dataIndex;
+            var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
+            var self = this;
+
+            var initiateSearchModelResponse = this._callInitiateSearch(model, request.requestData);
+
+            initiateSearchModelResponse.then(function (rawResponsePkg) {
+                if (rawResponsePkg) {
+                    self.removeFalcorKeys(rawResponsePkg);
+
+                    var resSearchResultId = Object.keys(rawResponsePkg.json[pathKeys.root][dataIndex][pathKeys.searchResults])[0];
+                    var initiateSearchResponse = self._formatInitiateSearchResponse(rawResponsePkg.json[pathKeys.root][dataIndex][pathKeys.searchResults][resSearchResultId]);
+
+                    if (initiateSearchResponse && initiateSearchResponse.totalRecords && initiateSearchResponse.totalRecords > 0) {
+                        request.requestId = initiateSearchResponse.requestId;
+                        return self._callSearchResultDetail(model, request);
                     }
                 }
             });
@@ -484,7 +514,7 @@
             }
 
             if (responsePkg) {
-                
+
                 var dataObjects = this._getDataObjects(responsePkg, this.dataIndex, request);
 
                 for (var dataObjectIdIdx in dataObjects) {
@@ -705,7 +735,7 @@
             var dataObjects = {};
             var dataByIndex = rawResponsePkg.json[pathKeys.root][this.dataIndex];
             if (dataByIndex) {
-                if(request && request.operation === 'getsearchresultdetail') {
+                if (request && (request.operation === 'getsearchresultdetail' || request.operation === 'searchandget')) {
                     dataObjects = dataByIndex[pathKeys.searchResults][request.requestId][pathKeys.searchResultItems];
                 }
                 else {

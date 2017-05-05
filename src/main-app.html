@@ -171,6 +171,9 @@ Main os app for riversand ui framework
                 --pebble-popover-max-width: 556px;
                 --pebble-popover-max-height: 366px;
             }
+            #popoverNotifications::shadow .popover{
+                padding:15px 0px;
+            }
             
             #popoverNotifications rock-notification-list::shadow hr {
                 margin-right: 5px;
@@ -261,9 +264,6 @@ Main os app for riversand ui framework
                     width: 20px;
                     color: #fff;
                 }
-                --pebble-actions-popover: {
-                    border-radius: 4px;
-                }
                 --pebble-actions-button-icon: {
                     color: #fff;
                     height: 16px;
@@ -273,40 +273,11 @@ Main os app for riversand ui framework
                 }
             }
             
-            #quick-actions::shadow pebble-popover paper-item {
-                padding: 5px 10px;
-                /*text-align: center;
-                width: 32%;*/
-            }
-            
             #quick-actions::shadow #actionsPopover {
                 margin-top: 12px !important;
-                padding-bottom: 5px;
             }
             
-            #actionsPopover {
-                padding-bottom: 5px;
-                border: 1px solid rgba(27, 31, 35, 0.15);
-                border-radius: 3px;
-                box-shadow: 0 3px 12px rgba(27, 31, 35, 0.15);
-                -webkit-box-shadow: 0 3px 12px rgba(27, 31, 35, 0.15);
-            }
-            
-            #quick-actions::shadow pebble-popover paper-item #actionItem {
-                font-size: var(--font-size-sm, 12px);
-                color: var(--palette-steel-grey);
-                transition: all 0.3s;
-                -webkit-transition: all 0.3s;
-                line-height: 16px;
-                text-align: left;
-            }
-            
-            #quick-actions::shadow pebble-popover paper-item #actionItem:hover {
-                color: var(--focused-line, #026bc3);
-                background-color: var(--bgColor-hover, #e8f4f9);
-            }
-            
-            #quick-actions::shadow pebble-popover paper-item iron-icon {
+           #quick-actions::shadow pebble-popover paper-item iron-icon {
                 margin: 0;
             }
             
@@ -326,15 +297,18 @@ Main os app for riversand ui framework
             }
             [visibility-hidden] {
                 visibility: hidden;
+            }            
+            pebble-horizontal-divider {
+                background-color: var(--palette-pale-grey-three, #e7ebf0);
+                margin-right: 20px;
+                margin-left: 20px      
             }
-            .notificationPopoverTitle{
-                text-align:left;
-                font-size:var(--font-size-sm, 12px);
-                color:var(--text-primary-color,#1a2028);
-                line-height: 24px;
-                font-weight: var(--font-bold, bold);
-                padding:10px 5px 0px 10px; 
-                border-bottom: 2px solid #c1cad4;  
+            .popup-title{
+                margin: 0px;
+                font-size: var(--default-font-size, 14px);
+                font-weight: var(--font-medium, 500);
+                text-align: left;
+                @apply --popup-item;
             }
         </style>
         <liquid-dataobject-preload id="liquidDataObjectPreLoad" on-dataobject-preload-completed="_onPreloadCompleted"
@@ -375,7 +349,8 @@ Main os app for riversand ui framework
                             <rock-notification id="mdmNotifications" label="0" on-click="showNotifications" class="tooltip-bottom" data-tooltip="Notifications"></rock-notification>
                             <pebble-popover id="popoverNotifications" for="mdmNotifications" auto-fit-on-attach no-overlap display-arrow-as-per-target
                                 horizontal-align="right">
-                                <div class="notificationPopoverTitle">Notifications</div>
+                                <div class="popup-title p-b-5">Notifications</div>
+                                <pebble-horizontal-divider></pebble-horizontal-divider>
                                 <rock-notification-list id="notificationsList" show-line-index="1">
                                 </rock-notification-list>
                             </pebble-popover>
@@ -385,7 +360,7 @@ Main os app for riversand ui framework
                     <paper-progress id="appProgress" class="middle fit" value="0" min="0" max="1000"></paper-progress>
                 </app-header>
                 <div id="middle-container">
-                    <rock-content-view-manager id="contentViewManager" on-open="onViewOpen" on-close="onViewClose"></rock-content-view-manager>
+                    <rock-content-view-manager id="contentViewManager" on-open="onViewOpen" on-opened="onViewOpened" on-close="onViewClose" on-minimize="_onViewMinimize"></rock-content-view-manager>
                 </div>
             </app-header-layout>
             <bedrock-pubsub target-id="" event-name="pebble-actions-action-click" handler="_onActionItemTap"></bedrock-pubsub>
@@ -651,11 +626,20 @@ Main os app for riversand ui framework
                         }
                     }
                 }
-
                 var config = DataHelper.cloneObject(customArgs.config);
                 config.queryParams = queryParams;
-                config.savedDate = new Date().toLocaleString();
                 this.push("activeItems", config);
+            },
+            onViewOpened: function(e, customArgs){
+                var app = customArgs.previousView ? customArgs.previousView : customArgs.contentView;
+                if(this.activeItems.length && app && app.getAppCurrentStatus){
+                    var activeItem = this.activeItems[this.activeItems.length - 1];
+                    if(activeItem.component.name == app.localName){
+                        var activeItem = this.pop("activeItems");
+                        activeItem.appStatus = app.getAppCurrentStatus();
+                        this.push("activeItems", activeItem);
+                    }
+                }
             },
             onViewClose: function (e, customArgs) {
                 var viewIndex;
@@ -797,6 +781,25 @@ Main os app for riversand ui framework
                 document.querySelector("#mainAppSpinner").active = false;
                 document.querySelector("main-app").removeAttribute("visibility-hidden");
                 this.$$("#drawerLayout").removeAttribute("visibility-hidden");
+            },
+
+            _onViewMinimize: function(e, customArgs) {
+                var viewIndex;
+                for (var i = 0; i < this.activeItems.length; i++) {
+                    var viewName = ComponentHelper.getViewNameWithQueryParams(this.activeItems[i].queryParams, this.activeItems[i].data_route);
+                    if (viewName == customArgs.viewName) {
+                        viewIndex = i;
+                        break;
+                    }
+                }
+                var minimizedApp = customArgs.contentView.$$(".view-component");
+                if (viewIndex >= 0 && minimizedApp && minimizedApp.getAppCurrentStatus) {
+                    var appStatus = minimizedApp.getAppCurrentStatus();
+                    var activeItems = this.activeItems;
+                    activeItems[viewIndex].appStatus = appStatus;
+                    this.activeItems = [];
+                    this.set("activeItems", activeItems);
+                }
             }
         });
     </script>

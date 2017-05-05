@@ -1,6 +1,7 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="../liquid-config-get/liquid-config-get.html">
 <link rel="import" href="../bedrock-helpers/data-request-helper.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-helpers/component-helper.html">
 <link rel="import" href="../bedrock-helpers/context-helper.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
@@ -13,12 +14,12 @@
 -->
 <dom-module id="liquid-config-aggregate-get">
     <template>
-         <liquid-config-get auto$="[[auto]]" id="getConfig" operation="getbyids" request-id="req1" request-data={{request}} on-response="_onConfigsGetResponse"></liquid-config-get>
+        <liquid-config-get auto$="[[auto]]" id="getConfig" operation="getbyids" request-id="req1" request-data="[[request]]" on-response="_onAppConfigsGetResponse"></liquid-config-get>
     </template>
     <script>
         (function () {
             'use strict';
-        
+
             Polymer({
                 is: 'liquid-config-aggregate-get',
                 behaviors: [RUFBehaviors.LiquidBaseBehavior],
@@ -40,12 +41,7 @@
                             return {};
                         }
                     },
-                    _components: {
-                        type: Array,
-                        value: function() {
-                            return [];
-                        }
-                    },
+
                     auto: {
                         type: Boolean,
                         value: false
@@ -55,6 +51,13 @@
                         value: function () {
                             return {};
                         }
+                    },
+
+                    _liquidTracker: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
                     }
                 },
                 attached: function () {
@@ -63,22 +66,22 @@
                 refresh: function () {
                     var contextData = undefined;
 
-                    if(this.appName === "Unknown") {
+                    if (this.appName === "Unknown") {
                         return;
                     }
 
-                    if(this.contextData) {
+                    if (this.contextData) {
                         contextData = this.contextData;
                     }
                     else {
                         var currentApp = ComponentHelper.getCurrentActiveApp();
-                        if(currentApp) {
+                        if (currentApp) {
                             contextData = currentApp.contextData;
                         }
                     }
 
-                    if(contextData) {
-                        var dataContext =  ContextHelper.getFirstDataContext(contextData);
+                    if (contextData) {
+                        var dataContext = ContextHelper.getFirstDataContext(contextData);
                         var valueContext = ContextHelper.getFirstValueContext(contextData);
                         var itemContext = ContextHelper.getFirstItemContext(contextData);
                         var userContext = ContextHelper.getFirstUserContext(contextData);
@@ -87,7 +90,7 @@
                         this.generateRequest();
                     }
                 },
-                _mergeContexts: function(dataCtx, valCtx, itemCtx, userCtx) {
+                _mergeContexts: function (dataCtx, valCtx, itemCtx, userCtx) {
                     var context = {
                         "app": this.appName,
                         "service": "_ALL",
@@ -101,15 +104,15 @@
                         "role": "",
                         //"user": userCtx.user
                     };
-                    
-                    if(itemCtx && itemCtx.type) {
+
+                    if (itemCtx && itemCtx.type) {
                         context.entityType = itemCtx.type;
                     }
                     else {
                         delete context.entityType;
                     }
 
-                    if(userCtx && userCtx.role) {
+                    if (userCtx && userCtx.role) {
                         context.role = userCtx.role;
                     }
                     else {
@@ -118,35 +121,71 @@
 
                     return context;
                 },
-                generateRequest: function() {
+
+                generateRequest: function () {
                     this.$$('#getConfig').generateRequest();
                 },
-                _onConfigsGetResponse: function (e) {
-                    var configs = e.detail.response.content;
-                    var ctx = this.request.params.query.contexts[0];
-                    var configJson = SharedUtils.DataObjectFalcorUtil.getConfigByCtx(configs, ctx);
-                    if(configJson) {
-                        if(configJson && configJson.config && configJson.config.components && configJson.config.components.length > 0) {
-                            this.set("_components", configJson.config.components);
-                            this.request = DataRequestHelper.createConfigGetRequest(ctx.app, ctx,this._components[0]);
-                            this.generateRequest();
-                        } else {
-                            this.configs[ctx.component] = configJson;
-                            var i = this._components.indexOf(ctx.component);
-                            if(i != -1 && i < this._components.length - 1) {
-                                this.request = DataRequestHelper.createConfigGetRequest(ctx.app, ctx, this._components[i+1]);
-                                this.generateRequest();
-                            } else {
-                                var eventName = "config-get-response";
-                                var eventDetail = {
-                                    components: this.configs
-                                };
 
-                                this._setLastResponse(eventDetail);
-                                this.fire(eventName, eventDetail, { bubbles: this.bubbles });
-                            }
-                        }
+                _onAppConfigsGetResponse: function (e) {
+                    var configs = e.detail.response.content;
+                    var ctx = DataHelper.cloneObject(this.request.params.query.contexts[0]);
+                    var configJson = SharedUtils.DataObjectFalcorUtil.getConfigByCtx(configs, ctx);
+
+                    if (configJson && configJson.config && configJson.config.components && configJson.config.components.length > 0) {
+                        var components = configJson.config.components;
+                        components.forEach(function (component) {
+                            this._initiateComponentConfigGetRequest(this.appName, ctx, component)
+                        }, this);
+                    } else {
+                        this._sendResponse();
                     }
+                },
+
+                _initiateComponentConfigGetRequest: function (appName, context, componentName) {
+
+                    var liquidElement = document.createElement("liquid-config-get");
+                    var clonedContext = DataHelper.cloneObject(context);
+                    var req = DataRequestHelper.createConfigGetRequest(appName, clonedContext, componentName);
+
+                    liquidElement.id = componentName;
+                    liquidElement.name = componentName;
+                    liquidElement.requestData = req;
+                    liquidElement.operation = "getbyids";
+                    liquidElement.addEventListener("response", this._onComponentConfigGetResponse.bind(this));
+                    this.appendChild(liquidElement);
+
+                    this._liquidTracker.push(componentName);
+                    liquidElement.generateRequest();
+                },
+
+                _onComponentConfigGetResponse: function (e) {
+                    if (e.detail) {
+                        var configs = e.detail.response.content;
+                        var requestedComponent = e.currentTarget.name;
+                        var requestCtx = e.detail.request.requestData.params.query.contexts[0];
+
+                        var configJson = SharedUtils.DataObjectFalcorUtil.getConfigByCtx(configs, requestCtx);
+
+                        if (!_.isEmpty(configJson)) {
+                            this.configs[requestedComponent] = configJson;
+                        }
+
+                        DataHelper.arrayRemove(this._liquidTracker, requestedComponent);
+                    }
+
+                    if (this._liquidTracker.length == 0) {
+                        this._sendResponse();
+                    }
+                },
+
+                _sendResponse: function () {
+                    var eventName = "config-get-response";
+                    var eventDetail = {
+                        components: this.configs
+                    };
+
+                    this._setLastResponse(eventDetail);
+                    this.fire(eventName, eventDetail, { bubbles: this.bubbles });
                 }
             });
         })();
