@@ -133,14 +133,17 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
         }
 
         if (attr.group) {
+            //console.log('attr group', JSON.stringify(attr.group));
             //var valCtxItem = { 'source': CONST_ANY, 'locale': CONST_ANY }; //TODO: How to find out val contexts keys from the flat list of values object..??
             var valCtxItem = {};
             var valCtxKey = falcorUtil.createCtxKey(valCtxItem);
-            //console.log('attr group', JSON.stringify(attr.group));
-            var groupJson = {};
-            groupJson['group'] = $atom(attr.group);
-            valContextsJson[valCtxKey] = groupJson;
-
+            var valContextJson = valContextsJson[valCtxKey];
+            
+            if (!valContextJson) {
+                valContextJson = falcorUtil.getOrCreate(valContextsJson, valCtxKey, {});
+            }
+            valContextJson['group'] = $atom(attr.group);
+            
             //build paths if requested
             if(reqData.buildPaths){
                     paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', valCtxKey, 'group']));
@@ -151,9 +154,12 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
             //var valCtxItem = { 'source': CONST_ANY, 'locale': CONST_ANY }; //TODO: How to find out val contexts keys from the flat list of values object..??
             var selfValCtxItem = {};
             var selfValCtxKey = falcorUtil.createCtxKey(selfValCtxItem);
-            var propertiesJson = {};
-            propertiesJson['properties'] = $atom(attr.properties);
-            valContextsJson[selfValCtxKey] = propertiesJson;
+            var selfValContextJson = valContextsJson[selfValCtxKey];
+
+            if (!selfValContextJson) {
+                selfValContextJson = falcorUtil.getOrCreate(valContextsJson, selfValCtxKey, {});
+            }
+            selfValContextJson['properties'] = $atom(attr.properties);
 
             //build paths if requested
             if(reqData.buildPaths){
@@ -166,8 +172,8 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                 for (let valCtxKey of reqData.valCtxKeys) {
                     if (valCtxKey != '{}') {
                         var valContextJson = valContextsJson[valCtxKey];
-                        if(valContextJson == undefined || valContextJson == null){
-                            valContextJson= valContextsJson[valCtxKey] = {};
+                        if(!valContextJson){
+                            valContextJson = falcorUtil.getOrCreate(valContextsJson, valCtxKey, {});
                         }
                         valContextJson['properties'] = prepareValueJson($atom(attr.properties));
 
