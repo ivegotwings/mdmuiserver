@@ -1,5 +1,5 @@
 var clientConfig = {
-    "url": "http://localhost:5005",
+    "url": "http://rst1014.riversand.com",
     "enableLogs": false
 }
 
