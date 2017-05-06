@@ -328,7 +328,7 @@
                     for(var workflow in workflowPastEvents) {
                         if(workflowPastEvents[workflow].attributes && workflowPastEvents[workflow].attributes.activities && workflowPastEvents[workflow].attributes.activities.group && workflowPastEvents[workflow].attributes.activities.group.length > 0) {
                             workflowPastEvents[workflow].attributes.activities.group.sort(function(a,b) {
-                                return b.parsedEndDateTime - a.parsedEndDateTime;
+                                return a.parsedEndDateTime - b.parsedEndDateTime;
                             });
                             for(var i=0; i<workflowPastEvents[workflow].attributes.activities.group.length; i++) {
                                 workflowPastEvents[workflow].attributes.activities.group[i]["sequence"] = { "values": [ { "value": i + 1 } ] };
@@ -470,11 +470,13 @@
                             var wfActivityName = AttributeHelper.getFirstAttributeValue(wfActivity.activityName);
                             if (riActivityName == wfActivityName) {
                                 currentActivityIndex = i;
-                                riActivity["activityDescription"] = wfActivity["activityDescription"];
-                                riActivity["allowedRoles"] = wfActivity["allowedRoles"];
-                                riActivity["actions"] = wfActivity["actions"];
-                                
-                                attributes.activities.group.push(riActivity);
+                                if(riActivityStatus && riActivityStatus == "Executing") {
+                                    riActivity["activityDescription"] = wfActivity["activityDescription"];
+                                    riActivity["allowedRoles"] = wfActivity["allowedRoles"];
+                                    riActivity["actions"] = wfActivity["actions"];
+                                    
+                                    attributes.activities.group.push(riActivity);
+                                }
 
                             } else if(currentActivityIndex > -1) {
                                 wfActivity["sequence"] = { "values": [ { "value": ++activitySequence } ] };
@@ -521,12 +523,12 @@
                                     "index": AttributeHelper.getFirstAttributeValue(group.sequence),
                                     "title": AttributeHelper.getFirstAttributeValue(group.activityName),
                                     "subtitle": this._getItemSubtitle(group.performedAction, group.endDateTime),
-                                    "status": this._getItemStatus(group.status, config.status),
+                                    "status": this._getItemStatus(group.status),
                                     "selected": this._getSelected(group.status),
                                     "workflowName": workflowName,
                                     "allowedRoles": group.allowedRoles
                                 };
-                                item["stepDetails"] = this._getItemFullDetails(item, attributes, actions);
+                                item["stepDetails"] = this._getItemFullDetails(item, group, actions);
                                 items.push(item);
                             }
 
@@ -643,11 +645,8 @@
                     console.warn("Failed to perform the workflow transition with error: ", e.detail);
                     this.showErrorToast("Failed to perform the workflow transition. Please contact administrator.");
                 },
-                _getItemStatus: function (stepStatus, wfStatus) {
+                _getItemStatus: function (stepStatus) {
                     var status = AttributeHelper.getFirstAttributeValue(stepStatus);
-                    if (wfStatus && wfStatus == "Completed") {
-                        status = "Closed";
-                    }
                     if (status) {
                         if (status == "Closed") {
                             return "completed";
@@ -713,39 +712,24 @@
                     //ToDO: functionality to get assigned user of item, get user preferences what to show in
                     // step badge and get details of the content to be shown.
                 },
-                _getItemFullDetails: function (stepItem, workflowAttributes, actions) {
-                    if (stepItem && workflowAttributes && workflowAttributes.activities && workflowAttributes.activities.group
-                        && workflowAttributes.activities.group.length) {
-                        var currentActivity;
-                        for (var i = 0; i < workflowAttributes.activities.group.length; i++) {
-                            var group = workflowAttributes.activities.group[i];
-                            
-                            var activityName = AttributeHelper.getFirstAttributeValue(group.activityName);
-                            if (activityName && activityName == stepItem.title) {
-                                currentActivity = group;
-                                break;
-                            }
-                        }
+                _getItemFullDetails: function (stepItem, currentActivity, actions) {
+                    if (stepItem && currentActivity) {
 
                         var itemDetailsJson = {};
 
-                        if(currentActivity) {
-                            var itemDescription = AttributeHelper.getFirstAttributeValue(currentActivity.activityDescription);
+                        var itemDescription = AttributeHelper.getFirstAttributeValue(currentActivity.activityDescription);
 
-                            var wfStatus = AttributeHelper.getFirstAttributeValue(workflowAttributes.status);
-                            var itemDetail = this._getItemDetail(stepItem.workflowName, currentActivity, wfStatus);
-                            var assignedUser = AttributeHelper.getFirstAttributeValue(currentActivity.assignedUser);
-                            itemDetailsJson["description"] = itemDescription;
-                            itemDetailsJson["assignedUser"] = assignedUser;
-                            itemDetailsJson["details"] = itemDetail;
-                            itemDetailsJson["actions"] = actions;
-                        }
+                        var itemDetail = this._getItemDetail(stepItem.workflowName, currentActivity, stepItem.status);
+                        var assignedUser = AttributeHelper.getFirstAttributeValue(currentActivity.assignedUser);
+                        itemDetailsJson["description"] = itemDescription;
+                        itemDetailsJson["assignedUser"] = assignedUser;
+                        itemDetailsJson["details"] = itemDetail;
+                        itemDetailsJson["actions"] = actions;
 
                         return itemDetailsJson;
                     }
                 },
-                _getItemDetail: function (workflowName, group, wfStatus) {
-                    var status = this._getItemStatus(group.status, wfStatus);
+                _getItemDetail: function (workflowName, group, stepStatus) {
                     var activityName = AttributeHelper.getFirstAttributeValue(group.activityName);
                     var startDate = AttributeHelper.getFirstAttributeValue(group.startDateTime);
                     var endDate = AttributeHelper.getFirstAttributeValue(group.endDateTime);
@@ -753,17 +737,17 @@
                     var comments = AttributeHelper.getFirstAttributeValue(group.comments);
                     var assignedUser = AttributeHelper.getFirstAttributeValue(group.assignedUser);
                     var itemDetail = "";
-                    if (status == "inprogress") {
+                    if (stepStatus == "inprogress") {
                         if(!assignedUser || assignedUser == "_UNASSIGNED") {
                             itemDetail = "";
                         } else {
                             itemDetail = "  was assigned task on " + this._formatDate(startDate) + ".";
                         }
                     }
-                    if (status == "failed") {
+                    if (stepStatus == "failed") {
                         itemDetail = "  was failed due to technical reason.";
                     }
-                    if (status == "completed") {
+                    if (stepStatus == "completed") {
                         var msg = "";
                         if(comments && comments != "") {
                             msg = "the comment " + comments;
@@ -793,7 +777,7 @@
                     return false;
                 },
                 _stepHasDetails: function (stepDetails, status) {
-                    if (stepDetails && (stepDetails.assignedUser || stepDetails.details) && status == "inprogress") {
+                    if (stepDetails && (stepDetails.assignedUser || stepDetails.details) && status != "pending") {
                         return true;
                     }
                     return false;
