@@ -1,0 +1,350 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+
+<link rel="import" href="../pebble-icon/pebble-icon.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-popover/pebble-popover.html">
+<link rel="import" href="../pebble-lov/pebble-lov.html">
+<link rel="import" href="../pebble-dropdown/pebble-dropdown.html">
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../pebble-toggle-button/pebble-toggle-button.html">
+
+<link rel="import" href="../rock-search-bar/rock-search-bar.html">
+<link rel="import" href="../rock-grid/rock-grid.html">
+<link rel="import" href="event-list-datasource.html">
+
+<!--
+`<rock-import-list>`
+
+@group rock Elements
+@element rock-import-list
+@demo demo/index.html
+-->
+
+<dom-module id="rock-import-list">
+    <template>
+        <style is="custom-style" include="pebble-styles-shared">
+            #searchBar {
+                width: calc(100% - 114px);
+                display: inline-block;
+            }
+
+            #stateButton {
+                margin-left: 10px;
+            }
+
+            .iconButton {
+                margin-top: 15px;
+            }
+
+            rock-grid::shadow #pebbleGridContainer {
+                margin: 0;
+            }
+
+            pebble-toggle-button {
+                margin-top: 10px;
+                --pebble-toggle-button-checked-bar-color: var(--success-color, #4caf50);
+                --pebble-toggle-button-checked-button-color: var(--success-color, #4caf50);
+                --pebble-toggle-button-checked-ink-color: var(--success-color, #4caf50);
+            }
+        </style>
+
+        <bedrock-pubsub event-name="rock-search" handler="_onSearch" target-id="searchBar"></bedrock-pubsub>
+        <bedrock-pubsub event-name="rock-search-clear" handler="_onSearchClear" target-id="searchBar"></bedrock-pubsub>
+        <rock-search-bar id="searchBar" placeholder="Enter Search text"></rock-search-bar>
+        <pebble-button id="stateButton" button-text="Status" icon="pebble-sm-icons:Filter-wt" class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger"
+            noink dropdown-icon on-tap="_onStateButtonTap"></pebble-button>
+        <pebble-popover id="statesPopover" for="stateButton">
+            <pebble-lov id="filterLov" selected-items="{{selectedItems}}" items="[[stateFilters]]"></pebble-lov>
+        </pebble-popover>
+        <div class="layout horizontal ">
+            <!--<pebble-dropdown id="sortDropdown" label="Sort By" items="[[sortingAttributes]]" selected-value="{{sortCondition}}"></pebble-dropdown>-->
+            <!--<div class="flex">-->
+                <!--<pebble-button icon="icons:arrow-downward" class="iconButton btn " hidden="[[descending]]" on-tap="_sortByDesecnding"></pebble-button>-->
+                <!--<pebble-button icon="icons:arrow-upward" class="iconButton btn" hidden="[[!descending]]" on-tap="_sortByAsecnding"></pebble-button>-->
+            <!--</div>-->
+            <pebble-toggle-button checked="{{getOwnEvents}}">Show Only My Jobs</pebble-toggle-button>
+
+        </div>
+        <event-list-datasource id="eventDataSource" request="[[request]]" data-source="{{dataSource}}" data-formatter="{{_dataFormatter}}">
+        </event-list-datasource>
+        <rock-grid id="importlistGrid" no-header config="{{config}}" page-size="10" data-source="{{dataSource}}" data-source-id="eventDataSource"></rock-grid>
+    </template>
+
+    <script>
+        (function () {
+            'use strict';
+
+            Polymer({
+                is: 'rock-import-list',
+
+                properties: {
+                    stateFilters: {
+                        type: Array,
+                        value: function () {
+                            return [{
+                                    "id": "workBatchComplete",
+                                    "title": "Completed"
+                                },
+                                {
+                                    "id": "workBatchStarted",
+                                    "title": "Running"
+                                },
+                                {
+                                    "id": "workBatchError",
+                                    "title": "Aborted"
+                                }
+                            ];
+                        }
+                    },
+                    descending: {
+                        type: Boolean,
+                        value: false
+                    },
+                    sortCondition: {
+                        type: String,
+                        observer: '_sortConditionChanged'
+                    },
+                    sortingAttributes: {
+                        type: String,
+                        value: "Name,File Type,Status,Last Modified Date,Success Count, Failure Count "
+                    },
+                    getOwnEvents: {
+                        type: Boolean,
+                        value: false,
+                        observer: '_userStateChanged'
+                    },
+                    config: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    request: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        },
+                        observer:'_contextDataChanged'
+                    }
+
+                },
+                behaviors: [
+                    RUFBehaviors.UIBehavior
+                ],
+                listeners: {
+                    'filterLov.selection-changed': '_onLovSelectionChanged',
+                    'filterLov.lov-confirm-button-tap': '_onLovConfirmButtonTapped',
+                    'filterLov.lov-close-button-tap': '_onLovCloseButtonTapped'
+                },
+                ready: function () {
+                    this._dataFormatter = this._getEventFormattedData.bind(this);
+                    this.config = this.getParentAppConfig('rock-import-list')
+                },
+                observers:['_contextDataChanged(contextData,config)'],
+                _contextDataChanged:function (contextData,config) {
+                   if(!_.isEmpty(contextData) && !_.isEmpty(config)){
+                       this._setEventRequest();
+                   }
+                },
+                _setEventRequest:function () {
+                    var contextData=DataHelper.cloneObject(this.contextData);
+                    var itemContext={"type":"externalevent"};
+                    contextData[ContextHelper.CONTEXT_TYPE_ITEM]=[itemContext];
+                    var req=DataRequestHelper.createEntityGetRequest(contextData);
+                    req.params.query.valueContexts=[
+                        {
+                            "source": "internal",
+                            "locale": "en-US"
+                        }
+                    ];
+                    req.params.query.filters.attributesCriterion=[{
+                        "eventSubType": {
+                            "eq": "workBatchStarted"
+                        }
+                    }];
+                    if(this.config.dataRequest && this.config.dataRequest.attributes){
+                        req.params.fields.attributes= this.config.dataRequest.attributes;
+                    } else {
+                        req.params.fields.attributes=["_ALL"];
+                    }
+                    req.params.sort={
+                        "attributes": [{
+                            "createdOn": "_DESC",
+                            "sortType": "_DATETIME"
+                        }]
+                    };
+                    this.set("request",req);
+                    this.$$("#importlistGrid").reloadListData();
+                },
+                _onStateButtonTap: function () {
+                    this.$$("#statesPopover").show();
+                },
+                _sortByDesecnding: function () {
+                    this.descending = true;
+                },
+                _sortByAsecnding: function () {
+                    this.descending = false;
+                },
+                _sortConditionChanged: function (sortCondition) {
+                    if (this.request) {
+
+                        if (sortCondition) {
+                            var req = this.request;
+                            if (this.descending) {
+                                alert(sortCondition)
+                            } else {
+                                alert(sortCondition)
+                            }
+
+                            // req.params.sort.attributes = {
+                            //    sortConditionval
+                            //};
+                            //} else {
+                            //  var req = this.request;
+                            //delete req.params.query.filters.keywordsCriterion;
+                        }
+
+                        this.$$("#importlistGrid").reloadListData();
+                    }
+                },
+                _getAttributeNamesFromListConfig: function (config) {
+                    var listItems = config.list.listItems;
+                    var attributeNames = [];
+                    attributeNames.push(listItems.image);
+                    attributeNames.push(listItems.title);
+                    attributeNames.push(listItems.subtitle);
+                    attributeNames.push(listItems.id);
+                    for (var i in listItems.fields) {
+                        var field = listItems.fields[i];
+                        attributeNames.push(field.name);
+                    }
+                    return attributeNames;
+                },
+                _getImagePathByType: function (type) {
+                    switch (type) {
+                        case "Excel":
+                            return "/src/images/Microsoft Excel 50, 100, 500 px/Microsoft Excel_100.svg";
+                        case "Json":
+                            return "/src/images/json.svg";
+                        default:
+                            return "/src/images/Microsoft Excel 50, 100, 500 px/Microsoft Excel_100.svg";
+                    }
+                },
+                _getEventType: function (type) {
+                    switch (type) {
+                        case "workBatchComplete":
+                            return "Completed";
+                        case "workBatchStarted":
+                            return "Started";
+                        case "workBatchError":
+                            return "Aborted";
+                        default:
+                            return "Queued";
+                    }
+                },
+                _getEventFormattedData: function (data) {
+                    var attributeNames = this._getAttributeNamesFromListConfig(this.config);
+                    if (data && data.content) {
+                        var events = data.content.events;
+                        if (events) {
+                            events = DataTransformHelper.transformEventSchemaToListSchema(events,
+                                attributeNames, this.contextData);
+                        }
+                    }
+                    for (var i in events) {
+                        events[i].fileTypeImage = this._getImagePathByType(events[i].fileType);
+                        events[i].eventSubType = this._getEventType(events[i].eventSubType);
+                        if(events[i].eventSubType =="Completed"){
+                            events[i].recordCount = "Total " + events[i].recordCount +
+                                " Records"
+                        }
+                        /* if(events[i].successCount) {
+                             events[i].successCount += " Passed";
+                         }
+                         if(events[i].failureCount) {
+                             events[i].failureCount+= " Errors";
+                         }*/
+                    }
+
+                    return events;
+                },
+                _onLovSelectionChanged: function (event) {
+                    if (this.request) {
+                        var req = this.request;
+                        var attributesCriteria = req.params.query.filters.attributesCriterion;
+                        for (var i in attributesCriteria) {
+                            if (attributesCriteria[i].eventSubType) {
+                                attributesCriteria.splice(i, 1);
+                                break;
+                            }
+                        }
+                        req.params.query.filters.attributesCriterion.push({
+                            "eventSubType": {
+                                "eq": event.detail.item.id
+                            }
+                        });
+                        this.$$("#importlistGrid").reloadListData();
+                    }
+                    this.$$("#statesPopover").hide();
+                },
+
+                _onSearch: function (e, detail) {
+                    if (this.request) {
+                        if (detail) {
+                            var req = this.request;
+                            req.params.query.filters.keywordsCriterion = {
+                                "keywords": "*" + detail + "*",
+                                "operator": "_OR"
+                            };
+
+                        } else {
+                            var req = this.request;
+                            delete req.params.query.filters.keywordsCriterion;
+                        }
+                        this.$$("#importlistGrid").reloadListData();
+                    }
+                },
+                _onSearchClear: function (e) {
+                    if (this.request) {
+                        var req = this.request;
+                        delete req.params.query.filters.keywordsCriterion;
+                        this.$$("#importlistGrid").reloadListData();
+                    }
+                },
+                _userStateChanged: function (getOwnEvents) {
+                    if (this.request) {
+                        if (getOwnEvents) {
+                            var req = this.request;
+
+                            req.params.query.filters.attributesCriterion.push({
+                                "userId": {
+                                    "eq": this.userId
+                                }
+                            });
+                        } else {
+                            var req = this.request;
+                            var attributesCriteria = req.params.query.filters.attributesCriterion;
+                            for (var i in attributesCriteria) {
+                                if (attributesCriteria[i].userId) {
+                                    attributesCriteria.splice(i, 1);
+                                    break;
+                                }
+                            }
+                        }
+                        this.$$("#importlistGrid").reloadListData();
+                    }
+                }
+            });
+        })();
+    </script>
+
+</dom-module>
