@@ -59,6 +59,9 @@ DataObjectManageService.prototype = {
         else if(request.dataIndex == "eventData") {
             return "eventservice";
         }
+         else if(request.dataIndex == "requestTracking") {
+            return "requesttrackingservice";
+        }
         else {
             return "entityservice";
         }
