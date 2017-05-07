@@ -63,6 +63,9 @@ copRoute(app);
 var fileUploadRoute = require('../modules/file-upload/file-upload-route');
 fileUploadRoute(app);
 
+var fileDownloadRoute = require('../modules/file-download/file-download-route');
+fileDownloadRoute(app);
+
 var notificationService = require('../modules/notification-service/notification-route');
 notificationService(app);
 
