@@ -5,9 +5,9 @@ var fs = require('fs');
 
 module.exports = function(app) {
     var dir = './download';
+    
     if (!fs.existsSync(dir)) {
-        console.error('Download directory is not present.');
-        return;
+        fs.mkdirSync(dir);
     }
 
     app.get('/file-download', function (req, res) {
