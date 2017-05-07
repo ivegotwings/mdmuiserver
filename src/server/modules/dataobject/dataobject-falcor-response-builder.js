@@ -110,6 +110,13 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                 var valCtxItem = falcorUtil.getOrCreate(valCtxItems, valCtxKey, {});
                 var values = falcorUtil.getOrCreate(valCtxItem, 'values', []);
 
+                //RDF has started sending values in actual data type
+                //like boolean as true/false instead of 'true'/'false' and 0 instead of '0'
+                //UI is not ready for this yet probably because of if(value) kind of checks
+                //So converting value to string value
+                if(val.value != undefined) {
+                    val.value = val.value.toString();
+                }
                 values.push(val);
             }
 
