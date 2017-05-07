@@ -84,21 +84,50 @@ COPService.prototype = {
     downloadModelExcel: async function (request) {
         var downloadModelURL = "copservice/downloadModelExcel";
         var timeStamp = Date.now();
+        var fileName = request.body.fileName + '-' + timeStamp;
 
         //console.log('downloadModelRequest: ', JSON.stringify(request.body, null, 2));
         var response = await this.post(downloadModelURL, request.body);
-        response.fileName = request.body.fileName + '-' + timeStamp;
+        response.fileName = fileName;
 
         this._downloadFileContent(response);
         return response;
     },
     downloadDataExcel: async function (request) {
-        var downloadDataURL = "copservice/downloadDataExcel";
+        //TODO:: Need to change to "copservice/downloadDataExcel" once COP API is ready.
+        var downloadDataURL = "copservice/downloadModelExcel";
         var timeStamp = Date.now();
+        var fileName = request.body.fileName + '-' + timeStamp;
 
         //console.log('downloadDataRequest: ', JSON.stringify(request.body, null, 2));
-        var response = await this.post(downloadDataURL, request.body);
-        response.fileName = request.body.fileName + '-' + timeStamp;
+
+        //TODO:: Need to un comment below line and remove hard corded request object once COP API is ready. 
+        //var response = await this.post(downloadDataURL, request.body);
+        var req = {
+            "params": {
+                "query": {
+                    "contexts": [
+                        {
+                            "taxonomy": "productsetuptaxonomy",
+                            "classification": "plhousewares/ptycooktops/sptycooktops/ityelectriccooktops"
+                        }
+                    ],
+                    "filters": {
+                        "typesCriterion": [
+                            "entityManageModel"
+                        ]
+                    },
+                    "id": "sku_entityManageModel"
+                },
+                "fields": {
+                    "attributes": ["_ALL"],
+                    "relationships": ["_ALL"]
+                }
+            }
+        };
+
+        var response = await this.post(downloadDataURL, req);
+        response.fileName = fileName;
 
         this._downloadFileContent(response);
         return response;
