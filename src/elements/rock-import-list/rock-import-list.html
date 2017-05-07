@@ -6,8 +6,6 @@
 <link rel="import" href="../pebble-icon/pebble-icon.html">
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-popover/pebble-popover.html">
-<link rel="import" href="../pebble-lov/pebble-lov.html">
-<link rel="import" href="../pebble-dropdown/pebble-dropdown.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 <link rel="import" href="../pebble-toggle-button/pebble-toggle-button.html">
 
@@ -27,8 +25,9 @@
     <template>
         <style is="custom-style" include="pebble-styles-shared">
             #searchBar {
-                width: calc(100% - 114px);
+                width: calc(80% - 20px);
                 display: inline-block;
+                padding-right: 20px;
             }
 
             #stateButton {
@@ -49,22 +48,22 @@
                 --pebble-toggle-button-checked-button-color: var(--success-color, #4caf50);
                 --pebble-toggle-button-checked-ink-color: var(--success-color, #4caf50);
             }
+            #filterDropDown{
+                display: inline-block;
+            }
         </style>
 
         <bedrock-pubsub event-name="rock-search" handler="_onSearch" target-id="searchBar"></bedrock-pubsub>
         <bedrock-pubsub event-name="rock-search-clear" handler="_onSearchClear" target-id="searchBar"></bedrock-pubsub>
         <rock-search-bar id="searchBar" placeholder="Enter Search text"></rock-search-bar>
-        <pebble-button id="stateButton" button-text="Status" icon="pebble-sm-icons:Filter-wt" class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger"
-            noink dropdown-icon on-tap="_onStateButtonTap"></pebble-button>
-        <pebble-popover id="statesPopover" for="stateButton">
-            <pebble-lov id="filterLov" selected-items="{{selectedItems}}" items="[[stateFilters]]"></pebble-lov>
-        </pebble-popover>
+        <pebble-dropdown id="filterDropDown" label="Status" items="[[stateFilters]]" selected-value="{{selectedFilter}}"></pebble-dropdown>
         <div class="layout horizontal ">
             <!--<pebble-dropdown id="sortDropdown" label="Sort By" items="[[sortingAttributes]]" selected-value="{{sortCondition}}"></pebble-dropdown>-->
             <!--<div class="flex">-->
                 <!--<pebble-button icon="icons:arrow-downward" class="iconButton btn " hidden="[[descending]]" on-tap="_sortByDesecnding"></pebble-button>-->
                 <!--<pebble-button icon="icons:arrow-upward" class="iconButton btn" hidden="[[!descending]]" on-tap="_sortByAsecnding"></pebble-button>-->
             <!--</div>-->
+
             <pebble-toggle-button checked="{{getOwnEvents}}">Show Only My Jobs</pebble-toggle-button>
 
         </div>
@@ -82,22 +81,8 @@
 
                 properties: {
                     stateFilters: {
-                        type: Array,
-                        value: function () {
-                            return [{
-                                    "id": "workBatchComplete",
-                                    "title": "Completed"
-                                },
-                                {
-                                    "id": "workBatchStarted",
-                                    "title": "Running"
-                                },
-                                {
-                                    "id": "workBatchError",
-                                    "title": "Aborted"
-                                }
-                            ];
-                        }
+                        type: String,
+                        value:"Completed,Running,Aborted"
                     },
                     descending: {
                         type: Boolean,
@@ -134,17 +119,17 @@
                             return {};
                         },
                         observer:'_contextDataChanged'
+                    },
+                    selectedFilter:{
+                        type:String,
+                        value:"",
+                        observer:"_onStateFilterChanged"
                     }
 
                 },
                 behaviors: [
                     RUFBehaviors.UIBehavior
                 ],
-                listeners: {
-                    'filterLov.selection-changed': '_onLovSelectionChanged',
-                    'filterLov.lov-confirm-button-tap': '_onLovConfirmButtonTapped',
-                    'filterLov.lov-close-button-tap': '_onLovCloseButtonTapped'
-                },
                 ready: function () {
                     this._dataFormatter = this._getEventFormattedData.bind(this);
                     this.config = this.getParentAppConfig('rock-import-list')
@@ -277,8 +262,19 @@
 
                     return events;
                 },
-                _onLovSelectionChanged: function (event) {
-                    if (this.request) {
+                _onStateFilterChanged: function (selectedFilter) {
+                    if (this.request && selectedFilter) {
+                        switch(selectedFilter) {
+                            case "Completed":
+                                selectedFilter="workBatchComplete";
+                                break;
+                            case "Aborted":
+                                selectedFilter="workBatchError";
+                                break;
+                            default:
+                                selectedFilter="workBatchStarted";
+                        }
+
                         var req = this.request;
                         var attributesCriteria = req.params.query.filters.attributesCriterion;
                         for (var i in attributesCriteria) {
@@ -289,12 +285,11 @@
                         }
                         req.params.query.filters.attributesCriterion.push({
                             "eventSubType": {
-                                "eq": event.detail.item.id
+                                "eq": selectedFilter
                             }
                         });
                         this.$$("#importlistGrid").reloadListData();
                     }
-                    this.$$("#statesPopover").hide();
                 },
 
                 _onSearch: function (e, detail) {
