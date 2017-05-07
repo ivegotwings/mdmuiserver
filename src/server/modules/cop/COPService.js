@@ -222,7 +222,7 @@ COPService.prototype = {
         return new Buffer(binaryData).toString('base64');
     },
     _downloadFileContent: function (response) {
-        if (response.response && response.response.binaryObjects) {
+        if (response && response.response && response.response.binaryObjects && response.response.binaryObjects.length) {
             var binaryObject = response.response.binaryObjects[0];
 
             if (binaryObject) {
