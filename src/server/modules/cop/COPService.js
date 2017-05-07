@@ -39,7 +39,7 @@ COPService.prototype = {
                 "entityOperationResponse": {
                     "status" :"Error",
                     "statusDetail" : {
-                        "code": "COAI0000",
+                        "code": "RSUI0000",
                         "message": "Incorrect request for COP process.",
                         "messageType": "Error"
                     }
@@ -67,7 +67,7 @@ COPService.prototype = {
                 "entityOperationResponse": {
                     "status" :"Error",
                     "statusDetail" : {
-                        "code": "COAI0000",
+                        "code": "RSUI0000",
                         "message": "Incorrect request for COP process model.",
                         "messageType": "Error"
                     }
