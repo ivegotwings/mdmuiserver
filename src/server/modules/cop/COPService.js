@@ -12,11 +12,11 @@ COPService.prototype = {
         //console.log('COPService.transform url ', request.url);
         var copURL = "copservice/transform";
         var validationResult = this._validateRequest(request);
-        if(!validationResult) {
+        if (!validationResult) {
             return {
                 "entityOperationResponse": {
-                    "status" :"Error",
-                    "statusDetail" : {
+                    "status": "Error",
+                    "statusDetail": {
                         "code": "RSUI0000",
                         "message": "Incorrect request for COP transform.",
                         "messageType": "Error"
@@ -35,7 +35,7 @@ COPService.prototype = {
     process: async function (request) {
         var processURL = "copservice/process";
         var validationResult = this._validateRequest(request);
-        if(!validationResult) {
+        if (!validationResult) {
             return {
                 "entityOperationResponse": {
                     "status" :"Error",
@@ -64,7 +64,7 @@ COPService.prototype = {
     processmodel: async function (request) {
         var processModelURL = "copservice/processmodel";
         var validationResult = this._validateRequest(request);
-        if(!validationResult) {
+        if (!validationResult) {
             return {
                 "entityOperationResponse": {
                     "status" :"Error",
@@ -84,22 +84,74 @@ COPService.prototype = {
         //console.log('processRequest: ', JSON.stringify(processModelRequest.dataObject.properties, null, 2));
         return await this.post(processModelURL, processModelRequest);
     },
-    _validateRequest: function(request) {
-        if(!request.body) {
+    downloadModelExcel: async function (request) {
+        var downloadModelURL = "copservice/downloadModelExcel";
+        var timeStamp = Date.now();
+        var fileName = request.body.fileName + '-' + timeStamp;
+
+        //console.log('downloadModelRequest: ', JSON.stringify(request.body, null, 2));
+        var response = await this.post(downloadModelURL, request.body);
+        response.fileName = fileName;
+
+        this._downloadFileContent(response);
+        return response;
+    },
+    downloadDataExcel: async function (request) {
+        //TODO:: Need to change to "copservice/downloadDataExcel" once COP API is ready.
+        var downloadDataURL = "copservice/downloadModelExcel";
+        var timeStamp = Date.now();
+        var fileName = request.body.fileName + '-' + timeStamp;
+
+        //console.log('downloadDataRequest: ', JSON.stringify(request.body, null, 2));
+
+        //TODO:: Need to un comment below line and remove hard corded request object once COP API is ready. 
+        //var response = await this.post(downloadDataURL, request.body);
+        var req = {
+            "params": {
+                "query": {
+                    "contexts": [
+                        {
+                            "taxonomy": "productsetuptaxonomy",
+                            "classification": "plhousewares/ptycooktops/sptycooktops/ityelectriccooktops"
+                        }
+                    ],
+                    "filters": {
+                        "typesCriterion": [
+                            "entityManageModel"
+                        ]
+                    },
+                    "id": "sku_entityManageModel"
+                },
+                "fields": {
+                    "attributes": ["_ALL"],
+                    "relationships": ["_ALL"]
+                }
+            }
+        };
+
+        var response = await this.post(downloadDataURL, req);
+        response.fileName = fileName;
+
+        this._downloadFileContent(response);
+        return response;
+    },
+    _validateRequest: function (request) {
+        if (!request.body) {
             return false;
         }
-        if(!request.body.fileName) {
-            return false;    
+        if (!request.body.fileName) {
+            return false;
         }
         if(!request.body.originalFileName) {
             return false;    
         }
         if(!request.body.profileName) {
-            return false;    
+            return false;
         }
 
         return true;
     },
+
     _prepareCOPRequestForTransform: function(fileName, originalFileName, profileName) {
         var copRequest = {
             "dataObject": {
@@ -121,13 +173,14 @@ COPService.prototype = {
                 }
             }
         };
-        
+
         copRequest.dataObject.id = uuidV1();
         copRequest.dataObject.properties.filename = originalFileName;
         copRequest.dataObject.properties.profileName = profileName;
         copRequest.dataObject.data.blob = this._getFileContent(fileName);
         return copRequest;
     },
+
     _prepareCOPRequestForProcess: function(fileName, originalFileName, profileName) {
         var copRequest = {
             "dataObject": {
@@ -150,23 +203,46 @@ COPService.prototype = {
                 }
             }
         };
-        
+
         copRequest.dataObject.id = uuidV1();
         copRequest.dataObject.properties.filename = originalFileName;
         copRequest.dataObject.properties.profileName = profileName;
         copRequest.dataObject.data.blob = this._getFileContent(fileName);
         return copRequest;
     },
-    _getFileContent: function(fileName) {
+    _getFileContent: function (fileName) {
         var binaryData = "";
         try {
             binaryData = fs.readFileSync('./upload/' + fileName);
-        } catch(ex) {
+        } catch (ex) {
             console.log('error while reading file: ', ex);
         }
-        
+
         //console.log('binaryData ', binaryData);
         return new Buffer(binaryData).toString('base64');
+    },
+    _downloadFileContent: function (response) {
+        if (response && response.response && response.response.binaryObjects && response.response.binaryObjects.length) {
+            var binaryObject = response.response.binaryObjects[0];
+
+            if (binaryObject) {
+                var blob = binaryObject.data && binaryObject.data.blob ? binaryObject.data.blob : "";
+
+                var fileName = response.fileName;
+                var binaryData = "";
+                try {
+                    var dir = './download';
+
+                    if (!fs.existsSync(dir)) {
+                        fs.mkdirSync(dir);
+                    }
+
+                    binaryData = fs.writeFileSync('./download/' + fileName + '.xlsx', blob, 'base64');
+                } catch (ex) {
+                    console.log('error while writing file: ', ex);
+                }
+            }
+        }
     }
 };
 
