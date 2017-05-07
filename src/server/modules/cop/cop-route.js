@@ -67,6 +67,12 @@ var COPRouter = function (app) {
         //console.log('cop response:', JSON.stringify(response, null, 2));
         res.status(200).send(response);
     });
+    app.get('/cop/downloadModelExcel', async function(req, res) {
+        var response = await copService.downloadModelExcel(req);
+        console.log('cop response:', JSON.stringify(response, null, 2));
+
+        res.download('./download/jay.xlsx');
+    });
 };
 
 module.exports = function (app) {
