@@ -91,9 +91,11 @@ COPService.prototype = {
 
         //console.log('downloadModelRequest: ', JSON.stringify(request.body, null, 2));
         var response = await this.post(downloadModelURL, request.body);
-        response.fileName = fileName;
+        
+        if(response && response.response && response.response.status.toLowerCase() == "success") {
+            this._downloadFileContent(response.response, fileName); 
+        }
 
-        this._downloadFileContent(response);
         return response;
     },
     downloadDataExcel: async function (request) {
@@ -130,9 +132,11 @@ COPService.prototype = {
         };
 
         var response = await this.post(downloadDataURL, req);
-        response.fileName = fileName;
 
-        this._downloadFileContent(response);
+        if(response && response.response && response.response.status.toLowerCase() == "success") {
+            this._downloadFileContent(response.response, fileName);
+        }
+
         return response;
     },
     _validateRequest: function (request) {
@@ -221,14 +225,15 @@ COPService.prototype = {
         //console.log('binaryData ', binaryData);
         return new Buffer(binaryData).toString('base64');
     },
-    _downloadFileContent: function (response) {
-        if (response && response.response && response.response.binaryObjects && response.response.binaryObjects.length) {
-            var binaryObject = response.response.binaryObjects[0];
+    _downloadFileContent: function (response, fileName) {
+        //console.log(JSON.stringify(response));
+        if (response && response.binaryObjects && response.binaryObjects.length) {
+            var binaryObject = response.binaryObjects[0];
+            response.fileName = fileName;
 
             if (binaryObject) {
                 var blob = binaryObject.data && binaryObject.data.blob ? binaryObject.data.blob : "";
 
-                var fileName = response.fileName;
                 var binaryData = "";
                 try {
                     var dir = './download';
@@ -242,7 +247,14 @@ COPService.prototype = {
                     console.log('error while writing file: ', ex);
                 }
             }
+        } else {
+            response.status = "error";
+            response.statusDetail = {};
+            response.code = "RSUI0002";
+            response.statusDetail.message = "binaryObjects not found in response of download service.";
+            response.statusDetail.messageType = "Error";
         }
+
     }
 };
 
