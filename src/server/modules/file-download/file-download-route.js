@@ -17,7 +17,6 @@ module.exports = function(app) {
             }
 
             var fileName = req.query["fileName"];
-            console.log(fileName);            
             res.download(dir + '/'+ fileName);
         }
     );
