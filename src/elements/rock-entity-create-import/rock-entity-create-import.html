@@ -13,14 +13,17 @@
 <link rel="import" href="../liquid-rest/liquid-rest.html">
 
 <link rel="import" href="../pebble-file-upload/pebble-file-upload.html">
+<link rel="import" href="../pebble-dialog/pebble-dialog.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 <link rel="import" href="../pebble-icons/pebble-icons.html">
 <link rel="import" href="../pebble-icon/pebble-icon.html">
 <link rel="import" href="../pebble-image-viewer/pebble-image-viewer.html">
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
 <link rel="import" href="../pebble-checkbox/pebble-checkbox.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
 
 <link rel="import" href="../rock-grid/rock-grid.html">
+<link rel="import" href="../rock-classification-tree/rock-classification-tree.html">
 
 <dom-module id="rock-entity-create-import">
     <template>
@@ -32,16 +35,16 @@
                 box-shadow: 0 0 10px 0 var(--cloudy-blue-color, #c1cad4);
                 position: relative;
             }
-            
+
             #multiEntityUpperGrid::shadow iron-data-table {
                 height: 135px;
             }
-            
+
             #upperGridHeader {
                 font-size: 12px;
                 margin: 10px;
             }
-            
+
             #content-actions {
                 padding-top: 30px;
                 position: fixed;
@@ -51,42 +54,48 @@
                 width: 100%;
                 z-index: 9999;
             }
-            
+
             #content-label {
                 box-shadow: 0 1px 7px 0 #c1cad4;
                 padding: 15px;
                 margin: 10px;
             }
-            
+
             #image-container {
                 width: 30px;
                 height: 35px;
                 vertical-align: middle;
             }
-            
+
             import-log {
                 vertical-align: middle;
             }
-            
+
             .title {
                 font-size: var(--default-font-size, 14px);
                 text-align: center;
                 color: var(--palette-steel-grey, #75808b);
             }
-            
+
             pebble-button[disabled] {
                 pointer-events: none;
                 color: #c1cad4;
                 background-color: #c1cad4;
                 border-color: #c1cad4;
             }
-            
+
             #showReviewChk {
                 padding-right: 15%;
                 --pebble-checkbox-label-color: #75808b;
             }
-            .confirmSave{
-                font-size:12px;
+
+            .confirmSave {
+                font-size: 12px;
+            }
+
+            #categoryTreeContainer {
+                height: 550px;
+                overflow: auto;
             }
         </style>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
@@ -103,8 +112,30 @@
                 <pebble-checkbox id="showReviewChk" on-change="_onPreviewChange">Show Data Preview</pebble-checkbox>
             </div>
             <div class="placeHolder p-10">
-                <p class="title"><a href="#" class="btn-link" on-tap="_selectFile">Download</a> a system template or just upload an existing
-                    data file</p>
+                <p class="title">
+                    <a href="#" class="btn-link" on-tap="_exportDialogOpen">Download</a> a system template or just upload
+                    an existing data file
+                </p>
+                <!-- TODO -->
+                <!-- Currently pebble dialog is coming out of app and sitting on body so css has been added inline needs to resolve it with some proper way. -->
+                <pebble-dialog id="exportDialog" modal show-close-icon>
+                    <div id="exportSmartExcelContent" style="height:550px">
+                        <div>
+                            Select one or more classifications to download the smart excel template. You can select the classification at any level and
+                            the data required for all child classifications will be shown in the template.
+                        </div>
+                        <div id="categoryTreeContainer" style="height:500px; overflow:auto;">
+                            <rock-classification-tree id="contextTree" multi-select="true" taxonomy="productsetuptaxonomy" context-data="[[contextData]]"
+                                selected-items="{{_selectedCategories}}"></rock-classification-tree>
+                        </div>
+                        <div id="exportActions" class="p-b-10" align="center">
+                            <pebble-button style="color: #75808b;background-color: #ffffff;display: inline-block;font-weight: 400;line-height: 1.25;text-align: center;white-space: nowrap;overflow: hidden;vertical-align: middle;user-select: none;border: 1px solid #c1cad4;font-size: 14px;border-radius: 3px;transition: all .2s ease-in-out;box-sizing: border-box;text-transform: capitalize;height: 33px;width: 100px;padding-top: 6px;"
+                                id="cancel" button-text="Cancel" raised on-tap="_onCancelDownloadSelection"></pebble-button>
+                            <pebble-button style="color: #fff;background-color: #09c021;border-color: #09c021;display: inline-block;font-weight: 400;line-height: 1.25;text-align: center;white-space: nowrap;overflow: hidden;vertical-align: middle;user-select: none;border: 1px solid transparent;font-size: 14px;border-radius: 3px;transition: all .2s ease-in-out;box-sizing: border-box;text-transform: capitalize;height: 33px;width: 100px;padding-top: 6px;"
+                                id="download" button-text="Download" raised on-tap="_exportSelectedCategory"></pebble-button>
+                        </div>
+                    </div>
+                </pebble-dialog>
                 <!-- screen for import -->
                 <pebble-file-upload accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" target="/file-upload"></pebble-file-upload>
                 <bedrock-pubsub on-bedrock-event-pebble-file-upload-success="_onFileUploadSuccess"></bedrock-pubsub>
@@ -129,6 +160,8 @@
             <pebble-button class="action-button btn btn-secondary m-r-5" id="skip" button-text="Cancel" raised on-tap="_onSkipTap"></pebble-button>
             <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="next" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
         </div>
+        <liquid-rest id="copDownloadService" url="" method="POST" request-data={{_copDownloadRequest}} on-liquid-response="_onCOPDownloadSuccess"
+            on-liquid-error="_onCOPDownloadFailure"></liquid-rest>
     </template>
     <script>
         (function () {
@@ -151,9 +184,18 @@
                         }
                     },
                     /**
-                     * Indicates the names of the attributes that are rendered while creating a single entity.
+                     * Indicates the names of the attributes that are retrived from excel
                      */
                     attributeNames: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    /**
+                     * Indicates the contexts which are retrived from excel
+                     */
+                    contexts: {
                         type: Array,
                         value: function () {
                             return [];
@@ -225,6 +267,12 @@
                         type: Object,
                         value: function () { return {}; }
                     },
+                    _copDownloadRequest: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
                     _entitiesData: {
                         type: Object,
                         value: function () { return {}; }
@@ -289,9 +337,15 @@
                     _profileName: {
                         type: String,
                     },
+                    _selectedCategories: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    }
                 },
                 observers: [
-                    '_contextChanged(attributeNames, contextData)'
+                    '_contextChanged(attributeNames, contextData, contexts)'
                 ],
                 behaviors: [
                     RUFBehaviors.UIBehavior,
@@ -301,10 +355,12 @@
                     this._showView("entity-import");
                     this._profileName = this.processProfileName;
                 },
-                _contextChanged: function (attributeNames, contextData) {
+                _contextChanged: function (attributeNames, contextData, contexts) {
                     this._profileName = this.processProfileName;
                     if (attributeNames && attributeNames.length > 0 && !_.isEmpty(contextData)) {
                         var itemContext = this.getFirstItemContext();
+                        //this contexts is coming from COP returned entities
+                        this.contextData[ContextHelper.CONTEXT_TYPE_DATA] = contexts;
 
                         itemContext.attributeNames = attributeNames;
 
@@ -470,6 +526,7 @@
                     this.set("_fileName", detail.originalFileName);
                     var copRequest = {
                         "fileName": fileName,
+                        "originalFileName": detail.originalFileName,
                         "profileName": this._profileName
                     };
                     this.set("_copRequest", copRequest);
@@ -496,6 +553,7 @@
                         this._showView("label");
                         this._showView("entities-grid");
                         this._entities = response.response.entities;
+
                         var maxNoOfRows = this._gridConfig.tabular.settings.maxNoOfRows;
                         if (maxNoOfRows && this._entities.length > maxNoOfRows) {
                             this.showErrorToast("Imported more entities than specified maximum number of entities. Please review the file imported or contact your administrator.", 3000);
@@ -505,6 +563,12 @@
                         }
                         var attributeNames = EntityHelper.getAttributeNamesFromEntities(this._entities);
                         if (attributeNames && attributeNames.length > 0) {
+                            var contexts = EntityHelper.getContextsFromEntities(this._entities);
+                            if (contexts && contexts.length > 0) {
+                                this.set("contexts", contexts);
+                            }
+                            //setting contexts first and then attributeNames, because there is an observer on both
+                            //setting attributeNames first would send unnecessary request for model
                             this.set("attributeNames", attributeNames);
                         } else {
                             this.showErrorToast("Unable to fetch attributes from excel. Please check excel file imported or contact your administrator.");
@@ -799,6 +863,96 @@
                 getIsDirty: function () {
                     return this._isDirty;
                 },
+                _exportDialogOpen: function () {
+                    var exportDialog = this.$$("#exportDialog");
+
+                    if (exportDialog) {
+                        exportDialog.dialogTitle = "Download Smart Excel Template";
+                        this._selectedCategories = [];
+                        exportDialog.open();
+                    }
+                },
+                _onCancelDownloadSelection: function () {
+                    var exportDialog = document.querySelector("#exportDialog");
+
+                    if (exportDialog) {
+                        exportDialog.close();
+                    }
+                },
+                _exportSelectedCategory: function (e) {
+                    var copDownloadLiquid = this.$$("#copDownloadService");
+                    if (copDownloadLiquid && this._selectedCategories && this._selectedCategories.length) {
+                        var contexts = [];
+                        var firstItemContext = this.getFirstItemContext();
+                        var fileName = "CategoryTemplate";
+
+                        this._selectedCategories.forEach(function (category) {
+                            var formattedClassification = category.valuePath.replace(/#@#/g, "\/");
+                            contexts.push({
+                                "taxonomy": "productsetuptaxonomy",
+                                "classification": formattedClassification
+                            });
+                        }, this);
+
+                        if (this._selectedCategories.length == 1) {
+                            fileName = this._selectedCategories[0].value.replace(/\W/g, '_');
+                        }
+
+                        if (firstItemContext && firstItemContext.type && contexts.length) {
+                            this._copDownloadRequest = {
+                                "params": {
+                                    "query": {
+                                        "contexts": contexts,
+                                        "filters": {
+                                            "typesCriterion": [
+                                                "entityManageModel"
+                                            ]
+                                        },
+                                        "id": firstItemContext.type + "_entityManageModel"
+                                    },
+                                    "fields": {
+                                        "attributes": ["_ALL"],
+                                        "relationships": ["_ALL"]
+                                    }
+                                },
+                                "fileName": fileName
+                            };
+
+                            copDownloadLiquid.url = "/cop/downloadModelExcel";
+                            copDownloadLiquid.generateRequest();
+                        }
+                    }
+                },
+                _onCOPDownloadSuccess: function (e) {
+                    if (e.detail && e.detail.response) {
+                        var response = e.detail.response;
+                        if (response && response.fileName) {
+                            var fileName = response.fileName + ".xlsx";
+                            window.open('/file-download?fileName=' + fileName);
+                            this._onCancelDownloadSelection();
+                        } else {
+                            this._sendMessageToast("File Name not found for category model export.", "error");
+                        }
+                    }
+                },
+                _onCOPDownloadFailure: function (e) {
+                    this._sendMessageToast("File download failed", "error");
+                },
+                _sendMessageToast: function (message, status) {
+                    var mainApp = document.querySelector('main-app');
+                    if (mainApp) {
+                        mainApp.toastText = message;
+                        var toastElement = mainApp.$$("#pebbleAppToast");
+                        if (toastElement) {
+                            toastElement.toastType = status;
+                            toastElement.heading = status;
+                            toastElement.toastDuration = 10000;
+                            toastElement.autoClose = true;
+
+                            toastElement.show();
+                        }
+                    }
+                }
             });
         })();
     </script>

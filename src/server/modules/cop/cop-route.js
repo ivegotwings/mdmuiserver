@@ -19,7 +19,7 @@ var COPRouter = function (app) {
         //     response = {
         //         "entityOperationResponse": {
         //             "entities": [
-                        
+
         //             ]
         //         }
         //     };
@@ -57,13 +57,23 @@ var COPRouter = function (app) {
         res.status(200).send(response);
 
     });
-    app.post('/cop/process', async function(req, res) {
+    app.post('/cop/process', async function (req, res) {
         var response = await copService.process(req);
         //console.log('cop response:', JSON.stringify(response, null, 2));
         res.status(200).send(response);
     });
-    app.post('/cop/processmodel', async function(req, res) {
+    app.post('/cop/processmodel', async function (req, res) {
         var response = await copService.processmodel(req);
+        //console.log('cop response:', JSON.stringify(response, null, 2));
+        res.status(200).send(response);
+    });
+    app.post('/cop/downloadModelExcel', async function (req, res) {
+        var response = await copService.downloadModelExcel(req);
+        //console.log('cop response:', JSON.stringify(response, null, 2));
+        res.status(200).send(response);
+    });
+    app.post('/cop/downloadDataExcel', async function (req, res) {
+        var response = await copService.downloadDataExcel(req);
         //console.log('cop response:', JSON.stringify(response, null, 2));
         res.status(200).send(response);
     });

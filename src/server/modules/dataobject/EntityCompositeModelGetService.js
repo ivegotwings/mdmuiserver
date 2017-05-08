@@ -137,13 +137,17 @@ EntityCompositeModelGetService.prototype = {
 
         var allModels = [];
 
-        if(serviceOperation == 'getcoalesce') {
-            for(var res of response) {
-                allModels.push.apply(allModels, res.response.entityModels);
+        if (serviceOperation == 'getcoalesce') {
+            for (var res of response) {
+                if (res.response) {
+                    allModels.push.apply(allModels, res.response.entityModels);
+                }
             }
         }
         else {
-            allModels = response.response.entityModels;
+            if(response.response) {
+                allModels = response.response.entityModels;
+            }
         }
 
         //console.log('all models ', JSON.stringify(allModels));
