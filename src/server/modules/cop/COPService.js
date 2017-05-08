@@ -250,6 +250,7 @@ COPService.prototype = {
         } else {
             response.status = "error";
             response.statusDetail = {};
+            response.code = "RSUI0002";
             response.statusDetail.message = "binaryObjects not found in response of download service.";
             response.statusDetail.messageType = "Error";
         }
