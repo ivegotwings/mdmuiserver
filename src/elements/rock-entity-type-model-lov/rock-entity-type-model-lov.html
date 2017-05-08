@@ -1,9 +1,6 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 
 <link rel="import" href="../bedrock-app-context-behavior/bedrock-app-context-behavior.html">
-<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
-<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
-<link rel="import" href="../bedrock-lov-behavior/bedrock-lov-behavior.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-helpers/element-helper.html">
@@ -11,41 +8,35 @@
 
 <link rel="import" href="../pebble-lov/pebble-lov.html">
 
+<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+
 <!--
-`rock-attribute-model-datasource` component is used to render model entities in refine more
+`<rock-entity-type-model-lov></rock-entity-type-model-lov>` component is used to render model entities in entity-type 
 -->
 
 <dom-module id="rock-entity-type-model-lov">
     <template>
         <liquid-entity-model-get id="initGetEntities" operation="initiatesearch" request-data="{{requestData}}" last-response="{{_initGetEntitySearchResponse}}"
-            on-error="_onError" on-response= "_generateSearchRequest"></liquid-entity-model-get>
+            on-error="_onError" on-response="_onInitResponse" exclude-in-progress>
+        </liquid-entity-model-get>
         <liquid-entity-model-get id="getEntitiesSearchResults" operation="getsearchresultdetail" request-data="{{requestData}}" request-id="[[_initGetEntitySearchResponse.content.requestId]]"
-            on-response="_onGetResponse" on-error="_onError"></liquid-entity-model-get>
-        <pebble-lov id="entityTypeModelLov" page-size="[[pageSize]]" multi-select show-image="[[showImage]]" show-color="[[showColor]]"
-            no-sub-title="[[noSubTitle]]" show-action-buttons="[[showActionButtons]]"  items="[[items]]" selected-items="{{selectedItems}}">
+            on-response="_onGetResponse" on-error="_onError" exclude-in-progress>
+        </liquid-entity-model-get>
+
+        <pebble-lov id="entityTypeModelLov" page-size="[[pageSize]]" multi-select="{{multiSelect}}" show-image="[[showImage]]" show-color="[[showColor]]"
+            no-sub-title show-action-buttons="[[showActionButtons]]" items="[[items]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}">
         </pebble-lov>
     </template>
     <script>
         Polymer({
             is: 'rock-entity-type-model-lov',
             properties: {
-                selectedItems:{
-                    type:Array,
-                    value:function () {
+                selectedItems: {
+                    type: Array,
+                    value: function () {
                         return [];
                     },
-                observer:'_onSelectedItemsChange'
-                },
-                multiSelect:{
-                    type:Boolean,
-                    value:true
-                },
-                contextData:{
-                    type:Object,
-                    value:function () {
-                        return {};
-                    },
-                    observer:"_getEntityTypes"
+                    observer: '_onSelectedItemsChange'
                 },
                 requestData: {
                     type: Object,
@@ -55,94 +46,103 @@
                 },
                 domains: {
                     type: Array,
-                    value: function() {
+                    value: function () {
                         return ["thing"];
                     }
-                },            
-                _itemContexts:{
-                    type:Array,
+                },
+                multiSelect: {
+                    type: Boolean,
+                    value: true
+                },
+                preselectedEntityTypes: {
+                    type: Array,
                     value: function () {
                         return [];
-                    }
+                    },
+                    observer: '_setSelectedEntityTypes'
                 }
             },
 
             behaviors: [
                 RUFBehaviors.UIBehavior,
-                RUFBehaviors.LovBehavior,
-                RUFBehaviors.ComponentContextBehavior
+                RUFBehaviors.LovBehavior
             ],
-
-            _onSelectedItemsChange:function () {
-                //console.log('selectedEntityTypes: ', this.selectedItems.length);            
+            ready: function () {
+                this._getEntityTypeModels();
             },
-            
-            _defaultEntityTypes:function () {
-                var contextData = this.contextData;
-                if(contextData.ItemContexts){
-                    this._itemContexts = contextData.ItemContexts.map( function(item){
-                        return item.type;
-                    })
+            _onInitResponse: function _generateSearchRequest() {
+                this.$$('#getEntitiesSearchResults').generateRequest();
+            },
+
+            _onGetResponse: function _onGetResponse(e) {
+                var response = event.detail.response;
+                if (response.status === "success") {
+                    this._getEntityTypeFormattedData(response);
+                }
+            },
+            _onError: function _onError() {
+                this.items = [];
+                //this.$$("#entityTypeModelLov").stopLoading();
+            },
+            _onSelectedItemsChange: function () {
+
+                if (this.selectedItems.length > 0) {
+                    var eventDetail = {
+                        data: this.selectedItems
+                    };
+                    this.fireBedrockEvent("entity-type-selection-changed", eventDetail);
                 }
             },
 
-            _getEntityTypes:function () {
-                var clonedContextData = DataHelper.cloneObject(this.contextData);
-
-                if(_.isEmpty(clonedContextData)){
-                        return;
-                }
-                clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM]=[{"type":"entityType"}]; 
-                clonedContextData[ContextHelper.CONTEXT_TYPE_DATA]=[]; 
-                clonedContextData[ContextHelper.CONTEXT_TYPE_VALUE]=[]; 
-                var req = DataRequestHelper.createEntityGetRequest(clonedContextData); 
-                if(req) {
-                    if(req.params && req.params.options && req.params.options.totalRecords) {
-                        delete req.params.options.totalRecords;
-                    }
-                    this.set('requestData',req)
-                    if(this.$.initGetEntities) {
-                        this.$.initGetEntities.generateRequest();
-                    }
-                }
-                //this._defaultEntityTypes();
+            _getEntityTypeModels: function () {
+                var contextData = {};
+                contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [{
+                    "type": "entityType"
+                }];
+                contextData[ContextHelper.CONTEXT_TYPE_VALUE] = [];
+                contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+                var req = DataRequestHelper.createEntityGetRequest(contextData);
+                delete req.params.options.totalRecords;
+                this.set('requestData', req);
+                this.$$('#initGetEntities').generateRequest();
+                //this.$$("#entityTypeModelLov").startLoading();
             },
 
-            _generateSearchRequest: function (){
-                if(this.$.getEntitiesSearchResults) {
-                    this.$.getEntitiesSearchResults.generateRequest();
-                }
-            },
-
-            _onGetResponse: function (e) {
-                var response=event.detail.response;
-                this._formatEntityTypes(response);
-            },
-
-            _formatEntityTypes: function (data) {
+            _getEntityTypeFormattedData: function (data) {
                 var entityModels = data.content.entityModels;
-                var _itemContexts = this._itemContexts;
                 var filteredEntityTypes = [];
-                var selectedEntityTypes = [];
-                var defaultEntityTypes = DataHelper.cloneObject(this.selectedItems)
-                for(var i=0; i<entityModels.length;i++) {
+                for (var i = 0; i < entityModels.length; i++) {
                     var entityModel = entityModels[i];
-                    if(entityModel.domain && this.domains.indexOf(entityModel.domain) > -1 
-                        && filteredEntityTypes.indexOf(entityModel.name) == -1) {
-                            if(_itemContexts.indexOf(entityModel.name) > -1){
-                                selectedEntityTypes.push({
-                                    "title":entityModel.name,
-                                    "id":entityModel.id
-                                })   
-                            }
+                    if (entityModel.domain && this.domains.indexOf(entityModel.domain) > -1) {
+                        if (!this._isItemPresent(filteredEntityTypes, entityModel.name)) {
                             filteredEntityTypes.push({
-                                "title":entityModel.name,
-                                "id":entityModel.id
+                                "title": entityModel.name,
+                                "id": entityModel.name
                             });
                         }
+                    }
                 }
                 this.items = filteredEntityTypes;
-                this.selectedItems = selectedEntityTypes;
+                //this.$$("#entityTypeModelLov").stopLoading();
+            },
+
+            _isItemPresent: function (items, id) {
+                var presentItem = items.find(function (item) {
+                    return item.id == id;
+                });
+                return !!presentItem;
+            },
+            _setSelectedEntityTypes: function () {
+                var _entityTypes = this.preselectedEntityTypes;
+                for (var i in _entityTypes) {
+                    var itemObj = {
+                        "title": _entityTypes[i],
+                        "id": _entityTypes[i]
+                    };
+                    if (!this._isItemPresent(this.selectedItems, _entityTypes[i])) {
+                        this.push('selectedItems', itemObj);
+                    }
+                }
             }
 
         });

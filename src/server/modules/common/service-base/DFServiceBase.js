@@ -5,14 +5,18 @@ var executionContext = require('../context-manager/execution-context');
 var cryptoJS = require("crypto-js");
 var moment = require('moment');
 var notificationConfig = require('../../notification-engine/config');
+var uuidV1 = require('uuid/v1');
 
 var DFServiceBase = function (options) {
     var _dataConnection = new DFConnection();
     this._restRequest = _dataConnection.getRequest();
     this._serverUrl = _dataConnection.getServerUrl();
+    this._logSettings = _dataConnection.getLogSettings();
+
     if (options.serverType == 'cop') {
         this._serverUrl = _dataConnection.getCOPServerUrl();
     }
+
     this._headers = _dataConnection.getHeaders();
     this._timeout - _dataConnection.getTimeout();
 
@@ -59,7 +63,25 @@ var DFServiceBase = function (options) {
         };
 
         //var hrstart = process.hrtime();
-                
+
+        var logSettings = this._logSettings;
+        var logServiceNames = Object.keys(logSettings);
+        var internalRequestId = '';
+
+        for (var logServiceName of logServiceNames) {
+            var serviceLogSetting = logSettings[logServiceName];
+
+            if((serviceLogSetting == "trace-request" || serviceLogSetting == "trace-all") && url.indexOf(logServiceName) > 0) {
+                internalRequestId = uuidV1();
+                console.log('-------------------------------------------------------------------------------------------------\n');
+                console.log('service: ', logServiceName);
+                console.log('timestamp: ', Date.now());
+                console.log('request id:', internalRequestId);
+                console.log('request: ', JSON.stringify(options, null, 2));
+                console.log('-----------------------------------------------------------------------------------------------\n\n');
+            }
+        }
+
         var reqPromise = this._restRequest(options)
             .catch(function (errors) {
                 var err = {
@@ -77,11 +99,17 @@ var DFServiceBase = function (options) {
 
         var result = await reqPromise;
 
-        // console.log('------------------RDF CALL ------------------------------');
-        // var hrend = process.hrtime(hrstart);
-        // options.taken = hrend[1]/1000000;
-        // console.log(JSON.stringify(options, null, 2));
-        // console.log('-----------------------------------------------------------------\n\n');
+        for (var logServiceName of logServiceNames) {
+            var serviceLogSetting = logSettings[logServiceName];
+            if((serviceLogSetting == "trace-response" || serviceLogSetting == "trace-all") && url.indexOf(logServiceName) > 0) {
+                console.log('-------------------------------------------------------------------------------------------------\n');
+                console.log('service: ', logServiceName);
+                console.log('timestamp: ', Date.now());
+                console.log('request id:', internalRequestId);
+                console.log('response: ', JSON.stringify(result, null, 2));
+                console.log('-----------------------------------------------------------------------------------------------\n\n');
+            }
+        }
 
         return result;
     };

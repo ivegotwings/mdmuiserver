@@ -64,7 +64,7 @@ async function initiateSearch(callPath, args) {
 
     var res = await dataObjectManageService.get(request);
 
-    //console.log('response raw str', JSON.stringify(res, null, 4));
+   // console.log('response raw str', JSON.stringify(res, null, 4));
 
     var totalRecords = 0;
 
@@ -73,6 +73,7 @@ async function initiateSearch(callPath, args) {
     var dataObjectResponse = res ? res[dataIndexInfo.responseObjectName] : undefined;
 
     if (dataObjectResponse && dataObjectResponse.status == "success") {
+   //     console.log('collection name ', JSON.stringify(collectionName, null, 4));
         var dataObjects = dataObjectResponse[collectionName];
         var index = 0;
         if (dataObjects !== undefined) {

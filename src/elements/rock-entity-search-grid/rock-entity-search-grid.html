@@ -11,6 +11,7 @@
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../liquid-entity-govern-data-get/liquid-entity-govern-data-get.html">
+<link rel="import" href="../liquid-rest/liquid-rest.html">
 
 <link rel="import" href="../rock-grid/rock-grid.html">
 <link rel="import" href="../rock-grid/entity-search-grid-datasource.html">
@@ -29,12 +30,15 @@ It filters the data as per filter criteria.
     <template>
         <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
         <liquid-entity-govern-data-get name="governDataGet" operation="initiatesearch" request-data="{{_governDataRequest}}" on-response="_onGovernDataResponse"></liquid-entity-govern-data-get>
+        <liquid-rest id="copDownloadService" url="" method="POST" request-data={{_copDownloadRequest}} on-liquid-response="_onCOPDownloadSuccess"
+            on-liquid-error="_onCOPDownloadFailure"></liquid-rest>
         <template is="dom-if" if="[[_isWorkflowRequest(_loadGrid, _loadWithoutWorkflow)]]">
             <entity-search-grid-datasource id="searchGrid" request="{{request}}" data-source="{{dataSource}}" data-formatter="{{dataFormatter}}"
                 current-record-size="{{size}}" total-records="{{totalRecords}}" total-count="{{totalCount}}"></entity-search-grid-datasource>
             <rock-grid id="entityGrid" data-source="{{dataSource}}" data-source-id="searchGrid" record-size="{{totalRecords}}" config="{{gridConfig}}"
                 grid-data-size="{{size}}" attribute-models="{{attributeModels}}" page-size="[[pageSize]]" selected-item="{{selectedItem}}"
                 selected-items="{{selectedItems}}" total-count="{{totalCount}}" max-configured-count="[[maxConfiguredCount]]"></rock-grid>
+            <bedrock-pubsub event-name="grid-download-item" handler="_onDownload" target-id="entityGrid"></bedrock-pubsub>
         </template>
     </template>
 
@@ -154,7 +158,7 @@ It filters the data as per filter criteria.
                     pageSize: {
                         type: Number,
                         notify: true,
-                        value: 10
+                        value: 50
                     },
 
                     /**
@@ -207,7 +211,7 @@ It filters the data as per filter criteria.
 
                     maxConfiguredCount: {
                         type: Number,
-                        value: function(){
+                        value: function () {
                             return DataObjectFalcorUtil.getPathKeys().dataIndexInfo.entityData.totalRecordsToReturn;
                         }
                     },
@@ -226,6 +230,12 @@ It filters the data as per filter criteria.
                     _loadWithoutWorkflow: {
                         type: Boolean
                     },
+                    _copDownloadRequest: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    }
                 },
 
                 behaviors: [
@@ -299,7 +309,7 @@ It filters the data as per filter criteria.
                 getSelectedItemIndex: function () {
                     return this._getEntityGrid().getSelectedItemIndex();
                 },
-                
+
                 _addWorkflowDetailsToConfig: function () {
                     if (!(this.workflowCriterion && this.workflowCriterion.workflowName && this.workflowCriterion.workflowActivityName)) {
                         return;
@@ -367,8 +377,8 @@ It filters the data as per filter criteria.
                         return;
                     }
 
-                    if(!_.isEmpty(this.contextData)) {
-                        if(Object.keys(this.contextData).length == 1 && this.contextData[ContextHelper.CONTEXT_TYPE_USER]) {
+                    if (!_.isEmpty(this.contextData)) {
+                        if (Object.keys(this.contextData).length == 1 && this.contextData[ContextHelper.CONTEXT_TYPE_USER]) {
                             return;
                         }
                     }
@@ -458,20 +468,17 @@ It filters the data as per filter criteria.
                 },
 
                 // Remove unsupported filters which were added for tags
-                _removeUnSupportedFilters: function(filters) {                    
-                    for(var i = 0; i < filters.length; i++)
-                    {
-                        if(filters[i] && !_.isEmpty(filters[i]))
-                        {
+                _removeUnSupportedFilters: function (filters) {
+                    for (var i = 0; i < filters.length; i++) {
+                        if (filters[i] && !_.isEmpty(filters[i])) {
                             for (var key in filters[i]) {
                                 if (!filters[i].hasOwnProperty(key)) continue;
                                 for (var j in filters[i][key]) {
                                     if (!filters[i][key].hasOwnProperty(j)) continue;
-                                    if(j != 'eq' &&
-                                       j != 'gte' &&
-                                       j != 'lte' &&
-                                       j != 'contains')
-                                    {
+                                    if (j != 'eq' &&
+                                        j != 'gte' &&
+                                        j != 'lte' &&
+                                        j != 'contains') {
                                         delete filters[i][key][j];
                                     }
                                 }
@@ -479,7 +486,7 @@ It filters the data as per filter criteria.
                         }
                     }
 
-                    return filters;                        
+                    return filters;
                 },
 
                 _loadSearchResultsByQuery: function () {
@@ -500,8 +507,8 @@ It filters the data as per filter criteria.
                             var keyWordItem = {}
                             var splitQueryByAnd = this.searchQuery.toLowerCase().split(' and ');
                             var splitQueryByOr = this.searchQuery.toLowerCase().split(' or ');
-                            
-                            if(splitQueryByAnd.length > 1) {
+
+                            if (splitQueryByAnd.length > 1) {
                                 keyWordItem.operator = "_AND"
                             } else if (splitQueryByOr.length > 1) {
                                 keyWordItem.operator = "_OR"
@@ -509,7 +516,7 @@ It filters the data as per filter criteria.
                                 keyWordItem.operator = "_AND"
                             }
                             keyWordItem.keywords = splitQueryByAnd.join(' ');
-                            
+
                             this.request.params.query.filters.keywordsCriterion = keyWordItem;
                         } else {
                             delete this.request.params.query.filters.keywordsCriterion;
@@ -594,6 +601,75 @@ It filters the data as per filter criteria.
                     var rockGrid = Polymer.dom(this).node.$$('rock-grid');
                     if (rockGrid && rockGridHeight > 0) {
                         rockGrid._getIronDataTable().style.height = rockGridHeight - 80 + 'px';
+                    }
+                },
+
+                _onDownload: function (e) {
+                    if (this.selectedItems && this.selectedItems.length && this.contextData) {
+                        // var ids = [];
+                        // var typesCriterion = [];
+                        var clonedDataContext = DataHelper.cloneObject(this.contextData);
+                        var itemContext = {};
+                        itemContext.id = [];
+                        itemContext.type = [];
+
+                        this.selectedItems.forEach(function (item) {
+                            if (item) {
+                                itemContext.id.push(item.id);
+
+                                if (itemContext.type.indexOf(item.type) == -1) {
+                                    itemContext.type.push(item.type);
+                                }
+                            }
+                        }, this);
+
+                        itemContext.attributeNames = "_ALL";
+                        itemContext.relationships = "_ALL";
+                        itemContext.relationshipAttributes = "_ALL";
+                        clonedDataContext[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+
+                        var req = DataRequestHelper.createEntityGetRequest(clonedDataContext);
+                        req.fileName = "EntityData";
+                        this._copDownloadRequest = req;
+
+                        var copDownloadLiquid = this.$$("#copDownloadService");
+                        if (copDownloadLiquid) {
+                            copDownloadLiquid.url = "/cop/downloadDataExcel";
+                            copDownloadLiquid.generateRequest();
+                        }
+
+                    } else {
+                        this._sendMessageToast("Please select at least one entity from grid to download.", "information");
+                    }
+                },
+                _onCOPDownloadSuccess: function (e) {
+                    if (e.detail && e.detail.response) {
+                        var response = e.detail.response;
+                        if (response && response.fileName) {
+                            var fileName = response.fileName + ".xlsx";
+                            window.open('/file-download?fileName=' + fileName);
+                        } else {
+                            this._sendMessageToast("File Name not found for entity data export.", "error");
+                        }
+                    }
+                },
+                _onCOPDownloadFailure: function (e) {
+                    this._sendMessageToast("File download failed", "error");
+                },
+                //TODO needs to move into common file
+                _sendMessageToast: function (message, status) {
+                    var mainApp = document.querySelector('main-app');
+                    if (mainApp) {
+                        mainApp.toastText = message;
+                        var toastElement = mainApp.$$("#pebbleAppToast");
+                        if (toastElement) {
+                            toastElement.toastType = status;
+                            toastElement.heading = status;
+                            toastElement.toastDuration = 10000;
+                            toastElement.autoClose = true;
+
+                            toastElement.show();
+                        }
                     }
                 }
             });
