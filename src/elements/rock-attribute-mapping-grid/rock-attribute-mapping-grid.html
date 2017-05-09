@@ -73,6 +73,10 @@
 			iron-data-table data-table-row[header] /deep/ paper-icon-button:not([direction]) {
 				opacity: 0.7 !important;
 			}
+            iron-data-table data-table-row data-table-cell {
+                padding: 0 0 0 10px !important;
+                justify-content: center;
+            }
             #inputDiv {
                 width:250px;         
             }  
@@ -101,7 +105,7 @@
         <pebble-dialog id="classificationDialog" modal show-close-icon>
             <div id="classificationContent" style="height:500px">
                 <div>
-                    Select one or more classifications.
+                    Select one classification.
                 </div>
                 <div id="categoryTreeContainer" style="height:450px; overflow:auto;">
                     <rock-classification-tree id="contextTree" taxonomy="[[taxonomy]]" context-data="[[contextData]]"></rock-classification-tree>
@@ -117,12 +121,12 @@
         <div id="grid-container">
             <template is="dom-if" if="[[_isDataAvailable(_gridData)]]">
                 <iron-data-table id="mapping-grid" items="{{_gridData}}" multi-selection selected-item="{{selectedItem}}">
-                <data-table-column name="Actions" width="100px">
+                <data-table-column name="Actions" width="60px" flex="0">
                     <template>
                         <pebble-button id="action_[[item.rowId]]" class="actionButton" icon="pebble-icons:Delete" on-tap="_fireActionEvent"></pebble-button>
                     </template>
                 </data-table-column>
-                <data-table-column name="Is Context" width="100px">
+                <data-table-column name="Is Context" width="100px" flex="0">
                     <template>
                         <pebble-checkbox id="isContextChk" checked$="[[item.isContext]]" on-change="_onIsContextChange"></pebble-checkbox>
                     </template>
@@ -134,11 +138,11 @@
                 </data-table-column>
                 <data-table-column name="For Context">
                     <template>
-                    <div id="inputDiv" on-tap="_classificationDialogOpen">
+                    <div id="inputDiv">
                             <pebble-textbox class="context-text" id="context-text_[[item.rowId]]" row-id="[[item.rowId]]" value="{{item.context}}"></pebble-textbox>
                         </div>
                         <div id="iconDiv">
-                            <pebble-icon class="dropdown-icon" id="txtDropdownIcon_[[item.rowId]]" row-id="[[item.rowId]]" icon="pebble-xs-icons:ExpandMore"></pebble-icon>
+                            <pebble-icon class="dropdown-icon" id="txtDropdownIcon_[[item.rowId]]" row-id="[[item.rowId]]" icon="pebble-xs-icons:ExpandMore" on-tap="_classificationDialogOpen"></pebble-icon>
                         </div>
                     </template>
                 </data-table-column>
@@ -211,11 +215,19 @@
                             return {};
                         }
                     },
-                    profileName: {
+                    transformProfileName: {
                         type: String,
                         value: function() { return ""; }
                     },
-                    _profileObject: {
+                    processProfileName: {
+                        type: String,
+                        value: function() { return ""; }
+                    },
+                    _transformProfileObject: {
+                        type: Object,
+                        value: function() { return {}; }
+                    },
+                    _processProfileObject: {
                         type: Object,
                         value: function() { return {}; }
                     },
@@ -233,7 +245,7 @@
                     },
                 },
                 observers: [
-                    '_dataChanged(contextData, mappingsData, profileName)'
+                    '_dataChanged(contextData, mappingsData, transformProfileName, processProfileName)'
                 ],
                 behaviors: [
                     RUFBehaviors.UIBehavior,
@@ -245,12 +257,13 @@
 					'selecting-all-items': '_onSelectingAllItems',
 					'deselecting-all-items': '_onDeselectingAllItems',
                 },
-                _dataChanged: function(contextData, mappingsData, profileName) {
-                    if(!_.isEmpty(contextData) && !_.isEmpty(mappingsData) && !_.isEmpty(profileName)) {
+                _dataChanged: function(contextData, mappingsData, transformProfileName, processProfileName) {
+                    if(!_.isEmpty(contextData) && !_.isEmpty(mappingsData) && !_.isEmpty(transformProfileName) && !_.isEmpty(processProfileName)) {
+                        this._isDuplicateResponse = false;
                         var req = {
                             "params": {
                                 "query": {
-                                    "id": this.profileName,
+                                    "ids": [transformProfileName, processProfileName],
                                     "filters": {
                                         "typesCriterion": [
                                             "COPProfile"
@@ -279,12 +292,15 @@
                     }
                 },
                  _onProfileGetResponse: function(e) {
-                    var response = e.detail.response;
-                    if(response && response.status && response.status.toLowerCase() == "success" && response.content && response.content.configObjects) {
-                        if(response.content.configObjects.length > 0) {
-                            this._profileObject = response.content.configObjects[0];
-                            var destinationAttributes = this._getAllDestinationAttributes(this.mappingsData);
-                            // var firstItemContext = this.getFirstItemContext();
+                    if(!this._isDuplicateResponse) {
+                        this._isDuplicateResponse = true;
+                        var response = e.detail.response;
+                        if(response && response.status && response.status.toLowerCase() == "success" && response.content && response.content.configObjects) {
+                            if(response.content.configObjects.length > 0) {
+                                this._transformProfileObject = response.content.configObjects.find(obj => obj.id == this.transformProfileName);
+                                this._processProfileObject = response.content.configObjects.find(obj => obj.id == this.processProfileName);
+                                var destinationAttributes = this._getAllDestinationAttributes(this.mappingsData);
+                                // var firstItemContext = this.getFirstItemContext();
 
                             // if(typeof(firstItemContext) != "undefined") {
                             //     firstItemContext.attributeNames = destinationAttributes;
@@ -318,21 +334,22 @@
                             //     liquidModelGet.generateRequest();
                             // }
                             var liquidModelGet = this.$$("[name=liquidAttributeModelGet]");
-                            if (liquidModelGet) {
-                                liquidModelGet.generateRequest();
+                                if (liquidModelGet) {
+                                    liquidModelGet.generateRequest();
+                                }
+                            } else{
+                                this.showErrorToast("Base profile for mapping generation is missing. Please contact Your administrator");
                             }
-                        } else{
-                            this.showErrorToast("Base profile for mapping generation is missing. Please contact Your administrator");
-                        }
-                    } else {
-                        this.showErrorToast("There is some problem in configuration get service. Please contact Your administrator");
+                        } else {
+                            this.showErrorToast("There is some problem in configuration get service. Please contact Your administrator");
+                        }    
                     }
                 },
                 _onCompositeModelGetResponse: function(e) {
                     var values = [];
                     if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
                         this._attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
-                        this._prepareGridData();
+                         this._prepareGridData();
                     }
                 },
                 _onAttributeModelGetResponse: function(e) {
@@ -394,6 +411,7 @@
                             var classification = fieldMap.context && fieldMap.context.classification ? fieldMap.context.classification : "";
                             var rowData = {
                                 "rowId": rowId++,
+                                "id": fieldMap.id,
                                 "isContext": isContext,
                                 "excelColumnName": source,
                                 "attributeModel": attrModel,
@@ -406,7 +424,7 @@
                 },
                 _showAttributesLOV: function(e) {
                     var rowId = e.currentTarget.rowId;
-                    if(rowId >= 0) {
+                   if(rowId >= 0) {
                         var lov = this.$$("#attributeModelLov");
                         var popover = this.$$("#attributesPopover");
                         if(lov && popover) {
@@ -531,11 +549,12 @@
 				},
                 _classificationDialogOpen: function (e) {
                     var classificationDialog = this.$$("#classificationDialog");
-                    var inputDiv = e.currentTarget;
+                    var icon = e.currentTarget;
+                    var row = this._getParentRow(icon);
                     var currentValuePath = "";
                     var selectedClassifications = [];
-                    if(inputDiv) {
-                        var contextTxtBox = inputDiv.querySelector('pebble-textbox');
+                    if(row) {
+                        var contextTxtBox = row.querySelector('.context-text');
                         if(contextTxtBox) {
                             this.contextTxtId = contextTxtBox.id;
                             currentValuePath = contextTxtBox.value;
@@ -587,12 +606,14 @@
                     var mappings = this._transformGridDataToFieldOverrides();
                     if(!_.isEmpty(mappings)) {
                         if(!_.isEmpty(mappings.fieldOverrides)) {
-                            this._profileObject.data.contexts[0].jsonData.transform.mapping.fieldOverrides = mappings.fieldOverrides;
+                            this._transformProfileObject.data.contexts[0].jsonData.transform.mapping.fieldOverrides = mappings.fieldOverrides;
+                            this._processProfileObject.data.contexts[0].jsonData.transform.mapping.fieldOverrides = mappings.fieldOverrides;
                         }
                         if(!_.isEmpty(mappings.contexts)) {
-                            this._profileObject.data.contexts[0].jsonData.transform.mapping.contexts = mappings.contexts;
+                            this._transformProfileObject.data.contexts[0].jsonData.transform.mapping.contexts = mappings.contexts;
+                            this._processProfileObject.data.contexts[0].jsonData.transform.mapping.contexts = mappings.contexts;
                         }
-                        var req = { "configObjects": [ this._profileObject ] };
+                        var req = { "configObjects": [ this._transformProfileObject,this._processProfileObject] };
                         this.set("_profileSaveRequest", req);
                         var configSaveService = this.$$("#profileSaveService");
                         if(configSaveService) {
@@ -623,6 +644,7 @@
                             }
                             if(!_.isEmpty(mappedAttribute) && !_.isEmpty(excelColumnName)) {
                                 var fieldOverride = {
+                                    "id": item.id,
                                     "source": excelColumnName,
                                     "destination": "@attr(" + mappedAttribute + ")"
                                 };
