@@ -17,7 +17,7 @@ COPService.prototype = {
                 "entityOperationResponse": {
                     "status": "Error",
                     "statusDetail": {
-                        "code": "RSUI0000",
+                        "code": "RSUI0001",
                         "message": "Incorrect request for COP transform.",
                         "messageType": "Error"
                     }
@@ -40,7 +40,7 @@ COPService.prototype = {
                 "entityOperationResponse": {
                     "status" :"Error",
                     "statusDetail" : {
-                        "code": "RSUI0000",
+                        "code": "RSUI0001",
                         "message": "Incorrect request for COP process.",
                         "messageType": "Error"
                     }
@@ -69,7 +69,7 @@ COPService.prototype = {
                 "entityOperationResponse": {
                     "status" :"Error",
                     "statusDetail" : {
-                        "code": "RSUI0000",
+                        "code": "RSUI0001",
                         "message": "Incorrect request for COP process model.",
                         "messageType": "Error"
                     }
@@ -99,39 +99,12 @@ COPService.prototype = {
         return response;
     },
     downloadDataExcel: async function (request) {
-        //TODO:: Need to change to "copservice/downloadDataExcel" once COP API is ready.
-        var downloadDataURL = "copservice/downloadModelExcel";
+        var downloadDataURL = "copservice/downloadDataExcel";
         var timeStamp = Date.now();
         var fileName = request.body.fileName + '-' + timeStamp;
 
         //console.log('downloadDataRequest: ', JSON.stringify(request.body, null, 2));
-
-        //TODO:: Need to un comment below line and remove hard corded request object once COP API is ready. 
-        //var response = await this.post(downloadDataURL, request.body);
-        var req = {
-            "params": {
-                "query": {
-                    "contexts": [
-                        {
-                            "taxonomy": "productsetuptaxonomy",
-                            "classification": "plhousewares/ptycooktops/sptycooktops/ityelectriccooktops"
-                        }
-                    ],
-                    "filters": {
-                        "typesCriterion": [
-                            "entityManageModel"
-                        ]
-                    },
-                    "id": "sku_entityManageModel"
-                },
-                "fields": {
-                    "attributes": ["_ALL"],
-                    "relationships": ["_ALL"]
-                }
-            }
-        };
-
-        var response = await this.post(downloadDataURL, req);
+        var response = await this.post(downloadDataURL, request.body);
 
         if(response && response.response && response.response.status.toLowerCase() == "success") {
             this._downloadFileContent(response.response, fileName);
