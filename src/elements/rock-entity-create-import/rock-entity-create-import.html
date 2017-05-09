@@ -364,6 +364,7 @@
                 _contextChanged: function (contextData) {
                     if (!_.isEmpty(contextData)) {
                         //this contexts is coming from COP returned entities
+                        this._isDuplicateResponse = false;
                         var itemContext = this.getFirstItemContext();
                         var entityType = itemContext.type;
                         this.baseProfileId = "sku_Folder_Excel_Import_Transform_Dynamic";
@@ -401,39 +402,42 @@
                     }
                 },
                 _onProfileGetResponse: function(e) {
-                    var response = e.detail.response;
-                    if(response && response.status && response.status.toLowerCase() == "success" && response.content && response.content.configObjects) {
-                        if(response.content.configObjects.length > 0) {
-                            var req = { "configObjects": [] };
-                            var configObjects = response.content.configObjects;
-                            var baseProfile = configObjects.find(obj => obj.id == this.baseProfileId);
-                            var transformProfile = configObjects.find(obj => obj.id == this.transformProfileId);
-                            var processProfile = configObjects.find(obj => obj.id == this.processProfileId);
-                            if(baseProfile) {
-                                this.baseProfile = DataHelper.cloneObject(baseProfile);
-                                if(!transformProfile) {
-                                    var transformProfileCreateReq = this._getProfileCreationRequest(this.transformProfileId, this.baseProfile, "transform")
-                                    req.configObjects.push(transformProfileCreateReq);
-                                }
-                                if(!transformProfile) {
-                                    var processProfileCreateReq = this._getProfileCreationRequest(this.processProfileId, this.baseProfile, "process")
-                                    req.configObjects.push(processProfileCreateReq);
-                                }
-                                if(!_.isEmpty(req.configObjects)) {
-                                    this.set("_profileSaveRequest", req);
-                                    this.$$("#profileSaveService").generateRequest();
+                    if(!this._isDuplicateResponse) {
+                        this._isDuplicateResponse = true;
+                        var response = e.detail.response;
+                        if(response && response.status && response.status.toLowerCase() == "success" && response.content && response.content.configObjects) {
+                            if(response.content.configObjects.length > 0) {
+                                var req = { "configObjects": [] };
+                                var configObjects = response.content.configObjects;
+                                var baseProfile = configObjects.find(obj => obj.id == this.baseProfileId);
+                                var transformProfile = configObjects.find(obj => obj.id == this.transformProfileId);
+                                var processProfile = configObjects.find(obj => obj.id == this.processProfileId);
+                                if(baseProfile) {
+                                    this.baseProfile = DataHelper.cloneObject(baseProfile);
+                                    if(!transformProfile) {
+                                        var transformProfileCreateReq = this._getProfileCreationRequest(this.transformProfileId, this.baseProfile, "transform")
+                                        req.configObjects.push(transformProfileCreateReq);
+                                    }
+                                    if(!transformProfile) {
+                                        var processProfileCreateReq = this._getProfileCreationRequest(this.processProfileId, this.baseProfile, "process")
+                                        req.configObjects.push(processProfileCreateReq);
+                                    }
+                                    if(!_.isEmpty(req.configObjects)) {
+                                        this.set("_profileSaveRequest", req);
+                                        this.$$("#profileSaveService").generateRequest();
+                                    } else {
+                                        this._profileName = this.processProfileId;
+                                        this._showView("entity-import");
+                                    }
                                 } else {
-                                    this._profileName = this.processProfileId;
-                                    this._showView("entity-import");
+                                    this.showErrorToast("Base profile for mapping generation is missing. Please contact Your administrator");
                                 }
-                            } else {
+                            } else{
                                 this.showErrorToast("Base profile for mapping generation is missing. Please contact Your administrator");
                             }
-                        } else{
-                            this.showErrorToast("Base profile for mapping generation is missing. Please contact Your administrator");
+                        } else {
+                            this.showErrorToast("There is some problem in configuration get service. Please contact Your administrator");
                         }
-                    } else {
-                        this.showErrorToast("There is some problem in configuration get service. Please contact Your administrator");
                     }
                 },
                 _getProfileCreationRequest: function(profileId, baseProfile, service) {
@@ -447,6 +451,8 @@
                     profile.id = profileId;
                     profile.name = profileId;
                     profile.data.contexts[0].context.service = ctxService;
+                    profile.data.contexts[0].jsonData.id = profileId;
+                    profile.data.contexts[0].jsonData.name = profileId;
                     return profile;
                 },
                 _onProfileSaveResponse: function(e) {
@@ -992,7 +998,8 @@
                         "properties": {
                             "mappings-data": this._mappingsData,
                             "context-data": this.contextData,
-                            "profile-name": this._profileName
+                            "transform-profile-name": this.transformProfileId,
+                            "process-profile-name": this.processProfileId
                         }
                     };
                     var contentEl = this.$$("#content-mappings");
