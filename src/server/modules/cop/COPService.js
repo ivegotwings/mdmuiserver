@@ -84,6 +84,29 @@ COPService.prototype = {
         //console.log('processRequest: ', JSON.stringify(processModelRequest.dataObject.properties, null, 2));
         return await this.post(processModelURL, processModelRequest);
     },
+    generateFieldMap: async function(request) {
+        var generateFieldMapURL = "copservice/generateFieldMap";
+        var validationResult = this._validateRequest(request);
+        if (!validationResult) {
+            return {
+                "entityOperationResponse": {
+                    "status" :"Error",
+                    "statusDetail" : {
+                        "code": "RSUI0000",
+                        "message": "Incorrect request for COP generate field mappings.",
+                        "messageType": "Error"
+                    }
+                }
+            };
+        }
+
+        var fileName = request.body.fileName;
+        var originalFileName = request.body.originalFileName;
+        var profileName = request.body.profileName;
+        var generateFieldMapRequest = this._prepareCOPRequestForGenerateMap(fileName, originalFileName, profileName);
+        //console.log('generateFieldMapRequest: ', JSON.stringify(generateFieldMapRequest, null, 2));
+        return await this.post(generateFieldMapURL, generateFieldMapRequest);
+    },
     downloadModelExcel: async function (request) {
         var downloadModelURL = "copservice/downloadModelExcel";
         var timeStamp = Date.now();
@@ -212,6 +235,35 @@ COPService.prototype = {
         copRequest.dataObject.properties.filename = originalFileName;
         copRequest.dataObject.properties.profileName = profileName;
         copRequest.dataObject.data.blob = this._getFileContent(fileName);
+        return copRequest;
+    },
+    _prepareCOPRequestForGenerateMap: function(fileName, originalFileName, profileName) {
+        var copRequest = {
+            "binaryObject": {
+                "id": "",
+                "dataObjectInfo": {
+                    "dataObjectType": "entityjson"
+                },
+                "properties": {
+                    "createdByService": "user interface",
+                    "createdBy": "user",
+                    "createdDate": "2016-07-16T18:33:52.412-07:00",
+                    "filename": "",
+                    "encoding": "Base64",
+                    "profileId": "d75a63f9-ed4f-4b6e-9973-8743396b61c0",
+                    "profileName": "",
+                    "profileType": "COPProfile"
+                },
+                "data": {
+                    "blob": ""
+                }
+            }
+        };
+
+        copRequest.binaryObject.id = uuidV1();
+        copRequest.binaryObject.properties.filename = originalFileName;
+        copRequest.binaryObject.properties.profileName = profileName;
+        copRequest.binaryObject.data.blob = this._getFileContent(fileName);
         return copRequest;
     },
     _getFileContent: function (fileName) {
