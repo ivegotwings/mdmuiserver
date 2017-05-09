@@ -1,4 +1,5 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/paper-tooltip/paper-tooltip.html">
 
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
@@ -24,18 +25,13 @@
 <dom-module id="rock-import-list">
     <template>
         <style is="custom-style" include="pebble-styles-shared">
-            #searchBar {
-                width: calc(80% - 20px);
-                display: inline-block;
-                padding-right: 20px;
-            }
 
             #stateButton {
                 margin-left: 10px;
             }
 
             .iconButton {
-                margin-top: 15px;
+                margin-top: 25px;
             }
 
             rock-grid::shadow #pebbleGridContainer {
@@ -48,24 +44,32 @@
                 --pebble-toggle-button-checked-button-color: var(--success-color, #4caf50);
                 --pebble-toggle-button-checked-ink-color: var(--success-color, #4caf50);
             }
-            #filterDropDown{
-                display: inline-block;
+            .dropdown{
+                margin-right: 30px;
+            }
+            .alignRight{
+                margin-left: auto;
             }
         </style>
 
         <bedrock-pubsub event-name="rock-search" handler="_onSearch" target-id="searchBar"></bedrock-pubsub>
         <bedrock-pubsub event-name="rock-search-clear" handler="_onSearchClear" target-id="searchBar"></bedrock-pubsub>
         <rock-search-bar id="searchBar" placeholder="Enter Search text"></rock-search-bar>
-        <pebble-dropdown id="filterDropDown" label="Status" items="[[stateFilters]]" selected-value="{{selectedFilter}}"></pebble-dropdown>
         <div class="layout horizontal ">
             <!--<pebble-dropdown id="sortDropdown" label="Sort By" items="[[sortingAttributes]]" selected-value="{{sortCondition}}"></pebble-dropdown>-->
             <!--<div class="flex">-->
                 <!--<pebble-button icon="icons:arrow-downward" class="iconButton btn " hidden="[[descending]]" on-tap="_sortByDesecnding"></pebble-button>-->
                 <!--<pebble-button icon="icons:arrow-upward" class="iconButton btn" hidden="[[!descending]]" on-tap="_sortByAsecnding"></pebble-button>-->
             <!--</div>-->
-
-            <pebble-toggle-button checked="{{getOwnEvents}}">Show Only My Jobs</pebble-toggle-button>
-
+            <pebble-dropdown  class="dropdown" label="Status" items="[[stateFilters]]" selected-value="{{selectedState}}"></pebble-dropdown>
+            <pebble-dropdown  class="dropdown" label="Type" items="[[typeFilters]]" selected-value="{{selectedType}}"></pebble-dropdown>
+            <div class="alignRight" >
+                <pebble-button id="refreshButton" icon="pebble-icons:Refresh" class="iconButton btn" on-tap="_refreshList"></pebble-button>
+            </div>
+            <template is="dom-if" if="[[userToggleAllowed]]">
+                <pebble-toggle-button checked="{{!getAllUsersEvents}}">Show Only My Jobs</pebble-toggle-button>
+            </template>
+            <paper-tooltip for="refreshButton"> Refresh</paper-tooltip>
         </div>
         <event-list-datasource id="eventDataSource" request="[[request]]" data-source="{{dataSource}}" data-formatter="{{_dataFormatter}}">
         </event-list-datasource>
@@ -84,6 +88,10 @@
                         type: String,
                         value:"Completed,Running,Aborted"
                     },
+                    typeFilters: {
+                        type: String,
+                        value:"Import data,Export data,Import governance model,Export governance model"
+                    },
                     descending: {
                         type: Boolean,
                         value: false
@@ -96,7 +104,7 @@
                         type: String,
                         value: "Name,File Type,Status,Last Modified Date,Success Count, Failure Count "
                     },
-                    getOwnEvents: {
+                    getAllUsersEvents: {
                         type: Boolean,
                         value: false,
                         observer: '_userStateChanged'
@@ -120,10 +128,19 @@
                         },
                         observer:'_contextDataChanged'
                     },
-                    selectedFilter:{
+                    selectedState:{
                         type:String,
                         value:"",
                         observer:"_onStateFilterChanged"
+                    },
+                    selectedType:{
+                        type:String,
+                        value:"",
+                        observer:"_onTypeFilterChanged"
+                    },
+                    userToggleAllowed:{
+                        type:Boolean,
+                        computed:'_setUserToggleAllowed(config)'
                     }
 
                 },
@@ -140,6 +157,9 @@
                        this._setEventRequest();
                    }
                 },
+                _setUserToggleAllowed:function (config) {
+                    return !!config.userToggleAllowed;
+                },
                 _setEventRequest:function () {
                     var contextData=DataHelper.cloneObject(this.contextData);
                     var itemContext={"type":"externalevent"};
@@ -151,15 +171,29 @@
                             "locale": "en-US"
                         }
                     ];
-                    req.params.query.filters.attributesCriterion=[{
-                        "eventSubType": {
-                            "eq": "workBatchStarted"
+                    req.params.query.filters.attributesCriterion=[
+                        {
+                            "eventSubType": {
+                                "eq": "workBatchComplete"
+                            }
+                        },
+                        {
+                            "profileType": {
+                                "eq": "ENTITY_IMPORT"
+                            }
                         }
-                    }];
+                    ];
                     if(this.config.dataRequest && this.config.dataRequest.attributes){
                         req.params.fields.attributes= this.config.dataRequest.attributes;
                     } else {
                         req.params.fields.attributes=["_ALL"];
+                    }
+                    if(!this.getAllUsersEvents){
+                        req.params.query.filters.attributesCriterion.push({
+                            "userId": {
+                                "eq": this.userId
+                            }
+                        });
                     }
                     req.params.sort={
                         "attributes": [{
@@ -252,6 +286,7 @@
                             events[i].recordCount = "Total " + events[i].recordCount +
                                 " Records"
                         }
+                        events[i].viewDetails="View Details"
                         /* if(events[i].successCount) {
                              events[i].successCount += " Passed";
                          }
@@ -262,17 +297,17 @@
 
                     return events;
                 },
-                _onStateFilterChanged: function (selectedFilter) {
-                    if (this.request && selectedFilter) {
-                        switch(selectedFilter) {
+                _onStateFilterChanged: function (selectedState) {
+                    if (this.request && !_.isEmpty(this.request) && selectedState) {
+                        switch(selectedState) {
                             case "Completed":
-                                selectedFilter="workBatchComplete";
+                                selectedState="workBatchComplete";
                                 break;
                             case "Aborted":
-                                selectedFilter="workBatchError";
+                                selectedState="workBatchError";
                                 break;
                             default:
-                                selectedFilter="workBatchStarted";
+                                selectedState="workBatchStarted";
                         }
 
                         var req = this.request;
@@ -285,7 +320,38 @@
                         }
                         req.params.query.filters.attributesCriterion.push({
                             "eventSubType": {
-                                "eq": selectedFilter
+                                "eq": selectedState
+                            }
+                        });
+                        this.$$("#importlistGrid").reloadListData();
+                    }
+                },
+                _onTypeFilterChanged: function (selectedType) {
+                    if (this.request && !_.isEmpty(this.request) && selectedType) {
+                        switch(selectedType) {
+                            case "Export data":
+                                selectedType="ENTITY_EXPORT";
+                                break;
+                            case "Import governance model":
+                                selectedType="MODEL_IMPORT";
+                                break;
+                            case "Export governance model":
+                                selectedType="MODEL_EXPORT";
+                                break;
+                            default:
+                                selectedType="ENTITY_IMPORT";
+                        }
+                        var req = this.request;
+                        var attributesCriteria = req.params.query.filters.attributesCriterion;
+                        for (var i in attributesCriteria) {
+                            if (attributesCriteria[i].profileType) {
+                                attributesCriteria.splice(i, 1);
+                                break;
+                            }
+                        }
+                        req.params.query.filters.attributesCriterion.push({
+                            "profileType": {
+                                "eq": selectedType
                             }
                         });
                         this.$$("#importlistGrid").reloadListData();
@@ -293,7 +359,7 @@
                 },
 
                 _onSearch: function (e, detail) {
-                    if (this.request) {
+                    if (this.request && !_.isEmpty(this.request)) {
                         if (detail) {
                             var req = this.request;
                             req.params.query.filters.keywordsCriterion = {
@@ -309,17 +375,16 @@
                     }
                 },
                 _onSearchClear: function (e) {
-                    if (this.request) {
+                    if (this.request && !_.isEmpty(this.request)) {
                         var req = this.request;
                         delete req.params.query.filters.keywordsCriterion;
                         this.$$("#importlistGrid").reloadListData();
                     }
                 },
-                _userStateChanged: function (getOwnEvents) {
-                    if (this.request) {
-                        if (getOwnEvents) {
+                _userStateChanged: function (getAllUsersEvents) {
+                    if (this.request && !_.isEmpty(this.request)) {
+                        if (!getAllUsersEvents) {
                             var req = this.request;
-
                             req.params.query.filters.attributesCriterion.push({
                                 "userId": {
                                     "eq": this.userId
@@ -337,6 +402,10 @@
                         }
                         this.$$("#importlistGrid").reloadListData();
                     }
+                },
+                _refreshList:function () {
+                    this.$$("#eventDataSource").resetDataSource();
+                    this.$$("#importlistGrid").reloadListData();
                 }
             });
         })();
