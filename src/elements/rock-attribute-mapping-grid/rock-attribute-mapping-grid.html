@@ -7,6 +7,7 @@
 <link rel="import" href="../bedrock-helpers/data-request-helper.html">
 <link rel="import" href="../bedrock-helpers/data-transform-helper.html">
 
+<link rel="import" href="../liquid-config-get/liquid-config-get.html">
 <link rel="import" href="../liquid-config-save/liquid-config-save.html">
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 <link rel="import" href="../liquid-rest/liquid-rest.html">
@@ -90,6 +91,8 @@
 				margin-right: var(--default-margin, 10px);
 			}
         </style>
+        <liquid-config-get auto id="getUserProfile" operation="getbyids" request-id="req2" request-data="[[_profileRequest]]" on-response="_onProfileGetResponse"></liquid-config-get>
+        <liquid-config-save id="profileSaveService" operation="update" request-data="[[_profileSaveRequest]]"on-response="_onProfileSaveResponse"></liquid-config-save>
         <div id="grid-heading">
             <strong>Attribute Mapping</strong>
         </div>
@@ -157,11 +160,11 @@
             </template>
         </div>
         <div id="actions-container" align="center">
-            <pebble-button class="action-button btn btn-secondary m-r-5" id="skip" button-text="Cancel" raised on-tap="_onSkipTap"></pebble-button>
+            <pebble-button class="action-button btn btn-secondary m-r-5" id="skip" button-text="Cancel" raised on-tap="_onCancelTap"></pebble-button>
+            <pebble-button class="action-button btn btn-primary m-r-5" id="skip" button-text="Skip" raised on-tap="_onSkipTap"></pebble-button>
             <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="next" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
         </div>
         <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-entity-model-composite-get-response = "_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
-        <liquid-config-save name="configSaveService" operation="update" on-response="_onSaveSearchResponse"></liquid-config-save>
     </template>
     <script>
         (function() {
@@ -205,9 +208,29 @@
                             return {};
                         }
                     },
+                    profileName: {
+                        type: String,
+                        value: function() { return ""; }
+                    },
+                    _profileObject: {
+                        type: Object,
+                        value: function() { return {}; }
+                    },
+                    _profileRequest: {
+                        type: Object,
+                        value: function() {
+                            return {};
+                        }
+                    },
+                    _profileSaveRequest: {
+                        type: Object,
+                        value: function() {
+                            return {};
+                        }
+                    },
                 },
                 observers: [
-                    '_dataChanged(contextData, mappingsData)'
+                    '_dataChanged(contextData, mappingsData, profileName)'
                 ],
                 behaviors: [
                     RUFBehaviors.UIBehavior,
@@ -219,23 +242,64 @@
 					'selecting-all-items': '_onSelectingAllItems',
 					'deselecting-all-items': '_onDeselectingAllItems',
                 },
-                _dataChanged: function(contextData, mappingsData) {
-                    if(!_.isEmpty(contextData) && !_.isEmpty(mappingsData)) {
-                        var destinationAttributes = this._getAllDestinationAttributes(mappingsData);
-                        var firstItemContext = this.getFirstItemContext();
+                _dataChanged: function(contextData, mappingsData, profileName) {
+                    if(!_.isEmpty(contextData) && !_.isEmpty(mappingsData) && !_.isEmpty(profileName)) {
+                        var req = {
+                            "params": {
+                                "query": {
+                                    "id": this.profileName,
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "COPProfile"
+                                        ]
+                                    },
+                                    "contexts": [
+                                            {
+                                                "app": "RSConnect",
+                                                "service": "excelImportTransformService",
+                                                "list": "self"
+                                            },
+                                            {
+                                                "app": "RSConnect",
+                                                "service": "excelImportProcessService",
+                                                "list": "self"
+                                            },
+                                        ]
+                                    },
+                                    "fields": {
+                                        "jsonData": true
+                                    }
+                                }
+                            };
+                        this.set("_profileRequest", req);
+                        this.$$("#getUserProfile").generateRequest();
+                    }
+                },
+                 _onProfileGetResponse: function(e) {
+                    var response = e.detail.response;
+                    if(response && response.status && response.status.toLowerCase() == "success" && response.content && response.content.configObjects) {
+                        if(response.content.configObjects.length > 0) {
+                            this._profileObject = response.content.configObjects[0];
+                            var destinationAttributes = this._getAllDestinationAttributes(this.mappingsData);
+                            var firstItemContext = this.getFirstItemContext();
 
-                        if(typeof(firstItemContext) != "undefined") {
-                            firstItemContext.attributeNames = destinationAttributes;
+                            if(typeof(firstItemContext) != "undefined") {
+                                firstItemContext.attributeNames = destinationAttributes;
+                            }
+
+                            var t = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+
+                            this.set("attributeModelRequest", t);
+
+                            var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
+                            if (liquidModelGet) {
+                                liquidModelGet.generateRequest();
+                            }
+                        } else{
+                            this.showErrorToast("Base profile for mapping generation is missing. Please contact Your administrator");
                         }
-
-                        var t = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
-
-                        this.set("attributeModelRequest", t);
-
-                        var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
-                        if (liquidModelGet) {
-                            liquidModelGet.generateRequest();
-                        }
+                    } else {
+                        this.showErrorToast("There is some problem in configuration get service. Please contact Your administrator");
                     }
                 },
                 _onCompositeModelGetResponse: function(e) {
@@ -359,60 +423,6 @@
 				_onDeselectingAllItems: function (e) {
 					this.fireBedrockEvent("mapping-grid-deselecting-all-items", e.detail);
 				},
-                _onSaveTap: function(e) {
-                    var items = this.$$("#mapping-grid").items;
-                    if(items && items.length > 0) {
-                        var fieldOverrides = [];
-                        var contextFields = [];
-                        for(var i=0; i<items.length; i++) {
-                            var item = items[i];
-                            var excelColumnName = item.excelColumnName;
-                            var selectedCtx = item.context;
-                            var selectedAttrModel = item.attributeModel;
-                            var mappedAttribute = "";
-                            var classification = "";
-                            if(!_.isEmpty(selectedAttrModel)) {
-                                mappedAttribute = selectedAttrModel.name;
-                            }
-                            if(!_.isEmpty(selectedCtx)) {
-                                classification = selectedCtx;
-                            }
-                            if(!_.isEmpty(mappedAttribute) && !_.isEmpty(excelColumnName)) {
-                                var fieldOverride = {
-                                    "source": excelColumnName,
-                                    "destination": "@attr(" + mappedAttribute + ")"
-                                };
-                                if(classification && classification !="") {
-                                    fieldOverride["context"] = {
-                                        "classification": classification,
-                                        "taxonomy": this.taxonomy
-                                    };
-                                }
-                                fieldOverrides.push(fieldOverride);
-                            }
-                            var isContext = item.isContext;
-                            if(isContext) {
-                                contextFields.push(excelColumnName);
-                            }
-                        }
-                        var contexts = [];
-                        if(!_.isEmpty(contextFields)) {
-                            contexts = [
-                                {
-                                    "context": 
-                                        {
-                                            "classification": "@field(" + contextFields[0] + ")",
-                                            "taxonomy": "@field(Taxonomy)"
-                                        }
-                                }
-                            ];
-                        }
-                        var mapping = {
-                            "fieldOverrides": fieldOverrides,
-                            "contexts": contexts
-                        }
-                    }
-                },
                 _onIsContextTap: function(e) {
                     var isContextDiv =e.currentTarget;
                     if(isContextDiv) {
@@ -513,6 +523,107 @@
                     if (classificationDialog) {
                         classificationDialog.close();
                     }
+                },
+                _onSaveTap: function(e) {
+                    var mappings = this._transformGridDataToFieldOverrides();
+                    if(!_.isEmpty(mappings)) {
+                        if(!_.isEmpty(mappings.fieldOverrides)) {
+                            this._profileObject.data.contexts[0].jsonData.transform.mapping.fieldOverrides = mappings.fieldOverrides;
+                        }
+                        if(!_.isEmpty(mappings.contexts)) {
+                            this._profileObject.data.contexts[0].jsonData.transform.mapping.contexts = mappings.contexts;
+                        }
+                        var req = { "configObjects": [ this._profileObject ] };
+                        this.set("_profileSaveRequest", req);
+                        var configSaveService = this.$$("#profileSaveService");
+                        if(configSaveService) {
+                            configSaveService.generateRequest();
+                        }
+                    } else {
+                        this.showSuccessToast("There are no changes in mappings to save.");
+                    }
+                },
+                _transformGridDataToFieldOverrides: function() {
+                    var items = this.$$("#mapping-grid").items;
+                    var mappings = {};
+                    if(items && items.length > 0) {
+                        var fieldOverrides = [];
+                        var contextFields = [];
+                        for(var i=0; i<items.length; i++) {
+                            var item = items[i];
+                            var excelColumnName = item.excelColumnName;
+                            var selectedCtx = item.context;
+                            var selectedAttrModel = item.attributeModel;
+                            var mappedAttribute = "";
+                            var classification = "";
+                            if(!_.isEmpty(selectedAttrModel)) {
+                                mappedAttribute = selectedAttrModel.name;
+                            }
+                            if(!_.isEmpty(selectedCtx)) {
+                                classification = selectedCtx;
+                            }
+                            if(!_.isEmpty(mappedAttribute) && !_.isEmpty(excelColumnName)) {
+                                var fieldOverride = {
+                                    "source": excelColumnName,
+                                    "destination": "@attr(" + mappedAttribute + ")"
+                                };
+                                if(classification && classification !="") {
+                                    fieldOverride["context"] = {
+                                        "classification": classification,
+                                        "taxonomy": this.taxonomy
+                                    };
+                                }
+                                fieldOverrides.push(fieldOverride);
+                            }
+                            var isContext = item.isContext;
+                            if(isContext) {
+                                contextFields.push(excelColumnName);
+                            }
+                        }
+                        var contexts = [];
+                        if(!_.isEmpty(contextFields)) {
+                            contexts = [
+                                {
+                                    "context": 
+                                        {
+                                            "classification": "@field(" + contextFields[0] + ")",
+                                            "taxonomy": "@field(Taxonomy)"
+                                        }
+                                }
+                            ];
+                        }
+                        if(!_.isEmpty(fieldOverrides)) {
+                            mappings["fieldOverrides"] = fieldOverrides;
+                        }
+                        if(!_.isEmpty(contexts)) {
+                            mappings["contexts"] = contexts;
+                        }
+                    }
+                    return mappings;
+                },
+                _onProfileSaveResponse: function(e) {
+                    var response = e.detail.response;
+                    if(response && response.status && response.status.toLowerCase() == "success") {
+                        var eventName = "field-map-save";
+                        var eventDetail = {
+                            "name": eventName,
+                        };
+                        this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                    }
+                },
+                _onCancelTap: function(e) {
+                    var eventName = "field-map-cancel";
+                    var eventDetail = {
+                        "name": eventName,
+                    };
+                    this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                },
+                _onSkipTap: function(e) {
+                    var eventName = "field-map-skip";
+                    var eventDetail = {
+                        "name": eventName,
+                    };
+                    this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
                 }
             });
         })();

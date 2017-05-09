@@ -152,7 +152,7 @@
             <pebble-image-viewer alt="Product image." id="image-container" sizing="contain" src="/src/images/Microsoft Excel 50, 100, 500 px/Microsoft Excel_100.svg"></pebble-image-viewer>
             <span class="import-log"><strong>[[_fileName]]</strong> uploaded <strong>[[_entities.length]]</strong> items with <strong>[[attributeNames.length]]</strong> attributes.</span>
         </div>
-        <div id="content-mappings">
+        <div id="content-mappings" hidden>
             
         </div>
         <div id="content-entities-grid" hidden>
@@ -165,6 +165,9 @@
         </div>
         <liquid-rest id="copDownloadService" url="" method="POST" request-data={{_copDownloadRequest}} on-liquid-response="_onCOPDownloadSuccess"
             on-liquid-error="_onCOPDownloadFailure"></liquid-rest>
+        <bedrock-pubsub event-name="field-map-save" handler="_onFieldMappingsSave" target-id=""></bedrock-pubsub>
+        <bedrock-pubsub event-name="field-map-cancel" handler="_onFieldMappingsCancel" target-id=""></bedrock-pubsub>
+        <bedrock-pubsub event-name="field-map-skip" handler="_onFieldMappingsSkip" target-id=""></bedrock-pubsub>
     </template>
     <script>
         (function () {
@@ -348,8 +351,8 @@
                     }
                 },
                 observers: [
-                    '_attributeNamesChanged(attributeNames)',
-                    '_contextChanged(contextData, contexts)'
+                    '_attributeNamesChanged(attributeNames, contexts)',
+                    '_contextChanged(contextData)'
                 ],
                 behaviors: [
                     RUFBehaviors.UIBehavior,
@@ -358,18 +361,18 @@
                 ready: function () {
                     //this._showView("entity-import");
                 },
-                _contextChanged: function (contextData, contexts) {
+                _contextChanged: function (contextData) {
                     if (!_.isEmpty(contextData)) {
                         //this contexts is coming from COP returned entities
-                        this.contextData[ContextHelper.CONTEXT_TYPE_DATA] = contexts;
                         var itemContext = this.getFirstItemContext();
                         var entityType = itemContext.type;
+                        this.baseProfileId = "sku_Folder_Excel_Import_Transform_Dynamic";
                         this.transformProfileId = entityType + "_Folder_Excel_Import_Transform_" + this.userId;
                         this.processProfileId = entityType + "_Folder_Excel_Import_Process_" + this.userId;
                         var req = {
                             "params": {
                                 "query": {
-                                    "ids": [this.transformProfileId, this.processProfileId],
+                                    "ids": [this.transformProfileId, this.processProfileId, this.baseProfileId],
                                     "filters": {
                                         "typesCriterion": [
                                             "COPProfile"
@@ -400,141 +403,51 @@
                 _onProfileGetResponse: function(e) {
                     var response = e.detail.response;
                     if(response && response.status && response.status.toLowerCase() == "success" && response.content && response.content.configObjects) {
-                        if(response.content.configObjects.length == 0) {
-                            //create a profile with same profileId
-                            var itemContext = this.getFirstItemContext();
-                            var entityType = itemContext.type;
-                            var req = { "configObjects": [this._getProfileCreationRequest(this.transformProfileId, entityType, "transform"), this._getProfileCreationRequest(this.processProfileId, entityType, "process")] };
-                            this.set("_profileSaveRequest", req);
-                            this.$$("#profileSaveService").generateRequest();
-                        } else if(response.content.configObjects.length == 1) {
-                           var id =  response.content.configObjects[0].id;
-                           var req = { "configObjects": [] };
-                           if(id == this.transformProfileId) {
-                               req.configObjects[0] = this._getProfileCreationRequest(this.processProfileId, entityType, "process");
-                           } else if(id == this.processProfileId) {
-                               req.configObjects[0] = this._getProfileCreationRequest(this.processProfileId, entityType, "transform");
-                           }
-                           this.set("_profileSaveRequest", req);
-                           this.$$("#profileSaveService").generateRequest();
-                        } else if(response.content.configObjects.length > 1) {
-                            this._profileName = this.processProfileId;
-                            this._showView("entity-import");
+                        if(response.content.configObjects.length > 0) {
+                            var req = { "configObjects": [] };
+                            var configObjects = response.content.configObjects;
+                            var baseProfile = configObjects.find(obj => obj.id == this.baseProfileId);
+                            var transformProfile = configObjects.find(obj => obj.id == this.transformProfileId);
+                            var processProfile = configObjects.find(obj => obj.id == this.processProfileId);
+                            if(baseProfile) {
+                                this.baseProfile = DataHelper.cloneObject(baseProfile);
+                                if(!transformProfile) {
+                                    var transformProfileCreateReq = this._getProfileCreationRequest(this.transformProfileId, this.baseProfile, "transform")
+                                    req.configObjects.push(transformProfileCreateReq);
+                                }
+                                if(!transformProfile) {
+                                    var processProfileCreateReq = this._getProfileCreationRequest(this.processProfileId, this.baseProfile, "process")
+                                    req.configObjects.push(processProfileCreateReq);
+                                }
+                                if(!_.isEmpty(req.configObjects)) {
+                                    this.set("_profileSaveRequest", req);
+                                    this.$$("#profileSaveService").generateRequest();
+                                } else {
+                                    this._profileName = this.processProfileId;
+                                    this._showView("entity-import");
+                                }
+                            } else {
+                                this.showErrorToast("Base profile for mapping generation is missing. Please contact Your administrator");
+                            }
+                        } else{
+                            this.showErrorToast("Base profile for mapping generation is missing. Please contact Your administrator");
                         }
+                    } else {
+                        this.showErrorToast("There is some problem in configuration get service. Please contact Your administrator");
                     }
                 },
-                _getProfileCreationRequest: function(profileId, type, service) {
+                _getProfileCreationRequest: function(profileId, baseProfile, service) {
                     var ctxService = "";
                     if(service == "transform") {
                         ctxService = "excelImportTransformService";
                     } else if(service == "process") {
                         ctxService = "excelImportProcessService";
                     }
-                    var req = {
-                                "id": profileId,
-                                "name": profileId,
-                                "version": "1.0",
-                                "type": "COPProfile",
-                                "properties": {
-                                        "createdByService": "entityservice",
-                                        "createdService": "configurationManageService",
-                                        "createdDate": "2017-04-30T05:51:00.407Z",
-                                        "createdBy": "system"
-                                    },
-                                "data": {
-                                    "contexts": [
-                                            {
-                                                "context": {
-                                                        "app": "RSConnect",
-                                                        "service": ctxService,
-                                                        "list": "self"
-                                                },
-                                                "jsonData": {
-                                                        "id": profileId,
-                                                        "name": profileId,
-                                                        "tenantId": this.tenantId,
-                                                        "profileType": "ENTITY_IMPORT",
-                                                        "enabled": "true",
-                                                        "inboundChannel": {
-                                                            "isDataPersistent": "true",
-                                                            "folderConnector": {
-                                                                "sourceFolder": "/apps/imports/sku",
-                                                                "pattern": "*.xlsx"
-                                                            }
-                                                    },
-                                                    "outboundChannel": {
-                                                        "isDataPersistent": "false",
-                                                        "rdpConnector": {
-                                                                "type": "RSJSON",
-                                                                "version": "1.1"
-                                                            }
-                                                    },
-                                                    "transform": {
-                                                            "inboundFormat": {
-                                                                    "type": "EXCEL",
-                                                                    "version": "1.1",
-                                                                    "settings": {
-                                                                        "encoding": "utf8",
-                                                                        "sheetName": "Sheet1",
-                                                                        "isFirstRowHeader": "true"
-                                                                    },
-                                                                    "includeFilter": [],
-                                                                    "excludeFilter": []
-                                                                },
-                                                                "outboundFormat": {
-                                                                    "type": "RSJSON",
-                                                                    "version": "1.1",
-                                                                    "batchSize": 0,
-                                                                    "settings": {
-                                                                        "encoding": "utf8"
-                                                                    },
-                                                                    "includeFilter": [],
-                                                                    "excludeFilter": []
-                                                                },
-                                                            "mapping": {
-                                                                "settings": {
-                                                                    "entityType": type + "_entityManageModel",
-                                                                    "enableDynamicMapping" : "true",
-                                                                    "source": "rms",
-                                                                    "allowNullValues": "false",
-                                                                    "clearMissingAttributes": "false",
-                                                                    "collectionSeparator": "||",
-                                                                    "strategies": [
-                                                                        {
-                                                                            "caseFormat": "LOWER_CAMEL",
-                                                                            "removeSpecialCharacters": "false",
-                                                                            "trimLeadingNumbers": "false",
-                                                                            "trimTrailingNumbers": "false",
-                                                                            "isDefault": "false"
-                                                                        }
-                                                                    ]
-                                                                },
-                                                                "fieldOverrides": [
-                                                                    {
-                                                                        "source": "Display Name",
-                                                                        "destination": "data.attributes.displayName.values[0].value"
-                                                                    },
-                                                                    {
-                                                                        "source": "Description",
-                                                                        "destination": "data.attributes.description.values[0].value"
-                                                                    },
-                                                                    {
-                                                                        "source": "Supplier Number/Name",
-                                                                        "destination": "data.attributes.supplierNumberName.values[0].value"
-                                                                    },
-                                                                    {
-                                                                        "source": "Cost",
-                                                                        "destination": "data.attributes.cost.values[0].value"
-                                                                    },
-                                                                ]
-                                                            }
-                                                        }   
-                                                    }
-                                            }
-                                        ]
-                                }
-                            };
-                    return req;
+                    var profile = DataHelper.cloneObject(baseProfile);
+                    profile.id = profileId;
+                    profile.name = profileId;
+                    profile.data.contexts[0].context.service = ctxService;
+                    return profile;
                 },
                 _onProfileSaveResponse: function(e) {
                      var response = e.detail.response;
@@ -562,10 +475,6 @@
                 },
 
                 _onFileUploadSuccess: function (e, detail, sender) {
-                    if (this.importProfileName == undefined || this.importProfileName.length == 0) {
-                        this.showErrorToast("Import profile name not found. Please check the config.");
-                        return;
-                    }
                     this._isDirty = true;
                     this._loading = true;
                     var fileName = detail.fileName;
@@ -573,14 +482,13 @@
                     var copRequest = {
                         "fileName": fileName,
                         "originalFileName": detail.originalFileName,
-                        "profileName": "sku_Folder_Excel_Import_Transform_Dynamic"
+                        "profileName": this._profileName
                     };
                     this.set("_copRequest", copRequest);
                     var liqCOP = this.$$("#copService");
                     if (liqCOP) {
-                        //add one more condition to check for customize mappings. if true send it to mappings api.
                         if(this._customizeMappings) {
-                            liqCOP.url = "/cop/generateFieldMap"; // cop mapping request url
+                            liqCOP.url = "/cop/generateFieldMap";
                         } else if (this._showPreview) {
                             liqCOP.url = "/cop/transform";
                         } else {
@@ -607,10 +515,6 @@
                             this._isDirty = false;
                             return;
                         } else if (res.entities && res.entities.length > 0) {
-                            this._hideView("entity-import");
-                            this._hideButtons();
-                            this._showView("label");
-                            this._showView("entities-grid");
                             this._entities = response.response.entities;
                             var maxNoOfRows = this._gridConfig.tabular.settings.maxNoOfRows;
                             if (maxNoOfRows && this._entities.length > maxNoOfRows) {
@@ -633,6 +537,8 @@
                                 this._loading = false;
                                 this._isDirty = false;
                             }
+                            this._hideView("entity-import");
+                            this._hideButtons();
                             this._showView("label");
                             this._showView("entities-grid");
                             this._entities = response.response.entities;
@@ -706,8 +612,9 @@
                     this._loading = false;
                     this._isDirty = false;
                 },
-                _attributeNamesChanged: function(attributeNames) {
+                _attributeNamesChanged: function(attributeNames, contexts) {
                     if(!_.isEmpty(attributeNames)) {
+                        this.contextData[ContextHelper.CONTEXT_TYPE_DATA] = contexts;
                         var itemContext = this.getFirstItemContext();
 
                         itemContext.attributeNames = attributeNames;
@@ -1078,16 +985,50 @@
                     this._downloadInProgress = false;
                 },
                 _importMappingComponent: function() {
+                    this._showView("mappings");
                     var component = {
                         "name": "rock-attribute-mapping",
                         "path": "/../../src/elements/rock-attribute-mapping/rock-attribute-mapping.html",
                         "properties": {
                             "mappings-data": this._mappingsData,
-                            "context-data": this.contextData
+                            "context-data": this.contextData,
+                            "profile-name": this._profileName
                         }
                     };
                     var contentEl = this.$$("#content-mappings");
                     ComponentHelper.loadContent(contentEl, component, this);
+                },
+                _onFieldMappingsSave: function(e, detail) {
+                    this._hideView("mappings");
+                    this._hideView("entity-import");
+                    this._customizeMappings = false;
+                    var liqCOP = this.$$("#copService");
+                    if (liqCOP) {
+                        if (this._showPreview) {
+                            liqCOP.url = "/cop/transform";
+                        } else {
+                            liqCOP.url = "/cop/process";
+                        }
+                        liqCOP.generateRequest();
+                    }
+                },
+                _onFieldMappingsCancel: function(e, detail) {
+                    this._hideView("mappings");
+                    this._showView("entity-import");
+                },
+                _onFieldMappingsSkip: function(e, detail) {
+                    this._customizeMappings = false;
+                    this._hideView("mappings");
+                    this._hideView("entity-import");
+                    var liqCOP = this.$$("#copService");
+                    if (liqCOP) {
+                        if (this._showPreview) {
+                            liqCOP.url = "/cop/transform";
+                        } else {
+                            liqCOP.url = "/cop/process";
+                        }
+                        liqCOP.generateRequest();
+                    }
                 }
             });
         })();
