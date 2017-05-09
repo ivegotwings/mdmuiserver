@@ -145,18 +145,18 @@
                 <data-table-column name="Mapped System Attribute Name">
                     <template>
                         <div id="inputDiv" on-tap="_onAttributeTap" index="[[index]]">
-                            <pebble-textbox class="attributes-text" id="attributes-text_[[item.rowId]]" row-id="[[item.rowId]]" value="[[item.attributeModel.externalName]]" on-tap="_showAttributesLOV"></pebble-textbox>
+                            <pebble-textbox class="attributes-text" id="attributes-text_[[item.rowId]]" row-id="[[item.rowId]]" value="[[item.attributeModel.title]]" on-tap="_showAttributesLOV"></pebble-textbox>
                         </div>
                         <div id="iconDiv">
                             <pebble-icon class="dropdown-icon" id="txtDropdownIcon_[[item.rowId]]" row-id="[[item.rowId]]" icon="pebble-xs-icons:ExpandMore" on-tap="_showAttributesLOV"></pebble-icon>
                         </div>
-                        <bedrock-pubsub event-name="attribute-model-lov-selection-changed" handler="_onAttributeSelection" target-id="attributeModelLov"></bedrock-pubsub>
-                        <pebble-popover class="attributes-popover" id="attributesPopover_[[item.rowId]]" for="attributes-text_[[item.rowId]]" no-overlap auto-fit-on-attach vertical-align="auto" horizontal-align="auto">
-                            <rock-attribute-model-lov id="attributeModelLov" selected-item="[[item.attributeModel]]" context-data="[[contextData]]" no-sub-title  id-field="name" title-pattern="externalName" type-field=""></rock-attribute-model-lov>
-                        </pebble-popover>
                     </template>
                 </data-table-column>
             </iron-data-table>
+            <bedrock-pubsub event-name="attribute-model-lov-selection-changed" handler="_onAttributeSelection" target-id="attributeModelLov"></bedrock-pubsub>
+            <pebble-popover class="attributes-popover" id="attributesPopover" for="" no-overlap auto-fit-on-attach vertical-align="auto" horizontal-align="auto">
+                <rock-attribute-model-lov mode="all" id="attributeModelLov" context-data="[[contextData]]" no-sub-title ></rock-attribute-model-lov>
+            </pebble-popover>
             </template>
         </div>
         <div id="actions-container" align="center">
@@ -164,7 +164,10 @@
             <pebble-button class="action-button btn btn-primary m-r-5" id="skip" button-text="Skip" raised on-tap="_onSkipTap"></pebble-button>
             <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="next" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
         </div>
-        <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-entity-model-composite-get-response = "_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
+        <!--<liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-entity-model-composite-get-response = "_onCompositeModelGetResponse"></liquid-entity-model-composite-get>-->
+        <liquid-entity-model-get name="liquidAttributeModelGet" operation="getbyids" request-data={{attributeModelRequest}} 
+            on-response="_onAttributeModelGetResponse" on-error="_onError"
+         ></liquid-entity-model-get>
     </template>
     <script>
         (function() {
@@ -281,17 +284,40 @@
                         if(response.content.configObjects.length > 0) {
                             this._profileObject = response.content.configObjects[0];
                             var destinationAttributes = this._getAllDestinationAttributes(this.mappingsData);
-                            var firstItemContext = this.getFirstItemContext();
+                            // var firstItemContext = this.getFirstItemContext();
 
-                            if(typeof(firstItemContext) != "undefined") {
-                                firstItemContext.attributeNames = destinationAttributes;
+                            // if(typeof(firstItemContext) != "undefined") {
+                            //     firstItemContext.attributeNames = destinationAttributes;
+                            // }
+
+                            // var t = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+
+                            var modelGetRequest = {
+                                "params": {
+                                    "query": {
+                                        "filters": {
+                                            "typesCriterion": [
+                                                "attributeModel"
+                                            ]
+                                        }
+                                    },
+                                    "fields": {
+                                        "attributes": ["externalName"]
+                                    }
+                                }
+                            };
+                            var ids = [];
+                            for(var i=0;i<destinationAttributes.length;i++) {
+                                ids.push(destinationAttributes[i] + '_attributeModel');
                             }
+                            modelGetRequest.params.query.ids = ids;
+                            this.set("attributeModelRequest", modelGetRequest);
 
-                            var t = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
-
-                            this.set("attributeModelRequest", t);
-
-                            var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
+                            // var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
+                            // if (liquidModelGet) {
+                            //     liquidModelGet.generateRequest();
+                            // }
+                            var liquidModelGet = this.$$("[name=liquidAttributeModelGet]");
                             if (liquidModelGet) {
                                 liquidModelGet.generateRequest();
                             }
@@ -306,7 +332,23 @@
                     var values = [];
                     if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
                         this._attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
-                         this._prepareGridData();
+                        this._prepareGridData();
+                    }
+                },
+                _onAttributeModelGetResponse: function(e) {
+                    var response = e.detail.response;
+                    if(response.content && !_.isEmpty(response.content.entityModels)) {
+                        var attributeModels = {};
+                        for(var i=0; i< response.content.entityModels.length; i++) {
+                            var attributeModel = response.content.entityModels[i];
+                            attributeModels[attributeModel.name] = {
+                                "id": attributeModel.name,
+                                "value": attributeModel.name,
+                                "title": attributeModel.properties.externalName
+                            };
+                        }
+                        this._attributeModels = attributeModels;
+                        this._prepareGridData();
                     }
                 },
                 _getAllDestinationAttributes: function(mappingsData) {
@@ -364,21 +406,38 @@
                 },
                 _showAttributesLOV: function(e) {
                     var rowId = e.currentTarget.rowId;
-                    this.$$("#attributesPopover_" + rowId).show();
-                    var row = this._getParentRow(e.currentTarget);
-                    if(row) {
-                        row.querySelector("rock-attribute-model-lov").contextData = this.contextData;
+                    if(rowId >= 0) {
+                        var lov = this.$$("#attributeModelLov");
+                        var popover = this.$$("#attributesPopover");
+                        if(lov && popover) {
+                            lov.currentRowId = rowId;
+                            popover.for = "attributes-text_" + rowId;
+                            popover.show();
+                        }
                     }
                 },
 
                 _onAttributeSelection: function(e, detail) {
-                    var row = e.path.find(obj => obj.is == "data-table-row");
-                    if(row) {
-                        row.item.attributeModel = detail.data;
-                        var attributeTxtBox = row.querySelector(".attributes-text");
-                        attributeTxtBox.value = detail.data.externalName;
-                        row.querySelector(".attributes-popover").hide();
+                    var lov = this.$$("#attributeModelLov");
+                    if(lov) {
+                        var rowId = lov.currentRowId;
+                        if(rowId >= 0) {
+                            var attributeTxtBox = this.root.querySelector("#attributes-text_" + rowId);
+                            if(!attributeTxtBox) {
+                                attributeTxtBox = Polymer.dom(this.root).querySelector("#attributes-text_" + rowId);
+                            }
+                            if(attributeTxtBox) {
+                                var row = this._getParentRow(attributeTxtBox)
+                                if(row) {
+                                    row.item.attributeModel = detail.data;
+                                    attributeTxtBox.value = detail.data.title;
+                                }
+                            }
+                        }
                     }
+                    var popover = this.$$("#attributesPopover");
+                    popover.for = "";
+                    popover.hide();
                 },
 
                 _getParentRow: function (element) {
@@ -557,7 +616,7 @@
                             var mappedAttribute = "";
                             var classification = "";
                             if(!_.isEmpty(selectedAttrModel)) {
-                                mappedAttribute = selectedAttrModel.name;
+                                mappedAttribute = selectedAttrModel.id;
                             }
                             if(!_.isEmpty(selectedCtx)) {
                                 classification = selectedCtx;
