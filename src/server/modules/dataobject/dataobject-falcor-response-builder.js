@@ -211,7 +211,7 @@ function _buildRelationshipsResponse(rels, reqData, currentDataContextJson, path
             var relIdIndex = 0;
             for (var relKey in relTypeData) {
                 var rel = relTypeData[relKey];
-                rel.id = falcorUtil.createRelUniqueId(relKey, rel, relIdIndex++);
+                rel.id = falcorUtil.createRelUniqueId(relTypeKey, rel, relIdIndex++);
 
                 if (reqRelIds && reqRelIds.length > 0 && !arrayContains(reqRelIds, rel.id)) {
                     continue;
