@@ -7,20 +7,26 @@
 <link rel="import" href="../bedrock-helpers/data-transform-helper.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../bedrock-helpers/entity-helper.html">
+<link rel="import" href="../bedrock-helpers/context-helper.html">
 
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 <link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
 <link rel="import" href="../liquid-rest/liquid-rest.html">
+<link rel="import" href="../liquid-config-get/liquid-config-get.html">
+<link rel="import" href="../liquid-config-save/liquid-config-save.html">
 
 <link rel="import" href="../pebble-file-upload/pebble-file-upload.html">
+<link rel="import" href="../pebble-dialog/pebble-dialog.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 <link rel="import" href="../pebble-icons/pebble-icons.html">
 <link rel="import" href="../pebble-icon/pebble-icon.html">
 <link rel="import" href="../pebble-image-viewer/pebble-image-viewer.html">
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
 <link rel="import" href="../pebble-checkbox/pebble-checkbox.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
 
 <link rel="import" href="../rock-grid/rock-grid.html">
+<link rel="import" href="../rock-classification-tree/rock-classification-tree.html">
 
 <dom-module id="rock-entity-create-import">
     <template>
@@ -32,16 +38,16 @@
                 box-shadow: 0 0 10px 0 var(--cloudy-blue-color, #c1cad4);
                 position: relative;
             }
-            
+
             #multiEntityUpperGrid::shadow iron-data-table {
                 height: 135px;
             }
-            
+
             #upperGridHeader {
                 font-size: 12px;
                 margin: 10px;
             }
-            
+
             #content-actions {
                 padding-top: 30px;
                 position: fixed;
@@ -51,45 +57,53 @@
                 width: 100%;
                 z-index: 9999;
             }
-            
+
             #content-label {
                 box-shadow: 0 1px 7px 0 #c1cad4;
                 padding: 15px;
                 margin: 10px;
             }
-            
+
             #image-container {
                 width: 30px;
                 height: 35px;
                 vertical-align: middle;
             }
-            
+
             import-log {
                 vertical-align: middle;
             }
-            
+
             .title {
                 font-size: var(--default-font-size, 14px);
                 text-align: center;
                 color: var(--palette-steel-grey, #75808b);
             }
-            
+
             pebble-button[disabled] {
                 pointer-events: none;
                 color: #c1cad4;
                 background-color: #c1cad4;
                 border-color: #c1cad4;
             }
-            
+
             #showReviewChk {
                 padding-right: 15%;
                 --pebble-checkbox-label-color: #75808b;
             }
-            .confirmSave{
-                font-size:12px;
+
+            .confirmSave {
+                font-size: 12px;
+            }
+
+            #categoryTreeContainer {
+                height: 550px;
+                overflow: auto;
             }
         </style>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
+        <liquid-config-get auto id="getUserProfile" operation="getbyids" request-id="req2" request-data="[[_profileRequest]]" on-response="_onProfileGetResponse"></liquid-config-get>
+        <liquid-config-save id="profileSaveService" operation="create" request-data="[[_profileSaveRequest]]"on-response="_onProfileSaveResponse"></liquid-config-save>
         <liquid-rest id="entityMatchService" url="/pass-through/matchservice/search" method="POST" request-data={{_entityMatchRequest}}
             on-liquid-response="_onMatchSuccess" on-liquid-error="_onMatchFailure">
         </liquid-rest>
@@ -100,11 +114,35 @@
         <div id="content-entity-import" hidden>
             <p class="title"><strong>Profile Name:</strong> [[_profileName]]</p>
             <div align="right">
+                <pebble-checkbox id="customizeMappingsChk" on-change="_onMappingsChange">Customize Mappings</pebble-checkbox>
                 <pebble-checkbox id="showReviewChk" on-change="_onPreviewChange">Show Data Preview</pebble-checkbox>
             </div>
             <div class="placeHolder p-10">
-                <p class="title"><a href="#" class="btn-link" on-tap="_selectFile">Download</a> a system template or just upload an existing
-                    data file</p>
+                <p class="title">
+                    <a href="#" class="btn-link" on-tap="_exportDialogOpen">Download</a> a system template or just upload
+                    an existing data file
+                </p>
+                <!-- TODO -->
+                <!-- Currently pebble dialog is coming out of app and sitting on body so css has been added inline needs to resolve it with some proper way. -->
+                <pebble-dialog id="exportDialog" modal show-close-icon>
+                    <pebble-spinner active="[[_downloadInProgress]]"></pebble-spinner>
+                    <div id="exportSmartExcelContent" style="height:500px">
+                        <div>
+                            Select one or more classifications to download the smart excel template. You can select the classification at any level and
+                            the data required for all child classifications will be shown in the template.
+                        </div>
+                        <div id="categoryTreeContainer" style="height:450px; overflow:auto;">
+                            <rock-classification-tree id="contextTree" multi-select="true" taxonomy="productsetuptaxonomy" context-data="[[contextData]]"
+                                selected-items="{{_selectedCategories}}"></rock-classification-tree>
+                        </div>
+                        <div id="exportActions" class="p-b-10" align="center">
+                            <pebble-button style="color: #75808b;background-color: #ffffff;display: inline-block;font-weight: 400;line-height: 1.25;text-align: center;white-space: nowrap;overflow: hidden;vertical-align: middle;user-select: none;border: 1px solid #c1cad4;font-size: 14px;border-radius: 3px;transition: all .2s ease-in-out;box-sizing: border-box;text-transform: capitalize;height: 33px;width: 100px;padding-top: 6px;"
+                                id="cancel" button-text="Cancel" raised on-tap="_onCancelDownloadSelection"></pebble-button>
+                            <pebble-button style="color: #fff;background-color: #09c021;border-color: #09c021;display: inline-block;font-weight: 400;line-height: 1.25;text-align: center;white-space: nowrap;overflow: hidden;vertical-align: middle;user-select: none;border: 1px solid transparent;font-size: 14px;border-radius: 3px;transition: all .2s ease-in-out;box-sizing: border-box;text-transform: capitalize;height: 33px;width: 100px;padding-top: 6px;"
+                                id="download" button-text="Download" raised on-tap="_exportSelectedCategory"></pebble-button>
+                        </div>
+                    </div>
+                </pebble-dialog>
                 <!-- screen for import -->
                 <pebble-file-upload accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" target="/file-upload"></pebble-file-upload>
                 <bedrock-pubsub on-bedrock-event-pebble-file-upload-success="_onFileUploadSuccess"></bedrock-pubsub>
@@ -114,12 +152,8 @@
             <pebble-image-viewer alt="Product image." id="image-container" sizing="contain" src="/src/images/Microsoft Excel 50, 100, 500 px/Microsoft Excel_100.svg"></pebble-image-viewer>
             <span class="import-log"><strong>[[_fileName]]</strong> uploaded <strong>[[_entities.length]]</strong> items with <strong>[[attributeNames.length]]</strong> attributes.</span>
         </div>
-        <div id="content-mapping-grid" hidden>
-            <!-- screen for multi entity create function- probably grid -->
-            <div id="upperGridHeader"><b>[[attributeNames.length]] Attributes</b> ([[_managedAttrs]] Managed, [[_mappedAttrs]] Mapped, [[_newAttrs]]
-                New). Last Updated on <b>[[_currentDateTime.date]]</b> at <b>[[_currentDateTime.time]]</b></div>
-            <rock-grid id="multiEntityUpperGrid" page-size="2" no-header></rock-grid>
-            <bedrock-pubsub on-bedrock-event-save-item="_onSaveItem"></bedrock-pubsub>
+        <div id="content-mappings" hidden>
+            
         </div>
         <div id="content-entities-grid" hidden>
             <rock-grid id="entitiesGrid" data="{{_gridData}}" page-size="10" no-header></rock-grid>
@@ -129,6 +163,11 @@
             <pebble-button class="action-button btn btn-secondary m-r-5" id="skip" button-text="Cancel" raised on-tap="_onSkipTap"></pebble-button>
             <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="next" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
         </div>
+        <liquid-rest id="copDownloadService" url="" method="POST" request-data={{_copDownloadRequest}} on-liquid-response="_onCOPDownloadSuccess"
+            on-liquid-error="_onCOPDownloadFailure"></liquid-rest>
+        <bedrock-pubsub event-name="field-map-save" handler="_onFieldMappingsSave" target-id=""></bedrock-pubsub>
+        <bedrock-pubsub event-name="field-map-cancel" handler="_onFieldMappingsCancel" target-id=""></bedrock-pubsub>
+        <bedrock-pubsub event-name="field-map-skip" handler="_onFieldMappingsSkip" target-id=""></bedrock-pubsub>
     </template>
     <script>
         (function () {
@@ -151,9 +190,18 @@
                         }
                     },
                     /**
-                     * Indicates the names of the attributes that are rendered while creating a single entity.
+                     * Indicates the names of the attributes that are retrived from excel
                      */
                     attributeNames: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    /**
+                     * Indicates the contexts which are retrived from excel
+                     */
+                    contexts: {
                         type: Array,
                         value: function () {
                             return [];
@@ -185,12 +233,6 @@
                             return {};
                         }
                     },
-                    _attributeValues: {
-                        type: Array,
-                        value: function () {
-                            return [];
-                        }
-                    },
                     _gridConfig: {
                         type: Object,
                         value: function () {
@@ -203,27 +245,15 @@
                             return [];
                         }
                     },
-                    _managedAttrs: {
-                        type: Number,
-                        value: 0
+                    _copRequest: {
+                        type: Object,
+                        value: function () { return {}; }
                     },
-                    _mappedAttrs: {
-                        type: Number,
-                        value: 0
-                    },
-                    _newAttrs: {
-                        type: Number,
-                        value: 0
-                    },
-                    _currentDateTime: {
+                    _copDownloadRequest: {
                         type: Object,
                         value: function () {
                             return {};
                         }
-                    },
-                    _copRequest: {
-                        type: Object,
-                        value: function () { return {}; }
                     },
                     _entitiesData: {
                         type: Object,
@@ -252,6 +282,10 @@
                         value: 10
                     },
                     _loading: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _downloadInProgress: {
                         type: Boolean,
                         value: false
                     },
@@ -289,50 +323,143 @@
                     _profileName: {
                         type: String,
                     },
+                    _customizeMappings: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _mappingsData: {
+                        type: Object,
+                        value: function() { return {}; }
+                    },
+                    _profileRequest: {
+                        type: Object,
+                        value: function() {
+                            return {};
+                        }
+                    },
+                    _profileSaveRequest: {
+                        type: Object,
+                        value: function() {
+                            return {};
+                        }
+                    },
+                    _selectedCategories: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    }
                 },
                 observers: [
-                    '_contextChanged(attributeNames, contextData)'
+                    '_attributeNamesChanged(attributeNames, contexts)',
+                    '_contextChanged(contextData)'
                 ],
                 behaviors: [
                     RUFBehaviors.UIBehavior,
                     RUFBehaviors.ComponentContextBehavior
                 ],
                 ready: function () {
-                    this._showView("entity-import");
-                    this._profileName = this.processProfileName;
+                    //this._showView("entity-import");
                 },
-                _contextChanged: function (attributeNames, contextData) {
-                    this._profileName = this.processProfileName;
-                    if (attributeNames && attributeNames.length > 0 && !_.isEmpty(contextData)) {
+                _contextChanged: function (contextData) {
+                    if (!_.isEmpty(contextData)) {
+                        //this contexts is coming from COP returned entities
+                        this._isDuplicateResponse = false;
                         var itemContext = this.getFirstItemContext();
-
-                        itemContext.attributeNames = attributeNames;
-
-                        var t = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
-
-                        this.set("attributeModelRequest", t);
-
-                        var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
-                        if (liquidModelGet) {
-                            liquidModelGet.generateRequest();
+                        var entityType = itemContext.type;
+                        this.baseProfileId = "sku_Folder_Excel_Import_Transform_Dynamic";
+                        this.transformProfileId = entityType + "_Folder_Excel_Import_Transform_" + this.userId;
+                        this.processProfileId = entityType + "_Folder_Excel_Import_Process_" + this.userId;
+                        var req = {
+                            "params": {
+                                "query": {
+                                    "ids": [this.transformProfileId, this.processProfileId, this.baseProfileId],
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "COPProfile"
+                                        ]
+                                    },
+                                    "contexts": [
+                                            {
+                                                "app": "RSConnect",
+                                                "service": "excelImportTransformService",
+                                                "list": "self"
+                                            },
+                                            {
+                                                "app": "RSConnect",
+                                                "service": "excelImportProcessService",
+                                                "list": "self"
+                                            },
+                                        ]
+                                    },
+                                    "fields": {
+                                        "jsonData": true
+                                    }
+                                }
+                            };
+                        this.set("_profileRequest", req);
+                        this.$$("#getUserProfile").generateRequest();
+                    }
+                },
+                _onProfileGetResponse: function(e) {
+                    if(!this._isDuplicateResponse) {
+                        this._isDuplicateResponse = true;
+                        var response = e.detail.response;
+                        if(response && response.status && response.status.toLowerCase() == "success" && response.content && response.content.configObjects) {
+                            if(response.content.configObjects.length > 0) {
+                                var req = { "configObjects": [] };
+                                var configObjects = response.content.configObjects;
+                                var baseProfile = configObjects.find(obj => obj.id == this.baseProfileId);
+                                var transformProfile = configObjects.find(obj => obj.id == this.transformProfileId);
+                                var processProfile = configObjects.find(obj => obj.id == this.processProfileId);
+                                if(baseProfile) {
+                                    this.baseProfile = DataHelper.cloneObject(baseProfile);
+                                    if(!transformProfile) {
+                                        var transformProfileCreateReq = this._getProfileCreationRequest(this.transformProfileId, this.baseProfile, "transform")
+                                        req.configObjects.push(transformProfileCreateReq);
+                                    }
+                                    if(!transformProfile) {
+                                        var processProfileCreateReq = this._getProfileCreationRequest(this.processProfileId, this.baseProfile, "process")
+                                        req.configObjects.push(processProfileCreateReq);
+                                    }
+                                    if(!_.isEmpty(req.configObjects)) {
+                                        this.set("_profileSaveRequest", req);
+                                        this.$$("#profileSaveService").generateRequest();
+                                    } else {
+                                        this._profileName = this.processProfileId;
+                                        this._showView("entity-import");
+                                    }
+                                } else {
+                                    this.showErrorToast("Base profile for mapping generation is missing. Please contact Your administrator");
+                                }
+                            } else{
+                                this.showErrorToast("Base profile for mapping generation is missing. Please contact Your administrator");
+                            }
+                        } else {
+                            this.showErrorToast("There is some problem in configuration get service. Please contact Your administrator");
                         }
                     }
                 },
-                _onCompositeModelResponse: function (e) {
-                    if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
-                        if (!this._attributeModels) {
-                            var attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
-                            if (!_.isEmpty(attributeModels)) {
-                                this.set("_attributeModels", attributeModels);
-                                this._populateEntityGrid();
-                            } else {
-                                this.showErrorToast("Unable to fetch attribute models. Please check the service or contact your administrator.");
-                                this._loading = false;
-                            }
-                        }
-                    } else {
-                        this.showErrorToast("Unable to fetch attribute models. Please check the service or contact your administrator.");
-                        this._loading = false;
+                _getProfileCreationRequest: function(profileId, baseProfile, service) {
+                    var ctxService = "";
+                    if(service == "transform") {
+                        ctxService = "excelImportTransformService";
+                    } else if(service == "process") {
+                        ctxService = "excelImportProcessService";
+                    }
+                    var profile = DataHelper.cloneObject(baseProfile);
+                    profile.id = profileId;
+                    profile.name = profileId;
+                    profile.data.contexts[0].context.service = ctxService;
+                    profile.data.contexts[0].jsonData.id = profileId;
+                    profile.data.contexts[0].jsonData.name = profileId;
+                    return profile;
+                },
+                _onProfileSaveResponse: function(e) {
+                     var response = e.detail.response;
+                    if(response && response.status && response.status.toLowerCase() == "success") {
+                        this._profileName = this.processProfileId;
+                        this._showView("entity-import");
                     }
                 },
                 _showView: function (viewName) {
@@ -352,130 +479,23 @@
                         }
                     }
                 },
-                _populateMultiEntityUpperGrid: function () {
-                    //Fetch the attributes from COP and pass to this.attributeNames
-                    //Based on attributeNames change, attributeModelRequest will be set
-                    //Using attributeModelGetServiceFetch, attribute models will be provided
-
-                    //Prepare grid configuration and data based on COP and Liquid details                    
-                    this._prepareMultiEntityUpperGridConfiguration();
-                    this._prepareMultiEntityUpperGridData();
-                    this._prepareUpperGridHeader();
-
-                    //Set config and data to grid
-                    this.$$('#multiEntityUpperGrid').config = this._gridConfig;
-                    this.$$('#multiEntityUpperGrid').data = this._gridData;
-
-                    this.async(function () {
-                        var gridTable = this.$$('#multiEntityUpperGrid').$$('#pebbleGridContainer').querySelector('iron-data-table');
-                        var firstRow = gridTable.querySelectorAll('data-table-row')[1];
-                        var secondRow = gridTable.querySelectorAll('data-table-row')[2];
-
-                        // Section start, will be removed this logic once rock-grid updated
-                        var firstRowButtons = firstRow.querySelectorAll('pebble-button');
-                        if (firstRowButtons.length > 0) {
-                            firstRowButtons[0].remove();
-                            firstRowButtons[1].remove();
-                        }
-                        // Section end
-
-                        firstRow.querySelectorAll('data-table-cell')[1].style['font-weight'] = 'bold';
-                        secondRow.querySelectorAll('data-table-cell')[1].style['font-weight'] = 'bold';
-
-                        // Attributes matched from managed list is black
-                        // Attributes matched from inferred list is green
-                        // Attributes are not matched (new), then red                        
-
-                    }, 100);
-                },
-
-                _prepareMultiEntityUpperGridConfiguration: function () {
-                    this._gridConfig.tabular.columns.push({
-                        "header": "Mapping",
-                        "name": "mapping"
-                    });
-                    for (var idx = 0; idx < this.attributeNames.length; idx++) {
-                        this._gridConfig.tabular.columns.push({
-                            "header": "Column " + (idx + 1),
-                            "name": this.attributeNames[idx],
-                            "displayType": "textbox"
-                        });
-                    }
-                },
-
-                _prepareMultiEntityUpperGridData: function () {
-                    this._gridData = []; //Clear the data
-                    var gridRow = {};
-                    gridRow["id"] = 1;
-                    gridRow["mapping"] = "Excel column name";
-                    //First row
-                    for (var idx = 0; idx < this.attributeNames.length; idx++) {
-                        gridRow[this.attributeNames[idx]] = this.attributeNames[idx];
-                    }
-                    this._gridData.push(gridRow);
-
-                    gridRow = {};
-                    gridRow["id"] = 2;
-                    gridRow["mapping"] = "Mapped attribute name";
-
-                    //Second row - Capture the details from data model 
-                    for (var idx = 0; idx < this.attributeNames.length; idx++) {
-                        if (this._findAttribute(this.attributeNames[idx])) {
-                            this._mappedAttrs++;
-                            gridRow[this.attributeNames[idx]] = this._findAttribute(this.attributeNames[idx]).name;
-                        } else {
-                            this._newAttrs++;
-                        }
-                    }
-                    this._gridData.push(gridRow);
-
-                    //Current Datetime
-                    var datetime = new Date();
-                    this._currentDateTime = {
-                        "date": moment(datetime).format('MM/DD/YYYY'),
-                        "time": moment(datetime).format('hh:mm A')
-                    }
-                },
-
-                _findAttribute: function (attribute) {
-                    for (var i = 0; i < this._attributeValues.length; i++) {
-                        for (var j = 0; j < this._attributeValues[i].attributes.length; j++) {
-                            if (this._attributeValues[i].attributes[j].name == attribute) {
-                                return this._attributeValues[i].attributes[j];
-                            }
-                        }
-                    }
-                },
-
-                _prepareUpperGridHeader: function () {
-                    //Total managed attributes                    
-                    for (var i = 0; i < this._attributeValues.length; i++) {
-                        this._managedAttrs = this._managedAttrs + this._attributeValues[i].attributes.length;
-                    }
-                },
-
-                _onSaveItem: function (e, details, sender) {
-                    //Save logic comes here
-                },
 
                 _onFileUploadSuccess: function (e, detail, sender) {
-                    if (this.importProfileName == undefined || this.importProfileName.length == 0) {
-                        this.showErrorToast("Import profile name not found. Please check the config.");
-                        return;
-                    }
                     this._isDirty = true;
                     this._loading = true;
-                    //this._populateMultiEntityUpperGrid();
                     var fileName = detail.fileName;
                     this.set("_fileName", detail.originalFileName);
                     var copRequest = {
                         "fileName": fileName,
+                        "originalFileName": detail.originalFileName,
                         "profileName": this._profileName
                     };
                     this.set("_copRequest", copRequest);
                     var liqCOP = this.$$("#copService");
                     if (liqCOP) {
-                        if (this._showPreview) {
+                        if(this._customizeMappings) {
+                            liqCOP.url = "/cop/generateFieldMap";
+                        } else if (this._showPreview) {
                             liqCOP.url = "/cop/transform";
                         } else {
                             liqCOP.url = "/cop/process";
@@ -489,27 +509,67 @@
                 },
                 _onCOPSuccess: function (e) {
                     var response = e.detail.response;
-                    if (response && response.response && response.response.entities
-                        && response.response.entities.length > 0) {
-                        this._hideView("entity-import");
-                        this._hideButtons();
-                        this._showView("label");
-                        this._showView("entities-grid");
-                        this._entities = response.response.entities;
-                        var maxNoOfRows = this._gridConfig.tabular.settings.maxNoOfRows;
-                        if (maxNoOfRows && this._entities.length > maxNoOfRows) {
-                            this.showErrorToast("Imported more entities than specified maximum number of entities. Please review the file imported or contact your administrator.", 3000);
+                    if(response && response.response && response.response.status && response.response.status.toLowerCase() == "success") {
+                        var res = response.response;
+                        if(this._customizeMappings) {
+                            var mappingsData = res.binaryObjects[0].data.profile.transform.mapping;
+                            this._hideView("entity-import");
+                            this._hideButtons();
+                            this.set("_mappingsData", mappingsData);
+                            this._importMappingComponent();
                             this._loading = false;
                             this._isDirty = false;
                             return;
-                        }
-                        var attributeNames = EntityHelper.getAttributeNamesFromEntities(this._entities);
-                        if (attributeNames && attributeNames.length > 0) {
-                            this.set("attributeNames", attributeNames);
-                        } else {
-                            this.showErrorToast("Unable to fetch attributes from excel. Please check excel file imported or contact your administrator.");
-                            this._loading = false;
-                            this._isDirty = false;
+                        } else if (res.entities && res.entities.length > 0) {
+                            this._entities = response.response.entities;
+                            var maxNoOfRows = this._gridConfig.tabular.settings.maxNoOfRows;
+                            if (maxNoOfRows && this._entities.length > maxNoOfRows) {
+                                this.showErrorToast("Imported more entities than specified maximum number of entities. Please review the file imported or contact your administrator.", 3000);
+                                this._loading = false;
+                                this._isDirty = false;
+                                return;
+                            }
+                            var attributeNames = EntityHelper.getAttributeNamesFromEntities(this._entities);
+                            if (attributeNames && attributeNames.length > 0) {
+                                var contexts = EntityHelper.getContextsFromEntities(this._entities);
+                                if (contexts && contexts.length > 0) {
+                                    this.set("contexts", contexts);
+                                }
+                                //setting contexts first and then attributeNames, because there is an observer on both
+                                //setting attributeNames first would send unnecessary request for model
+                                this.set("attributeNames", attributeNames);
+                            } else {
+                                this.showErrorToast("Unable to fetch attributes from excel. Please check excel file imported or contact your administrator.");
+                                this._loading = false;
+                                this._isDirty = false;
+                            }
+                            this._hideView("entity-import");
+                            this._hideButtons();
+                            this._showView("label");
+                            this._showView("entities-grid");
+                            this._entities = response.response.entities;
+
+                            var maxNoOfRows = this._gridConfig.tabular.settings.maxNoOfRows;
+                            if (maxNoOfRows && this._entities.length > maxNoOfRows) {
+                                this.showErrorToast("Imported more entities than specified maximum number of entities. Please review the file imported or contact your administrator.", 3000);
+                                this._loading = false;
+                                this._isDirty = false;
+                                return;
+                            }
+                            var attributeNames = EntityHelper.getAttributeNamesFromEntities(this._entities);
+                            if (attributeNames && attributeNames.length > 0) {
+                                var contexts = EntityHelper.getContextsFromEntities(this._entities);
+                                if (contexts && contexts.length > 0) {
+                                    this.set("contexts", contexts);
+                                }
+                                //setting contexts first and then attributeNames, because there is an observer on both
+                                //setting attributeNames first would send unnecessary request for model
+                                this.set("attributeNames", attributeNames);
+                            } else {
+                                this.showErrorToast("Unable to fetch attributes from excel. Please check excel file imported or contact your administrator.");
+                                this._loading = false;
+                                this._isDirty = false;
+                            }
                         }
                     } else if (response && response.dataObjectOperationResponse && response.dataObjectOperationResponse.status && response.dataObjectOperationResponse.status.toLowerCase() == "success") {
                         var data = {
@@ -557,6 +617,40 @@
                     this.showErrorToast("Unable to transform excel to json. Please check the service or contact your administrator.");
                     this._loading = false;
                     this._isDirty = false;
+                },
+                _attributeNamesChanged: function(attributeNames, contexts) {
+                    if(!_.isEmpty(attributeNames)) {
+                        this.contextData[ContextHelper.CONTEXT_TYPE_DATA] = contexts;
+                        var itemContext = this.getFirstItemContext();
+
+                        itemContext.attributeNames = attributeNames;
+
+                        var t = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+
+                        this.set("attributeModelRequest", t);
+
+                        var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
+                        if (liquidModelGet) {
+                            liquidModelGet.generateRequest();
+                        }
+                    }
+                },
+                _onCompositeModelResponse: function (e) {
+                    if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+                        if (!this._attributeModels) {
+                            var attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
+                            if (!_.isEmpty(attributeModels)) {
+                                this.set("_attributeModels", attributeModels);
+                                this._populateEntityGrid();
+                            } else {
+                                this.showErrorToast("Unable to fetch attribute models. Please check the service or contact your administrator.");
+                                this._loading = false;
+                            }
+                        }
+                    } else {
+                        this.showErrorToast("Unable to fetch attribute models. Please check the service or contact your administrator.");
+                        this._loading = false;
+                    }
                 },
                 _populateEntityGrid: function () {
                     var entitiesGrid = this.$$('#entitiesGrid');
@@ -790,15 +884,159 @@
                     var chkbox = e.currentTarget;
                     if (chkbox.checked) {
                         this._showPreview = true;
-                        this._profileName = this.importProfileName;
+                        this._profileName = this.transformProfileId;
+                        
                     } else {
                         this._showPreview = false;
-                        this._profileName = this.processProfileName;
+                        this._profileName = this.processProfileId;
+                    }
+                },
+                _onMappingsChange: function(e) {
+                    var chkbox = e.currentTarget;
+                    if (chkbox.checked) {
+                        this._customizeMappings = true;
+                    } else {
+                        this._customizeMappings = false;
                     }
                 },
                 getIsDirty: function () {
                     return this._isDirty;
                 },
+                _exportDialogOpen: function () {
+                    var exportDialog = this.$$("#exportDialog");
+
+                    if (exportDialog) {
+                        exportDialog.dialogTitle = "Download Smart Excel Template";
+                        this._selectedCategories = [];
+                        exportDialog.open();
+                    }
+                },
+                _onCancelDownloadSelection: function () {
+                    var exportDialog = document.querySelector("#exportDialog");
+
+                    if (exportDialog) {
+                        exportDialog.close();
+                    }
+                },
+                _exportSelectedCategory: function (e) {
+                    this._downloadInProgress = true;
+                    var copDownloadLiquid = this.$$("#copDownloadService");
+                    if (copDownloadLiquid && this._selectedCategories && this._selectedCategories.length) {
+                        var contexts = [];
+                        var firstItemContext = this.getFirstItemContext();
+                        var fileName = "CategoryTemplate";
+
+                        this._selectedCategories.forEach(function (category) {
+                            var formattedClassification = category.valuePath.replace(/#@#/g, "\/");
+                            contexts.push({
+                                "taxonomy": "productsetuptaxonomy",
+                                "classification": formattedClassification
+                            });
+                        }, this);
+
+                        if (this._selectedCategories.length == 1) {
+                            fileName = this._selectedCategories[0].value.replace(/\W/g, '_');
+                        }
+
+                        if (firstItemContext && firstItemContext.type && contexts.length) {
+                            this._copDownloadRequest = {
+                                "params": {
+                                    "query": {
+                                        "contexts": contexts,
+                                        "filters": {
+                                            "typesCriterion": [
+                                                "entityManageModel"
+                                            ]
+                                        },
+                                        "id": firstItemContext.type + "_entityManageModel"
+                                    },
+                                    "fields": {
+                                        "attributes": ["_ALL"],
+                                        "relationships": ["_ALL"]
+                                    }
+                                },
+                                "fileName": fileName
+                            };
+
+                            copDownloadLiquid.url = "/cop/downloadModelExcel";
+                            copDownloadLiquid.generateRequest();
+                        }
+                    }
+                },
+                _onCOPDownloadSuccess: function (e) {
+                    if (e.detail && e.detail.response && e.detail.response.response) {
+                        var response = e.detail.response.response;
+
+                        if (response.status.toLowerCase() == "success") {
+                            if (response.fileName) {
+                                var fileName = response.fileName + ".xlsx";
+                                window.open('/file-download?fileName=' + fileName);
+                                this._onCancelDownloadSelection();
+                            } else {
+                                this.showErrorToast("File Name not found for category model export.");
+                            }
+                        } else {
+                            var message = "";
+                            if (response.statusDetail && response.statusDetail.message) {
+                                message = " with message: " + response.statusDetail.message;
+                            }
+
+                            this.showErrorToast("Download failed " + message + ". Please contact your administrator.");
+                        }
+                    }
+                    this._downloadInProgress = false;
+                },
+                _onCOPDownloadFailure: function (e) {
+                    this.showErrorToast("Failed to download category model template. Please contact administrator.");
+                    this._downloadInProgress = false;
+                },
+                _importMappingComponent: function() {
+                    this._showView("mappings");
+                    var component = {
+                        "name": "rock-attribute-mapping",
+                        "path": "/../../src/elements/rock-attribute-mapping/rock-attribute-mapping.html",
+                        "properties": {
+                            "mappings-data": this._mappingsData,
+                            "context-data": this.contextData,
+                            "transform-profile-name": this.transformProfileId,
+                            "process-profile-name": this.processProfileId
+                        }
+                    };
+                    var contentEl = this.$$("#content-mappings");
+                    ComponentHelper.loadContent(contentEl, component, this);
+                },
+                _onFieldMappingsSave: function(e, detail) {
+                    this._hideView("mappings");
+                    this._hideView("entity-import");
+                    this._customizeMappings = false;
+                    var liqCOP = this.$$("#copService");
+                    if (liqCOP) {
+                        if (this._showPreview) {
+                            liqCOP.url = "/cop/transform";
+                        } else {
+                            liqCOP.url = "/cop/process";
+                        }
+                        liqCOP.generateRequest();
+                    }
+                },
+                _onFieldMappingsCancel: function(e, detail) {
+                    this._hideView("mappings");
+                    this._showView("entity-import");
+                },
+                _onFieldMappingsSkip: function(e, detail) {
+                    this._customizeMappings = false;
+                    this._hideView("mappings");
+                    this._hideView("entity-import");
+                    var liqCOP = this.$$("#copService");
+                    if (liqCOP) {
+                        if (this._showPreview) {
+                            liqCOP.url = "/cop/transform";
+                        } else {
+                            liqCOP.url = "/cop/process";
+                        }
+                        liqCOP.generateRequest();
+                    }
+                }
             });
         })();
     </script>

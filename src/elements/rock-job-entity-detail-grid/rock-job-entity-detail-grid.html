@@ -1,0 +1,183 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+
+<link rel="import" href="../pebble-icon/pebble-icon.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-popover/pebble-popover.html">
+<link rel="import" href="../pebble-lov/pebble-lov.html">
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+
+<link rel="import" href="../rock-search-bar/rock-search-bar.html">
+<link rel="import" href="../rock-grid/rock-grid.html">
+<link rel="import" href="../rock-entity-search-filter/rock-entity-search-filter.html">
+
+<link rel="import" href="job-entity-detail-datasource.html">
+<!--
+`<rock-job-entity-detail-grid>`
+
+@group rock Elements
+@element rock-job-entity-detail-grid
+@demo demo/index.html
+-->
+
+<dom-module id="rock-job-entity-detail-grid">
+    <template>
+        <style include="pebble-styles-shared"></style>
+            <rock-grid id="entityGrid" selection-enabled  data-source="{{dataSource}}"  data-source-id="entityGridDataSource"
+                   config="{{gridConfig}}" record-size="{{totalRecords}}" grid-data-size="{{size}}"  page-size="10"
+                   selected-item="{{selectedEntity}}" total-count="{{totalCount}}" max-configured-count="[[maxConfiguredCount]]"></rock-grid>
+            <job-entity-detail-datasource id="entityGridDataSource" request="{{request}}" data-source="{{dataSource}}" data-formatter="{{dataFormatter}}"
+                                       current-record-size="{{size}}" total-records="{{totalRecords}}" total-count="{{totalCount}}"></job-entity-detail-datasource>
+            <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="entityGrid"></bedrock-pubsub>
+    </template>
+
+    <script>
+        (function () {
+            'use strict';
+
+            Polymer({
+                is: 'rock-job-entity-detail-grid',
+
+                properties: {
+                    taskId:{
+                      type:String,
+                      value:""
+                    },
+                    selectedEntity:{
+                        type:Object,
+                        value:function () {
+                            return {};
+                        },
+                        notify:true
+                    },
+                    request: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    gridConfig:{
+                        type:Object,
+                        value:function () {
+                            return {};
+                        }
+                    },
+                    totalRecords:{
+                        type:Number,
+                        notify:true
+                    }
+                },
+                behaviors: [
+                    RUFBehaviors.UIBehavior
+                ],
+                observers: [
+                   '_gridConfigChanged(gridConfig,contextData,taskId)'
+
+                ],
+                ready:function () {
+                    this.dataFormatter = this._formatRequestTrackingObject.bind(this);
+                },
+                _gridConfigChanged:function (gridConfig,contextData,taskId) {
+                    if(!taskId || !gridConfig || _.isEmpty(gridConfig) || !contextData || _.isEmpty(contextData)){
+                        return;
+                    }
+                    var attributes=[];
+                    if(gridConfig.dataRequest){
+                        attributes=gridConfig.dataRequest.attributes;
+                    }
+                    var clonedContextData=DataHelper.cloneObject(contextData);
+                    clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM]=[{"type":"requestObject"}];
+                    var req=DataRequestHelper.createEntityGetRequest(clonedContextData);
+                    req.params.fields.attributes=attributes;
+                    this._attributes=attributes;
+                      req.params.query.valueContexts=[
+                          {
+                            "locale": "en-US",
+                            "source": "rdp"
+                          }
+                      ];
+                    req.params.query.filters.attributesCriterion=[
+                        {
+                            "taskId": {
+                                "eq": this.taskId
+                            }
+                        },
+                        {
+                            "serviceName":{"eq":"entityManageService"}
+                        },
+                        {
+                            "entityAction":{"contains":"create update"}
+                        }
+                    ];
+                    this.set('request',req);
+                    this._getEntityGrid().reRenderGrid();
+                    setTimeout(function () {
+                        this._setGridHeight();
+                    }.bind(this), 100);
+                },
+                _getEntityGrid:function () {
+                    return ElementHelper.getElement(this, "#entityGrid");
+                },
+                _onSelectingGridItem: function (e, detail, sender) {
+                        this.selectedEntity = detail.item;
+                },
+                getSelectedItemIndex: function () {
+                    return this._getEntityGrid().getSelectedItemIndex();
+                },
+                _setGridHeight: function () {
+                    var layout = this.parentElement.parentNode.parentNode.root.querySelector('#rockLayoutContainer')
+                    var rockGridHeight = 0;
+
+                    if (layout) {
+                        var footer = layout.querySelector('rock-footer');
+                        rockGridHeight = layout.offsetHeight;
+
+                        if (footer) {
+                            rockGridHeight = rockGridHeight - footer.offsetHeight;
+                        }
+                    }
+
+                    var rockGrid = Polymer.dom(this).node.$$('rock-grid');
+                    if (rockGrid && rockGridHeight > 0) {
+                        rockGrid._getIronDataTable().style.height = rockGridHeight - 80 + 'px';
+                    }
+                },
+                notifyResize: function () {
+                    this._getEntityGrid().notifyResize();
+                },
+                scrollToIndex: function (index) {
+                    this._getEntityGrid().scrollToIndex(index);
+                },
+                /**
+                 *  To select an item
+                 */
+                selectItem: function (item) {
+                    this._getEntityGrid().selectItem(item);
+                },
+
+                /**
+                 * Can be used to get the grid data.
+                 */
+                getData: function () {
+                    return this._getEntityGrid().getData();
+                },
+                _formatRequestTrackingObject:function (data) {
+                    var formattedData=[];
+                    if (data && data.content) {
+                        var requestObjects = data.content.requestObjects;
+                        var contextData=DataHelper.cloneObject(this.contextData);
+                        if (requestObjects) {
+                                formattedData = DataTransformHelper.transformEventSchemaToListSchema(requestObjects,
+                                    this._attributes, contextData);
+                        }
+                    }
+                    return formattedData;
+                }
+
+            });
+        })();
+    </script>
+
+</dom-module>

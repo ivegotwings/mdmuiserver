@@ -1,0 +1,712 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/iron-data-table/iron-data-table.html">
+
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-helpers/data-request-helper.html">
+<link rel="import" href="../bedrock-helpers/data-transform-helper.html">
+
+<link rel="import" href="../liquid-config-get/liquid-config-get.html">
+<link rel="import" href="../liquid-config-save/liquid-config-save.html">
+<link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
+<link rel="import" href="../liquid-rest/liquid-rest.html">
+
+<link rel="import" href="../rock-entity-lov/rock-entity-lov.html">
+<link rel="import" href="../rock-attribute-model-lov/rock-attribute-model-lov.html">
+<link rel="import" href="../rock-classification-tree/rock-classification-tree.html">
+
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../pebble-icons/pebble-icons.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-textbox/pebble-textbox.html">
+<link rel="import" href="../pebble-popover/pebble-popover.html">
+<link rel="import" href="../pebble-dialog/pebble-dialog.html">
+
+<dom-module id="rock-attribute-mapping-grid">
+    <template>
+        <style include="pebble-styles-shared"></style>
+        <style is="custom-style">
+             iron-data-table {
+				--iron-data-table-header: {
+					height: 45px;
+				}
+				--iron-data-table-row-odd: {
+					background-color: var(--secondary-button-color, #ffffff);
+				}
+                --iron-data-table-row: {
+                    height: 60px;
+                    align-items: center;
+                }
+			}
+			
+			iron-data-table[loading] {
+				pointer-events: none;
+			}
+			
+			iron-data-table data-table-row[header],
+			iron-data-table data-table-row[header] /deep/ label {
+				font-weight: var(--font-bold, bold);
+				color: var(--palette-cerulean, #036bc3);
+				border-bottom: none;
+				text-transform: uppercase;
+				font-size: var(--table-head-font-size, 11px);
+			}
+			
+			iron-data-table data-table-row:not([header]) {
+				color: var(--palette-dark, #1a2028);
+				font-size: var(--default-font-size, 12px);
+				height: 100%;
+				background-color: var(--palette-white, #ffffff);
+			}
+			
+			iron-data-table data-table-row:not([header]):hover,
+			data-table-row[selected] {
+				background-color: var(--table-row-selected-color, #c1cad4) !important;
+			}
+			
+			iron-data-table data-table-row:not([header]):hover data-table-checkbox,
+			data-table-row[selected] data-table-checkbox {
+				background-color: var(--palette-white, #ffffff) !important;
+			}
+			
+			iron-data-table data-table-row[header] /deep/ paper-icon-button:not([direction]) {
+				opacity: 0.7 !important;
+			}
+            iron-data-table data-table-row data-table-cell {
+                padding: 0 0 0 10px !important;
+                justify-content: center;
+            }
+            #inputDiv {
+                width:250px;         
+            }  
+            #iconDiv {
+                align-self: flex-end;
+                -webkit-align-self: flex-end;
+                padding-bottom: 10px;
+                margin-left: -20px; 
+                cursor: pointer;
+            }
+            .dropdown-icon {
+                --pebble-icon-height: 10px !important;
+                --pebble-icon-width: 10px !important;
+            }
+            .actionButton {
+				margin-right: var(--default-margin, 10px);
+			}
+        </style>
+        <liquid-config-get auto id="getUserProfile" operation="getbyids" request-id="req2" request-data="[[_profileRequest]]" on-response="_onProfileGetResponse"></liquid-config-get>
+        <liquid-config-save id="profileSaveService" operation="update" request-data="[[_profileSaveRequest]]"on-response="_onProfileSaveResponse"></liquid-config-save>
+        <div id="grid-heading">
+            <strong>Attribute Mapping</strong>
+        </div>
+        <!-- TODO -->
+        <!-- Currently pebble dialog is coming out of app and sitting on body so css has been added inline needs to resolve it with some proper way. -->
+        <pebble-dialog id="classificationDialog" modal show-close-icon>
+            <div id="classificationContent" style="height:500px">
+                <div>
+                    Select one classification.
+                </div>
+                <div id="categoryTreeContainer" style="height:450px; overflow:auto;">
+                    <rock-classification-tree id="contextTree" taxonomy="[[taxonomy]]" context-data="[[contextData]]"></rock-classification-tree>
+                </div>
+                <div id="exportActions" class="p-b-10" align="center">
+                    <pebble-button style="color: #75808b;background-color: #ffffff;display: inline-block;font-weight: 400;line-height: 1.25;text-align: center;white-space: nowrap;overflow: hidden;vertical-align: middle;user-select: none;border: 1px solid #c1cad4;font-size: 14px;border-radius: 3px;transition: all .2s ease-in-out;box-sizing: border-box;text-transform: capitalize;height: 33px;width: 100px;padding-top: 6px;"
+                        id="cancel" button-text="Cancel" raised on-tap="_onCancelClassificationSelection"></pebble-button>
+                    <pebble-button style="color: #fff;background-color: #09c021;border-color: #09c021;display: inline-block;font-weight: 400;line-height: 1.25;text-align: center;white-space: nowrap;overflow: hidden;vertical-align: middle;user-select: none;border: 1px solid transparent;font-size: 14px;border-radius: 3px;transition: all .2s ease-in-out;box-sizing: border-box;text-transform: capitalize;height: 33px;width: 100px;padding-top: 6px;"
+                        id="download" button-text="Select" raised on-tap="_selectClassification"></pebble-button>
+                </div>
+            </div>
+        </pebble-dialog>
+        <div id="grid-container">
+            <template is="dom-if" if="[[_isDataAvailable(_gridData)]]">
+                <iron-data-table id="mapping-grid" items="{{_gridData}}" multi-selection selected-item="{{selectedItem}}">
+                <data-table-column name="Actions" width="60px" flex="0">
+                    <template>
+                        <pebble-button id="action_[[item.rowId]]" class="actionButton" icon="pebble-icons:Delete" on-tap="_fireActionEvent"></pebble-button>
+                    </template>
+                </data-table-column>
+                <data-table-column name="Is Context" width="100px" flex="0">
+                    <template>
+                        <pebble-checkbox id="isContextChk" checked$="[[item.isContext]]" on-change="_onIsContextChange"></pebble-checkbox>
+                    </template>
+                </data-table-column>
+                <data-table-column name="Excel Column Name">
+                    <template>
+                        <pebble-textbox class="column-text" id="excelColumnName_[[item.rowId]]" value="{{item.excelColumnName}}"></pebble-textbox>
+                    </template>
+                </data-table-column>
+                <data-table-column name="For Context">
+                    <template>
+                    <div id="inputDiv">
+                            <pebble-textbox class="context-text" id="context-text_[[item.rowId]]" row-id="[[item.rowId]]" value="{{item.context}}"></pebble-textbox>
+                        </div>
+                        <div id="iconDiv">
+                            <pebble-icon class="dropdown-icon" id="txtDropdownIcon_[[item.rowId]]" row-id="[[item.rowId]]" icon="pebble-xs-icons:ExpandMore" on-tap="_classificationDialogOpen"></pebble-icon>
+                        </div>
+                    </template>
+                </data-table-column>
+                <data-table-column name="Mapped System Attribute Name">
+                    <template>
+                        <div id="inputDiv" on-tap="_onAttributeTap" index="[[index]]">
+                            <pebble-textbox class="attributes-text" id="attributes-text_[[item.rowId]]" row-id="[[item.rowId]]" value="[[item.attributeModel.title]]" on-tap="_showAttributesLOV"></pebble-textbox>
+                        </div>
+                        <div id="iconDiv">
+                            <pebble-icon class="dropdown-icon" id="txtDropdownIcon_[[item.rowId]]" row-id="[[item.rowId]]" icon="pebble-xs-icons:ExpandMore" on-tap="_showAttributesLOV"></pebble-icon>
+                        </div>
+                    </template>
+                </data-table-column>
+            </iron-data-table>
+            <bedrock-pubsub event-name="attribute-model-lov-selection-changed" handler="_onAttributeSelection" target-id="attributeModelLov"></bedrock-pubsub>
+            <pebble-popover class="attributes-popover" id="attributesPopover" for="" no-overlap auto-fit-on-attach vertical-align="auto" horizontal-align="auto">
+                <rock-attribute-model-lov mode="all" id="attributeModelLov" context-data="[[contextData]]" no-sub-title ></rock-attribute-model-lov>
+            </pebble-popover>
+            </template>
+        </div>
+        <div id="actions-container" align="center">
+            <pebble-button class="action-button btn btn-secondary m-r-5" id="skip" button-text="Cancel" raised on-tap="_onCancelTap"></pebble-button>
+            <pebble-button class="action-button btn btn-primary m-r-5" id="skip" button-text="Skip" raised on-tap="_onSkipTap"></pebble-button>
+            <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="next" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
+        </div>
+        <!--<liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-entity-model-composite-get-response = "_onCompositeModelGetResponse"></liquid-entity-model-composite-get>-->
+        <liquid-entity-model-get name="liquidAttributeModelGet" operation="getbyids" request-data={{attributeModelRequest}} 
+            on-response="_onAttributeModelGetResponse" on-error="_onError"
+         ></liquid-entity-model-get>
+    </template>
+    <script>
+        (function() {
+            'use strict';
+
+            Polymer({
+                is: "rock-attribute-mapping-grid",
+
+                properties: {
+                    mappingsData: {
+                        type: Object,
+                        value: function() { return {}; }
+                    },
+                     /**
+                     * Indicates the currently selected item when `multiSelection` is set to false.
+                     * Otherwise, it indicates null if no item is selected.
+                     */
+					selectedItem: {
+						type: Object,
+						notify: true,
+						reflectToAttribute: true
+					},
+                    contextData: {
+                        type: Object,
+                        value: function() { return {}; }
+                    },
+                    taxonomy: {
+                        type: String,
+                        value: "productsetuptaxonomy"
+                    },
+                    _gridData: {
+                        type: Array,
+                        value: function() { return []; }
+                    },
+                    /**
+                     * Specifies the request object for attribute model request.
+                     */
+                    attributeModelRequest: {
+                        type: Object,
+                        value: function() {
+                            return {};
+                        }
+                    },
+                    transformProfileName: {
+                        type: String,
+                        value: function() { return ""; }
+                    },
+                    processProfileName: {
+                        type: String,
+                        value: function() { return ""; }
+                    },
+                    _transformProfileObject: {
+                        type: Object,
+                        value: function() { return {}; }
+                    },
+                    _processProfileObject: {
+                        type: Object,
+                        value: function() { return {}; }
+                    },
+                    _profileRequest: {
+                        type: Object,
+                        value: function() {
+                            return {};
+                        }
+                    },
+                    _profileSaveRequest: {
+                        type: Object,
+                        value: function() {
+                            return {};
+                        }
+                    },
+                },
+                observers: [
+                    '_dataChanged(contextData, mappingsData, transformProfileName, processProfileName)'
+                ],
+                behaviors: [
+                    RUFBehaviors.UIBehavior,
+                    RUFBehaviors.ComponentContextBehavior
+                ],
+                listeners: {
+                    'selecting-item': '_onSelectingItem',
+					'deselecting-item': '_onDeselectingItem',
+					'selecting-all-items': '_onSelectingAllItems',
+					'deselecting-all-items': '_onDeselectingAllItems',
+                },
+                _dataChanged: function(contextData, mappingsData, transformProfileName, processProfileName) {
+                    if(!_.isEmpty(contextData) && !_.isEmpty(mappingsData) && !_.isEmpty(transformProfileName) && !_.isEmpty(processProfileName)) {
+                        this._isDuplicateResponse = false;
+                        var req = {
+                            "params": {
+                                "query": {
+                                    "ids": [transformProfileName, processProfileName],
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "COPProfile"
+                                        ]
+                                    },
+                                    "contexts": [
+                                            {
+                                                "app": "RSConnect",
+                                                "service": "excelImportTransformService",
+                                                "list": "self"
+                                            },
+                                            {
+                                                "app": "RSConnect",
+                                                "service": "excelImportProcessService",
+                                                "list": "self"
+                                            },
+                                        ]
+                                    },
+                                    "fields": {
+                                        "jsonData": true
+                                    }
+                                }
+                            };
+                        this.set("_profileRequest", req);
+                        this.$$("#getUserProfile").generateRequest();
+                    }
+                },
+                 _onProfileGetResponse: function(e) {
+                    if(!this._isDuplicateResponse) {
+                        this._isDuplicateResponse = true;
+                        var response = e.detail.response;
+                        if(response && response.status && response.status.toLowerCase() == "success" && response.content && response.content.configObjects) {
+                            if(response.content.configObjects.length > 0) {
+                                this._transformProfileObject = response.content.configObjects.find(obj => obj.id == this.transformProfileName);
+                                this._processProfileObject = response.content.configObjects.find(obj => obj.id == this.processProfileName);
+                                var destinationAttributes = this._getAllDestinationAttributes(this.mappingsData);
+                                // var firstItemContext = this.getFirstItemContext();
+
+                            // if(typeof(firstItemContext) != "undefined") {
+                            //     firstItemContext.attributeNames = destinationAttributes;
+                            // }
+
+                            // var t = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+
+                            var modelGetRequest = {
+                                "params": {
+                                    "query": {
+                                        "filters": {
+                                            "typesCriterion": [
+                                                "attributeModel"
+                                            ]
+                                        }
+                                    },
+                                    "fields": {
+                                        "attributes": ["externalName"]
+                                    }
+                                }
+                            };
+                            var ids = [];
+                            for(var i=0;i<destinationAttributes.length;i++) {
+                                ids.push(destinationAttributes[i] + '_attributeModel');
+                            }
+                            modelGetRequest.params.query.ids = ids;
+                            this.set("attributeModelRequest", modelGetRequest);
+
+                            // var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
+                            // if (liquidModelGet) {
+                            //     liquidModelGet.generateRequest();
+                            // }
+                            var liquidModelGet = this.$$("[name=liquidAttributeModelGet]");
+                                if (liquidModelGet) {
+                                    liquidModelGet.generateRequest();
+                                }
+                            } else{
+                                this.showErrorToast("Base profile for mapping generation is missing. Please contact Your administrator");
+                            }
+                        } else {
+                            this.showErrorToast("There is some problem in configuration get service. Please contact Your administrator");
+                        }    
+                    }
+                },
+                _onCompositeModelGetResponse: function(e) {
+                    var values = [];
+                    if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+                        this._attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
+                         this._prepareGridData();
+                    }
+                },
+                _onAttributeModelGetResponse: function(e) {
+                    var response = e.detail.response;
+                    if(response.content && !_.isEmpty(response.content.entityModels)) {
+                        var attributeModels = {};
+                        for(var i=0; i< response.content.entityModels.length; i++) {
+                            var attributeModel = response.content.entityModels[i];
+                            attributeModels[attributeModel.name] = {
+                                "id": attributeModel.name,
+                                "value": attributeModel.name,
+                                "title": attributeModel.properties.externalName
+                            };
+                        }
+                        this._attributeModels = attributeModels;
+                        this._prepareGridData();
+                    }
+                },
+                _getAllDestinationAttributes: function(mappingsData) {
+                    var destinationAttributes = [];
+                    for(var i=0; i<mappingsData.fieldMap.length; i++) {
+                        var fieldMap = mappingsData.fieldMap[i];
+                        if(fieldMap && fieldMap.destination && fieldMap.destination != "") {
+                            var attribute = this._getNameFromDestination(fieldMap.destination);
+                            destinationAttributes.push(attribute);
+                        }
+                    }
+                    return destinationAttributes;
+                },
+                _getNameFromDestination: function(destination) {
+                    var index1 = destination.lastIndexOf("(");
+                    var index2 = destination.lastIndexOf(")");
+                    return destination.substring(index1+1, index2);
+                },
+                _prepareGridData: function() {
+                   var gridData = [];
+                   var rowId = 0;
+                   var mappingContexts = this.mappingsData.contexts;
+                   var contextFields = [];
+                   if(mappingContexts && mappingContexts.length > 0) {
+                       var classificationField = mappingContexts[0].context.classification;
+                       var ctxFieldName = this._getNameFromDestination(classificationField);
+                       contextFields.push(ctxFieldName);
+                   }
+                   var fieldMaps = this.mappingsData.fieldMap;
+                   for(var i=0; i<fieldMaps.length; i++) {
+                       var fieldMap = fieldMaps[i];
+                       if(!fieldMap.source.startsWith("@value")) {
+                           var source = fieldMap.source;
+                           var isContext = false;
+                            if(contextFields.indexOf(fieldMap.source) != -1) {
+                                isContext = true;
+                            }
+                            var attrModel = {};
+                            if(fieldMap.destination && fieldMap.destination != "") {
+                                var attribute = this._getNameFromDestination(fieldMap.destination);
+                                attrModel =  this._attributeModels[attribute] ? this._attributeModels[attribute] : {};
+                            }
+                            var classification = fieldMap.context && fieldMap.context.classification ? fieldMap.context.classification : "";
+                            var rowData = {
+                                "rowId": rowId++,
+                                "id": fieldMap.id,
+                                "isContext": isContext,
+                                "excelColumnName": source,
+                                "attributeModel": attrModel,
+                                "context": classification
+                            };
+                            gridData.push(rowData);
+                       }
+                   }
+                   this.set("_gridData", gridData);
+                },
+                _showAttributesLOV: function(e) {
+                    var rowId = e.currentTarget.rowId;
+                   if(rowId >= 0) {
+                        var lov = this.$$("#attributeModelLov");
+                        var popover = this.$$("#attributesPopover");
+                        if(lov && popover) {
+                            lov.currentRowId = rowId;
+                            popover.for = "attributes-text_" + rowId;
+                            popover.show();
+                        }
+                    }
+                },
+
+                _onAttributeSelection: function(e, detail) {
+                    var lov = this.$$("#attributeModelLov");
+                    if(lov) {
+                        var rowId = lov.currentRowId;
+                        if(rowId >= 0) {
+                            var attributeTxtBox = this.root.querySelector("#attributes-text_" + rowId);
+                            if(!attributeTxtBox) {
+                                attributeTxtBox = Polymer.dom(this.root).querySelector("#attributes-text_" + rowId);
+                            }
+                            if(attributeTxtBox) {
+                                var row = this._getParentRow(attributeTxtBox)
+                                if(row) {
+                                    row.item.attributeModel = detail.data;
+                                    attributeTxtBox.value = detail.data.title;
+                                }
+                            }
+                        }
+                    }
+                    var popover = this.$$("#attributesPopover");
+                    popover.for = "";
+                    popover.hide();
+                },
+
+                _getParentRow: function (element) {
+					if (element) {
+						if (element.is == "data-table-row") {
+							return element;
+						} else {
+							return this._getParentRow(element.parentNode);
+						}
+					}
+					return undefined;
+				},
+
+                _onSelectingItem: function(e) {
+                    this.selectedItem = e.detail.item;
+                    var attrsPopover = this.$$("#attributesPopover_" + this.selectedItem.name);
+                    var attrData;
+                    var classificationData;
+                    if(attrsPopover) {
+                        attrData = attrsPopover.querySelector("rock-attribute-model-lov").selectedItem;
+                        this.selectedItem["attrData"] = attrData;
+                    }
+                    this.fireBedrockEvent("mapping-grid-selecting-item", this.selectedItem);
+                },
+                _onIsContextChange: function(e) {
+                    var chkBoxElement = e.currentTarget;
+                    var row = this._getParentRow(chkBoxElement);
+                    if(row) {
+                        if(chkBoxElement.checked) {
+                            row.item.isContext = true;
+                        } else {
+                            row.item.isContext = false;
+                        }
+                    }
+                },
+                _onDeselectingItem: function (e) {
+					this.fireBedrockEvent("mapping-grid-deselecting-item", e.detail);
+				},
+				_onSelectingAllItems: function (e) {
+					this.fireBedrockEvent("mapping-grid-selecting-all-items", e.detail);
+				},
+				_onDeselectingAllItems: function (e) {
+					this.fireBedrockEvent("mapping-grid-deselecting-all-items", e.detail);
+				},
+                _onIsContextTap: function(e) {
+                    var isContextDiv =e.currentTarget;
+                    if(isContextDiv) {
+                        var isContextSpan = isContextDiv.querySelector("#is-context");
+                        if(isContextSpan) {
+                            isContextSpan.removeAttribute("hidden");
+                        }
+                    }
+                },
+
+                _fireActionEvent: function(e) {
+                    var grid = this.$$("#mapping-grid");
+                    var index = grid.items.indexOf(e.model.item);
+                    grid.items.splice(index, 1);
+
+                    grid.clearCache();
+                },
+
+                _isDataAvailable: function(data) {
+                    if(data && data.length>0) {
+                        return true;
+                    }
+                    return false;
+                },
+
+                _onAttributeTap: function (e) {
+                    var index = e.currentTarget.index;
+                    index++;
+                    if (index == this._currentEditIndex) {
+                        return;
+                    }
+                    this._currentEditIndex = index;
+                    var table = this.$$("iron-data-table");
+                    var ironListComponent = table.$$('#list');
+                    if (ironListComponent) {
+                        var prevItem = Polymer.dom(ironListComponent).querySelector('div.item.gridCurrentEditRow');
+                        if (prevItem) {
+                            prevItem.classList.remove('gridCurrentEditRow');
+                            prevItem.style.zIndex = null;
+                        }
+                        var item = Polymer.dom(table.$$('#list')).querySelector('div.item:nth-of-type(' + index + ')');
+                        if (item) {
+                            item.classList.add('gridCurrentEditRow');
+                            item.style.zIndex = 2;
+                        }
+                    }
+				},
+                _classificationDialogOpen: function (e) {
+                    var classificationDialog = this.$$("#classificationDialog");
+                    var icon = e.currentTarget;
+                    var row = this._getParentRow(icon);
+                    var currentValuePath = "";
+                    var selectedClassifications = [];
+                    if(row) {
+                        var contextTxtBox = row.querySelector('.context-text');
+                        if(contextTxtBox) {
+                            this.contextTxtId = contextTxtBox.id;
+                            currentValuePath = contextTxtBox.value;
+                            if(currentValuePath != "") {
+                                selectedClassifications = [ currentValuePath.split('/') ];
+                            }
+                        }
+                    }
+
+                    var contextTree =this.$$("#contextTree");
+                    if(contextTree) {
+                        //ToDo: Not working.
+                        contextTree.selectedClassifications = selectedClassifications;
+                        contextTree.generateRequest();
+                    }
+
+                    if (classificationDialog) {
+                        classificationDialog.dialogTitle = "Select Classification";
+                        classificationDialog.open();
+                    }
+                },
+                _onCancelClassificationSelection: function () {
+                    var classificationDialog = document.querySelector("#classificationDialog");
+
+                    if (classificationDialog) {
+                        classificationDialog.close();
+                    }
+                },
+                _selectClassification: function(e) {
+                    var contextTree = document.querySelector("#contextTree");
+                    if(contextTree) {
+                        var selectedItem = contextTree.selectedItem;
+                        if(selectedItem) {
+                            var valuePath = selectedItem.valuePath;
+                            valuePath = valuePath.replace(/#@#/g, '/');
+                            var contextTxtBox = this.$$("#"+ this.contextTxtId);
+                            if(contextTxtBox) {
+                                contextTxtBox.value = valuePath;
+                            }
+                        }
+                    }
+                    var classificationDialog = document.querySelector("#classificationDialog");
+
+                    if (classificationDialog) {
+                        classificationDialog.close();
+                    }
+                },
+                _onSaveTap: function(e) {
+                    var mappings = this._transformGridDataToFieldOverrides();
+                    if(!_.isEmpty(mappings)) {
+                        if(!_.isEmpty(mappings.fieldOverrides)) {
+                            this._transformProfileObject.data.contexts[0].jsonData.transform.mapping.fieldOverrides = mappings.fieldOverrides;
+                            this._processProfileObject.data.contexts[0].jsonData.transform.mapping.fieldOverrides = mappings.fieldOverrides;
+                        }
+                        if(!_.isEmpty(mappings.contexts)) {
+                            this._transformProfileObject.data.contexts[0].jsonData.transform.mapping.contexts = mappings.contexts;
+                            this._processProfileObject.data.contexts[0].jsonData.transform.mapping.contexts = mappings.contexts;
+                        }
+                        var req = { "configObjects": [ this._transformProfileObject,this._processProfileObject] };
+                        this.set("_profileSaveRequest", req);
+                        var configSaveService = this.$$("#profileSaveService");
+                        if(configSaveService) {
+                            configSaveService.generateRequest();
+                        }
+                    } else {
+                        this.showSuccessToast("There are no changes in mappings to save.");
+                    }
+                },
+                _transformGridDataToFieldOverrides: function() {
+                    var items = this.$$("#mapping-grid").items;
+                    var mappings = {};
+                    if(items && items.length > 0) {
+                        var fieldOverrides = [];
+                        var contextFields = [];
+                        for(var i=0; i<items.length; i++) {
+                            var item = items[i];
+                            var excelColumnName = item.excelColumnName;
+                            var selectedCtx = item.context;
+                            var selectedAttrModel = item.attributeModel;
+                            var mappedAttribute = "";
+                            var classification = "";
+                            if(!_.isEmpty(selectedAttrModel)) {
+                                mappedAttribute = selectedAttrModel.id;
+                            }
+                            if(!_.isEmpty(selectedCtx)) {
+                                classification = selectedCtx;
+                            }
+                            if(!_.isEmpty(mappedAttribute) && !_.isEmpty(excelColumnName)) {
+                                var fieldOverride = {
+                                    "id": item.id,
+                                    "source": excelColumnName,
+                                    "destination": "@attr(" + mappedAttribute + ")"
+                                };
+                                if(classification && classification !="") {
+                                    fieldOverride["context"] = {
+                                        "classification": classification,
+                                        "taxonomy": this.taxonomy
+                                    };
+                                }
+                                fieldOverrides.push(fieldOverride);
+                            }
+                            var isContext = item.isContext;
+                            if(isContext) {
+                                contextFields.push(excelColumnName);
+                            }
+                        }
+                        var contexts = [];
+                        if(!_.isEmpty(contextFields)) {
+                            contexts = [
+                                {
+                                    "context": 
+                                        {
+                                            "classification": "@field(" + contextFields[0] + ")",
+                                            "taxonomy": "@field(Taxonomy)"
+                                        }
+                                }
+                            ];
+                        }
+                        if(!_.isEmpty(fieldOverrides)) {
+                            mappings["fieldOverrides"] = fieldOverrides;
+                        }
+                        if(!_.isEmpty(contexts)) {
+                            mappings["contexts"] = contexts;
+                        }
+                    }
+                    return mappings;
+                },
+                _onProfileSaveResponse: function(e) {
+                    var response = e.detail.response;
+                    if(response && response.status && response.status.toLowerCase() == "success") {
+                        var eventName = "field-map-save";
+                        var eventDetail = {
+                            "name": eventName,
+                        };
+                        this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                    }
+                },
+                _onCancelTap: function(e) {
+                    var eventName = "field-map-cancel";
+                    var eventDetail = {
+                        "name": eventName,
+                    };
+                    this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                },
+                _onSkipTap: function(e) {
+                    var eventName = "field-map-skip";
+                    var eventDetail = {
+                        "name": eventName,
+                    };
+                    this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                }
+            });
+        })();
+    </script>
+</dom-module>

@@ -100,4 +100,8 @@ module.exports = function (app) {
         falcorExpress.dataSourceRoute(function (req, res) {
             return new DataObjectRouter(routerOptions);
         }));
+    app.use('/data/requestTracking.json',
+        falcorExpress.dataSourceRoute(function (req, res) {
+            return new DataObjectRouter(routerOptions);
+        }));
 };

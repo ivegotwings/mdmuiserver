@@ -110,6 +110,13 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                 var valCtxItem = falcorUtil.getOrCreate(valCtxItems, valCtxKey, {});
                 var values = falcorUtil.getOrCreate(valCtxItem, 'values', []);
 
+                //RDF has started sending values in actual data type
+                //like boolean as true/false instead of 'true'/'false' and 0 instead of '0'
+                //UI is not ready for this yet probably because of if(value) kind of checks
+                //So converting value to string value
+                if(val.value != undefined) {
+                    val.value = val.value.toString();
+                }
                 values.push(val);
             }
 
@@ -133,14 +140,17 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
         }
 
         if (attr.group) {
+            //console.log('attr group', JSON.stringify(attr.group));
             //var valCtxItem = { 'source': CONST_ANY, 'locale': CONST_ANY }; //TODO: How to find out val contexts keys from the flat list of values object..??
             var valCtxItem = {};
             var valCtxKey = falcorUtil.createCtxKey(valCtxItem);
-            //console.log('attr group', JSON.stringify(attr.group));
-            var groupJson = {};
-            groupJson['group'] = $atom(attr.group);
-            valContextsJson[valCtxKey] = groupJson;
-
+            var valContextJson = valContextsJson[valCtxKey];
+            
+            if (!valContextJson) {
+                valContextJson = falcorUtil.getOrCreate(valContextsJson, valCtxKey, {});
+            }
+            valContextJson['group'] = $atom(attr.group);
+            
             //build paths if requested
             if(reqData.buildPaths){
                     paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', valCtxKey, 'group']));
@@ -151,9 +161,12 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
             //var valCtxItem = { 'source': CONST_ANY, 'locale': CONST_ANY }; //TODO: How to find out val contexts keys from the flat list of values object..??
             var selfValCtxItem = {};
             var selfValCtxKey = falcorUtil.createCtxKey(selfValCtxItem);
-            var propertiesJson = {};
-            propertiesJson['properties'] = $atom(attr.properties);
-            valContextsJson[selfValCtxKey] = propertiesJson;
+            var selfValContextJson = valContextsJson[selfValCtxKey];
+
+            if (!selfValContextJson) {
+                selfValContextJson = falcorUtil.getOrCreate(valContextsJson, selfValCtxKey, {});
+            }
+            selfValContextJson['properties'] = $atom(attr.properties);
 
             //build paths if requested
             if(reqData.buildPaths){
@@ -166,8 +179,8 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                 for (let valCtxKey of reqData.valCtxKeys) {
                     if (valCtxKey != '{}') {
                         var valContextJson = valContextsJson[valCtxKey];
-                        if(valContextJson == undefined || valContextJson == null){
-                            valContextJson= valContextsJson[valCtxKey] = {};
+                        if(!valContextJson){
+                            valContextJson = falcorUtil.getOrCreate(valContextsJson, valCtxKey, {});
                         }
                         valContextJson['properties'] = prepareValueJson($atom(attr.properties));
 
@@ -229,8 +242,9 @@ function _buildRelationshipsResponse(rels, reqData, currentDataContextJson, path
                     paths.push(mergePathSets(basePath, ['relationships', relTypeKey, 'relIds']));
                 }
             }
-            else {
-                relTypeJson['rels'] = relsJson;
+            
+            if (operation.toLowerCase() !== "getrelidonly"){
+                relTypeJson['rels'] = relsJson;    
             }
         }
     }
@@ -258,8 +272,8 @@ function _buildRelationshipDetailsResponse(enRel, reqData, relTypeKey, relsJson,
     for (let relFieldKey of allRelObjFields) {
         if (relFieldKey == "attributes") {
             var attrs = enRel[relFieldKey];
-            if (!isEmpty(attrs) && !isEmpty(relAttrNames)) {
-                _buildAttributesResponse(attrs, relAttrNames, reqData, relJson, paths, basePath);
+            if (!isEmpty(attrs)) {
+                _buildAttributesResponse(attrs, relAttrNames, reqData, relJson, paths, relBasePath);
             }
         }
         else if (relFieldKey == "relTo") {

@@ -137,9 +137,9 @@ EntityCompositeModelGetService.prototype = {
 
         var allModels = [];
 
-          if(serviceOperation == 'getcoalesce') {
-            for(var res of response) {
-                if(res.response) {
+        if (serviceOperation == 'getcoalesce') {
+            for (var res of response) {
+                if (res.response) {
                     allModels.push.apply(allModels, res.response.entityModels);
                 }
             }
