@@ -242,8 +242,9 @@ function _buildRelationshipsResponse(rels, reqData, currentDataContextJson, path
                     paths.push(mergePathSets(basePath, ['relationships', relTypeKey, 'relIds']));
                 }
             }
-            else {
-                relTypeJson['rels'] = relsJson;
+            
+            if (operation.toLowerCase() !== "getrelidonly"){
+                relTypeJson['rels'] = relsJson;    
             }
         }
     }
@@ -271,8 +272,8 @@ function _buildRelationshipDetailsResponse(enRel, reqData, relTypeKey, relsJson,
     for (let relFieldKey of allRelObjFields) {
         if (relFieldKey == "attributes") {
             var attrs = enRel[relFieldKey];
-            if (!isEmpty(attrs) && !isEmpty(relAttrNames)) {
-                _buildAttributesResponse(attrs, relAttrNames, reqData, relJson, paths, basePath);
+            if (!isEmpty(attrs)) {
+                _buildAttributesResponse(attrs, relAttrNames, reqData, relJson, paths, relBasePath);
             }
         }
         else if (relFieldKey == "relTo") {
