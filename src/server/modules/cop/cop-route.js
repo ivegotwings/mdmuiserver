@@ -77,6 +77,11 @@ var COPRouter = function (app) {
         //console.log('cop response:', JSON.stringify(response, null, 2));
         res.status(200).send(response);
     });
+    app.post('/cop/generateFieldMap', async function (req, res) {
+        var response = await copService.generateFieldMap(req);
+        //console.log('cop response:', JSON.stringify(response, null, 2));
+        res.status(200).send(response);
+    });
 };
 
 module.exports = function (app) {

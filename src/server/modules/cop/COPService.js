@@ -17,7 +17,7 @@ COPService.prototype = {
                 "entityOperationResponse": {
                     "status": "Error",
                     "statusDetail": {
-                        "code": "RSUI0000",
+                        "code": "RSUI0001",
                         "message": "Incorrect request for COP transform.",
                         "messageType": "Error"
                     }
@@ -40,7 +40,7 @@ COPService.prototype = {
                 "entityOperationResponse": {
                     "status" :"Error",
                     "statusDetail" : {
-                        "code": "RSUI0000",
+                        "code": "RSUI0001",
                         "message": "Incorrect request for COP process.",
                         "messageType": "Error"
                     }
@@ -69,7 +69,7 @@ COPService.prototype = {
                 "entityOperationResponse": {
                     "status" :"Error",
                     "statusDetail" : {
-                        "code": "RSUI0000",
+                        "code": "RSUI0001",
                         "message": "Incorrect request for COP process model.",
                         "messageType": "Error"
                     }
@@ -83,6 +83,29 @@ COPService.prototype = {
         var processModelRequest = this._prepareCOPRequestForProcess(fileName, originalFileName, profileName);
         //console.log('processRequest: ', JSON.stringify(processModelRequest.dataObject.properties, null, 2));
         return await this.post(processModelURL, processModelRequest);
+    },
+    generateFieldMap: async function(request) {
+        var generateFieldMapURL = "copservice/generateFieldMap";
+        var validationResult = this._validateRequest(request);
+        if (!validationResult) {
+            return {
+                "entityOperationResponse": {
+                    "status" :"Error",
+                    "statusDetail" : {
+                        "code": "RSUI0000",
+                        "message": "Incorrect request for COP generate field mappings.",
+                        "messageType": "Error"
+                    }
+                }
+            };
+        }
+
+        var fileName = request.body.fileName;
+        var originalFileName = request.body.originalFileName;
+        var profileName = request.body.profileName;
+        var generateFieldMapRequest = this._prepareCOPRequestForGenerateMap(fileName, originalFileName, profileName);
+        //console.log('generateFieldMapRequest: ', JSON.stringify(generateFieldMapRequest, null, 2));
+        return await this.post(generateFieldMapURL, generateFieldMapRequest);
     },
     downloadModelExcel: async function (request) {
         var downloadModelURL = "copservice/downloadModelExcel";
@@ -99,39 +122,12 @@ COPService.prototype = {
         return response;
     },
     downloadDataExcel: async function (request) {
-        //TODO:: Need to change to "copservice/downloadDataExcel" once COP API is ready.
-        var downloadDataURL = "copservice/downloadModelExcel";
+        var downloadDataURL = "copservice/downloadDataExcel";
         var timeStamp = Date.now();
         var fileName = request.body.fileName + '-' + timeStamp;
 
         //console.log('downloadDataRequest: ', JSON.stringify(request.body, null, 2));
-
-        //TODO:: Need to un comment below line and remove hard corded request object once COP API is ready. 
-        //var response = await this.post(downloadDataURL, request.body);
-        var req = {
-            "params": {
-                "query": {
-                    "contexts": [
-                        {
-                            "taxonomy": "productsetuptaxonomy",
-                            "classification": "plhousewares/ptycooktops/sptycooktops/ityelectriccooktops"
-                        }
-                    ],
-                    "filters": {
-                        "typesCriterion": [
-                            "entityManageModel"
-                        ]
-                    },
-                    "id": "sku_entityManageModel"
-                },
-                "fields": {
-                    "attributes": ["_ALL"],
-                    "relationships": ["_ALL"]
-                }
-            }
-        };
-
-        var response = await this.post(downloadDataURL, req);
+        var response = await this.post(downloadDataURL, request.body);
 
         if(response && response.response && response.response.status.toLowerCase() == "success") {
             this._downloadFileContent(response.response, fileName);
@@ -212,6 +208,35 @@ COPService.prototype = {
         copRequest.dataObject.properties.filename = originalFileName;
         copRequest.dataObject.properties.profileName = profileName;
         copRequest.dataObject.data.blob = this._getFileContent(fileName);
+        return copRequest;
+    },
+    _prepareCOPRequestForGenerateMap: function(fileName, originalFileName, profileName) {
+        var copRequest = {
+            "binaryObject": {
+                "id": "",
+                "dataObjectInfo": {
+                    "dataObjectType": "entityjson"
+                },
+                "properties": {
+                    "createdByService": "user interface",
+                    "createdBy": "user",
+                    "createdDate": "2016-07-16T18:33:52.412-07:00",
+                    "filename": "",
+                    "encoding": "Base64",
+                    "profileId": "d75a63f9-ed4f-4b6e-9973-8743396b61c0",
+                    "profileName": "",
+                    "profileType": "COPProfile"
+                },
+                "data": {
+                    "blob": ""
+                }
+            }
+        };
+
+        copRequest.binaryObject.id = uuidV1();
+        copRequest.binaryObject.properties.filename = originalFileName;
+        copRequest.binaryObject.properties.profileName = profileName;
+        copRequest.binaryObject.data.blob = this._getFileContent(fileName);
         return copRequest;
     },
     _getFileContent: function (fileName) {
