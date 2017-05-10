@@ -697,6 +697,16 @@ DataObjectFalcorUtil.test = function () {
     console.log('test success');
 };
 
+DataObjectFalcorUtil.createRelUniqueId = function (relType, rel, index) {
+    if (rel) {
+        var relDataObjectId = rel.relTo && rel.relTo.id && rel.relTo.id !== "" ? rel.relTo.id : "-1";
+        var idx = index ? index : 0; 
+        return relType.concat("_", relDataObjectId, "_", idx);
+    }
+
+    return "";
+}
+
 function isEmpty(obj) {
     //if (obj === undefined) { return true };
 

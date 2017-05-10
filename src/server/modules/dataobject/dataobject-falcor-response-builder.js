@@ -25,16 +25,6 @@ const CONST_ALL = falcorUtil.CONST_ALL,
 
 const pathKeys = falcorUtil.getPathKeys();
 
-function _createRelUniqueId(rel, index) {
-    if (rel) {
-        var relDataObjectId = rel.relTo && rel.relTo.id && rel.relTo.id !== "" ? rel.relTo.id : "-1";
-        var source = rel.source !== undefined && rel.source !== "" ? rel.source : "ANY";
-        return relDataObjectId.concat("#@#", source, "#@#", index);
-    }
-
-    return "";
-}
-
 function _getKeyNames(obj, reqKeys) {
     var keys = [];
 
@@ -221,7 +211,7 @@ function _buildRelationshipsResponse(rels, reqData, currentDataContextJson, path
             var relIdIndex = 0;
             for (var relKey in relTypeData) {
                 var rel = relTypeData[relKey];
-                rel.id = _createRelUniqueId(rel, relIdIndex++);
+                rel.id = falcorUtil.createRelUniqueId(relKey, rel, relIdIndex++);
 
                 if (reqRelIds && reqRelIds.length > 0 && !arrayContains(reqRelIds, rel.id)) {
                     continue;
