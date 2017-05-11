@@ -16,7 +16,7 @@
 
 <dom-module id="rock-attribute-model-lov">
     <template>
-        <attribute-model-datasource id="attributeModelDataSource" request="[[requestData]]" data-formatter="{{_dataFormatter}}">
+        <attribute-model-datasource mode=[[mode]] id="attributeModelDataSource" request="[[requestData]]" data-formatter="{{_dataFormatter}}">
         </attribute-model-datasource>
         <pebble-lov id="attributeModelLov" page-size="[[pageSize]]" multi-select="[[multiSelect]]" show-image="[[showImage]]" show-color="[[showColor]]"
             no-sub-title="[[noSubTitle]]" show-action-buttons="[[showActionButtons]]" items="[[items]]" selected-item="{{selectedItem}}"
@@ -119,6 +119,10 @@
                     value: function () {
                         return {};
                     }
+                },
+                mode: {
+                    type: String,
+                    value: 'self'
                 }
             },
 
@@ -155,32 +159,73 @@
             },
 
             _getAttributeModels: function () {
-                var contextData = DataHelper.cloneObject(this.contextData);
-                if (this.contextData.ItemContexts) {
-                    this._currentIndex = this.contextData.ItemContexts.length;
+                if(this.mode == 'self') {
+                    var contextData = DataHelper.cloneObject(this.contextData);
+                    if (this.contextData.ItemContexts) {
+                        this._currentIndex = this.contextData.ItemContexts.length;
 
-                }
-
-                if (_.isEmpty(contextData)) {
-                    return;
-                }
-
-                if (contextData && contextData.ItemContexts) {
-                    for (var i in this.contextData.ItemContexts) {
-
-                        contextData.ItemContexts = [this.contextData.ItemContexts[i]];
-                        var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(
-                            contextData);
-                        if (compositeModelGetRequest && compositeModelGetRequest.params) {
-                            compositeModelGetRequest.params.fields.attributes = ["_ALL"];
-                        }
-                        this.set('requestData', compositeModelGetRequest);
                     }
+
+                    if (_.isEmpty(contextData)) {
+                        return;
+                    }
+
+                    if (contextData && contextData.ItemContexts) {
+                        for (var i in this.contextData.ItemContexts) {
+
+                            contextData.ItemContexts = [this.contextData.ItemContexts[i]];
+                            var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(
+                                contextData);
+                            if (compositeModelGetRequest && compositeModelGetRequest.params) {
+                                compositeModelGetRequest.params.fields.attributes = ["_ALL"];
+                            }
+                            this.set('requestData', compositeModelGetRequest);
+                        }
+                    }
+                } else {
+                    var modelGetRequest = {
+                    "params": {
+                        "query": {
+                            "filters": {
+                                    "typesCriterion": [
+                                    "attributeModel"
+                                    ]
+                                }
+                            },
+                            "fields": {
+                                "attributes": ["externalName"]
+                            }
+                        }
+                    };
+                    this.set('requestData', modelGetRequest);
                 }
 
             },
 
             _getAttributeFormattedData: function (data) {
+                if(this.mode == 'self') {
+                    this._getAttributeFormattedDataForCompositeModel(data);
+                } else {
+                    this._getAttributeFormattedDataForAttributeModel(data);
+                }
+            },
+            _getAttributeFormattedDataForAttributeModel: function(data) {
+                if(data && data.content && !_.isEmpty(data.content.entityModels)) {
+                    var items = [];
+                    var attributeModels = data.content.entityModels;
+                    for(var i=0; i< attributeModels.length; i++) {
+                        var attributeModel = attributeModels[i];
+                        var item = {
+                            "id": attributeModel.name,
+                            "value": attributeModel.name,
+                            "title": attributeModel.properties.externalName
+                        };
+                        items.push(item);
+                    }
+                    this.items = items;
+                }
+            },
+            _getAttributeFormattedDataForCompositeModel: function(data) {
                 if (data && data.content && data.content.entityModels) {
                     var atributeModels = DataTransformHelper.transformAttributeModels(data.content.entityModels[0], this.contextData);
                     if (atributeModels) {
@@ -200,11 +245,7 @@
                         
                         this.items = DataHelper.sort(currentItems, 'title');
                     }
-
-
                 }
-
-
             },
             _onLovSelectionChanged: function (event) {
                 var eventDetail = {

@@ -4,7 +4,8 @@ const arrayContains = require('../common/utils/array-contains'),
     isEmpty = require('../common/utils/isEmpty'),
     isObject = require('../common/utils/isObject');
 
-const pathUtils = require('./dataobject-falcor-path-utils');
+const pathUtils = require('./dataobject-falcor-path-utils'),
+    uuidV1 = require('uuid/v1');
 
 const jsonGraph = require('falcor-json-graph'),
     $ref = jsonGraph.ref,
@@ -25,15 +26,7 @@ const CONST_ALL = falcorUtil.CONST_ALL,
 
 const pathKeys = falcorUtil.getPathKeys();
 
-function _createRelUniqueId(rel, index) {
-    if (rel) {
-        var relDataObjectId = rel.relTo && rel.relTo.id && rel.relTo.id !== "" ? rel.relTo.id : "-1";
-        var source = rel.source !== undefined && rel.source !== "" ? rel.source : "ANY";
-        return relDataObjectId.concat("#@#", source, "#@#", index);
-    }
-
-    return "";
-}
+var errorMessageExpireTime = -10 * 1000; // 10 secs
 
 function _getKeyNames(obj, reqKeys) {
     var keys = [];
@@ -221,7 +214,7 @@ function _buildRelationshipsResponse(rels, reqData, currentDataContextJson, path
             var relIdIndex = 0;
             for (var relKey in relTypeData) {
                 var rel = relTypeData[relKey];
-                rel.id = _createRelUniqueId(rel, relIdIndex++);
+                rel.id = falcorUtil.createRelUniqueId(relTypeKey, rel, relIdIndex++);
 
                 if (reqRelIds && reqRelIds.length > 0 && !arrayContains(reqRelIds, rel.id)) {
                     continue;
@@ -242,8 +235,9 @@ function _buildRelationshipsResponse(rels, reqData, currentDataContextJson, path
                     paths.push(mergePathSets(basePath, ['relationships', relTypeKey, 'relIds']));
                 }
             }
-            else {
-                relTypeJson['rels'] = relsJson;
+            
+            if (operation.toLowerCase() !== "getrelidonly"){
+                relTypeJson['rels'] = relsJson;    
             }
         }
     }
@@ -271,8 +265,8 @@ function _buildRelationshipDetailsResponse(enRel, reqData, relTypeKey, relsJson,
     for (let relFieldKey of allRelObjFields) {
         if (relFieldKey == "attributes") {
             var attrs = enRel[relFieldKey];
-            if (!isEmpty(attrs) && !isEmpty(relAttrNames)) {
-                _buildAttributesResponse(attrs, relAttrNames, reqData, relJson, paths, basePath);
+            if (!isEmpty(attrs)) {
+                _buildAttributesResponse(attrs, relAttrNames, reqData, relJson, paths, relBasePath);
             }
         }
         else if (relFieldKey == "relTo") {
@@ -497,8 +491,40 @@ function buildResponse(dataObject, reqData, paths) {
     return dataObjectResponseJson;
 }
 
+function buildErrorResponse(errorObject, primaryMessageToBePrefixedIfAny){
+    var errorResponse = {};
+    var errorDetails = {};
+    var errorGuid = uuidV1();
+    
+    //Prepare error message
+    var errorMessage;
+    if(primaryMessageToBePrefixedIfAny){
+        if(errorObject.name){
+            errorMessage = primaryMessageToBePrefixedIfAny + " " + errorObject.name + ": " + errorObject.message;
+        }
+        else {
+            errorMessage = primaryMessageToBePrefixedIfAny + " Error: " + errorObject.message;
+        }
+    }
+    else {
+        errorMessage = errorObject.toString();
+    }
+
+    errorDetails['message'] = errorMessage;
+    errorDetails['messageCode'] = errorObject.messageCode;
+    //errorDetails['type'] = errorObject.name;
+    //errorDetails['stack'] = errorObject.stack;
+    var errorJson = prepareValueJson($error(errorDetails), errorMessageExpireTime);
+
+    console.log(errorMessage, '\nStackTrace:', errorObject.stack);
+    errorResponse = { 'path': [pathKeys.root, 'errorData', pathKeys.byIds, [errorGuid]], 'value': errorJson };
+
+    return errorResponse;
+}
+
 module.exports = {
     buildResponse: buildResponse,
+    buildErrorResponse: buildErrorResponse,
     formatDataObjectForSave: formatDataObjectForSave,
     createPath: createPath,
     mergeAndCreatePath: mergeAndCreatePath,
