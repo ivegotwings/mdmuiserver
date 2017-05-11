@@ -95,7 +95,7 @@
 				margin-right: var(--default-margin, 10px);
 			}
         </style>
-        <liquid-config-get auto id="getUserProfile" operation="getbyids" request-id="req2" request-data="[[_profileRequest]]" on-response="_onProfileGetResponse"></liquid-config-get>
+        <liquid-config-get id="getUserProfile" operation="getbyids" request-id="req2" request-data="[[_profileRequest]]" on-response="_onProfileGetResponse"></liquid-config-get>
         <liquid-config-save id="profileSaveService" operation="update" request-data="[[_profileSaveRequest]]"on-response="_onProfileSaveResponse"></liquid-config-save>
         <div id="grid-heading">
             <strong>Attribute Mapping</strong>
@@ -259,7 +259,6 @@
                 },
                 _dataChanged: function(contextData, mappingsData, transformProfileName, processProfileName) {
                     if(!_.isEmpty(contextData) && !_.isEmpty(mappingsData) && !_.isEmpty(transformProfileName) && !_.isEmpty(processProfileName)) {
-                        this._isDuplicateResponse = false;
                         var req = {
                             "params": {
                                 "query": {
@@ -292,58 +291,49 @@
                     }
                 },
                  _onProfileGetResponse: function(e) {
-                    if(!this._isDuplicateResponse) {
-                        this._isDuplicateResponse = true;
-                        var response = e.detail.response;
-                        if(response && response.status && response.status.toLowerCase() == "success" && response.content && response.content.configObjects) {
-                            if(response.content.configObjects.length > 0) {
-                                this._transformProfileObject = response.content.configObjects.find(obj => obj.id == this.transformProfileName);
-                                this._processProfileObject = response.content.configObjects.find(obj => obj.id == this.processProfileName);
+                    var response = e.detail.response;
+                    var _areProfilesFound = false;
+                    if(response && response.status && response.status.toLowerCase() == "success" && response.content && response.content.configObjects) {
+                        if(response.content.configObjects.length > 0) {
+                            this._transformProfileObject = response.content.configObjects.find(obj => obj.id == this.transformProfileName);
+                            this._processProfileObject = response.content.configObjects.find(obj => obj.id == this.processProfileName);
+                            if(this._transformProfileObject && this._processProfileObject) {
+                                _areProfilesFound = true;
                                 var destinationAttributes = this._getAllDestinationAttributes(this.mappingsData);
-                                // var firstItemContext = this.getFirstItemContext();
 
-                            // if(typeof(firstItemContext) != "undefined") {
-                            //     firstItemContext.attributeNames = destinationAttributes;
-                            // }
-
-                            // var t = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
-
-                            var modelGetRequest = {
-                                "params": {
-                                    "query": {
-                                        "filters": {
-                                            "typesCriterion": [
-                                                "attributeModel"
-                                            ]
+                                var modelGetRequest = {
+                                    "params": {
+                                        "query": {
+                                            "filters": {
+                                                "typesCriterion": [
+                                                    "attributeModel"
+                                                ]
+                                            }
+                                        },
+                                        "fields": {
+                                            "attributes": ["externalName"]
                                         }
-                                    },
-                                    "fields": {
-                                        "attributes": ["externalName"]
                                     }
+                                };
+                                var ids = [];
+                                for(var i=0;i<destinationAttributes.length;i++) {
+                                    ids.push(destinationAttributes[i] + '_attributeModel');
                                 }
-                            };
-                            var ids = [];
-                            for(var i=0;i<destinationAttributes.length;i++) {
-                                ids.push(destinationAttributes[i] + '_attributeModel');
-                            }
-                            modelGetRequest.params.query.ids = ids;
-                            this.set("attributeModelRequest", modelGetRequest);
+                                modelGetRequest.params.query.ids = ids;
+                                this.set("attributeModelRequest", modelGetRequest);
 
-                            // var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
-                            // if (liquidModelGet) {
-                            //     liquidModelGet.generateRequest();
-                            // }
-                            var liquidModelGet = this.$$("[name=liquidAttributeModelGet]");
-                                if (liquidModelGet) {
-                                    liquidModelGet.generateRequest();
-                                }
-                            } else{
-                                this.showErrorToast("Base profile for mapping generation is missing. Please contact Your administrator");
+                                var liquidModelGet = this.$$("[name=liquidAttributeModelGet]");
+                                    if (liquidModelGet) {
+                                        liquidModelGet.generateRequest();
+                                    }
                             }
-                        } else {
-                            this.showErrorToast("There is some problem in configuration get service. Please contact Your administrator");
-                        }    
+                        }
+                    } else {
+                        this.showErrorToast("There is some problem in configuration get service. Please contact Your administrator");
                     }
+                    if(!_areProfilesFound) {
+                        this.showErrorToast("Base profile for mapping generation is missing. Please contact Your administrator");
+                    }    
                 },
                 _onCompositeModelGetResponse: function(e) {
                     var values = [];
@@ -411,11 +401,11 @@
                             var classification = fieldMap.context && fieldMap.context.classification ? fieldMap.context.classification : "";
                             var rowData = {
                                 "rowId": rowId++,
-                                "id": fieldMap.id,
                                 "isContext": isContext,
                                 "excelColumnName": source,
                                 "attributeModel": attrModel,
-                                "context": classification
+                                "context": classification,
+                                "fieldMap": fieldMap
                             };
                             gridData.push(rowData);
                        }
@@ -613,6 +603,7 @@
                             this._transformProfileObject.data.contexts[0].jsonData.transform.mapping.contexts = mappings.contexts;
                             this._processProfileObject.data.contexts[0].jsonData.transform.mapping.contexts = mappings.contexts;
                         }
+
                         var req = { "configObjects": [ this._transformProfileObject,this._processProfileObject] };
                         this.set("_profileSaveRequest", req);
                         var configSaveService = this.$$("#profileSaveService");
@@ -630,34 +621,14 @@
                         var fieldOverrides = [];
                         var contextFields = [];
                         for(var i=0; i<items.length; i++) {
-                            var item = items[i];
-                            var excelColumnName = item.excelColumnName;
-                            var selectedCtx = item.context;
-                            var selectedAttrModel = item.attributeModel;
-                            var mappedAttribute = "";
-                            var classification = "";
-                            if(!_.isEmpty(selectedAttrModel)) {
-                                mappedAttribute = selectedAttrModel.id;
-                            }
-                            if(!_.isEmpty(selectedCtx)) {
-                                classification = selectedCtx;
-                            }
-                            if(!_.isEmpty(mappedAttribute) && !_.isEmpty(excelColumnName)) {
-                                var fieldOverride = {
-                                    "id": item.id,
-                                    "source": excelColumnName,
-                                    "destination": "@attr(" + mappedAttribute + ")"
-                                };
-                                if(classification && classification !="") {
-                                    fieldOverride["context"] = {
-                                        "classification": classification,
-                                        "taxonomy": this.taxonomy
-                                    };
-                                }
+                            var item = items[i];                            
+                            var fieldOverride = this._prepareFieldOverrideFromRowItem(item);
+                            if(!_.isEmpty(fieldOverride)) {
                                 fieldOverrides.push(fieldOverride);
                             }
                             var isContext = item.isContext;
-                            if(isContext) {
+                            var excelColumnName = item.excelColumnName;
+                            if(isContext && excelColumnName) {
                                 contextFields.push(excelColumnName);
                             }
                         }
@@ -681,6 +652,45 @@
                         }
                     }
                     return mappings;
+                },
+                _prepareFieldOverrideFromRowItem: function(item) {
+                    var fieldOverride;
+                    var excelColumnName = item.excelColumnName;
+                    var selectedCtx = item.context;
+                    var selectedAttrModel = item.attributeModel;
+                    var mappedAttribute = "";
+                    var classification = "";
+                    if(!_.isEmpty(selectedAttrModel)) {
+                        mappedAttribute = selectedAttrModel.id;
+                    }
+                    if(!_.isEmpty(selectedCtx)) {
+                        classification = selectedCtx;
+                    }
+                    if(!_.isEmpty(mappedAttribute) && !_.isEmpty(excelColumnName)) {
+                        fieldOverride = {
+                            "source": excelColumnName,
+                            "destination": "@attr(" + mappedAttribute + ")"
+                        };
+                        if(classification && classification !="") {
+                            fieldOverride["context"] = {
+                                "classification": classification,
+                                "taxonomy": this.taxonomy
+                            };
+                        }
+                        var originalFieldMap = item.fieldMap;
+                        if(originalFieldMap) {
+                            for (var fieldMapKey in originalFieldMap) {
+                                if (originalFieldMap.hasOwnProperty(fieldMapKey)) {
+                                        if(fieldMapKey != "source"
+                                            && fieldMapKey != "destination"
+                                            && fieldMapKey != "context") {
+                                                fieldOverride[fieldMapKey] = originalFieldMap[fieldMapKey];
+                                        }
+                                }
+                            }
+                        }
+                    }
+                    return fieldOverride;
                 },
                 _onProfileSaveResponse: function(e) {
                     var response = e.detail.response;
