@@ -30,8 +30,8 @@ app.set('views', buildPath + '/src/views');
 app.set('view engine', 'hjs');
 
 // parse application/x-www-form-urlencoded
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({limit: '10mb', extended: false}));
+app.use(bodyParser.json({limit: '10mb'}));
 
 // register cors to allow cross domain calls
 app.use(cors());
