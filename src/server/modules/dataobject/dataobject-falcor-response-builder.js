@@ -28,16 +28,6 @@ const pathKeys = falcorUtil.getPathKeys();
 
 var errorMessageExpireTime = -10 * 1000; // 10 secs
 
-function _createRelUniqueId(rel, index) {
-    if (rel) {
-        var relDataObjectId = rel.relTo && rel.relTo.id && rel.relTo.id !== "" ? rel.relTo.id : "-1";
-        var source = rel.source !== undefined && rel.source !== "" ? rel.source : "ANY";
-        return relDataObjectId.concat("#@#", source, "#@#", index);
-    }
-
-    return "";
-}
-
 function _getKeyNames(obj, reqKeys) {
     var keys = [];
 
