@@ -99,15 +99,45 @@ var DFServiceBase = function (options) {
 
         var result = await reqPromise;
 
-        for (var logServiceName of logServiceNames) {
-            var serviceLogSetting = logSettings[logServiceName];
-            if((serviceLogSetting == "trace-response" || serviceLogSetting == "trace-all") && url.indexOf(logServiceName) > 0) {
-                console.log('-------------------------------------------------------------------------------------------------\n');
-                console.log('service: ', logServiceName);
-                console.log('timestamp: ', Date.now());
-                console.log('request id:', internalRequestId);
-                console.log('response: ', JSON.stringify(result, null, 2));
-                console.log('-----------------------------------------------------------------------------------------------\n\n');
+        var isErrorResponse = false;
+
+        //check if response object has error status
+        if(result && result.response && result.response.status) {
+            var resStatus = result.response.status;
+            if(resStatus && resStatus == "error") {
+                isErrorResponse = true;
+            }
+        }
+
+        //check if generic failure happend in RDF layer
+        if(!isErrorResponse && result && result.dataObjectOperationResponse && result.dataObjectOperationResponse.status) {
+            var resStatus = result.dataObjectOperationResponse.status;
+            if(resStatus && resStatus == "error") {
+                isErrorResponse = true;
+            }
+        }
+
+        if(isErrorResponse) {
+            console.error('RDF ERROR---------------------------------------------------------------------------------------------\n');
+            console.error('service: ', logServiceName);
+            console.error('timestamp: ', Date.now());
+            console.error('request id:', internalRequestId);
+            console.error('request: ', JSON.stringify(request, null, 2));
+            console.error('response: ', JSON.stringify(result, null, 2));
+            console.error('-----------------------------------------------------------------------------------------------\n\n');
+        }
+            
+        if(!isErrorResponse) {
+            for (var logServiceName of logServiceNames) {
+                var serviceLogSetting = logSettings[logServiceName];
+                if((serviceLogSetting == "trace-response" || serviceLogSetting == "trace-all") && url.indexOf(logServiceName) > 0) {
+                    console.log('-------------------------------------------------------------------------------------------------\n');
+                    console.log('service: ', logServiceName);
+                    console.log('timestamp: ', Date.now());
+                    console.log('request id:', internalRequestId);
+                    console.log('response: ', JSON.stringify(result, null, 2));
+                    console.log('-----------------------------------------------------------------------------------------------\n\n');
+                }
             }
         }
 
