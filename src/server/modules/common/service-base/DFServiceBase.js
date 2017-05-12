@@ -118,13 +118,16 @@ var DFServiceBase = function (options) {
         }
 
         if(isErrorResponse) {
-            console.error('RDF ERROR---------------------------------------------------------------------------------------------\n');
-            console.error('service: ', logServiceName);
-            console.error('timestamp: ', Date.now());
-            console.error('request id:', internalRequestId);
-            console.error('request: ', JSON.stringify(request, null, 2));
-            console.error('response: ', JSON.stringify(result, null, 2));
-            console.error('-----------------------------------------------------------------------------------------------\n\n');
+            console.log('\n\n');
+            var errorJson = {};
+            errorJson.status = "ERROR";
+            errorJson.service = logServiceName;
+            errorJson.timeStamp = Date.now();
+            errorJson.internalRequestId = internalRequestId;
+            errorJson.request = request;
+            errorJson.respone = result;
+            console.error(JSON.stringify(errorJson));
+            console.log('\n');
         }
             
         if(!isErrorResponse) {
