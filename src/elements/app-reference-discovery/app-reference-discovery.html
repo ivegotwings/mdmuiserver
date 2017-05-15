@@ -244,18 +244,19 @@
                             <bedrock-pubsub event-name="tag-item-added" handler="_showResetSearch"></bedrock-pubsub>
                             <bedrock-pubsub event-name="tag-item-remove" handler="_showResetSearch"></bedrock-pubsub>
                         </div>
+                        <pebble-button class="btn btn-primary m-r-5" button-text="Manage" on-tap="_onTapManage"></pebble-button>
                     </div>
                 </div>
                 <div class="shrunk-content">
                 </div>
             </rock-header>
             <div class="layout horizontal">
-                <div id="entityGridContainer" class="quick-manage-container">
+                <div id="entityGridContainer" class$="[[_applyClass(_quickManageEnabled)]]">
                     <rock-entity-search-grid id="entitySearchGrid" context-data="[[contextData]]" search-filters="[[_selectedSearchFilters]]"
                         types-Criterion="[[_typeCriterion]]" search-query="[[_searchQuery]]" total-records="{{_gridFullLength}}"></rock-entity-search-grid>
                     <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="entityGrid"></bedrock-pubsub>
                 </div>
-                <template is="dom-if" if="[[_gridAttributes.length]]">
+                <template is="dom-if" if="[[_quickManageEnabled]]">
                     <div>
                         <pebble-vertical-divider></pebble-vertical-divider>
                     </div>
@@ -295,7 +296,7 @@
                     },
                     _domains: {
                         type: String,
-                        value: "referenceData"
+                        value: ["referenceData"]
                     },
                     _gridAttributes: {
                         type: Array,
@@ -404,9 +405,14 @@
                         }
                     },
 
-                    _selectedEntityType: {
+                    _selectedReferenceType: {
                         type: String,
                         value: ''
+                    },
+
+                    _quickManageEnabled: {
+                        type: Boolean,
+                        value: false
                     }
                 },
                 behaviors: [
@@ -446,7 +452,7 @@
                     var currentTypeName = selectedItem;
                     if (currentTypeName) {
                         this._mainTitle = "Reference Data Management - " + currentTypeName;
-                        this._selectedEntityType = currentTypeName;
+                        this._selectedReferenceType = currentTypeName;
                         this._gridConfig.dataRequest.typesCriterion = [currentTypeName];
 
                         if (this.verbose) {
@@ -556,8 +562,15 @@
                 },
                 _onAttributeSave: function (e, detail, sender) {
                     //Changing the row style of the updated record
-                    var selectedRow = this._getSearchGrid().getSelectedGridRow();
-                    selectedRow.style['font-style'] = 'italic';
+                    var searchGrid = this._getSearchGrid();
+                    if (searchGrid) {
+                        searchGrid.reloadGrid();
+
+                        var selectedRow = searchGrid.getSelectedGridRow();
+                        if (selectedRow) {
+                            selectedRow.style['font-style'] = 'italic';
+                        }
+                    }
                 },
 
                 _onClickPrevious: function (e, detail, sender) {
@@ -750,12 +763,50 @@
                 _onQucikManageAdd: function () {
                     var itemContext = {
                         'id': "-1",
-                        'type': this._selectedEntityType,
+                        'type': this._selectedReferenceType,
                         'attributeNames': this._gridAttributes
                     };
                     this.updateContext(this.CONTEXT_TYPE_ITEM, [itemContext]);
 
                     this._getSearchGrid().clearSelection();
+                },
+                _onTapManage: function () {
+                    if (!_.isEmpty(this._selectedReferenceType)) {
+                        this._quickManageEnabled = !this._quickManageEnabled;
+                        var grid = this._getSearchGrid();
+
+                        if (this._quickManageEnabled) {
+                            var selectedItem = grid.selectedItem;
+                            this._selectedEntity = selectedItem;
+
+                            if (!_.isEmpty(selectedItem)) {
+
+                                var itemContext = {
+                                    'id': selectedItem.id,
+                                    'type': selectedItem.type
+                                };
+                                this.updateContext(this.CONTEXT_TYPE_ITEM, [itemContext]);
+
+                                grid.clearSelection(); //Clear current selection
+                                grid.selectItem(selectedItem); //Select item
+                                this._currentIndex = this._getSearchGrid().getSelectedItemIndex();
+                                grid.scrollToIndex(this._currentIndex);
+                            }
+                        } else {
+                            this._currentIndex = -1;
+                        }
+
+                        grid.notifyResize();
+                    } else {
+                        this.showInformationToast("Please select reference type to manage.");
+                    }
+                },
+                _applyClass: function () {
+                    if (this._quickManageEnabled) {
+                        return "quick-manage-container";
+                    }
+
+                    return "container";
                 }
             });
         })();
