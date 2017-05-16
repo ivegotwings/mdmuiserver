@@ -78,12 +78,17 @@
                 justify-content: center;
             }
             #inputDiv {
-                width:250px;         
+                width:250px;
+                border-bottom: 1px solid #d2d8de;
+                height: 42px;         
+            }
+            .attributes-span .context-span {
+                line-height: 56px;
             }  
             #iconDiv {
                 align-self: flex-end;
                 -webkit-align-self: flex-end;
-                padding-bottom: 10px;
+                padding-bottom: 5px;
                 margin-left: -20px; 
                 cursor: pointer;
             }
@@ -133,13 +138,13 @@
                 </data-table-column>
                 <data-table-column name="Excel Column Name">
                     <template>
-                        <pebble-textbox class="column-text" id="excelColumnName_[[item.rowId]]" value="{{item.excelColumnName}}"></pebble-textbox>
+                        <pebble-textbox readonly class="column-text" id="excelColumnName_[[item.rowId]]" value="{{item.excelColumnName}}"></pebble-textbox>
                     </template>
                 </data-table-column>
                 <data-table-column name="For Context">
                     <template>
                     <div id="inputDiv">
-                            <pebble-textbox class="context-text" id="context-text_[[item.rowId]]" row-id="[[item.rowId]]" value="{{item.context}}"></pebble-textbox>
+                            <span class="context-span" style="line-height: 56px;" id="context-span_[[item.rowId]]" row-id="[[item.rowId]]">[[item.context]]</span>
                         </div>
                         <div id="iconDiv">
                             <pebble-icon class="dropdown-icon" id="txtDropdownIcon_[[item.rowId]]" row-id="[[item.rowId]]" icon="pebble-xs-icons:ExpandMore" on-tap="_classificationDialogOpen"></pebble-icon>
@@ -149,7 +154,7 @@
                 <data-table-column name="Mapped System Attribute Name">
                     <template>
                         <div id="inputDiv" on-tap="_onAttributeTap" index="[[index]]">
-                            <pebble-textbox class="attributes-text" id="attributes-text_[[item.rowId]]" row-id="[[item.rowId]]" value="[[item.attributeModel.title]]" on-tap="_showAttributesLOV"></pebble-textbox>
+                            <span class="attributes-span" style="line-height: 56px;" id="attributes-span_[[item.rowId]]" row-id="[[item.rowId]]" on-tap="_showAttributesLOV">[[item.attributeModel.title]]</span>
                         </div>
                         <div id="iconDiv">
                             <pebble-icon class="dropdown-icon" id="txtDropdownIcon_[[item.rowId]]" row-id="[[item.rowId]]" icon="pebble-xs-icons:ExpandMore" on-tap="_showAttributesLOV"></pebble-icon>
@@ -243,6 +248,10 @@
                             return {};
                         }
                     },
+                    _deletedOverrides: {
+                        type: Array,
+                        value: function() { return []; }
+                    }
                 },
                 observers: [
                     '_dataChanged(contextData, mappingsData, transformProfileName, processProfileName)'
@@ -299,6 +308,8 @@
                             this._processProfileObject = response.content.configObjects.find(obj => obj.id == this.processProfileName);
                             if(this._transformProfileObject && this._processProfileObject) {
                                 _areProfilesFound = true;
+                                this._processProfileObject = DataHelper.validateAndFillProfile (this._processProfileObject);
+                                this._transformProfileObject = DataHelper.validateAndFillProfile (this._transformProfileObject);
                                 var destinationAttributes = this._getAllDestinationAttributes(this.mappingsData);
 
                                 var modelGetRequest = {
@@ -410,7 +421,27 @@
                             gridData.push(rowData);
                        }
                    }
-                   this.set("_gridData", gridData);
+                   gridData.sort(function(a,b){
+                        var nameA = a.excelColumnName.toUpperCase(); 
+                        var nameB = b.excelColumnName.toUpperCase(); 
+                        if (nameA < nameB) {
+                            return -1;
+                        }
+                        if (nameA > nameB) {
+                            return 1;
+                        }
+                        return 0;
+                   })
+                   var sortedData = [];
+                   var emptyDestinationData = gridData.filter(obj => _.isEmpty(obj.attributeModel) == true);
+                   var dataWithDestination = gridData.filter(obj => _.isEmpty(obj.attributeModel) == false);
+                   if(emptyDestinationData) {
+                       sortedData = sortedData.concat(emptyDestinationData);
+                   }
+                   if(dataWithDestination) {
+                       sortedData = sortedData.concat(dataWithDestination);
+                   }
+                   this.set("_gridData", sortedData);
                 },
                 _showAttributesLOV: function(e) {
                     var rowId = e.currentTarget.rowId;
@@ -419,7 +450,7 @@
                         var popover = this.$$("#attributesPopover");
                         if(lov && popover) {
                             lov.currentRowId = rowId;
-                            popover.for = "attributes-text_" + rowId;
+                            popover.for = "attributes-span_" + rowId;
                             popover.show();
                         }
                     }
@@ -430,15 +461,16 @@
                     if(lov) {
                         var rowId = lov.currentRowId;
                         if(rowId >= 0) {
-                            var attributeTxtBox = this.root.querySelector("#attributes-text_" + rowId);
-                            if(!attributeTxtBox) {
-                                attributeTxtBox = Polymer.dom(this.root).querySelector("#attributes-text_" + rowId);
+                            var attributeSpan = this.root.querySelector("#attributes-span_" + rowId);
+                            if(!attributeSpan) {
+                                attributeSpan = Polymer.dom(this.root).querySelector("#attributes-span_" + rowId);
                             }
-                            if(attributeTxtBox) {
-                                var row = this._getParentRow(attributeTxtBox)
+                            if(attributeSpan) {
+                                var row = this._getParentRow(attributeSpan)
                                 if(row) {
                                     row.item.attributeModel = detail.data;
-                                    attributeTxtBox.value = detail.data.title;
+                                    row.item["rowModified"] = true;
+                                    attributeSpan.textContent = detail.data.title;
                                 }
                             }
                         }
@@ -544,10 +576,10 @@
                     var currentValuePath = "";
                     var selectedClassifications = [];
                     if(row) {
-                        var contextTxtBox = row.querySelector('.context-text');
-                        if(contextTxtBox) {
-                            this.contextTxtId = contextTxtBox.id;
-                            currentValuePath = contextTxtBox.value;
+                        var contextSpan = row.querySelector('.context-span');
+                        if(contextSpan) {
+                            this.contextSpanId = contextSpan.id;
+                            currentValuePath = contextSpan.textContent;
                             if(currentValuePath != "") {
                                 selectedClassifications = [ currentValuePath.split('/') ];
                             }
@@ -580,9 +612,14 @@
                         if(selectedItem) {
                             var valuePath = selectedItem.valuePath;
                             valuePath = valuePath.replace(/#@#/g, '/');
-                            var contextTxtBox = this.$$("#"+ this.contextTxtId);
-                            if(contextTxtBox) {
-                                contextTxtBox.value = valuePath;
+                            var contextSpan = this.$$("#"+ this.contextSpanId);
+                            if(contextSpan) {
+                                var row = this._getParentRow(contextSpan);
+                                if(row) {
+                                    row.item.context = valuePath;
+                                    row.item["rowModified"] = true;
+                                    contextSpan.textContent = valuePath
+                                }
                             }
                         }
                     }
@@ -616,39 +653,56 @@
                 },
                 _transformGridDataToFieldOverrides: function() {
                     var items = this.$$("#mapping-grid").items;
+                    var originalFieldOverrides = this._transformProfileObject.data.contexts[0].jsonData.transform.mapping.fieldOverrides;
                     var mappings = {};
                     if(items && items.length > 0) {
+                        var modifiedItems = items.filter(obj => obj.rowModified == true);
                         var fieldOverrides = [];
                         var contextFields = [];
-                        for(var i=0; i<items.length; i++) {
-                            var item = items[i];                            
-                            var fieldOverride = this._prepareFieldOverrideFromRowItem(item);
-                            if(!_.isEmpty(fieldOverride)) {
-                                fieldOverrides.push(fieldOverride);
-                            }
-                            var isContext = item.isContext;
-                            var excelColumnName = item.excelColumnName;
-                            if(isContext && excelColumnName) {
-                                contextFields.push(excelColumnName);
-                            }
-                        }
-                        var contexts = [];
-                        if(!_.isEmpty(contextFields)) {
-                            contexts = [
-                                {
-                                    "context": 
-                                        {
-                                            "classification": "@field(" + contextFields[0] + ")",
-                                            "taxonomy": "@field(Taxonomy)"
+                        if(modifiedItems && modifiedItems.length > 0) {
+                            for(var i=0; i<modifiedItems.length; i++) {
+                                var item = modifiedItems[i];                            
+                                var fieldOverride = this._prepareFieldOverrideFromRowItem(item);
+                                if(!_.isEmpty(fieldOverride)) {
+                                    if(originalFieldOverrides) {
+                                        var existingOverride = originalFieldOverrides.find(obj => obj.id == fieldOverride.id);
+                                        if(existingOverride) {
+                                            var index = originalFieldOverrides.indexOf(existingOverride);
+                                            originalFieldOverrides[index] = fieldOverride;
+                                        } else {
+                                            fieldOverrides.push(fieldOverride);
                                         }
+                                    } else {
+                                        fieldOverrides.push(fieldOverride);
+                                    }
                                 }
-                            ];
-                        }
-                        if(!_.isEmpty(fieldOverrides)) {
-                            mappings["fieldOverrides"] = fieldOverrides;
-                        }
-                        if(!_.isEmpty(contexts)) {
-                            mappings["contexts"] = contexts;
+                                var isContext = item.isContext;
+                                var excelColumnName = item.excelColumnName;
+                                if(isContext && excelColumnName) {
+                                    contextFields.push(excelColumnName);
+                                }
+                            }
+                            if(originalFieldOverrides && originalFieldOverrides.length > 0) {
+                                fieldOverrides.push.apply(fieldOverrides, originalFieldOverrides);
+                            }
+                            var contexts = [];
+                            if(!_.isEmpty(contextFields)) {
+                                contexts = [
+                                    {
+                                        "context": 
+                                            {
+                                                "classification": "@field(" + contextFields[0] + ")",
+                                                "taxonomy": "@field(Taxonomy)"
+                                            }
+                                    }
+                                ];
+                            }
+                            if(!_.isEmpty(fieldOverrides)) {
+                                mappings["fieldOverrides"] = fieldOverrides;
+                            }
+                            if(!_.isEmpty(contexts)) {
+                                mappings["contexts"] = contexts;
+                            }
                         }
                     }
                     return mappings;
@@ -681,11 +735,13 @@
                         if(originalFieldMap) {
                             for (var fieldMapKey in originalFieldMap) {
                                 if (originalFieldMap.hasOwnProperty(fieldMapKey)) {
-                                        if(fieldMapKey != "source"
-                                            && fieldMapKey != "destination"
-                                            && fieldMapKey != "context") {
-                                                fieldOverride[fieldMapKey] = originalFieldMap[fieldMapKey];
-                                        }
+                                    if(fieldMapKey == "required" || fieldMapKey == "enabled") {
+                                        fieldOverride[fieldMapKey] = true;//COP needs this as true always for overrides to work
+                                    } else if(fieldMapKey != "source"
+                                        && fieldMapKey != "destination"
+                                        && fieldMapKey != "context") {
+                                            fieldOverride[fieldMapKey] = originalFieldMap[fieldMapKey];
+                                    }
                                 }
                             }
                         }
