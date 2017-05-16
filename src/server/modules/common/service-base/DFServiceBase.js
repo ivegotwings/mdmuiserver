@@ -22,7 +22,7 @@ var DFServiceBase = function (options) {
 
     this.requestJson = async function (url, request) {
 
-        var tenantId = 'jcp';
+        var tenantId = 'jcpenney';
         var userId = 'admin';
         var userRoles = ['vendor'];
 
@@ -38,7 +38,7 @@ var DFServiceBase = function (options) {
                 this._headers["x-rdp-clientid"] = securityContext.headers.clientId || "";
                 this._headers["x-rdp-tenantid"] = tenantId;
                 this._headers["x-rdp-ownershipdata"] = securityContext.headers.ownershipData || "";
-                this._headers["x-rdp-userid"] = userId || "";
+                this._headers["x-rdp-userid"] = userId.indexOf("_user") < 0 ? userId + "_user" : userId;
                 this._headers["x-rdp-username"] = securityContext.headers.userName || "";
                 this._headers["x-rdp-useremail"] = securityContext.headers.userEmail || "";
                 this._headers["x-rdp-userroles"] =  JSON.stringify(userRoles);
@@ -99,15 +99,48 @@ var DFServiceBase = function (options) {
 
         var result = await reqPromise;
 
-        for (var logServiceName of logServiceNames) {
-            var serviceLogSetting = logSettings[logServiceName];
-            if((serviceLogSetting == "trace-response" || serviceLogSetting == "trace-all") && url.indexOf(logServiceName) > 0) {
-                console.log('-------------------------------------------------------------------------------------------------\n');
-                console.log('service: ', logServiceName);
-                console.log('timestamp: ', Date.now());
-                console.log('request id:', internalRequestId);
-                console.log('response: ', JSON.stringify(result, null, 2));
-                console.log('-----------------------------------------------------------------------------------------------\n\n');
+        var isErrorResponse = false;
+
+        //check if response object has error status
+        if(result && result.response && result.response.status) {
+            var resStatus = result.response.status;
+            if(resStatus && resStatus == "error") {
+                isErrorResponse = true;
+            }
+        }
+
+        //check if generic failure happend in RDF layer
+        if(!isErrorResponse && result && result.dataObjectOperationResponse && result.dataObjectOperationResponse.status) {
+            var resStatus = result.dataObjectOperationResponse.status;
+            if(resStatus && resStatus == "error") {
+                isErrorResponse = true;
+            }
+        }
+
+        if(isErrorResponse) {
+            console.log('\n\n');
+            var errorJson = {};
+            errorJson.status = "ERROR";
+            errorJson.service = logServiceName;
+            errorJson.timeStamp = Date.now();
+            errorJson.internalRequestId = internalRequestId;
+            errorJson.request = options;
+            errorJson.respone = result;
+            console.error(JSON.stringify(errorJson));
+            console.log('\n');
+        }
+            
+        if(!isErrorResponse) {
+            for (var logServiceName of logServiceNames) {
+                var serviceLogSetting = logSettings[logServiceName];
+                if((serviceLogSetting == "trace-response" || serviceLogSetting == "trace-all") && url.indexOf(logServiceName) > 0) {
+                    console.log('-------------------------------------------------------------------------------------------------\n');
+                    console.log('service: ', logServiceName);
+                    console.log('timestamp: ', Date.now());
+                    console.log('request id:', internalRequestId);
+                    console.log('response: ', JSON.stringify(result, null, 2));
+                    console.log('-----------------------------------------------------------------------------------------------\n\n');
+                }
             }
         }
 
