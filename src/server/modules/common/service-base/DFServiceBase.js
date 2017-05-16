@@ -22,7 +22,7 @@ var DFServiceBase = function (options) {
 
     this.requestJson = async function (url, request) {
 
-        var tenantId = 'jcp';
+        var tenantId = 'jcpenney';
         var userId = 'admin';
         var userRoles = ['vendor'];
 
@@ -124,7 +124,7 @@ var DFServiceBase = function (options) {
             errorJson.service = logServiceName;
             errorJson.timeStamp = Date.now();
             errorJson.internalRequestId = internalRequestId;
-            errorJson.request = request;
+            errorJson.request = options;
             errorJson.respone = result;
             console.error(JSON.stringify(errorJson));
             console.log('\n');
