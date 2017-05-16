@@ -104,13 +104,13 @@
 
         </style>
         <!--Liquid start-->
-        <liquid-config-get id="liqInitiateSearch" auto$="[[auto]]" operation="initiatesearch" request-data="{{initiateSearchRequestData}}"
+        <liquid-config-get id="liqInitiateSearch" operation="initiatesearch" request-data="{{initiateSearchRequestData}}"
             last-response="{{initiateSearchResponse}}" on-response="_onInitiateSearchResponse">
         </liquid-config-get>
         <liquid-config-get id="liqGetSearchResultDetail" operation="getsearchresultdetail" on-response="_onGetSearchResultDetailResponse">
         </liquid-config-get>
 
-        <liquid-config-get id="liqInitiateNameSearch" auto$="[[auto]]" operation="initiatesearch" request-data="{{initiateNameSearchRequestData}}"
+        <liquid-config-get id="liqInitiateNameSearch" operation="initiatesearch" request-data="{{initiateNameSearchRequestData}}"
             last-response="{{initiateNameSearchResponse}}" on-response="_onInitiateNameSearchResponse">
         </liquid-config-get>
         <liquid-config-get id="liqGetNameSearchResultDetail" operation="getsearchresultdetail" on-response="_onGetNameSearchResultDetailResponse">
@@ -281,11 +281,7 @@
                         type: Boolean,
                         value: false
                     },
-
-                    auto: {
-                        type: Boolean,
-                        value: false
-                    },
+                    
                     initiateSearchRequestData: {
                         type: Object,
                         value: function () { return {}; }
@@ -350,27 +346,28 @@
                 _onContextDataChange: function() {
                     if(this.contextData && !_.isEmpty(this.contextData))
                     {   
-                        var _clonedContextData = DataHelper.cloneObject(this.contextData);
-                        var _searchCtxData = DataHelper.cloneObject(this._prepareContext(_clonedContextData));
-                        var _mappingCtxData = DataHelper.cloneObject(this._prepareContext(_clonedContextData, "searchmapping"));
+                        var clonedContextData = DataHelper.cloneObject(this.contextData);
+                        var searchCtxData = DataHelper.cloneObject(this._prepareContext(clonedContextData));
+                        var mappingCtxData = DataHelper.cloneObject(this._prepareContext(clonedContextData, "searchmapping"));
 
-                        this._searchRequest = DataRequestHelper.createSavedSearchInitialRequest(_searchCtxData);
-                        this._mappingRequest = DataRequestHelper.createSavedSearchInitialRequest(_mappingCtxData);
+                        this._searchRequest = DataRequestHelper.createSavedSearchInitialRequest(searchCtxData);
+                        this._mappingRequest = DataRequestHelper.createSavedSearchInitialRequest(mappingCtxData);
 
                         //Initial search for shared
-                        var _request = DataHelper.cloneObject(this._searchRequest);                        
+                        var request = DataHelper.cloneObject(this._searchRequest);                        
                         //Raise initial request for search and on search response raise for mappings
-                        this.generateRequest(_request);
+                        this.generateRequest(request);
                     }                    
                 },
 
                 //Prepare context for mappings
-                _prepareContext: function(_clonedContextData, type) {
-                    var _context = {};
-                    var userContext = ContextHelper.getFirstUserContext(_clonedContextData);
+                _prepareContext: function(clonedContextData, type) {
+                    var context = {};
+                    var typesCriterion = [];
+                    var userContext = ContextHelper.getFirstUserContext(clonedContextData);
 
                     if(type == "searchmapping" && userContext) {
-                        _context = {
+                        context = {
                             "app": this.appName,
                             "service": "_ALL",
                             "component": "_ALL",
@@ -378,10 +375,10 @@
                             "user": userContext.user,
                             "role": userContext.role                                                   
                         };
-                        var _typesCriterion = ["savedSearchMappings"];
+                        typesCriterion.push("savedSearchMappings");
                     }
                     else {
-                        _context = {
+                        context = {
                             "app": this.appName,
                             "service": "_ALL",
                             "component": "_ALL",
@@ -389,14 +386,14 @@
                             "user": "all",
                             "role": "all"                       
                         };
-                        var _typesCriterion = ["savedSearch"]; // , "workflowSavedSearch"
+                        typesCriterion.push("savedSearch"); // , "workflowSavedSearch"
                     }                    
                     
                     //Set context
-                    _clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [_context];
-                    _clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = _typesCriterion;                    
+                    clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [context];
+                    clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = typesCriterion;                    
                     
-                    return _clonedContextData;
+                    return clonedContextData;
                 },
 
                 _triggerSearchTransform: function() {
@@ -526,10 +523,10 @@
                 _onInitiateNameSearchResponse: function (e) {
                     var totalRecords = this.initiateNameSearchResponse.content.totalRecords;
                     var getDetailOptions = { 'from': 0, 'to': totalRecords };
-                    this._makeGetNameSearchResultDetailCall(getDetailOptions, e);
+                    this._makeGetNameSearchResultDetailCall(getDetailOptions);
                 },
 
-                _makeGetNameSearchResultDetailCall: function (options, event) {
+                _makeGetNameSearchResultDetailCall: function (options) {
                     var liqGetNameSearchResultDetail = this.$$('#liqGetNameSearchResultDetail');
 
                     var searchResultId = this.initiateNameSearchResponse.content.requestId;
@@ -551,16 +548,16 @@
                     //Compare search name and display toast message based on that
                     if(DataHelper.isValidObjectPath(detail, "response.content.configObjects"))
                     {
-                        var _searchItems = detail.response.content.configObjects;
+                        var searchItems = detail.response.content.configObjects;
 
-                        if(_searchItems.length > 0 && type == "create") {
+                        if(searchItems.length > 0 && type == "create") {
                             this.showErrorToast("Search name is already exists, please create search with different name.");
                             return;
                         }
                         else {
-                            for(var i = 0; i < _searchItems.length; i++)
+                            for(var i = 0; i < searchItems.length; i++)
                             {
-                                if(_searchItems[i] && _searchItems[i].id != searchInfo["saved-search-info"].selectedSearch.searchid)
+                                if(searchItems[i] && searchItems[i].id != searchInfo["saved-search-info"].selectedSearch.searchid)
                                 {
                                     this.showErrorToast("Search name is already exists, please create search with different name.");
                                     return;
@@ -571,19 +568,19 @@
 
                     //Prepare request
                     if(type == "create") {
-                        var _clonedContextData = DataHelper.cloneObject(this.contextData);
-                        var _savedSearchContextName = this._getSavedSearchContextName(searchInfo["saved-search-info"].name);
+                        var clonedContextData = DataHelper.cloneObject(this.contextData);
+                        var savedSearchContextName = this._getSavedSearchContextName(searchInfo["saved-search-info"].name);
 
-                        var _createRequestData = DataRequestHelper.savedSearchCreateRequest(this._prepareCreateContext(_clonedContextData, searchInfo), "savedsearch", this.appName, _savedSearchContextName);
+                        var _createRequestData = DataRequestHelper.savedSearchCreateRequest(this._prepareCreateContext(clonedContextData, searchInfo), "savedsearch", this.appName, savedSearchContextName);
                         
-                        var _reqData = { "configObjects" : [_createRequestData] }
-                        this.generateSaveRequest(_reqData, "create");
+                        var reqData = { "configObjects" : [_createRequestData] }
+                        this.generateSaveRequest(reqData, "create");
                         this._toastMessage = searchInfo["saved-search-info"].name + " is saved successfully";
                     }
                     //update
                     else {
-                        var _selectedSearch = searchInfo["saved-search-info"].selectedSearch;
-                        var _originalSearch = {};
+                        var selectedSearch = searchInfo["saved-search-info"].selectedSearch;
+                        var originalSearch = {};
                         //Find original search based on searchInfo - _originalSearches
                         for(var i = 0; i < this._originalSearches.length; i++) {
                             if(!this._originalSearches[i].data)
@@ -591,40 +588,44 @@
                                 continue; //next search
                             }
 
-                            var _orginalName = this._originalSearches[i].data.contexts[0].jsonData.config.searchname;
-                            if(_orginalName == _selectedSearch.searchname)
+                            var originalName = this._originalSearches[i].data.contexts[0].jsonData.config.searchname;
+                            if(originalName == selectedSearch.searchname)
                             {
-                                _originalSearch = this._originalSearches[i];
+                                originalSearch = this._originalSearches[i];
                                 break;
                             }
                         }
 
-                        var _userContext = ContextHelper.getFirstUserContext(this.contextData);
-                        var _user = this._getUserRolePerAccessType(searchInfo["saved-search-info"], _userContext);
-                        
-                        // Original search details updated based on the changes
-                        _originalSearch.name = this._getSavedSearchContextName(searchInfo["saved-search-info"].name);
-                        _originalSearch.data.contexts[0].jsonData.config.name = searchInfo["saved-search-info"].name;
-                        _originalSearch.data.contexts[0].jsonData.config.accesstype = searchInfo["saved-search-info"].accesstype;
-                        _originalSearch.data.contexts[0].jsonData.config.dimensions = searchInfo["dimensions"];
-                        _originalSearch.data.contexts[0].jsonData.config.searchQuery = searchInfo["search-query"];
-                        _originalSearch.data.contexts[0].jsonData.config.searchTags = searchInfo["search-tags"];
-                        _originalSearch.data.contexts[0].context.user = _user.user;
-                        _originalSearch.data.contexts[0].context.role = _user.role;
+                        this._setSearchDetailsForUpdate(originalSearch, searchInfo); 
 
-                        var _reqData = { "configObjects" : [_originalSearch] }
-                        this.generateSaveRequest(_reqData, "update");
+                        var reqData = { "configObjects" : [originalSearch] }
+                        this.generateSaveRequest(reqData, "update");
                         this._toastMessage = searchInfo["saved-search-info"].name + " is updated";
                     }
+                },
+
+                _setSearchDetailsForUpdate: function(originalSearch, searchInfo) {
+                    var userContext = ContextHelper.getFirstUserContext(this.contextData);
+                    var user = this._getUserRolePerAccessType(searchInfo["saved-search-info"], userContext);
+                        
+                    // Original search details updated based on the changes
+                    originalSearch.name = this._getSavedSearchContextName(searchInfo["saved-search-info"].name);
+                    originalSearch.data.contexts[0].jsonData.config.name = searchInfo["saved-search-info"].name;
+                    originalSearch.data.contexts[0].jsonData.config.accesstype = searchInfo["saved-search-info"].accesstype;
+                    originalSearch.data.contexts[0].jsonData.config.dimensions = searchInfo["dimensions"];
+                    originalSearch.data.contexts[0].jsonData.config.searchQuery = searchInfo["search-query"];
+                    originalSearch.data.contexts[0].jsonData.config.searchTags = searchInfo["search-tags"];
+                    originalSearch.data.contexts[0].context.user = user.user;
+                    originalSearch.data.contexts[0].context.role = user.role;
                 },
 
                 _onInitiateSearchResponse: function (e) {
                     var totalRecords = this.initiateSearchResponse.content.totalRecords;
                     var getDetailOptions = { 'from': 0, 'to': totalRecords };
-                    this._makeGetSearchResultDetailCall(getDetailOptions, e);
+                    this._makeGetSearchResultDetailCall(getDetailOptions);
                 },
 
-                _makeGetSearchResultDetailCall: function (options, event) {
+                _makeGetSearchResultDetailCall: function (options) {
                     var liqGetSearchResultDetail = this.$$('#liqGetSearchResultDetail');
 
                     var searchResultId = this.initiateSearchResponse.content.requestId;
@@ -639,10 +640,10 @@
                 },
 
                 _onGetSearchResultDetailResponse: function (e) {                    
-                    var _requestType;
+                    var requestType;
                     if(DataHelper.isValidObjectPath(e, "detail.request.requestData.params.query.filters.typesCriterion"))
                     {
-                        _requestType = e.detail.request.requestData.params.query.filters.typesCriterion[0];
+                        requestType = e.detail.request.requestData.params.query.filters.typesCriterion[0];
                     }
                     
                     //Transform data and keep the data in savedSearches
@@ -651,7 +652,7 @@
                        e.detail.response.content && 
                        e.detail.response.content.configObjects)
                     {
-                        if(_requestType == "savedSearchMappings")
+                        if(requestType == "savedSearchMappings")
                         {
                             this._originalSearchMappings = []; //reset
                             this._originalSearchMappings.push.apply(this._originalSearchMappings, e.detail.response.content.configObjects);
@@ -661,26 +662,26 @@
                         else
                         {
                             if(DataHelper.isValidObjectPath(e, "detail.request.requestData.params.query.contexts")) {
-                                var _context = e.detail.request.requestData.params.query.contexts[0];
+                                var context = e.detail.request.requestData.params.query.contexts[0];
                                 var userContext = ContextHelper.getFirstUserContext(this.contextData);
-                                var _request = DataHelper.cloneObject(this._searchRequest);
+                                var request = DataHelper.cloneObject(this._searchRequest);
 
-                                if(_context.user == "all") //Initial response, so reset searches
+                                if(context.user == "all") //Initial response, so reset searches
                                 {
                                     this._originalSearches = [];
                                 }
                                 
                                 this._originalSearches.push.apply(this._originalSearches, e.detail.response.content.configObjects);
 
-                                if(_context.user == "all") {
+                                if(context.user == "all") {
                                     //generate request for role
-                                    _request.params.query.contexts[0].user = "role";
-                                    _request.params.query.contexts[0].role = userContext.role;
+                                    request.params.query.contexts[0].user = "role";
+                                    request.params.query.contexts[0].role = userContext.role;
                                 }
-                                else if(_context.user == "role") {
+                                else if(context.user == "role") {
                                     //generate request for individual user
-                                    _request.params.query.contexts[0].user = userContext.user;
-                                    _request.params.query.contexts[0].role = userContext.role;
+                                    request.params.query.contexts[0].user = userContext.user;
+                                    request.params.query.contexts[0].role = userContext.role;
                                 }
                                 else {
                                     //generate request for mapping
@@ -692,48 +693,48 @@
                                     return;
                                 }
 
-                                this.generateRequest(_request);
+                                this.generateRequest(request);
                             }
                         }
                     }
                 },
                 
                 _onTapSavedSearchFavourite: function (e, detail, sender) {
-                    var _foundInFav = false;                    
-                    var _tag = detail.parentButton;
+                    var foundInFav = false;                    
+                    var tag = detail.parentButton;
 
                     // If mappings available then update
-                    if(this._originalSearchMappings && this._originalSearchMappings.length > 0)                           {            
-                        var _favourites = this._originalSearchMappings[0].data.contexts[0].jsonData.config.favoriteSavedSearches;
+                    if(this._originalSearchMappings && this._originalSearchMappings.length > 0) {            
+                        var favourites = this._originalSearchMappings[0].data.contexts[0].jsonData.config.favoriteSavedSearches;
                         
-                        for(var i = 0; i < _favourites.length; i++)
+                        for(var i = 0; i < favourites.length; i++)
                         {
-                            if(_favourites[i] == _tag.searchname)
+                            if(favourites[i] == tag.searchname)
                             {
-                                _favourites.splice(i, 1);
-                                _foundInFav = true;
-                                this._toastMessage = _tag.name + " is removed from favourites";
+                                favourites.splice(i, 1);
+                                foundInFav = true;
+                                this._toastMessage = tag.name + " is removed from favourites";
                                 break;                            
                             }
                         }
 
-                        if(!_foundInFav) //Its not fav, then make it fav now
+                        if(!foundInFav) //Its not fav, then make it fav now
                         {
-                            _favourites.push(_tag.searchname);
-                            this._toastMessage = _tag.name + " is added to favourites";
+                            favourites.push(tag.searchname);
+                            this._toastMessage = tag.name + " is added to favourites";
                         }
 
-                        var _reqData = { "configObjects" : [this._originalSearchMappings[0]] } //Mapping have only one record
-                        this.generateSaveRequest(_reqData, "update");
+                        var reqData = { "configObjects" : [this._originalSearchMappings[0]] } //Mapping have only one record
+                        this.generateSaveRequest(reqData, "update");
                     }
                     else // When no mapping, then create request and submit
                     {
-                        var _clonedContextData = DataHelper.cloneObject(this.contextData);
-                        var _createMappingRequestData = DataRequestHelper.savedSearchCreateRequest(this._prepareCreateMappingContext(_clonedContextData, _tag), "savedsearchmapping", this.appName);
+                        var clonedContextData = DataHelper.cloneObject(this.contextData);
+                        var createMappingRequestData = DataRequestHelper.savedSearchCreateRequest(this._prepareCreateMappingContext(clonedContextData, tag), "savedsearchmapping", this.appName);
                         
-                        var _reqData = { "configObjects" : [_createMappingRequestData] }
-                        this.generateSaveRequest(_reqData, "create");
-                        this._toastMessage = _tag.name + " is added to favourites";
+                        var reqData = { "configObjects" : [createMappingRequestData] }
+                        this.generateSaveRequest(reqData, "create");
+                        this._toastMessage = tag.name + " is added to favourites";
                     }
                 },
 
@@ -780,31 +781,31 @@
                         "type": type
                     };
 
-                    var _request = DataHelper.cloneObject(this._searchRequest);
-                    _request.params.query.name = this._getSavedSearchContextName(searchInfo["saved-search-info"].name);
-                    delete _request.params.query.contexts[0].user;
-                    delete _request.params.query.contexts[0].role;
+                    var request = DataHelper.cloneObject(this._searchRequest);
+                    request.params.query.name = this._getSavedSearchContextName(searchInfo["saved-search-info"].name);
+                    delete request.params.query.contexts[0].user;
+                    delete request.params.query.contexts[0].role;
 
-                    this.generateNameSearchRequest(_request);
+                    this.generateNameSearchRequest(request);
                 },
 
                 // Context for create saved search
                 _prepareCreateContext: function(_clonedContextData, searchInfo) {
-                    var _context = {};
+                    var context = {};
                     var userContext = ContextHelper.getFirstUserContext(_clonedContextData);
-                    var _user = this._getUserRolePerAccessType(searchInfo["saved-search-info"], userContext);                    
-                    _context = {
+                    var user = this._getUserRolePerAccessType(searchInfo["saved-search-info"], userContext);                    
+                    context = {
                             "app": this.appName,
                             "service": "_ALL",
                             "component": "_ALL",
                             "subComponent": "_ALL",
-                            "user": _user.user,
-                            "role": _user.role
+                            "user": user.user,
+                            "role": user.role
                     };
 
-                    var _data = {};
+                    var data = {};
 
-                    _data = {
+                    data = {
                         "config": {
                                 "id": ElementHelper.getRandomString(),
                                 "accesstype": searchInfo["saved-search-info"].accesstype,
@@ -820,8 +821,8 @@
                         };
 
                     var _contextsObject = {
-                        "context": _context,
-                        "jsonData": _data
+                        "context": context,
+                        "jsonData": data
                     }                    
                     
                     //Set context
@@ -846,29 +847,29 @@
 
                     if(searchInfo.accesstype)
                     {
-                        var _user = userContext.user;
-                        var _role = userContext.role;
+                        var user = userContext.user;
+                        var role = userContext.role;
 
                         if (searchInfo.accesstype == "_ALL") {
-                            _user = "all"; // all users
-                            _role = "all"; // any role
+                            user = "all"; // all users
+                            role = "all"; // any role
                         }
                         else if (searchInfo.accesstype == "_ROLE") {
-                            _user = "role"; // role based users
+                            user = "role"; // role based users
                         }                        
 
                         return {
-                            "user": _user,
-                            "role": _role
+                            "user": user,
+                            "role": role
                         };                        
                     }
                 },
 
                 // Context for create mappings
-                _prepareCreateMappingContext: function(_clonedContextData, tag) {
-                    var _context = {};
-                    var userContext = ContextHelper.getFirstUserContext(_clonedContextData);                    
-                    _context = {
+                _prepareCreateMappingContext: function(clonedContextData, tag) {
+                    var context = {};
+                    var userContext = ContextHelper.getFirstUserContext(clonedContextData);                    
+                    context = {
                             "app": this.appName,
                             "service": "_ALL",
                             "component": "_ALL",
@@ -877,24 +878,24 @@
                             "user": userContext.user
                     };
 
-                    var _data = {};
+                    var data = {};
 
-                    _data = {
+                    data = {
                         "config": {
                                     "favoriteSavedSearches": [ tag.searchname ]
                                   }
                         };
                     
-                    var _contextsObject = {
-                        "context": _context,
-                        "jsonData": _data
+                    var contextsObject = {
+                        "context": context,
+                        "jsonData": data
                     }
                     
                     
                     //Set context
-                    _clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [_contextsObject];
+                    clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [contextsObject];
                     
-                    return _clonedContextData;
+                    return clonedContextData;
                 }
             });
         })();
