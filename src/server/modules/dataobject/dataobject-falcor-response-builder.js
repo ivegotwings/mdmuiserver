@@ -57,13 +57,13 @@ function _buildFieldsResponse(dataObject, reqData, baseJson, paths) {
             baseJson[dataObjectFieldKey] = prepareValueJson($atom(dataObjectFieldValue));
 
             //build paths if requested
-            if(reqData.buildPaths){
+            if (reqData.buildPaths) {
                 paths.push(mergePathSets(reqData.basePath, [dataObjectFieldKey]));
             }
         }
     }
 
-    //console.log('response:', JSON.stringify(response));
+    //console.log('response:', JSON.stringify(response, null, 2));
     return;
 }
 
@@ -107,7 +107,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                 //like boolean as true/false instead of 'true'/'false' and 0 instead of '0'
                 //UI is not ready for this yet probably because of if(value) kind of checks
                 //So converting value to string value
-                if(val.value != undefined) {
+                if (val.value != undefined) {
                     val.value = val.value.toString();
                 }
                 values.push(val);
@@ -126,7 +126,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                 valContextsJson[valCtxKey] = valContextJson;
 
                 //build paths if requested
-                if(reqData.buildPaths){
+                if (reqData.buildPaths) {
                     paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', valCtxKey, 'values']));
                 }
             }
@@ -138,15 +138,15 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
             var valCtxItem = {};
             var valCtxKey = falcorUtil.createCtxKey(valCtxItem);
             var valContextJson = valContextsJson[valCtxKey];
-            
+
             if (!valContextJson) {
                 valContextJson = falcorUtil.getOrCreate(valContextsJson, valCtxKey, {});
             }
             valContextJson['group'] = $atom(attr.group);
-            
+
             //build paths if requested
-            if(reqData.buildPaths){
-                    paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', valCtxKey, 'group']));
+            if (reqData.buildPaths) {
+                paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', valCtxKey, 'group']));
             }
         }
 
@@ -162,29 +162,29 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
             selfValContextJson['properties'] = $atom(attr.properties);
 
             //build paths if requested
-            if(reqData.buildPaths){
-                    paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', selfValCtxKey, 'properties']));
+            if (reqData.buildPaths) {
+                paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', selfValCtxKey, 'properties']));
             }
 
             // console.log(selfValCtxKey);
-            
+
             if (reqData.valCtxKeys) {
                 for (let valCtxKey of reqData.valCtxKeys) {
                     if (valCtxKey != '{}') {
                         var valContextJson = valContextsJson[valCtxKey];
-                        if(!valContextJson){
+                        if (!valContextJson) {
                             valContextJson = falcorUtil.getOrCreate(valContextsJson, valCtxKey, {});
                         }
                         valContextJson['properties'] = prepareValueJson($atom(attr.properties));
 
                         //build paths if requested
-                        if(reqData.buildPaths){
-                                paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', valCtxKey, 'properties']));
+                        if (reqData.buildPaths) {
+                            paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', valCtxKey, 'properties']));
                         }
                     }
                 }
             }
-            
+
             //console.log('attr response: ', JSON.stringify(response));
         }
     }
@@ -231,13 +231,13 @@ function _buildRelationshipsResponse(rels, reqData, currentDataContextJson, path
                 relTypeJson['relIds'] = prepareValueJson($atom(relIds));
 
                 //build paths if requested
-                if(reqData.buildPaths){
+                if (reqData.buildPaths) {
                     paths.push(mergePathSets(basePath, ['relationships', relTypeKey, 'relIds']));
                 }
             }
-            
-            if (operation.toLowerCase() !== "getrelidonly"){
-                relTypeJson['rels'] = relsJson;    
+
+            if (operation.toLowerCase() !== "getrelidonly") {
+                relTypeJson['rels'] = relsJson;
             }
         }
     }
@@ -251,7 +251,7 @@ function _buildRelationshipDetailsResponse(enRel, reqData, relTypeKey, relsJson,
     var dataObjectsByIdBasePath = [pathKeys.root, reqData.dataIndex];
     var relBasePath;
 
-    if(reqData.buildPaths){
+    if (reqData.buildPaths) {
         relBasePath = mergePathSets(basePath, ['relationships', relTypeKey, 'rels', enRel.id]);
     }
 
@@ -274,16 +274,16 @@ function _buildRelationshipDetailsResponse(enRel, reqData, relTypeKey, relsJson,
             var dataObjectsByIdPath = mergePathSets(dataObjectsByIdBasePath, dataObjectType, pathKeys.byIds);
             relJson[relFieldKey] = prepareValueJson($ref(mergePathSets(dataObjectsByIdPath, [enRel[relFieldKey].id])));
 
-            if(reqData.buildPaths){
+            if (reqData.buildPaths) {
                 paths.push(mergePathSets(relBasePath, [relFieldKey]));
-             }
+            }
         }
         else {
             relJson[relFieldKey] = prepareValueJson($atom(enRel[relFieldKey]));
 
-             if(reqData.buildPaths){
+            if (reqData.buildPaths) {
                 paths.push(mergePathSets(relBasePath, [relFieldKey]));
-             }
+            }
         }
     }
 
@@ -315,7 +315,7 @@ function _buildMappingsResponse(ctxItem, reqData, currentDataContextJson, paths,
             //console.log('attrs map ', JSON.stringify(attrMap));
             mappingsJson['attributeMap'] = $atom(attrMap);
 
-            if(reqData.buildPaths){
+            if (reqData.buildPaths) {
                 paths.push(mergePathSets(basePath, ['mappings', 'attributeMap']))
             }
         }
@@ -323,7 +323,7 @@ function _buildMappingsResponse(ctxItem, reqData, currentDataContextJson, paths,
             var relTypeMap = Object.keys(rels);
             mappingsJson['relationshipMap'] = $atom(relTypeMap);
 
-            if(reqData.buildPaths){
+            if (reqData.buildPaths) {
                 paths.push(mergePathSets(basePath, ['mappings', 'attributeMap']))
             }
         }
@@ -350,7 +350,7 @@ function _createMetadataFieldsAttribute(dataObject) {
         'version': dataObject.version || '',
         'domain': dataObject.domain || ''
     };
-    
+
     var metadataProperties = {
         'properties': metadataFields
     };
@@ -388,23 +388,25 @@ function buildResponse(dataObject, reqData, paths) {
     }
 
     if (!isEmpty(reqData.dataObjectFields)) {
-         _buildFieldsResponse(dataObject, reqData, dataObjectResponseJson, paths);
+        _buildFieldsResponse(dataObject, reqData, dataObjectResponseJson, paths);
     }
 
     if (!(isEmpty(reqData.attrNames) && isEmpty(reqData.relTypes) && !reqData.jsonData && reqData.operation != "getMappings")) {
 
-        if (isEmpty(dataObject.data)) { return dataObjectResponseJson; }
-
         var data = dataObject.data;
 
         //add data level attrs, rels and props as self context item in falcor response..
-        if (data.attributes || data.relationships || data.properties
-            || data.jsonData || reqData.attrNames.indexOf(CONST_DATAOBJECT_METADATA_FIELDS) >= 0) {
+        if ((data && (data.attributes || data.relationships || data.properties
+            || data.jsonData)) || reqData.attrNames.indexOf(CONST_DATAOBJECT_METADATA_FIELDS) >= 0) {
+
+            if (!data && reqData.attrNames.indexOf(CONST_DATAOBJECT_METADATA_FIELDS) >= 0) {
+                data = {};
+            };
             var contexts = falcorUtil.getOrCreate(data, "contexts", []);
 
             if (reqData.attrNames.indexOf(CONST_DATAOBJECT_METADATA_FIELDS) >= 0) {
                 var metadataFieldAttr = _createMetadataFieldsAttribute(dataObject);
-                if(!data.attributes) {
+                if (!data.attributes) {
                     data.attributes = {};
                 }
                 data.attributes[CONST_DATAOBJECT_METADATA_FIELDS] = metadataFieldAttr;
@@ -426,55 +428,57 @@ function buildResponse(dataObject, reqData, paths) {
         var dataJson = dataObjectResponseJson['data'] = {};
         var dataContextsJson = dataJson['contexts'] = {};
 
-        for (let contextItem of data.contexts) {
-            var currContext = contextItem.context;
+        if (data && data.contexts) {
+            for (let contextItem of data.contexts) {
+                var currContext = contextItem.context;
 
-            var ctxKey = falcorUtil.createCtxKey(currContext);
-            var currentDataContextJson = dataContextsJson[ctxKey] = {}; //TODO:: Is there possibility of duplicate contexts?
-            var currentContextBasePath;
+                var ctxKey = falcorUtil.createCtxKey(currContext);
+                var currentDataContextJson = dataContextsJson[ctxKey] = {}; //TODO:: Is there possibility of duplicate contexts?
+                var currentContextBasePath;
 
-            if(reqData.buildPaths){
-                currentContextBasePath = mergePathSets(reqData.basePath, ['data', 'contexts', ctxKey])
-            }
+                if (reqData.buildPaths) {
+                    currentContextBasePath = mergePathSets(reqData.basePath, ['data', 'contexts', ctxKey])
+                }
 
-            if (!isEmpty(reqData.attrNames)) {
-                var attrs = contextItem.attributes;
-                if (!isEmpty(contextItem.properties) && reqData.attrNames.indexOf(CONST_CTX_PROPERTIES) >= 0) {
-                    var ctxPropertiesAttr = _createCtxPropertiesAttribute(contextItem.properties);
-                    if(!attrs) {
-                        attrs = {};
+                if (!isEmpty(reqData.attrNames)) {
+                    var attrs = contextItem.attributes;
+                    if (!isEmpty(contextItem.properties) && reqData.attrNames.indexOf(CONST_CTX_PROPERTIES) >= 0) {
+                        var ctxPropertiesAttr = _createCtxPropertiesAttribute(contextItem.properties);
+                        if (!attrs) {
+                            attrs = {};
+                        }
+                        attrs[CONST_CTX_PROPERTIES] = ctxPropertiesAttr;
                     }
-                    attrs[CONST_CTX_PROPERTIES] = ctxPropertiesAttr;
+
+                    if (!isEmpty(attrs)) {
+                        //console.log('attrs', JSON.stringify(attrs));
+                        _buildAttributesResponse(attrs, reqData.attrNames, reqData, currentDataContextJson, paths, currentContextBasePath);
+                    }
                 }
 
-                if (!isEmpty(attrs)) {
-                    //console.log('attrs', JSON.stringify(attrs));
-                    _buildAttributesResponse(attrs, reqData.attrNames, reqData, currentDataContextJson, paths, currentContextBasePath);
+                //console.log('relTypes', JSON.stringify(reqData.relTypes));
+                if (!isEmpty(reqData.relTypes)) {
+                    var rels = contextItem.relationships;
+                    if (!isEmpty(rels)) {
+                        _buildRelationshipsResponse(rels, reqData, currentDataContextJson, paths, currentContextBasePath);
+                    }
                 }
-            }
 
-            //console.log('relTypes', JSON.stringify(reqData.relTypes));
-            if (!isEmpty(reqData.relTypes)) {
-                var rels = contextItem.relationships;
-                if (!isEmpty(rels)) {
-                    _buildRelationshipsResponse(rels, reqData, currentDataContextJson, paths, currentContextBasePath);
+                if (reqData.jsonData && !isEmpty(contextItem.jsonData)) {
+                    _buildJsonDataResponse(contextItem.jsonData, currentDataContextJson);
+
+                    if (reqData.buildPaths) {
+                        paths.push(mergePathSets(currentContextBasePath, ['jsonData']))
+                    }
                 }
-            }
 
-            if (reqData.jsonData && !isEmpty(contextItem.jsonData)) {
-                _buildJsonDataResponse(contextItem.jsonData, currentDataContextJson);
-
-                if(reqData.buildPaths){
-                    paths.push(mergePathSets(currentContextBasePath, ['jsonData']))
+                if (reqData.operation == "getMappings") {
+                    _buildMappingsResponse(contextItem, reqData, currentDataContextJson, paths, currentContextBasePath);
                 }
-            }
 
-            if (reqData.operation == "getMappings") {
-                _buildMappingsResponse(contextItem, reqData, currentDataContextJson, paths, currentContextBasePath);
-            }
-
-            if (reqData.operation == "getMappings" && arrayContains(reqData.mapKeys, "contextMap")) {
-                contextMap.push(contextItem.currContext);
+                if (reqData.operation == "getMappings" && arrayContains(reqData.mapKeys, "contextMap")) {
+                    contextMap.push(contextItem.currContext);
+                }
             }
         }
 
@@ -482,24 +486,24 @@ function buildResponse(dataObject, reqData, paths) {
             var mappingsJson = dataJson['mappings'] = {};
             mappingsJson['contextMap'] = $atom(contextMap);
 
-            if(reqData.buildPaths){
+            if (reqData.buildPaths) {
                 paths.push(mergePathSets(reqData.basePath, ['data', 'mappings', 'contextMap']));
             }
         }
     }
-
+    
     return dataObjectResponseJson;
 }
 
-function buildErrorResponse(errorObject, primaryMessageToBePrefixedIfAny){
+function buildErrorResponse(errorObject, primaryMessageToBePrefixedIfAny) {
     var errorResponse = {};
     var errorDetails = {};
     var errorGuid = uuidV1();
-    
+
     //Prepare error message
     var errorMessage;
-    if(primaryMessageToBePrefixedIfAny){
-        if(errorObject.name){
+    if (primaryMessageToBePrefixedIfAny) {
+        if (errorObject.name) {
             errorMessage = primaryMessageToBePrefixedIfAny + " " + errorObject.name + ": " + errorObject.message;
         }
         else {
