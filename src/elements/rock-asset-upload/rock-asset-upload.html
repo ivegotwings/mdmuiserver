@@ -1,0 +1,306 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/entity-helper.html">
+<link rel="import" href="../bedrock-helpers/data-transform-helper.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-helpers/context-helper.html">
+
+<link rel="import" href="../liquid-config-get/liquid-config-get.html">
+<link rel="import" href="../liquid-config-save/liquid-config-save.html">
+<link rel="import" href="../liquid-rest/liquid-rest.html">
+
+<link rel="import" href="../pebble-bulk-file-upload/pebble-bulk-file-upload.html">
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../pebble-icon/pebble-icon.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+
+<dom-module id="rock-asset-upload">
+    <template>
+        <style include="pebble-styles-shared">
+            .placeHolder {
+                width: 880px;
+                --height: 400px;
+                margin: 0 auto;
+                box-shadow: 0 0 10px 0 var(--cloudy-blue-color, #c1cad4);
+                position: relative;
+            }
+
+            #content-actions {
+                padding-top: 30px;
+                position: fixed;
+                bottom: 0;
+                background: rgba(255, 255, 255, 0.80);
+                text-align: center;
+                width: 100%;
+                z-index: 9999;
+            }
+
+            #content-label {
+                box-shadow: 0 1px 7px 0 #c1cad4;
+                padding: 15px;
+                margin: 10px;
+            }
+
+            #image-container {
+                width: 30px;
+                height: 35px;
+                vertical-align: middle;
+            }
+
+            import-log {
+                vertical-align: middle;
+            }
+
+            .title {
+                font-size: var(--default-font-size, 14px);
+                text-align: center;
+                color: var(--palette-steel-grey, #75808b);
+            }
+
+            pebble-button[disabled] {
+                pointer-events: none;
+                color: #c1cad4;
+                background-color: #c1cad4;
+                border-color: #c1cad4;
+            }
+        </style>
+
+        <pebble-spinner active="[[_loading]]"></pebble-spinner>
+        <liquid-config-get id="getUserProfile" operation="getbyids" request-id="req2" request-data="[[_profileRequest]]" on-response="_onProfileGetResponse"></liquid-config-get>
+
+        <liquid-rest id="assetUploadService" url="" method="POST" request-data={{_assetUploadRequest}} on-liquid-response="_onAssetUploadLiquidSuccess" on-liquid-error="_onAssetUploadLiquidFailure"></liquid-rest>
+
+        <div id="content-asset-upload">
+            <p class="title"><strong>Profile Name:</strong> [[importProfileName]]</p>
+            <div class="placeHolder p-10">
+                <pebble-bulk-file-upload accept="image/*" target="/file-upload"></pebble-bulk-file-upload>
+                <bedrock-pubsub on-bedrock-event-pebble-bulk-file-upload-success="_onFileUploadSuccess"></bedrock-pubsub>
+            </div>
+        </div>
+    </template>
+    <script>
+        (function () {
+            'use strict';
+
+            Polymer({
+                is: "rock-asset-upload",
+
+                properties: {
+                    importProfileName: {
+                        type: String
+                    },
+                    contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    /**
+                     * Indicates the contexts which are retrived from excel
+                     */
+                    contexts: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _assetUploadRequest: {
+                        type: Object,
+                        value: function () { return {}; }
+                    },
+                    _entitiesData: {
+                        type: Object,
+                        value: function () { return {}; }
+                    },
+                    _entities: {
+                        type: Array,
+                        value: function () { return []; }
+                    },
+                    _fileName: {
+                        type: String
+                    },
+                    _currentBatchNumber: {
+                        type: Number,
+                        value: 0
+                    },
+                    _batchSize: {
+                        type: Number,
+                        value: 10
+                    },
+                    _loading: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _newEntities: {
+                        type: Array,
+                        value: function () { return []; }
+                    },
+                    _faultedEntities: {
+                        type: Array,
+                        value: function () { return []; }
+                    },
+                    _currentEntityIndex: {
+                        type: Number
+                    },
+                    _currentAction: {
+                        type: String,
+                        value: "create"
+                    },
+                    _profileName: {
+                        type: String,
+                    },
+                    _profileRequest: {
+                        type: Object,
+                        value: function() {
+                            return {};
+                        }
+                    },
+                    _profileSaveRequest: {
+                        type: Object,
+                        value: function() {
+                            return {};
+                        }
+                    },
+                    businessFunctionData: {
+                        type: Object,
+                        value: function() { return {}; }
+                    }
+                },
+                observers: [
+                    '_contextChanged(contextData)'
+                ],
+                behaviors: [
+                    RUFBehaviors.UIBehavior
+                ],
+                ready: function () {
+                },
+                _contextChanged: function (contextData) {
+                    //Question: Is context based upload supported?
+                    //if (!_.isEmpty(contextData)) {
+                        this.importProfileName = 'imageMetadataConfig';
+                        var req = {
+                            "params": {
+                                "query": {
+                                    "id": this.importProfileName,
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "metadataConfig"
+                                        ]
+                                    },
+                                    "contexts": [{
+                                        "list": "self"
+                                        }]
+                                    },
+                                    "fields": {
+                                        "attributes": [
+                                            "_ALL"
+                                        ]
+                                    }
+                                }
+                            };
+                        this.set("_profileRequest", req);
+                        this.$$("#getUserProfile").generateRequest();
+                    //}                      
+                },
+                _onProfileGetResponse: function(e) {
+                    var response = e.detail.response;
+                    var isProfileExist = false;
+                    if(response && response.status && response.status.toLowerCase() == "success" && response.content && response.content.configObjects) {
+                        if(response.content.configObjects.length > 0) {
+                            var configObjects = response.content.configObjects;
+                            var assetUploadProfile = configObjects.find(obj => obj.id == this.importProfileName);
+                            if(assetUploadProfile) {
+                                this._showView("asset-upload");
+                                isProfileExist = true;                                
+                            }
+                        }
+                    }
+
+                    if(!isProfileExist) {
+                        this.showErrorToast("Asset upload profile '" + this.importProfileName + "' is missing. Please contact your administrator");
+                    }
+                },
+                _onFileUploadSuccess: function (e, detail, sender) {
+                    this._isDirty = true;
+                    this._loading = true;
+                    var assetUploadRequest = {
+                        "filesData": detail,
+                        "profileName": this.importProfileName
+                    };
+                    this.set("_assetUploadRequest", assetUploadRequest);
+                    var liq = this.$$("#assetUploadService");
+                    if (liq) {
+                        liq.url = "/asset/upload";
+                        liq.generateRequest();
+                    }
+                },
+                _onAssetUploadLiquidSuccess: function (e) {
+                    var response = e.detail.response;
+                    if(response && response.response && response.response.status && response.response.status.toLowerCase() == "success") {
+                        var data = {
+                            "messages": [
+                                {
+                                    "message": "Asset upload is in process."
+                                },
+                                {
+                                    "message": "You can view the status of the processing in the File Upload Status Dashboard"
+                                }
+                            ],
+                            "actions": [
+                                {
+                                    "name": "closeFunction",
+                                    "text": "Take Me back to Where I started"
+                                },
+                                {
+                                    "name": "nextAction",
+                                    "text": "Take me to File Upload Status",
+                                    "dataRoute": "dashboard"
+                                }
+                            ]
+                        };
+                        this.businessFunctionData = data;
+                        var eventName = "onSave";
+                        var eventDetail = {
+                            name: eventName,
+                            data: { "skipNext": false }
+                        };
+                        this.async(function () {
+                            this._loading = false;
+                            this.fireBedrockEvent(eventName, eventDetail, {
+                                ignoreId: true
+                            });
+                        }, 5000);
+                    } else {
+                        console.warn("Unexpected response:" + e.detail.response);
+                        this.showErrorToast("Unable to upload. Please check the service or contact your administrator.");
+                        this._isDirty = false;
+                        this._loading = false;
+                        this.$$('pebble-bulk-file-upload').reset();
+                    }
+                },
+                _onAssetUploadLiquidFailure: function (e) {
+                    console.warn('Asset upload failed with error ', e.detail);
+                    this.showErrorToast("Unable to upload. Please check the service or contact your administrator.");
+                    this._loading = false;
+                    this._isDirty = false;
+                    this.$$('pebble-bulk-file-upload').reset();
+                },
+                getIsDirty: function () {
+                    return this._isDirty;
+                },
+                _showView: function (viewName) {
+                    if (viewName) {
+                        var contentView = this.$$("#content-" + viewName);
+                        if (contentView) {
+                            contentView.removeAttribute("hidden");
+                        }
+                    }
+                },
+            });
+        })();
+    </script>
+</dom-module>
