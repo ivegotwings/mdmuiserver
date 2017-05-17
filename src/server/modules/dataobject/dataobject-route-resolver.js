@@ -25,6 +25,7 @@ const responseBuilder = require('./dataobject-falcor-response-builder');
 
 const createPath = responseBuilder.createPath,
     buildResponse = responseBuilder.buildResponse,
+    buildErrorResponse = responseBuilder.buildErrorResponse,
     formatDataObjectForSave = responseBuilder.formatDataObjectForSave,
     mergeAndCreatePath = responseBuilder.mergeAndCreatePath,
     mergePathSets = responseBuilder.mergePathSets,
@@ -43,57 +44,76 @@ const entityCompositeModelGetService = new EntityCompositeModelGetService(option
 async function initiateSearch(callPath, args) {
 
     var response = [];
-    //console.log(callPath, args);
 
-    var requestId = uuidV1(),
-        request = args[0],
-        dataIndex = callPath[1],
-        basePath = [pathKeys.root, dataIndex, pathKeys.searchResults, requestId];
+    try{
 
-    var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
-    request.dataIndex = dataIndex;
+        //console.log(callPath, args);
 
-    if (request.params) {
-        var options = falcorUtil.getOrCreate(request.params, 'options', {});
-        options.totalRecords = dataIndexInfo.totalRecordsToReturn || 2000;
-    }
+        var requestId = uuidV1(),
+            request = args[0],
+            dataIndex = callPath[1],
+            basePath = [pathKeys.root, dataIndex, pathKeys.searchResults, requestId];
 
-    //console.log('request str', JSON.stringify(request, null, 4));
+        var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
+        request.dataIndex = dataIndex;
 
-    delete request.params.fields; // while initiating search, we dont want any of the fields to be returned..all we want is resulted ids..
+        if (request.params) {
+            var options = falcorUtil.getOrCreate(request.params, 'options', {});
+            options.maxRecords = dataIndexInfo.maxRecordsToReturn || 2000;
+        }
 
-    var res = await dataObjectManageService.get(request);
+        //console.log('request str', JSON.stringify(request, null, 4));
 
-   // console.log('response raw str', JSON.stringify(res, null, 4));
+        delete request.params.fields; // while initiating search, we dont want any of the fields to be returned..all we want is resulted ids..
 
-    var totalRecords = 0;
+        var res = await dataObjectManageService.get(request);
 
-    var collectionName = dataIndexInfo.collectionName;
+        // console.log('response raw str', JSON.stringify(res, null, 4));
 
-    var dataObjectResponse = res ? res[dataIndexInfo.responseObjectName] : undefined;
+        var totalRecords = 0;
 
-    if (dataObjectResponse && dataObjectResponse.status == "success") {
-   //     console.log('collection name ', JSON.stringify(collectionName, null, 4));
-        var dataObjects = dataObjectResponse[collectionName];
-        var index = 0;
-        if (dataObjects !== undefined) {
-            totalRecords = dataObjects.length;
-            for (let dataObject of dataObjects) {
-                if (dataObject.id !== undefined) {
-                    var dataObjectType = dataObject.type;
-                    var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds];
-                    response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [dataObject.id]))));
+        var collectionName = dataIndexInfo.collectionName;
+
+        var dataObjectResponse = res ? res[dataIndexInfo.responseObjectName] : undefined;
+
+        if (dataObjectResponse && dataObjectResponse.status == "success") {
+        //     console.log('collection name ', JSON.stringify(collectionName, null, 4));
+            var dataObjects = dataObjectResponse[collectionName];
+            var index = 0;
+            if (dataObjects !== undefined) {
+                totalRecords = dataObjects.length;
+                for (let dataObject of dataObjects) {
+                    if (dataObject.id !== undefined) {
+                        var dataObjectType = dataObject.type;
+                        var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds];
+                        response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [dataObject.id]))));
+                    }
                 }
             }
         }
-    }
-    else {
-        //response.push(createPath(['searchResults', requestId], $error('data not found in system'), 0));
-    }
+        else if(dataObjectResponse && dataObjectResponse.status == 'error'){
+            if(dataObjectResponse.statusDetail) {
+                if(dataObjectResponse.statusDetail.messages){
+                    var firstAvailableError = dataObjectResponse.statusDetail.messages[0];
+                    if(firstAvailableError){
+                        throw firstAvailableError;
+                    }
+                }
+                else if(dataObjectResponse.statusDetail.message){
+                    throw new Error(dataObjectResponse.statusDetail.message);
+                }
+            }
+        }
 
-    response.push(mergeAndCreatePath(basePath, ["totalRecords"], $atom(totalRecords)));
-    response.push(mergeAndCreatePath(basePath, ["requestId"], $atom(requestId)));
-    //response.push(mergeAndCreatePath(basePath, ["request"], $atom(request)));
+        response.push(mergeAndCreatePath(basePath, ["totalRecords"], $atom(totalRecords)));
+        response.push(mergeAndCreatePath(basePath, ["requestId"], $atom(requestId)));
+        //response.push(mergeAndCreatePath(basePath, ["request"], $atom(request)));
+    }
+    catch(err){
+        response = buildErrorResponse(err, "Failed to get search results.");
+    }
+    finally{
+    }
 
     //console.log(JSON.stringify(response));   
     return response;
@@ -162,7 +182,7 @@ function createGetRequest(reqData) {
     }
 
     var options = {
-        totalRecords: 2000,
+        maxRecords: 2000,
         includeRequest: false
     };
 
@@ -216,104 +236,122 @@ function _getService(dataObjectType) {
 async function get(dataObjectIds, reqData) {
     var response = {};
 
-    var request = createGetRequest(reqData);
+    try{
+        var request = createGetRequest(reqData);
 
-    //update dataObject id in request query for current id
-    if(dataObjectIds.length > 1) {
-        request.params.query.ids = dataObjectIds;
-    }
-    else {
-        request.params.query.id = dataObjectIds[0];
-    }
+        //update dataObject id in request query for current id
+        if(dataObjectIds.length > 1) {
+            request.params.query.ids = dataObjectIds;
+        }
+        else {
+            request.params.query.id = dataObjectIds[0];
+        }
 
-    //console.log('req to api ', JSON.stringify(request));
-    var res = undefined;
-    var isCoalesceGet = false;
+        //console.log('req to api ', JSON.stringify(request));
+        var res = undefined;
+        var isCoalesceGet = false;
 
-    var service = _getService(reqData.dataObjectType);
+        var service = _getService(reqData.dataObjectType);
 
-    if (request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel') {
-        if (!isEmpty(request.params.query.contexts)) {
-            var contexts = request.params.query.contexts;
-            if (contexts && contexts.length == 1) {
-                var firstContext = contexts[0];
-                //TODO: We need a fix to remove this classification context check when RDF fixes
-                if (firstContext && firstContext.classification) {
-                    res = await service.getCoalesce(request);
-                    isCoalesceGet = true;
+        if (request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel') {
+            if (!isEmpty(request.params.query.contexts)) {
+                var contexts = request.params.query.contexts;
+                if (contexts && contexts.length == 1) {
+                    var firstContext = contexts[0];
+                    //TODO: We need a fix to remove this classification context check when RDF fixes
+                    if (firstContext && firstContext.classification) {
+                        res = await service.getCoalesce(request);
+                        isCoalesceGet = true;
+                    }
+                }
+            }
+        }
+
+        if (!isCoalesceGet) {
+            res = await service.get(request);
+        }
+
+        //console.log('get res from api ', JSON.stringify(res, null, 4));
+
+        var dataObject;
+        //console.log(JSON.stringify(pathKeys, null, 4));
+
+        var dataIndexInfo = pathKeys.dataIndexInfo[request.dataIndex];
+        var collectionName = dataIndexInfo.collectionName;
+
+        //console.log(dataIndexInfo);
+        var dataObjectResponse = res ? res[dataIndexInfo.responseObjectName] : undefined;
+
+        if (dataObjectResponse && dataObjectResponse.status == "success") {
+            var dataObjects = dataObjectResponse[collectionName];
+
+            if (dataObjects !== undefined) {
+                var byIdsJson = response[pathKeys.byIds] = {};
+                for (let dataObject of dataObjects) {
+                    var dataObjectType = dataObject.type;
+
+                    //console.log('building response...', JSON.stringify(dataObject, null, 2));
+                    var dataObjectResponseJson = buildResponse(dataObject, reqData);
+
+                    byIdsJson[dataObject.id] = dataObjectResponseJson;
                 }
             }
         }
     }
-
-    if (!isCoalesceGet) {
-        res = await service.get(request);
+    catch(err){
+        console.log('Failed to get data.\nOperation:', operation, '\nError:', err.message, '\nStackTrace:', err.stack);
+        throw err;
     }
-
-    //console.log('get res from api ', JSON.stringify(res, null, 4));
-
-    var dataObject;
-    //console.log(JSON.stringify(pathKeys, null, 4));
-
-    var dataIndexInfo = pathKeys.dataIndexInfo[request.dataIndex];
-    var collectionName = dataIndexInfo.collectionName;
-
-    //console.log(dataIndexInfo);
-    var dataObjectResponse = res ? res[dataIndexInfo.responseObjectName] : undefined;
-
-    if (dataObjectResponse && dataObjectResponse.status == "success") {
-        var dataObjects = dataObjectResponse[collectionName];
-
-        if (dataObjects !== undefined) {
-            var byIdsJson = response[pathKeys.byIds] = {};
-            for (let dataObject of dataObjects) {
-                var dataObjectType = dataObject.type;
-
-                //console.log('building response...', JSON.stringify(dataObject, null, 2));
-                var dataObjectResponseJson = buildResponse(dataObject, reqData);
-
-                byIdsJson[dataObject.id] = dataObjectResponseJson;
-            }
-        }
+    finally{
     }
-
     //console.log('res', JSON.stringify(response, null, 4));
     return response;
 }
 
 async function getByIds(pathSet, operation) {
-    /*
-    */
-    //console.log('---------------------' , operation, ' dataObjectsById call pathset requested:', pathSet, ' operation:', operation);
-    var reqDataObjectTypes = pathSet.dataObjectTypes;
-
-    const reqData = {
-        'dataIndex': pathSet.dataIndexes[0],
-        'dataObjectIds': pathSet.dataObjectIds,
-        'dataObjectFields': pathSet.dataObjectFields === undefined ? [] : pathSet.dataObjectFields,
-        'ctxKeys': pathSet.ctxKeys === undefined ? [] : pathSet.ctxKeys,
-        'attrNames': pathSet.attrNames === undefined ? [] : pathSet.attrNames,
-        'relTypes': pathSet.relTypes === undefined ? [] : pathSet.relTypes,
-        'relAttrNames': pathSet.relAttrNames === undefined ? [] : pathSet.relAttrNames,
-        'relIds': pathSet.relIds === undefined ? [] : pathSet.relIds,
-        'relFields': pathSet.relFields === undefined ? [] : pathSet.relFields,
-        'valCtxKeys': pathSet.valCtxKeys === undefined ? [] : pathSet.valCtxKeys,
-        'valFields': pathSet.valFields === undefined ? [] : pathSet.valFields,
-        'mapKeys': pathSet.mapKeys == undefined ? [] : pathSet.mapKeys,
-        'jsonData': operation == "getJsonData" ? true : false,
-        'operation': operation
-    }
-
+    
     var response = {};
-    var jsonGraphResponse = response['jsonGraph'] = {};
-    var rootJson = jsonGraphResponse[pathKeys.root] = {};
-    var dataJson = rootJson[reqData.dataIndex] = {};
 
-    // system flow supports only 1 type at time for bulk get..this is needed to make sure we have specialized code flow for the given data object types
-    for (let dataObjectType of reqDataObjectTypes) {
-        reqData.dataObjectType = dataObjectType;
-        var dataByObjectTypeJson = await get(reqData.dataObjectIds, reqData);
-        dataJson[dataObjectType] = dataByObjectTypeJson;
+    try{
+
+        /*
+        */
+        //console.log('---------------------' , operation, ' dataObjectsById call pathset requested:', pathSet, ' operation:', operation);
+        var reqDataObjectTypes = pathSet.dataObjectTypes;
+
+        const reqData = {
+            'dataIndex': pathSet.dataIndexes[0],
+            'dataObjectIds': pathSet.dataObjectIds,
+            'dataObjectFields': pathSet.dataObjectFields === undefined ? [] : pathSet.dataObjectFields,
+            'ctxKeys': pathSet.ctxKeys === undefined ? [] : pathSet.ctxKeys,
+            'attrNames': pathSet.attrNames === undefined ? [] : pathSet.attrNames,
+            'relTypes': pathSet.relTypes === undefined ? [] : pathSet.relTypes,
+            'relAttrNames': pathSet.relAttrNames === undefined ? [] : pathSet.relAttrNames,
+            'relIds': pathSet.relIds === undefined ? [] : pathSet.relIds,
+            'relFields': pathSet.relFields === undefined ? [] : pathSet.relFields,
+            'valCtxKeys': pathSet.valCtxKeys === undefined ? [] : pathSet.valCtxKeys,
+            'valFields': pathSet.valFields === undefined ? [] : pathSet.valFields,
+            'mapKeys': pathSet.mapKeys == undefined ? [] : pathSet.mapKeys,
+            'jsonData': operation == "getJsonData" ? true : false,
+            'operation': operation
+        }
+
+        var jsonGraphResponse = response['jsonGraph'] = {};
+        var rootJson = jsonGraphResponse[pathKeys.root] = {};
+        var dataJson = rootJson[reqData.dataIndex] = {};
+
+        // system flow supports only 1 type at time for bulk get..this is needed to make sure we have specialized code flow for the given data object types
+        for (let dataObjectType of reqDataObjectTypes) {
+            reqData.dataObjectType = dataObjectType;
+            var dataByObjectTypeJson = await get(reqData.dataObjectIds, reqData);
+            dataJson[dataObjectType] = dataByObjectTypeJson;
+        }
+    }
+    catch(err){
+        console.log('Failed to get data.\nOperation:', operation, '\nError:', err.message, '\nStackTrace:', err.stack);
+        throw err;
+    }
+    finally{
     }
 
     //console.log('getByIds response ', JSON.stringify(response, null, 4));
@@ -322,76 +360,101 @@ async function getByIds(pathSet, operation) {
 
 async function processData(dataIndex, dataObjects, dataObjectAction, operation, clientState) {
     //console.log(dataObjectAction, operation);
-
-    var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
-    
     var response = {};
-    var responsePaths = [];
-    var jsonGraphResponse = response['jsonGraph'] = {};
-    var rootJson = jsonGraphResponse[pathKeys.root] = {};
-    var dataJson = rootJson[dataIndex] = {};
+    try{
+        var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
+        
+        var responsePaths = [];
+        var jsonGraphResponse = response['jsonGraph'] = {};
+        var rootJson = jsonGraphResponse[pathKeys.root] = {};
+        var dataJson = rootJson[dataIndex] = {};
 
-    for (var dataObjectId in dataObjects) {
-        var dataObject = dataObjects[dataObjectId];
-        formatDataObjectForSave(dataObject);
-        //console.log('dataObject data', JSON.stringify(dataObject, null, 4));
+        for (var dataObjectId in dataObjects) {
+            var dataObject = dataObjects[dataObjectId];
+            formatDataObjectForSave(dataObject);
+            //console.log('dataObject data', JSON.stringify(dataObject, null, 4));
 
-        var apiRequestObj = { 'includeRequest': false, 'dataIndex': dataIndex, 'clientState': clientState };
-        apiRequestObj[dataIndexInfo.name] = dataObject;
-        //console.log('api request data for process dataObjects', JSON.stringify(apiRequestObj));
-
-        var dataOperationResponse = {};
-
-        if (dataObjectAction == "create") {
-            dataOperationResponse = await dataObjectManageService.create(apiRequestObj);
-        }
-        else if (dataObjectAction == "update") {
-            dataOperationResponse = await dataObjectManageService.update(apiRequestObj);
-        }
-        else if (dataObjectAction == "delete") {
-            dataOperationResponse = await dataObjectManageService.deleteDataObjects(apiRequestObj);
-        }
-        //console.log('dataObject api UPDATE raw response', JSON.stringify(dataOperationResponse, null, 4));
-
-        if (dataObject) {
-
-            var dataObjectType = dataObject.type;
-            var basePath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds, dataObjectId];
-
-            var reqData = {
-                'dataIndex': dataIndex,
-                'dataObjectType': CONST_ALL,
-                'dataObjectFields': [CONST_ALL],
-                'attrNames': [CONST_ALL],
-                'relTypes': [CONST_ALL],
-                'relAttrNames': [CONST_ALL],
-                'relFields': [CONST_ALL],
-                'valFields': [CONST_ALL],
-                'mapKeys': [CONST_ALL],
-                'jsonData': true,
-                'operation': operation,
-                'buildPaths': true,
-                'basePath': basePath
-            };
-
+            var apiRequestObj = { 'includeRequest': false, 'dataIndex': dataIndex, 'clientState': clientState };
+            apiRequestObj[dataIndexInfo.name] = dataObject;
             
-            var dataByObjectTypeJson = dataJson[dataObjectType];
-            var byIdsJson;
+            //console.log('api request data for process dataObjects', JSON.stringify(apiRequestObj));
+            var dataOperationResult = {};
 
-            if(dataByObjectTypeJson == undefined || dataByObjectTypeJson == null){
-                dataByObjectTypeJson = dataJson[dataObjectType] = {};
-                byIdsJson = dataByObjectTypeJson[pathKeys.byIds] = {};
+            if (dataObjectAction == "create") {
+                dataOperationResult = await dataObjectManageService.create(apiRequestObj);
             }
-            else {
-                byIdsJson = dataByObjectTypeJson[pathKeys.byIds];
+            else if (dataObjectAction == "update") {
+                dataOperationResult = await dataObjectManageService.update(apiRequestObj);
             }
+            else if (dataObjectAction == "delete") {
+                dataOperationResult = await dataObjectManageService.deleteDataObjects(apiRequestObj);
+            }
+            //console.log('dataObject api UPDATE raw response', JSON.stringify(dataOperationResult, null, 4));
 
-            var dataObjectResponseJson = buildResponse(dataObject, reqData, responsePaths);
-            byIdsJson[dataObjectId] = dataObjectResponseJson;
+            if(dataOperationResult && !isEmpty(dataOperationResult))
+            {
+                var responsePath = pathKeys.dataIndexInfo[dataIndex].responseObjectName;
+                var dataOperationResponse = dataOperationResult[responsePath];
+                if(dataOperationResponse && dataOperationResponse.status == 'success'){
+                    if (dataObject) {
+
+                        var dataObjectType = dataObject.type;
+                        var basePath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds, dataObjectId];
+
+                        var reqData = {
+                            'dataIndex': dataIndex,
+                            'dataObjectType': CONST_ALL,
+                            'dataObjectFields': [CONST_ALL],
+                            'attrNames': [CONST_ALL],
+                            'relTypes': [CONST_ALL],
+                            'relAttrNames': [CONST_ALL],
+                            'relFields': [CONST_ALL],
+                            'valFields': [CONST_ALL],
+                            'mapKeys': [CONST_ALL],
+                            'jsonData': true,
+                            'operation': operation,
+                            'buildPaths': true,
+                            'basePath': basePath
+                        };
+                        
+                        var dataByObjectTypeJson = dataJson[dataObjectType];
+                        var byIdsJson;
+
+                        if(dataByObjectTypeJson == undefined || dataByObjectTypeJson == null){
+                            dataByObjectTypeJson = dataJson[dataObjectType] = {};
+                            byIdsJson = dataByObjectTypeJson[pathKeys.byIds] = {};
+                        }
+                        else {
+                            byIdsJson = dataByObjectTypeJson[pathKeys.byIds];
+                        }
+
+                        var dataObjectResponseJson = buildResponse(dataObject, reqData, responsePaths);
+                        byIdsJson[dataObjectId] = dataObjectResponseJson;
+
+                        response['paths'] = responsePaths;
+                    }
+                }
+                else if(dataOperationResponse && dataOperationResponse.status == 'error'){
+                    if(dataOperationResponse.statusDetail) {
+                        if(dataOperationResponse.statusDetail.messages){
+                            var firstAvailableError = dataOperationResponse.statusDetail.messages[0];
+                            if(firstAvailableError){
+                                throw firstAvailableError;
+                            }
+                        }
+                        else if(dataOperationResponse.statusDetail.message){
+                            throw new Error(dataOperationResponse.statusDetail.message);
+                        }
+                    }
+                }
+            }
         }
     }
-
-    response['paths'] = responsePaths;
+    catch(err){
+        response = buildErrorResponse(err, "Failed to submit " + operation + " request.");
+    }
+    finally{
+    }
 
     //console.log(JSON.stringify(response, null, 4));
     return response;
@@ -399,52 +462,85 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
 
 async function create(callPath, args, operation) {
 
-    var jsonEnvelope = args[0];
-    var dataIndex = callPath.dataIndexes[0];
-    var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
-    var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
-    var clientState = jsonEnvelope.json.clientState;
-    var dataObjectIds = Object.keys(dataObjects);
-    //console.log(dataObjects);
+    var response;
 
-    //TODO: made showNotificationToUser flag false for entity create till we decide how it has to be.
-    if (clientState && clientState.notificationInfo) {
-        clientState.notificationInfo.showNotificationToUser = false;
-    }
+    try{
+        var jsonEnvelope = args[0];
+        var dataIndex = callPath.dataIndexes[0];
+        var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
+        var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
+        var clientState = jsonEnvelope.json.clientState;
+        var dataObjectIds = Object.keys(dataObjects);
+        //console.log(dataObjects);
 
-    // create new guids for the dataObjects to be created..
-    for (let dataObjectId of dataObjectIds) {
-        var dataObject = dataObjects[dataObjectId];
-
-        if (dataObject.id == undefined || dataObject.id == "") {
-            var newDataObjectId = uuidV1();
-            //console.log('new dataObject id', newDataObjectId);
-            dataObject.id = newDataObjectId;
+        //TODO: made showNotificationToUser flag false for entity create till we decide how it has to be.
+        if (clientState && clientState.notificationInfo) {
+            clientState.notificationInfo.showNotificationToUser = false;
         }
+
+        // create new guids for the dataObjects to be created..
+        for (let dataObjectId of dataObjectIds) {
+            var dataObject = dataObjects[dataObjectId];
+
+            if (dataObject.id == undefined || dataObject.id == "") {
+                var newDataObjectId = uuidV1();
+                //console.log('new dataObject id', newDataObjectId);
+                dataObject.id = newDataObjectId;
+            }
+        }
+
+        response = processData(dataIndex, dataObjects, "create", operation, clientState);
+    }
+    catch(err){
+        response = buildErrorResponse(err, "Failed to submit create request.");
+    }
+    finally{
     }
 
-    return processData(dataIndex, dataObjects, "create", operation, clientState);
+    return response;
 }
 
 async function update(callPath, args, operation) {
 
-    var jsonEnvelope = args[0];
-    var dataIndex = callPath.dataIndexes[0];
-    var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
-    var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
-    var clientState = jsonEnvelope.json.clientState;
+    var response;
 
-    return processData(dataIndex, dataObjects, "update", operation, clientState);
+    try{
+        var jsonEnvelope = args[0];
+        var dataIndex = callPath.dataIndexes[0];
+        var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
+        var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
+        var clientState = jsonEnvelope.json.clientState;
+
+        response = processData(dataIndex, dataObjects, "update", operation, clientState);
+    }
+    catch(err){
+        response = buildErrorResponse(err, "Failed to submit update request.");
+    }
+    finally{
+    }
+
+    return response;
 }
 
 async function deleteDataObjects(callPath, args, operation) {
 
-    var jsonEnvelope = args[0];
-    var dataIndex = callPath.dataIndexes[0];
-    var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][pathKeys.byIds];
-    var clientState = jsonEnvelope.json.clientState;
+    var response;
 
-    return processData(dataIndex, dataObjects, "delete", operation, clientState);
+    try{
+        var jsonEnvelope = args[0];
+        var dataIndex = callPath.dataIndexes[0];
+        var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][pathKeys.byIds];
+        var clientState = jsonEnvelope.json.clientState;
+
+        response = processData(dataIndex, dataObjects, "delete", operation, clientState);
+    }
+    catch(err){
+        response = buildErrorResponse(err, "Failed to submit delete request.");
+    }
+    finally{
+    }
+
+    return response;
 }
 
 module.exports = {
