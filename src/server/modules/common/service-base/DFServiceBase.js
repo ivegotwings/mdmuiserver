@@ -22,7 +22,7 @@ var DFServiceBase = function (options) {
 
     this.requestJson = async function (url, request) {
 
-        var tenantId = 'jcp';
+        var tenantId = 'jcpenney';
         var userId = 'admin';
         var userRoles = ['vendor'];
 
@@ -74,7 +74,7 @@ var DFServiceBase = function (options) {
             if((serviceLogSetting == "trace-request" || serviceLogSetting == "trace-all") && url.indexOf(logServiceName) > 0) {
                 internalRequestId = uuidV1();
                 console.log('-------------------------------------------------------------------------------------------------\n');
-                console.log('service: ', logServiceName);
+                console.log('service: ', url);
                 console.log('timestamp: ', Date.now());
                 console.log('request id:', internalRequestId);
                 console.log('request: ', JSON.stringify(options, null, 2));
@@ -121,10 +121,10 @@ var DFServiceBase = function (options) {
             console.log('\n\n');
             var errorJson = {};
             errorJson.status = "ERROR";
-            errorJson.service = logServiceName;
+            errorJson.service = url;
             errorJson.timeStamp = Date.now();
             errorJson.internalRequestId = internalRequestId;
-            errorJson.request = request;
+            errorJson.request = options;
             errorJson.respone = result;
             console.error(JSON.stringify(errorJson));
             console.log('\n');
@@ -135,7 +135,7 @@ var DFServiceBase = function (options) {
                 var serviceLogSetting = logSettings[logServiceName];
                 if((serviceLogSetting == "trace-response" || serviceLogSetting == "trace-all") && url.indexOf(logServiceName) > 0) {
                     console.log('-------------------------------------------------------------------------------------------------\n');
-                    console.log('service: ', logServiceName);
+                    console.log('service: ', url);
                     console.log('timestamp: ', Date.now());
                     console.log('request id:', internalRequestId);
                     console.log('response: ', JSON.stringify(result, null, 2));
