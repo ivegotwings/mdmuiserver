@@ -185,7 +185,8 @@
         <liquid-entity-model-get id="businessConditionsGet" operation="getsearchresultdetail" request-data="[[_businessConditionRequest]]"
             request-id="[[initBusinessConditionsGet.content.requestId]]" on-response="_onBusinessConditionsGetResponse" on-error="_onBusinessConditionsGetError"></liquid-entity-model-get>
 
-        <liquid-entity-govern-data-get name="governDataGet" operation="initiatesearch" request-data="{{_governDataRequest}}" on-response="_onGovernDataResponse"></liquid-entity-govern-data-get>
+        <liquid-entity-govern-data-get name="governDataGet" operation="initiatesearch" request-data="{{_governDataRequest}}" on-response="_onGovernDataResponse"
+            on-error="_onGovernDataError" exclude-in-progress></liquid-entity-govern-data-get>
 
     </template>
     <script>
@@ -250,55 +251,66 @@
                 }
             },
 
+            behaviors: [
+                RUFBehaviors.UIBehavior
+            ],
+
             attached: function () {
                 var governDataLiquid = this.$$("[name=governDataGet]");
                 if (governDataLiquid) {
-                    var req = {
-                        "params": {
-                            "query": {
-                                "contexts": [
-                                    {
-                                        "workflow": this.myTodo.workflowName
-                                    }
-                                ],
-                                "filters": {
-                                    "attributesCriterion": [
+                    var typesCriterion = DataHelper.getAllowedEntityTypes();
+
+                    if (typesCriterion && typesCriterion.length) {
+                        var req = {
+                            "params": {
+                                "query": {
+                                    "contexts": [
                                         {
-                                            "activities/activityName": {
-                                                "eq": this.myTodo.workflowData.wfActivityName
-                                            }
+                                            "workflow": this.myTodo.workflowName
                                         }
-                                    ]
+                                    ],
+                                    "filters": {
+                                        "attributesCriterion": [
+                                            {
+                                                "activities/activityName": {
+                                                    "eq": this.myTodo.workflowData.wfActivityName
+                                                }
+                                            }
+                                        ],
+                                        "typesCriterion": typesCriterion
+                                    }
                                 }
                             }
-                        }
-                    };
+                        };
 
-                    if (!_.isEmpty(this.myTodo.workflowData.user)) {
-                        var userId = "";
-                        var user = this.myTodo.workflowData.user;
+                        if (!_.isEmpty(this.myTodo.workflowData.user)) {
+                            var userId = "";
+                            var user = this.myTodo.workflowData.user;
 
-                        if (user.toLowerCase() == "all") {
-                            userId = "";
-                        } else if (user.toLowerCase() == "currentuser") {
-                            userId = DataHelper.getUserId();
-                        } else if (user.toLowerCase() == "unassigned") {
-                            userId = "_UNASSIGNED";
+                            if (user.toLowerCase() == "all") {
+                                userId = "";
+                            } else if (user.toLowerCase() == "currentuser") {
+                                userId = DataHelper.getUserId();
+                            } else if (user.toLowerCase() == "unassigned") {
+                                userId = "_UNASSIGNED";
+                            }
+
+                            if (userId) {
+                                req.params.query.filters.attributesCriterion.push({
+                                    "activities/assignedUser": {
+                                        "eq": userId
+                                    }
+                                });
+                            }
                         }
 
-                        if (userId) {
-                            req.params.query.filters.attributesCriterion.push({
-                                "activities/assignedUser": {
-                                    "eq": userId
-                                }
-                            });
-                        }
+                        req.params.options = { "from": 0, "to": 0 };
+
+                        this._governDataRequest = req;
+                        governDataLiquid.generateRequest();
+                    } else {
+                        console.error("Types criterion is undefied or empty for govern get.");
                     }
-
-                    req.params.options = { "from": 0, "to": 0 };
-
-                    this._governDataRequest = req;
-                    governDataLiquid.generateRequest();
                 }
             },
 
@@ -317,6 +329,10 @@
                     this.$$('#taskCountLoading').hidden = true;
                     this.$$('#taskCount').hidden = false;
                 }
+            },
+
+            _onGovernDataError: function (e) {
+                this.showErrorToast(e.detail.response.reason);
             },
 
             /**
@@ -364,7 +380,7 @@
                 var businessConditionsGet = this.$$('#businessConditionsGet');
                 if (typeof (businessConditionsGet) === "undefined" || businessConditionsGet == null) {
                     console.error("Element having id businessConditionsGet not found.");
-                    this._showMessage(this._errorMessage);
+                    this.showErrorToast(this._errorMessage);
                     return;
                 }
 
@@ -423,16 +439,14 @@
                             }
                         }
                     }
-
                 } else {
-                    console.error("EntityModelGetByIdsResponse Content not found.");
-                    this._showMessage(this._errorMessage);
+                    this.showErrorToast("Business conditions not found.");
                 }
             },
 
             _onBusinessConditionsGetError: function (e) {
-                console.error("EntityModelGetByIdsError:- " + e.detail.response.reason.message);
-                this._showMessage(this._errorMessage);
+                this.showErrorToast(e.detail.response.reason);
+
             },
 
             _prepareBusinessConditions: function (businessConditions) {
@@ -444,13 +458,8 @@
             _showBusinessConditions: function () {
                 this._detailsToggleText = "Hide details";
                 this._businessConditionButtons = [];
-                var contexts = [];
-                this._contexts.forEach(function (element) {
-                    contexts.push({
-                        "self": element,
-                        "workflow": this.myTodo.workflowName
-                    });
-                }, this);
+                var allowedTypes = DataHelper.getAllowedEntityTypes();
+                var contexts = this._getContextFromTypeCriterion(allowedTypes);
 
                 if (this.myTodo) {
                     var req = {
@@ -500,39 +509,39 @@
 
             _getBusinessConditionCount: function () {
                 if (!_.isEmpty(this._businessConditions)) {
-                    var contexts = [];
-                    this._contexts.forEach(function (element) {
-                        contexts.push({
-                            "self": element,
-                            "workflow": this.myTodo.workflowName
-                        });
-                    }, this);
+                    var typesCriterion = DataHelper.getAllowedEntityTypes();
+                    if (typesCriterion && typesCriterion.length) {
+                        var contexts = this._getContextFromTypeCriterion(typesCriterion);
+                        var userId = "";
+                        var user = this.myTodo.workflowData.user;
 
-                    var userId = "";
-                    var user = this.myTodo.workflowData.user;
-
-                    if (user.toLowerCase() == "all") {
-                        userId = "";
-                    } else if (user.toLowerCase() == "currentuser") {
-                        userId = DataHelper.getUserId();
-                    } else if (user.toLowerCase() == "unassigned") {
-                        userId = "_UNASSIGNED";
-                    }
-
-                    var attributes = ["businessConditions", "status", "activities"];
-                    this._businessConditions.forEach(function (businessCondition) {
-                        if (businessCondition && businessCondition.data) {
-                            var req = DataRequestHelper.createGovernGetRequest(contexts, undefined, userId, businessCondition.data.wfActivityName, businessCondition.data.bcId, attributes);
-                            if (!_.isEmpty(req)) {
-                                var governGetLiquid = document.createElement('liquid-entity-govern-data-get');
-                                governGetLiquid.id = businessCondition.data.bcId;
-                                governGetLiquid.operation = 'initiatesearch';
-                                governGetLiquid.requestData = req;
-                                governGetLiquid.addEventListener('response', this._getBusinessConditionCountResponse.bind(this));
-                                governGetLiquid.generateRequest();
-                            }
+                        if (user.toLowerCase() == "all") {
+                            userId = "";
+                        } else if (user.toLowerCase() == "currentuser") {
+                            userId = DataHelper.getUserId();
+                        } else if (user.toLowerCase() == "unassigned") {
+                            userId = "_UNASSIGNED";
                         }
-                    }, this);
+
+                        var attributes = ["businessConditions", "status", "activities"];
+                        this._businessConditions.forEach(function (businessCondition) {
+                            if (businessCondition && businessCondition.data) {
+                                var req = DataRequestHelper.createGovernGetRequest(contexts, typesCriterion, userId, businessCondition.data.wfActivityName, businessCondition.data.bcId, attributes);
+                                if (!_.isEmpty(req)) {
+                                    var governGetLiquid = document.createElement('liquid-entity-govern-data-get');
+                                    governGetLiquid.id = businessCondition.data.bcId;
+                                    governGetLiquid.operation = 'initiatesearch';
+                                    governGetLiquid.requestData = req;
+                                    governGetLiquid.excludeInProgress = true;
+                                    governGetLiquid.addEventListener('response', this._getBusinessConditionCountResponse.bind(this));
+                                    governGetLiquid.addEventListener('error', this._getBusinessConditionCountFailed);
+                                    governGetLiquid.generateRequest();
+                                }
+                            }
+                        }, this);
+                    } else {
+                        console.error("Types criterion is undefied or empty for govern get.");
+                    }
                 }
             },
 
@@ -549,6 +558,10 @@
                 }
             },
 
+            __getBusinessConditionCountFailed: function (e) {
+                this.showErrorToast(e.detail.response.reason);
+            },
+
             _isBusinessConditionExist: function (businessConditionName, businessConditions) {
                 if (businessConditions && businessConditions.length) {
                     var isExist = false;
@@ -560,7 +573,21 @@
                     return isExist;
                 }
                 return false;
+            },
+
+            _getContextFromTypeCriterion: function(allowedTypes) {
+                var contexts = [];
+                if (allowedTypes && allowedTypes.length) {
+                    allowedTypes.forEach(function (type) {
+                        contexts.push({
+                            "self": "self/" + type + "_ruleContextMappings",
+                            "workflow": this.myTodo.workflowName
+                        });
+                    }, this);
+                }
+                return contexts;
             }
+
         });
     </script>
 </dom-module>
