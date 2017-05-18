@@ -4,7 +4,6 @@ var DFConnection = require('./DFConnection');
 var executionContext = require('../context-manager/execution-context');
 var cryptoJS = require("crypto-js");
 var moment = require('moment');
-var notificationConfig = require('../../notification-engine/config');
 var uuidV1 = require('uuid/v1');
 
 var DFServiceBase = function (options) {
