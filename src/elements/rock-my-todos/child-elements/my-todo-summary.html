@@ -25,15 +25,15 @@
                 min-height: 50px;
                 overflow: hidden;
             }
-            
+
             .content-div {
                 width: calc( 100% - 200px);
             }
-            
+
             .square {
                 max-width: 90px;
                 height: 30px;
-                text-align: center; 
+                text-align: center;
                 line-height: 32px;
                 color: var(--list-item-count-wrap-text-color, #036bc3);
                 font-size: var(--font-size-lg, 18px);
@@ -43,7 +43,7 @@
                 overflow: hidden;
                 white-space: nowrap;
             }
-            
+
             .todo-status {
                 position: absolute;
                 top: 0;
@@ -51,35 +51,35 @@
                 bottom: 0;
                 width: 8px;
             }
-            
+
             .border-left-1 {
                 background: rgba(18, 156, 230, 1);
             }
-            
+
             .border-left-2 {
                 background: rgba(54, 180, 74, 1);
             }
-            
+
             .border-left-3 {
                 background: rgba(120, 93, 168, 1);
             }
-            
+
             .border-left-4 {
                 background: rgba(247, 142, 30, 1);
             }
-            
+
             .border-left-5 {
                 background: rgba(246, 212, 12, 1);
             }
-            
+
             .border-left-6 {
                 background: rgba(238, 32, 76, 1);
             }
 
             .contentContainer {
-                width: 100%; 
+                width: 100%;
             }
-            
+
             #moreDetails {
                 padding-top: 10px;
                 padding-left: 10px;
@@ -135,13 +135,26 @@
                     padding: 0px 8px;
                 }
             }
+
+            #loadingIcon {
+                height: 30px;
+            }
+
+            pebble-button {
+                --pebble-custom-icon-height: {
+                    height: 30px;
+                }
+            }
         </style>
         <div class="list-item row layout-middle">
             <div class$="{{_computeClass(myTodo.status)}} todo-status"></div>
             <div class="contentContainer">
                 <div class="row layout-middle">
-                    <div class="square">
+                    <div id="taskCount" class="square" hidden>
                         [[_numberOfTasks]]
+                    </div>
+                    <div id="taskCountLoading">
+                        <img id="loadingIcon" src="../../../../src/images/loading.svg"></img>
                     </div>
                     <div id="workflowMetadataContainer" class="content-div list-content" data="[[myTodo.workflowData]]" on-tap="_onActivityTap">
                         <div class="to-do-name block-text text-ellipsis">[[myTodo.name]]</div>
@@ -154,8 +167,9 @@
                 </div>
                 <div class="clearfix"></div>
                 <div id="moreDetails" hidden="true">
-                    <template is="dom-repeat" items="[[_businessConditionButtons]]" as="businessCondition">
-                        <pebble-button class="action" noink raised action-menu elevation="0" horizontal-align="right" vertical-align="top" button-text="[[businessCondition.businessConditionName]]"
+                    <template is="dom-repeat" items="[[_businessConditions]]" as="businessCondition">
+                        <pebble-button id="[[businessCondition.data.bcId]]" icon-url="../../../../src/images/loading.svg" class="action" noink raised
+                            action-menu elevation="0" horizontal-align="right" vertical-align="top" button-text="[[businessCondition.businessConditionName]]"
                             data="[[businessCondition.data]]">
                         </pebble-button>
                     </template>
@@ -171,7 +185,8 @@
         <liquid-entity-model-get id="businessConditionsGet" operation="getsearchresultdetail" request-data="[[_businessConditionRequest]]"
             request-id="[[initBusinessConditionsGet.content.requestId]]" on-response="_onBusinessConditionsGetResponse" on-error="_onBusinessConditionsGetError"></liquid-entity-model-get>
 
-        <liquid-entity-govern-data-get name="governDataGet" operation="initiatesearch" request-data="{{_governDataRequest}}" on-response="_onGovernDataResponse"></liquid-entity-govern-data-get>
+        <liquid-entity-govern-data-get name="governDataGet" operation="initiatesearch" request-data="{{_governDataRequest}}" on-response="_onGovernDataResponse"
+            on-error="_onGovernDataError" exclude-in-progress></liquid-entity-govern-data-get>
 
     </template>
     <script>
@@ -208,8 +223,9 @@
                     }
                 },
 
-                _businessConditionButtons: {
+                _businessConditions: {
                     type: Array,
+                    observer: '_getBusinessConditionCount',
                     value: function () {
                         return [];
                     }
@@ -235,56 +251,72 @@
                 }
             },
 
+            behaviors: [
+                RUFBehaviors.UIBehavior
+            ],
+
             attached: function () {
                 var governDataLiquid = this.$$("[name=governDataGet]");
                 if (governDataLiquid) {
-                    var req = {
-                        "params": {
-                            "query": {
-                                "contexts": [
-                                    {
-                                        "workflow": this.myTodo.workflowName
-                                    }
-                                ],
-                                "filters": {
-                                    "attributesCriterion": [
+                    var typesCriterion = DataHelper.getAllowedEntityTypes();
+
+                    if (typesCriterion && typesCriterion.length) {
+                        var req = {
+                            "params": {
+                                "query": {
+                                    "contexts": [
                                         {
-                                            "activities/activityName": {
-                                                "eq": this.myTodo.name
-                                            }
+                                            "workflow": this.myTodo.workflowName
                                         }
                                     ],
-                                    "typesCriterion": ["sku", "lot", "productPresentation"]
+                                    "filters": {
+                                        "attributesCriterion": [
+                                            {
+                                                "activities": {
+                                                    "attributes": [
+                                                        {
+                                                            "activityName": {
+                                                                "eq": this.myTodo.workflowData.wfActivityName
+                                                            }
+                                                        }
+                                                    ]
+                                                }
+                                            }
+                                        ],
+                                        "typesCriterion": typesCriterion
+                                    }
                                 }
                             }
-                        }
-                    };
+                        };
 
-                    if (!_.isEmpty(this.myTodo.workflowData.user)) {
-                        var userId = "";
-                        var user = this.myTodo.workflowData.user;
+                        if (!_.isEmpty(this.myTodo.workflowData.user)) {
+                            var userId = "";
+                            var user = this.myTodo.workflowData.user;
 
-                        if (user.toLowerCase() == "all") {
-                            userId = "";
-                        } else if (user.toLowerCase() == "currentuser") {
-                            userId = DataHelper.getUserId();
-                        } else if (user.toLowerCase() == "unassigned") {
-                            userId = "_UNASSIGNED";
+                            if (user.toLowerCase() == "all") {
+                                userId = "";
+                            } else if (user.toLowerCase() == "currentuser") {
+                                userId = DataHelper.getUserId();
+                            } else if (user.toLowerCase() == "unassigned") {
+                                userId = "_UNASSIGNED";
+                            }
+
+                            if (userId) {
+                                req.params.query.filters.attributesCriterion[0]["activities"].attributes.push({
+                                    "assignedUser": {
+                                        "eq": userId
+                                    }
+                                });
+                            }
                         }
 
-                        if (userId) {
-                            req.params.query.filters.attributesCriterion.push({
-                                "activities/assignedUser": {
-                                    "eq": userId
-                                }
-                            });
-                        }
+                        req.params.options = { "from": 0, "to": 0 };
+
+                        this._governDataRequest = req;
+                        governDataLiquid.generateRequest();
+                    } else {
+                        this.showErrorToast("Types criterion is undefied or empty for govern get.");
                     }
-
-                    req.params.options = { "from": 0, "to": 0 };
-
-                    this._governDataRequest = req;
-                    governDataLiquid.generateRequest();
                 }
             },
 
@@ -299,7 +331,14 @@
                             }
                         }
                     }
+
+                    this.$$('#taskCountLoading').hidden = true;
+                    this.$$('#taskCount').hidden = false;
                 }
+            },
+
+            _onGovernDataError: function (e) {
+                this.showErrorToast(e.detail.response.reason);
             },
 
             /**
@@ -347,7 +386,7 @@
                 var businessConditionsGet = this.$$('#businessConditionsGet');
                 if (typeof (businessConditionsGet) === "undefined" || businessConditionsGet == null) {
                     console.error("Element having id businessConditionsGet not found.");
-                    this._showMessage(this._errorMessage);
+                    this.showErrorToast(this._errorMessage);
                     return;
                 }
 
@@ -373,24 +412,27 @@
 
                                         if (hasBusinessConditions && hasBusinessConditions.length) {
                                             hasBusinessConditions.forEach(function (businessCondition) {
-                                                if (businessCondition && businessCondition.attributes) {
+                                                if (businessCondition && businessCondition.attributes && businessCondition.relTo) {
                                                     var stepNameAttr = businessCondition.attributes['stepName'];
+                                                    var businessConditionName = businessCondition.relTo.name;
+                                                    if (!this._isBusinessConditionExist(businessConditionName, businessConditions)) {
+                                                        if (stepNameAttr) {
+                                                            var value = AttributeHelper.getFirstAttributeValue(stepNameAttr);
 
-                                                    if (stepNameAttr) {
-                                                        var value = AttributeHelper.getFirstAttributeValue(stepNameAttr);
+                                                            if (value && value == this.myTodo.workflowData.wfActivityName) {
+                                                                var businessConditionItem = {
+                                                                    "businessConditionName": businessConditionName,
+                                                                    "data": {
+                                                                        "wfName": this.myTodo.workflowName,
+                                                                        "wfActivityName": this.myTodo.workflowData.wfActivityName,
+                                                                        "wfActivityExternalName": this.myTodo.workflowData.wfActivityExternalName,
+                                                                        "bcId": businessCondition.relTo.id,
+                                                                        "user": this.myTodo.workflowData.user
+                                                                    }
+                                                                };
 
-                                                        if (value && value == this.myTodo.name) {
-                                                            var businessConditionItem = {
-                                                                "businessConditionName": businessCondition.relTo.name,
-                                                                "data": {
-                                                                    "wfName": this.myTodo.workflowName,
-                                                                    "wfActivityName": this.myTodo.name,
-                                                                    "bcId": businessCondition.relTo.id,
-                                                                    "user": this.myTodo.user
-                                                                }
-                                                            };
-
-                                                            businessConditions.push(businessConditionItem);
+                                                                businessConditions.push(businessConditionItem);
+                                                            }
                                                         }
 
                                                     }
@@ -403,34 +445,27 @@
                             }
                         }
                     }
-
                 } else {
-                    console.error("EntityModelGetByIdsResponse Content not found.");
-                    this._showMessage(this._errorMessage);
+                    this.showErrorToast("Business conditions not found.");
                 }
             },
 
             _onBusinessConditionsGetError: function (e) {
-                console.error("EntityModelGetByIdsError:- " + e.detail.response.reason.message);
-                this._showMessage(this._errorMessage);
+                this.showErrorToast(e.detail.response.reason);
+
             },
 
             _prepareBusinessConditions: function (businessConditions) {
                 if (businessConditions && businessConditions.length) {
-                    this._businessConditionButtons = businessConditions;
+                    this._businessConditions = businessConditions;
                 }
             },
 
             _showBusinessConditions: function () {
                 this._detailsToggleText = "Hide details";
                 this._businessConditionButtons = [];
-                var contexts = [];
-                this._contexts.forEach(function (element) {
-                    contexts.push({
-                        "self": element,
-                        "workflow": this.myTodo.workflowName
-                    });
-                }, this);
+                var allowedTypes = DataHelper.getAllowedEntityTypes();
+                var contexts = this._getContextFromTypeCriterion(allowedTypes);
 
                 if (this.myTodo) {
                     var req = {
@@ -447,7 +482,7 @@
                                                 "attributes": [
                                                     {
                                                         "stepName": {
-                                                            "eq": this.myTodo.name
+                                                            "eq": this.myTodo.workflowData.wfActivityName
                                                         }
                                                     }
                                                 ]
@@ -476,7 +511,89 @@
                     this._businessConditionRequest = req;
                     initBusinessConditionsGet.generateRequest();
                 }
+            },
+
+            _getBusinessConditionCount: function () {
+                if (!_.isEmpty(this._businessConditions)) {
+                    var typesCriterion = DataHelper.getAllowedEntityTypes();
+                    if (typesCriterion && typesCriterion.length) {
+                        var contexts = this._getContextFromTypeCriterion(typesCriterion);
+                        var userId = "";
+                        var user = this.myTodo.workflowData.user;
+
+                        if (user.toLowerCase() == "all") {
+                            userId = "";
+                        } else if (user.toLowerCase() == "currentuser") {
+                            userId = DataHelper.getUserId();
+                        } else if (user.toLowerCase() == "unassigned") {
+                            userId = "_UNASSIGNED";
+                        }
+
+                        var attributes = ["businessConditions", "status", "activities"];
+                        this._businessConditions.forEach(function (businessCondition) {
+                            if (businessCondition && businessCondition.data) {
+                                var req = DataRequestHelper.createGovernGetRequest(contexts, typesCriterion, userId, businessCondition.data.wfActivityName, businessCondition.data.bcId, attributes);
+                                if (!_.isEmpty(req)) {
+                                    var governGetLiquid = document.createElement('liquid-entity-govern-data-get');
+                                    governGetLiquid.id = businessCondition.data.bcId;
+                                    governGetLiquid.operation = 'initiatesearch';
+                                    governGetLiquid.requestData = req;
+                                    governGetLiquid.excludeInProgress = true;
+                                    governGetLiquid.addEventListener('response', this._getBusinessConditionCountResponse.bind(this));
+                                    governGetLiquid.addEventListener('error', this._getBusinessConditionCountFailed);
+                                    governGetLiquid.generateRequest();
+                                }
+                            }
+                        }, this);
+                    } else {
+                        console.error("Types criterion is undefied or empty for govern get.");
+                    }
+                }
+            },
+
+            _getBusinessConditionCountResponse: function (e) {
+                if (e && e.currentTarget && e.detail) {
+                    var businessConditionButton = this.$$('pebble-button[id=' + e.currentTarget.id + ']');
+                    var response = e.detail.response;
+
+                    if (response && response.content && businessConditionButton) {
+                        var count = response.content.totalRecords;
+                        businessConditionButton.iconUrl = '';
+                        businessConditionButton.buttonText = count + "  " + businessConditionButton.buttonText;
+                    }
+                }
+            },
+
+            __getBusinessConditionCountFailed: function (e) {
+                this.showErrorToast(e.detail.response.reason);
+            },
+
+            _isBusinessConditionExist: function (businessConditionName, businessConditions) {
+                if (businessConditions && businessConditions.length) {
+                    var isExist = false;
+                    businessConditions.forEach(function (businessCondition) {
+                        if (businessCondition.businessConditionName && businessCondition.businessConditionName == businessConditionName) {
+                            isExist = true;
+                        }
+                    }, this);
+                    return isExist;
+                }
+                return false;
+            },
+
+            _getContextFromTypeCriterion: function (allowedTypes) {
+                var contexts = [];
+                if (allowedTypes && allowedTypes.length) {
+                    allowedTypes.forEach(function (type) {
+                        contexts.push({
+                            "self": "self/" + type + "_ruleContextMappings",
+                            "workflow": this.myTodo.workflowName
+                        });
+                    }, this);
+                }
+                return contexts;
             }
+
         });
     </script>
 </dom-module>
