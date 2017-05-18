@@ -1,5 +1,5 @@
 var clientConfig = {
-    "url": "http://localhost:5005",
+    "url": "https://RST-PrasannaL.Riversand.com",
     "enableLogs": false
 }
 
