@@ -69,6 +69,9 @@ fileDownloadRoute(app);
 var notificationService = require('../modules/notification-service/notification-route');
 notificationService(app);
 
+var assetRoute = require('../modules/asset/asset-route');
+assetRoute(app);
+
 //register static file root ...index.html..
 app.get('*', function (req, res) {
     if (!renderAuthenticatedPage(req, res)) {
