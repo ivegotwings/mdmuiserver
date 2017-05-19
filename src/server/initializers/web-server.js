@@ -63,6 +63,9 @@ copRoute(app);
 var fileUploadRoute = require('../modules/file-upload/file-upload-route');
 fileUploadRoute(app);
 
+var clientLoggingRoute = require('../modules/ruf-utilities/client-logging-route');
+clientLoggingRoute(app);
+
 var fileDownloadRoute = require('../modules/file-download/file-download-route');
 fileDownloadRoute(app);
 
