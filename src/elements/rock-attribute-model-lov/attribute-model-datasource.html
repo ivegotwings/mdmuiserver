@@ -1,17 +1,16 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 
+<link rel="import" href="../bedrock-lov-datasource-behavior/bedrock-lov-datasource-behavior.html">
 
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 
 <dom-module id="attribute-model-datasource">
     <template>
-        <liquid-entity-model-composite-get name="compositeAttributeModelGet" on-entity-model-composite-get-response="_onGetResponse"
-            on-error="_onError" exclude-in-progress>
-        </liquid-entity-model-composite-get>
-        <liquid-entity-model-get id="liquidModelInitiSearch" operation="initiatesearch" on-response="_onInitiateSearchResponse" on-error="_onError"
+        
+        <liquid-entity-model-get id="liquidModelInitSearch" operation="initiatesearch" request-data="{{request}}" on-error="_onError"
             last-response="{{_initSearchResponse}}"></liquid-entity-model-get>
-        <liquid-entity-model-get id="liquidModelGetResult" operation="getsearchresultdetail" on-response="_onSearchResultResponse"
-            on-error="_onError" request-id="[[_initSearchResponse.content.requestId]]"></liquid-entity-model-get>
+        <liquid-entity-model-get id="liquidModelGetResult" operation="getsearchresultdetail" request-data="{{request}}" on-error="_onError"
+            request-id="[[_initSearchResponse.content.requestId]]" last-response="{{getEntitySearchResultsResponse}}"></liquid-entity-model-get>
     </template>
     <script>
         Polymer({
@@ -21,73 +20,114 @@
                     type: String,
                     value: ""
                 },
-                request: {
+                _liquidInitSearchElement: {
                     type: Object,
-                    observer: 'getData',
                     value: function () {
                         return {};
                     }
-                }
+                },
+                _liquidGetSearchElement: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+                _isResponseAttached: {
+                    type: Boolean,
+                    value: false
+                },
 
+                _isRequestInitiated: {
+                    type: Boolean,
+                    value: false
+                }
             },
 
-            observers: [
-                'getData(request, mode)'
+            behaviors: [
+                RUFBehaviors.LOVDataSourceBehavior
             ],
 
-            getData: function (request, mode) {
-                var liquidGetByIdsElement = Polymer.dom(this).node.$$("liquid-entity-model-composite-get");
-                var liquidInitSearchElement = Polymer.dom(this).node.$$("#liquidModelInitiSearch");
+            ready: function () {
+                this._liquidInitSearchElement = this.$$('#liquidModelInitSearch');
+                this._liquidGetSearchElement = this.$$('#liquidModelGetResult');
 
-                if (_.isEmpty(this.request) || _.isEmpty(this.mode)) {
+                this.dataSource = this._dataSource.bind(this);
+            },
+
+            _dataSource: function (data, success, error) {
+
+                if (_.isEmpty(this.request)) {
                     return;
                 }
 
-                if (this.mode.toLowerCase() == 'self') {
-                    if (liquidGetByIdsElement) {
-                        liquidGetByIdsElement.requestData = this.request;
-                        liquidGetByIdsElement.generateRequest();
-                    }
-                } else if (this.mode.toLowerCase() == 'all') {
-                    if (liquidInitSearchElement) {
-                        liquidInitSearchElement.requestData = this.request;
-                        liquidInitSearchElement.generateRequest();
-                    }
+                // Bind Reponse
+                if (!this._isResponseAttached) {
+                    this._liquidInitSearchElement.addEventListener('response', this._onInitSearchResponse.bind(this));
+                    this._liquidGetSearchElement.addEventListener('response', this._onGetSearchResponse.bind(this, success, error));
+
+                    this._error = error;
+                    this._isResponseAttached = true;
+                }
+
+                // Filter
+                var keywordsCriterion;
+                if (this.keywordsCriterionBuilder && this.keywordsCriterionBuilder instanceof Function) {
+                    keywordsCriterion = this.keywordsCriterionBuilder(data.filter);
+                }
+
+                if (keywordsCriterion) {
+                    this.set("request.params.query.filters.keywordsCriterion", keywordsCriterion);
+                } else if (this.request.params.query.filters && typeof (this.request.params.query.filters.keywordsCriterion !== undefined)) {
+                    delete this.request.params.query.filters.keywordsCriterion;
+                }
+
+                if (this.checkIfRequestChanged()) {
+                    this._isRequestInitiated = false;
+                    data.page = 1;
+                }
+
+                // Set Range
+                var from = data.page > 0 ? (data.page - 1) * data.pageSize : 0;
+                var to = data.page > 0 ? data.page * data.pageSize - 1 : 0;
+
+                var options = {
+                    "from": from,
+                    "to": to
+                };
+                this.set("request.params.options", options);
+
+                if (!this._isRequestInitiated) {
+                    this._liquidInitSearchElement.generateRequest();
+
+                } else {
+                    this._liquidGetSearchElement.generateRequest();
                 }
             },
-
             reTriggerRequest: function () {
-                this.getData();
-            },
-
-            _onInitiateSearchResponse: function (e) {
-                var liquidGetResultElement = Polymer.dom(this).node.$$("#liquidModelGetResult");
-                if (liquidGetResultElement) {
-                    liquidGetResultElement.requestData = this.request;
-                    liquidGetResultElement.generateRequest();
+                if (!this._isRequestInitiated) {
+                    this._liquidInitSearchElement.generateRequest();
+                } else {
+                    this._liquidGetSearchElement.generateRequest();
                 }
             },
-            _onGetResponse: function (e) {
-                var response = e.detail.response;
-                if (typeof (this.dataFormatter) == 'function') {
-                    if (response && response.status === "success") {
-                        this.dataFormatter(response);
-                    }
-                }
+            _onInitSearchResponse: function (e) {
+                this._lastRequest = DataHelper.cloneObject(this.request);
+                this._liquidGetSearchElement.generateRequest();
+                this._isRequestInitiated = true;
             },
-            _onSearchResultResponse: function (e) {
-                var response = e.detail.response;
-                if (typeof (this.dataFormatter) == 'function') {
-                    if (response && response.status === "success") {
-                        this.dataFormatter(response);
+            _onGetSearchResponse: function (success, error) {
+                if (event && event.detail && event.detail.response) {
+                    if (typeof (this.dataFormatter) == 'function') {
+                        if (event.detail.response.status === "success") {
+                            success(this.dataFormatter(event.detail.response));
+                        } else {
+                            error();
+                        }
                     }
                 }
             },
             _onError: function (e) {
                 console.log('error occured while loading attribute models ', JSON.stringify(e));
-            },
-            _isSelf: function (mode) {
-                return mode == "self";
             }
         });
     </script>
