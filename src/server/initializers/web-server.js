@@ -3,6 +3,9 @@ require("babel-register");
 require("babel-polyfill");
 require("hogan.js");
 
+//var LoggerService = require('../modules/common/logger/LoggerService');
+//LoggerService.configure();
+
 var express = require('express');
 var history = require('connect-history-api-fallback');
 var cors = require('cors');
