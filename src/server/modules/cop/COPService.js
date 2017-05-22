@@ -265,8 +265,15 @@ COPService.prototype = {
         if (response && response.binaryObjects && response.binaryObjects.length) {
             var binaryObject = response.binaryObjects[0];
             response.fileName = fileName;
-
+            
             if (binaryObject) {
+                var fileExtension = "xlsx";
+                if (binaryObject.properties && binaryObject.properties.extension) {
+                    fileExtension = binaryObject.properties.extension;
+                }
+
+                response.fileExtension = fileExtension;
+
                 var blob = binaryObject.data && binaryObject.data.blob ? binaryObject.data.blob : "";
 
                 var binaryData = "";
@@ -283,7 +290,8 @@ COPService.prototype = {
                         fs.mkdirSync(dir);
                     }
 
-                    binaryData = fs.writeFileSync(dir + '/' + fileName + '.xlsx', blob, 'base64');
+                    var completeFileName = dir + '/' + fileName + '.' + fileExtension;
+                    binaryData = fs.writeFileSync(completeFileName, blob, 'base64');
                 } catch (ex) {
                     console.log('error while writing file: ', ex);
                 }

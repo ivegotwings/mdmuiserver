@@ -8,45 +8,32 @@
 
 <link rel="import" href="../pebble-lov/pebble-lov.html">
 
-<link rel="import" href="attribute-model-datasource.html">
+<link rel="import" href="self-attribute-model-datasource.html">
 
 <!--
-`rock-attribute-model-datasource` component is used to render model entities in refine more
+`rock-self-attribute-model-datasource` component is used to render model entities in refine more
 -->
 
-<dom-module id="rock-attribute-model-lov">
+<dom-module id="rock-self-attribute-model-lov">
     <template>
-        <attribute-model-datasource id="attributeModelDataSource" request="[[requestData]]" data-source="{{dataSource}}"
-            data-formatter="{{_dataFormatter}}" keywords-criterion-builder="{{_keywordsCriterionBuilder}}">
-        </attribute-model-datasource>
+        <self-attribute-model-datasource id="attributeModelDataSource" request="[[requestData]]" data-formatter="{{_dataFormatter}}">
+        </self-attribute-model-datasource>
         <pebble-lov id="attributeModelLov" page-size="[[pageSize]]" multi-select="[[multiSelect]]" show-image="[[showImage]]" show-color="[[showColor]]"
-            no-sub-title="[[noSubTitle]]" show-action-buttons="[[showActionButtons]]" data-source="{{dataSource}}" items="[[items]]"
-            selected-item="{{selectedItem}}" selected-items="{{selectedItems}}">
+            no-sub-title="[[noSubTitle]]" show-action-buttons="[[showActionButtons]]" items="[[items]]" selected-item="{{selectedItem}}"
+            selected-items="{{selectedItems}}">
         </pebble-lov>
     </template>
     <script>
         Polymer({
-            is: 'rock-attribute-model-lov',
+            is: 'rock-self-attribute-model-lov',
             properties: {
-                requestData: {
+                contextData: {
                     type: Object,
                     value: function () {
                         return {};
                     }
                 },
-                _currentIndex: {
-                    type: Number,
-                    value: function () {
-                        return {};
-                    }
-                },
-                _currentItems: {
-                    type: Array,
-                    value: function () {
-                        return [];
-                    }
-                },
-                _lovColumnNameValueCollection: {
+                requestData: {
                     type: Object,
                     value: function () {
                         return {};
@@ -108,23 +95,25 @@
                     type: Array,
                     value: []
                 },
+                _currentIndex: {
+                    type: Number,
+                    value: function () {
+                        return {};
+                    }
+                },
+                _currentItems: {
+                    type: Array,
+                    value: function () {
+                        return [];
+                    }
+                },
+                _lovColumnNameValueCollection: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
                 _dataFormatter: {
-                    type: Object,
-                    value: function () {
-                        return {};
-                    }
-                },
-                mode: {
-                    type: String,
-                    value: ""
-                },
-                _keywordsCriterionBuilder: {
-                    type: Object,
-                    value: function () {
-                        return {};
-                    }
-                },
-                _attributesCriterionBuilder: {
                     type: Object,
                     value: function () {
                         return {};
@@ -137,35 +126,22 @@
                 RUFBehaviors.LovBehavior
             ],
 
+            observers: [
+                '_getAttributeModels(contextData)'
+            ],
+
             listeners: {
                 'attributeModelLov.selection-changed': '_onLovSelectionChanged'
             },
 
 
             ready: function () {
-                this._attributesCriterionBuilder = this._prepareAttributesCriteria.bind(this);
-                this._keywordsCriterionBuilder = this._prepareKeywordsCriteria.bind(this);
-                this._dataFormatter = this._getAttributeFormattedData.bind(this);
+                this._dataFormatter = this._getAttributeFormattedDataForCompositeModel.bind(this);
                 this._prepareAttributeMaps();
                 if (this.verbose) {
                     console.log("Request Object for the Element: " + this.id + "is" + JSON.stringify(this.requestData));
                 }
-
-                var modelGetRequest = {
-                    "params": {
-                        "query": {
-                            "filters": {
-                                "typesCriterion": [
-                                    "attributeModel"
-                                ]
-                            }
-                        }
-                    }
-                };
-                this.requestData = undefined;
-                this.requestData = modelGetRequest;
             },
-
 
             reTriggerRequest: function () {
                 this.$$('#attributeModelDataSource').reTriggerRequest();
@@ -180,43 +156,53 @@
                 this._lovColumnNameValueCollection.value = this.valueField;
             },
 
-            _getAttributeFormattedData: function (data) {
-                if (data && data.content && !_.isEmpty(data.content.entityModels)) {
-                    var items = [];
-                    var attributeModels = data.content.entityModels;
-                    for (var i = 0; i < attributeModels.length; i++) {
-                        var attributeModel = attributeModels[i];
-                        var item = {
-                            "id": attributeModel.name,
-                            "value": attributeModel.name,
-                            "title": attributeModel.properties.externalName
-                        };
-                        items.push(item);
+            _getAttributeModels: function (contextData) {
+                if (!_.isEmpty(this.contextData)) {
+                    var contextData = DataHelper.cloneObject(this.contextData);
+                    if (this.contextData.ItemContexts) {
+                        this._currentIndex = this.contextData.ItemContexts.length;
+
                     }
-                    return items;
+
+                    if (contextData && contextData.ItemContexts) {
+                        for (var i = 0; i < this.contextData.ItemContexts.length; i++) {
+
+                            contextData.ItemContexts = [this.contextData.ItemContexts[i]];
+                            var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(
+                                contextData);
+                            if (compositeModelGetRequest && compositeModelGetRequest.params) {
+                                compositeModelGetRequest.params.fields.attributes = ["_ALL"];
+                            }
+                            this.set('requestData', compositeModelGetRequest);
+                        }
+                    }
                 }
+
             },
-            _prepareKeywordsCriteria: function (searchText) {
-                if (searchText) {
-                    var keywordsCriterion = {};
 
-                    keywordsCriterion.keywords = searchText;
-                    keywordsCriterion.operator = "_AND";
+            _getAttributeFormattedDataForCompositeModel: function (data) {
+                if (data && data.content && data.content.entityModels) {
+                    var atributeModels = DataTransformHelper.transformAttributeModels(data.content.entityModels[0], this.contextData);
+                    if (atributeModels) {
+                        if (this._currentIndex == 1) {
+                            this._currentItems = [];
+                        }
+                        this.push('_currentItems', DataTransformHelper.transformAtributeModelsToLovSchema(atributeModels, this._lovColumnNameValueCollection))
+                    }
+                    if (this._currentItems.length == this._currentIndex) {
+                        var currentItems = this._currentItems;
+                        currentItems = currentItems.reduce(function (array1, array2) {
+                            return array1.concat(array2);
+                        })
+                        for (var i = 0; i < currentItems.length; ++i) {
+                            for (var j = i + 1; j < currentItems.length; ++j) {
+                                if (currentItems[i].title === currentItems[j].title)
+                                    currentItems.splice(j--, 1);
+                            }
+                        }
 
-                    return keywordsCriterion;
-                }
-            },
-            _prepareAttributesCriteria: function (searchText) {
-                if (searchText) {
-                    var attributesCriterion = [];
-                    var searchKey = {};
-                    var searchValue = {};
-                    searchValue.eq = searchText ? searchText : '';
-
-                    // Todo.. When Pattern comes into picture this one is effected
-                    searchKey[this.titlePattern] = searchValue;
-                    attributesCriterion.push(searchKey);
-                    return attributesCriterion;
+                        this.items = DataHelper.sort(currentItems, 'title');
+                    }
                 }
             },
             _onLovSelectionChanged: function (event) {
@@ -224,7 +210,7 @@
                     data: event.detail.item
                 }
 
-                this.fireBedrockEvent("attribute-model-lov-selection-changed", eventDetail);
+                this.fireBedrockEvent("self-attribute-model-lov-selection-changed", eventDetail);
             },
 
         });
