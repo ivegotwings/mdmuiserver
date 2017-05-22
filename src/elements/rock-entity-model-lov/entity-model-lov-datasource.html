@@ -1,16 +1,16 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 
 <link rel="import" href="../bedrock-helpers/data-helper.html">
-<link rel="import" href="../bedrock-datasource-behavior/bedrock-datasource-behavior.html">
+<link rel="import" href="../bedrock-lov-datasource-behavior/bedrock-lov-datasource-behavior.html">
 
 <link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
 
 <dom-module id="entity-model-lov-datasource">
     <template>
         <liquid-entity-model-get id="initEntityModelSearch" operation="initiatesearch" request-data="{{request}}" last-response="{{_initEntityModelSearchResponse}}"
-            exclude-in-progress></liquid-entity-model-get>
+            on-error="_onError" exclude-in-progress></liquid-entity-model-get>
         <liquid-entity-model-get id="getEntityModelSearchResult" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[_initEntityModelSearchResponse.content.requestId]]"
-            last-response="{{getEntityModelSearchResponse}}" exclude-in-progress></liquid-entity-model-get>
+            last-response="{{getEntityModelSearchResponse}}" on-error="_onError" exclude-in-progress></liquid-entity-model-get>
     </template>
     <script>
         Polymer({
@@ -28,21 +28,11 @@
                     value: function () {
                         return {}
                     }
-                },
-
-                _isResponseAttached: {
-                    type: Boolean,
-                    value: false
-                },
-
-                _isRequestInitiated: {
-                    type: Boolean,
-                    value: false
                 }
             },
 
             behaviors: [
-                RUFBehaviors.DataSourceBehavior
+                RUFBehaviors.LOVDataSourceBehavior
             ],
 
             ready: function () {
@@ -56,12 +46,12 @@
 
             _dataSource: function (data, success, error) {
                 // Bind Reponse
-                if (!this._isResponseAttached) {
+                if (!this.isResponseAttached) {
                     this._liquidInitSearchElement.addEventListener('response', this._onInitSearchResponse.bind(
                         this));
                     this._liquidGetSearchElement.addEventListener('response', this._onGetSearchResponse.bind(
                         this, success, error));
-                    this._isResponseAttached = true;
+                    this.isResponseAttached = true;
                 }
 
                 // Filter
@@ -76,8 +66,8 @@
                     delete this.request.params.query.filters.keywordsCriterion;
                 }
 
-                if (this._checkIfRequestChanged()) {
-                    this._isRequestInitiated = false;
+                if (this.checkIfRequestChanged()) {
+                    this.isRequestInitiated = false;
                     data.page = 1;
                 }
 
@@ -98,7 +88,7 @@
                 }
 
                 // Initiate Request only for First Time.
-                if (!this._isRequestInitiated) {
+                if (!this.isRequestInitiated) {
                     this._liquidInitSearchElement.generateRequest();
                 } else {
                     this._liquidGetSearchElement.generateRequest();
@@ -108,7 +98,7 @@
             _onInitSearchResponse: function () {
                 this._lastRequest = DataHelper.cloneObject(this.request);
                 this._liquidGetSearchElement.generateRequest();
-                this._isRequestInitiated = true;
+                this.isRequestInitiated = true;
             },
 
             _onGetSearchResponse: function (success, error) {
@@ -121,32 +111,16 @@
                 }
             },
 
-            _onGetSearchError: function () {
-                this._error();
-            },
+            _onError: function (e) {
+                var response = e.detail.response; //need to check why this is response.response
+                if (response && response.status && response.status.toLowerCase() == "error") {
+                    var message = "";
+                    if (response.statusDetail && response.statusDetail.message) {
+                        message = " with message: " + response.statusDetail.message;
+                    }
 
-            _checkIfRequestChanged: function () {
-                var utils = SharedUtils.DataObjectFalcorUtil;
-                var requestFilterExists = false;
-                var lastRequestFilterExists = false;
-                if (this.request && this.request.params && this.request.params.query.filters) {
-                    requestFilterExists = true;
+                    this.showErrorToast("Entity model load failed" + message + ". Please contact your administrator.");
                 }
-                if (this._lastRequest && this._lastRequest.params && this._lastRequest.params.query.filters) {
-                    lastRequestFilterExists = true;
-                }
-                if (requestFilterExists != lastRequestFilterExists) {
-                    return true;
-                }
-                if (!utils.compareObjects(this.request.params.query.filters.keywordsCriterion, this._lastRequest
-                        .params.query.filters.keywordsCriterion)) {
-                    return true;
-                }
-                if (!utils.compareObjects(this.request.params.query.filters.typesCriterion, this._lastRequest
-                        .params.query.filters.typesCriterion)) {
-                    return true;
-                }
-                return false;
             }
         });
     </script>
