@@ -59,7 +59,7 @@ async function initiateSearch(callPath, args) {
 
         if (request.params) {
             var options = falcorUtil.getOrCreate(request.params, 'options', {});
-            options.totalRecords = dataIndexInfo.totalRecordsToReturn || 2000;
+            options.maxRecords = dataIndexInfo.maxRecordsToReturn || 2000;
         }
 
         //console.log('request str', JSON.stringify(request, null, 4));
@@ -182,7 +182,7 @@ function createGetRequest(reqData) {
     }
 
     var options = {
-        totalRecords: 2000,
+        maxRecords: 2000,
         includeRequest: false
     };
 
@@ -235,7 +235,8 @@ function _getService(dataObjectType) {
 
 async function get(dataObjectIds, reqData) {
     var response = {};
-
+    var operation = reqData.operation;
+    
     try{
         var request = createGetRequest(reqData);
 

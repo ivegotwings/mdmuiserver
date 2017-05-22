@@ -4,7 +4,6 @@ var DFConnection = require('./DFConnection');
 var executionContext = require('../context-manager/execution-context');
 var cryptoJS = require("crypto-js");
 var moment = require('moment');
-var notificationConfig = require('../../notification-engine/config');
 var uuidV1 = require('uuid/v1');
 
 var DFServiceBase = function (options) {
@@ -74,7 +73,7 @@ var DFServiceBase = function (options) {
             if((serviceLogSetting == "trace-request" || serviceLogSetting == "trace-all") && url.indexOf(logServiceName) > 0) {
                 internalRequestId = uuidV1();
                 console.log('-------------------------------------------------------------------------------------------------\n');
-                console.log('service: ', logServiceName);
+                console.log('service: ', url);
                 console.log('timestamp: ', Date.now());
                 console.log('request id:', internalRequestId);
                 console.log('request: ', JSON.stringify(options, null, 2));
@@ -121,7 +120,7 @@ var DFServiceBase = function (options) {
             console.log('\n\n');
             var errorJson = {};
             errorJson.status = "ERROR";
-            errorJson.service = logServiceName;
+            errorJson.service = url;
             errorJson.timeStamp = Date.now();
             errorJson.internalRequestId = internalRequestId;
             errorJson.request = options;
@@ -135,7 +134,7 @@ var DFServiceBase = function (options) {
                 var serviceLogSetting = logSettings[logServiceName];
                 if((serviceLogSetting == "trace-response" || serviceLogSetting == "trace-all") && url.indexOf(logServiceName) > 0) {
                     console.log('-------------------------------------------------------------------------------------------------\n');
-                    console.log('service: ', logServiceName);
+                    console.log('service: ', url);
                     console.log('timestamp: ', Date.now());
                     console.log('request id:', internalRequestId);
                     console.log('response: ', JSON.stringify(result, null, 2));

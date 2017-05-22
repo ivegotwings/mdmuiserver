@@ -420,14 +420,23 @@
                     if (keys && keys.length > 0) {
                         for (var j = 0; j < keys.length; j++) {
                             var key = keys[j];
-                            if (attributeModels[key]) {
+                            if (attributeModels[key] && rowData[key]) {
+                                var val = undefined;
+                                
+                                if(attributeModels[key].isCollection) {
+                                    val = rowData[key].split("||");
+                                } else {
+                                    val = rowData[key];
+                                }
+
                                 var attribute = {
                                     "name": key,
-                                    "value": rowData[key],
+                                    "value": val,
                                     "source": firstValueContext.source,
                                     "locale": firstValueContext.locale,
                                     "selfContext": attributeModels[key].selfContext
                                 };
+                                
                                 attributesJson.push(attribute);
                             }
                         }
@@ -531,7 +540,7 @@
                 {
                     var _searchData = {};
                     if(savedSearches[i].data && savedSearches[i].data.contexts && savedSearches[i].data.contexts.length)
-                    {
+                    {                        
                         _searchData = savedSearches[i].data.contexts[0].jsonData.config;
                         _searchData["searchname"] = savedSearches[i].name;
                         _searchData["searchid"] = savedSearches[i].id;
@@ -553,16 +562,10 @@
                         // If not favourites, then check for user, if user is current user, then push to my searches section
                         if(!_favFlag)
                         {                        
-                            if(_searchData.user == userContext.user)
-                            {
+                            if(_searchData.createdby == userContext.user) {
                                 _savedSearches["my-searches"].push(_searchData);
                             }
-                            else if(!_searchData.accesstype || _searchData.accesstype == "_ALL")
-                            {
-                                _savedSearches["shared-searches"].push(_searchData);
-                            }
-                            else if(_searchData.role && _searchData.role == userContext.role)
-                            {
+                            else {
                                 _savedSearches["shared-searches"].push(_searchData);
                             }
                         }                        
@@ -809,7 +812,6 @@
 
             if (entities && entities.length) {
                 var entitiesToBeRemoved = [];
-
                 for (var i = 0; i < entities.length; i++) {
                     if (typeof (entities[i]) === "object") {
                         var formattedEntity = {};
@@ -818,24 +820,7 @@
                             var fieldPattern = lovColumnMap[lovColumnName];
 
                             if (typeof (fieldPattern) === "string" && !DataHelper.isEmptyObject(fieldPattern) && ignoreColumnList.indexOf(lovColumnName) == -1) {
-                                var attributesWithPattern = DataHelper.getWordsBetweenCurlies(fieldPattern);
-
-                                if (!DataHelper.isEmptyObject(attributesWithPattern) && attributesWithPattern instanceof Array) {
-                                    for (var j = 0; j < attributesWithPattern.length; j++) {
-                                        var attributeValue = "";
-
-                                        var attributeName = DataHelper.readAttributeFromPath(attributesWithPattern[j]);
-                                        if(attributeName) {
-                                            // Replace Field Pattern with Values
-                                            attributeValue = DataTransformHelper._getLovAttributeValue(entities[i], attributeName, lovColumnName, contextData);    
-                                        }
-
-                                        fieldPattern = fieldPattern.replace(attributesWithPattern[j], attributeValue);
-                                    }
-
-                                    // Remove Curly Braces
-                                    formattedEntity[lovColumnName] = fieldPattern.replace(/[{}]/g, '');
-                                }
+                               formattedEntity[lovColumnName] = DataTransformHelper.getLovFieldPatternValue(entities[i], fieldPattern, lovColumnName, contextData);
                             } else {
                                 var attributeValue = "";
 
@@ -868,6 +853,35 @@
             }
 
             return formattedEntities;
+        };
+
+        DataTransformHelper.getLovFieldPatternValue = function (entity, fieldPattern, lovColumnName, contextData) {
+            var patternedValue = "";
+
+            if (typeof (fieldPattern) === "string" && !DataHelper.isEmptyObject(fieldPattern)) {
+                var attributesWithPattern = DataHelper.getWordsBetweenCurlies(fieldPattern);
+
+                if (!DataHelper.isEmptyObject(attributesWithPattern) && attributesWithPattern instanceof Array) {
+                    for (var j = 0; j < attributesWithPattern.length; j++) {
+                        var attributeValue = "";
+
+                        var attributeName = DataHelper.readAttributeFromPath(attributesWithPattern[j]);
+                        if(attributeName) {
+                            // Replace Field Pattern with Values
+                            attributeValue = DataTransformHelper._getLovAttributeValue(entity, attributeName, lovColumnName, contextData);    
+                        }
+
+                        fieldPattern = fieldPattern.replace(attributesWithPattern[j], attributeValue);
+                    }
+
+                    // Remove Curly Braces
+                    patternedValue = fieldPattern.replace(/[{}]/g, '');
+                }
+            } else {
+                patternedValue = entity.name;
+            }
+                  
+            return patternedValue;
         };
 
         DataTransformHelper._getLovAttributeValue = function (entity, attributeName, lovColumnName, contextData) {

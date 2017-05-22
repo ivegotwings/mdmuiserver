@@ -2,6 +2,8 @@
 
 var DFRestService = require('../common/df-rest-service/DFRestService');
 
+var LoggerService = require('../common/logger/LoggerService');
+
 var falcorUtil = require('../../../shared/dataobject-falcor-util');
 var mergeUtil = require('../../../shared/dataobject-merge-util');
 
@@ -53,7 +55,7 @@ EntityCompositeModelGetService.prototype = {
 
         var res = await this.post(serviceName + "/" + serviceOperation, internalRequest);
         //console.log('composite model get RDF ', JSON.stringify(res));
-
+        
         var mergedModel = this._mergeModels(request, objectName, res, serviceOperation);
 
         var response = {
@@ -62,8 +64,6 @@ EntityCompositeModelGetService.prototype = {
                 'entityModels': [mergedModel]
             }
         };
-
-        //console.log('composite model get response ', JSON.stringify(response));
 
         return response;
     },
@@ -164,6 +164,7 @@ EntityCompositeModelGetService.prototype = {
             var manageModel = allModels.find(obj => obj.type == "entityManageModel");
 
             if (!manageModel) {
+                LoggerService.warn('manage model not found');
                 console.log('manage model not found');
                 return {};
             }

@@ -1,6 +1,8 @@
 var DFRestService = require('../common/df-rest-service/DFRestService'),
     uuidV1 = require('uuid/v1'),
-    fs = require('fs');
+    fs = require('fs'),
+    config = require('../../config/rdf-connection-config.json'),
+    isEmpty = require('../common/utils/isEmpty');
 
 var COPService = function (options) {
     options.serverType = "cop";
@@ -38,8 +40,8 @@ COPService.prototype = {
         if (!validationResult) {
             return {
                 "entityOperationResponse": {
-                    "status" :"Error",
-                    "statusDetail" : {
+                    "status": "Error",
+                    "statusDetail": {
                         "code": "RSUI0001",
                         "message": "Incorrect request for COP process.",
                         "messageType": "Error"
@@ -67,8 +69,8 @@ COPService.prototype = {
         if (!validationResult) {
             return {
                 "entityOperationResponse": {
-                    "status" :"Error",
-                    "statusDetail" : {
+                    "status": "Error",
+                    "statusDetail": {
                         "code": "RSUI0001",
                         "message": "Incorrect request for COP process model.",
                         "messageType": "Error"
@@ -84,14 +86,14 @@ COPService.prototype = {
         //console.log('processRequest: ', JSON.stringify(processModelRequest.dataObject.properties, null, 2));
         return await this.post(processModelURL, processModelRequest);
     },
-    generateFieldMap: async function(request) {
+    generateFieldMap: async function (request) {
         var generateFieldMapURL = "copservice/generateFieldMap";
         var validationResult = this._validateRequest(request);
         if (!validationResult) {
             return {
                 "entityOperationResponse": {
-                    "status" :"Error",
-                    "statusDetail" : {
+                    "status": "Error",
+                    "statusDetail": {
                         "code": "RSUI0000",
                         "message": "Incorrect request for COP generate field mappings.",
                         "messageType": "Error"
@@ -114,9 +116,9 @@ COPService.prototype = {
 
         //console.log('downloadModelRequest: ', JSON.stringify(request.body, null, 2));
         var response = await this.post(downloadModelURL, request.body);
-        
-        if(response && response.response && response.response.status.toLowerCase() == "success") {
-            this._downloadFileContent(response.response, fileName); 
+
+        if (response && response.response && response.response.status.toLowerCase() == "success") {
+            this._downloadFileContent(response.response, fileName);
         }
 
         return response;
@@ -129,7 +131,7 @@ COPService.prototype = {
         //console.log('downloadDataRequest: ', JSON.stringify(request.body, null, 2));
         var response = await this.post(downloadDataURL, request.body);
 
-        if(response && response.response && response.response.status.toLowerCase() == "success") {
+        if (response && response.response && response.response.status.toLowerCase() == "success") {
             this._downloadFileContent(response.response, fileName);
         }
 
@@ -142,17 +144,17 @@ COPService.prototype = {
         if (!request.body.fileName) {
             return false;
         }
-        if(!request.body.originalFileName) {
-            return false;    
+        if (!request.body.originalFileName) {
+            return false;
         }
-        if(!request.body.profileName) {
+        if (!request.body.profileName) {
             return false;
         }
 
         return true;
     },
 
-    _prepareCOPRequestForTransform: function(fileName, originalFileName, profileName) {
+    _prepareCOPRequestForTransform: function (fileName, originalFileName, profileName) {
         var copRequest = {
             "dataObject": {
                 "id": "",
@@ -181,7 +183,7 @@ COPService.prototype = {
         return copRequest;
     },
 
-    _prepareCOPRequestForProcess: function(fileName, originalFileName, profileName) {
+    _prepareCOPRequestForProcess: function (fileName, originalFileName, profileName) {
         var copRequest = {
             "dataObject": {
                 "id": "",
@@ -210,7 +212,7 @@ COPService.prototype = {
         copRequest.dataObject.data.blob = this._getFileContent(fileName);
         return copRequest;
     },
-    _prepareCOPRequestForGenerateMap: function(fileName, originalFileName, profileName) {
+    _prepareCOPRequestForGenerateMap: function (fileName, originalFileName, profileName) {
         var copRequest = {
             "binaryObject": {
                 "id": "",
@@ -242,7 +244,15 @@ COPService.prototype = {
     _getFileContent: function (fileName) {
         var binaryData = "";
         try {
-            binaryData = fs.readFileSync('./upload/' + fileName);
+            var dir = './upload';
+
+            if (config && !isEmpty(config.fileStoragePath)) {
+                if (fs.existsSync(config.fileStoragePath)) {
+                    dir = config.fileStoragePath + '/upload';
+                }
+            }
+
+            binaryData = fs.readFileSync(dir + '/' + fileName);
         } catch (ex) {
             console.log('error while reading file: ', ex);
         }
@@ -255,19 +265,33 @@ COPService.prototype = {
         if (response && response.binaryObjects && response.binaryObjects.length) {
             var binaryObject = response.binaryObjects[0];
             response.fileName = fileName;
-
+            
             if (binaryObject) {
+                var fileExtension = "xlsx";
+                if (binaryObject.properties && binaryObject.properties.extension) {
+                    fileExtension = binaryObject.properties.extension;
+                }
+
+                response.fileExtension = fileExtension;
+
                 var blob = binaryObject.data && binaryObject.data.blob ? binaryObject.data.blob : "";
 
                 var binaryData = "";
                 try {
                     var dir = './download';
 
+                    if (config && !isEmpty(config.fileStoragePath)) {
+                        if (fs.existsSync(config.fileStoragePath)) {
+                            dir = config.fileStoragePath + '/download';
+                        }
+                    }
+
                     if (!fs.existsSync(dir)) {
                         fs.mkdirSync(dir);
                     }
 
-                    binaryData = fs.writeFileSync('./download/' + fileName + '.xlsx', blob, 'base64');
+                    var completeFileName = dir + '/' + fileName + '.' + fileExtension;
+                    binaryData = fs.writeFileSync(completeFileName, blob, 'base64');
                 } catch (ex) {
                     console.log('error while writing file: ', ex);
                 }

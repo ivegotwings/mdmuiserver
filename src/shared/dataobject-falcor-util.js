@@ -19,37 +19,37 @@ DataObjectFalcorUtil.getPathKeys = function () {
                 "name": "entity",
                 "collectionName": "entities",
                 "responseObjectName": "response",
-                "totalRecordsToReturn": 200
+                "maxRecordsToReturn": 200
             },
             "entityGovernData": {
                 "name": "entityGovernData",
                 "collectionName": "entities",
                 "responseObjectName": "response",
-                "totalRecordsToReturn": 2000
+                "maxRecordsToReturn": 2000
             },
             "entityModel": {
                 "name": "entityModel",
                 "collectionName": "entityModels",
                 "responseObjectName": "response",
-                "totalRecordsToReturn": 2000
+                "maxRecordsToReturn": 2000
             },
             "config": {
                 "name": "configObject",
                 "collectionName": "configObjects",
                 "responseObjectName": "response",
-                "totalRecordsToReturn": 100
+                "maxRecordsToReturn": 100
             },
             "eventData": {
                 "name": "event",
                 "collectionName": "events",
                 "responseObjectName": "response",
-                "totalRecordsToReturn": 50
+                "maxRecordsToReturn": 50
             },
-             "requestTracking": {
+            "requestTracking": {
                 "name": "requestobject",
                 "collectionName": "requestObjects",
                 "responseObjectName": "response",
-                "totalRecordsToReturn": 50
+                "maxRecordsToReturn": 50
             }
         }
     };
@@ -68,19 +68,19 @@ DataObjectFalcorUtil.boxDataObject = function (dataObject, boxOp) {
 
     for (var dataObjectFieldKey in dataObject) {
         if (dataObjectFieldKey === "data") {
-            if(dataObject && dataObject.data) {
+            if (dataObject && dataObject.data) {
                 var data = dataObejct.data;
                 var modData = {};
 
-                if(data.attributes) {
+                if (data.attributes) {
                     modData.attributes = DataObjectFalcorUtil.boxAttributesData(data.attributes, boxOp);
                 }
 
-                if(data.relationships) {
+                if (data.relationships) {
                     modData.relationships = DataObjectFalcorUtil.boxRelationshipsData(data.relationships, boxOp);
                 }
 
-                if(data.properties) {
+                if (data.properties) {
                     modData.properties = boxOp(data.properties);
                 }
 
@@ -131,8 +131,8 @@ DataObjectFalcorUtil.boxAttributesData = function (attrs, boxOp) {
         }
 
         modAttr.values = boxOp(modAttr.values);
-        
-        if(modAttr.properties) {
+
+        if (modAttr.properties) {
             modAttr.properties = boxOp(modAttr.properties);
         }
 
@@ -223,16 +223,19 @@ DataObjectFalcorUtil.transformToExternal = function (dataObject) {
                 if (enContextData.relationships) {
                     transContextsItem.relationships = DataObjectFalcorUtil.transformRelationshipsToExternal(enContextData.relationships);
                 }
-            
+
                 if (enContextData.jsonData) {
                     transContextsItem.jsonData = enContextData.jsonData;
                 }
 
                 //read dataobject' metadata fields from the attributes.metadataFields, if available
                 if (transContextsItem.attributes && transContextsItem.attributes[DataObjectFalcorUtil.CONST_DATAOBJECT_METADATA_FIELDS]) {
-                    var metadataFields = DataObjectFalcorUtil.transformPropertiesToExternal(transContextsItem.attributes[DataObjectFalcorUtil.CONST_DATAOBJECT_METADATA_FIELDS]);
-                    for (var dataObjectField in metadataFields) {
-                        transDataObject[dataObjectField] = metadataFields[dataObjectField];
+
+                    if (transContext.selfContext) {
+                        var metadataFields = DataObjectFalcorUtil.transformPropertiesToExternal(transContextsItem.attributes[DataObjectFalcorUtil.CONST_DATAOBJECT_METADATA_FIELDS]);
+                        for (var dataObjectField in metadataFields) {
+                            transDataObject[dataObjectField] = metadataFields[dataObjectField];
+                        }
                     }
 
                     delete transContextsItem.attributes[DataObjectFalcorUtil.CONST_DATAOBJECT_METADATA_FIELDS];
@@ -599,8 +602,8 @@ DataObjectFalcorUtil.getRelationshipsByCtx = function (dataObject, context) {
     return {};
 };
 
-DataObjectFalcorUtil.getConfigByCtx = function(dataObject, context) {
-    if(dataObject && dataObject.configObjects && dataObject.configObjects.length > 0 && dataObject.configObjects[0].data && dataObject.configObjects[0].data.contexts && dataObject.configObjects[0].data.contexts.length > 0) {
+DataObjectFalcorUtil.getConfigByCtx = function (dataObject, context) {
+    if (dataObject && dataObject.configObjects && dataObject.configObjects.length > 0 && dataObject.configObjects[0].data && dataObject.configObjects[0].data.contexts && dataObject.configObjects[0].data.contexts.length > 0) {
         var ctxItem = DataObjectFalcorUtil.getCtxItem(dataObject.configObjects[0].data.contexts, context);
         if (ctxItem) {
             return ctxItem.jsonData;
@@ -700,7 +703,7 @@ DataObjectFalcorUtil.test = function () {
 DataObjectFalcorUtil.createRelUniqueId = function (relType, rel, index) {
     if (rel) {
         var relDataObjectId = rel.relTo && rel.relTo.id && rel.relTo.id !== "" ? rel.relTo.id : "-1";
-        var idx = index ? index : 0; 
+        var idx = index ? index : 0;
         return relType.concat("_", relDataObjectId, "_", idx);
     }
 
