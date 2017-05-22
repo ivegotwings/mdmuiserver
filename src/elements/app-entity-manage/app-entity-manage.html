@@ -5,6 +5,7 @@
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 
 <link rel="import" href="../liquid-config-aggregate-get/liquid-config-aggregate-get.html">
+<link rel="import" href="../liquid-rest/liquid-rest.html">
 
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-dialog/pebble-dialog.html">
@@ -12,6 +13,7 @@
 <link rel="import" href="../pebble-stepper/pebble-stepper.html">
 <link rel="import" href="../pebble-vertical-divider/pebble-vertical-divider.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
 
 <link rel="import" href="../rock-dimension-selector/rock-dimension-selector.html">
 <link rel="import" href="../rock-layout/rock-layout.html">
@@ -31,12 +33,12 @@
                 border-bottom: 1px solid var(--default-border-color, #c1cad4);
                 padding: 10px 20px;
             }
-            
+
             rock-titlebar::shadow #mainTitle {
                 color: var(--pagetitle-text-color, #034c89);
                 font-weight: var(--font-bold, bold);
             }
-            
+
             .stepper-style {
                 --connected-badge-width: 50px;
                 --connected-badge-height: 50px;
@@ -47,7 +49,7 @@
                 --connectorLine-width: 3px;
                 --divider-color: #212121;
             }
-            
+
             .sidebar-title {
                 font-weight: var(--font-medium, 500);
                 font-family: var(--default-font-family);
@@ -62,7 +64,7 @@
                 width: 161px;
                 height: 19px;
             }
-            
+
             rock-dimension-selector {
                 --dimesion-selector-container-popover: {
                     width: 70px;
@@ -81,33 +83,34 @@
                 }
                 ;
             }
-            
+
             #dimensionContainer {
                 align-self: center;
                 -webkit-align-self: center;
             }
-            
+
             pebble-vertical-divider {
                 --pebble-vertical-divider-color: var(--divider-color, #212121);
                 min-width: 1px;
                 margin: 10px 5px;
                 min-height: 18px;
             }
-            
+
             .content {
                 height: 100%;
             }
-            
+
             #dimensionGridContent {
                 height: 80%;
             }
-            
+
 
             rock-tabs {
-                --rock-tab-content:{
+                --rock-tab-content: {
                     overflow-y: auto;
                     height: calc(var(--rock-tab-content-height) - 54px);
-                };
+                }
+                ;
                 --tab-error-circle: {
                     margin-bottom: 8px;
                 }
@@ -115,6 +118,7 @@
         </style>
 
         <rock-layout hide-footer>
+            <pebble-spinner active="[[_loading]]"></pebble-spinner>
             <liquid-config-aggregate-get id="getManageAppConfig" verbose operation="getbyids" request-id="req1" app-name="app-entity-manage"
                 context-data="[[contextData]]" on-config-get-response="_onApplicationConfigReceived"></liquid-config-aggregate-get>
             <rock-titlebar icon="dashboard" main-title="" sub-title="" config="{{getConfig('rock-titlebar')}}" closable minimizable>
@@ -128,7 +132,8 @@
                     <bedrock-pubsub event-name="toolbar-button-event" handler="_onToolbarEvent" target-id="entityManageHeader"></bedrock-pubsub>
                     <!--<bedrock-pubsub on-bedrock-event-route-changed="onRouteChange"></bedrock-pubsub>-->
                     <rock-entity-header id="entityManageHeader" context-data="[[contextData]]" header-config="{{getConfig('rock-entity-header','','headerConfig')}}"
-                        buttons="{{getConfig('rock-entity-header','','toolbarConfig')}}" to-fix-data="{{getConfig('rock-entity-header','','summaryToFix')}}" assignment-actions-config="{{getConfig('rock-entity-header','','assignmentActionsConfig')}}"></rock-entity-header>
+                        buttons="{{getConfig('rock-entity-header','','toolbarConfig')}}" to-fix-data="{{getConfig('rock-entity-header','','summaryToFix')}}"
+                        assignment-actions-config="{{getConfig('rock-entity-header','','assignmentActionsConfig')}}"></rock-entity-header>
                 </div>
             </rock-header>
             <rock-sidebar id="rockSideBar" position="right">
@@ -158,6 +163,8 @@
         <rock-business-function-dialog id="entityUploadDialog"></rock-business-function-dialog>
         <liquid-entity-data-get name="attributeGetDataServiceForTitleBar" operation="getbyids" request-data="{{titleAttributeRequest}}"
             on-response="_onTitleAttributesGetResponse"></liquid-entity-data-get>
+        <liquid-rest id="copDownloadService" url="" method="POST" request-data={{_copDownloadRequest}} on-liquid-response="_onCOPDownloadSuccess"
+            on-liquid-error="_onCOPDownloadFailure"></liquid-rest>
     </template>
     <script>
         (function () {
@@ -249,6 +256,10 @@
                     verbose: {
                         type: Boolean,
                         value: false
+                    },
+                    _loading: {
+                        type: Boolean,
+                        value: false
                     }
                 },
                 behaviors: [
@@ -270,18 +281,18 @@
                         this._reRenderOnDimensionChange();
                     }
                 },
-                getAppCurrentStatus: function() {
+                getAppCurrentStatus: function () {
                     var title = this._entityType + ": ";
                     var titlebar = this.$$('rock-titlebar');
-                    if(titlebar && titlebar.mainTitle != ""){
+                    if (titlebar && titlebar.mainTitle != "") {
                         title += titlebar.mainTitle;
                     } else {
                         title += this._entityId;
                     }
-                    
-                    return {	
+
+                    return {
                         title: title,
-                        subTitle: this.getIsDirty() ? "Draft" : this._lastSavedTime && this._lastSavedTime != ""? "Last Saved" : "Opened",
+                        subTitle: this.getIsDirty() ? "Draft" : this._lastSavedTime && this._lastSavedTime != "" ? "Last Saved" : "Opened",
                         subTitleValue: this._lastSavedTime && this._lastSavedTime != "" ? this._lastSavedTime : new Date().toLocaleString(),
                         tooltipParams: []
                     };
@@ -328,6 +339,9 @@
                         case "upload":
                             this._openEntityUploadBF(e, detail);
                             break;
+                        case "download":
+                            this._downloadEvent(e, detail);
+                            break;
                         default:
                             this.fireBedrockEvent("grid-custom-toolbar-event", detail);
                             break;
@@ -347,14 +361,14 @@
 
                     if (component.properties) {
                         //set context-data for all components no matter what
-                            component.properties['context-data'] = this.contextData;
+                        component.properties['context-data'] = this.contextData;
                         //TODO: summary should load its config by itself
                         if (component.name == 'rock-entity-summary') {
                             component.properties.config = this.summaryConfig;
                         }
                     }
                 },
-                _searchEvent: function (e, detail, sender) { 
+                _searchEvent: function (e, detail, sender) {
                 },
                 _refreshEvent: function (e, detail, sender) {
                     var isDirty = false;
@@ -390,6 +404,62 @@
                 },
                 _cutEvent: function (e, detail, sender) {
                     alert("event triggered: " + detail.name);
+                },
+                _downloadEvent: function (e, detail) {
+                    this._loading = true;
+                    var clonedDataContext = DataHelper.cloneObject(this.contextData);
+                    var itemContexts = DataHelper.cloneObject(this.getItemContexts());
+
+                    if (itemContexts && itemContexts.length) {
+                        itemContexts[0].attributeNames = ["_ALL"];
+                        itemContexts[0].relationships = ["_ALL"];
+                        itemContexts[0].relationshipAttributes = ["_ALL"];
+                        clonedDataContext[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
+
+                        var req = DataRequestHelper.createEntityGetRequestForDownload(clonedDataContext, ["downloadDataExcel"]);
+
+                        if (req) {
+                            req.fileName = "EntityData";
+
+
+                            this._copDownloadRequest = req;
+
+                            var copDownloadLiquid = this.$$("#copDownloadService");
+                            if (copDownloadLiquid) {
+                                copDownloadLiquid.url = "/cop/downloadDataExcel";
+                                copDownloadLiquid.generateRequest();
+                            }
+                        }
+                    } else {
+                        this.showErrorToast("item context not found.");
+                    }
+                },
+                _onCOPDownloadSuccess: function (e) {
+                    if (e.detail && e.detail.response && e.detail.response.response) {
+                        var response = e.detail.response.response;
+
+                        if (response.status.toLowerCase() == "success") {
+                            if (response.fileName) {
+                                var fileExtension = response.fileExtension || "xlsx";
+                                var fileName = response.fileName + "." + fileExtension;
+                                window.open('/file-download?fileName=' + fileName);
+                            } else {
+                                this.showErrorToast("File Name not found for entity data export.");
+                            }
+                        } else {
+                            var message = "";
+                            if (response.statusDetail && response.statusDetail.message) {
+                                message = " with message: " + response.statusDetail.message;
+                            }
+
+                            this.showErrorToast("Download failed " + message + ". Please contact your administrator.");
+                        }
+                    }
+                    this._loading = false;
+                },
+                _onCOPDownloadFailure: function (e) {
+                    this.showErrorToast("Failed to download entity data. Please contact administrator.");
+                    this._loading = false;
                 },
                 _toggleStepper: function (contexts) {
                     if (contexts && contexts.length > 1) {
@@ -498,10 +568,10 @@
                         }
                     }
 
-                    if(!titlebar.mainTitle || titlebar.mainTitle == ""){
+                    if (!titlebar.mainTitle || titlebar.mainTitle == "") {
                         titlebar.mainTitle = "No Title";
                     }
-                    if(!titlebar.subTitle || titlebar.subTitle == ""){
+                    if (!titlebar.subTitle || titlebar.subTitle == "") {
                         titlebar.subTitle = "No Sub-Title";
                     }
                 },
@@ -559,7 +629,7 @@
                     if (entityHeaderEle && entityHeaderEle.refresh) {
                         entityHeaderEle.refresh();
                     }
-                    if(e){
+                    if (e) {
                         this._lastSavedTime = new Date().toLocaleString();
                     }
                 },
@@ -569,11 +639,11 @@
                         entityWorklflowPanelEl.refresh();
                     }
                 },
-                _clearDimensionGridDialog: function() {
+                _clearDimensionGridDialog: function () {
                     var dialog = Polymer.dom(this).node.$.dimensionGridDialog;
-                    if (dialog) { 
+                    if (dialog) {
                         var childContent = dialog.firstElementChild;
-                        if(childContent) {
+                        if (childContent) {
                             dialog.removeChild(childContent);
                         }
                     }
