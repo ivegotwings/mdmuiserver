@@ -3,6 +3,9 @@ require("babel-register");
 require("babel-polyfill");
 require("hogan.js");
 
+//var LoggerService = require('../modules/common/logger/LoggerService');
+//LoggerService.configure();
+
 var express = require('express');
 var history = require('connect-history-api-fallback');
 var cors = require('cors');
@@ -30,8 +33,8 @@ app.set('views', buildPath + '/src/views');
 app.set('view engine', 'hjs');
 
 // parse application/x-www-form-urlencoded
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({limit: '10mb', extended: false}));
+app.use(bodyParser.json({limit: '10mb'}));
 
 // register cors to allow cross domain calls
 app.use(cors());
@@ -63,11 +66,17 @@ copRoute(app);
 var fileUploadRoute = require('../modules/file-upload/file-upload-route');
 fileUploadRoute(app);
 
+var clientLoggingRoute = require('../modules/ruf-utilities/client-logging-route');
+clientLoggingRoute(app);
+
 var fileDownloadRoute = require('../modules/file-download/file-download-route');
 fileDownloadRoute(app);
 
 var notificationService = require('../modules/notification-service/notification-route');
 notificationService(app);
+
+var assetRoute = require('../modules/asset/asset-route');
+assetRoute(app);
 
 //register static file root ...index.html..
 app.get('*', function (req, res) {

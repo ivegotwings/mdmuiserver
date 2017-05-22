@@ -16,7 +16,7 @@
 
 <dom-module id="rock-attribute-model-lov">
     <template>
-        <attribute-model-datasource id="attributeModelDataSource" request="[[requestData]]" data-formatter="{{_dataFormatter}}">
+        <attribute-model-datasource mode=[[mode]] id="attributeModelDataSource" request="[[requestData]]" data-formatter="{{_dataFormatter}}">
         </attribute-model-datasource>
         <pebble-lov id="attributeModelLov" page-size="[[pageSize]]" multi-select="[[multiSelect]]" show-image="[[showImage]]" show-color="[[showColor]]"
             no-sub-title="[[noSubTitle]]" show-action-buttons="[[showActionButtons]]" items="[[items]]" selected-item="{{selectedItem}}"
@@ -119,12 +119,20 @@
                     value: function () {
                         return {};
                     }
+                },
+                mode: {
+                    type: String,
+                    value: ""
                 }
             },
 
             behaviors: [
                 RUFBehaviors.UIBehavior,
                 RUFBehaviors.LovBehavior
+            ],
+
+            observers: [
+                '_getAttributeModels(contextData, mode)'
             ],
 
             listeners: {
@@ -154,36 +162,82 @@
                 this._lovColumnNameValueCollection.value = this.valueField;
             },
 
-            _getAttributeModels: function () {
-                var contextData = DataHelper.cloneObject(this.contextData);
-                if (this.contextData.ItemContexts) {
-                    this._currentIndex = this.contextData.ItemContexts.length;
+            _getAttributeModels: function (contextData, mode) {
+                if (!_.isEmpty(this.contextData) && !_.isEmpty(this.mode)) {
+                    if (this.mode.toLowerCase() == 'self') {
+                        var contextData = DataHelper.cloneObject(this.contextData);
+                        if (this.contextData.ItemContexts) {
+                            this._currentIndex = this.contextData.ItemContexts.length;
 
-                }
-
-                if (_.isEmpty(contextData)) {
-                    return;
-                }
-
-                if (contextData && contextData.ItemContexts) {
-                    for (var i in this.contextData.ItemContexts) {
-
-                        contextData.ItemContexts = [this.contextData.ItemContexts[i]];
-                        var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(
-                            contextData);
-                        if (compositeModelGetRequest && compositeModelGetRequest.params) {
-                            compositeModelGetRequest.params.fields.attributes = ["_ALL"];
                         }
-                        this.set('requestData', compositeModelGetRequest);
+
+                        if (_.isEmpty(contextData)) {
+                            return;
+                        }
+
+                        if (contextData && contextData.ItemContexts) {
+                            for (var i = 0;i< this.contextData.ItemContexts.length;i++){
+
+                                contextData.ItemContexts = [this.contextData.ItemContexts[i]];
+                                var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(
+                                    contextData);
+                                if (compositeModelGetRequest && compositeModelGetRequest.params) {
+                                    compositeModelGetRequest.params.fields.attributes = ["_ALL"];
+                                }
+                                this.set('requestData', compositeModelGetRequest);
+                            }
+                        }
+                    } else if (this.mode.toLowerCase() == 'all') {
+                        var modelGetRequest = {
+                            "params": {
+                                "query": {
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "attributeModel"
+                                        ]
+                                    }
+                                },
+                                "fields": {
+                                    "attributes": ["externalName"]
+                                }
+                            }
+                        };
+                        this.set('requestData', modelGetRequest);
                     }
                 }
 
             },
 
             _getAttributeFormattedData: function (data) {
+                if (this.mode == 'self') {
+                    this._getAttributeFormattedDataForCompositeModel(data);
+                } else {
+                    this._getAttributeFormattedDataForAttributeModel(data);
+                }
+            },
+            _getAttributeFormattedDataForAttributeModel: function (data) {
+                if (data && data.content && !_.isEmpty(data.content.entityModels)) {
+                    var items = [];
+                    var attributeModels = data.content.entityModels;
+                    for (var i = 0; i < attributeModels.length; i++) {
+                        var attributeModel = attributeModels[i];
+                        var item = {
+                            "id": attributeModel.name,
+                            "value": attributeModel.name,
+                            "title": attributeModel.properties.externalName
+                        };
+                        items.push(item);
+                    }
+                    this.items = items;
+                }
+            },
+            _getAttributeFormattedDataForCompositeModel: function (data) {
                 if (data && data.content && data.content.entityModels) {
                     var atributeModels = DataTransformHelper.transformAttributeModels(data.content.entityModels[0], this.contextData);
                     if (atributeModels) {
+                        if (this._currentIndex == 1) {
+                            this._currentItems = [];
+                        }
                         this.push('_currentItems', DataTransformHelper.transformAtributeModelsToLovSchema(atributeModels, this._lovColumnNameValueCollection))
                     }
                     if (this._currentItems.length == this._currentIndex) {
@@ -197,14 +251,10 @@
                                     currentItems.splice(j--, 1);
                             }
                         }
-                        
+
                         this.items = DataHelper.sort(currentItems, 'title');
                     }
-
-
                 }
-
-
             },
             _onLovSelectionChanged: function (event) {
                 var eventDetail = {
