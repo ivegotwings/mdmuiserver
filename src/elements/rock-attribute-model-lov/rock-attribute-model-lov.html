@@ -16,24 +16,18 @@
 
 <dom-module id="rock-attribute-model-lov">
     <template>
-        <attribute-model-datasource mode=[[mode]] id="attributeModelDataSource" request="[[requestData]]" data-formatter="{{_dataFormatter}}">
+        <attribute-model-datasource id="attributeModelDataSource" request="[[requestData]]" data-source="{{dataSource}}"
+            data-formatter="{{_dataFormatter}}" keywords-criterion-builder="{{_keywordsCriterionBuilder}}">
         </attribute-model-datasource>
         <pebble-lov id="attributeModelLov" page-size="[[pageSize]]" multi-select="[[multiSelect]]" show-image="[[showImage]]" show-color="[[showColor]]"
-            no-sub-title="[[noSubTitle]]" show-action-buttons="[[showActionButtons]]" items="[[items]]" selected-item="{{selectedItem}}"
-            selected-items="{{selectedItems}}">
+            no-sub-title="[[noSubTitle]]" show-action-buttons="[[showActionButtons]]" data-source="{{dataSource}}" items="[[items]]"
+            selected-item="{{selectedItem}}" selected-items="{{selectedItems}}">
         </pebble-lov>
     </template>
     <script>
         Polymer({
             is: 'rock-attribute-model-lov',
             properties: {
-                contextData: {
-                    type: Object,
-                    value: function () {
-                        return {};
-                    },
-                    observer: "_getAttributeModels"
-                },
                 requestData: {
                     type: Object,
                     value: function () {
@@ -123,6 +117,18 @@
                 mode: {
                     type: String,
                     value: ""
+                },
+                _keywordsCriterionBuilder: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+                _attributesCriterionBuilder: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
                 }
             },
 
@@ -131,21 +137,33 @@
                 RUFBehaviors.LovBehavior
             ],
 
-            observers: [
-                '_getAttributeModels(contextData, mode)'
-            ],
-
             listeners: {
                 'attributeModelLov.selection-changed': '_onLovSelectionChanged'
             },
 
 
             ready: function () {
+                this._attributesCriterionBuilder = this._prepareAttributesCriteria.bind(this);
+                this._keywordsCriterionBuilder = this._prepareKeywordsCriteria.bind(this);
                 this._dataFormatter = this._getAttributeFormattedData.bind(this);
                 this._prepareAttributeMaps();
                 if (this.verbose) {
                     console.log("Request Object for the Element: " + this.id + "is" + JSON.stringify(this.requestData));
                 }
+
+                var modelGetRequest = {
+                    "params": {
+                        "query": {
+                            "filters": {
+                                "typesCriterion": [
+                                    "attributeModel"
+                                ]
+                            }
+                        }
+                    }
+                };
+                this.requestData = undefined;
+                this.requestData = modelGetRequest;
             },
 
 
@@ -162,60 +180,7 @@
                 this._lovColumnNameValueCollection.value = this.valueField;
             },
 
-            _getAttributeModels: function (contextData, mode) {
-                if (!_.isEmpty(this.contextData) && !_.isEmpty(this.mode)) {
-                    if (this.mode.toLowerCase() == 'self') {
-                        var contextData = DataHelper.cloneObject(this.contextData);
-                        if (this.contextData.ItemContexts) {
-                            this._currentIndex = this.contextData.ItemContexts.length;
-
-                        }
-
-                        if (_.isEmpty(contextData)) {
-                            return;
-                        }
-
-                        if (contextData && contextData.ItemContexts) {
-                            for (var i = 0;i< this.contextData.ItemContexts.length;i++){
-
-                                contextData.ItemContexts = [this.contextData.ItemContexts[i]];
-                                var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(
-                                    contextData);
-                                if (compositeModelGetRequest && compositeModelGetRequest.params) {
-                                    compositeModelGetRequest.params.fields.attributes = ["_ALL"];
-                                }
-                                this.set('requestData', compositeModelGetRequest);
-                            }
-                        }
-                    } else if (this.mode.toLowerCase() == 'all') {
-                        var modelGetRequest = {
-                            "params": {
-                                "query": {
-                                    "filters": {
-                                        "typesCriterion": [
-                                            "attributeModel"
-                                        ]
-                                    }
-                                },
-                                "fields": {
-                                    "attributes": ["externalName"]
-                                }
-                            }
-                        };
-                        this.set('requestData', modelGetRequest);
-                    }
-                }
-
-            },
-
             _getAttributeFormattedData: function (data) {
-                if (this.mode == 'self') {
-                    this._getAttributeFormattedDataForCompositeModel(data);
-                } else {
-                    this._getAttributeFormattedDataForAttributeModel(data);
-                }
-            },
-            _getAttributeFormattedDataForAttributeModel: function (data) {
                 if (data && data.content && !_.isEmpty(data.content.entityModels)) {
                     var items = [];
                     var attributeModels = data.content.entityModels;
@@ -228,32 +193,30 @@
                         };
                         items.push(item);
                     }
-                    this.items = items;
+                    return items;
                 }
             },
-            _getAttributeFormattedDataForCompositeModel: function (data) {
-                if (data && data.content && data.content.entityModels) {
-                    var atributeModels = DataTransformHelper.transformAttributeModels(data.content.entityModels[0], this.contextData);
-                    if (atributeModels) {
-                        if (this._currentIndex == 1) {
-                            this._currentItems = [];
-                        }
-                        this.push('_currentItems', DataTransformHelper.transformAtributeModelsToLovSchema(atributeModels, this._lovColumnNameValueCollection))
-                    }
-                    if (this._currentItems.length == this._currentIndex) {
-                        var currentItems = this._currentItems;
-                        currentItems = currentItems.reduce(function (array1, array2) {
-                            return array1.concat(array2);
-                        })
-                        for (var i = 0; i < currentItems.length; ++i) {
-                            for (var j = i + 1; j < currentItems.length; ++j) {
-                                if (currentItems[i].title === currentItems[j].title)
-                                    currentItems.splice(j--, 1);
-                            }
-                        }
+            _prepareKeywordsCriteria: function (searchText) {
+                if (searchText) {
+                    var keywordsCriterion = {};
 
-                        this.items = DataHelper.sort(currentItems, 'title');
-                    }
+                    keywordsCriterion.keywords = searchText;
+                    keywordsCriterion.operator = "_AND";
+
+                    return keywordsCriterion;
+                }
+            },
+            _prepareAttributesCriteria: function (searchText) {
+                if (searchText) {
+                    var attributesCriterion = [];
+                    var searchKey = {};
+                    var searchValue = {};
+                    searchValue.eq = searchText ? searchText : '';
+
+                    // Todo.. When Pattern comes into picture this one is effected
+                    searchKey[this.titlePattern] = searchValue;
+                    attributesCriterion.push(searchKey);
+                    return attributesCriterion;
                 }
             },
             _onLovSelectionChanged: function (event) {
