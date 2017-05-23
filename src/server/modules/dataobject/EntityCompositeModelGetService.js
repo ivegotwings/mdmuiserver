@@ -164,8 +164,8 @@ EntityCompositeModelGetService.prototype = {
             var manageModel = allModels.find(obj => obj.type == "entityManageModel");
 
             if (!manageModel) {
-                LoggerService.warn('manage model not found');
-                console.log('manage model not found');
+                //LoggerService.warn('manage model not found');
+                console.log('\n Entity manage model is not available or user does not have permission. Request: ', JSON.stringify(request));
                 return {};
             }
             
