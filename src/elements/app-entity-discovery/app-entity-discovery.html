@@ -237,6 +237,7 @@
                                 button-text="Actions" actions-data="[[getConfig('pebble-actions')]]"></pebble-actions>
                             <rock-business-function-dialog id="rollupDialog"></rock-business-function-dialog>
                             <rock-business-function-dialog id="wfTransitionDialog"></rock-business-function-dialog>
+                            <rock-business-function-dialog id="wfAssignmentDialog"></rock-business-function-dialog>
                         </div>
                     </div>
                 </div>
@@ -265,9 +266,7 @@
                 </template>
             </div>
         </rock-layout>
-        <bedrock-pubsub event-name="app-context-changed" handler="_onAppContextChanged"></bedrock-pubsub>
-        <liquid-rest id="entityWfAssignment" url="/pass-through/entitygovernservice/workflowChangeAssignment" method="POST" request-data={{_wfAssignmentRequest}}
-            on-liquid-response="_onAssignmentSuccess" on-liquid-error="_onAssignmentFailure"></liquid-rest>
+        <bedrock-pubsub event-name="app-context-changed" handler="_onAppContextChanged"></bedrock-pubsub>        
     </template>
     <script>
         (function () {
@@ -343,11 +342,7 @@
                     _currentEntityIndex: {
                         type: Number,
                         value: 0
-                    },
-                    _wfAssignmentRequest: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
+                    },                    
                     _selectedEntities: {
                         type: Array,
                         value: function () { return []; }
@@ -401,6 +396,7 @@
                     //get saved search id from query string
                     var _savedSearchId = DataHelper.getParamValue('_savedSearchId');
                     var workflowName = DataHelper.getParamValue('wfName');
+                    var workflowShortName = DataHelper.getParamValue('wfShortName');
                     if (_savedSearchId && _savedSearchId != this._savedSearchId) {
                         this._savedSearchId = _savedSearchId;
                     } else if (!_.isEmpty(workflowName)) {
@@ -420,6 +416,7 @@
 
                         var workflowCriterion = {
                             "workflowName": workflowName,
+                            "workflowShortName": workflowShortName,
                             "workflowActivityName": workflowActivityName,
                             "workflowActivityExternalName": workflowActivityExternalName,
                             "businessConditionName": businessConditionName,
@@ -846,10 +843,7 @@
                     }                    
 
                     if (selectedItems && selectedItems.length > 0) {
-                        if (selectedItems.length > 5 && detail.data.eventName != "action-wfTransitions") {
-                            this.showErrorToast("Maximum 5 entities can be selected.");
-                            return;
-                        } else if (selectedItems.length > 20  && detail.data.eventName == "action-wfTransitions") {
+                        if (selectedItems.length > 20) {
                             this.showErrorToast("Maximum 20 entities can be selected.");
                             return;
                         } else {
@@ -861,19 +855,17 @@
                                 }
                             }
                             this.set('selectedEntityIds', selectedEntityIds)
-                        }
+                       }
                     } else {
                         this.showErrorToast("Select atleast one entity for which you want to perform this action.");
                         return;
                     }
                     if (detail) {
                         if (detail.data.eventName == "action-takeTask") {
-                            this._currentWorkflowAction = "take";
-                            this._generateAssignmentRequest();
+                            this._showAssignmentDialog(detail, "take");
                         }
-                        else if (detail.data.eventName == "action-releaseTask") {
-                            this._currentWorkflowAction = "release";
-                            this._generateAssignmentRequest();
+                        else if (detail.data.eventName == "action-releaseTask") {                            
+                            this._showAssignmentDialog(detail, "release");
                         }
                         else if (detail.data.eventName == "action-wfTransitions") {
                             //Fetch the wf details from the URL
@@ -904,6 +896,12 @@
                         }
                     }
                 },
+                _showAssignmentDialog: function (detail, action) {
+                    var assignmentDialog = this.$$("#wfAssignmentDialog");
+                    assignmentDialog.name = detail.data.componentName;                   
+                    assignmentDialog.sharedData = { "context-data": this.contextData, "selected-entities": this._selectedEntities, "assignment-Action": action, "workflow-criterion": this._workflowCriterion };
+                    assignmentDialog.open();
+                },
                 _onAppContextChanged: function (e) {
                     if (this.verbose) {
                         console.log("AppContext:- " + JSON.stringify(e.detail.contextData));
@@ -919,48 +917,7 @@
                 _onSavedSearchTap: function (e) {
                     this.$$('#rockSavedSearch').contextData = this.contextData;
                     this.$$('#savedSearchPopover').show();
-                },
-                _generateAssignmentRequest: function () {
-                    var req = DataRequestHelper.createWfChangeAssignmentRequest(this._selectedEntities[this._currentEntityIndex], this._workflowCriterion, this.contextData, this._currentWorkflowAction);
-                    this.set("_wfAssignmentRequest", req);
-                    var liquidWfAssign = this.$$("#entityWfAssignment");
-                    if (liquidWfAssign) {
-                        liquidWfAssign.generateRequest();
-                    }
-                },
-                _onAssignmentSuccess: function (e) {
-                    var response = e.detail.response;
-                    var failedEntityIds = this.failedEntityIds;
-                    var successEntityIds = this.successEntityIds;
-                    var requestId;
-                    if (e.detail.request && e.detail.request.requestData && e.detail.request.requestData.entity && e.detail.request.requestData.entity.id) {
-                        requestId = e.detail.request.requestData.entity.id;
-                    }
-                    if (requestId && response && response.response && response.response.status && response.response.status.toLowerCase() == "success" && response.response.statusDetail) {
-                        var statusDetail = response.response.statusDetail;
-                        if (failedEntityIds.indexOf(requestId) < 0 && statusDetail.messages && statusDetail.messages.length > 0) {
-                            this._failedEntityType = this._selectedEntities[this._currentEntityIndex].type;
-                            this.push('failedEntityIds', requestId);
-                        } else if (successEntityIds.indexOf(requestId) < 0 && statusDetail.message) {
-                            this._successEntityType = this._selectedEntities[this._currentEntityIndex].type;
-                            this.push('successEntityIds', requestId);
-                        }
-                        this._currentEntityIndex++;
-                    }
-                    if (this._currentEntityIndex < this._selectedEntities.length) {
-                        this._generateAssignmentRequest();
-                    } else if (response && response.response && response.response.status && response.response.status.toLowerCase() == "success" && response.response.statusDetail) {
-                        var messageObject = this._getMessageObject();
-                        this._showToastMessage(messageObject);
-                    }
-                    else {
-                        this.showErrorToast("There is some problem with the server.Please try again after some time");
-                    }
-                },
-                _onAssignmentFailure: function (e) {
-                    console.warn("Failed to perform the workflow assignment with error: ", e.detail);
-                    this.showErrorToast("Failed to perform the workflow assignment. Please contact administrator.");
-                },
+                },                                
                 _showResetSearch: function (e) {
                     var rockSearchBar = this.$$('#searchBar');
                     var rockSearchFilter = this._getElement('rockSearchFilter');
@@ -989,56 +946,7 @@
                             this.showSuccessToast(msgObject.message, 10000);
                         }
                     }
-                },
-                _getMessageObject: function () {
-                    var stringifiedSelectedEntityIds = JSON.stringify(this.selectedEntityIds);
-                    var stringifiedsuccessEntityIds;
-                    var stringifiedfailedEntityIds;
-                    var messageObject = {
-                        "message": "",
-                        "type": ""
-                    };
-                    if (this.successEntityIds) {
-                        stringifiedsuccessEntityIds = JSON.stringify(this.successEntityIds)
-                    }
-                    if (this.failedEntityIds) {
-                        stringifiedfailedEntityIds = JSON.stringify(this.failedEntityIds)
-                    }
-                    if (this._currentWorkflowAction == "take") {
-                        if (this.successEntityIds.length == this.selectedEntityIds.length && this.selectedEntityIds.length == 1) {
-                            messageObject.message = "The {0} of type {1} selected is in {1} as part of the {2} business process has been assigned to you. ".format(this.successEntityIds[0], this._successEntityType, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName);
-                            messageObject.type = "success";
-                        }
-                        if (this.failedEntityIds.length == this.selectedEntityIds.length && this.selectedEntityIds.length == 1) {
-                            messageObject.message = "The {0} of type {1} selected is in {2} as part of the {3} business process. You do not have permissions as part of this workflow step to take the workflow step for assignment. /nPlease contact your business administrator if you need to be assigned to this role.".format(this.successEntityIds[0], this._failedEntityType, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName);
-                            messageObject.type = "error";
-                        }
-                        if (stringifiedSelectedEntityIds == stringifiedsuccessEntityIds) {
-                            messageObject.message = "The {0} of type {1} selected is in {2} as part of the {3} business process has been assigned to you.".format(stringifiedsuccessEntityIds, this._successEntityType, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName);
-                            messageObject.type = "success";
-                        } else if (stringifiedSelectedEntityIds == stringifiedfailedEntityIds) {
-                            messageObject.message = "The {0} of {1} selected is in {2} as part of the {3} business process. You do not have permissions as part of this workflow step to take the entities for assignment. /nPlease contact your business administrator if you need to be assigned to this role.".format(stringifiedSelectedEntityIds, this._failedEntityType, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName);
-                            messageObject.type = "error";
-                        }
-                    } else if (this._currentWorkflowAction == "release") {
-                        if (this.successEntityIds.length == this.selectedEntityIds.length == 1) {
-                            messageObject.message = "The {0} of type {1} selected is in {1} as part of the {2} business process has been released from you. ".format(this.successEntityIds[0], this._successEntityType, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName);
-                            messageObject.type = "success";
-                        }
-                        if (this.failedEntityIds.length == this.selectedEntityIds.length == 1) {
-                            messageObject.message = "The {0} of type {1} selected is in {2} as part of the {3} business process. You do not have permissions as part of this workflow step to release the workflow step from assignment. /nPlease contact your business administrator if you need to be released from this role.".format(this.successEntityIds[0], this._failedEntityType, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName);
-                            messageObject.type = "error";
-                        }
-                        if (stringifiedSelectedEntityIds == stringifiedsuccessEntityIds) {
-                            messageObject.message = "The {0} of type {1} selected are in {2} as part of the {3} business process have been released from you.".format(stringifiedsuccessEntityIds, this._successEntityType, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName);
-                            messageObject.type = "success";
-                        } else if (stringifiedSelectedEntityIds == stringifiedfailedEntityIds) {
-                            messageObject.message = "The {0} of {1} selected is in {2} as part of the {3} business process. You do not have permissions as part of this workflow step to release the entities from assignment. /nPlease contact your business administrator if you need to be released from this role.".format(stringifiedSelectedEntityIds, this._failedEntityType, this._workflowCriterion.workflowActivityName, this._workflowCriterion.workflowName);
-                            messageObject.type = "error";
-                        }
-                    }
-                    return messageObject;
-                },
+                },                
                 _openEntityTypeFilterLov: function () {
                     this.$$("#entityTypeFilterPopover").open();
                 },
