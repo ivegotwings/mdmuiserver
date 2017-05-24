@@ -269,21 +269,24 @@ function _buildRelationshipDetailsResponse(enRel, reqData, relTypeKey, relsJson,
                 _buildAttributesResponse(attrs, relAttrNames, reqData, relJson, paths, relBasePath);
             }
         }
-        else if (relFieldKey == "relTo") {
-            var dataObjectType = enRel[relFieldKey].type;
-            var dataObjectsByIdPath = mergePathSets(dataObjectsByIdBasePath, dataObjectType, pathKeys.byIds);
-            relJson[relFieldKey] = prepareValueJson($ref(mergePathSets(dataObjectsByIdPath, [enRel[relFieldKey].id])));
-
-            if (reqData.buildPaths) {
-                paths.push(mergePathSets(relBasePath, [relFieldKey]));
-            }
-        }
         else {
             relJson[relFieldKey] = prepareValueJson($atom(enRel[relFieldKey]));
 
             if (reqData.buildPaths) {
                 paths.push(mergePathSets(relBasePath, [relFieldKey]));
             }
+        }
+    }
+
+    if (enRel && enRel.relTo) {
+        var relDataObjectId = enRel.relTo.id || -1; 
+        var relDataObjectType = enRel.relTo.type || '';
+
+        var dataObjectsByIdPath = mergePathSets(dataObjectsByIdBasePath, relDataObjectType, pathKeys.byIds);
+        relJson["relToObject"] = prepareValueJson($ref(mergePathSets(dataObjectsByIdPath, [relDataObjectId])));
+
+        if (reqData.buildPaths) {
+            paths.push(mergePathSets(relBasePath, ["relToObject"]));
         }
     }
 

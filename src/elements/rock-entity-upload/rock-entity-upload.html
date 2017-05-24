@@ -3,6 +3,8 @@
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/data-request-helper.html">
 
 <link rel="import" href="../liquid-rest/liquid-rest.html">
 <link rel="import" href="../liquid-config-get/liquid-config-get.html">
@@ -95,44 +97,26 @@
                         var entityType = itemContext.type;
                         this.processProfileId = entityType + "_Folder_Excel_Import_Process_" + this.userId;
                         this.baseProfileId = "sku_Folder_Excel_Import_Process_Dynamic";
-                        var req = {
-                            "params": {
-                                "query": {
-                                    "ids": [this.processProfileId, this.baseProfileId],
-                                    "filters": {
-                                        "typesCriterion": [
-                                            "COPProfile"
-                                        ]
-                                    },
-                                    "contexts": [
-                                            {
-                                                "app": "RSConnect",
-                                                "service": "excelImportProcessService",
-                                                "list": "self"
-                                            }
-                                        ]
-                                    },
-                                    "fields": {
-                                        "jsonData": true
-                                    }
-                                }
-                            };
-                        this.set("_profileRequest", req);
-                        this.$$("#getUserProfile").generateRequest();
+                        var profileIds = [this.processProfileId, this.baseProfileId];
+                        var req = DataRequestHelper.createProfileGetRequest(profileIds);
+                        if(req) {
+                            this.set("_profileRequest", req);
+                            this.$$("#getUserProfile").generateRequest();
+                        }
                     }
                 },
                 _onProfileGetResponse: function(e) {
                     var response = e.detail.response;
-                    if(response && response.status && response.status.toLowerCase() == "success" && response.content && response.content.configObjects) {
-                        if(response.content.configObjects.length > 0) {
+                    var configObjects = DataHelper.validateAndGetConfigObjects(response);
+                    if(configObjects) {
+                        if(configObjects.length > 0) {
                             var req = { "configObjects": [] };
-                            var configObjects = response.content.configObjects;
                             var baseProfile = configObjects.find(obj => obj.id == this.baseProfileId);
                             var processProfile = configObjects.find(obj => obj.id == this.processProfileId);
                             if(baseProfile) {
                                 this.baseProfile = DataHelper.cloneObject(baseProfile);
                                 if(!processProfile) {
-                                    var processProfileCreateReq = this._getProfileCreationRequest(this.processProfileId, this.baseProfile, "process")
+                                    var processProfileCreateReq = DataRequestHelper.createProfileCreationRequest(this.processProfileId, this.baseProfile, "process")
                                     req.configObjects.push(processProfileCreateReq);
                                 }
                                 if(!_.isEmpty(req.configObjects)) {
@@ -142,30 +126,15 @@
                                     this.uploadProfileName = this.processProfileId;
                                 }
                             } else {
-                                this.showErrorToast("Base profile for mapping generation is missing. Please contact Your administrator");
+                                this.showErrorToast("Base profile for process is missing. Please contact Your administrator");
                             }
                         } else{
-                            this.showErrorToast("Base profile for mapping generation is missing. Please contact Your administrator");
+                            this.showErrorToast("Base profile for process is missing. Please contact Your administrator");
                         }
                     } else {
                         this.showErrorToast("There is some problem in configuration get service. Please contact Your administrator");
                     }
                     this._loading = false;
-                },
-                _getProfileCreationRequest: function(profileId, baseProfile, service) {
-                    var ctxService = "";
-                    if(service == "transform") {
-                        ctxService = "excelImportTransformService";
-                    } else if(service == "process") {
-                        ctxService = "excelImportProcessService";
-                    }
-                    var profile = DataHelper.cloneObject(baseProfile);
-                    profile.id = profileId;
-                    profile.name = profileId;
-                    profile.data.contexts[0].context.service = ctxService;
-                    profile.data.contexts[0].jsonData.id = profileId;
-                    profile.data.contexts[0].jsonData.name = profileId;
-                    return profile;
                 },
                 _onProfileSaveResponse: function(e) {
                      var response = e.detail.response;
@@ -191,10 +160,15 @@
                     if(liqProcess) {
                         liqProcess.generateRequest();
                     }
+                    this.async(function () {
+                        //Clear file upload
+                        this.$$('pebble-file-upload').reset();
+                    });
                 },
                 _onProcessUploadSuccess: function(e) {
                     var response = e.detail.response;
-                    if(response && response.dataObjectOperationResponse &&response.dataObjectOperationResponse.status.toLowerCase() == "success") {
+                    var statusMessage = DataHelper.validateAndGetMessage(response);
+                    if(statusMessage == "") {
                         // go to next step in wizard
                         var data = {
                             "messages": [
@@ -208,14 +182,12 @@
                             "actions": [
                                 {
                                     "name": "closeFunction",
-                                    "text": "Close Excel Uploader",
-                                    "isNotApp": true
+                                    "text": "Close Excel Uploader"
                                 },
                                 {
                                     "name": "nextAction",
                                     "text": "Take me to File Upload Status",
-                                    "dataRoute": "dashboard",
-                                    "isNotApp": true
+                                    "dataRoute": "dashboard"
                                 }
                             ]
                         };
@@ -226,6 +198,9 @@
                         };
                         this._loading = false;
                         this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                    } else if(statusMessage && statusMessage != "") {
+                        this._loading = false;
+                        this.showErrorToast("Processing the excel failed with message: " + statusMessage + ". Please check the service or contact your administrator.");
                     } else {
                         this._loading = false;
                         console.warn("Unexpected COP response:" + e.detail.response);

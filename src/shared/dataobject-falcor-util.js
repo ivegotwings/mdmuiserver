@@ -185,7 +185,7 @@ DataObjectFalcorUtil.unboxJsonObject = function (obj) {
 
 DataObjectFalcorUtil.transformToExternal = function (dataObject) {
 
-    //console.log('transform dataObject input:', JSON.stringify(dataObject));
+    //console.log('transform dataObject input:', JSON.stringify(dataObject, null, 4));
 
     var transDataObject = {};
 
@@ -335,10 +335,23 @@ DataObjectFalcorUtil.transformRelationshipsToExternal = function (relationships)
                 rel.attributes = DataObjectFalcorUtil.transformAttributesToExternal(rel.attributes);
             }
 
-            if (!isEmpty(rel.relTo)) {
-                rel.relTo = DataObjectFalcorUtil.transformToExternal(rel.relTo);
-            }
+            if (rel.relToObject) {
+                var relToObject = rel.relToObject;
+                
+                if (relToObject.data) {
+                    relToObject = DataObjectFalcorUtil.transformToExternal(relToObject);
+                }
+                
+                if(rel.relTo && relToObject.data) {
+                    rel.relTo.data = relToObject.data;
+                    rel.relTo.name = relToObject.name;
+                    rel.relTo.version = relToObject.version;
+                    rel.relTo.properties = relToObject.properties
+                }
 
+                delete rel.relToObject;
+            }
+            
             relsArray.push(rel);
         }
 
