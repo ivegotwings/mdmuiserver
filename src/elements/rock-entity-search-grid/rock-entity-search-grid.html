@@ -17,6 +17,7 @@
 
 <link rel="import" href="../rock-grid/rock-grid.html">
 <link rel="import" href="../rock-grid/entity-search-grid-datasource.html">
+<link rel="import" href="../rock-business-function-dialog/rock-business-function-dialog.html">
 
 <!--
 `rock-entity-search-grid` Represents a component that renders the entities in grid.
@@ -42,7 +43,9 @@ It filters the data as per filter criteria.
                 grid-data-size="{{size}}" attribute-models="{{attributeModels}}" page-size="[[pageSize]]" selected-item="{{selectedItem}}"
                 selected-items="{{selectedItems}}" total-count="{{totalCount}}" max-configured-count="[[maxConfiguredCount]]"></rock-grid>
             <bedrock-pubsub event-name="grid-download-item" handler="_onDownload" target-id="entityGrid"></bedrock-pubsub>
+            <bedrock-pubsub event-name="grid-upload-item" handler="_onUpload" target-id="entityGrid"></bedrock-pubsub>
         </template>
+        <rock-business-function-dialog id="entityUploadDialog"></rock-business-function-dialog>
     </template>
 
     <script>
@@ -394,8 +397,8 @@ It filters the data as per filter criteria.
                     if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
                         this.attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response
                             .content.entityModels[0], this.contextData);
-                        this.reloadGrid();
                     }
+                    this.reloadGrid();
                 },
 
                 _onGovernDataResponse: function (e) {
@@ -505,22 +508,17 @@ It filters the data as per filter criteria.
                 },
 
                 _updateItemContexts: function () {
-                    var itemContexts = [];
-                    if (!this.gridConfig.dataRequest) {
+                    var itemContexts = this.getItemContexts();
+                    if (!itemContexts && itemContexts.length) {
                         return;
                     }
                     var attributeNames = this.gridConfig.dataRequest.attributes;
-                    for (var i in this.gridConfig.dataRequest.typesCriterion) {
-                        var itemContext = {};
-                        itemContext.attributeNames = attributeNames;
-                        itemContext.type = this.gridConfig.dataRequest.typesCriterion[i];
-                        itemContexts.push(itemContext);
+                    for (var i in itemContexts) {
+                        itemContexts[i].attributeNames = attributeNames;
                     }
-                    this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
                 },
 
                 _reloadGrid: function (ids) {
-
                     this._updateItemContexts();
                     this.request = DataRequestHelper.createEntityGetRequest(this.contextData);
                     if (!_.isEmpty(ids)) {
@@ -582,14 +580,16 @@ It filters the data as per filter criteria.
                 },
 
                 _onDownload: function (e) {
-                    if (this.selectedItems && this.selectedItems.length && this.contextData) {
+                    var rockGrid = Polymer.dom(this).node.$$('rock-grid');
+                    var selectedItems=rockGrid.getSelectedItems();
+                    if (selectedItems && selectedItems.length && this.contextData) {
                         this._loading = true;
                         var clonedDataContext = DataHelper.cloneObject(this.contextData);
                         var itemContext = {};
                         itemContext.id = [];
                         itemContext.type = [];
 
-                        this.selectedItems.forEach(function (item) {
+                        selectedItems.forEach(function (item) {
                             if (item) {
                                 itemContext.id.push(item.id);
 
@@ -604,25 +604,17 @@ It filters the data as per filter criteria.
                         itemContext.relationshipAttributes = ["_ALL"];
                         clonedDataContext[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
 
-                        var req = DataRequestHelper.createEntityGetRequest(clonedDataContext);
+                        var req = DataRequestHelper.createEntityGetRequestForDownload(clonedDataContext, ["downloadDataExcel"]);
 
                         if (req) {
-                            if (req.params) {
-                                req.params.rsconnect = {
-                                    "profiles": [
-                                        "downloadDataExcel"
-                                    ]
-                                }
-                            }
                             req.fileName = "EntityData";
-                        }
+                            this._copDownloadRequest = req;
 
-                        this._copDownloadRequest = req;
-
-                        var copDownloadLiquid = this.$$("#copDownloadService");
-                        if (copDownloadLiquid) {
-                            copDownloadLiquid.url = "/cop/downloadDataExcel";
-                            copDownloadLiquid.generateRequest();
+                            var copDownloadLiquid = this.$$("#copDownloadService");
+                            if (copDownloadLiquid) {
+                                copDownloadLiquid.url = "/cop/downloadDataExcel";
+                                copDownloadLiquid.generateRequest();
+                            }
                         }
 
                     } else {
@@ -635,7 +627,8 @@ It filters the data as per filter criteria.
 
                         if (response.status.toLowerCase() == "success") {
                             if (response.fileName) {
-                                var fileName = response.fileName + ".xlsx";
+                                var fileExtension = response.fileExtension || "xlsx";
+                                var fileName = response.fileName + "." + fileExtension;
                                 window.open('/file-download?fileName=' + fileName);
                             } else {
                                 this.showErrorToast("File Name not found for entity data export.");
@@ -654,6 +647,15 @@ It filters the data as per filter criteria.
                 _onCOPDownloadFailure: function (e) {
                     this.showErrorToast("Failed to download entity data. Please contact administrator.");
                     this._loading = false;
+                },
+                _onUpload: function(e, detail) {
+                    this.$$("#entityUploadDialog").name = "rock-entity-upload";
+                    this.$$("#entityUploadDialog").sharedData = { "context-data": this.contextData };
+                    this.$$("#entityUploadDialog").open();
+                },
+                getSelectedItems: function() {
+                    var rockGrid = Polymer.dom(this).node.$$('rock-grid');
+                    return rockGrid.getSelectedItems();
                 }
             });
         })();

@@ -61,7 +61,7 @@ OfflineRestService.prototype = {
 
             if (isEmpty(filePrefixes)) {
                 //work around to support offline configuration
-                if (offlineSettings.ignoreFilePrefixes) {
+                if (offlineSettings.ignoreFilePrefixes && filterVal) {
                     var newFilterVal = filterVal.split('_')[0];
                     for (let fileId in files) {
                         if (fileId.indexOf(newFilterVal) >= 0) {

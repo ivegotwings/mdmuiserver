@@ -8,6 +8,7 @@
 
 <link rel="import" href="../pebble-combo-box/pebble-combo-box.html">
 
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../rock-entity-lov/entity-lov-datasource.html">
 
 <!--
@@ -18,12 +19,13 @@
 
 <dom-module id="rock-entity-combo-box">
     <template>
+        <liquid-entity-data-get id="liquidLovSelectedValueGet" operation="getbyids" on-response="_onLovSelectedValueGetResponse"></liquid-entity-data-get>
         <entity-lov-datasource id="entityLovDataSource" request="[[requestData]]" data-source="{{dataSource}}" data-formatter="{{_dataFormatter}}"
             keywords-criterion-builder="{{_keywordsCriterionBuilder}}">
         </entity-lov-datasource>
         <pebble-combo-box id="comboBox" label=[[label]] page-size="[[pageSize]]" multi-select="[[multiSelect]]" show-image="[[showImage]]"
             show-color="[[showColor]]" no-sub-title="[[noSubTitle]]" show-action-buttons="[[showActionButtons]]" is-readonly=[[isReadonly]]
-            data-source="{{dataSource}}" selected-ids="{{selectedIds}}" selected-id="{{selectedId}}">
+            data-source="{{dataSource}}" selected-items="{{selectedItems}}" selected-item="{{selectedItem}}" on-selection-changed="_onSelectionChanged">
         </pebble-combo-box>
     </template>
     <script>
@@ -98,15 +100,6 @@
                     type: Array,
                     value: []
                 },
-                /*
-                 * Indicates the attribute of an entity which will be used for sorting the items
-                 * Note: This has to come from Model
-                 *       By default it should be name for which QA has to log a Bug
-                 */
-                sortField: {
-                    type: String,
-                    value: "entity.attributes.code" 
-                },
                /**
                 * Indicates is-readonly or not
                 */
@@ -149,6 +142,17 @@
                     value: function () {
                         return {};
                     }
+                },
+                _isSelectionChanged: {
+                    type: Boolean,
+                    value: false
+                },
+                 /*
+                 * Indicates the attribute of an entity which will be used for sorting the items
+                 */
+                _sortField: {
+                    type: String,
+                    value: "" 
                 }
             },
 
@@ -158,7 +162,7 @@
             ],
 
             observers: [
-                '_prepareAttributes(idField, titlePattern, subTitlePattern, imageField, colorField, valueField, typeField)',
+                '_prepareAttributes(idField, titlePattern, subTitlePattern, imageField, colorField, valueField, typeField, selectedId, selectedIds)',
             ],
 
             ready: function () {
@@ -166,7 +170,16 @@
                 this._dataFormatter = this._getAttributeFormattedData.bind(this);
             },
 
-            _prepareAttributes: function (idField, titlePattern, subTitlePattern, imageField, colorField, valueField) {
+            _prepareAttributes: function (idField, titlePattern, subTitlePattern, imageField, colorField, valueField, selectedId, selectedIds) {                
+                if(this._isSelectionChanged) {
+                    this._isSelectionChanged = false;
+                    return;
+                }
+
+                if(!this._lovColumnMap) {
+                    this._lovColumnMap = {};
+                }
+
                 var defaultAttributes = this._attributes;
                 this._attributes = [];
                 var attributes = []; // Attributes which will be part of Request Object
@@ -183,6 +196,7 @@
                         if(titleFields && titleFields instanceof Array) {
                             attributes.push(...titleFields);
                             this._lovColumnMap.title = this.titlePattern;
+                            this._sortField = titleFields.length > 0 ? titleFields[0] : "";
                         }
                     }
                 }
@@ -221,33 +235,148 @@
                     }
                 }
 
-                // DataHelper.arrayRemove(attributes, "id");
-                // DataHelper.arrayRemove(attributes, "name");
-
                 if (attributes.length == 0) {
                     this._attributes = defaultAttributes;
                 } else {
+                    if(!this.requestData || !this.requestData.params){
+                        return;
+                    }
                     // Todo.. This will not work in a scenario where request object is not initialized
+
                     if (typeof (this.requestData.params.fields) === "undefined") {
                         this.set('requestData.params.fields', {});
                     }
                     this.set('requestData.params.fields.attributes', attributes);
                 }
 
-                // Todo.. Once the RDF Bug is Fixed
-                // if(!DataHelper.isEmptyObject(this.sortField)) {
-                //     var attributeName = this.sortField.replace("entity.attributes.", "");;
-                //     var sortAttributes = [];
+                if(this.multiSelect) {
+                    var _selectedItems = [];
+                    for (var i = 0; i < this.selectedIds.length; i++) {
+                        var selId = this.selectedIds[i];
+                        _selectedItems.push({'id': selId, 'title': selId}); 
+                    }
+                    this.set('selectedItems', _selectedItems);
+                }
+                else {
+                    if(this.selectedId) {
+                        this.set('selectedItem', {'id': this.selectedId, 'title': this.selectedId});
+                    }
+                }
+                
+                this._initiateSelectedIdGetRequest();
 
-                //     var sortAttribute = {};
-                //     sortAttribute[attributeName] = "_ASC";
-                //     sortAttributes.push(sortAttribute);
+                if(!DataHelper.isEmptyObject(this._sortField) && this._sortField !== "name") {
+                    var sortAttributes = [];
+
+                    var sortAttribute = {};
+                    sortAttribute[this._sortField] = "_ASCE";
+                    sortAttribute["sortType"] = "_STRING"; // How to determine this?
+                    sortAttributes.push(sortAttribute);
                     
-                //     if (DataHelper.isEmptyObject(this.requestData.params.sort)) {
-                //         this.set('requestData.params.sort', {});
-                //     }
-                //     this.set('requestData.params.sort.attributes', sortAttributes);
-                // }
+                    if (DataHelper.isEmptyObject(this.requestData.params.sort)) {
+                        this.set('requestData.params.sort', {});
+                    }
+                    this.set('requestData.params.sort.attributes', sortAttributes);
+                }
+            },
+
+            _onSelectionChanged: function(e) {
+                var items = e.detail.items;
+                var selectedIds = [];
+                if (items) {
+                    this._isSelectionChanged = true;
+
+                    for(var i = 0; i < items.length; i++) {
+                        selectedIds.push(items[i].id);
+                    }
+
+                    if(selectedIds && selectedIds.length) {
+                        if(this.multiSelect) {
+                            this.set('selectedIds', selectedIds);
+                        }
+                        else {
+                            this.set('selectedId', selectedIds[0]);
+                        }
+                    } else {
+                        this.set('selectedId', '');
+                        this.set('selectedIds', []);
+                    }
+                }
+            },
+            _initiateSelectedIdGetRequest: function() {
+                var selIds = this.selectedIds || [];
+                if(this.selectedId) {
+                    selIds.push(this.selectedId);
+                }
+
+                //console.log('selected ids', selIds);
+
+                if(!_.isEmpty(this.requestData)) {
+                    var req = DataHelper.cloneObject(this.requestData);
+                    //console.log(req);
+                    var refEntityIds = [];
+                    var refType = req.params.query.filters.typesCriterion[0];
+
+                    for(var i = 0;i < selIds.length;i++) {
+                        var selIdentifierName = selIds[i];
+                        refEntityIds.push(selIdentifierName + "_" + refType);
+                    }
+
+                    if(refEntityIds && refEntityIds.length) {
+                        req.params.query.ids = refEntityIds;
+                        var liquidLovSelectedValueGet = this.$$('#liquidLovSelectedValueGet');
+                        if(liquidLovSelectedValueGet) {
+                            liquidLovSelectedValueGet.requestData = req;
+                            liquidLovSelectedValueGet.generateRequest();
+                        }
+                    }
+                }
+            },
+
+            _onLovSelectedValueGetResponse: function(e) {
+                //console.log('sel value get response ', e.detail.response);
+                var res = e.detail.response;
+                
+                if(res) {
+                    var entities = res.content.entities;
+
+                    if(entities && entities.length > 0) {
+
+                        if(this.multiSelect && this.selectedItems && this.selectedItems.length) {
+                            var selItems = [];
+
+                            for(var j = 0; j < this.selectedItems.length; j++) {
+                                var found = false;
+                                for(var i = 0; i < entities.length;i++) {
+                                    var entity = entities[i];
+                                    if(entity.name == this.selectedItems[j].id) {
+                                        var patternedValue = DataTransformHelper.getLovFieldPatternValue(entity, this._lovColumnMap["title"], undefined, this.contextData);
+                                        var selItem = {'id': entity.name, 'title': patternedValue};
+                                        selItems.push(selItem);
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                                    
+                                if(!found) {
+                                    selItems.push(this.selectedItems[j]);
+                                }
+                            }
+
+                            this.set('selectedItems', selItems);
+                        }
+                        else {
+                            if(this.selectedItem) {
+                                var entity = entities[0];
+                                if(entity.name == this.selectedItem.id) {
+                                    var patternedValue = DataTransformHelper.getLovFieldPatternValue(entity, this._lovColumnMap["title"], undefined, this.contextData);
+                                    var selItem = {'id': this.selectedId, 'title': patternedValue};
+                                    this.set('selectedItem', selItem);
+                                }
+                            }  
+                        }
+                    }
+                }
             },
 
             _getAttributeFormattedData: function (data) {

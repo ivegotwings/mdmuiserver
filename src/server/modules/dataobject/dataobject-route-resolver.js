@@ -235,7 +235,8 @@ function _getService(dataObjectType) {
 
 async function get(dataObjectIds, reqData) {
     var response = {};
-
+    var operation = reqData.operation;
+    
     try{
         var request = createGetRequest(reqData);
 
