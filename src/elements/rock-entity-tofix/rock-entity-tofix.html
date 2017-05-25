@@ -119,6 +119,9 @@ Custom property | Description | Default
 
         <liquid-entity-model-get id="businessConditionsGet" operation="getbyids" request-id="businessConditionsGet" on-response="_onBusinessConditionsGetResponse"
             on-error="_onBusinessConditionsGetError"></liquid-entity-model-get>
+
+        <liquid-entity-model-get id="businessConditionsGet1" operation="getbyids" request-id="businessConditionsGet1" on-response="_onBusinessConditionsGet1Response"
+            on-error="_onBusinessConditionsGet1Error"></liquid-entity-model-get>
         <rock-business-function-dialog id="attributeDialog"></rock-business-function-dialog>
         <div class="tofix-data-container">
             <pebble-spinner active="[[!_isToFixDataExists]]"></pebble-spinner>
@@ -363,7 +366,6 @@ Custom property | Description | Default
                         // Note: Could be optimized.Why to bring all RuleMappings?
                         this._requestRuleContextMappings();
                     }
-                    
                 } else {
                     console.error("EntityGovernDataGetResponseContent not found.");
                     this._showMessage(this._errorMessage);
@@ -476,7 +478,7 @@ Custom property | Description | Default
                         }
                     }
 
-                    this._prepareToFixData();
+                    // this._prepareToFixData();
                 } else {
                     console.error("EntityModelGetByIdsResponse Content not found.");
                     this._showMessage(this._errorMessage);
@@ -644,6 +646,7 @@ Custom property | Description | Default
                 if (this._isDataSetPrepared()) {
                     var _tofixData = [];
                     var workflowBusinessConditions = [];
+                    var unkownBusinessConditionIds = [];
 
                     var tofixGlobalData = {};
                     tofixGlobalData["id"] = "general";
@@ -668,7 +671,7 @@ Custom property | Description | Default
                             }
                         }
 
-                        
+
                         for (var i = 0; i < tofixWorkflowDataSet.length; i++) {
                             var tofixWorkflowData = tofixWorkflowDataSet[i];
 
@@ -681,6 +684,9 @@ Custom property | Description | Default
                                     workflowBusinessConditions.push(workflowMappedBusinessConditions[j].relTo.id);
                                     var toFixBusinessCondition = this._getBusinessConditionStatusAndPrepareToFixData(workflowMappedBusinessConditions[j]);
                                     if (toFixBusinessCondition && !DataHelper.containsObject(toFixBusinessCondition, tofixWorkflowData.businessConditions)) {
+                                        if(toFixBusinessCondition.status === "unknown") {
+                                            unkownBusinessConditionIds.push(toFixBusinessCondition.id);
+                                        }
                                         tofixWorkflowData.businessConditions.push(toFixBusinessCondition); 
                                     }
                                 }
@@ -699,6 +705,9 @@ Custom property | Description | Default
                         if(workflowBusinessConditions.indexOf(businessCondition.relTo.id) == -1) {
                             var toFixBusinessCondition = this._getBusinessConditionStatusAndPrepareToFixData(businessCondition);
                             if (toFixBusinessCondition && !DataHelper.containsObject(toFixBusinessCondition, tofixGlobalData.businessConditions)) {
+                                if(toFixBusinessCondition.status === "unknown" && unkownBusinessConditionIds.indexOf(toFixBusinessCondition.id) == -1) {
+                                    unkownBusinessConditionIds.push(toFixBusinessCondition.id);
+                                }
                                 tofixGlobalData.businessConditions.push(toFixBusinessCondition);
                             }
                         }
@@ -708,11 +717,70 @@ Custom property | Description | Default
                         _tofixData.push(tofixGlobalData);
                     }
 
+                    console.log(unkownBusinessConditionIds);
                     this.set("_tofixData", _tofixData);
-                    this._isToFixDataExists = true;
+                    this._requestBusinessConditions1(unkownBusinessConditionIds);
                 }
             },
 
+            _requestBusinessConditions1: function (businessConditionIds) {
+                if (businessConditionIds.length) {
+
+                    var businessConditionsGet = this.$$('#businessConditionsGet1');
+                    if (typeof (businessConditionsGet) === "undefined" || businessConditionsGet == null) {
+                        console.error("Element having id businessConditionsGet1 not found.");
+                        this._showMessage(this._errorMessage);
+                        return;
+                    }
+
+                    var clonedContextData = DataHelper.cloneObject(this._clonedContextData);
+
+                    // Prepare ItemContext
+                    var itemContext = ContextHelper.getFirstItemContext(clonedContextData);
+                    itemContext.id = businessConditionIds;
+                    itemContext.type = "businessCondition";
+                    clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+
+                    // Create Request and Get
+                    businessConditionsGet.requestData = DataRequestHelper.createEntityGetRequest(clonedContextData);
+                    businessConditionsGet.generateRequest();
+                } else {
+                    this._showMessage(this._nothingToFixMessage);
+                }
+            },
+
+            _onBusinessConditionsGet1Response: function (e) {
+                var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response);
+
+                if (responseContent) {
+                    var businessConditions = responseContent.entityModels;
+
+                    if (typeof (businessConditions) !== "undefined" && businessConditions.length > 0) {
+                        for (var i = 0; i < businessConditions.length; i++) {
+
+                            console.log(this._tofixData);
+                            // LongNames are required for Displaying BusinessConditions
+                            for(var j = 0; j < this._tofixData.length; j++) {
+                                for(var k = 0; k < this._tofixData[j].businessConditions.length; k++) {
+                                    if(this._tofixData[j].businessConditions[k].id == businessConditions[i].id) {
+                                        this._tofixData[j].businessConditions[k].name = businessConditions[i].name;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    this._isToFixDataExists = true;
+                } else {
+                    console.error("EntityModelGetByIdsResponse Content not found.");
+                    this._showMessage(this._errorMessage);
+                }
+            },
+
+            _onBusinessConditionsGet1Error: function (e) {
+                console.error("BusinessConditions1GetError:- " + e.detail.response.reason.message);
+                this._showMessage(this._errorMessage);
+            },
 
             _isDataSetPrepared: function () {
                 var isWorkflowDefinitionAvailable = false;
@@ -764,8 +832,6 @@ Custom property | Description | Default
                 return workflowActivityNames;
             },
 
-
-
             _getWorkflowMappedBusinessConditions: function (workflowName) {
                 if (typeof (this._contextSpecificBusinessConditions) && this._contextSpecificBusinessConditions.length > 0) {
                     for (var i = 0; i < this._contextSpecificBusinessConditions.length; i++) {
@@ -780,7 +846,7 @@ Custom property | Description | Default
                var unknown = {
                     "id" : businessCondition.relTo.id,
                     "name": businessCondition.relTo.id.replace("_" + businessCondition.relTo.type, ""),
-                    "status": "unkown"
+                    "status": "unknown"
                 };
                 for (var i = 0; i < this._entityBusinessConditionsGovernData.length; i++) {
                     if(this._entityBusinessConditionsGovernData[i].id == businessCondition.relTo.id) {
