@@ -17,7 +17,7 @@ var DFServiceBase = function (options) {
     }
 
     this._headers = _dataConnection.getHeaders();
-    this._timeout - _dataConnection.getTimeout();
+    this._timeout = _dataConnection.getTimeout();
 
     this.requestJson = async function (url, request) {
 
