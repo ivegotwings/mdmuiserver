@@ -126,3 +126,5 @@ var server = app.listen(5005, function () {
     notificationEngine.initSockets(this);
     console.log('Web app is listening at http://%s:%s/', host, port);
 });
+
+server.timeout = 600000; //Set timeout to 10 mins

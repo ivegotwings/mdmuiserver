@@ -57,19 +57,25 @@ async function initiateSearch(callPath, args) {
         var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
         request.dataIndex = dataIndex;
 
+        var operation = request.operation || "search";
+        
+        var maxRecordsSupported = dataIndexInfo.maxRecordsToReturn || 2000;
+
         if (request.params) {
             var options = falcorUtil.getOrCreate(request.params, 'options', {});
-            options.maxRecords = dataIndexInfo.maxRecordsToReturn || 2000;
+            options.maxRecords = maxRecordsSupported;
+        }
+
+        if(operation === "initiatesearchandgetcount") {
+            options.maxRecords = 1; // Do not load entity ids and types if only count is requested..
         }
 
         //console.log('request str', JSON.stringify(request, null, 4));
-
         delete request.params.fields; // while initiating search, we dont want any of the fields to be returned..all we want is resulted ids..
 
         var res = await dataObjectManageService.get(request);
 
         // console.log('response raw str', JSON.stringify(res, null, 4));
-
         var totalRecords = 0;
 
         var collectionName = dataIndexInfo.collectionName;
@@ -81,17 +87,22 @@ async function initiateSearch(callPath, args) {
             var dataObjects = dataObjectResponse[collectionName];
             var index = 0;
             if (dataObjects !== undefined) {
-                totalRecords = dataObjects.length;
-                for (let dataObject of dataObjects) {
-                    if (dataObject.id !== undefined) {
-                        var dataObjectType = dataObject.type;
-                        var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds];
-                        response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [dataObject.id]))));
+                if(operation === "initiatesearchandgetcount") {
+                    totalRecords = dataObjectResponse.totalRecords;
+                }
+                else if(operation === "search") {
+                    totalRecords = dataObjects.length;
+                    for (let dataObject of dataObjects) {
+                        if (dataObject.id !== undefined) {
+                            var dataObjectType = dataObject.type;
+                            var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds];
+                            response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [dataObject.id]))));
+                        }
                     }
                 }
             }
         }
-        else if(dataObjectResponse && dataObjectResponse.status == 'error'){
+        else if(dataObjectResponse && dataObjectResponse.status == 'error') {
             if(dataObjectResponse.statusDetail) {
                 if(dataObjectResponse.statusDetail.messages){
                     var firstAvailableError = dataObjectResponse.statusDetail.messages[0];
@@ -105,6 +116,7 @@ async function initiateSearch(callPath, args) {
             }
         }
 
+        response.push(mergeAndCreatePath(basePath, ["maxRecords"], $atom(maxRecordsSupported)));
         response.push(mergeAndCreatePath(basePath, ["totalRecords"], $atom(totalRecords)));
         response.push(mergeAndCreatePath(basePath, ["requestId"], $atom(requestId)));
         //response.push(mergeAndCreatePath(basePath, ["request"], $atom(request)));
