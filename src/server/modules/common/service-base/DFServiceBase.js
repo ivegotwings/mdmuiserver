@@ -58,7 +58,8 @@ var DFServiceBase = function (options) {
             body: request,
             json: true,
             simple: false,
-            timeout: this._timeout
+            timeout: this._timeout,
+            gzip: true
         };
 
         //var hrstart = process.hrtime();
