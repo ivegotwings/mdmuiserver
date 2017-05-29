@@ -13,6 +13,7 @@ var bodyParser = require('body-parser');
 var compression = require('compression');
 
 var notificationEngine = require("../modules/notification-engine/socket");
+var webServerConfig = require("../config/web-server-config.json");
 
 var buildPath = process.cwd();
 
@@ -126,3 +127,5 @@ var server = app.listen(5005, function () {
     notificationEngine.initSockets(this);
     console.log('Web app is listening at http://%s:%s/', host, port);
 });
+
+server.timeout = webServerConfig.connectionTimeout;

@@ -17,7 +17,7 @@ var DFServiceBase = function (options) {
     }
 
     this._headers = _dataConnection.getHeaders();
-    this._timeout - _dataConnection.getTimeout();
+    this._timeout = _dataConnection.getTimeout();
 
     this.requestJson = async function (url, request) {
 
@@ -58,7 +58,8 @@ var DFServiceBase = function (options) {
             body: request,
             json: true,
             simple: false,
-            timeout: this._timeout
+            timeout: this._timeout,
+            gzip: true
         };
 
         //var hrstart = process.hrtime();
