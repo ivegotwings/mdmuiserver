@@ -117,8 +117,11 @@ Custom property | Description | Default
         <liquid-entity-model-get exclude-in-progress id="ruleContextMappingsGet" operation="getbyids" request-id="ruleContextMappingsGet" on-response="_onRuleContextMappingsGetResponse"
             on-error="_onRuleContextMappingsGetError"></liquid-entity-model-get>
 
-        <liquid-entity-model-get exclude-in-progress id="businessConditionsGet" operation="getbyids" request-id="businessConditionsGet" on-response="_onBusinessConditionsGetResponse"
+        <liquid-entity-model-get exclude-in-progress id="businessConditionsGet" operation="getbyids" request-id="businessConditionsGet" on-response="_onBusinessConditionsGetResponse" 
             on-error="_onBusinessConditionsGetError"></liquid-entity-model-get>
+
+        <liquid-entity-model-get id="unknownBusinessConditionsGet" operation="getbyids" request-id="unknownBusinessConditionsGet" on-response="_onUnkownBusinessConditionsGetResponse"
+            on-error="_onUnkownBusinessConditionsGetError"></liquid-entity-model-get>
         <rock-business-function-dialog id="attributeDialog"></rock-business-function-dialog>
         <div class="tofix-data-container">
             <pebble-spinner active="[[!_isToFixDataExists]]"></pebble-spinner>
@@ -358,12 +361,11 @@ Custom property | Description | Default
                         this._setEntityBusinessConditionsGovernData(entities[0]);
 
                         this._requestWorkflowDefinition();
-                        this._requestBusinessConditions();
+                        this._requestOriginalBusinessConditions();
 
                         // Note: Could be optimized.Why to bring all RuleMappings?
                         this._requestRuleContextMappings();
                     }
-                    
                 } else {
                     console.error("EntityGovernDataGetResponseContent not found.");
                     this._showMessage(this._errorMessage);
@@ -427,27 +429,10 @@ Custom property | Description | Default
             },
 
 
-            _requestBusinessConditions: function () {
+            _requestOriginalBusinessConditions: function () {
                 if (this._entityBusinessConditionNames.length) {
 
-                    var businessConditionsGet = this.$$('#businessConditionsGet');
-                    if (typeof (businessConditionsGet) === "undefined" || businessConditionsGet == null) {
-                        console.error("Element having id businessConditionsGet not found.");
-                        this._showMessage(this._errorMessage);
-                        return;
-                    }
-
-                    var clonedContextData = DataHelper.cloneObject(this._clonedContextData);
-
-                    // Prepare ItemContext
-                    var itemContext = ContextHelper.getFirstItemContext(clonedContextData);
-                    itemContext.id = this._entityBusinessConditionNames;
-                    itemContext.type = "businessCondition";
-                    clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
-
-                    // Create Request and Get
-                    businessConditionsGet.requestData = DataRequestHelper.createEntityGetRequest(clonedContextData);
-                    businessConditionsGet.generateRequest();
+                    this._requestBusinessConditions(this._entityBusinessConditionNames, "businessConditionsGet");
                 } else {
                     this._showMessage(this._nothingToFixMessage);
                 }
@@ -476,7 +461,7 @@ Custom property | Description | Default
                         }
                     }
 
-                    this._prepareToFixData();
+                    // this._prepareToFixData();
                 } else {
                     console.error("EntityModelGetByIdsResponse Content not found.");
                     this._showMessage(this._errorMessage);
@@ -644,6 +629,7 @@ Custom property | Description | Default
                 if (this._isDataSetPrepared()) {
                     var _tofixData = [];
                     var workflowBusinessConditions = [];
+                    var unkownBusinessConditionIds = [];
 
                     var tofixGlobalData = {};
                     tofixGlobalData["id"] = "general";
@@ -668,7 +654,7 @@ Custom property | Description | Default
                             }
                         }
 
-                        
+
                         for (var i = 0; i < tofixWorkflowDataSet.length; i++) {
                             var tofixWorkflowData = tofixWorkflowDataSet[i];
 
@@ -681,6 +667,9 @@ Custom property | Description | Default
                                     workflowBusinessConditions.push(workflowMappedBusinessConditions[j].relTo.id);
                                     var toFixBusinessCondition = this._getBusinessConditionStatusAndPrepareToFixData(workflowMappedBusinessConditions[j]);
                                     if (toFixBusinessCondition && !DataHelper.containsObject(toFixBusinessCondition, tofixWorkflowData.businessConditions)) {
+                                        if(toFixBusinessCondition.status === "unknown") {
+                                            unkownBusinessConditionIds.push(toFixBusinessCondition.id);
+                                        }
                                         tofixWorkflowData.businessConditions.push(toFixBusinessCondition); 
                                     }
                                 }
@@ -699,6 +688,9 @@ Custom property | Description | Default
                         if(workflowBusinessConditions.indexOf(businessCondition.relTo.id) == -1) {
                             var toFixBusinessCondition = this._getBusinessConditionStatusAndPrepareToFixData(businessCondition);
                             if (toFixBusinessCondition && !DataHelper.containsObject(toFixBusinessCondition, tofixGlobalData.businessConditions)) {
+                                if(toFixBusinessCondition.status === "unknown" && unkownBusinessConditionIds.indexOf(toFixBusinessCondition.id) == -1) {
+                                    unkownBusinessConditionIds.push(toFixBusinessCondition.id);
+                                }
                                 tofixGlobalData.businessConditions.push(toFixBusinessCondition);
                             }
                         }
@@ -709,10 +701,77 @@ Custom property | Description | Default
                     }
 
                     this.set("_tofixData", _tofixData);
-                    this._isToFixDataExists = true;
+                    if(unkownBusinessConditionIds.length > 0) {
+                        this._requestUnkownBusinessConditions(unkownBusinessConditionIds);
+                    } else {
+                        this._isToFixDataExists = true;
+                    }
                 }
             },
 
+            _requestUnkownBusinessConditions: function (businessConditionIds) {
+                if (businessConditionIds.length) {
+                    this._requestBusinessConditions(businessConditionIds, "unknownBusinessConditionsGet");
+                }
+            },
+
+
+
+            _onUnkownBusinessConditionsGetResponse: function (e) {
+                var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response);
+
+                if (responseContent) {
+                    var businessConditions = responseContent.entityModels;
+
+                    if (typeof (businessConditions) !== "undefined" && businessConditions.length > 0) {
+                        for (var i = 0; i < businessConditions.length; i++) {
+
+                            // LongNames are required for Displaying BusinessConditions
+                            for(var j = 0; j < this._tofixData.length; j++) {
+                                for(var k = 0; k < this._tofixData[j].businessConditions.length; k++) {
+                                    if(this._tofixData[j].businessConditions[k].id == businessConditions[i].id) {
+                                        this._tofixData[j].businessConditions[k].name = businessConditions[i].name;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    this._isToFixDataExists = true;
+                } else {
+                    console.error("EntityModelGetByIdsResponse Content not found.");
+                    this._showMessage(this._errorMessage);
+                }
+            },
+
+            _onUnkownBusinessConditionsGetError: function (e) {
+                console.error("UnkownBusinessConditionsGetError:- " + e.detail.response.reason.message);
+                this._showMessage(this._errorMessage);
+            },
+
+            _requestBusinessConditions: function(businessConditionIds, liquidElementId) {
+                if (businessConditionIds.length) {
+
+                    var businessConditionsGet = this.$$('#' + liquidElementId);
+                    if (typeof (businessConditionsGet) === "undefined" || businessConditionsGet == null) {
+                        console.error("Element having id " + liquidElementId + " not found.");
+                        this._showMessage(this._errorMessage);
+                        return;
+                    }
+
+                    var clonedContextData = DataHelper.cloneObject(this._clonedContextData);
+
+                    // Prepare ItemContext
+                    var itemContext = ContextHelper.getFirstItemContext(clonedContextData);
+                    itemContext.id = businessConditionIds;
+                    itemContext.type = "businessCondition";
+                    clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+
+                    // Create Request and Get
+                    businessConditionsGet.requestData = DataRequestHelper.createEntityGetRequest(clonedContextData);
+                    businessConditionsGet.generateRequest();
+                }
+            },
 
             _isDataSetPrepared: function () {
                 var isWorkflowDefinitionAvailable = false;
@@ -764,8 +823,6 @@ Custom property | Description | Default
                 return workflowActivityNames;
             },
 
-
-
             _getWorkflowMappedBusinessConditions: function (workflowName) {
                 if (typeof (this._contextSpecificBusinessConditions) && this._contextSpecificBusinessConditions.length > 0) {
                     for (var i = 0; i < this._contextSpecificBusinessConditions.length; i++) {
@@ -780,7 +837,7 @@ Custom property | Description | Default
                var unknown = {
                     "id" : businessCondition.relTo.id,
                     "name": businessCondition.relTo.id.replace("_" + businessCondition.relTo.type, ""),
-                    "status": "unkown"
+                    "status": "unknown"
                 };
                 for (var i = 0; i < this._entityBusinessConditionsGovernData.length; i++) {
                     if(this._entityBusinessConditionsGovernData[i].id == businessCondition.relTo.id) {
