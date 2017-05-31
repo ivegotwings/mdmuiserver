@@ -253,7 +253,7 @@ Custom property | Description | Default
                 _nothingToFixMessage: {
                     type: String,
                     value: "Nothing to fix!"
-                }
+                }               
             },
 
             behaviors: [
@@ -438,6 +438,27 @@ Custom property | Description | Default
                 }
             },
 
+            _isBusinessConditionAllowedForRole: function(businessCondition) {
+                var allowedRoles = businessCondition.data.attributes.allowedRoles;
+                var userContext = this.contextData.UserContexts[0];
+
+                if(allowedRoles) {
+                   for(var i = 0; i < allowedRoles.values.length; i++) {
+                      //Check for _ALL or user role  
+                      if(allowedRoles.values[i].value == "_ALL" || 
+                         allowedRoles.values[i].value.toLowerCase() == userContext.role.toLowerCase()) {
+                          return true;
+                      }
+                   }
+                   
+                   //Not have "_ALL" / user role                   
+                   return false;
+                }
+
+                //No allowedRoles, then BC is allpicable to any role   
+                return true;
+            },
+
             _onBusinessConditionsGetResponse: function (e) {
                 var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response);
 
@@ -455,6 +476,10 @@ Custom property | Description | Default
 
                             if (formattedBusinessCondition) {
                                 formattedBusinessCondition["name"] = businessConditions[i].name;
+                            }
+
+                            if(formattedBusinessCondition && this._isBusinessConditionAllowedForRole(businessConditions[i])) {
+                               formattedBusinessCondition["isAllowedToShow"] = true;
                             }
 
                             this.push("_originalBusinessConditions", businessCondition);
@@ -553,7 +578,7 @@ Custom property | Description | Default
                         }
                     }
 
-                    this._entityTypeBusinessConditions = allBusinessConditions;
+                    this._entityTypeBusinessConditions = allBusinessConditions;                    
                     this._prepareToFixData();
                 } else {
                     RUFUtilities.Logger.error("RuleContextMappingsGetResponseContent not found.");
@@ -766,6 +791,7 @@ Custom property | Description | Default
                     itemContext.id = businessConditionIds;
                     itemContext.type = "businessCondition";
                     clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+                    clonedContextData.ItemContexts[0].attributeNames = ["_ALL"]; //To fetch all the attributes
 
                     // Create Request and Get
                     businessConditionsGet.requestData = DataRequestHelper.createEntityGetRequest(clonedContextData);
@@ -841,7 +867,12 @@ Custom property | Description | Default
                 };
                 for (var i = 0; i < this._entityBusinessConditionsGovernData.length; i++) {
                     if(this._entityBusinessConditionsGovernData[i].id == businessCondition.relTo.id) {
-                        return this._entityBusinessConditionsGovernData[i];
+                        if(this._entityBusinessConditionsGovernData[i].isAllowedToShow)
+                        {
+                            return this._entityBusinessConditionsGovernData[i];
+                        }
+                        //When not to show the BC
+                        return;
                     }
                 }
                 return unknown;
