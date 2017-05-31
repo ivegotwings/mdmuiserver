@@ -3,43 +3,48 @@ require("babel-register");
 require("babel-polyfill");
 require("hogan.js");
 
-//var LoggerService = require('../modules/common/logger/LoggerService');
-//LoggerService.configure();
-
 var express = require('express');
 var history = require('connect-history-api-fallback');
 var cors = require('cors');
 var bodyParser = require('body-parser');
 var compression = require('compression');
 
-var notificationEngine = require("../modules/notification-engine/socket");
-var webServerConfig = require("../config/web-server-config.json");
+var webEngineConfig = require("../../config/web-engine-config.json");
+
+var logger = require('../common/logger/logger-service');
+logger.configure(webEngineConfig.loggerConfig);
 
 var buildPath = process.cwd();
-
 var relativePath = process.env.PROJECT_PATH;
 
 if (relativePath) {
     buildPath = buildPath + '/' + relativePath;
 }
 
-console.log('buildPath:', buildPath);
+logger.info('Web engine start - build path identified', {"buildPath": buildPath});
 
 var app = express();
 
 app.use(compression());
 
+logger.info('Web engine start - compression middleware is loaded');
+
 //We are setting view engine and path for views for express js
 app.set('views', buildPath + '/src/views');
 app.set('view engine', 'hjs');
+
+logger.info('Web engine start - views are loaded');
 
 // parse application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({limit: '10mb', extended: false}));
 app.use(bodyParser.json({limit: '10mb'}));
 
+logger.info('Web engine start - body parser middleware is loaded');
+
 // register cors to allow cross domain calls
 app.use(cors());
 
+logger.info('Web engine start - cors middleware is loaded');
 
 //handling root path (specifically for SAML type of authentication)
 app.get('/', function (req, res) {
@@ -48,36 +53,59 @@ app.get('/', function (req, res) {
     }
 });
 
+logger.info('Web engine start - default location route is loaded');
+
 // register static file content folder path..
 app.use(express.static(buildPath, { maxAge: "1s" }));
 
-var contextMgrMiddleware = require('../modules/common/context-manager/middleware');
+logger.info('Web engine start - static content routes are loaded');
+
+var contextMgrMiddleware = require('../common/context-manager/middleware');
 contextMgrMiddleware(app);
 
+logger.info('Web engine start - context manager middleware is loaded');
+
 //Load falcor api routes
-var dataobjectRoute = require('../modules/dataobject/dataobject-router');
+var dataobjectRoute = require('../dataobject/dataobject-router');
 dataobjectRoute(app);
 
-var passThroughRoute = require('../modules/pass-through/pass-through-route');
+logger.info('Web engine start - dataobject service routes are loaded');
+
+var passThroughRoute = require('../pass-through/pass-through-route');
 passThroughRoute(app);
 
-var copRoute = require('../modules/cop/cop-route');
+logger.info('Web engine start - passthrough service routes are loaded');
+
+var copRoute = require('../cop/cop-route');
 copRoute(app);
 
-var fileUploadRoute = require('../modules/file-upload/file-upload-route');
+logger.info('Web engine start - cop service routes are loaded');
+
+var fileUploadRoute = require('../file-upload/file-upload-route');
 fileUploadRoute(app);
 
-var clientLoggingRoute = require('../modules/ruf-utilities/client-logging-route');
-clientLoggingRoute(app);
+logger.info('Web engine start - fileupload routes are loaded');
 
-var fileDownloadRoute = require('../modules/file-download/file-download-route');
+var fileDownloadRoute = require('../file-download/file-download-route');
 fileDownloadRoute(app);
 
-var notificationService = require('../modules/notification-service/notification-route');
+logger.info('Web engine start - filedownload routes are loaded');
+
+var clientLoggingRoute = require('../ruf-utilities/client-logging-route');
+clientLoggingRoute(app);
+
+logger.info('Web engine start - client logger routes are loaded');
+
+var notificationEngine = require("../notification-engine/socket");
+var notificationService = require('../notification-service/notification-route');
 notificationService(app);
 
-var assetRoute = require('../modules/asset/asset-route');
+logger.info('Web engine start - notification service routes are loaded');
+
+var assetRoute = require('../asset/asset-route');
 assetRoute(app);
+
+logger.info('Web engine start - asset service routes are loaded');
 
 //register static file root ...index.html..
 app.get('*', function (req, res) {
@@ -95,6 +123,8 @@ app.get('*', function (req, res) {
     }
 });
 
+logger.info('Web engine start - base static file root route is loaded');
+
 function renderAuthenticatedPage(req, res) {
     var userId = req.header("x-rdp-userid");
     var tenantId = req.header("x-rdp-tenantid");
@@ -102,6 +132,8 @@ function renderAuthenticatedPage(req, res) {
     var firstName = req.header("x-rdp-firstname");
     var lastName = req.header("x-rdp-lastname");
     var userEmail = req.header("x-rdp-useremail");
+    var userName = req.header("x-rdp-username");
+
     if (tenantId && userId) {
         var fullName = "";
         if (firstName) {
@@ -113,19 +145,28 @@ function renderAuthenticatedPage(req, res) {
         if (fullName == "") {
             fullName = userId;
         }
-        res.render('index', { isAuthenticated: true, tenantId: tenantId, userId: userId, roleId: userRoles, fullName: fullName });
+        res.render('index', { isAuthenticated: true, tenantId: tenantId, userId: userId, roleId: userRoles, fullName: fullName, userName: userName });
         return true;
     } else {
         return false;
     }
 }
+
+logger.info('Web engine start - starting web engine...');
+
 // Finally, start the web server...
 var server = app.listen(5005, function () {
     var host = server.address().address === '::' ? 'localhost' : server.address().address;
     var port = server.address().port;
 
+    logger.info('Web engine start - starting notification engine...');
+
     notificationEngine.initSockets(this);
-    console.log('Web app is listening at http://%s:%s/', host, port);
+
+    logger.info('Web engine start - notification engine is started');
+
+    logger.info('Web engine start - web engine is started', {"host": host, "port": port});
+    console.log('Web engine is running now at http://%s:%s/', host, port);
 });
 
-server.timeout = webServerConfig.connectionTimeout;
+server.timeout = webEngineConfig.connectionTimeout;
