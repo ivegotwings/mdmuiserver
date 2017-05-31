@@ -1,0 +1,147 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-lov-datasource-behavior/bedrock-lov-datasource-behavior.html">
+
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+
+<dom-module id="entity-lov-datasource">
+    <template>
+        <liquid-entity-data-get id="initGetEntitySearch" operation="initiatesearch" request-data="{{request}}" last-response="{{_initGetEntitySearchResponse}}"
+            on-error="_onGetSearchError" exclude-in-progress></liquid-entity-data-get>
+        <liquid-entity-data-get id="getEntitySearchResults" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[_initGetEntitySearchResponse.content.requestId]]"
+            last-response="{{getEntitySearchResultsResponse}}" on-error="_onGetSearchError" exclude-in-progress></liquid-entity-data-get>
+    </template>
+    <script>
+        Polymer({
+            is: 'entity-lov-datasource',
+            properties: {
+                isAttributeFilter: {
+                    type: Boolean,
+                    value: false
+                },
+                _liquidInitSearchElement: {
+                    type: Object,
+                    value: function () {
+                        return {}
+                    }
+                },
+
+                _liquidGetSearchElement: {
+                    type: Object,
+                    value: function () {
+                        return {}
+                    }
+                }
+            },
+
+            behaviors: [
+                RUFBehaviors.LOVDataSourceBehavior
+            ],
+
+            ready: function () {
+                this._liquidInitSearchElement = Polymer.dom(this).node.$$(
+                    "liquid-entity-data-get[id='initGetEntitySearch']");
+                this._liquidGetSearchElement = Polymer.dom(this).node.$$(
+                    "liquid-entity-data-get[id='getEntitySearchResults']");
+
+                this.dataSource = this._dataSource.bind(this);
+            },
+
+            _dataSource: function (data, success, error) {
+
+                if (_.isEmpty(this.request)) {
+                    return;
+                }
+
+                // Bind Reponse
+                if (!this.isResponseAttached) {
+                    this._liquidInitSearchElement.addEventListener('response', this._onInitSearchResponse.bind(this));
+                    this._liquidGetSearchElement.addEventListener('response', this._onGetSearchResponse.bind(this, success, error));
+
+                    this._error = error;
+                    this.isResponseAttached = true;
+                }
+
+                // Filter
+                if (this.isAttributeFilter) {
+                    var attributesCriterion;
+                    if (this.attributesCriterionBuilder && this.attributesCriterionBuilder instanceof Function) {
+                        attributesCriterion = this.attributesCriterionBuilder(data.filter);
+                    }
+
+                    if (attributesCriterion && attributesCriterion.length) {
+                        this.set("request.params.query.filters.attributesCriterion", attributesCriterion);
+                    } else if (typeof (this.request.params.query.filters.attributesCriterion !== undefined)) {
+                        delete this.request.params.query.filters.attributesCriterion;
+                    }
+                } else {
+                    var keywordsCriterion;
+                    if (this.keywordsCriterionBuilder && this.keywordsCriterionBuilder instanceof Function) {
+                        keywordsCriterion = this.keywordsCriterionBuilder(data.filter);
+                    }
+
+                    if (keywordsCriterion) {
+                        this.set("request.params.query.filters.keywordsCriterion", keywordsCriterion);
+                    } else if (typeof (this.request.params.query.filters.keywordsCriterion !== undefined)) {
+                        delete this.request.params.query.filters.keywordsCriterion;
+                    }
+                }
+
+                if (this.checkIfRequestChanged()) {
+                    this.isRequestInitiated = false;
+                    data.page = 1;
+                }
+
+                // Set Range
+                var from = data.page > 0 ? (data.page - 1) * data.pageSize : 0;
+                var to = data.page > 0 ? data.page * data.pageSize - 1 : 0;
+
+                var options = {
+                    "from": from,
+                    "to": to
+                };
+                this.set("request.params.options", options);
+
+                // Initiate Request only for First Time.
+                if (!this.isRequestInitiated) {
+                    this._liquidInitSearchElement.generateRequest();
+                } else {
+                    this._liquidGetSearchElement.generateRequest();
+                }
+            },
+
+            reTriggerRequest: function () {
+                // Initiate Request only for First Time.
+                if (!this.isRequestInitiated) {
+                    this._liquidInitSearchElement.generateRequest();
+                } else {
+                    this._liquidGetSearchElement.generateRequest();
+                }
+            },
+
+            _onInitSearchResponse: function () {
+                this._lastRequest = DataHelper.cloneObject(this.request);
+                this._liquidGetSearchElement.generateRequest();
+                this.isRequestInitiated = true;
+            },
+
+            _onGetSearchResponse: function (success, error) {
+                if (typeof (this.dataFormatter) == 'function') {
+                    if (this.getEntitySearchResultsResponse.status === "success") {
+                        success(this.dataFormatter(this.getEntitySearchResultsResponse));
+                    } else {
+                        error();
+                    }
+                }
+            },
+
+            _onGetSearchError: function (e) {
+                var response = e.detail.response; //need to check why this is response.response
+                if (response && response.status && response.status.toLowerCase() == "error") {
+                    this._error();
+                }
+            }
+        });
+    </script>
+</dom-module>
