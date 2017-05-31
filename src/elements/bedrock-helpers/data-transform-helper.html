@@ -68,7 +68,7 @@
             return mergedRelationshipModels;
         };
 
-        DataTransformHelper.transformAttributes = function (entity, attributeModels, contextData, outputSchema) {
+        DataTransformHelper.transformAttributes = function (entity, attributeModels, contextData, outputSchema, applySort) {
             var firstDataContext = ContextHelper.getFirstDataContext(contextData);
             var firstValueContext = ContextHelper.getFirstValueContext(contextData);
 
@@ -85,9 +85,14 @@
                 }
             }
 
+            var sortedAttributeModels = attributeModels;
+            if(applySort) {
+                sortedAttributeModels = this.sortAttributeModels(attributeModels);
+            }
+
             var transformedAttributes;
             if (!_.isEmpty(attributeModels)) {
-                transformedAttributes = this._transformAttributes(mergedAttributes, attributeModels, firstValueContext);
+                transformedAttributes = this._transformAttributes(mergedAttributes, sortedAttributeModels, firstValueContext);
             }
             else {
                 transformedAttributes = this._transformAttributesWithoutModels(mergedAttributes, firstValueContext);
@@ -107,30 +112,79 @@
             return outputData;
         };
 
+        //Sort related functions - Start
+
         DataTransformHelper.sortAttributeModels = function(attributeModels) {
+            //convert object to array
+            var modelArray = _.map(attributeModels, function (value, index) { return value; });
+
+            //do the sort
+            this._assignDefaultDisplaySequence(modelArray);
+            modelArray = this._sortByDisplaySequence(modelArray);
+
+            //convert back to object
             var sortedAttributeModels = {};
-            var sortedKeys = Object.keys(attributeModels).sort(function(a,b){
+            modelArray.forEach(function(model) { 
+                sortedAttributeModels[model.name] = model;
+            });
+            
+            return sortedAttributeModels;
+        };
+
+        DataTransformHelper._sortByDisplaySequence= function(modelArray){
+            var sortedModelArray = modelArray.sort(function(a,b){
+                    return a.displaySequence > b.displaySequence ? 1 : -1;
+                }
+            );
+            sortedModelArray = this._sortCommonDisplaySequence(sortedModelArray);
+            return sortedModelArray;
+        };
+
+        DataTransformHelper._sortCommonDisplaySequence = function(modelArray) {
+            var sortedModelArray = [];
+            var commonSequenceSet = [];
+            for(var i=0;i<modelArray.length;i++) {
+                var currentAttributeModel = modelArray[i];
+                if(commonSequenceSet.length == 0) {
+                    commonSequenceSet.push(currentAttributeModel);
+                }
+                else if(currentAttributeModel.displaySequence == prevAttributeModel.displaySequence) {
+                    commonSequenceSet.push(currentAttributeModel)
+                } else if(currentAttributeModel.displaySequence != prevAttributeModel.displaySequence){
+                    sortedModelArray = sortedModelArray.concat(this._sortArrayByExternalName(commonSequenceSet));
+                    commonSequenceSet.push(currentAttributeModel)
+                }
+                prevAttributeModel = currentAttributeModel;
+            }
+            sortedModelArray = sortedModelArray.concat(this._sortArrayByExternalName(commonSequenceSet));
+            return sortedModelArray;
+        };
+
+        DataTransformHelper._sortArrayByExternalName = function(inputArray) {
+            var sortedArray = inputArray.sort(function(a,b){
                     var name1 = '';
                     var name2 = '';
-                    if(a && attributeModels[a] && attributeModels[a].externalName) {
-                        name1 = attributeModels[a].externalName.toLowerCase();
+                    if(a && a.externalName) {
+                        name1 = a.externalName.toLowerCase();
                     }
-                    if(b && attributeModels[b] && attributeModels[b].externalName) {
-                        name2 = attributeModels[b].externalName.toLowerCase();
+                    if(b && b.externalName) {
+                        name2 = b.externalName.toLowerCase();
                     }
                     return name1 > name2 ? 1 : -1;
                 }
             );
-            for(var i=0;i<sortedKeys.length;i++) {
-                var attributeName = sortedKeys[i];
-                if(attributeName) {
-                    sortedAttributeModels[attributeName] = attributeModels[attributeName];
-                }
-            }
-
-            return sortedAttributeModels;
+            return sortedArray;
         };
 
+        DataTransformHelper._assignDefaultDisplaySequence = function(attributeModels) {
+            for(var i=0;i<attributeModels.length;i++) {
+                if(!attributeModels[i].displaySequence) {
+                    attributeModels[i].displaySequence = 9999999;
+                }
+            }
+        };
+
+        //Sort related functions - End
         
         DataTransformHelper.transformEntitiesToGridFormat = function (entities, attributeModels, contextData, columns) {
             var transformedEntities = [];
@@ -152,7 +206,7 @@
 
                     var transformedAttributes = {};
                     if (entity) {
-                        transformedAttributes = DataTransformHelper.transformAttributes(entity, attributeModels, contextData, "objects");
+                        transformedAttributes = DataTransformHelper.transformAttributes(entity, attributeModels, contextData, "objects", false);
                         if (metaDataColumns && metaDataColumns.length) {
                             for (var j = 0; j < metaDataColumns.length; j++) {
                                 var columnName = metaDataColumns[j].name;
@@ -608,7 +662,8 @@
                                 }
                             } else {
                                 if (entities[i].data) {
-                                    attributeValue = DataTransformHelper._transformEntityAttributesForLovSchema(entities[i].data.attributes, lovColumnNameValueCollection[columnName]);
+                                    var attrName = DataHelper.getWordsBetweenCurlies(DataHelper.readAttributeFromPath(lovColumnNameValueCollection[columnName]));
+                                    attributeValue = DataTransformHelper._transformEntityAttributesForLovSchema(entities[i].data.attributes, attrName);
                                     if(attributeValue && attributeValue.value){
                                         formattedEntity[columnName] = attributeValue.value;
                                     }
