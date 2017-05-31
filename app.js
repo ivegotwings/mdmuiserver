@@ -1,3 +1,2 @@
 'use strict';
-
-require('./src/server/initializers/web-server');
+require('./src/server/modules/web-engine/web-engine-loader');

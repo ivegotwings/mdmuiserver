@@ -2,7 +2,7 @@
 
 var DFRestService = require('../common/df-rest-service/DFRestService');
 
-var LoggerService = require('../common/logger/LoggerService');
+var logger = require('../common/logger/logger-service');
 
 var falcorUtil = require('../../../shared/dataobject-falcor-util');
 var mergeUtil = require('../../../shared/dataobject-merge-util');
@@ -164,8 +164,9 @@ EntityCompositeModelGetService.prototype = {
             var manageModel = allModels.find(obj => obj.type == "entityManageModel");
 
             if (!manageModel) {
-                //LoggerService.warn('manage model not found');
-                console.log('\n Entity manage model is not available or user does not have permission. Request: ', JSON.stringify(request));
+                var msg = "\n Entity manage model is not available or user does not have permission. Request: " + JSON.stringify(request);
+                logger.warn(msg);
+                console.log(msg);
                 return {};
             }
             
