@@ -49,13 +49,13 @@ It renders the list of attributes based on the specified parameters.
 
             .group-line-container {
                 float: right;
-                border-bottom: 1px solid black;
+                border-bottom: 1px solid var(--border-black, #000);
             }
 
             .attribute-box {
                 display: inline-block;
-                padding: 0 40px;
-                vertical-align: top;
+                padding: 0 20px;
+                vertical-align: bottom;
             }
 
             .attribute-wrapper {
@@ -88,7 +88,7 @@ It renders the list of attributes based on the specified parameters.
             <div class$="[[_getAttributeClass(noOfColumns)]]" name$="[[attribute.name]]">
                 <rock-attribute context-data="[[contextData]]" mode="{{mode}}" errors="{{attribute.errors}}" server-errors="[[_getAttributeMessage(attribute,attributeMessages)]]"
                     attribute-model-object="[[_getAttributeModel(attributeModels, attribute)]]" attribute-object="{{attribute}}"
-                    original-attribute-object="[[_cloneObject(attribute)]]"></rock-attribute>
+                    original-attribute-object="[[_cloneObject(attribute)]]" tabindex="[[_getTabIndex(attribute)]]" on-attribute-value-changed="resetErrors"></rock-attribute>
             </div>
 
             <template is="dom-if" if="[[_checkRenderGroupBar(attribute, 1)]]">
@@ -159,7 +159,7 @@ It renders the list of attributes based on the specified parameters.
                         type: Array,
                         value: function () {
                             return [];
-                        }
+                        }                        
                     },
                     /**
                      * Indicates the attribute value objects which renders the attributes.
@@ -169,7 +169,8 @@ It renders the list of attributes based on the specified parameters.
                         type: Object,
                         value: function () {
                             return {};
-                        }
+                        },
+                        observer: '_onAttributeMessagesChange'
                     },
                     /**
                      * Indictaes the locale dimension for which the attribute list is used.
@@ -196,7 +197,11 @@ It renders the list of attributes based on the specified parameters.
                     groupName: {
                         type: String,
                         value: "My Attributes"
-                    }
+                    },                    
+                    _runningTabIndex: {
+                        type: Number,
+                        value: 1
+                    } 
                 },
                 behaviors: [
                     RUFBehaviors.UIBehavior,
@@ -208,14 +213,14 @@ It renders the list of attributes based on the specified parameters.
                 ],
                 _getAttributeClass: function (n) {
                     return "attribute-box attribute-box-" + n;
-                },
+                },                
                 _getAttributeModel: function (attributeModels, attribute) {
                     var model;
                     if (attributeModels) {
                         if (attribute.name in attributeModels) {
                             model = attributeModels[attribute.name];
                         }
-                    }
+                    }                                 
 
                     if (_.isEmpty(model)) {
                         //set default model as textbox
@@ -230,11 +235,12 @@ It renders the list of attributes based on the specified parameters.
 
                     if (_.isEmpty(model.dataType)) {
                         model.dataType = 'string';
-                    }
+                    }                    
 
                     if (_.isEmpty(model.displayType)) {
-                        model.displayType = this._getDisplayType(model.dataType);
-                    }
+                        var dataType = model.dataType ? model.dataType.toLowerCase() : model.dataType;
+                        model.displayType = this._getDisplayType(dataType);
+                    }                    
 
                     return model;
                 },
@@ -303,6 +309,11 @@ It renders the list of attributes based on the specified parameters.
                 _cloneObject: function (o) {
                     return DataHelper.cloneObject(o);
                 },
+
+                resetErrors: function () {
+                    this._calculateErrorLength(this.attributeValues);
+                },
+
                 _calculateErrorLength: function (attributeValues) {
                     var errorCount = 0;
                     for (var i = 0; i < attributeValues.length; i++) {
@@ -312,13 +323,26 @@ It renders the list of attributes based on the specified parameters.
                         }
                     }
 
-                    var eventDetail = {
-                        data: errorCount
-                    }
-
-                    this.fireBedrockEvent("error-length-changed", eventDetail, {
+                    this.fireBedrockEvent("error-length-changed", errorCount, {
                         ignoreId: true
                     });
+                },
+                //On messages change re-calculate tab error length
+                _onAttributeMessagesChange: function() {
+                    if(this.attributeValues && this.attributeMessages)
+                    {
+                        for(var i = 0; i < this.attributeValues.length; i++)
+                        {                            
+                            var _currentAttribute = this.attributeValues[i];
+                            if(this.attributeMessages[_currentAttribute.name])
+                            {
+                                if(!_currentAttribute["errors"] || _currentAttribute["errors"].length == 0)
+                                {
+                                    _currentAttribute["errors"] = this.attributeMessages[_currentAttribute.name];
+                                }                                
+                            }
+                        }
+                    }
                 },
                 _modeChanged: function (mode) {
                     var data = {
@@ -361,6 +385,21 @@ It renders the list of attributes based on the specified parameters.
                         }
                     }
                     return [];
+                },
+                hasModelErrors: function () {
+                    var _attributes = Polymer.dom(this).node.querySelectorAll('rock-attribute');
+                    if(_attributes == undefined || _attributes.length == 0) {
+                        _attributes = Polymer.dom(this).node.root.querySelectorAll('rock-attribute');
+                    }
+                    for (var i = 0; i < _attributes.length; i++) { 
+                        if (_attributes[i].hasModelErrors()) { 
+                            return true;
+                        } 
+                    } 
+                    return false;
+                },
+                _getTabIndex: function(attribute) {
+                    return this._runningTabIndex++;
                 }
             });
         })();

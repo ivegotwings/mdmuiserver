@@ -10,8 +10,8 @@
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 
 <!--
-`rock-wizard` Represents an element that displays the steps in an order
-based on the configuration that user has provided.
+`rock-wizard` Represents an element that displays the steps in a sequence
+based on the given configuration.
 
 @demo demo/index.html
 -->
@@ -26,11 +26,13 @@ based on the configuration that user has provided.
                 padding: 14px;
                 border-radius: 5px;
                 margin-top: 20px;
+                
             }
             #stepper {
-                align-self: center;
                 -webkit-align-self: center; /* Safari 7.0+ */
-                padding: 4px;
+                -ms-align-self: center;
+                 align-self: center;
+                 padding: 4px;
             }
             .stepper-style {
                 --pebble-connected-badge-width: 40px;
@@ -60,6 +62,8 @@ based on the configuration that user has provided.
         <bedrock-pubsub event-name="component-creating" handler="_onComponentCreating" target-id=""></bedrock-pubsub>
         <bedrock-pubsub id="next-event" handler="_onNext"></bedrock-pubsub>
         <bedrock-pubsub id="back-event" handler="_onBack"></bedrock-pubsub>
+        <bedrock-pubsub id="skip-event" handler="_onSkip"></bedrock-pubsub>
+        <bedrock-pubsub id="cancel-event" handler="_onCancel"></bedrock-pubsub>
     </template>
 </dom-module>
 <script>
@@ -93,7 +97,7 @@ based on the configuration that user has provided.
                     }
                 },
                 /*
-                 * Indicates the data that can be shared between all the steps of the wizard.
+                 * Indicates the data that is shared between all the steps of the wizard.
                  */
                 sharedData: {
                     type: Object,
@@ -183,10 +187,10 @@ based on the configuration that user has provided.
            
             _onNext: function(e, detail, sender) {
                 var data=detail.data;
-                for (var i in data){
-                    if (data.hasOwnProperty(i)) {
-                      this.sharedData[i]=data[i];
-                    }
+                this._loadSharedData();
+                if(data && data.skipNext) {
+                    this._updateStepperSelectedStep(this._currentStepIndex + 1);
+                    this._currentStepIndex++;
                 }
                 this.goToNext();
             },
@@ -197,18 +201,27 @@ based on the configuration that user has provided.
                     this.fire('first-step-cancelled');
                 }
             },
+            _onSkip: function(e, detail, sender) {
+                this._loadSharedData();
+                this.goToNext();
+            },
+            _onCancel: function(e, detail, sender) {
+                ComponentHelper.closeCurrentApp();
+            },
             _onComponentCreating: function(e, detail, sender) {
-                if(detail && detail.data) {
-                    // changes to be done to component properties, if required
-                        }
+                
             },
             _addEventListeners: function(config) {
                 if(config) {
                     this.appId = this.getAppId();
                     var nextEventName = config.nextEvent;
-                    var backEventName = config.skipEvent;
+                    var backEventName = config.backEvent;
+                    var skipEventName = config.skipEvent;
+                    var cancelEventName = config.cancelEvent;
                     var nextElement = this.$$('#next-event');
                     var backElement = this.$$('#back-event');
+                    var skipElement = this.$$('#skip-event');
+                    var cancelElement = this.$$('#cancel-event');
                     if(nextElement && nextEventName) {
                         nextElement.eventName = nextEventName;
                         nextElement.registerEvent();
@@ -217,15 +230,31 @@ based on the configuration that user has provided.
                         backElement.eventName = backEventName;
                         backElement.registerEvent();
                     }
+                    if(skipElement && skipEventName) {
+                        skipElement.eventName = skipEventName;
+                        skipElement.registerEvent();
+                    }
+                    if(cancelElement && cancelEventName) {
+                        cancelElement.eventName = cancelEventName;
+                        cancelElement.registerEvent();
+                    }
+                }
+            },
+            _loadSharedData: function() {
+                var contentElement = this.$$('#step-container');
+                var currentComponent=contentElement.firstElementChild;
+                var currentConfig=this.config.steps[this._currentStepIndex];
+                if(currentConfig.sharedProperties){
+                    var sharedProperties=currentConfig.sharedProperties;
+                    for(var i in sharedProperties){
+                        this.sharedData[i]=currentComponent[sharedProperties[i]];
+                    }
                 }
             },
             /**
             * Can be used to get if the current component loaded in the wizard is dirty or not.
             */
             getIsDirty: function() {
-                if(this._currentStepIndex && this._currentStepIndex > 0) {
-                    return true;
-                }
                 var content = this.$$('#step-container');
                 if(content && content.firstElementChild && content.firstElementChild.getIsDirty) {
                     return content.firstElementChild.getIsDirty();

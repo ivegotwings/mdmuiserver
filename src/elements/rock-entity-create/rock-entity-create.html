@@ -27,7 +27,7 @@
             }
             
             #manualActions::shadow #actionsPopover {
-                margin-top: 7px;
+                margin-top: 0;
             }
             
             .title {
@@ -35,46 +35,6 @@
                 text-align: center;
                 color:var(--palette-steel-grey, #75808b);
             }
-            /*#content-buttons::shadow #manualActions::shadow #actionsPopover::shadow .pebble-xl-icons {
-                width: 10px !important;
-                height: 10px !important;
-            }*/
-            /*#manualActions::shadow pebble-popover paper-item {
-                display: inline-block;
-                word-break: break-all;
-                width:92px;
-                white-space: normal;
-                text-align: center;
-                padding:10px;
-                color:var(--palette-dark, #1a2028);
-               }
-            #manualActions::shadow pebble-popover {
-                width: auto !important;
-                min-width: inherit;
-                padding: 5px;
-                color: var(--palette-white,#fff);
-            }
-            #manualActions ::shadow paper-item:hover{   
-                box-shadow: 0 0 3px 2px rgba(236, 241, 247, 0.7);
-                color: var(--primary-button-color, #036bc3);
-                
-            }*/
-            #manualActions::shadow pebble-popover paper-item {
-                padding: 5px 10px;
-               }
-            #manualActions::shadow pebble-popover paper-item #actionItem:hover {
-                color:var(--focused-line, #026bc3);
-                background-color:var(--bgColor-hover,#e8f4f9);
-            }
-            #manualActions::shadow pebble-popover paper-item #actionItem{
-                font-size: var(--font-size-sm, 12px);
-                color: var(--palette-steel-grey);
-                line-height: 16px;
-            }
-            #manualActions::shadow pebble-popover paper-item #actionItem:focus{
-                color: var(--primary-button-color, #036bc3);
-            }             
-
         </style>
         <div id="content-description" align="center" hidden>
             <!-- description message here -->
@@ -112,6 +72,12 @@
                             return null;
                         }
                     },
+                    processProfileName: {
+                        type: String,
+                        value: function() {
+                            return null;
+                        }
+                    },
                     /**
                      * Indicates the names of the attributes that are rendered while creating a single entity.
                      */
@@ -121,6 +87,14 @@
                             return [];
                         }
                     },
+                    messageCodeMapping: {
+                        type: Object,
+                        value: function() { return {}; }
+                    },
+                    businessFunctionData: {
+                        type: Object,
+                        value: function() { return {}; }
+                    }
                 },
                 behaviors: [
                     RUFBehaviors.UIBehavior
@@ -131,20 +105,20 @@
                 },
                 attached: function(){
                     var pebbleActionsConfig = document.querySelector('main-app').getConfig('pebble-actions');
-                    if(pebbleActionsConfig) {
-                        this._setContextData(pebbleActionsConfig);
+                    if(pebbleActionsConfig && pebbleActionsConfig.length) {
+                        var configData = pebbleActionsConfig[0];
+                        this._setContextData(configData);
                     }
                 },
                 _onActionItemTap: function(e, detail, sender) {
                     if (detail && detail.data) {
-                        if (this._isDirty) {
-                            if (window.confirm("Changes done so far are saved. Do you want to leave the page?")) {
+                        if (this.getIsDirty()) {
+                            if (window.confirm("There are unsaved changes. Do you really want to leave the page?")) {
                                 // do nothing
                             } else {
                                 return;
                             }
                         }
-                        this._isDirty = true;
                         if (detail.data.name == "createSingleProduct") {
                             this._hideView("description");
                             this._showView("create");
@@ -153,7 +127,8 @@
                                 "path": "/../../src/elements/rock-entity-create-single/rock-entity-create-single.html",
                                 "properties": {
                                     "attribute-names": this.attributeNames,
-                                    "context-data": this.contextData
+                                    "context-data": this.contextData,
+                                    "message-code-mapping": this.messageCodeMapping
                                 }
                             };
                             var contentEl = this.$$("#content-create");
@@ -166,14 +141,13 @@
                 },
                 _onImportTap: function() {
                     // show div content-import
-                    if (this._isDirty) {
-                        if (window.confirm("Changes done so far are saved. Do you want to leave the page?")) {
+                    if (this.getIsDirty()) {
+                        if (window.confirm("There are unsaved changes. Do you really want to leave the page?")) {
                             // do nothing
                         } else {
                             return;
                         }
                     }
-                    this._isDirty = true;
                     this._hideView("description");
                     this._showView("create");
                     var component = {
@@ -181,6 +155,7 @@
                         "path": "/../../src/elements/rock-entity-create-import/rock-entity-create-import.html",
                         "properties": {
                             "import-profile-name": this.importProfileName,
+                            "process-profile-name": this.processProfileName,
                             "context-data": this.contextData
                         }
                     };
@@ -207,14 +182,17 @@
                 _setContextData: function(pebbleActionsConfig) {
                     var entityType = DataHelper.getParamValue("type");
                     var actions = pebbleActionsConfig.actions;
-                    if(entityType && actions && actions.length) {
+                    
+                    if(!_.isEmpty(entityType) && !_.isEmpty(actions)) {
                         actions.forEach(function(action){
-                            if(action.text && action.text.toLowerCase() == entityType.toLowerCase()) {
+                            var itemContext = action.contextData.itemContext;
+                            if(action && itemContext && itemContext.type && itemContext.type.toLowerCase() == entityType.toLowerCase()) {
                                 var ctxData = {};
                                 ctxData[ContextHelper.CONTEXT_TYPE_DATA] = [action.contextData.context];
                                 ctxData[ContextHelper.CONTEXT_TYPE_ITEM] = [action.contextData.itemContext];
                                 ctxData[ContextHelper.CONTEXT_TYPE_VALUE] = [action.contextData.valueContext];
                                 this.contextData = ctxData;
+                                return true;
                             }
                         }, this);
                     }
@@ -223,7 +201,10 @@
                  * Can be used to get the information whether the element is dirty or not.
                  */
                 getIsDirty: function() {
-                    return this._isDirty;
+                    var content = this.$$('#content-create');
+                    if(content && content.firstElementChild && content.firstElementChild.getIsDirty) {
+                        return content.firstElementChild.getIsDirty();
+                    }
                 },
                 hideCreateButtons: function() {
                     this._hideView("buttons");

@@ -8,6 +8,7 @@ require('./array-remove');
 require('./array-slice');
 require('./array-union');
 require('./getExpires');
+require('./getRandomId');
 require('./getSize');
 require('./getTimestamp');
 require('./getType');

@@ -1,9 +1,12 @@
 'use strict';
 
 var DataObjectFalcorUtil = function () { };
-const CONTEXT_KEY_DEFAULT_VAL = 'xzx';
-const CONST_ANY = '_ANY';
-const CONST_ALL = '_ALL';
+
+DataObjectFalcorUtil.CONTEXT_KEY_DEFAULT_VAL = 'xzx';
+DataObjectFalcorUtil.CONST_ANY = '_ANY';
+DataObjectFalcorUtil.CONST_ALL = '_ALL';
+DataObjectFalcorUtil.CONST_CTX_PROPERTIES = 'INTERNAL_CTX_PROPERTIES';
+DataObjectFalcorUtil.CONST_DATAOBJECT_METADATA_FIELDS = 'INTERNAL_DATAOBJECT_METADATA_FIELDS';
 
 DataObjectFalcorUtil.getPathKeys = function () {
     return {
@@ -15,22 +18,38 @@ DataObjectFalcorUtil.getPathKeys = function () {
             "entityData": {
                 "name": "entity",
                 "collectionName": "entities",
-                "responseObjectName": "response"
+                "responseObjectName": "response",
+                "maxRecordsToReturn": 200
             },
             "entityGovernData": {
                 "name": "entityGovernData",
                 "collectionName": "entities",
-                "responseObjectName": "response"
+                "responseObjectName": "response",
+                "maxRecordsToReturn": 2000
             },
             "entityModel": {
                 "name": "entityModel",
                 "collectionName": "entityModels",
-                "responseObjectName": "response"
+                "responseObjectName": "response",
+                "maxRecordsToReturn": 2000
             },
             "config": {
-                "name": "config",
+                "name": "configObject",
                 "collectionName": "configObjects",
-                "responseObjectName": "response"
+                "responseObjectName": "response",
+                "maxRecordsToReturn": 100
+            },
+            "eventData": {
+                "name": "event",
+                "collectionName": "events",
+                "responseObjectName": "response",
+                "maxRecordsToReturn": 50
+            },
+            "requestTracking": {
+                "name": "requestobject",
+                "collectionName": "requestObjects",
+                "responseObjectName": "response",
+                "maxRecordsToReturn": 50
             }
         }
     };
@@ -49,19 +68,19 @@ DataObjectFalcorUtil.boxDataObject = function (dataObject, boxOp) {
 
     for (var dataObjectFieldKey in dataObject) {
         if (dataObjectFieldKey === "data") {
-            if(dataObject && dataObject.data) {
+            if (dataObject && dataObject.data) {
                 var data = dataObejct.data;
                 var modData = {};
 
-                if(data.attributes) {
+                if (data.attributes) {
                     modData.attributes = DataObjectFalcorUtil.boxAttributesData(data.attributes, boxOp);
                 }
 
-                if(data.relationships) {
+                if (data.relationships) {
                     modData.relationships = DataObjectFalcorUtil.boxRelationshipsData(data.relationships, boxOp);
                 }
 
-                if(data.properties) {
+                if (data.properties) {
                     modData.properties = boxOp(data.properties);
                 }
 
@@ -112,8 +131,8 @@ DataObjectFalcorUtil.boxAttributesData = function (attrs, boxOp) {
         }
 
         modAttr.values = boxOp(modAttr.values);
-        
-        if(modAttr.properties) {
+
+        if (modAttr.properties) {
             modAttr.properties = boxOp(modAttr.properties);
         }
 
@@ -166,7 +185,7 @@ DataObjectFalcorUtil.unboxJsonObject = function (obj) {
 
 DataObjectFalcorUtil.transformToExternal = function (dataObject) {
 
-    //console.log('transform dataObject input:', JSON.stringify(dataObject));
+    //console.log('transform dataObject input:', JSON.stringify(dataObject, null, 4));
 
     var transDataObject = {};
 
@@ -180,11 +199,6 @@ DataObjectFalcorUtil.transformToExternal = function (dataObject) {
         }
     }
 
-    //TODO: AS OF NOW, API is not processing properties so blank it out :)
-    transDataObject.properties = {};
-
-    var contexts = [];
-
     if (dataObject.data && dataObject.data.contexts) {
 
         var transContexts = [];
@@ -196,30 +210,44 @@ DataObjectFalcorUtil.transformToExternal = function (dataObject) {
                 var ctxKey = ctxKeys[i];
                 var transContextsItem = {};
 
-                var context = DataObjectFalcorUtil.createCtxItem(ctxKey);
+                var transContext = DataObjectFalcorUtil.createCtxItem(ctxKey);
 
-                transContextsItem.context = context;
+                transContextsItem.context = transContext;
 
-                var enContexts = dataObject.data.contexts[ctxKey];
+                var enContextData = dataObject.data.contexts[ctxKey];
 
-                if (enContexts.attributes) {
-                    transContextsItem.attributes = DataObjectFalcorUtil.transformAttributesToExternal(enContexts.attributes);
+                if (enContextData.attributes) {
+                    transContextsItem.attributes = DataObjectFalcorUtil.transformAttributesToExternal(enContextData.attributes);
                 }
 
-                if (enContexts.relationships) {
-                    transContextsItem.relationships = DataObjectFalcorUtil.transformRelationshipsToExternal(enContexts.relationships);
+                if (enContextData.relationships) {
+                    transContextsItem.relationships = DataObjectFalcorUtil.transformRelationshipsToExternal(enContextData.relationships);
                 }
 
-                if (transContextsItem.attributes && transContextsItem.attributes.properties) {
-                    transContextsItem.properties = DataObjectFalcorUtil.transformPropertiesToExternal(transContextsItem.attributes.properties);
-                    delete transContextsItem.attributes.properties;
+                if (enContextData.jsonData) {
+                    transContextsItem.jsonData = enContextData.jsonData;
                 }
 
-                if (enContexts.jsonData) {
-                    transContextsItem.jsonData = enContexts.jsonData;
+                //read dataobject' metadata fields from the attributes.metadataFields, if available
+                if (transContextsItem.attributes && transContextsItem.attributes[DataObjectFalcorUtil.CONST_DATAOBJECT_METADATA_FIELDS]) {
+
+                    if (transContext.selfContext) {
+                        var metadataFields = DataObjectFalcorUtil.transformPropertiesToExternal(transContextsItem.attributes[DataObjectFalcorUtil.CONST_DATAOBJECT_METADATA_FIELDS]);
+                        for (var dataObjectField in metadataFields) {
+                            transDataObject[dataObjectField] = metadataFields[dataObjectField];
+                        }
+                    }
+
+                    delete transContextsItem.attributes[DataObjectFalcorUtil.CONST_DATAOBJECT_METADATA_FIELDS];
                 }
 
-                if (context.selfContext) {
+                //read context's properties from the attributes.properties, if available
+                if (transContextsItem.attributes && transContextsItem.attributes[DataObjectFalcorUtil.CONST_CTX_PROPERTIES]) {
+                    transContextsItem.properties = DataObjectFalcorUtil.transformPropertiesToExternal(transContextsItem.attributes[DataObjectFalcorUtil.CONST_CTX_PROPERTIES]);
+                    delete transContextsItem.attributes[DataObjectFalcorUtil.CONST_CTX_PROPERTIES];
+                }
+
+                if (transContext.selfContext) {
                     selfCtxItem = transContextsItem;
                 }
                 else {
@@ -307,10 +335,23 @@ DataObjectFalcorUtil.transformRelationshipsToExternal = function (relationships)
                 rel.attributes = DataObjectFalcorUtil.transformAttributesToExternal(rel.attributes);
             }
 
-            if (!isEmpty(rel.relTo)) {
-                rel.relTo = DataObjectFalcorUtil.transformToExternal(rel.relTo);
-            }
+            if (rel.relToObject) {
+                var relToObject = rel.relToObject;
+                
+                if (relToObject.data) {
+                    relToObject = DataObjectFalcorUtil.transformToExternal(relToObject);
+                }
+                
+                if(rel.relTo && relToObject.data) {
+                    rel.relTo.data = relToObject.data;
+                    rel.relTo.name = relToObject.name;
+                    rel.relTo.version = relToObject.version;
+                    rel.relTo.properties = relToObject.properties
+                }
 
+                delete rel.relToObject;
+            }
+            
             relsArray.push(rel);
         }
 
@@ -324,6 +365,10 @@ DataObjectFalcorUtil.transformPropertiesToExternal = function (properties) {
     var transProperties = {};
 
     if (isEmpty(properties)) {
+        return transProperties;
+    }
+
+    if (!properties.properties) {
         return transProperties;
     }
 
@@ -570,8 +615,8 @@ DataObjectFalcorUtil.getRelationshipsByCtx = function (dataObject, context) {
     return {};
 };
 
-DataObjectFalcorUtil.getConfigByCtx = function(dataObject, context) {
-    if(dataObject && dataObject.configObjects && dataObject.configObjects.length > 0 && dataObject.configObjects[0].data && dataObject.configObjects[0].data.contexts && dataObject.configObjects[0].data.contexts.length > 0) {
+DataObjectFalcorUtil.getConfigByCtx = function (dataObject, context) {
+    if (dataObject && dataObject.configObjects && dataObject.configObjects.length > 0 && dataObject.configObjects[0].data && dataObject.configObjects[0].data.contexts && dataObject.configObjects[0].data.contexts.length > 0) {
         var ctxItem = DataObjectFalcorUtil.getCtxItem(dataObject.configObjects[0].data.contexts, context);
         if (ctxItem) {
             return ctxItem.jsonData;
@@ -668,7 +713,15 @@ DataObjectFalcorUtil.test = function () {
     console.log('test success');
 };
 
-var SharedUtils = SharedUtils || {};
+DataObjectFalcorUtil.createRelUniqueId = function (relType, rel, index) {
+    if (rel) {
+        var relDataObjectId = rel.relTo && rel.relTo.id && rel.relTo.id !== "" ? rel.relTo.id : "-1";
+        var idx = index ? index : 0;
+        return relType.concat("_", relDataObjectId, "_", idx);
+    }
+
+    return "";
+}
 
 function isEmpty(obj) {
     //if (obj === undefined) { return true };
@@ -678,17 +731,19 @@ function isEmpty(obj) {
     return true;
 }
 
+var SharedUtils = SharedUtils || {};
+
+if (!SharedUtils) {
+    SharedUtils = {};
+}
+
+SharedUtils.DataObjectFalcorUtil = DataObjectFalcorUtil;
+
 //register as module or as js 
 if (typeof exports !== 'undefined') {
     if (typeof module !== 'undefined' && module.exports) {
         exports = module.exports = DataObjectFalcorUtil
     }
-    exports.DataObjectFalcorUtil = DataObjectFalcorUtil
-}
-else {
-    if (!SharedUtils) {
-        SharedUtils = {};
-    }
-    SharedUtils.DataObjectFalcorUtil = DataObjectFalcorUtil
+    exports.DataObjectFalcorUtil = DataObjectFalcorUtil;
 }
 

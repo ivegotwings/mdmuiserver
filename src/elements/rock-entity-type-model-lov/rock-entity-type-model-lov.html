@@ -1,0 +1,253 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-app-context-behavior/bedrock-app-context-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/element-helper.html">
+<link rel="import" href="../bedrock-lov-behavior/bedrock-lov-behavior.html">
+
+<link rel="import" href="../pebble-lov/pebble-lov.html">
+
+<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+
+<link rel="import" href="entity-type-model-datasource.html">
+
+<!--
+`<rock-entity-type-model-lov> Represents a component that renders the model entities in the entity type. 
+@demo demo/index.html
+-->
+
+<dom-module id="rock-entity-type-model-lov">
+    <template>
+        <attribute-model-datasource id="attributeModelDataSource" request="[[requestData]]" data-source="{{dataSource}}" data-formatter="{{_dataFormatter}}"
+            keywords-criterion-builder="{{_keywordsCriterionBuilder}}">
+        </attribute-model-datasource>
+
+        <pebble-lov id="entityTypeModelLov" page-size="[[pageSize]]" multi-select="{{multiSelect}}" show-image="[[showImage]]" show-color="[[showColor]]"
+            no-sub-title show-action-buttons="[[showActionButtons]]" data-source="{{dataSource}}" items="[[items]]" selected-item="{{selectedItem}}"
+            selected-items="{{selectedItems}}">
+        </pebble-lov>
+    </template>
+    <script>
+        Polymer({
+            is: 'rock-entity-type-model-lov',
+            properties: {
+                selectedItems: {
+                    type: Array,
+                    value: function () {
+                        return [];
+                    },
+                    observer: '_onSelectedItemsChange'
+                },
+                selectedItem: {
+                    type: String,
+                    value: function () {
+                        return [];
+                    }
+                },
+                requestData: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+                domains: {
+                    type: Array,
+                    value: function () {
+                        return ["thing"];
+                    },
+                    observer:"_domainsChanged"
+                },
+                multiSelect: {
+                    type: Boolean,
+                    value: true
+                },
+                preselectedEntityTypes: {
+                    type: Array,
+                    value: function () {
+                        return [];
+                    },
+                    observer: '_setSelectedEntityTypes'
+                },
+                allowedEntityTypes: {
+                    type: Array,
+                    value: function () {
+                        return [];
+                    }
+                }
+            },
+            behaviors: [
+                RUFBehaviors.UIBehavior,
+                RUFBehaviors.LovBehavior
+            ],
+            listeners: {
+                'entityTypeModelLov.selection-changed': '_onSelectedItemChange',
+                'entityTypeModelLov.lov-confirm-button-tap': '_onLovConfirmButtonTapped',
+                'entityTypeModelLov.lov-close-button-tap': '_onLovCloseButtonTapped'
+            },
+            ready: function () {
+                this._attributesCriterionBuilder = this._prepareAttributesCriteria.bind(this);
+                this._keywordsCriterionBuilder = this._prepareKeywordsCriteria.bind(this);
+                this._dataFormatter = this._getEntityTypeFormattedData.bind(this);
+            },
+            _domainsChanged:function () {
+                if(_.isEmpty(this.domains)){
+                    return;
+                }
+                this._getEntityTypeModels();
+                this.resetData();
+            },
+            resetData:function () {
+                var lov=this.$$("#entityTypeModelLov");
+                if(lov){
+                    lov.reset();
+                }
+            },
+            _onInitResponse: function _generateSearchRequest() {
+                this.$$('#getEntitiesSearchResults').generateRequest();
+            },
+
+            _onError: function _onError() {
+                this.items = [];
+            },
+
+            _onSelectedItemsChange: function () {
+
+                if (this.selectedItems && this.selectedItems.length > 0) {
+                    var eventDetail = {
+                        data: this.selectedItems
+                    };
+                    this.fireBedrockEvent("entity-type-selection-changed", eventDetail);
+                }
+            },
+
+            _onSelectedItemChange: function () {
+
+                if (!_.isEmpty(this.selectedItem)) {
+                    var eventDetail = {
+                        data: this.selectedItem
+                    };
+                    this.fireBedrockEvent("entity-type-selection-changed", eventDetail);
+                }
+            },
+
+            _getEntityTypeModels: function () {
+                var contextData = {};
+                var itemContext = {
+                    "type": "entityType"
+                };
+
+                if (this.domains && this.domains.length) {
+                    itemContext.domain = this.domains[0];
+                }
+                contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+
+                contextData[ContextHelper.CONTEXT_TYPE_VALUE] = [];
+                contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+                var req = DataRequestHelper.createEntityGetRequest(contextData);
+                delete req.params.options.maxRecords;
+                req.params.sort={
+                        "properties": [{
+                            "externalName": "_ASC",
+                            "sortType": "_STRING"
+                        }]
+                    };
+
+                this.set('requestData', req);
+            },
+
+            _getEntityTypeFormattedData: function (data) {
+                var entityModels = data.content.entityModels;
+                var filteredEntityTypes = [];
+                if (this.allowedEntityTypes && this.allowedEntityTypes.length) {
+                    for (var i = 0; i < entityModels.length; i++) {
+                        var entityModel = entityModels[i];
+                        if (this._isEntityTypePresent(this.allowedEntityTypes, entityModel.name)) {
+                            if (!this._isItemPresent(filteredEntityTypes, entityModel.name)) {
+                                filteredEntityTypes.push({
+                                    "title": entityModel.properties && entityModel.properties.externalName ? entityModel.properties.externalName : entityModel.name,
+                                    "id": entityModel.name
+                                });
+                            }
+                        }
+                    }
+                } else {
+                    for (var i = 0; i < entityModels.length; i++) {
+                        var entityModel = entityModels[i];
+                        if (!this._isItemPresent(filteredEntityTypes, entityModel.name)) {
+                            filteredEntityTypes.push({
+                                "title": entityModel.properties && entityModel.properties.externalName ? entityModel.properties.externalName : entityModel.name,
+                                "id": entityModel.name
+                            });
+                        }
+                    }
+                }
+                return filteredEntityTypes;
+            },
+
+            _isItemPresent: function (items, id) {
+                var presentItem = items.find(function (item) {
+                    return item.id == id;
+                });
+                return !!presentItem;
+            },
+            _isEntityTypePresent: function (items, id) {
+                var presentItem = items.find(function (item) {
+                    return item == id;
+                });
+                return !!presentItem;
+            },
+            _setSelectedEntityTypes: function () {
+                var _entityTypes = this.preselectedEntityTypes;
+                for (var i in _entityTypes) {
+                    var itemObj = {
+                        "title": _entityTypes[i],
+                        "id": _entityTypes[i]
+                    };
+                    if (!this._isItemPresent(this.selectedItems, _entityTypes[i])) {
+                        this.push('selectedItems', itemObj);
+                    }
+                }
+            },
+            _prepareKeywordsCriteria: function (searchText) {
+                if (searchText) {
+                    var keywordsCriterion = {};
+
+                    keywordsCriterion.keywords = searchText;
+                    keywordsCriterion.operator = "_AND";
+
+                    return keywordsCriterion;
+                }
+            },
+            _prepareAttributesCriteria: function (searchText) {
+                if (searchText) {
+                    var attributesCriterion = [];
+                    var searchKey = new Object();
+                    var searchValue = new Object();
+                    searchValue.eq = searchText ? searchText : '';
+
+                    // Todo.. When Pattern comes into picture this one is effected
+                    searchKey[this.titlePattern] = searchValue;
+                    attributesCriterion.push(searchKey);
+                    return attributesCriterion;
+                }
+            },
+            _onLovConfirmButtonTapped: function (event) {
+                if (this.selectedItems) {
+                    var eventDetail = {
+                        data: this.selectedItems,
+                        name: "entity-type-model-lov-confirm-button-tap"
+                    }
+                    this.fireBedrockEvent(eventDetail.name, eventDetail);
+                }
+            },
+            _onLovCloseButtonTapped: function (event) {
+                var eventDetail = {
+                    data: this.id,
+                    name: "entity-type-model-lov-close-button-tap"
+                }
+                this.fireBedrockEvent(eventDetail.name, eventDetail);
+            }
+        });
+    </script>
+</dom-module>
