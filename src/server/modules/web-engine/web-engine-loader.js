@@ -110,6 +110,11 @@ assetRoute(app);
 
 logger.info('Web engine start - asset service routes are loaded');
 
+var binaryStreamObjectRoute = require('../binarystreamobject/binarystreamobject-route');
+binaryStreamObjectRoute(app);
+
+logger.info('Web engine start - binary stream object service routes are loaded');
+
 //register static file root ...index.html..
 app.get('*', function (req, res) {
     if (!renderAuthenticatedPage(req, res)) {
