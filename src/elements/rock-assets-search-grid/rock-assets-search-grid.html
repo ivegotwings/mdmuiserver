@@ -34,12 +34,14 @@
         <liquid-entity-govern-data-get name="governDataGet" operation="initiatesearch" request-data="{{_governDataRequest}}" on-response="_onGovernDataResponse"></liquid-entity-govern-data-get>
         <liquid-rest id="copDownloadService" url="" method="POST" request-data={{_copDownloadRequest}} on-liquid-response="_onCOPDownloadSuccess"
                      on-liquid-error="_onCOPDownloadFailure"></liquid-rest>
+        <liquid-rest id="getThumbnail" url="/pass-through/binaryobjectservice/get" method="POST"  on-liquid-response="_onGetThumbnailResponse">
+        </liquid-rest>
         <template is="dom-if" if="[[_isWorkflowRequest(_loadGrid, _loadWithoutWorkflow)]]">
             <assets-search-grid-datasource id="searchGrid" request="{{request}}" data-source="{{dataSource}}" data-formatter="{{dataFormatter}}"
                                            current-records="{{currentRecords}}" total-count="{{totalCount}}"></assets-search-grid-datasource>
             <rock-grid id="entityGrid" data-source="{{dataSource}}" data-source-id="searchGrid" record-size="{{currentRecords}}" config="{{gridConfig}}"
                        attribute-models="{}" page-size="[[pageSize]]" selected-item="{{selectedItem}}"
-                       selected-items="{{selectedItems}}" total-count="{{totalCount}}" max-configured-count="[[maxConfiguredCount]]"></rock-grid>
+                        total-count="{{totalCount}}" max-configured-count="[[maxConfiguredCount]]"></rock-grid>
             <bedrock-pubsub event-name="grid-download-item" handler="_onDownload" target-id="entityGrid"></bedrock-pubsub>
         </template>
     </template>
@@ -187,15 +189,6 @@
                         value: function () {
                             return {};
                         },
-                        notify: true
-                    },
-
-                    /**
-                     * Indicates an array of selected items.
-                     */
-                    selectedItems: {
-                        type: Array,
-                        value: [],
                         notify: true
                     },
                     /**
@@ -425,7 +418,10 @@
 
                 _getAttributeNamesFromTileConfig: function (config) {
                     var tileItems = config.tile.tileItems;
-                    var attributeNames = [];
+                    var attributeNames = config.dataRequest.attributes;
+                    if(!attributeNames){
+                        attributeNames=[];
+                    }
                     attributeNames.push(tileItems.image);
                     attributeNames.push(tileItems.title);
                     attributeNames.push(tileItems.id);
@@ -435,7 +431,7 @@
                         var field = tileItems.fields[i];
                         attributeNames.push(field.name);
                     }
-                    return attributeNames;
+                    return _.uniq(attributeNames);
                 },
 
                 _getAttributeFormattedData: function (data) {
@@ -447,14 +443,57 @@
                             formattedEntities = DataTransformHelper.transformEntitiesToSimpleSchema(entities, attributes,this.attributeModels);
                         }
                     }
+                    var thumbnailIds=[];
                     for(var i=0;i<formattedEntities.length;i++){
-                        if(formattedEntities[i].thumbnail){
-                            formattedEntities[i].thumbnail= "data:image;base64,"+formattedEntities[i].thumbnail;
+                        if(formattedEntities[i].thumbnailid){
+                            thumbnailIds.push(formattedEntities[i].thumbnailid);
                         }
                     }
+                    this._generateGetThumbnailRequest(thumbnailIds);
                     return formattedEntities;
                 },
+                _generateGetThumbnailRequest:function (thumbnailIds) {
+                    var req = DataRequestHelper.createEntityGetRequest(this.contextData);
+                    req.params.query.ids=thumbnailIds;
+                    req.params.query.filters.typesCriterion=["imagerendition"];
+                    req.params.query.valueContexts=[];
+                    req.params.fields.attributes=["blob"];
+                    delete req.params.options;
+                    var getThumbnailLiquid=this.$$("#getThumbnail");
+                    if(getThumbnailLiquid){
+                        getThumbnailLiquid.requestData=req;
+                        getThumbnailLiquid.generateRequest();
+                    }
+                },
+                _onGetThumbnailResponse:function (e) {
+                    var thumbnails={};
+                    if (e.detail && e.detail.response && e.detail.response.response) {
+                        var response = e.detail.response.response;
 
+                        if (response.status.toLowerCase() == "success") {
+                            var binaryObjects=response.binaryObjects;
+                            if(binaryObjects) {
+                                for (var i = 0; i < binaryObjects.length; i++) {
+                                    if (binaryObjects[i].data) {
+                                        thumbnails[binaryObjects[i].id] = binaryObjects[i].data.blob;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    var grid=this._getEntityGrid();
+                    var data=grid.data;
+                    for(var key in thumbnails){
+                        var index=data.findIndex(function (entity) {
+                            return entity.thumbnailid==key;
+                        });
+                        if(index>-1) {
+                            var entity = DataHelper.cloneObject(data[index]);
+                            entity.thumbnail = "data:image;base64," + thumbnails[key];
+                            grid.splice('data', index, 1, entity);
+                        }
+                    }
+                },
                 _loadSearchResultsByFilters: function () {
                     var grid = Polymer.dom(this).node.$$('rock-grid');
                     if (grid && this.searchFilters && !_.isEmpty(this.request)) {
@@ -502,6 +541,7 @@
                         return;
                     }
                     var attributeNames = this.gridConfig.dataRequest.attributes;
+                    attributeNames.push("thumbnailid");
                     for (var i in this.typesCriterion) {
                         var itemContext = {};
                         itemContext.attributeNames = attributeNames;
@@ -576,14 +616,16 @@
                 },
 
                 _onDownload: function (e) {
-                    if (this.selectedItems && this.selectedItems.length && this.contextData) {
+                    var rockGrid = Polymer.dom(this).node.$$('rock-grid');
+                    var selectedItems=rockGrid.getSelectedItems();
+                    if (selectedItems && selectedItems.length && this.contextData) {
                         this._loading = true;
                         var clonedDataContext = DataHelper.cloneObject(this.contextData);
                         var itemContext = {};
                         itemContext.id = [];
                         itemContext.type = [];
 
-                        this.selectedItems.forEach(function (item) {
+                        selectedItems.forEach(function (item) {
                             if (item) {
                                 itemContext.id.push(item.id);
 
