@@ -1,3 +1,4 @@
+//Adapted from https://github.com/johnculviner/jquery.fileDownload/blob/master/src/Scripts/jquery.fileDownload.js
 (function (window) {
     window.RUFUtilities = window.RUFUtilities || {};
     var htmlSpecialCharsRegEx = /[<>&\r\n"']/gm;
@@ -14,6 +15,46 @@
     //RUFUtilities.fileDownload('/path/to/url/', options)
     //  see directly below for possible 'options'
     RUFUtilities.fileDownload = function (fileUrl, options) {
+
+         // Pass in the objects to merge as arguments.
+        // For a deep extend, set the first argument to `true`.
+        var extend = function () {
+
+            // Variables
+            var extended = {};
+            var deep = false;
+            var i = 0;
+            var length = arguments.length;
+
+            // Check if a deep merge
+            if (Object.prototype.toString.call(arguments[0]) === '[object Boolean]') {
+                deep = arguments[0];
+                i++;
+            }
+
+            // Merge the object into the extended object
+            var merge = function (obj) {
+                for (var prop in obj) {
+                    if (Object.prototype.hasOwnProperty.call(obj, prop)) {
+                        // If deep merge and property is an object, merge properties
+                        if (deep && Object.prototype.toString.call(obj[prop]) === '[object Object]') {
+                            extended[prop] = extend(true, extended[prop], obj[prop]);
+                        } else {
+                            extended[prop] = obj[prop];
+                        }
+                    }
+                }
+            };
+
+            // Loop through each object and conduct a merge
+            for (; i < length; i++) {
+                var obj = arguments[i];
+                merge(obj);
+            }
+
+            return extended;
+
+        };
 
         //provide some reasonable defaults to any unspecified options below
         var settings = extend({
@@ -115,7 +156,7 @@
         //make settings.data a param string if it exists and isn't already
         if (settings.data !== null && typeof settings.data !== "string") {
             settings.data = Object.keys(settings.data).map(function (k) {
-                return encodeURIComponent(k) + '=' + encodeURIComponent(a[k])
+                return encodeURIComponent(k) + '=' + encodeURIComponent(settings.data[k]);
             }).join('&');
         }
         var $iframe,
@@ -167,7 +208,7 @@
             document.body.appendChild($iframe);
             formDoc = getiframeDocument($iframe);
             formDoc.write("<html><head></head><body><form method='" + settings.httpMethod + "' action='" + fileUrl + "'>" + formInnerHtml + "</form>" + settings.popupWindowTitle + "</body></html>");
-            $form = formDoc.getElementsByName('form')[0];
+            $form = formDoc.getElementsByTagName('form')[0];
         }
 
         $form.submit();
@@ -201,9 +242,9 @@
                 try {
                     var formDoc = getiframeDocument($iframe);
                     if (formDoc && formDoc.body !== null && formDoc.body.innerHTML.length) {
-                        var isFailure = true;
+                        var isFailure = false;
                         if ($form && $form.length) {
-                            var $contents = formDoc.body.contentDocument[0];
+                            var $contents = formDoc.body.getElementsByTagName("form");
                             try {
                                 if ($contents.length && $contents[0] === $form[0]) {
                                     isFailure = false;
@@ -252,45 +293,7 @@
             });
         }
 
-        // Pass in the objects to merge as arguments.
-        // For a deep extend, set the first argument to `true`.
-        var extend = function () {
-
-            // Variables
-            var extended = {};
-            var deep = false;
-            var i = 0;
-            var length = arguments.length;
-
-            // Check if a deep merge
-            if (Object.prototype.toString.call(arguments[0]) === '[object Boolean]') {
-                deep = arguments[0];
-                i++;
-            }
-
-            // Merge the object into the extended object
-            var merge = function (obj) {
-                for (var prop in obj) {
-                    if (Object.prototype.hasOwnProperty.call(obj, prop)) {
-                        // If deep merge and property is an object, merge properties
-                        if (deep && Object.prototype.toString.call(obj[prop]) === '[object Object]') {
-                            extended[prop] = extend(true, extended[prop], obj[prop]);
-                        } else {
-                            extended[prop] = obj[prop];
-                        }
-                    }
-                }
-            };
-
-            // Loop through each object and conduct a merge
-            for (; i < length; i++) {
-                var obj = arguments[i];
-                merge(obj);
-            }
-
-            return extended;
-
-        }
+       
     };
 
 })(this || window);
