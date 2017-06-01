@@ -11,8 +11,6 @@
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-textarea/pebble-textarea.html">
 
-<link rel="import" href="../rock-entity-lov/rock-entity-lov.html">
-
 <dom-module id="rock-workflow-transition">
     <template>
         <style include="pebble-styles-shared">           
@@ -75,6 +73,10 @@
                         }
                     },
 
+                    resultAttribute: {
+                        type: String
+                    },
+
                     currentWorkflow: {
                         type: Object,
                         value: function() { 
@@ -122,7 +124,14 @@
                         value: function () { 
                             return {}; 
                         }
-                    },                                        
+                    },
+
+                    _responseMessages: {
+                        type: Array,
+                        value: function () { 
+                            return []; 
+                        }
+                    }                                        
                 },
 
                 behaviors: [
@@ -138,7 +147,7 @@
                     // Start process when all the details are available
                     if(this.contextData && !_.isEmpty(this.contextData) && 
                        this.selectedEntities && this.selectedEntities.length > 0 &&
-                       this.currentWorkflow) {
+                       this.currentWorkflow && !_.isEmpty(this.currentWorkflow)) {
 
                            this._loading = true;
                            this._message = "Transition execution process started";
@@ -308,8 +317,68 @@
                     this.$$("#entityWfTransition").generateRequest();                 
                 },
 
+                _getAttributeValue: function(id, attrName) {
+                    if(this.selectedEntities && this.selectedEntities.length > 0)
+                    {
+                        for(var i = 0; i < this.selectedEntities.length; i++) {
+                            if(this.selectedEntities[i].id == id) {
+                                return this.selectedEntities[i].attributes[attrName] ? this.selectedEntities[i].attributes[attrName].value : "Not found";
+                            }
+                        }
+                    }
+                },
+
                 _onTransitionSuccess: function(e, detail) {
                     //Todo: Handle bulk messages here
+                    var request = e.detail.request;
+                    var responseList = e.detail.response;
+                    this._responseMessages = [];
+
+                    for(var i = 0; i < responseList.length; i++)
+                    {
+                        //set id
+                        var transitionResponse = {
+                            "id": responseList[i].id
+                        };
+
+                        //set name
+                        if(this.resultAttribute)
+                        {
+                            var attrValue = this._getAttributeValue(responseList[i].id, this.resultAttribute);
+                            transitionResponse[this.resultAttribute] = attrValue;
+                        }
+
+                        var response = DataHelper.isValidObjectPath(responseList[i], "operationResponse.response") ? responseList[i].operationResponse.response : {};
+                        
+                        //set text
+                        if (!_.isEmpty(response) && response.status.toLowerCase() == "success") {
+                            // Success - isCriteriaValid as false
+                            if (response.statusDetail && 
+                                response.statusDetail.hasOwnProperty('isCriteriaValid') && !response.statusDetail.isCriteriaValid) {
+                                var actionItem = "Workflow";
+
+                                if (DataHelper.isValidObjectPath(request, "requestData.params.workflow")) {
+                                    var workflow = request.requestData.params.workflow;
+                                    if (DataHelper.isValidObjectPath(workflow, "activity.action")) {
+                                        actionItem = workflow.activity.action;
+                                    }
+                                }
+
+                                transitionResponse["message"] = "'" + actionItem + "' action failed. Please check the business conditions in Summary tab";
+                            }
+                            else { //Success
+                                transitionResponse["message"] = response.statusDetail.message;
+                            }
+                        }
+                        else { //Error
+                            if(response.statusDetail && response.statusDetail.message) {
+                                transitionResponse["message"] = response.statusDetail.message;
+                            }                            
+                        }                        
+
+                        this._responseMessages.push(transitionResponse);
+                    }
+
                     this._triggerFinishStep();
                 },
 
@@ -319,25 +388,19 @@
                     this._loading = false;
                 },
 
-                _triggerFinishStep: function() {                                        
-                    var _message = "Completed the bulk transitions. What do you want to do now?";
-
+                _triggerFinishStep: function() {                    
                     var data = {
-                                "messages": [
-                                    {
-                                        "message": _message
-                                    }
-                                ],
+                                "messages": this._responseMessages,
                                 "actions": [                                    
                                     {
                                         "name": "goBack",
                                         "text": "Take me back to where I started",
                                         "isNotApp": true
-                                    }                                    
-                                ]                                
+                                    }                                                                    
+                                ]                            
                             };
 
-                        this.businessFunctionData = data;
+                        this.businessFunctionData = data;                        
                         var eventName = "onComplete";
                         var eventDetail = {
                             name: eventName

@@ -25,6 +25,11 @@ var DFRestService = function (options) {
 
         var actualUrl = serviceConfig.url,
             configMode = serviceConfig.mode;
+            
+        // set timeout option if found in service config
+        if(serviceConfig.timeout) {
+            request.timeout = serviceConfig.timeout;
+        }
 
         if (configMode === "disabled") {
             throw "Requested service url " + url + " is disabled / not available.";

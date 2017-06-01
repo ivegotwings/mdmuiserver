@@ -2,6 +2,8 @@
 
 var DFRestService = require('../common/df-rest-service/DFRestService');
 
+var logger = require('../common/logger/logger-service');
+
 var falcorUtil = require('../../../shared/dataobject-falcor-util');
 var mergeUtil = require('../../../shared/dataobject-merge-util');
 
@@ -53,7 +55,7 @@ EntityCompositeModelGetService.prototype = {
 
         var res = await this.post(serviceName + "/" + serviceOperation, internalRequest);
         //console.log('composite model get RDF ', JSON.stringify(res));
-
+        
         var mergedModel = this._mergeModels(request, objectName, res, serviceOperation);
 
         var response = {
@@ -62,8 +64,6 @@ EntityCompositeModelGetService.prototype = {
                 'entityModels': [mergedModel]
             }
         };
-
-        //console.log('composite model get response ', JSON.stringify(response));
 
         return response;
     },
@@ -164,7 +164,9 @@ EntityCompositeModelGetService.prototype = {
             var manageModel = allModels.find(obj => obj.type == "entityManageModel");
 
             if (!manageModel) {
-                console.log('manage model not found');
+                var msg = "\n Entity manage model is not available or user does not have permission. Request: " + JSON.stringify(request);
+                logger.warn(msg);
+                console.log(msg);
                 return {};
             }
             

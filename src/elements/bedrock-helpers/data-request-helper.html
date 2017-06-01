@@ -119,7 +119,7 @@
                         "relationshipAttributes": relationshipAttributes
                     },
                     "options": {
-                        "totalRecords": 1,
+                        "maxRecords": ids.length || 200,
                         "includeRequest": false
                     }
                 }
@@ -139,6 +139,24 @@
 
             if (!_.isEmpty(valueContexts) && !_.isEmpty(valueContexts[0])) {
                 req.params.query.valueContexts = valueContexts;
+            }
+
+            return req;
+        };
+
+        DataRequestHelper.createEntityGetRequestForDownload = function (contextData, profiles) {
+            var req = undefined;
+            if (!_.isEmpty(contextData) && !_.isEmpty(profiles)) {
+                req = this.createEntityGetRequest(contextData);
+
+                if (req) {
+                    if (req.params) {
+                        req.params.rsconnect = {
+                            "includeValidationData": true,
+                            "profiles": profiles
+                        }
+                    }
+                }
             }
 
             return req;
@@ -408,13 +426,13 @@
             return req;
         };
 
-        DataRequestHelper.savedSearchCreateRequest = function (contextData, type, appName) {
+        DataRequestHelper.savedSearchCreateRequest = function (contextData, type, appName, contextSearchName) {
             var contextData = DataHelper.cloneObject(contextData);//to avoid live reference change
             var _context = ContextHelper.getFirstDataContext(contextData);
             var _details = {};
 
             _details["id"] = appName + "_" + type + "_" + ElementHelper.getRandomString();
-            _details["name"] = type + "_" + ElementHelper.getRandomString();
+            _details["name"] = contextSearchName ? contextSearchName : type + "_" + ElementHelper.getRandomString();
 
             if (type == "savedsearch") {
                 _details["type"] = "savedSearch";
@@ -506,11 +524,12 @@
             var operations = SharedEnumsUtil.Enums.operations;
             if (currentActiveApp) {
                 appInstanceId = currentActiveApp.id;
-            }
+            }            
 
+            //TODO: user name here should be name of the user and not id...Fix tihs by reading proper header
             switch (action) {
                 case 'take':
-                    userName = userContext.user
+                    userName = userContext.user.replace('_user', '');
                     break;
                 case 'release':
                     userName = ""
@@ -537,12 +556,17 @@
                             "workflowAction": "assigned to '" + userName + "'"
                         }
                     }
-                },
-                "entity": {
-                    "id": entity.id,
-                    "type": entity.type
-                }
+                }                
             };
+
+            if(entity)
+            {
+               request["entity"] = {
+                  "id": entity.id,
+                  "type": entity.type
+               }
+            }
+
             return request;
         }
 
@@ -561,39 +585,61 @@
 
             if (!_.isEmpty(workflowActivityName)) {
                 req.params.query.filters.attributesCriterion.push({
-                    "activities/activityName": {
-                        "eq": workflowActivityName
+                    "activities": {
+                        "attributes": [
+                            {
+                                "activityName": {
+                                    "eq": workflowActivityName
+                                }
+                            }
+                        ]
                     }
                 });
             }
 
             if (!_.isEmpty(userId)) {
-                if (req.params.query.filters.attributesCriterion && req.params.query.filters.attributesCriterion.length) {
-                    req.params.query.filters.attributesCriterion[0]["activities/assignedUser"] = {
-                        "eq": userId
-                    };
+                if (req.params.query.filters.attributesCriterion.length) {
+                    req.params.query.filters.attributesCriterion[0]["activities"].attributes.push({
+                        "assignedUser": {
+                            "eq": userId
+                        }
+                    });
                 } else {
                     req.params.query.filters.attributesCriterion.push({
-                        "activities/assignedUser": {
-                            "eq": userId
+                        "activities": {
+                            "attributes": [
+                                {
+                                    "assignedUser": {
+                                        "eq": userId
+                                    }
+                                }
+                            ]
                         }
                     });
                 }
             }
 
+            req.params.query.filters.attributesCriterion.push({
+                "status": {
+                    "eq": "Executing"
+                }
+            });
+
             if (!_.isEmpty(businessConditionName)) {
                 req.params.query.filters.attributesCriterion.push({
-                    "status": {
-                        "eq": "Executing"
-                    }
-                });
-
-                req.params.query.filters.attributesCriterion.push({
-                    "businessConditions/businessConditionName": {
-                        "eq": businessConditionName
-                    },
-                    "businessConditions/businessConditionStatus": {
-                        "eq": false
+                    "businessConditions": {
+                        "attributes": [
+                            {
+                                "businessConditionName": {
+                                    "eq": businessConditionName
+                                }
+                            },
+                            {
+                                "businessConditionStatus": {
+                                    "eq": false
+                                }
+                            }
+                        ]
                     }
                 });
             }
@@ -607,6 +653,56 @@
             req.params.options = { "from": 0, "to": 0 };
 
             return req;
+        };
+        
+        DataRequestHelper.createProfileGetRequest = function(profileIds) {
+            var req = undefined;
+            if(!_.isEmpty(profileIds)) {
+                req = {
+                    "params": {
+                        "query": {
+                            "ids": profileIds,
+                            "filters": {
+                                "typesCriterion": [
+                                    "COPProfile"
+                                ]
+                            },
+                            "contexts": [
+                                {
+                                    "app": "RSConnect",
+                                    "service": "excelImportTransformService",
+                                    "list": "self"
+                                },
+                                {
+                                    "app": "RSConnect",
+                                    "service": "excelImportProcessService",
+                                    "list": "self"
+                                },
+                            ]
+                        },
+                        "fields": {
+                            "jsonData": true
+                        }
+                    }
+                };
+            }
+            return req;
+        };
+
+        DataRequestHelper.createProfileCreationRequest = function(profileId, baseProfile, service) {
+            var ctxService = "";
+            if(service == "transform") {
+                ctxService = "excelImportTransformService";
+            } else if(service == "process") {
+                ctxService = "excelImportProcessService";
+            }
+            var profile = DataHelper.cloneObject(baseProfile);
+            profile.id = profileId;
+            profile.name = profileId;
+            profile.data.contexts[0].context.service = ctxService;
+            profile.data.contexts[0].jsonData.id = profileId;
+            profile.data.contexts[0].jsonData.name = profileId;
+            return profile;
         }
     })();
 

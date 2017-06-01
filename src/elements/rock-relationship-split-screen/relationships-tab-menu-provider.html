@@ -8,6 +8,8 @@
     <template>
         <liquid-entity-model-get id="liquidModeleGet" operation="getbyids" request-data={{_request}} on-response="_onModelReceived"
             on-error="_onModelGetFailed"></liquid-entity-model-get>
+        <liquid-entity-model-get id="getRelDomains" operation="getbyids"  on-response="_onRelModelsReceived"
+            on-error="_onModelGetFailed"></liquid-entity-model-get>
     </template>
     <script>
         Polymer({
@@ -31,6 +33,13 @@
                     value: function () {
                         return {};
                     }
+                },
+                /**
+                 *  Represents domain of the relationship types we are searching
+                 */
+                domain:{
+                    type:String,
+                    value:"generic"
                 }
             },
             behaviors: [
@@ -51,8 +60,43 @@
             _onModelReceived: function (e) {
                 var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response)
                 if (responseContent) {
-                    var relationshipEntityTypeMappings = this._getRelationshipEntityTypeMappings(responseContent.entityModels);
-                    var menuItems = this._buildMenuItems(relationshipEntityTypeMappings);
+                    this._relationshipEntityTypeMappings = this._getRelationshipEntityTypeMappings(responseContent.entityModels);
+                    var relationshipTypeNames=this._relationshipEntityTypeMappings.map(function (rel) {
+                        return rel.relationshipTypeName+"_relationshipModel";
+                    });
+                    this._generateCheckDomainRequest(relationshipTypeNames);
+
+                }
+            },
+            _generateCheckDomainRequest:function (relationshipTypeNames) {
+                var req=DataHelper.cloneObject(this._request);
+                delete req.params.query.id;
+                req.params.query.ids=relationshipTypeNames;
+                req.params.query.domain=this.domain;
+                req.params.query.filters= {
+                    "typesCriterion": ["relationshipModel"]
+                };
+                req.params.fields= {};
+                var checkDomainLiquid=this.$$("#getRelDomains");
+                if(checkDomainLiquid){
+                    checkDomainLiquid.requestData=req;
+                    checkDomainLiquid.generateRequest();
+                }
+            },
+            _onRelModelsReceived: function (e) {
+                var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response)
+                if (responseContent) {
+                    var models=responseContent.entityModels;
+                    var relationshipTypeNames=[];
+                    for(var i=0;i<models.length;i++){
+                        if(models[i].domain==this.domain) {
+                            relationshipTypeNames.push(models[i].name);
+                        }
+                    }
+                    this._relationshipEntityTypeMappings= this._relationshipEntityTypeMappings.filter(function(rel){
+                        return relationshipTypeNames.indexOf(rel.relationshipTypeName)>-1;
+                    });
+                    var menuItems = this._buildMenuItems(this._relationshipEntityTypeMappings);
                     this._callback(menuItems);
                 }
             },
