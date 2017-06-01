@@ -274,7 +274,7 @@ COPService.prototype = {
                 var blob = binaryObject.data && binaryObject.data.blob ? binaryObject.data.blob : "";
                 response.cookie('fileDownload',true, { maxAge: 900000, httpOnly: false });
                 response.writeHead(200, {
-                    'Content-Type': 'application/vnd.ms-excel',
+                    'Content-Type': 'application/vnd.ms-excel', //ToDo: need to use different mime types based on file extensions
                     'Content-disposition': 'attachment;filename=' + fileName + "." + fileExtension,
                     'Content-Length': blob.length
                 });
