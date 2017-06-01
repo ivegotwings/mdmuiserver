@@ -324,10 +324,12 @@
                 newData.attributes = dataAttributes;
             }
 
-            if (!_.isEmpty(firstDataContext) && !_.isEmpty(firstContextAttributes)) {
+            if (!_.isEmpty(firstDataContext)) {
                 var newCtxItem = {};
                 newCtxItem.context = firstDataContext;
-                newCtxItem.attributes = firstContextAttributes;
+                if(!_.isEmpty(firstContextAttributes)) {
+                    newCtxItem.attributes = firstContextAttributes;
+                }
                 newData.contexts = [newCtxItem];
             }
 
@@ -414,6 +416,10 @@
 
                     attributeJSON.selfContext = attributeModel.selfContext;
                     attributeJSON.name = attributeModel.name;
+
+                    if(attributeModels[attributeModelName].dataType === "datetime" || attributeModels[attributeModelName].dataType === "date") {
+                        attributeJSON.value = FormatHelper.convertFromISODateTime(attributeJSON.value, attributeModels[attributeModelName].dataType);
+                    }
                     transformedAttributes[attributeModel.name] = attributeJSON;
                 }
             }
@@ -471,30 +477,44 @@
                     var rowData = data[i];
                     var keys = Object.keys(rowData);
                     var attributesJson = [];
+                    var entityCtx = {};
                     if (keys && keys.length > 0) {
                         for (var j = 0; j < keys.length; j++) {
                             var key = keys[j];
-                            if (attributeModels[key] && rowData[key]) {
-                                var val = undefined;
-                                
-                                if(attributeModels[key].isCollection) {
-                                    val = rowData[key].split("||");
-                                } else {
-                                    val = rowData[key];
-                                }
+                            if(rowData[key]) {
+                                if (key != "classification" && key != "taxonomy") {
+                                    if (attributeModels[key]) {
+                                        var val = undefined;
 
-                                var attribute = {
-                                    "name": key,
-                                    "value": val,
-                                    "source": firstValueContext.source,
-                                    "locale": firstValueContext.locale,
-                                    "selfContext": attributeModels[key].selfContext
-                                };
-                                
-                                attributesJson.push(attribute);
-                            }
+                                        if(attributeModels[key].isCollection) {
+                                            val = rowData[key].split("||");
+                                        } else {
+                                            val = rowData[key];
+                                        }
+
+                                        var attribute = {
+                                            "name": key,
+                                            "value": val,
+                                            "source": firstValueContext.source,
+                                            "locale": firstValueContext.locale,
+                                            "selfContext": attributeModels[key].selfContext
+                                        };
+
+                                        attributesJson.push(attribute);
+                                    }
+                                } else if (key == "classification") {
+                                    entityCtx["classification"] = rowData[key];
+                                } else if(key == "taxonomy") {
+                                    entityCtx["taxonomy"] = rowData[key];
+                                }
+                            } 
                         }
                     }
+                    var entityContexts = [];
+                    if(!_.isEmpty(entityCtx)) {
+                        entityContexts.push(entityCtx);
+                    }
+                    contextData[ContextHelper.CONTEXT_TYPE_DATA] = entityContexts;
                     var entityId = rowData.rowId;
                     var entityType = firstItemContext.type;
                     var entity = DataTransformHelper.prepareEntityForCreate(entityId, entityType, attributesJson, contextData, "John");
