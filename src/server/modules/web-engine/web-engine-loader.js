@@ -8,6 +8,7 @@ var history = require('connect-history-api-fallback');
 var cors = require('cors');
 var bodyParser = require('body-parser');
 var compression = require('compression');
+var cookieParser = require('cookie-parser');
 
 var webEngineConfig = require("../../config/web-engine-config.json");
 
@@ -24,6 +25,8 @@ if (relativePath) {
 logger.info('Web engine start - build path identified', {"buildPath": buildPath});
 
 var app = express();
+
+app.use(cookieParser());
 
 app.use(compression());
 

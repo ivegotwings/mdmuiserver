@@ -109,33 +109,35 @@ COPService.prototype = {
         //console.log('generateFieldMapRequest: ', JSON.stringify(generateFieldMapRequest, null, 2));
         return await this.post(generateFieldMapURL, generateFieldMapRequest);
     },
-    downloadModelExcel: async function (request) {
+    downloadModelExcel: async function (request, response) {
         var downloadModelURL = "copservice/downloadModelExcel";
         var timeStamp = Date.now();
-        var fileName = request.body.fileName + '-' + timeStamp;
+        var parsedRequest = JSON.parse(request.body.data);
+        var fileName = parsedRequest.fileName + '-' + timeStamp;
 
         //console.log('downloadModelRequest: ', JSON.stringify(request.body, null, 2));
-        var response = await this.post(downloadModelURL, request.body);
+        var modelResponse = await this.post(downloadModelURL, parsedRequest);
 
-        if (response && response.response && response.response.status.toLowerCase() == "success") {
-            this._downloadFileContent(response.response, fileName);
+        if (modelResponse && modelResponse.response && modelResponse.response.status.toLowerCase() == "success") {
+            this._downloadFileContent(modelResponse.response, fileName, request, response);
         }
 
-        return response;
+        //return response;
     },
-    downloadDataExcel: async function (request) {
+    downloadDataExcel: async function (request, response) {
         var downloadDataURL = "copservice/downloadDataExcel";
         var timeStamp = Date.now();
-        var fileName = request.body.fileName + '-' + timeStamp;
+        var parsedRequest = JSON.parse(request.body.data);
+        var fileName = parsedRequest.fileName + '-' + timeStamp;
 
         //console.log('downloadDataRequest: ', JSON.stringify(request.body, null, 2));
-        var response = await this.post(downloadDataURL, request.body);
+        var copResponse = await this.post(downloadDataURL, parsedRequest);
 
-        if (response && response.response && response.response.status.toLowerCase() == "success") {
-            this._downloadFileContent(response.response, fileName);
+        if (copResponse && copResponse.response && copResponse.response.status.toLowerCase() == "success") {
+            this._downloadFileContent(copResponse.response, fileName, request, response);
         }
 
-        return response;
+        //return response;
     },
     _validateRequest: function (request) {
         if (!request.body) {
@@ -260,48 +262,28 @@ COPService.prototype = {
         //console.log('binaryData ', binaryData);
         return new Buffer(binaryData).toString('base64');
     },
-    _downloadFileContent: function (response, fileName) {
+    _downloadFileContent: function (copResponse, fileName, request, response) {
         //console.log(JSON.stringify(response));
-        if (response && response.binaryObjects && response.binaryObjects.length) {
-            var binaryObject = response.binaryObjects[0];
-            response.fileName = fileName;
-            
+        if (copResponse && copResponse.binaryObjects && copResponse.binaryObjects.length) {
+            var binaryObject = copResponse.binaryObjects[0];
             if (binaryObject) {
                 var fileExtension = "xlsx";
                 if (binaryObject.properties && binaryObject.properties.extension) {
                     fileExtension = binaryObject.properties.extension;
                 }
-
-                response.fileExtension = fileExtension;
-
                 var blob = binaryObject.data && binaryObject.data.blob ? binaryObject.data.blob : "";
-
-                var binaryData = "";
-                try {
-                    var dir = './download';
-
-                    if (config && !isEmpty(config.fileStoragePath)) {
-                        if (fs.existsSync(config.fileStoragePath)) {
-                            dir = config.fileStoragePath + '/download';
-                        }
-                    }
-
-                    if (!fs.existsSync(dir)) {
-                        fs.mkdirSync(dir);
-                    }
-
-                    var completeFileName = dir + '/' + fileName + '.' + fileExtension;
-                    binaryData = fs.writeFileSync(completeFileName, blob, 'base64');
-                } catch (ex) {
-                    console.log('error while writing file: ', ex);
-                }
+                response.cookie('fileDownload',true, { maxAge: 900000, httpOnly: false });
+                response.writeHead(200, {
+                    'Content-Type': 'application/vnd.ms-excel', //ToDo: need to use different mime types based on file extensions
+                    'Content-disposition': 'attachment;filename=' + fileName + "." + fileExtension,
+                    'Content-Length': blob.length
+                });
+                              
+                response.end(new Buffer(blob, 'base64'));
+                
             }
         } else {
-            response.status = "error";
-            response.statusDetail = {};
-            response.code = "RSUI0002";
-            response.statusDetail.message = "binaryObjects not found in response of download service.";
-            response.statusDetail.messageType = "Error";
+            response.status(500).send('binaryObjects not found in response of download service.!')
         }
 
     }
