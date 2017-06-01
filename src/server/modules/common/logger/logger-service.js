@@ -12,6 +12,12 @@ LoggerService.prototype = {
   configure: function (config) {
     this._config = config;
     var toolSettings = config.toolSettings;
+
+    var cwdir = process.cwd();
+    for(var stream of toolSettings.streams) {
+      stream.path = cwdir + stream.path;
+    }
+
     this._logger = bunyan.createLogger(toolSettings);
     this._logger.serializers = bunyan.stdSerializers;
 
