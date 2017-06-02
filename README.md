@@ -32,6 +32,74 @@ This command would create local folder for the repository. Make sure you are in 
 
     `git clone https://github.com/riversandtechnologies/ui-platform.git`
 
+## Setup nginx and auth-service
+1. Restore AuthSetup-Package from ui-platform repository into your **root** drive (C or D drive). Make sure this directly in the root drive. On restore, c or d drive should have 3 new folders as below:
+    - Nginx
+    - platformsvc-authenticationsvc
+    - var
+2. Open \var\lib\rs\dataplatform\config\dataplatformpodconfig.json file and edit nginx section as below: 
+Provide node name as local system name. Example: <<machine-name>>.riversand.com. This has to be FQDN (Fully qualified domain name) where domain is riversand.com.  DO NOT USE localhost.
+
+  ```
+  "nginx": 
+      {
+	 "sslEnabled": true,
+         "sslPort": 443,
+         "httpPort": 80,
+         "nodes": 
+         [
+            "shree.riversand.com"
+         ]
+      }
+   }, 
+   
+   ```
+   
+ 3. In ui-platform codebase, update your **socket.io** config.js files to update as  https://<<machine-name>>.riversand.com. This is required to make socket.io work. Here is sample:  
+ 
+    ```
+    {
+        "notificationManager" : {
+            "url": "https://shree.riversand.com"
+        }
+     },
+     
+     ```
+    
+## Run Nginx, auth-service and ui-platform app:
+
+1. Make sure you don’t have port 80 running. Normally skype,SQL server or your local ISS consumes port 80. To stop IIS, run iisreset -stop. For skype, change skype’ s advanced options
+
+2. In cmd, go to root/nginx and run start nginx. Make sure nginx is running by running command tasklist /fi "imagename eq nginx.exe"
+
+3. Install pm2 with the follwoing command,
+
+    `npm install pm2 –g` 
+    
+   In cmd, go to root/platformsvc-authenticationsvc/src and run pm2 start app.js --name="auth-service"
+
+4. All the developers running their local nginx need to do below change to get this running.
+
+     - Go to your authservice/src/server folder and open passport.js file. 
+     - Search for tenantId and replace value there with “jcpenney”.
+     - Restart your auth service
+     
+5. Run your normal ui-platform using “npm run app” in ui-platform folder.
+
+6. With this, when you open your browser with https://domain-name.riversand.com it would redirect you to ask for auth0 authentication and further redirect you to ui app.
+
+## Handy Commands for nginx:
+
+     - start nginx   (it will start nginx)
+     - tasklist /fi "imagename eq nginx.exe"  (it will provide status of nginx service)
+     - nginx -s quit (it will shut down nginx server gracefully)
+
+## Handy commands to run Auth app as a background service:
+
+     - npm install pm2 –g (it is one time install of pm2)
+     - pm2 start app.js --name="authservice" (name can be anything of your choice, it will help you to know the status of your auth app)
+     - pm2 stop authservice (to stop auth service app)
+     - pm2 status authservice (to know the service status)
 
 ## Install local dependencies
 Below steps are needed every time you pull new changes, specially in the initial phase of the project. 
