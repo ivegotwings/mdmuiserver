@@ -48,7 +48,7 @@ Provide node name as local system name. Example: <<machine-name>>.riversand.com.
          "httpPort": 80,
          "nodes": 
          [
-            "shree.riversand.com"
+            "machinename.riversand.com"
          ]
       }
    }, 
@@ -60,7 +60,7 @@ Provide node name as local system name. Example: <<machine-name>>.riversand.com.
     ```
     {
         "notificationManager" : {
-            "url": "https://shree.riversand.com"
+            "url": "https://machinename.riversand.com"
         }
      },
      
@@ -86,7 +86,7 @@ Provide node name as local system name. Example: <<machine-name>>.riversand.com.
      
 5. Run your normal ui-platform using “npm run app” in ui-platform folder.
 
-6. With this, when you open your browser with https://domain-name.riversand.com it would redirect you to ask for auth0 authentication and further redirect you to ui app.
+6. With this, when you open your browser with https://machinename.riversand.com it would redirect you to ask for auth0 authentication and further redirect you to ui app.
 
 ## Handy Commands for nginx:
 
