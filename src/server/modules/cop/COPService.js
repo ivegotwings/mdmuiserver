@@ -272,11 +272,10 @@ COPService.prototype = {
                     fileExtension = binaryObject.properties.extension;
                 }
                 var blob = binaryObject.data && binaryObject.data.blob ? binaryObject.data.blob : "";
-                response.cookie('fileDownload',true, { maxAge: 900000, httpOnly: false });
+                response.cookie('fileDownload',true, { path: "/", httpOnly: false });
                 response.writeHead(200, {
                     'Content-Type': 'application/vnd.ms-excel', //ToDo: need to use different mime types based on file extensions
-                    'Content-disposition': 'attachment;filename=' + fileName + "." + fileExtension,
-                    'Content-Length': blob.length
+                    'Content-disposition': 'attachment;filename=' + fileName + "." + fileExtension
                 });
                               
                 response.end(new Buffer(blob, 'base64'));
