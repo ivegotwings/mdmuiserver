@@ -68,14 +68,10 @@ var COPRouter = function (app) {
         res.status(200).send(response);
     });
     app.post('/cop/downloadModelExcel', async function (req, res) {
-        var response = await copService.downloadModelExcel(req);
-        //console.log('cop response:', JSON.stringify(response, null, 2));
-        res.status(200).send(response);
+        copService.downloadModelExcel(req, res);
     });
     app.post('/cop/downloadDataExcel', async function (req, res) {
-        var response = await copService.downloadDataExcel(req);
-        //console.log('cop response:', JSON.stringify(response, null, 2));
-        res.status(200).send(response);
+        copService.downloadDataExcel(req, res);
     });
     app.post('/cop/generateFieldMap', async function (req, res) {
         var response = await copService.generateFieldMap(req);
