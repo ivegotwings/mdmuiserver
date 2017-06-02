@@ -14,7 +14,7 @@ BinaryStreamObjectService.prototype = {
 
         try {
             var prepareUploadURL = 'binarystreamobjectservice/prepareUpload';
-            var validationResult = this._validateRequest(request, 'upload');
+            var validationResult = this._validateRequest(request);
             if (!validationResult) {
                 throw new Error("Incorrect request for upload.");
             }
@@ -71,22 +71,44 @@ BinaryStreamObjectService.prototype = {
     prepareDownload: async function (request) {
 
         //console.log('prepare download request: ', request);
-        var response = {};
+        var prepareDownloadResponse = {};
 
         try {
             var prepareDownloadURL = 'binarystreamobjectservice/prepareDownload';
-            var validationResult = this._validateRequest(request, 'download');
+            var validationResult = this._validateRequest(request);
             if (!validationResult) {
                 throw new Error("Incorrect request for download.");
             }
+
+            var binaryStreamRequests = request.body;
+            for (let binaryStreamRequest of binaryStreamRequests) {
+                var res = await this.post(prepareDownloadURL, binaryStreamRequest);
+
+                //Collect successfull responses...
+                if(res && res.response && res.response.status && res.response.status.toLowerCase() == "success") {
+                    if(isEmpty(prepareDownloadResponse)) {
+                        prepareDownloadResponse = res;
+                    }
+                    else {
+                        if(!prepareDownloadResponse.response.binaryStreamObjects) {
+                            prepareDownloadResponse.response.binaryStreamObjects = [];
+                        }
+                        
+                        if(res.response.binaryStreamObjects && !isEmpty(res.response.binaryStreamObjects)) {
+                            for(let binaryStreamObject of res.response.binaryStreamObjects) {
+                                prepareDownloadResponse.response.binaryStreamObjects.push(binaryStreamObject);
+                            }
+                        }
+                    }
+                } 
+            }
                 
-            response = await this.post(prepareDownloadURL, request.body);
-            //console.log('prepare download response: ', JSON.stringify(response, null, 2));
+            //console.log('prepare download response: ', JSON.stringify(prepareDownloadResponse, null, 2));
         }
         catch(err) {
-            console.log('Failed to upload.\nError:', err.message, '\nStackTrace:', err.stack);
+            console.log('Failed to download.\nError:', err.message, '\nStackTrace:', err.stack);
 
-            response = { 
+            prepareDownloadResponse = { 
                 "response": {
                 "status": "Error",
                 "statusDetail": {
@@ -100,16 +122,16 @@ BinaryStreamObjectService.prototype = {
         finally {
         }
 
-        return response;
+        return prepareDownloadResponse;
     },
     create: async function (request) {
 
-        console.log('create request: ', request);
+        //console.log('create request: ', request);
         var response = {};
 
         try {
             var prepareUploadURL = 'binarystreamobjectservice/create';
-            var validationResult = this._validateRequest(request, 'create');
+            var validationResult = this._validateRequest(request);
             if (!validationResult) {
                 throw new Error("Incorrect request for create.");
             }
@@ -124,7 +146,7 @@ BinaryStreamObjectService.prototype = {
                 } 
             }
 
-            console.log('create response: ', JSON.stringify(prepareUploadResponse, null, 2));
+            //console.log('create response: ', JSON.stringify(response, null, 2));
         }
         catch(err) {
             console.log('Failed to upload.\nError:', err.message, '\nStackTrace:', err.stack);
@@ -150,20 +172,9 @@ BinaryStreamObjectService.prototype = {
 
         return response;
     },
-    _validateRequest: function (request, operation) {
+    _validateRequest: function (request) {
         if (!request.body || isEmpty(request.body)) {
             return false;
-        }
-
-        if(operation == 'download') {
-            var binaryStreamObject = request.body.binaryStreamObject;
-            if (!binaryStreamObject || isEmpty(binaryStreamObject)) {
-                return false;
-            }
-
-            if(!binaryStreamObject.id) {
-                return false;
-            }
         }
 
         return true;
