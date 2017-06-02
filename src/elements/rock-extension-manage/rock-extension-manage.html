@@ -30,14 +30,15 @@ It manages the current extensions and creates new extensions.
 <dom-module id="rock-extension-manage">
     <template>
         <style include="pebble-styles-shared">
-
-            .extensions-container{
+            .extensions-container {
                 /*margin: inherit;*/
             }
+
             .tree-heading {
                 font-weight: bold;
                 font-size: var(--default-font-size, 14px);
             }
+
             .button {
                 --pebble-button: {
                     height: 30px;
@@ -67,15 +68,16 @@ It manages the current extensions and creates new extensions.
                 z-index: 9999;
             }
         </style>
-            <div class="extensions-container" align="center">
-                    <div class="tree-heading">Classification selection</div>
-                    <rock-classification-tree id="contextTree" multi-select="[[multiSelect]]" taxonomy="[[taxonomy]]" context-data="{{contextData}}" selected-item="{{_selectedItem}}" selected-items="{{_selectedItems}}"></rock-classification-tree>
-            </div>
+        <div class="extensions-container" align="center">
+            <div class="tree-heading">Classification selection</div>
+            <rock-classification-tree id="contextTree" multi-select="[[multiSelect]]" taxonomy="[[taxonomy]]" context-data="{{contextData}}"
+                selected-item="{{_selectedItem}}" selected-items="{{_selectedItems}}" selected-classification="{{selectedClassification}}"></rock-classification-tree>
+        </div>
         <div id="buttonContainer" align="center">
             <pebble-button id="cancel" class="btn btn-secondary m-r-10" button-text="Skip" on-tap="_skipSelection" elevation=1 raised></pebble-button>
             <pebble-button id="save" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
         </div>
-        <liquid-entity-data-save id="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" on-response="_onSaveResponse"></liquid-entity-data-save>
+        <liquid-entity-data-save id="attributeSaveDataService" operation="update"></liquid-entity-data-save>
     </template>
     <script>
         (function () {
@@ -84,110 +86,182 @@ It manages the current extensions and creates new extensions.
             Polymer({
                 is: "rock-extension-manage",
                 properties: {
-                    contextData:{
-                        type:Object,
+                    contextData: {
+                        type: Object,
                         value: function () {
                             return {};
                         }
                     },
                     _selectedItems: {
                         type: Array,
-                        value: function() {return [];}
+                        value: function () {
+                            return [];
+                        }
                     },
                     _selectedItem: {
                         type: Object,
-                        value: function() {return {};}
+                        value: function () {
+                            return {};
+                        }
                     },
-                    taxonomy:{
-                        type:String ,
-                        value:""
+                    taxonomy: {
+                        type: String,
+                        value: ""
                     },
                     businessFunctionData: {
                         type: Object,
-                        value: function() { return {}; }
+                        value: function () {
+                            return {};
+                        }
                     },
-                    multiSelect:{
-                        type:Boolean,
-                        value:false
+                    multiSelect: {
+                        type: Boolean,
+                        value: true
+                    },
+                    selectedClassification: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _liquidSaveElement: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
                     }
-
                 },
                 behaviors: [
                     RUFBehaviors.UIBehavior,
                     RUFBehaviors.ComponentContextBehavior
                 ],
-                _save:function () {
-                    var selectedItems=[];
-                    if(this.multiSelect){
-                        if(this._selectedItems && this._selectedItems.length) {
-                            selectedItems = this._selectedItems;
+                ready: function() {
+                    this._liquidSaveElement = this.$$("#attributeSaveDataService");
+                },
+                _save: function () {
+                    var isItemsSelected = false;
+                    if (this.multiSelect) {
+                        if (this._selectedItems && this._selectedItems.length > 0) {
+                            isItemsSelected = true;
                         }
                     } else {
-                        if(this._selectedItem && !_.isEmpty(this._selectedItem)){
-                            selectedItems=[this._selectedItem];
+                        if (this._selectedItem && !_.isEmpty(this._selectedItem)) {
+                            isItemsSelected = true;
                         }
                     }
-                    if(selectedItems.length==0) {
+                    if (!isItemsSelected) {
                         this.showErrorToast("No context data selected to save.");
                         return;
                     }
-                    var updatedDataContexts=[];
 
-                    for(var i in selectedItems){
-                        var context={};
-                        var valuePath=selectedItems[i].valuePath;
-                        if(valuePath){
-                            valuePath=valuePath.replace(/#@#/g, "\/");
+                    var contextsToDelete = [];
+                    for (var i in this.selectedClassification) {
+                        var context = {};
+
+                        context["classification"] = this.selectedClassification[i];
+                        if (this.taxonomy) {
+                            context["taxonomy"] = this.taxonomy;
                         }
-                        context.classification=valuePath;
-                        if(this.taxonomy){
-                            context["taxonomy"]=this.taxonomy;
-                        }
-                        updatedDataContexts.push({"context":context});
+
+                        contextsToDelete.push({
+                            "context": context,
+                            "action": "delete"
+                        });
                     }
-                    var data={};
-                    data.contexts=updatedDataContexts;
-                    var firstItemContext=this.getFirstItemContext();
-                    var entity={
-                        "id":firstItemContext.id,
-                        "type":firstItemContext.type,
-                        "data":data
+
+                    var data = {};
+                    data["contexts"] = contextsToDelete;
+                    var firstItemContext = this.getFirstItemContext();
+                    var entity = {
+                        "id": firstItemContext.id,
+                        "type": firstItemContext.type,
+                        "data": data
+                    };
+
+                    if (this._liquidSaveElement) {
+                        this._liquidSaveElement.requestData = {
+                            "entities": [entity]
+                        };
+                        DataHelper.oneTimeEvent(this._liquidSaveElement, 'response', this._onContextDeleteResponse.bind(this));
+                        this._liquidSaveElement.generateRequest();
+                    } else {
+                        RUFUtilities.Logger.error("Liquid save element not found.");
+                    }
+                },
+                _onContextDeleteResponse: function(e) {
+                    var selectedItems = [];
+                    if (this.multiSelect) {
+                        selectedItems = this._selectedItems;
+                    } else {
+                        selectedItems = [this._selectedItem];
+                    }
+
+                    var updatedDataContexts = [];
+                    for (var i in selectedItems) {
+                        var context = {};
+                        var valuePath = selectedItems[i].valuePath;
+                        if (valuePath) {
+                            valuePath = valuePath.replace(/#@#/g, "\/");
+                        }
+                        context.classification = valuePath;
+                        if (this.taxonomy) {
+                            context["taxonomy"] = this.taxonomy;
+                        }
+                        updatedDataContexts.push({
+                            "context": context
+                        });
+                    }
+
+                    var data = {};
+                    data.contexts = updatedDataContexts;
+                    var firstItemContext = this.getFirstItemContext();
+                    var entity = {
+                        "id": firstItemContext.id,
+                        "type": firstItemContext.type,
+                        "data": data
                     };
 
                     //TODO:: This will be temporary fix needs to come up with good solution.
-                    if(this._isNotificationDisabled()) {
+                    if (this._isNotificationDisabled()) {
                         var clientState = {};
                         clientState.notificationInfo = {};
                         clientState.notificationInfo.showNotificationToUser = false;
-                        this.set("_saveRequest",{"clientState": clientState, "entities":[entity]});
+                        this._liquidSaveElement.requestData = {
+                            "clientState": clientState,
+                            "entities": [entity]
+                        };
                     } else {
-                        this.set("_saveRequest",{"entities":[entity]});                        
+                        this._liquidSaveElement.requestData = {
+                            "entities": [entity]
+                        };
                     }
 
-                    var liquidSave=this.$$("#attributeSaveDataService");
-                    if(liquidSave){
-                        liquidSave.generateRequest();
-                    }
+                    DataHelper.oneTimeEvent(this._liquidSaveElement, 'response', this._onContextUpdateResponse.bind(this));
+                    this._liquidSaveElement.generateRequest();
                 },
-                _skipSelection:function () {
-                    this._selectedItems=[];
+                _skipSelection: function () {
+                    this._selectedItems = [];
                     var eventName = "onSkip";
                     var eventDetail = {
                         name: eventName
                     }
-                    this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                    this.fireBedrockEvent(eventName, eventDetail, {
+                        ignoreId: true
+                    });
                 },
-                _onSaveResponse:function () {
+                _onContextUpdateResponse: function () {
                     this.showSuccessToast("Context data saved successfully.");
                     var eventName = "onSave";
                     var eventDetail = {
                         name: eventName
                     }
-                    this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                    this.fireBedrockEvent(eventName, eventDetail, {
+                        ignoreId: true
+                    });
                 },
-                _isNotificationDisabled: function() {
+                _isNotificationDisabled: function () {
                     var app = ComponentHelper.getCurrentActiveApp();
-                    if(app.is == "app-business-function") {
+                    if (app.is == "app-business-function") {
                         return true;
                     }
                     return false;
