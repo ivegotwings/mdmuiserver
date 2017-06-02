@@ -149,7 +149,7 @@ BinaryStreamObjectService.prototype = {
             //console.log('create response: ', JSON.stringify(response, null, 2));
         }
         catch(err) {
-            console.log('Failed to upload.\nError:', err.message, '\nStackTrace:', err.stack);
+            console.log('Failed to create binary stream object.\nError:', err.message, '\nStackTrace:', err.stack);
 
             if(response && response.response && response.response.status && response.response.status.toLowerCase() == "success") {
                 //As operation is sucessful for some of the requests... ignore error
