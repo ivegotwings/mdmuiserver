@@ -130,15 +130,35 @@ BinaryStreamObjectService.prototype = {
         var response = {};
 
         try {
-            var prepareUploadURL = 'binarystreamobjectservice/create';
+            var createURL = 'binarystreamobjectservice/create';
             var validationResult = this._validateRequest(request);
             if (!validationResult) {
                 throw new Error("Incorrect request for create.");
             }
             
             var binaryStreamRequests = request.body;
+
+            //Get user information...
+            var userName = this.getUserName();
+            var userRole = this.getUserRole();
+            var ownershipData = this.getOwnershipData();
+            
             for (let binaryStreamRequest of binaryStreamRequests) {
-                var res = await this.post(prepareUploadURL, binaryStreamRequest);
+
+                //Add user information...
+                if(binaryStreamRequest.binaryStreamObject) {
+                    var properties = binaryStreamRequest.binaryStreamObject.properties;
+                    if(properties) {
+                        properties['user'] = userName;
+                        properties['role'] = userRole;
+                        properties['ownershipData'] = ownershipData;
+                    }
+                    else {
+                        //TODO:: If properties are not available then we cannot continue with Create...
+                        //How to handle error for single request when we are processing in bulk?
+                    }
+                }
+                var res = await this.post(createURL, binaryStreamRequest);
 
                 //Collect successfull responses...
                 if(res && res.response && res.response.status && res.response.status.toLowerCase() == "success") {
