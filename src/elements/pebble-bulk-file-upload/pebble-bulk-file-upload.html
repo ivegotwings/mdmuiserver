@@ -339,6 +339,14 @@ Example:
       },
 
       /**
+       * Field which denotes whether upload is S3 upload
+       */
+      s3Upload: {
+        type: Boolean,
+        value: false
+      },
+
+      /**
        * The object used to localize this component.
        * For changing the default localization, change the entire
        * _i18n_ object or just the property you want to modify.
@@ -374,7 +382,7 @@ Example:
        error: {
          serverUnavailable: 'Server Unavailable',
          unexpectedServerError: 'Unexpected Server Error',
-         forbidden: 'Forbidden'
+         forbidden: 'Failed to upload. Retry...'
        }
       },
       units: {
@@ -423,7 +431,7 @@ Example:
               error: {
                 serverUnavailable: 'Server Unavailable',
                 unexpectedServerError: 'Unexpected Server Error',
-                forbidden: 'Forbidden'
+                forbidden: 'Failed to upload. Retry...'
               }
             },
             units: {
@@ -615,10 +623,10 @@ Example:
      * @param {Array} [files] - Files being uploaded. Defaults to all outstanding files
      */
     uploadFiles: function(files) {
-      files = files || this.files;
-      files = files.filter(function(file) {
-        return !file.complete;
-      });
+      // files = files || this.files;
+      // files = files.filter(function(file) {
+      //   return !file.complete;
+      // });
       Array.prototype.forEach.call(files, this._uploadFile.bind(this));
     },
 
@@ -694,9 +702,14 @@ Example:
 
           if(file.complete) {
             var actualFileName = file.name;
-            if(xhr.response && xhr.response.fileName) {
+
+            if(this.s3Upload) {
+              actualFileName = file.s3ObjectKey;
+            }
+            else if(xhr.response && xhr.response.fileName) {
               actualFileName = xhr.response.fileName;
             }
+
             var fileData = {
               "originalFileName": file.name,
               "fileName": actualFileName
@@ -720,7 +733,10 @@ Example:
 
       var formData = new FormData();
 
-      file.uploadTarget = this.target.replace('<name>', file.name);
+      if(!file.uploadTarget || _.isEmpty(file.uploadTarget)) {
+          file.uploadTarget = this.target.replace('<name>', file.name);
+      }
+
       file.formDataName = this.formDataName;
       var evt = this.fire('upload-before', {file: file, xhr: xhr}, {cancelable: true});
       if (evt.defaultPrevented) {
@@ -745,7 +761,16 @@ Example:
       // preventing default
       evt = this.fire('upload-request', {file: file, xhr: xhr, formData: formData}, {cancelable: true});
       if (!evt.defaultPrevented) {
-        xhr.send(formData);
+        //Uploaded file in S3 is getting corrupted when sent through form-data...
+        //S3 is expeting without form-data.
+        //Whereas express file upload is failing without form-data.
+        //Hence doing a S3 upload check and sending content appropriately
+        if(this.s3Upload) {
+          xhr.send(file);
+        }
+        else {
+          xhr.send(formData);
+        }
       }
     },
 
@@ -779,9 +804,16 @@ Example:
     _addFiles: function(files) {
       Array.prototype.forEach.call(files, this._addFile.bind(this));
 
-      // var uploadedFiles = files.filter(function(file) {
-      //   return !file.complete;
-      // });
+      if(this.s3Upload) {
+        var eventData = {
+          name : "pebble-bulk-file-upload-started",
+          data : files
+        }
+
+        this.fire('bedrock-event',eventData);
+        this.set('complete', true);
+        this.set('progress', 100);
+      }
     },
 
     /**
@@ -804,6 +836,7 @@ Example:
         this.fire('file-reject', {file: file, error: this.i18n.error.incorrectFileType});
         return;
       }
+      
       file.loaded = 0;
       file.status = this.i18n.uploading.status.held;
       this.unshift('files', file);
