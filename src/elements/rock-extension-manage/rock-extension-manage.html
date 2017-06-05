@@ -71,13 +71,13 @@ It manages the current extensions and creates new extensions.
         <div class="extensions-container" align="center">
             <div class="tree-heading">Classification selection</div>
             <rock-classification-tree id="contextTree" multi-select="[[multiSelect]]" taxonomy="[[taxonomy]]" context-data="{{contextData}}"
-                selected-item="{{_selectedItem}}" selected-items="{{_selectedItems}}" selected-classification="{{selectedClassification}}"></rock-classification-tree>
+                selected-item="{{_selectedItem}}" selected-items="{{_selectedItems}}" existing-selected-classifications="{{existingSelectedClassifications}}"></rock-classification-tree>
         </div>
         <div id="buttonContainer" align="center">
             <pebble-button id="cancel" class="btn btn-secondary m-r-10" button-text="Skip" on-tap="_skipSelection" elevation=1 raised></pebble-button>
             <pebble-button id="save" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
         </div>
-        <liquid-entity-data-save id="attributeSaveDataService" operation="update"></liquid-entity-data-save>
+        <liquid-entity-data-save id="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" on-response="_onSaveResponse"></liquid-entity-data-save>
     </template>
     <script>
         (function () {
@@ -118,7 +118,7 @@ It manages the current extensions and creates new extensions.
                         type: Boolean,
                         value: false
                     },
-                    selectedClassification: {
+                    existingSelectedClassifications: {
                         type: Array,
                         value: function () {
                             return [];
@@ -131,89 +131,38 @@ It manages the current extensions and creates new extensions.
                         }
                     }
                 },
+
                 behaviors: [
                     RUFBehaviors.UIBehavior,
                     RUFBehaviors.ComponentContextBehavior
                 ],
+
                 ready: function() {
                     this._liquidSaveElement = this.$$("#attributeSaveDataService");
                 },
+
                 _save: function () {
                     var isItemsSelected = false;
+                    var selectedItems = [];
+
                     if (this.multiSelect) {
                         if (this._selectedItems && this._selectedItems.length > 0) {
                             isItemsSelected = true;
+                            selectedItems = this._selectedItems;
                         }
                     } else {
                         if (this._selectedItem && !_.isEmpty(this._selectedItem)) {
                             isItemsSelected = true;
+                            selectedItems = [this._selectedItem];
                         }
                     }
                     if (!isItemsSelected) {
                         this.showErrorToast("No context data selected to save.");
                         return;
                     }
-
-                    var contextsToDelete = [];
-                    for (var i in this.selectedClassification) {
-                        var context = {};
-
-                        context["classification"] = this.selectedClassification[i];
-                        if (this.taxonomy) {
-                            context["taxonomy"] = this.taxonomy;
-                        }
-
-                        contextsToDelete.push({
-                            "context": context,
-                            "action": "delete"
-                        });
-                    }
-
+                    
                     var data = {};
-                    data["contexts"] = contextsToDelete;
-                    var firstItemContext = this.getFirstItemContext();
-                    var entity = {
-                        "id": firstItemContext.id,
-                        "type": firstItemContext.type,
-                        "data": data
-                    };
-
-                    if (this._liquidSaveElement) {
-                        this._liquidSaveElement.requestData = {
-                            "entities": [entity]
-                        };
-                        DataHelper.oneTimeEvent(this._liquidSaveElement, 'response', this._onContextDeleteResponse.bind(this));
-                        this._liquidSaveElement.generateRequest();
-                    } else {
-                        RUFUtilities.Logger.error("Liquid save element not found.");
-                    }
-                },
-                _onContextDeleteResponse: function(e) {
-                    var selectedItems = [];
-                    if (this.multiSelect) {
-                        selectedItems = this._selectedItems;
-                    } else {
-                        selectedItems = [this._selectedItem];
-                    }
-
-                    var updatedDataContexts = [];
-                    for (var i in selectedItems) {
-                        var context = {};
-                        var valuePath = selectedItems[i].valuePath;
-                        if (valuePath) {
-                            valuePath = valuePath.replace(/#@#/g, "\/");
-                        }
-                        context.classification = valuePath;
-                        if (this.taxonomy) {
-                            context["taxonomy"] = this.taxonomy;
-                        }
-                        updatedDataContexts.push({
-                            "context": context
-                        });
-                    }
-
-                    var data = {};
-                    data.contexts = updatedDataContexts;
+                    data.contexts = this._prepareContexts(selectedItems);;
                     var firstItemContext = this.getFirstItemContext();
                     var entity = {
                         "id": firstItemContext.id,
@@ -226,19 +175,68 @@ It manages the current extensions and creates new extensions.
                         var clientState = {};
                         clientState.notificationInfo = {};
                         clientState.notificationInfo.showNotificationToUser = false;
-                        this._liquidSaveElement.requestData = {
-                            "clientState": clientState,
-                            "entities": [entity]
-                        };
+                        this.set("_saveRequest",{"clientState": clientState, "entities":[entity]});
                     } else {
-                        this._liquidSaveElement.requestData = {
-                            "entities": [entity]
-                        };
+                        this.set("_saveRequest",{"entities":[entity]});
                     }
-
-                    DataHelper.oneTimeEvent(this._liquidSaveElement, 'response', this._onContextUpdateResponse.bind(this));
+                    
                     this._liquidSaveElement.generateRequest();
                 },
+
+                _prepareContexts: function(selectedItems) {
+                    var contexts = [];
+                    
+                    // Update - For selected items
+                    for (var i in selectedItems) {
+                        var context = {};
+                        var valuePath = selectedItems[i].valuePath;
+                        if (valuePath) {
+                            valuePath = valuePath.replace(/#@#/g, "\/");
+                        }
+                        context.classification = valuePath;
+                        if (this.taxonomy) {
+                            context["taxonomy"] = this.taxonomy;
+                        }                        
+
+                        contexts.push({
+                            "context": context
+                        });
+                    }
+
+                    // Delete - For existing items 
+                    for (var i in this.existingSelectedClassifications) {
+                        var context = {};
+                        var isSelected = false;
+
+                        for (var j in selectedItems) {
+                            var valuePath = selectedItems[j].valuePath;
+                            if (valuePath) {
+                                valuePath = valuePath.replace(/#@#/g, "\/");
+                            }
+
+                            if(valuePath == this.existingSelectedClassifications[i]) {
+                                isSelected = true;
+                                break;
+                            }
+                        }
+
+                        // Not in current selected list, then action to delete
+                        if(!isSelected) {
+                            context["classification"] = this.existingSelectedClassifications[i];
+                            if (this.taxonomy) {
+                                context["taxonomy"] = this.taxonomy;
+                            }
+
+                            contexts.push({
+                                "context": context,
+                                "action": "delete"
+                            });
+                        }                        
+                    }
+
+                    return contexts;
+                },
+                
                 _skipSelection: function () {
                     this._selectedItems = [];
                     var eventName = "onSkip";
@@ -249,8 +247,9 @@ It manages the current extensions and creates new extensions.
                         ignoreId: true
                     });
                 },
-                _onContextUpdateResponse: function () {
-                    this.showSuccessToast("Context data saved successfully.");
+
+                _onSaveResponse: function () {
+                    this.showSuccessToast("Context data saved successfully.");                    
                     var eventName = "onSave";
                     var eventDetail = {
                         name: eventName
@@ -259,6 +258,7 @@ It manages the current extensions and creates new extensions.
                         ignoreId: true
                     });
                 },
+                
                 _isNotificationDisabled: function () {
                     var app = ComponentHelper.getCurrentActiveApp();
                     if (app.is == "app-business-function") {
