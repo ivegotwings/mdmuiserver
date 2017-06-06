@@ -73,6 +73,39 @@ var DFServiceBase = function (options) {
         return result;
     };
 
+    this.getUserName = function () {
+        var userName = "admin";
+        var securityContext = executionContext.getSecurityContext();
+
+        if (securityContext && securityContext.headers && securityContext.headers.userName) {
+            userName = securityContext.headers.userName;
+        }
+
+        return userName;
+    };
+
+    this.getUserRole = function () {
+        var userRole = "vendor";
+        var securityContext = executionContext.getSecurityContext();
+
+        if (securityContext && securityContext.headers && securityContext.headers.userRoles) {
+            userRole = securityContext.headers.userRoles.split(',')[0];
+        }
+
+        return userRole;
+    };
+
+    this.getOwnershipData = function () {
+        var ownershipData = "";
+        var securityContext = executionContext.getSecurityContext();
+
+        if (securityContext && securityContext.headers && securityContext.headers.ownershipData) {
+            ownershipData = securityContext.headers.ownershipData;
+        }
+
+        return ownershipData;
+    };
+
     this._getTenantId = function () {
         var tenantId = "jcpenney";
         var securityContext = executionContext.getSecurityContext();
@@ -126,11 +159,11 @@ var DFServiceBase = function (options) {
                         "type": "RDF_REQUEST",
                         "service": url,
                         "requestId": internalRequestId,
-                        "request": options
+                        "request": JSON.stringify(options)
                     }
                 };
 
-                console.log('\n\n', JSON.stringify(requestLog));
+                //console.log('\n\n', JSON.stringify(requestLog));
                 logger.info('RDF request', requestLog);
             }
         }
@@ -192,15 +225,15 @@ var DFServiceBase = function (options) {
         for (var logServiceName of this._logServiceNames) {
             var serviceLogSetting = this._logSettings[logServiceName];
             if((serviceLogSetting == "trace-response" || serviceLogSetting == "trace-all") && url.indexOf(logServiceName) > 0) {
-                var hrend = proces.hrtime(hrstart);
-                var taken = hrstart * 1000 + hrend[1] / 1000000;
+                var hrend = process.hrtime(hrstart);
+                var taken = hrend[1]/1000000;
                 var responseLog = {
                     "res": {
                         "type": "RDF_RESPONSE",
                         "service": url,
                         "taken": taken,
                         "requestId": internalRequestId,
-                        "response": options
+                        "response": JSON.stringify(result)
                     }
                 };
 
