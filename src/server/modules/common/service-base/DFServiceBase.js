@@ -73,6 +73,39 @@ var DFServiceBase = function (options) {
         return result;
     };
 
+    this.getUserName = function () {
+        var userName = "admin";
+        var securityContext = executionContext.getSecurityContext();
+
+        if (securityContext && securityContext.headers && securityContext.headers.userName) {
+            userName = securityContext.headers.userName;
+        }
+
+        return userName;
+    };
+
+    this.getUserRole = function () {
+        var userRole = "vendor";
+        var securityContext = executionContext.getSecurityContext();
+
+        if (securityContext && securityContext.headers && securityContext.headers.userRoles) {
+            userRole = securityContext.headers.userRoles.split(',')[0];
+        }
+
+        return userRole;
+    };
+
+    this.getOwnershipData = function () {
+        var ownershipData = "";
+        var securityContext = executionContext.getSecurityContext();
+
+        if (securityContext && securityContext.headers && securityContext.headers.ownershipData) {
+            ownershipData = securityContext.headers.ownershipData;
+        }
+
+        return ownershipData;
+    };
+
     this._getTenantId = function () {
         var tenantId = "jcpenney";
         var securityContext = executionContext.getSecurityContext();
