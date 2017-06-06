@@ -18,6 +18,9 @@
 <link rel="import" href="../rock-assets-search-grid/rock-assets-search-grid.html">
 
 <link rel="import" href="../liquid-rest/liquid-rest.html">
+<link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
+<link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
+
 
 <!--
  `rock-relationship-add` Select assets from list of assets and link to entity
@@ -29,6 +32,7 @@
                 margin-top: 40px;
             }
         </style>
+        <h3 align="center">[[title]] </h3>
         <div class="layout horizontal">
             <div class="flex">
                 <!-- search bar-->
@@ -49,27 +53,34 @@
             <bedrock-pubsub event-name="tag-item-added" handler="_showResetSearch"></bedrock-pubsub>
             <bedrock-pubsub event-name="tag-item-remove" handler="_showResetSearch"></bedrock-pubsub>
         </div>
-        <template is="dom-if" if="[[_isAssetMode(mode)]]">
-            <rock-assets-search-grid id="assetsSearchGrid"  context-data="[[contextData]]"  types-criterion="[[typesCriterion]]"  grid-config="[[_gridConfig]]"
+        <!--<template is="dom-if" if="{{_isAssetMode(mode)}}">-->
+            <rock-assets-search-grid id="assetsSearchGrid"  context-data="[[contextData]]"  types-criterion="[[typesCriterion]]"  grid-config="[[config.assetGridConfig]]"
                                      search-filters="[[_selectedSearchFilters]]" search-query="[[_searchQuery]]"
             ></rock-assets-search-grid>
-        </template>
-        <template is="dom-if" if="[[!_isAssetMode(mode)]]">
-            <rock-entity-search-grid id="entitySearchGrid"  context-data="[[contextData]]"  types-criterion="[[typesCriterion]]"  grid-config="[[_gridConfig]]"
-                                     search-filters="[[_selectedSearchFilters]]" search-query="[[_searchQuery]]"
-            ></rock-entity-search-grid>
-        </template>
+        <!--</template>-->
+        <!--<template is="dom-if" if="{{!_isAssetMode(mode)}}">-->
+            <!--<rock-entity-search-grid id="entitySearchGrid"  context-data="[[contextData]]"  types-criterion="[[typesCriterion]]"  grid-config="[[config.entityGridConfig]]"-->
+                                     <!--search-filters="[[_selectedSearchFilters]]" search-query="[[_searchQuery]]"-->
+            <!--&gt;</rock-entity-search-grid>-->
+        <!--</template>-->
 
         <div id="actionButtons" align="center">
             <pebble-button class="action-button btn btn-secondary m-r-5" id="skip" button-text="Cancel" raised on-tap="_onCancelTap"></pebble-button>
             <pebble-button class="action-button-focus dropdownText btn btn-success " id="next" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
         </div>
+        <liquid-entity-data-save name="entitySaveService" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}" on-response="_onSaveResponse"
+                                 on-error="_onSaveError">
+        </liquid-entity-data-save>
 
     </template>
     <script>
         Polymer({
             is: 'rock-relationship-add',
             properties: {
+                mode:{
+                    type:String,
+                    value:""
+                },
                 /*
                  *  Indicates context data
                  */
@@ -83,7 +94,7 @@
                     type: Array,
                     value: function () { return []; }
                 },
-                _gridConfig: {
+                config: {
                     type: Object,
                     value: function () { return {}; }
                 },
@@ -102,43 +113,44 @@
                     type: Boolean,
                     value: false
                 },
-                mode:{
-                    type:String,
-                    value:""
+                direction: {
+                    type: String,
+                    value:"up"
+                },
+                title:{
+                    type:String
+                },
+                relationshipType:{
+                    type:String
+                },
+                selectedEntities:{
+                    type:Array,
+                    value:function () {
+                        return []
+                    }
+                },
+                selfContext:{
+                    type:Boolean,
+                    value:false
                 }
             },
             observers: [
-                '_contextDataChanged(contextData,typesCriterion)'
+                '_contextDataChanged(contextData,typesCriterion,mode)'
             ],
             behaviors: [
                 RUFBehaviors.UIBehavior,
                 RUFBehaviors.ComponentContextBehavior
             ],
             ready:function () {
-                this._gridConfig=this.getParentAppConfig("rock-relationship-add-grid",this.mode);
+                this.config=this.getParentAppConfig("rock-relationship-add");
             },
             _contextDataChanged:function () {
                 if(!_.isEmpty(this.contextData) && this.typesCriterion && this.typesCriterion.length) {
-                    var assetGrid=this.$$("#assetsSearchGrid");
+                    var assetGrid=Polymer.dom(this).node.$$("#assetsSearchGrid");
                     if(assetGrid){
                         assetGrid.refresh();
                     }
                 }
-            },
-            _formatValue: function(models,item, value) {
-                if(!models){
-                    return value;
-                }
-                var model=models[item];
-                if(model &&
-                    model.dataType &&
-                    (model.dataType.toLowerCase()  == "date" ||
-                    model.dataType.toLowerCase()  == "datetime"))
-                {
-                    return FormatHelper.convertFromISODateTime(object.value, model.dataType, model.dateFormat);
-                }
-
-                return value;
             },
             _onSearch: function (e, detail, sender) {
                 this._searchQuery = detail;
@@ -152,7 +164,6 @@
                     rockSearchBar.query = "";
                 }
                 this._searchQuery = '';
-//                this._selectedSearchFilters = [];
                 this.$.searchFilter.clearSearchFilters();
                 this._resetSearchEnabled = false;
             },
@@ -194,6 +205,126 @@
             },
             _isAssetMode:function (mode) {
                 return mode=="asset";
+            },
+            _onSaveResponse: function (e, detail) {
+                var eventName = "onSave";
+                var eventDetail = {
+                    name: eventName
+                };
+                this.fireBedrockEvent(eventName, eventDetail, {
+                    ignoreId: true
+                });
+            },
+            _onSaveError: function (e, detail) {
+                this.showErrorToast("Unable to add relationship now, please contact administrator.");
+                console.warn(e);
+            },
+            _getGrid:function () {
+                if(this.mode=="asset"){
+                    return this.$$("#assetsSearchGrid");
+                } else{
+                    return this.$$("#entitySearchGrid")
+                }
+            },
+            // lot-sku (isChildOf)
+            _createRelationshipsUp: function (_targetList) {
+                var firstContextData = ContextHelper.getFirstDataContext(this.contextData);
+                var utils = SharedUtils.DataObjectFalcorUtil;
+                if (this.selectedEntities && this.selectedEntities.length > 0 && _targetList && _targetList.length > 0) {
+                    var _relationshipList = [];
+                    var totalRel = 0;
+                    for (var i = 0; i < _targetList.length; i++) {
+                        var rel = {
+                            "direction": "both",
+                            "relationshipType": this.relationshipType,
+                            "relTo": {
+                                "id": _targetList[i].id,
+                                "type": _targetList[i].type
+                            }
+                        };
+                        rel.id = utils.createRelUniqueId(this.relationshipType, rel, totalRel++);
+                        _relationshipList.push(rel);
+                    }
+                    var upRelationshipRequests = [];
+                    for (var i = 0; i < this.selectedEntities.length; i++) {
+                        var entity = this.selectedEntities[i];
+                        var relationships = EntityHelper.getRelationshipByType(entity, firstContextData, this.relationshipType, this.selfContext);
+                        relationships= _relationshipList.reduce( function(coll,item){
+                            coll.push( item );
+                            return coll;
+                        }, relationships );
+                        upRelationshipRequests.push(entity);
+                    }
+
+                    this._saveRequest = {
+                        "entities": upRelationshipRequests
+                    };
+
+                    var liquidSave = this.$$("[name=entitySaveService]");
+                    if (liquidSave) {
+                        liquidSave.operation = "update";
+                        liquidSave.generateRequest();
+                    }
+                }
+            },
+
+            // ensembletopp
+            // productpresentationtolot
+            _createRelationshipsDown: function (_targetList) {
+                var firstContextData = ContextHelper.getFirstDataContext(this.contextData);
+                var utils = SharedUtils.DataObjectFalcorUtil;
+                if (this.selectedEntities && this.selectedEntities.length > 0 && _targetList && _targetList.length > 0) {
+
+                    var relationshipRequests = [];
+                    var _relationshipList = [];
+                    var totalRel = 0;
+                    for (var i = 0; i < this.selectedEntities.length; i++) {
+                        var rel = {
+                            "direction": "both",
+                            "relationshipType": this.relationshipType,
+                            "relTo": {
+                                "id": this.selectedEntities[i].id,
+                                "type": this.selectedEntities[i].type
+                            }
+                        };
+                        rel.id = utils.createRelUniqueId(this.relationshipTye, rel, totalRel++);
+                        _relationshipList.push(rel);
+                    }
+
+                    for (var i = 0; i < _targetList.length; i++) {
+                        var entity = _targetList[i];
+                        var relationships = EntityHelper.getRelationshipByType(entity, firstContextData, this.relationshipType, this.selfContext);
+                        relationships= _relationshipList.reduce( function(coll,item){
+                            coll.push( item );
+                            return coll;
+                        }, relationships );
+                        relationshipRequests.push(entity);
+                    }
+
+                    this._saveRequest = {
+                        "entities": relationshipRequests
+                    };
+
+                    var liquidSave = this.$$("[name=entitySaveService]");
+                    if (liquidSave) {
+                        liquidSave.operation = "update";
+                        liquidSave.generateRequest();
+                    }
+                }
+            },
+            _onSaveTap: function () {
+                var grid=this._getGrid();
+                if(grid){
+                    var selectedItems=grid.getSelectedItems();
+                    if(!selectedItems.length){
+                        this.showInformationToast("Please select atleast 1 entity to link.");
+                    }
+                }
+                if (this.direction == "up") {
+                    this._createRelationshipsUp(selectedItems);
+                } else {
+                    this._createRelationshipsDown(selectedItems);
+                }
             }
 
 
