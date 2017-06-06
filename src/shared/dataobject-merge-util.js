@@ -20,10 +20,13 @@ DataObjectMergeUtil.mergeDataObjects = function (target, source) {
         return target;
     }
 
+    var targetProperties = { 'properties': target.properties };
+    var sourceProperties = { 'properties': source.properties };
+
     var sourceContexts = sourceData.contexts;
 
-    var targetSelfCtxItem = { 'attributes': targetData.attributes, 'relationships': targetData.relationships, 'properties': targetData.properties };
-    var sourceSelfCtxItem = { 'attributes': sourceData.attributes, 'relationships': sourceData.relationships, 'properties': sourceData.properties };
+    var targetSelfCtxItem = { 'attributes': targetData.attributes, 'relationships': targetData.relationships, 'properties': targetProperties };
+    var sourceSelfCtxItem = { 'attributes': sourceData.attributes, 'relationships': sourceData.relationships, 'properties': sourceProperties };
 
     targetSelfCtxItem = DataObjectMergeUtil.mergeCtxItems(targetSelfCtxItem, sourceSelfCtxItem, false);
 
