@@ -12,6 +12,7 @@
 <link rel="import" href="../pebble-icons/pebble-icons.html">
 <link rel="import" href="../pebble-accordion/pebble-accordion.html">
 <link rel="import" href="../rock-assets-search-grid/assets-search-grid-datasource.html">
+<link rel="import" href="../rock-business-function-dialog/rock-business-function-dialog.html">
 
 <link rel="import" href="../liquid-rest/liquid-rest.html">
 
@@ -32,22 +33,34 @@
             #messageCard {
                 text-align: center;
             }
+            .asset-name-container {
+                clear: left;
+                @apply(--layout-horizontal);
+                padding: 10px 0 0;
+                flex-direction: row-reverse !important;
+                border-radius: 3px;
+                margin: 2px 0px 0 0px;
+                flex-direction: row-reverse !important;
+                -webkit-flex-direction: row-reverse !important;
+            }
         </style>
         <template is="dom-repeat" items="{{assetTypeList}}" as="asset" index-as="colIndex" notify-dom-change>
                 <div id="assetContainer_[[asset]]">
                     <pebble-accordion header-text="[[_getAssetTypeTitle(asset)]]" default-icon="expand-less" open-icon="expand-more">
-                        <!--<div class="asset-name-container">-->
-                            <!--<pebble-button icon="pebble-sm-icons:Add" id="[[asset]]" class="pebble-sm-icons btn btn-primary m-r-10" button-text="Add"-->
-                                           <!--on-click="_onAddAssetClick"></pebble-button>-->
-                        <!--</div>-->
+                        <div class="asset-name-container">
+                            <pebble-button icon="pebble-sm-icons:Add" asset="[[asset]]" class="btn btn-primary m-r-20" button-text="Add"
+                                           on-click="_onAddAssetClick"></pebble-button>
+                        </div>
                         <liquid-entity-data-get auto id="datasource_[[asset]]" operation="getbyids" request-data="[[_getAssetGridRequest(asset)]]"   on-response="_populateDataForGrid"
                                                 exclude-in-progress></liquid-entity-data-get>
                         <rock-grid id$="grid_[[asset]]" config="{{_getAssetGridConfig(asset)}}" page-size="10"></rock-grid>
+                        <bedrock-pubsub event-name="refresh-grid" handler="_refreshAssetGrid" target-id="grid_[[asset]]"></bedrock-pubsub>
                         <liquid-rest id="getThumbnail_[[asset]]" asset="[[asset]]" url="/pass-through/binaryobjectservice/get" method="POST"  on-liquid-response="_onGetThumbnailResponse">
                         </liquid-rest>
                     </pebble-accordion>
-                    </div>
+                </div>
             </template>
+        <rock-business-function-dialog id="assetDialog" name="rock-relationship-add"></rock-business-function-dialog>
         <div id="messageCard"> {{_message}}</div>
     </template>
     <script>
@@ -214,6 +227,12 @@
                                     relatedEntityInfo = rel.properties.relatedEntityInfo;
                                     if (relatedEntityInfo && relatedEntityInfo.length) {
                                         this._assetConfig[relType].relatedEntityModel.relatedEntityContexts = relatedEntityInfo;
+                                        var relEntityTypes=relatedEntityInfo.map(function (relContext) {
+                                            if(relContext.relEntityType) {
+                                                return relContext.relEntityType;
+                                            }
+                                        });
+                                        this._assetConfig[relType].relatedEntityTypes=relEntityTypes;
                                     }
 
                                     if (rel.attributes) {
@@ -481,8 +500,33 @@
                 }
 
                 return value;
+            },
+            _onAddAssetClick:function (e) {
+                var asset=e.currentTarget.asset;
+                var typesCriterion= this._assetConfig[asset].relatedEntityTypes;
+                var title=this._getAssetTypeTitle(asset);
+                var assetDialog=this.$$("#assetDialog");
+                var itemContext=ContextHelper.getFirstItemContext(this.contextData);
+                var entity={"id":itemContext.id,"type":itemContext.type};
+                assetDialog.sharedData = {
+                    "mode":"asset",
+                    "context-data": this.contextData,
+                    "types-criterion":typesCriterion,
+                    "relationship-type":asset,
+                    "title":title,
+                    "selected-entities":[entity],
+                    "self-context": this._assetConfig[asset].selfContext
+                };
+                assetDialog.open();
+            },
+            _refreshAssetGrid:function (e,detail) {
+                var targetId=detail.id;
+                targetId=targetId.replace("grid_","datasource_");
+                var liq=this.$$("#"+targetId);
+                if(liq){
+                    liq.generateRequest();
+                }
             }
-
 
         });
     </script>
