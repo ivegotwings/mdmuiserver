@@ -100,7 +100,7 @@
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <liquid-config-get id="getUserProfile" operation="getbyids" request-id="req2" request-data="[[_profileRequest]]" on-response="_onProfileGetResponse"></liquid-config-get>
         <liquid-config-save id="profileSaveService" operation="create" request-data="[[_profileSaveRequest]]" on-response="_onProfileSaveResponse"></liquid-config-save>
-        <liquid-rest id="entityMatchService" url="/pass-through/matchservice/search" method="POST" request-data={{_entityMatchRequest}}
+        <liquid-rest id="entityMatchService" url="/pass-through-bulk/matchservice/search" method="POST" request-data={{_entityMatchRequest}}
             on-liquid-response="_onMatchSuccess" on-liquid-error="_onMatchFailure">
         </liquid-rest>
         <liquid-rest id="copService" url="" method="POST" request-data={{_copRequest}} on-liquid-response="_onCOPSuccess" on-liquid-error="_onCOPFailure"></liquid-rest>
@@ -690,50 +690,54 @@
                     var gridData = this.$$("#entitiesGrid").data;
                     var contextData = DataHelper.cloneObject(this.contextData);
                     this._entities = DataTransformHelper.prepareEntitiesForCreate(gridData, contextData, this._attributeModels);
-                    this._currentEntityIndex = 0;
+                    this._currentBatchNumber = 0;
                     this._generateMatchServiceRequest();
                 },
                 _generateMatchServiceRequest: function () {
-                    if (this._currentEntityIndex < this._entities.length) {
-                        var entity = this._entities[this._currentEntityIndex];
+                     var batchEntities = this._getNextBatch(this._entities, this._currentBatchNumber, this._batchSize);
+                    if (batchEntities && batchEntities.length > 0) {
                         this.set('_entityMatchRequest', {
-                            "entity": entity
+                            "entities": batchEntities
                         });
                         if (this.$$("#entityMatchService")) {
                             this.$$("#entityMatchService").generateRequest();
                         }
                     } else {
+                        this._currentBatchNumber = 0;
                         this._currentAction = "create";
                         this._createEntities();
                     }
                 },
                 _onMatchSuccess: function (e, detail) {
                     if (detail.response) {
-                        var response = detail.response.response;
-                        if ((response.dataObjectOperationResponse && response.dataObjectOperationResponse.status &&
-                            response.dataObjectOperationResponse.status.toLowerCase() == "error") ||
-                            (response.status && response.status.toLowerCase() == "error")) {
+                        var responseList = detail.response;
+                        if(responseList.length > 0) {
+                            for(var i=0; i<responseList.length; i++) {
+                                var entity = this._entities.find(entity => entity.id == responseList[i].id);
+                                var response = DataHelper.isValidObjectPath(responseList[i], "operationResponse.response") ? responseList[i].operationResponse.response : {};
+                                if(response && response.status && response.status.toLowerCase() == "success") {
+                                    if(response.entities) {
+                                        if(response.entities.length == 1) {
+                                            var matchedEntity = response.entities[0];
+                                            entity.id = matchedEntity.id;
+                                            this._matchedEntities.push(entity);
+                                        } else if(response.entities.length > 1) {
+                                            this._faultedEntities.push(entity);
+                                        }
+                                    } else {
+                                        this._newEntities.push(entity);
+                                    }
+                                } else {
+                                    this._faultedEntities.push(entity);
+                                }
+                            }
+                            this._currentBatchNumber++;
+                            this._generateMatchServiceRequest();
+                        } else {
                             console.warn("Failed in entity match service with error: ", detail);
                             this.showErrorToast("There is a problem in match service. Please contact administrator.");
                             this._isDirty = false;
                             return;
-                        }
-
-                        if (response.status && response.status.toLowerCase() == "success") {
-                            if (response.entities) {
-                                if (response.entities.length == 1) {
-                                    var matchedEntity = response.entities[0];
-                                    var entity = this._entities[this._currentEntityIndex];
-                                    entity.id = matchedEntity.id;
-                                    this._matchedEntities.push(entity);
-                                } else if (response.entities.length > 1) {
-                                    this._faultedEntities.push(this._entities[this._currentEntityIndex]);
-                                }
-                            } else {
-                                this._newEntities.push(this._entities[this._currentEntityIndex]);
-                            }
-                            this._currentEntityIndex++;
-                            this._generateMatchServiceRequest();
                         }
                     }
                 },
@@ -812,7 +816,6 @@
                             name: eventName,
                             data: { "skipNext": this.skipNext }
                         };
-                        this._loading = false;
                         this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
                     }
                 },
