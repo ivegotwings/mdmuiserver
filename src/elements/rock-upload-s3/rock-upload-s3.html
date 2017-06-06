@@ -57,13 +57,14 @@
                 text-align: center;
                 color: var(--palette-steel-grey, #75808b);
             }
-            
         </style>
 
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
 
-        <liquid-rest id="prepareUploadLiquid" url="/binarystreamobjectservice/prepareUpload" method="POST" request-data={{_prepareUploadRequest}} on-liquid-response="_onPrepareUploadLiquidSuccess" on-liquid-error="_onPrepareUploadLiquidFailure"></liquid-rest>
-        <liquid-rest id="createUploadedFilesLiquid" url="/binarystreamobjectservice/create" method="POST" request-data={{_createUploadedFilesRequest}} on-liquid-response="_onCreateUploadedFilesLiquidSuccess" on-liquid-error="_onCreateUploadedFilesLiquidFailure"></liquid-rest>
+        <liquid-rest id="prepareUploadLiquid" url="/binarystreamobjectservice/prepareUpload" method="POST" request-data={{_prepareUploadRequest}}
+            on-liquid-response="_onPrepareUploadLiquidSuccess" on-liquid-error="_onPrepareUploadLiquidFailure"></liquid-rest>
+        <liquid-rest id="createUploadedFilesLiquid" url="/binarystreamobjectservice/create" method="POST" request-data={{_createUploadedFilesRequest}}
+            on-liquid-response="_onCreateUploadedFilesLiquidSuccess" on-liquid-error="_onCreateUploadedFilesLiquidFailure"></liquid-rest>
 
         <div id="content-upload">
             <div class="placeHolder p-10">
@@ -103,13 +104,13 @@
                     files: {
                         type: Object,
                         notify: true,
-                        value: function() {
-                        return [];
+                        value: function () {
+                            return [];
                         }
                     },
                     businessFunctionData: {
                         type: Object,
-                        value: function() { return {}; }
+                        value: function () { return {}; }
                     }
                 },
                 behaviors: [
@@ -120,13 +121,13 @@
                 },
                 _onUploadStarted: function (e, uploadedFiles, sender) {
                     var prepareUploadRequest = [];
-                    
+
                     this.files = uploadedFiles;
                     for (let file of uploadedFiles) {
                         //Generate unique file name...
                         var s3ObjectKey = this._generateS3ObjectKey(file.name);
                         file.s3ObjectKey = s3ObjectKey;
-                        
+
                         var binaryStreamObject = {
                             "binaryStreamObject": {
                                 "id": s3ObjectKey,
@@ -134,7 +135,7 @@
                                 "data": {}
                             }
                         };
-                        
+
                         prepareUploadRequest.push(binaryStreamObject);
                     }
 
@@ -147,18 +148,18 @@
                 _onPrepareUploadLiquidSuccess: function (e) {
                     var response = e.detail.response;
                     var canUpload = false;
-                    
-                    if(response && response.response) {
+
+                    if (response && response.response) {
                         var binarystreamobjects = response.response.binaryStreamObjects;
-                        if(binarystreamobjects)
-                        {
+                        if (binarystreamobjects) {
                             for (let binarystreamobject of binarystreamobjects) {
                                 var data = binarystreamobject.data;
 
-                                if(data && data.properties && data.properties.uploadURL && data.properties.uploadURL.length > 0){
+                                if (data && data.properties && data.properties.uploadURL && data.properties.uploadURL.length > 0) {
                                     for (let file of this.files) {
-                                        if(file.s3ObjectKey == binarystreamobject.id) {
+                                        if (file.s3ObjectKey == binarystreamobject.id) {
                                             file.uploadTarget = data.properties.uploadURL;
+                                            file.fullObjectPath = data.properties.fullObjectPath;
                                             break;
                                         }
                                     }
@@ -168,8 +169,8 @@
                             }
                         }
                     }
-                    
-                    if(canUpload){
+
+                    if (canUpload) {
                         this.$$('pebble-bulk-file-upload').uploadFiles(this.files);
                     }
                     else {
@@ -202,7 +203,7 @@
                 },
                 _onCreateUploadedFilesLiquidSuccess: function (e) {
                     var response = e.detail.response;
-                    if(response && response.response && response.response.status && response.response.status.toLowerCase() == "success") {
+                    if (response && response.response && response.response.status && response.response.status.toLowerCase() == "success") {
                         var data = {
                             "messages": [
                                 {
@@ -243,22 +244,22 @@
                         this._loading = false;
                         this.$$('pebble-bulk-file-upload').reset();
                     }
-                 },
-                 _onCreateUploadedFilesLiquidFailure: function (e) {
+                },
+                _onCreateUploadedFilesLiquidFailure: function (e) {
                     console.warn('Asset upload failed with error ', e.detail);
                     this.showErrorToast("Unable to upload. Please check the service or contact your administrator.");
                     this._loading = false;
                     this._isDirty = false;
                     this.$$('pebble-bulk-file-upload').reset();
-                 },
+                },
                 getIsDirty: function () {
                     return this._isDirty;
                 },
-                _generateS3ObjectKey: function(fileName){
+                _generateS3ObjectKey: function (fileName) {
                     var s3ObjectKey;
                     var indexOfExtension = fileName.lastIndexOf(".");
-                    var fileNameText = fileName.substr(0,indexOfExtension);
-                    var fileExt = fileName.substr(indexOfExtension,fileName.length);
+                    var fileNameText = fileName.substr(0, indexOfExtension);
+                    var fileExt = fileName.substr(indexOfExtension, fileName.length);
 
                     var uuid = DataHelper.generateUUID();
 
@@ -266,24 +267,28 @@
 
                     return s3ObjectKey;
                 },
-                _generateCreateRequest: function(succeededFilesData) {
+                _generateCreateRequest: function (succeededFilesData) {
                     var createRequest = [];
-                    for(let fileData of succeededFilesData) {
+                    for (let fileData of succeededFilesData) {
                         var uuid = DataHelper.generateUUID();
                         var s3ObjectKey = fileData.fileName;
 
                         var fileObject;
-                        for(let file of this.files) {
-                            if(file.s3ObjectKey == s3ObjectKey) {
+                        for (let file of this.files) {
+                            if (file.s3ObjectKey == s3ObjectKey) {
                                 fileObject = file;
                                 break;
                             }
                         }
 
                         var originalFileName = s3ObjectKey;
-                        if(fileObject) {
+                        var fullObjectPath = s3ObjectKey;
+                        
+                        if (fileObject) {
                             originalFileName = fileObject.name;
+                            fullObjectPath = fileObject.fullObjectPath;
                         }
+
 
                         var binaryStreamObject = {
                             "binaryStreamObject": {
@@ -291,7 +296,8 @@
                                 "type": "binarystreamobject",
                                 "properties": {
                                     "objectKey": s3ObjectKey,
-                                    "originalFileName": originalFileName 
+                                    "fullObjectPath": fullObjectPath,
+                                    "originalFileName": originalFileName
                                 }
                             }
                         };
