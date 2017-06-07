@@ -49,7 +49,7 @@ DataObjectFalcorUtil.getPathKeys = function () {
                 "name": "requestobject",
                 "collectionName": "requestObjects",
                 "responseObjectName": "response",
-                "maxRecordsToReturn": 50
+                "maxRecordsToReturn": 2000
             }
         }
     };
