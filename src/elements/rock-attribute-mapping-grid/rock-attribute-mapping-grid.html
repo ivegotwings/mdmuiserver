@@ -561,6 +561,7 @@
 				},
 
                 _fireDeleteEvent: function(e) {
+                    this._deletedOverrides.push(e.model.item);
                     var grid = this.$$("#mapping-grid");
                     var index = grid.items.indexOf(e.model.item);
                     grid.items.splice(index, 1);
@@ -699,10 +700,10 @@
                     var items = this.$$("#mapping-grid").items;
                     var originalFieldOverrides = this._transformProfileObject.data.contexts[0].jsonData.transform.mapping.fieldOverrides;
                     var mappings = {};
+                    var fieldOverrides = [];
+                    var contextFields = [];
                     if(items && items.length > 0) {
                         var modifiedItems = items.filter(obj => obj.rowModified == true);
-                        var fieldOverrides = [];
-                        var contextFields = [];
                         if(modifiedItems && modifiedItems.length > 0) {
                             for(var i=0; i<modifiedItems.length; i++) {
                                 var item = modifiedItems[i];                            
@@ -726,31 +727,34 @@
                                     contextFields.push(excelColumnName);
                                 }
                             }
-                            if(fieldOverrides.length > 0) {
-                                this._populateIdsForNewOverrides(fieldOverrides);
-                            }
-                            if(originalFieldOverrides && originalFieldOverrides.length > 0) {
-                                fieldOverrides.push.apply(fieldOverrides, originalFieldOverrides);
-                            }
-                            var contexts = [];
-                            if(!_.isEmpty(contextFields)) {
-                                contexts = [
-                                    {
-                                        "context": 
-                                            {
-                                                "classification": "@field(" + contextFields[0] + ")",
-                                                "taxonomy": "@field(Taxonomy)"
-                                            }
-                                    }
-                                ];
-                            }
-                            if(!_.isEmpty(fieldOverrides)) {
-                                mappings["fieldOverrides"] = fieldOverrides;
-                            }
-                            if(!_.isEmpty(contexts)) {
-                                mappings["contexts"] = contexts;
-                            }
                         }
+                    }
+                    if(fieldOverrides.length > 0) {
+                        this._populateIdsForNewOverrides(fieldOverrides);
+                    }
+                    if(!_.isEmpty(this._deletedOverrides) && !_.isEmpty(originalFieldOverrides)) {
+                        this._deleteFieldOverrides(originalFieldOverrides, this._deletedOverrides);
+                    }
+                    if(originalFieldOverrides && originalFieldOverrides.length > 0) {
+                        fieldOverrides.push.apply(fieldOverrides, originalFieldOverrides);
+                    }
+                    var contexts = [];
+                    if(!_.isEmpty(contextFields)) {
+                        contexts = [
+                            {
+                                "context": 
+                                    {
+                                        "classification": "@field(" + contextFields[0] + ")",
+                                        "taxonomy": "@field(Taxonomy)"
+                                    }
+                            }
+                        ];
+                    }
+                    if(!_.isEmpty(fieldOverrides)) {
+                        mappings["fieldOverrides"] = fieldOverrides;
+                    }
+                    if(!_.isEmpty(contexts)) {
+                        mappings["contexts"] = contexts;
                     }
                     return mappings;
                 },
@@ -759,12 +763,12 @@
                         var item = fieldOverrides[i];
                         if(item.id == -1) {
                             item.id = this._generateFieldOverrideId(item);
+                            }
                         }
-                    }
                 },
                 _generateFieldOverrideId: function(item) {
                     var source = item.source ? item.source : ''; 
-                    var context = item.context ? item.context : '';
+                    var context = item.context ? JSON.stringify(item.context) : '';
                     var entityType = item.entityType ? item.entityType : '';
                     var unique = source + context + entityType;//this is how Connect generates id, we must do the same for add to work
                     return unique.hashCode();
@@ -809,6 +813,16 @@
                         }
                     }
                     return fieldOverride;
+                },
+                _deleteFieldOverrides: function(originalFieldOverrides, deletedOverrides) {
+                    for(var i=0; i<deletedOverrides.length; i++) {
+                        var overrideToDelete = deletedOverrides[i];
+                        var originalOverride = originalFieldOverrides.find(obj => obj.id == overrideToDelete.fieldMap.id);
+                        if(!_.isEmpty(originalOverride)) {
+                            var index = originalFieldOverrides.indexOf(originalOverride);
+                            originalFieldOverrides.splice(index,1);
+                        }
+                    }
                 },
                 _onProfileSaveResponse: function(e) {
                     var response = e.detail.response;
