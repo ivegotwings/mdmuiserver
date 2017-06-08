@@ -57,13 +57,16 @@
                         <bedrock-pubsub event-name="refresh-grid" handler="_onRefreshAssetGridEvent" target-id="grid_[[asset]]"></bedrock-pubsub>
                         <liquid-rest id="getThumbnail_[[asset]]" asset="[[asset]]" url="/pass-through/binaryobjectservice/get" method="POST"  on-liquid-response="_onGetThumbnailResponse">
                         </liquid-rest>
+                        <bedrock-pubsub event-name="grid-custom-toolbar-event" handler="_onCustomToolbarEvent" target-id="grid_[[asset]]"></bedrock-pubsub>
+                        <bedrock-pubsub event-name="download-original-asset" handler="_onOriginalAssetDownloadAction" ></bedrock-pubsub>
                     </pebble-accordion>
                 </div>
-            </template>
+        </template>
         <rock-business-function-dialog id="assetDialog" name="rock-relationship-add"></rock-business-function-dialog>
         <bedrock-pubsub event-name="refresh-relationship-grid" handler="_onRefreshRelationshipGridEvent" target-id="assetDialog"></bedrock-pubsub>
-
         <div id="messageCard"> {{_message}}</div>
+        <liquid-rest id="getDownloadUrl" url="/pass-through/binarystreamobjectservice/prepareDownload" method="POST"  on-liquid-response="_onGetDownloadUrlResponse">
+        </liquid-rest>
     </template>
     <script>
         Polymer({
@@ -159,6 +162,7 @@
                             relatedEntityAttributes.push(fieldDetails.subtitle);
                             relatedEntityAttributes.push(fieldDetails.id);
                             relatedEntityAttributes.push("thumbnailid");
+                            relatedEntityAttributes.push("property_objectkey");
                             var fields = fieldDetails.fields;
                             for (var i = 0; i < fields.length; i++) {
                                 if(fields[i].isRelationshipAttribute){
@@ -542,6 +546,84 @@
                 var liq=this.$$("#"+targetId);
                 if(liq){
                     liq.generateRequest();
+                }
+            },
+            //Download asset functions
+            _onOriginalAssetDownloadAction:function (e,detail) {
+                if(detail) {
+                    var fileName = detail.property_objectkey;
+                    if (fileName) {
+                        var req = {
+                            "binaryStreamObject": {
+                                "id": fileName,
+                                "type": "binarystreamobject",
+                                "data": {}
+                            }
+                        };
+                        var downloadUrlLiquid = this.$$("#getDownloadUrl");
+                        if (downloadUrlLiquid) {
+                            downloadUrlLiquid.requestData = req;
+                            downloadUrlLiquid.generateRequest();
+                        }
+                    }
+                }
+            },
+            _onCustomToolbarEvent:function (e,detail) {
+                if(detail && detail.name=="originalAssetDownload"){
+                    this._originalAssetsDownload();
+                }
+            },
+            _originalAssetsDownload: function () {
+                var rockGrid = Polymer.dom(this).node.$$('rock-grid');
+                var selectedItems=rockGrid.getSelectedItems();
+                var filenames=[];
+                if (selectedItems && selectedItems.length ) {
+                    if(selectedItems.length>5){
+                        this.showInformationToast("Simultaneous download of maximum 5 assets are allowed.");
+                    }
+                    selectedItems.forEach(function (item) {
+                        if (item && item.property_objectkey) {
+                            filenames.push(item.property_objectkey)
+                        }
+                    }, this);
+                    var req = {
+                        "binaryStreamObject": {
+                            "ids": filenames,
+                            "type": "binarystreamobject",
+                            "data": {}
+                        }
+                    };
+                    var downloadUrlLiquid = this.$$("#getDownloadUrl");
+                    if (downloadUrlLiquid) {
+                        downloadUrlLiquid.requestData=req;
+                        downloadUrlLiquid.generateRequest();
+                    }
+                }else {
+                    this.showInformationToast("Please select at least one asset from grid to download.");
+                }
+            },
+            _onGetDownloadUrlResponse:function (e) {
+                if (e.detail && e.detail.response && e.detail.response.response) {
+                    var response = e.detail.response.response;
+                    if (response.status.toLowerCase() == "success") {
+                        var binaryStreamObjects=response.binaryStreamObjects;
+                        if(binaryStreamObjects) {
+                            for (var i = 0; i < binaryStreamObjects.length; i++) {
+                                if (binaryStreamObjects[i].data) {
+                                    var downloadURL=binaryStreamObjects[i].data.properties.downloadURL;
+                                    if(downloadURL){
+                                        var a = document.createElement('a');
+                                        a.href = downloadURL;
+                                        a.download = "";
+                                        a.style.display = 'none';
+                                        document.body.appendChild(a);
+                                        a.click();
+                                        document.body.removeChild(a);
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
