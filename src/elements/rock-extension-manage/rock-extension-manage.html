@@ -70,14 +70,22 @@ It manages the current extensions and creates the new extensions.
         </style>
         <div class="extensions-container" align="center">
             <div class="tree-heading">Classification selection</div>
-            <rock-classification-tree id="contextTree" multi-select="[[multiSelect]]" taxonomy="[[taxonomy]]" context-data="{{contextData}}"
-                selected-item="{{_selectedItem}}" selected-items="{{_selectedItems}}" existing-selected-classifications="{{existingSelectedClassifications}}"></rock-classification-tree>
+            <rock-classification-tree id="contextTree" 
+                                      multi-select="[[multiSelect]]"
+                                      selected-classifications="{{_selectedItems}}" 
+                                      taxonomy="[[taxonomy]]" 
+                                      context-data="[[contextData]]">
+            </rock-classification-tree>
         </div>
         <div id="buttonContainer" align="center">
             <pebble-button id="cancel" class="btn btn-secondary m-r-10" button-text="Skip" on-tap="_skipSelection" elevation=1 raised></pebble-button>
             <pebble-button id="save" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
         </div>
         <liquid-entity-data-save id="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" on-response="_onSaveResponse"></liquid-entity-data-save>
+        <liquid-rest id="contextLiquid" url="/pass-through/entityservice/getcontext"
+                     method="POST" request-data="{{requestData}}"
+                     on-liquid-response="_onResponseReceived"  exclude-in-progress>
+        </liquid-rest>
     </template>
     <script>
         (function () {
@@ -101,15 +109,9 @@ It manages the current extensions and creates the new extensions.
                             return [];
                         }
                     },
-                    _selectedItem: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
           /**
             * <b><i>Content development is under progress... </b></i> 
-            */
+            */                    
                     taxonomy: {
                         type: String,
                         value: ""
@@ -130,15 +132,12 @@ It manages the current extensions and creates the new extensions.
                         type: Boolean,
                         value: false
                     },
-          /**
-            * <b><i>Content development is under progress... </b></i> 
-            */
-                    existingSelectedClassifications: {
+                    _entityCurrrentClassifications: {
                         type: Array,
                         value: function () {
                             return [];
                         }
-                    },
+                    },                    
                     _liquidSaveElement: {
                         type: Object,
                         value: function () {
@@ -146,6 +145,10 @@ It manages the current extensions and creates the new extensions.
                         }
                     }
                 },
+
+                observers:[
+                    '_onContextOrTaxonomyChange(contextData, taxonomy)'                    
+                ],                            
 
                 behaviors: [
                     RUFBehaviors.UIBehavior,
@@ -158,22 +161,72 @@ It manages the current extensions and creates the new extensions.
                     this._liquidSaveElement = this.$$("#attributeSaveDataService");
                 },
 
-                _save: function () {
-                    var isItemsSelected = false;
+                _onContextOrTaxonomyChange:function () {
+                    if(this.taxonomy && !_.isEmpty(this.contextData)) {
+                        this._prepareGetContextRequest();
+                    }
+                },
+
+                _prepareGetContextRequest:function () {
+                    var contextData=DataHelper.cloneObject(this.contextData);
+                    var firstItemContext=ContextHelper.getFirstItemContext(contextData);
+                    if(firstItemContext && firstItemContext.type && firstItemContext.id){
+                        firstItemContext.attributes=[];
+                        contextData[ContextHelper.CONTEXT_TYPE_VALUE]=[];
+                        contextData[ContextHelper.CONTEXT_TYPE_DATA]=[];
+                        var req= DataRequestHelper.createEntityGetRequest(contextData);
+                        req.params.fields.attributes=[];
+                        delete req.params.options;
+                        this.set('requestData',req);
+                        this.$$("#contextLiquid").generateRequest();
+                    }
+                },
+
+                _onResponseReceived:function (e) {
+                        var items = [];
+                        this._entityCurrrentClassifications = [];
+
+                        if (e.detail && e.detail.response) {
+                            var res = e.detail.response.response;
+                            if (res && res.entities && res.entities.length) {
+                                var entity = res.entities[0];
+                                if (entity && entity.data) {
+                                    var contexts = entity.data.contexts;
+                                    for (var i in contexts) {
+                                        var context = contexts[i].context;
+                                        var item = context["classification"];
+                                        if (item) {
+                                            if (context["taxonomy"] == this.taxonomy) {
+                                                this._entityCurrrentClassifications.push(item);
+                                                var arr = item.split("/");
+                                                items.push(arr);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Input - selected items as path arrays
+                        this._selectedItems = items;
+
+                        if(!this.multiSelect && this._selectedItems.length > 1){                            
+                            this.showErrorToast("UI is configured for single context but there are "+ this._selectedItems.length + " selected contexts for the entity");
+                        }
+
+                        if(this.$$("#contextTree"))
+                        {
+                            this.$$("#contextTree").generateRequest();
+                        }                        
+                },                
+
+                _save: function () {                    
                     var selectedItems = [];
 
-                    if (this.multiSelect) {
-                        if (this._selectedItems && this._selectedItems.length > 0) {
-                            isItemsSelected = true;
-                            selectedItems = this._selectedItems;
-                        }
-                    } else {
-                        if (this._selectedItem && !_.isEmpty(this._selectedItem)) {
-                            isItemsSelected = true;
-                            selectedItems = [this._selectedItem];
-                        }
+                    if (this._selectedItems && this._selectedItems.length > 0) {                        
+                        selectedItems = this._selectedItems;
                     }
-                    if (!isItemsSelected) {
+                    else {
                         this.showErrorToast("No context data selected to save.");
                         return;
                     }
@@ -221,7 +274,7 @@ It manages the current extensions and creates the new extensions.
                     }
 
                     // Delete - For existing items 
-                    for (var i in this.existingSelectedClassifications) {
+                    for (var i in this._entityCurrrentClassifications) {
                         var context = {};
                         var isSelected = false;
 
@@ -231,7 +284,7 @@ It manages the current extensions and creates the new extensions.
                                 valuePath = valuePath.replace(/#@#/g, "\/");
                             }
 
-                            if(valuePath == this.existingSelectedClassifications[i]) {
+                            if(valuePath == this._entityCurrrentClassifications[i]) {
                                 isSelected = true;
                                 break;
                             }
@@ -239,7 +292,7 @@ It manages the current extensions and creates the new extensions.
 
                         // Not in current selected list, then action to delete
                         if(!isSelected) {
-                            context["classification"] = this.existingSelectedClassifications[i];
+                            context["classification"] = this._entityCurrrentClassifications[i];
                             if (this.taxonomy) {
                                 context["taxonomy"] = this.taxonomy;
                             }

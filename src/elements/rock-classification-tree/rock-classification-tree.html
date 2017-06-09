@@ -8,6 +8,8 @@
 <link rel="import" href="../bedrock-helpers/attribute-helper.html">
 <link rel="import" href="../bedrock-helpers/element-helper.html">
 
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+
 <link rel="import" href="../pebble-tree/pebble-tree.html">
 
 
@@ -18,16 +20,12 @@
 -->
 
 <dom-module id="rock-classification-tree">
-    <template>
-        <liquid-rest id="contextLiquid" url="/pass-through/entityservice/getcontext"
-                     method="POST" request-data="{{requestData}}"
-                     on-liquid-response="_onResponseReceived"  exclude-in-progress>
-        </liquid-rest>
+    <template>        
         <liquid-entity-data-get id="initiateSearch" operation="initiatesearch" request-data="{{request}}" last-response="{{initiateSearchResponse}}"
                                 on-error="_onGetSearchError"  on-response="_onInitiateSearchResponse" exclude-in-progress></liquid-entity-data-get>
         <liquid-entity-data-get id="getSearchResultDetail" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[initiateSearchResponse.content.requestId]]"
                                 last-response="{{getEntitySearchResultsResponse}}" on-error="_onGetSearchError" on-response="_onGetSearchResultDetailResponse" exclude-in-progress></liquid-entity-data-get>
-        <pebble-tree id="contextTree" leaf-node-only= "true" data="{{classifications}}" check-parent-nodes default-child-depth="10" selected-items="{{selectedItems}}" selected-item="{{selectedItem}}"  multi-select="[[multiSelect]]"></pebble-tree>
+        <pebble-tree id="contextTree" leaf-node-only= "true" data="{{classifications}}" check-parent-nodes default-child-depth="10" selected-items="{{_selectedItems}}" selected-item="{{_selectedItem}}"  multi-select="[[multiSelect]]"></pebble-tree>
         <bedrock-pubsub event-name="tree-node-child-list-refreshed" handler="_childListRefreshed" ></bedrock-pubsub>
     </template>
     <script>
@@ -60,7 +58,7 @@
                 },
           /**
             * <b><i>Content development is under progress... </b></i> 
-            */
+            */                
                 rootClassificationId:{
                     type:String,
                     value:"_root_classification"
@@ -80,22 +78,24 @@
           /**
             * <b><i>Content development is under progress... </b></i> 
             */
-                selectedItems:{
+                selectedClassifications:{
                     type:Array,
                     value:function () {
                         return [];
                     },
                     notify:true
                 },
-          /**
-            * <b><i>Content development is under progress... </b></i> 
-            */
-                selectedItem:{
+                _selectedItems:{
+                    type:Array,
+                    value:function () {
+                        return [];
+                    }                    
+                },
+                _selectedItem:{
                     type:Object,
                     value:function () {
                        return {};
-                    },
-                    notify:true
+                    }
                 },
           /**
             * <b><i>Content development is under progress... </b></i> 
@@ -104,7 +104,7 @@
                     type:Boolean,
                     value:false
                 },
-          /**
+                /**
             * <b><i>Content development is under progress... </b></i> 
             */
                 classifications:{
@@ -113,14 +113,14 @@
                         return [];
                     }
                 },
-                existingSelectedClassifications: {
-                    type:Array,
-                    value:function () {
-                        return [];
-                    },
-                    notify: true
+                _selectedClassificationPaths: {
+                    type: Array
                 }
             },
+
+            observers: [
+                '_onSelectedItemsChange(_selectedItems, _selectedItem)'
+            ],
 
             behaviors: [
                 RUFBehaviors.UIBehavior
@@ -128,68 +128,26 @@
             listeners: {
                 'tree-node-expanded': '_treeNodeExpanded'
             },
-            observers:[
-              '_contextRecieved(contextData,taxonomy)'
-            ],
 
-            _contextRecieved:function () {
-                if(this.taxonomy && !_.isEmpty(this.contextData)) {
-                    this._prepareGetContextRequest();
-                }
-            },
-            _prepareGetContextRequest:function () {
-                var contextData=DataHelper.cloneObject(this.contextData);
-                var firstItemContext=ContextHelper.getFirstItemContext(contextData);
-                if(firstItemContext && firstItemContext.type && firstItemContext.id){
-                    firstItemContext.attributes=[];
-                    contextData[ContextHelper.CONTEXT_TYPE_VALUE]=[];
-                    contextData[ContextHelper.CONTEXT_TYPE_DATA]=[];
-                    var req= DataRequestHelper.createEntityGetRequest(contextData);
-                    req.params.fields.attributes=[];
-                    delete req.params.options;
-                    this.set('requestData',req);
-                    this.$$("#contextLiquid").generateRequest();
+            _onSelectedItemsChange: function() {
+                //Set the output
+                if (this.multiSelect) {
+                    this.selectedClassifications = this._selectedItems;
                 } else {
-                    this.generateRequest();
+                    this.selectedClassifications = [this._selectedItem];
                 }
             },
-            _onResponseReceived:function (e) {
-                    var items = [];
-                    var existingClassifications = [];
-                    if (e.detail && e.detail.response) {
-                        var res = e.detail.response.response;
-                        if (res && res.entities && res.entities.length) {
-                            var entity = res.entities[0];
-                            if (entity && entity.data) {
-                                var contexts = entity.data.contexts;
-                                for (var i in contexts) {
-                                    var context = contexts[i].context;
-                                    var item = context["classification"];
-                                    if (item) {
-                                        if (context["taxonomy"] == this.taxonomy) {
-                                            existingClassifications.push(item);
-                                            var arr = item.split("/");
-                                            items.push(arr);
-                                        }
-                                    }
-                                }
-                            }
-                        }
 
-                    }
-                    this.selectedClassifications = items;
-                    //Existing selected classification list to find the deleted items for the save process
-                    this.set("existingSelectedClassifications", existingClassifications);
-                    if(!this.multiSelect && items.length>1){
-                        var n=items.length;
-                        this.showErrorToast("UI is configured for single context but there are "+n+ " selected contexts for the entity");
-                    }
-                    this.generateRequest();
-            },
-          /**
-            * <b><i>Content development is under progress... </b></i> 
-            */
-            generateRequest: function (parentClassificationId){
+            //Trigger generateRequest from consumer to load the classifications
+            generateRequest: function() {
+                //Capture the input details and set to empty for output
+                this._selectedClassificationPaths = this.selectedClassifications;
+                this.selectedClassifications = [];
+
+                this.executeRequest();
+            },            
+            
+            executeRequest: function (parentClassificationId){
                 if(!parentClassificationId){
                     this.classifications=[];
                     this._currentNode={};
@@ -260,15 +218,17 @@
                     }
                 }
             },
+
+            //If _selectedClassificationPaths available, then only pre selection process triggers
             _checkForSelectedClassification:function () {
-                if(this.classifications.length==0 || !this.selectedClassifications || !this.selectedClassifications.length || this._classificationIndex ==this.selectedClassifications.length) {
+                if(this.classifications.length == 0 || !this._selectedClassificationPaths || !this._selectedClassificationPaths.length || this._classificationIndex == this._selectedClassificationPaths.length) {
                     return;
                 }
                 if(!this._currentClassification) {
                     this._classificationIndex=0;
                     this._currentIndex = 0;
                 }
-                this._currentClassification = this.selectedClassifications[this._classificationIndex];
+                this._currentClassification = this._selectedClassificationPaths[this._classificationIndex];
                 var name=this._currentClassification[this._currentIndex];
                 if(this._currentIndex==0){
                     this._currentNode=this.$$("#contextTree").getElementNodeByPath(name);
@@ -307,7 +267,7 @@
             _treeNodeExpanded:function (e) {
                 this._currentNode = e.detail;
                 if (!this._currentNode.nodeData.children || this._currentNode.nodeData.children.length == 0) {
-                    this.generateRequest(this._currentNode.nodeData.id);
+                    this.executeRequest(this._currentNode.nodeData.id);
                     this._currentNode.startLoading();
                 }
             },
