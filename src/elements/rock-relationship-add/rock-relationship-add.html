@@ -11,6 +11,8 @@
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 <link rel="import" href="../pebble-icons/pebble-icons.html">
 <link rel="import" href="../pebble-accordion/pebble-accordion.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
+
 
 <link rel="import" href="../rock-search-bar/rock-search-bar.html">
 <link rel="import" href="../rock-entity-search-filter/rock-entity-search-filter.html">
@@ -23,7 +25,7 @@
 
 
 <!--
- `rock-relationship-add` Select assets from list of assets and link to entity
+ `rock-relationship-add` Select assets/entities from list of assets/entities and link to selected entities
 -->
 <dom-module id="rock-relationship-add">
     <template>
@@ -53,16 +55,17 @@
             <bedrock-pubsub event-name="tag-item-added" handler="_showResetSearch"></bedrock-pubsub>
             <bedrock-pubsub event-name="tag-item-remove" handler="_showResetSearch"></bedrock-pubsub>
         </div>
-        <!--<template is="dom-if" if="{{_isAssetMode(mode)}}">-->
+        <template is="dom-if" if="{{_isAssetMode(mode)}}">
             <rock-assets-search-grid id="assetsSearchGrid"  context-data="[[contextData]]"  types-criterion="[[typesCriterion]]"  grid-config="[[config.assetGridConfig]]"
                                      search-filters="[[_selectedSearchFilters]]" search-query="[[_searchQuery]]"
             ></rock-assets-search-grid>
-        <!--</template>-->
-        <!--<template is="dom-if" if="{{!_isAssetMode(mode)}}">-->
-            <!--<rock-entity-search-grid id="entitySearchGrid"  context-data="[[contextData]]"  types-criterion="[[typesCriterion]]"  grid-config="[[config.entityGridConfig]]"-->
-                                     <!--search-filters="[[_selectedSearchFilters]]" search-query="[[_searchQuery]]"-->
-            <!--&gt;</rock-entity-search-grid>-->
-        <!--</template>-->
+        </template>
+        <template is="dom-if" if="{{!_isAssetMode(mode)}}">
+            <rock-entity-search-grid id="entitySearchGrid"  context-data="[[contextData]]"  types-criterion="[[typesCriterion]]"  grid-config="[[config.entityGridConfig]]"
+                                     search-filters="[[_selectedSearchFilters]]" search-query="[[_searchQuery]]"
+            ></rock-entity-search-grid>
+        </template>
+        <pebble-spinner active="[[_loading]]"></pebble-spinner>
 
         <div id="actionButtons" align="center">
             <pebble-button class="action-button btn btn-secondary m-r-5" id="skip" button-text="Cancel" raised on-tap="_onCancelTap"></pebble-button>
@@ -132,6 +135,10 @@
                 selfContext:{
                     type:Boolean,
                     value:false
+                } ,
+                _loading:{
+                    type:Boolean,
+                    value:false
                 }
             },
             observers: [
@@ -146,10 +153,20 @@
             },
             _contextDataChanged:function () {
                 if(!_.isEmpty(this.contextData) && this.typesCriterion && this.typesCriterion.length) {
-                    var assetGrid=Polymer.dom(this).node.$$("#assetsSearchGrid");
-                    if(assetGrid){
-                        assetGrid.refresh();
+                    var itemContexts = [];
+                    for (var i in this.typesCriterion) {
+                        var itemContext = {
+                            'type': this.typesCriterion[i]
+                        };
+                        itemContexts.push(itemContext);
                     }
+                    this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
+                    this.async(function () {
+                        var grid=this._getGrid();
+                        if(grid){
+                            grid.refresh();
+                        }
+                    });
                 }
             },
             _onSearch: function (e, detail, sender) {
@@ -207,15 +224,24 @@
                 return mode=="asset";
             },
             _onSaveResponse: function (e, detail) {
+                this._loading=false;
                 var eventName = "onSave";
                 var eventDetail = {
-                    name: eventName
+                    name: eventName,
+                    "action":{
+                        "name":"refresh-relationship-grid",
+                         "relationshipType":this.relationshipType
+                    }
                 };
                 this.fireBedrockEvent(eventName, eventDetail, {
                     ignoreId: true
                 });
             },
+            _onCancelTap:function () {
+                ComponentHelper.closeBusinessFunction();
+            },
             _onSaveError: function (e, detail) {
+                this._loading=false;
                 this.showErrorToast("Unable to add relationship now, please contact administrator.");
                 console.warn(e);
             },
@@ -274,7 +300,6 @@
                 var firstContextData = ContextHelper.getFirstDataContext(this.contextData);
                 var utils = SharedUtils.DataObjectFalcorUtil;
                 if (this.selectedEntities && this.selectedEntities.length > 0 && _targetList && _targetList.length > 0) {
-
                     var relationshipRequests = [];
                     var _relationshipList = [];
                     var totalRel = 0;
@@ -325,6 +350,7 @@
                 } else {
                     this._createRelationshipsDown(selectedItems);
                 }
+                this._loading=true;
             }
 
 
