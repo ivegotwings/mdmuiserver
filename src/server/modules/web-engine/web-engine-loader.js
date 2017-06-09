@@ -105,11 +105,6 @@ notificationService(app);
 
 logger.info('Web engine start - notification service routes are loaded');
 
-var assetRoute = require('../asset/asset-route');
-assetRoute(app);
-
-logger.info('Web engine start - asset service routes are loaded');
-
 var binaryStreamObjectRoute = require('../binarystreamobject/binarystreamobject-route');
 binaryStreamObjectRoute(app);
 
