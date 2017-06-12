@@ -1,0 +1,172 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+
+<link rel="import" href="../rock-image-viewer/rock-image-viewer.html">
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+
+<!--
+`<rock-entity-thumbnail>` Represents an element that renders the thumbnail for an entity
+
+
+@group rock Elements
+@element rock-entity-thumbnail
+@demo demo/index.html
+-->
+
+<dom-module id="rock-entity-thumbnail">
+    <template>
+        <style include="pebble-styles-shared">
+            :host {
+                display: inline-block;
+                overflow: hidden;
+                position: relative;
+            }
+            rock-image-viewer{
+                width:100%;
+                height:100%;
+            }
+        </style>
+        <liquid-entity-data-get  id="getThumbnailLiquid" operation="getbyids"   on-response="_onGetThumbnailResponse"
+                                exclude-in-progress></liquid-entity-data-get>
+        <rock-image-viewer alt="Product image."  sizing="contain"
+                           src="[[defaultThumbnail]]"   thumbnail-id="[[_thumbnailId]]">
+        </rock-image-viewer>
+    </template>
+    <script>
+        (function () {
+            Polymer({
+                is: 'rock-entity-thumbnail',
+                properties: {
+                    /**
+                     * Specifies the config used for rendering this component
+                     */
+                    config: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    defaultThumbnail:{
+                        type:String,
+                        value:""
+                    },
+                    _thumbnailId:{
+                        type:String
+                    }
+
+                },
+
+                behaviors: [
+                    RUFBehaviors.ComponentContextBehavior,
+                    RUFBehaviors.UIBehavior
+                ],
+                observers:[
+                    '_configChanged(config,contextData)'
+                ],
+                _configChanged:function (config,contextData) {
+                    if(!_.isEmpty(config) && !_.isEmpty(contextData)) {
+                        var relationshipName = config.relationshipName;
+                        this._thumbnailIdentifier = config.thumbnailIdentifier;
+                        var relCriteria={};
+                        this._relationshipFilterAttributeName=config.relationshipFilterAttributeName;
+                        this._relationshipFilterAttributeValue=config.relationshipFilterAttributeValue;
+                        if(this._relationshipFilterAttributeName  && this._relationshipFilterAttributeValue !=undefined) {
+                            var relAttributeCriteria = {};
+                            relAttributeCriteria[this._relationshipFilterAttributeName] = {"eq": this._relationshipFilterAttributeValue};
+                            relCriteria[relationshipName] = {
+                                "attributes": [
+                                    relAttributeCriteria
+                                ]
+                            };
+                        }
+                        var req = DataRequestHelper.createEntityGetRequest(this.contextData);
+                        if (req && relationshipName) {
+                            req.params.fields.relatedEntityAttributes = [this._thumbnailIdentifier];
+                            req.params.fields.relationships = [relationshipName];
+                            req.params.fields.relationshipAttributes = [this._relationshipFilterAttributeName];
+                        }
+                        if (!_.isEmpty(relCriteria)) {
+                            req.params.query.filters.relationshipsCriterion = [relCriteria];
+                        }
+                        req.params.query["valueContexts"]=[
+                            {
+                                "source": "internal",
+                                "locale": "en-US"
+                            }
+                        ];
+                        var liq=this.$$("#getThumbnailLiquid");
+                        if(liq){
+                            liq.requestData=req;
+                            liq.generateRequest();
+                        }
+                    }
+                },
+                _onGetThumbnailResponse:function (event) {
+                    var respData=event.detail.response;
+                    var currentRel = "";
+                    if (event.detail.request) {
+                        currentRel = event.detail.request.requestData.params.fields.relationships[0];
+                    }
+                    if (respData) {
+                        if (respData.content && respData.content.entities) {
+                            var entities = respData.content.entities;
+                            if (entities && entities.length > 0) {
+                                var entityId = entities[0].id;
+                                if (entityId) {
+                                    var entity = entities[0];
+                                    var relationships = EntityHelper.getRelationshipsBasedOnContext(entity, ContextHelper.getFirstDataContext(this.contextData), true);
+                                    if (!_.isEmpty(relationships)) {
+                                        var relationshipDetails = relationships[currentRel];
+                                        for(var i=0;i<relationshipDetails.length;i++){
+                                            var relItem=relationshipDetails[i];
+                                            var relAttributes=relItem.attributes;
+                                            if(this._relationshipFilterAttributeName){
+                                                if(!relAttributes || !relAttributes.hasOwnProperty(this._relationshipFilterAttributeName)){
+                                                    continue;
+                                                } else {
+                                                    var attribute=relAttributes[this._relationshipFilterAttributeName];
+                                                    if(attribute && attribute.values) {
+                                                        var attributeValue = attribute.values[0].value;
+                                                        if(attributeValue !=this._relationshipFilterAttributeValue.toString()){
+                                                            continue;
+                                                        }
+                                                    } else {
+                                                        continue;
+                                                    }
+
+                                                }
+                                            }
+                                            if (relItem) {
+                                                if (relItem.relTo) {
+                                                    if (relItem.relTo.data) {
+                                                       var thumbnailIdAttribute= EntityHelper.getAttribute(relItem.relTo,this._thumbnailIdentifier);
+                                                       var thumbnailId=thumbnailIdAttribute.values[0].value;
+                                                       if(thumbnailId){
+                                                           this._thumbnailId=thumbnailId;
+                                                           return;
+                                                       }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+        })();
+    </script>
+</dom-module>
