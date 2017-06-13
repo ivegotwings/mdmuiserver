@@ -5,14 +5,20 @@
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="improt" href="../bedrock-helpers/data-helper.html">
+<link rel="improt" href="../bedrock-helpers/context-helper.html">
 <link rel="improt" href="../bedrock-helpers/data-transform-helper.html">
+
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
+
 <link rel="import" href="../pebble-horizontal-divider/pebble-horizontal-divider.html">
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+
 <link rel="import" href="../rock-relationship-grid/rock-relationship-grid.html">
+<link rel="import" href="../rock-where-used-grid/rock-where-used-grid.html">
+
 <!--
 `rock-relationship-manage` Represents a relationship component in the framework.
 It renders the list of attributes based on the specified relationship type.
@@ -47,9 +53,16 @@ It renders the list of attributes based on the specified relationship type.
             }
         </style>
 
-        <rock-relationship-grid id="entityRelationshipGrid" relationship-type="[[configContext.relationshipTypeName]]" relationship-title="[[configContext.relationshipTitle]]"
+        <template is="dom-if" if="{{!isUpDirection}}">
+            <rock-relationship-grid id="entityRelationshipGrid" relationship-type="[[configContext.relationshipTypeName]]" relationship-title="[[configContext.relationshipTitle]]"
                                 rel-req="[[requestObj]]" relationship-grid-configs="{{_relationshipGridConfigs}}" page-size="100" context-data="[[contextData]]" 
                                 do-sync-validation$="[[doSyncValidation]]" message-code-mapping="[[messageCodeMapping]]"></rock-relationship-grid>
+        </template>
+        <template is="dom-if" if="{{isUpDirection}}">
+             <rock-where-used-grid id="entityRelationshipGrid" relationship-type="[[configContext.relationshipTypeName]]" relationship-title="[[configContext.relationshipTitle]]"
+                                rel-req="[[requestObj]]" relationship-grid-configs="{{_relationshipGridConfigs}}" page-size="100" context-data="[[contextData]]" 
+                                do-sync-validation$="[[doSyncValidation]]" message-code-mapping="[[messageCodeMapping]]"></rock-where-used-grid>
+        </template>
         <div id="messageCard" hidden="[[_isMessageAvailable]]">
         </div>
         <bedrock-pubsub event-name="grid-selecting-item" handler="onSelectingGridItem" target-id="entityRelationshipGrid"></bedrock-pubsub>
@@ -102,6 +115,10 @@ It renders the list of attributes based on the specified relationship type.
                     doSyncValidation: {
                         type: Boolean,
                         value: true
+                    },
+                    isUpDirection: {
+                        type: Boolean,
+                        value: false 
                     },
                     _relationshipGridConfigs: {
                         type: Object,
@@ -230,14 +247,34 @@ It renders the list of attributes based on the specified relationship type.
                 _initiateRelationshipModelRequest: function (relationshipType, relationshipAttributes) {
                     var liquidElement = document.createElement("liquid-entity-model-composite-get");
                     liquidElement.name = relationshipType;
+                    var compositeModelGetRequest = {};
 
-                    var itemContext = this.getFirstItemContext();
+                    if(this.configContext && this.configContext.direction && this.configContext.direction == "up") {
+                        var contextData = DataHelper.cloneObject(this.contextData);
+                        var itemContext = contextData[ContextHelper.CONTEXT_TYPE_ITEM][0];
 
-                    itemContext.attributeNames = [];
-                    itemContext.relationships = [relationshipType];
-                    itemContext.relationshipAttributes = relationshipAttributes;
+                        itemContext.attributeNames = [];
+                        itemContext.type = this.configContext.fromEntityTypes[0];
+                        itemContext.relationships = [relationshipType];
+                        itemContext.relationshipAttributes = relationshipAttributes;
 
-                    var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+                        compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(contextData);
+
+                        if(this._relConfig[relationshipType]) {
+                            this._relConfig[relationshipType].direction = this.configContext.direction;
+                            this._relConfig[relationshipType].fromEntityTypes = this.configContext.fromEntityTypes;
+                        }
+                        this.isUpDirection = true;
+                    } else {
+                        var itemContext = this.getFirstItemContext();
+
+                        itemContext.attributeNames = [];
+                        itemContext.relationships = [relationshipType];
+                        itemContext.relationshipAttributes = relationshipAttributes;
+
+                        compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+                        this.isUpDirection = false;
+                    }
 
                     this._tracker.push(relationshipType);
                     liquidElement.requestData = compositeModelGetRequest;
