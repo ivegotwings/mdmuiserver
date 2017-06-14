@@ -180,7 +180,8 @@ The users can switch between a search mode and a filter mode to get the query th
         </pebble-tags>
         <bedrock-pubsub event-name="on-tap-tag-item" handler="_onTagItemTap"></bedrock-pubsub>
         <bedrock-pubsub event-name="on-attached-tag-item" handler="_onTagItemTap"></bedrock-pubsub>
-        <bedrock-pubsub target-id="rockEntityLov" event-name="entity-lov-selection-changed" handler="_onLOVSelectedItemChange"></bedrock-pubsub>
+        <bedrock-pubsub event-name="entity-lov-confirm-button-tap" handler="_onLOVConfirmTap" target-id="rockEntityLov"></bedrock-pubsub>
+        <bedrock-pubsub event-name="entity-lov-close-button-tap" handler="_onLOVCloseTap" target-id="rockEntityLov"></bedrock-pubsub>
         <!-- Refine popover starts here -->
         <pebble-popover id="filterPopover" for="pebble-tag" no-overlap auto-fit-on-attach vertical-align="auto" horizontal-align="auto">
           <template is="dom-if" if="{{_showTagModifier('textbox', _tigger)}}">
@@ -200,7 +201,7 @@ The users can switch between a search mode and a filter mode to get the query th
             </div>
           </template>
           <template is="dom-if" if="{{_showTagModifier('referenceList', _tigger)}}">
-            <rock-entity-lov id="rockEntityLov" selected-item="{{selectedItem}}">
+            <rock-entity-lov id="rockEntityLov" multi-select no-sub-title show-action-buttons selected-items="{{_selectedItems}}">
             </rock-entity-lov>
           </template>
           <template is="dom-if" if="{{_showTagModifier('boolean', _tigger)}}">
@@ -321,6 +322,13 @@ The users can switch between a search mode and a filter mode to get the query th
         _tigger: {
           type: String
         },
+
+        _selectedItems: {
+          type: Array,
+          value: function () {
+            return [];
+          }
+        },
           /**
             * <b><i>Content development is under progress... </b></i> 
             */
@@ -439,6 +447,8 @@ The users can switch between a search mode and a filter mode to get the query th
        * Can be used add a filter tag on selecting it from the dropdown.
        */
       _onSelectedFilterChange: function (e, detail) {
+        //Reseting the selected values of the attribute
+        this._selectedItems = [];
         var data = detail.data;
         var tag = {};
         tag["value"] = (data.value && !_.isEmpty(data.value)) ? data.value : {
@@ -477,7 +487,7 @@ The users can switch between a search mode and a filter mode to get the query th
         tag["name"] = data.name;
         this.$$("#filter-tags").addTag(tag);
         this._fireAddEvent(data.name);
-        this.$$("#refineFilterPopover").close();
+        this.$$("#refineFilterPopover").close();        
       },
       /**
        *  Can be used to toggle between the search and filter mode.
@@ -490,9 +500,9 @@ The users can switch between a search mode and a filter mode to get the query th
         return DataRequestHelper.createEntityGetRequest(contextData);
       },
 
-      // On tag tap should select the soecific element 
+      // On tag tap should select the specific element 
       _onTagItemTap: function (e, detail) {
-
+        
         this.currentTag = detail;
 
         if (this.currentTag && this.currentTag.options.displayType.toLowerCase() == "datetime") {
@@ -616,23 +626,43 @@ The users can switch between a search mode and a filter mode to get the query th
         this.gte = this.lte = this.equalNum = "";
       },
 
-      _onLOVSelectedItemChange: function (e, detail) {
+      _onLOVConfirmTap: function (e, detail) {
+        var selectedItemString = "";
+        var selectedItemSearchString = "";
+        var selectedItemsObj = this._selectedItems;
+        for(i in selectedItemsObj){
+          if(selectedItemsObj[i].title)
+            selectedItemString = selectedItemString + selectedItemsObj[i].title + " ";
+            selectedItemSearchString = selectedItemSearchString + selectedItemsObj[i].title + ", ";
+        }
+        //console.log("contains ::: " + selectedItemString);
+        selectedItemString = selectedItemString.trim();
+        selectedItemSearchString = selectedItemSearchString.substr(0,selectedItemSearchString.length-2);
+
         if (detail && detail.data) {
           this.currentTag.value = {
-            "exact": detail.data.value
+            "contains": selectedItemString,
+            "operator": "_OR"
           }
+
           this.currentTag.options["selectedItem"] = detail.data;
           this.currentTag.displayValue = detail.data.value;
-
-          this.set('tags.' + this.currentTag.index + '.displayValue', this.currentTag.displayValue);
-          this.set('tags.' + this.currentTag.index + '.value', this.currentTag.value);
+         
+          this.set('tags.' + this.currentTag.index + '.displayValue', selectedItemSearchString);
+          this.set('tags.' + this.currentTag.index + '.value',  this.currentTag.value);
         }
-
+       
         this.$$('#filterPopover').hide();
         //Fire event
         this._fireChangeEvent(this.currentTag.name, this.currentTag.value, this.currentTag.options.type);
+        
       },
 
+      // Closing the filter popover 
+      _onLOVCloseTap: function (e, detail) {
+          this.$$("#filterPopover").hide();
+      },
+	  
       // Refine filter tags will be updated as per selection
       _updateValue: function (e) {
         var dataType = ConstantHelper.getDataTypeConstant(this.currentTag.options.dataType);
