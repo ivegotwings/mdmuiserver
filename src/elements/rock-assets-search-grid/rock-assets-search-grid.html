@@ -232,7 +232,15 @@
                     typesCriterion: {
                         type: Array,
                         value: function () { return []; }
-                    }
+                    },
+                    loadingThumbnailPath:{
+                        type:String,
+                        value:"/src/images/loading-thumbnail.svg"
+                    },
+                    noThumbnailPath:{
+                        type:String,
+                        value:"/src/images/no-thumbnail.svg"
+                    },
                 },
 
                 behaviors: [
@@ -394,7 +402,18 @@
                 },
 
                 _onCompositeModelGetResponse: function (e) {
+                    if(!this._typeThumbnailMapping) {
+                        this._typeThumbnailMapping = {};
+                    }
                     if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+                        var entityModels=e.detail.response.content.entityModels;
+                        for(var i=0;i<entityModels.length;i++) {
+                            var entityModel=entityModels[i];
+                            var properties = entityModel.properties;
+                            if (properties && properties.hasOwnProperty("defaultThumbnailId")) {
+                                this._typeThumbnailMapping[entityModel.name]=properties.defaultThumbnailId;
+                            }
+                        }
                         this.attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response
                             .content.entityModels[0], this.contextData);
                         this.reloadGrid();
@@ -444,28 +463,18 @@
                             formattedEntities = DataTransformHelper.transformEntitiesToSimpleSchema(entities, attributes,this.attributeModels);
                         }
                     }
-                    var thumbnailIds=[];
                     for(var i=0;i<formattedEntities.length;i++){
-                        if(formattedEntities[i].thumbnailid){
-                            thumbnailIds.push(formattedEntities[i].thumbnailid);
+                        var type=formattedEntities[i].type;
+                        if(!formattedEntities[i].thumbnailid){
+                           formattedEntities[i].thumbnailid=this._typeThumbnailMapping[type];
                         }
-                        //TODO get this default image from entity display models
-                        formattedEntities[i].thumbnail="/src/images/image.svg";
+                        if(formattedEntities[i].thumbnailid) {
+                            formattedEntities[i].thumbnail = this.loadingThumbnailPath;
+                        }else {
+                            formattedEntities[i].thumbnail = this.noThumbnailPath;
+                        }
                     }
                     return formattedEntities;
-                },
-                _generateGetThumbnailRequest:function (thumbnailIds) {
-                    var req = DataRequestHelper.createEntityGetRequest(this.contextData);
-                    req.params.query.ids=thumbnailIds;
-                    req.params.query.filters.typesCriterion=["imagerendition"];
-                    req.params.query.valueContexts=[];
-                    req.params.fields.attributes=["blob"];
-                    delete req.params.options;
-                    var getThumbnailLiquid=this.$$("#getThumbnail");
-                    if(getThumbnailLiquid){
-                        getThumbnailLiquid.requestData=req;
-                        getThumbnailLiquid.generateRequest();
-                    }
                 },
                 _loadSearchResultsByFilters: function () {
                     var grid = Polymer.dom(this).node.$$('rock-grid');
