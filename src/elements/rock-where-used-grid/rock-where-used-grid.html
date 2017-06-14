@@ -334,18 +334,16 @@ The following JSON object is a sample of data which binds the grid.
       <template is="dom-repeat" items="{{relationshipTypeList}}" as="relationship" index-as="colIndex" notify-dom-change>
         <div id="relContainer_[[relationship]]">
           <pebble-accordion header-text="[[_getRelationshipTypeTitle(relationship)]]" default-icon="expand-less" open-icon="expand-more">
-            <div class="relation-name-container">
-              <pebble-button icon="pebble-sm-icons:Add" id="[[relationship]]" class="btn btn-primary m-r-20" button-text="Add"
-                on-click="_onAddPopoverClick"></pebble-button>
+            <!--<div class="relation-name-container">
+              <pebble-button icon="pebble-sm-icons:Add" id="[[relationship]]" class="btn btn-primary m-r-20" button-text="Add" on-click="_onAddPopoverClick"></pebble-button>
               <pebble-popover for$="[[relationship]]" auto-fit-on-attach vertical-align="auto" horizontal-align="auto" no-overlap>
                 <rock-entity-lov id="[[relationship]]" request-data="[[_requestForAddRelationshipList(relationship)]]" id-field="[[_getIdField(relationship)]]"
                   title-pattern="[[_getTitlePattern(relationship)]]" multi-select no-sub-title show-action-buttons></rock-entity-lov>
               </pebble-popover>
               <bedrock-pubsub event-name="entity-lov-confirm-button-tap" handler="_onLovConfirmButtonTapped" target-id="[[relationship]]"></bedrock-pubsub>
               <bedrock-pubsub event-name="entity-lov-close-button-tap" handler="_onLovCloseButtonTapped" target-id="[[relationship]]"></bedrock-pubsub>
-            </div>
-            <entity-where-used-grid-datasource id="datasource_[[relationship]]" request="[[_getRelationshipGridRequest(relationship)]]"
-              data-formatter="{{dataFormatter}}"></entity-where-used-grid-datasource>
+            </div>-->
+            <entity-search-grid-datasource id="datasource_[[relationship]]" request="[[_getRelationshipGridRequest(relationship)]]" data-formatter="{{dataFormatter}}"></entity-search-grid-datasource>
             <rock-grid id$="[[relationship]]" data-source-id="datasource_[[relationship]]" config="{{_getRelationshipGridConfig(relationship)}}"
               attribute-models="[[_getRelationshipAttributeModels(relationship)]]" page-size="10"></rock-grid>
             <bedrock-pubsub target-id="[[relationship]]" event-name="on-grid-msg-dialog-ok" handler="_onDialogOk"></bedrock-pubsub>
@@ -544,9 +542,9 @@ The following JSON object is a sample of data which binds the grid.
             value: false
           }
         },
-          /**
-            * <b><i>Content development is under progress... </b></i> 
-            */
+        /**
+          * <b><i>Content development is under progress... </b></i> 
+          */
         messageCodeMapping: {
           type: Object,
           value: function () { return {}; }
@@ -580,15 +578,15 @@ The following JSON object is a sample of data which binds the grid.
             return this._relationshipTypeAndAttributes[relationshipTypeName];
           }
         },
-        _getRelatedEntityAttributeList: function (relationshipTypeName) {
+        _getFromEntityAttributeList: function (relationshipTypeName) {
           var attributes = this._getAttributeList(relationshipTypeName);
-          var relatedEntityAttributes = [];
+          var fromEntityAttributes = [];
 
-          if (attributes && attributes.relatedEntityAttributes) {
-            relatedEntityAttributes = attributes.relatedEntityAttributes;
+          if (attributes && attributes.fromEntityAttributes) {
+            fromEntityAttributes = attributes.fromEntityAttributes;
           }
 
-          return relatedEntityAttributes;
+          return fromEntityAttributes;
         },
         _initiateRelationshipGrid: function () {
           var relTypeAndAttributes = {};
@@ -598,15 +596,15 @@ The following JSON object is a sample of data which binds the grid.
             if (this._relationships) {
               this._relationships.forEach(function (item) {
                 if (item) {
-                  var relatedEntityAttributes = [];
+                  var fromEntityAttributes = [];
                   var relationshipAttributes = [];
 
                   var columns = this.relationshipGridConfigs[item].gridConfig.tabular.columns;
                   if (columns) {
                     columns.forEach(function (col) {
-                      if (col && col.name != "Related Entity") {
-                        if (col.isRelatedEntityAttribute) {
-                          relatedEntityAttributes.push(col.name);
+                      if (col && (col.name != "From Entity" && col.name != "Entity Type")) {
+                        if (col.isFromEntityAttribute) {
+                          fromEntityAttributes.push(col.name);
                         } else {
                           relationshipAttributes.push(col.name);
                         }
@@ -615,7 +613,7 @@ The following JSON object is a sample of data which binds the grid.
                   }
                   relTypeAndAttributes[item] = {
                     'relationshipAttributes': relationshipAttributes,
-                    'relatedEntityAttributes': relatedEntityAttributes
+                    'fromEntityAttributes': fromEntityAttributes
                   }
                 }
               }, this);
@@ -671,13 +669,15 @@ The following JSON object is a sample of data which binds the grid.
 
             if (relAttr) {
               req.params.fields.relationshipAttributes = relAttr.relationshipAttributes;
-              req.params.fields.relatedEntityAttributes = relAttr.relatedEntityAttributes;
+              req.params.fields.attributes = relAttr.fromEntityAttributes;
             }
 
-            if(relConfig && relConfig.direction && relConfig.direction == "up") {
+            if (relConfig && relConfig.direction && relConfig.direction == "up") {
               var itemContext = this.getFirstItemContext();
               req.params.query.filters.typesCriterion = relConfig.fromEntityTypes;
               req.params.query.filters.relationshipsCriterion = [];
+
+              delete req.params.query.ids;
 
               var relCriterion = {};
               relCriterion[relationshipTypeName] = {};
@@ -719,18 +719,20 @@ The following JSON object is a sample of data which binds the grid.
         },
         _populateDataForGrid: function (respData) {
           var data = [];
-          if (respData) {
+          var itemContext = this.getFirstItemContext();
 
-            if (respData.content && respData.content.entities) {
+          if (respData && itemContext) {
+            var currentEntityId = itemContext.id;
+            if (respData.content && respData.content.entities && currentEntityId) {
               var entities = respData.content.entities;
               if (entities && entities.length > 0) {
-                var entityId = entities[0].id;
 
-                if (entityId) {
-                  var entity = entities[0];
-                  if (this.dataObject && !this.dataObject["blankEntity"]) {
-                    this.dataObject["blankEntity"] = entity;
-                  }
+                this.dataObject = entities;
+                entities.forEach(function (entity) {
+                  var record = {};
+                  record["From Entity"] = record["id"] = entity.id;
+                  record["Entity Type"] = entity.type;
+                  record["type"] = entity.type;
 
                   var currentRel = "";
                   var isSelfContext = false;
@@ -755,208 +757,201 @@ The following JSON object is a sample of data which binds the grid.
 
                     relatedEntities.forEach(function (relItem) {
                       if (relItem) {
-                        var record = {};
-                        if (relItem.attributes) {
-                          Object.keys(relItem.attributes).forEach(function (item) {
-                            if (item && relItem.attributes[item]) {
-                              record[item] = relItem.attributes[item].values[0].value;
-                            }
-                          }, this);
-                        }
-                        if (relItem.relTo) {
-                          record["Related Entity"] = record["id"] = relItem.relTo.id;
-                          record["type"] = relItem.relTo.type;
-
-                          if (relItem.relTo.data) {
-                            //var relCtxList = relContexts[item];
-                            var relatedAttributes = EntityHelper.getAllAttributes(relItem.relTo);
-                            if (relatedAttributes) {
-                              Object.keys(relatedAttributes).forEach(function (
-                                attrItem) {
-                                if (attrItem && relatedAttributes[attrItem]) {
-                                  record[attrItem] = relatedAttributes[attrItem].values[
-                                    0].value;
-                                }
-                              }, this);
-                            }
+                        if (relItem.relTo && relItem.relTo.id == currentEntityId) {
+                          if (relItem.attributes) {
+                            Object.keys(relItem.attributes).forEach(function (item) {
+                              if (item && relItem.attributes[item]) {
+                                record[item] = relItem.attributes[item].values[0].value;
+                              }
+                            }, this);
                           }
                         }
-                        data.push(record);
                       }
                     }, this);
                   }
-                }
+
+                  var attributes = EntityHelper.getAllAttributes(entity);
+                  if (attributes) {
+                    Object.keys(attributes).forEach(function (attrItem) {
+                      if (attrItem && attributes[attrItem]) {
+                        record[attrItem] = attributes[attrItem].values[0].value;
+                      }
+                    }, this);
+                  }
+
+                  data.push(record);
+                }, this);
               }
             }
           }
           return data;
         },
-        _onAddPopoverClick: function (e) {
-          var popover = Polymer.dom(this).node.$$("pebble-popover[for=" + e.currentTarget.id + "]");
-          this._currentSelectedLov = Polymer.dom(this).node.$$('rock-entity-lov[id=' + e.currentTarget.id + ']');
+        // _onAddPopoverClick: function (e) {
+        //   var popover = Polymer.dom(this).node.$$("pebble-popover[for=" + e.currentTarget.id + "]");
+        //   this._currentSelectedLov = Polymer.dom(this).node.$$('rock-entity-lov[id=' + e.currentTarget.id + ']');
 
-          popover.show();
-        },
-        _convertIntoEntityLovList: function (entitiesResponse) {
-          if (entitiesResponse) {
-            var items = [];
-            var selectedItems = [];
+        //   popover.show();
+        // },
+        // _convertIntoEntityLovList: function (entitiesResponse) {
+        //   if (entitiesResponse) {
+        //     var items = [];
+        //     var selectedItems = [];
 
-            if (entitiesResponse.content && entitiesResponse.content.entities) {
-              var entities = entitiesResponse.content.entities;
-              entities.forEach(function (item) {
-                if (item) {
-                  //TODO: this code has to be enhanced for based on config.
-                  var attributes = EntityHelper.getAllAttributes(item);
-                  items.push({
-                    "id": item.id,
-                    "title": item.id,
-                    "subtitle": item.type,
-                    "image": "/src/images/lookup-item.jpg"
-                  });
-                }
-              }, this);
-            }
+        //     if (entitiesResponse.content && entitiesResponse.content.entities) {
+        //       var entities = entitiesResponse.content.entities;
+        //       entities.forEach(function (item) {
+        //         if (item) {
+        //           //TODO: this code has to be enhanced for based on config.
+        //           var attributes = EntityHelper.getAllAttributes(item);
+        //           items.push({
+        //             "id": item.id,
+        //             "title": item.id,
+        //             "subtitle": item.type,
+        //             "image": "/src/images/lookup-item.jpg"
+        //           });
+        //         }
+        //       }, this);
+        //     }
 
-            if (this._currentSelectedLov) {
-              var relGrid = Polymer.dom(this).node.$$('rock-grid[id=' + this._currentSelectedLov.id + ']');
-              var relGridData = [];
-              if (relGrid) {
-                relGridData = relGrid.getData();
-              }
+        //     if (this._currentSelectedLov) {
+        //       var relGrid = Polymer.dom(this).node.$$('rock-grid[id=' + this._currentSelectedLov.id + ']');
+        //       var relGridData = [];
+        //       if (relGrid) {
+        //         relGridData = relGrid.getData();
+        //       }
 
-              this._currentSelectedLov.items = items;
-              this._currentSelectedLov.selectedItems = relGridData;
-              this._currentLovItems = items;
-            }
-          }
-        },
-        _onLovConfirmButtonTapped: function (event) {
-          if (event.detail) {
+        //       this._currentSelectedLov.items = items;
+        //       this._currentSelectedLov.selectedItems = relGridData;
+        //       this._currentLovItems = items;
+        //     }
+        //   }
+        // },
+        // _onLovConfirmButtonTapped: function (event) {
+        //   if (event.detail) {
 
-            var lov = this.$$("rock-entity-lov[id=" + event.detail.data.id + "]");
+        //     var lov = this.$$("rock-entity-lov[id=" + event.detail.data.id + "]");
 
-            var oldSelectedItemIds = [];
-            var selectedItemIds = [...new Set(lov.selectedItems.map((obj) => obj.id))];
-            var newItemIds = [];
+        //     var oldSelectedItemIds = [];
+        //     var selectedItemIds = [...new Set(lov.selectedItems.map((obj) => obj.id))];
+        //     var newItemIds = [];
 
-            // TO-DO Pebble-LOV has to handle this filteration.
-            var currentRelGrid = Polymer.dom(this).node.$$('rock-grid[id=' + event.detail.data.id + ']');
-            if (currentRelGrid) {
-              var data = currentRelGrid.getData();
-              data.forEach(function (item) {
-                if (item) {
-                  oldSelectedItemIds.push(item.id);
-                }
-              }, this);
-            }
+        //     // TO-DO Pebble-LOV has to handle this filteration.
+        //     var currentRelGrid = Polymer.dom(this).node.$$('rock-grid[id=' + event.detail.data.id + ']');
+        //     if (currentRelGrid) {
+        //       var data = currentRelGrid.getData();
+        //       data.forEach(function (item) {
+        //         if (item) {
+        //           oldSelectedItemIds.push(item.id);
+        //         }
+        //       }, this);
+        //     }
 
-            selectedItemIds.forEach(function (item) {
-              if (item && oldSelectedItemIds.indexOf(item) < 0) {
-                newItemIds.push(item);
-              }
-            }, this);
+        //     selectedItemIds.forEach(function (item) {
+        //       if (item && oldSelectedItemIds.indexOf(item) < 0) {
+        //         newItemIds.push(item);
+        //       }
+        //     }, this);
 
-            this._addRelatedEntity(event.detail.data.id, newItemIds);
-          }
-        },
-        _onLovCloseButtonTapped: function (event) {
-          if (event.detail) {
-            var currentLovPopover = Polymer.dom(this).node.$$('pebble-popover[for=' + event.detail.data.id + ']');
+        //     this._addRelatedEntity(event.detail.data.id, newItemIds);
+        //   }
+        // },
+        // _onLovCloseButtonTapped: function (event) {
+        //   if (event.detail) {
+        //     var currentLovPopover = Polymer.dom(this).node.$$('pebble-popover[for=' + event.detail.data.id + ']');
 
-            if (currentLovPopover) {
-              currentLovPopover.hide();
-            }
-          }
-        },
-        _addRelatedEntity: function (relationshipType, entityIds) {
-          if (entityIds && entityIds.length > 0) {
-            var popover = Polymer.dom(this).node.$$("pebble-popover[for=" + relationshipType + "]");
-            this._currentRelationshipItem = relationshipType;
+        //     if (currentLovPopover) {
+        //       currentLovPopover.hide();
+        //     }
+        //   }
+        // },
+        // _addRelatedEntity: function (relationshipType, entityIds) {
+        //   if (entityIds && entityIds.length > 0) {
+        //     var popover = Polymer.dom(this).node.$$("pebble-popover[for=" + relationshipType + "]");
+        //     this._currentRelationshipItem = relationshipType;
 
-            var relatedEntityContexts = this._getRelatedEntityContexts(this._currentRelationshipItem);
-            var typesCriterion = [];
-            var contexts = [];
-            var attributes = this._getRelatedEntityAttributeList(this._currentRelationshipItem);
+        //     var relatedEntityContexts = this._getRelatedEntityContexts(this._currentRelationshipItem);
+        //     var typesCriterion = [];
+        //     var contexts = [];
+        //     var attributes = this._getFromEntityAttributeList(this._currentRelationshipItem);
 
-            if (relatedEntityContexts) {
-              relatedEntityContexts.forEach(function (relContexts) {
-                if (relContexts) {
-                  typesCriterion.push(relContexts.relEntityType);
-                  if (relContexts.relContexts) {
-                    relContexts.relContexts.forEach(function (ctxItem) {
-                      contexts.push(ctxItem);
-                    }, this);
-                  }
-                }
-              }, this);
-            }
+        //     if (relatedEntityContexts) {
+        //       relatedEntityContexts.forEach(function (relContexts) {
+        //         if (relContexts) {
+        //           typesCriterion.push(relContexts.relEntityType);
+        //           if (relContexts.relContexts) {
+        //             relContexts.relContexts.forEach(function (ctxItem) {
+        //               contexts.push(ctxItem);
+        //             }, this);
+        //           }
+        //         }
+        //       }, this);
+        //     }
 
-            var valueContext = this.getFirstValueContext();
+        //     var valueContext = this.getFirstValueContext();
 
-            //TODO-dimensions has to be set in req. same like did in relationship-manage          
-            var req = {
-              "params": {
-                "query": {
-                  "contexts": contexts,
-                  "valueContexts": [valueContext],
-                  "ids": entityIds,
-                  "filters": {
-                    "typesCriterion": typesCriterion
-                  }
-                },
-                "fields": {
-                  "ctxTypes": [
-                    "properties"
-                  ],
-                  "attributes": attributes
-                },
-                "options": {
-                  "maxRecords": 10
-                }
-              }
-            };
+        //     //TODO-dimensions has to be set in req. same like did in relationship-manage          
+        //     var req = {
+        //       "params": {
+        //         "query": {
+        //           "contexts": contexts,
+        //           "valueContexts": [valueContext],
+        //           "ids": entityIds,
+        //           "filters": {
+        //             "typesCriterion": typesCriterion
+        //           }
+        //         },
+        //         "fields": {
+        //           "ctxTypes": [
+        //             "properties"
+        //           ],
+        //           "attributes": attributes
+        //         },
+        //         "options": {
+        //           "maxRecords": 10
+        //         }
+        //       }
+        //     };
 
-            this.set('_entityGetAddRequest', req);
-            var relAddLiquid = Polymer.dom(this).node.$$('liquid-entity-data-get[id="entityGetAddData"]');
-            if (relAddLiquid) {
-              relAddLiquid.generateRequest();
-            }
-            popover.hide();
-          }
-        },
-        _addRelationship: function () {
-          if (this.relEntitiesResponse) {
-            var relGrid = Polymer.dom(this).node.$$('rock-grid[id=' + this._currentRelationshipItem + ']');
+        //     this.set('_entityGetAddRequest', req);
+        //     var relAddLiquid = Polymer.dom(this).node.$$('liquid-entity-data-get[id="entityGetAddData"]');
+        //     if (relAddLiquid) {
+        //       relAddLiquid.generateRequest();
+        //     }
+        //     popover.hide();
+        //   }
+        // },
+        // _addRelationship: function () {
+        //   if (this.relEntitiesResponse) {
+        //     var relGrid = Polymer.dom(this).node.$$('rock-grid[id=' + this._currentRelationshipItem + ']');
 
-            if (relGrid) {
-              var relData = [];
-              if (this.relEntitiesResponse.content && this.relEntitiesResponse.content.entities) {
-                var entities = this.relEntitiesResponse.content.entities;
-                var relGridData = relGrid.getData();
-                entities.forEach(function (relItem) {
-                  if (relItem) {
-                    var attributes = EntityHelper.getAllAttributes(relItem);
-                    var record = {};
-                    if (attributes) {
-                      Object.keys(attributes).forEach(function (attrItem) {
-                        if (attrItem && attributes[attrItem]) {
-                          record[attrItem] = attributes[attrItem].values[0].value;
-                        }
-                      }, this);
-                    }
-                    record['Related Entity'] = record['id'] = relItem.id;
-                    record['type'] = relItem.type;
-                    record['properties'] = relItem.properties;
-                    record['relationshipType'] = this._currentRelationshipItem;
-                    relData.push(record);
-                  }
-                }, this);
-              }
-              relGrid.addNewRecords(relData);
-            }
-          }
-        },
+        //     if (relGrid) {
+        //       var relData = [];
+        //       if (this.relEntitiesResponse.content && this.relEntitiesResponse.content.entities) {
+        //         var entities = this.relEntitiesResponse.content.entities;
+        //         var relGridData = relGrid.getData();
+        //         entities.forEach(function (relItem) {
+        //           if (relItem) {
+        //             var attributes = EntityHelper.getAllAttributes(relItem);
+        //             var record = {};
+        //             if (attributes) {
+        //               Object.keys(attributes).forEach(function (attrItem) {
+        //                 if (attrItem && attributes[attrItem]) {
+        //                   record[attrItem] = attributes[attrItem].values[0].value;
+        //                 }
+        //               }, this);
+        //             }
+        //             record['From Entity'] = record['id'] = relItem.id;
+        //             record['type'] = relItem.type;
+        //             record['properties'] = relItem.properties;
+        //             record['relationshipType'] = this._currentRelationshipItem;
+        //             relData.push(record);
+        //           }
+        //         }, this);
+        //       }
+        //       relGrid.addNewRecords(relData);
+        //     }
+        //   }
+        // },
         _onEditMode: function (e) {
           this._hideAllRelationshipGrid(true);
 
@@ -979,53 +974,49 @@ The following JSON object is a sample of data which binds the grid.
 
           if (currentRelGrid && relConfig) {
             var gridData = currentRelGrid.getData();
-            var originalEntity;
+            var originalEntities = [];
 
             if (this.dataObject) {
-              if (this.dataObject[currentRel]) {
-                originalEntity = this.dataObject[currentRel];
-              } else if (this.dataObject['blankEntity']) {
-                originalEntity = this.dataObject['blankEntity'];
-              }
-            }
+              gridData.forEach(function (data) {
+                var entities = this.dataObject.filter(function (element) {
+                  if (element != undefined) {
+                    if (data["From Entity"] == element.id) {
+                      return element;
+                    }
+                  }
+                });
 
-            if (originalEntity) {
-              var relationships = EntityHelper.getRelationshipByType(originalEntity, this.getFirstDataContext(), currentRel, relConfig.selfContext);
-              var modifiedRelData = gridData;
-              var relAndRelEntityAttributes = this._getAttributeList(currentRel);
-              var valueContext = this.getFirstValueContext();
+                var entity =entities && entities.length ? entities[0] : undefined;
 
-              if (!_.isEmpty(modifiedRelData)) {
-                var totalRel = relationships.length;
-                modifiedRelData.forEach(function (modItem) {
-                  var key = "";
+                if (entity) {
+                  var relationships = EntityHelper.getRelationshipByType(entity, this.getFirstDataContext(), currentRel, relConfig.selfContext);
+                  var relAndFromEntityAttributes = this._getAttributeList(currentRel);
+                  var valueContext = this.getFirstValueContext();
+
+                  var totalRel = relationships.length;
                   var relObject;
 
                   if (relationships) {
                     relationships.forEach(function (relItem) {
-                      if (relItem.id.indexOf(modItem["Related Entity"]) >= 0) {
+                      if (relItem.id.indexOf(entityId) >= 0) {
                         relObject = relItem;
                       }
                     }, this);
-                  } else {
-                    relationships = {};
-                    relationships[currentRel] = [];
                   }
 
                   if (relObject) {
-
                     var relAttributes = relObject.attributes ? relObject.attributes : relObject.attributes = {};
 
-                    relAndRelEntityAttributes.relationshipAttributes.forEach(function (relAttr) {
+                    relAndFromEntityAttributes.relationshipAttributes.forEach(function (relAttr) {
                       if (relAttr) {
                         var relAttribute = relAttributes ? relAttributes[relAttr] : undefined;
                         if (relAttribute) {
-                          relAttribute.values[0].value = modItem[relAttr];
+                          relAttribute.values[0].value = data[relAttr];
                         } else {
-                          if (modItem[relAttr]) {
+                          if (data[relAttr]) {
                             relAttributes[relAttr] = {};
                             relAttributes[relAttr].values = [{
-                              "value": modItem[relAttr],
+                              "value": data[relAttr],
                               "source": valueContext.source,
                               "locale": valueContext.locale
                             }];
@@ -1033,58 +1024,29 @@ The following JSON object is a sample of data which binds the grid.
                         }
                       }
                     }, this);
-                  } else {
-
-                    var relId = modItem["Related Entity"];
-                    var relationship = {};
-                    var relType = modItem["relationshipType"];
-
-                    relationship.direction = "both";
-                    relationship.operation = "association";
-
-                    relationship.attributes = {};
-
-                    if (relAndRelEntityAttributes) {
-                      relAndRelEntityAttributes.relationshipAttributes.forEach(function (
-                        relAttr) {
-                        if (relAttr) {
-                          relationship.attributes[relAttr] = {};
-                          relationship.attributes[relAttr].values = [{
-                            "value": modItem[relAttr],
-                            "source": valueContext.source,
-                            "locale": valueContext.locale
-                          }];
-                        }
-                      }, this);
-                    }
-
-                    relationship.relTo = {};
-                    relationship.relTo.id = relId;
-                    relationship.relTo.type = modItem['type'];
-                    relationship.relTo.properties = modItem['properties'];
-
-                    relationship.id = utils.createRelUniqueId(relType, relationship, totalRel++);
-                    relationships.push(relationship);
                   }
-                }, this);
-              }
-            }
-
-            this._saveRequest = {
-              "entities": [originalEntity]
-            };
-            if (this.doSyncValidation) {
-              var req = DataRequestHelper.createSyncValidationRequest(originalEntity.id, originalEntity.type, originalEntity.data);
-              this.set('_entityGovernRequest', req);
-              delete this._entityGovernRequest.entity.name;
-              var liquidGovernGet = this.$$('#entityGovernService');
-              if (liquidGovernGet) {
-                liquidGovernGet.generateRequest();
-              }
-            } else {
-              this._saveEntity();
+                }
+                originalEntities.push(entity);
+              }, this);
             }
           }
+
+          this._saveRequest = {
+            "entities": originalEntities
+          };
+
+          // if (this.doSyncValidation) {
+          //   var req = DataRequestHelper.createSyncValidationRequest(originalEntity.id, originalEntity.type, originalEntity.data);
+          //   this.set('_entityGovernRequest', req);
+          //   delete this._entityGovernRequest.entity.name;
+          //   var liquidGovernGet = this.$$('#entityGovernService');
+          //   if (liquidGovernGet) {
+          //     liquidGovernGet.generateRequest();
+          //   }
+          // } else {
+          this._saveEntity();
+          // }
+
         },
         _onEntityGovernResponse: function (e) {
           if (e && e.detail && e.detail.response && e.detail.response.response && e.detail.response.response.status == "success") {
@@ -1197,7 +1159,7 @@ The following JSON object is a sample of data which binds the grid.
                   var item = relDivs[i];
                   if (typeof item === 'object') {
                     var relGrid = item.querySelector('rock-grid');
-                    var dataSourceElement = item.querySelector('entity-relationship-grid-datasource');
+                    var dataSourceElement = item.querySelector('entity-search-grid-datasource');
 
                     if (relGrid && dataSourceElement) {
                       relGrid.dataSource = dataSourceElement.dataSource;
@@ -1240,7 +1202,7 @@ The following JSON object is a sample of data which binds the grid.
         },
         _requestForAddRelationshipList: function (relationship) {
           var relatedEntityContexts = this._getRelatedEntityContexts(relationship);
-          var attributes = this._getRelatedEntityAttributeList(relationship);
+          var attributes = this._getFromEntityAttributeList(relationship);
 
           var typesCriterion = [];
           var contexts = [];
