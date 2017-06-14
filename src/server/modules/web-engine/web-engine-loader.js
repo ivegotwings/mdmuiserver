@@ -136,6 +136,7 @@ function renderAuthenticatedPage(req, res) {
     var lastName = req.header("x-rdp-lastname");
     var userEmail = req.header("x-rdp-useremail");
     var userName = req.header("x-rdp-username");
+    var ownershipData = req.header("x-rdp-ownershipdata");
 
     if (tenantId && userId) {
         var fullName = "";
@@ -148,7 +149,7 @@ function renderAuthenticatedPage(req, res) {
         if (fullName == "") {
             fullName = userId;
         }
-        res.render('index', { isAuthenticated: true, tenantId: tenantId, userId: userId, roleId: userRoles, fullName: fullName, userName: userName });
+        res.render('index', { isAuthenticated: true, tenantId: tenantId, userId: userId, roleId: userRoles, fullName: fullName, userName: userName, ownershipData: ownershipData });
         return true;
     } else {
         return false;

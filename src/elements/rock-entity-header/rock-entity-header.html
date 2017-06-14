@@ -29,17 +29,19 @@
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 
 <link rel="import" href="../rock-entity-tofix/rock-entity-tofix.html">
+<link rel="import" href="../rock-entity-thumbnail/rock-entity-thumbnail.html">
 
 <link rel="import" href="progress-icons.html">
 <!--
 `rock-entity-header` Represents an entity header in the entity manage App. It contains the following items:
-      `*` The attributes of the entity that needs display in the header section.                             
 
-      `*` The percentage completion of the entity with the notifications that also indicates warnings.
+      1. The attributes of the entity that needs display in the header section.                             
 
-      `*` An Invalid and missed fields of an entity.
+      2. The percentage completion of the entity with the notifications that also indicates warnings.
 
-      `*` A button toolbar with different actions performed on the entity.
+      3. An Invalid and missed fields of an entity.
+
+      4. A button toolbar with different actions performed on the entity.
 
 An element accepts the attribute list of the respective entity, entity's profile completion, and actions to be
 performed.
@@ -209,8 +211,16 @@ performed.
                 height: 30px !important;
                 vertical-align: super !important;
             }
+            rock-entity-thumbnail{
+                width: 90px;
+                height: 60px;
+                float:left;
+                padding-left: 10px;
+                padding-right: 20px;
+            }
         </style>
         <div id="headerSection">
+            <rock-entity-thumbnail  config="[[thumbnailConfig]]" default-thumbnail-id="[[_defaultThumbnailId]]"></rock-entity-thumbnail>
             <div id="attributePanel">
                 <template id="headerAttributes" is="dom-repeat" items="[[_headerAttributeValues]]">
                     <div id="attribute" class$="[[_computeAttributeClass(item)]]">
@@ -249,9 +259,7 @@ performed.
         Polymer({
             is: "rock-entity-header",
             ready: function () {
-                if (this.verbose) {
-                    console.log('entity header ready');
-                }
+                this.logInfo("EntityHeaderReady");
             },
             behaviors: [
                 RUFBehaviors.ComponentContextBehavior,
@@ -410,7 +418,6 @@ performed.
             observers: [
                 '_setHeaderValuesAsPerConfig(_headerAttributeValues)'
             ],
-
             _setHeaderValuesAsPerConfig: function () {
                 if(this._headerAttributeValues && this._headerAttributeValues.length > 0 && this._messageAttribute)
                 {                    
@@ -434,16 +441,20 @@ performed.
             */
             refresh: function() {
                 this._startDataLoad();
+                this._refreshEntityThumbnail();
+            },
+            _refreshEntityThumbnail:function () {
+                var entityThumbnailComp=this.$$("rock-entity-thumbnail");
+                if(entityThumbnailComp){
+                    entityThumbnailComp.contextData=this.contextData;
+                }
             },
             _onToolbarEvent: function(e, detail) {
                 this.fireBedrockEvent("toolbar-button-event", detail);
             },
             _startDataLoad: function () {
-                if (this.verbose) {
-                    console.log('_renderElement ', JSON.stringify(headerConfig, null, 2));
-                }
-
                 var headerConfig = this.headerConfig;
+                this.logInfo("EntityHeadDataLoad","config",JSON.stringify(headerConfig, null, 2));
 
                 if (headerConfig && headerConfig.length > 0 && this.contextData) {
                     var attributeNames = [];
@@ -477,11 +488,14 @@ performed.
                 }
             },
             _onCompositeModelGetResponse: function (e) {
-                if (this.verbose) {
-                    console.log('entity header _onCompositeModelGetResponse ', JSON.stringify(e, null, 2));
-                }
+                this.logInfo("EntityHeaderModelResponse","response",JSON.stringify(e,null,2));
 
                 if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+                    var entityModel=e.detail.response.content.entityModels[0];
+                    var properties=entityModel.properties;
+                    if(properties.hasOwnProperty("defaultThumbnailId")){
+                        this._defaultThumbnailId=properties.defaultThumbnailId;
+                    }
                     this._headerAttributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
 
                     var clonedContextData = DataHelper.cloneObject(this.contextData);
@@ -501,9 +515,7 @@ performed.
             _onHeaderAttributesGetResponse: function (e) {
                 var headerAttributeResponse = e.detail.response;
 
-                if (this.verbose) {
-                    console.log('on entity header response event ', JSON.stringify(headerAttributeResponse, null, 2));
-                }
+                this.logInfo("EntityHeaderAttributeResponse","response",JSON.stringify(headerAttributeResponse, null, 2));
 
                 var attributesData = [];
                 if (DataHelper.validateGetEntitiesResponse(headerAttributeResponse) && this._headerAttributeModels) {
@@ -512,6 +524,21 @@ performed.
                     if (entity) {
                         var attributesData = DataTransformHelper.transformAttributes(entity, this._headerAttributeModels, this.contextData, "array", false);
                         this._entityAttributes = attributesData;
+
+                        var self = this;
+                         //Find the date attributes and change the values from ISO
+                         Object.keys(this._headerAttributeModels).map(function(attributeModel) {
+                             if(self._headerAttributeModels[attributeModel].dataType == "datetime" ||
+                             self._headerAttributeModels[attributeModel].dataType == "date") {
+                                 var datatype = self._headerAttributeModels[attributeModel].dataType;
+                                 for(var i = 0; i < attributesData.length; i++) {
+                                     if(self._headerAttributeModels[attributeModel].name == attributesData[i].name) {
+                                          attributesData[i].value = FormatHelper.convertFromISODateTime(attributesData[i].value, datatype);
+                                          break;
+                                     }
+                                 } 
+                             }
+                         });
 
                         var referenceAttributeModels = this._getReferenceAttributeModelNames(this._headerAttributeModels);
                         this._referenceAttributeModels = referenceAttributeModels;
@@ -585,7 +612,7 @@ performed.
                 this.$.headerAttributes.render();
             },
             _onReferenceEntityDataGetError: function(e) {
-                console.error("ReferenceEntityDataGetError:- " + e.detail.response.reason.message);
+                this.logError("EntityHeaderReferenceFail",e);
             },
             _getAttributeLabel: function (attributeItem) {
                 var configItem = this._getConfigItem(this.headerConfig, attributeItem.name);
@@ -668,7 +695,7 @@ performed.
                 }
             },
             _onMappingsGetFailed: function(e) {
-                console.warn("Failed to get workflow mappings with error: ", e.detail);
+                this.logWarning("WorkFlowMappingError","response",JSON.stringify(e.detail));
                 this.showErrorToast("Failed to get workflow mappings. Please contact administrator.");
             },
             _onRunningInstanceReceived: function (e) {
@@ -722,7 +749,7 @@ performed.
                 } 
             },
             _onRunningInstanceGetFailed: function (e) {
-                console.warn("Failed to get workflow status with error: ", e.detail);
+                this.logWarning("WorkFlowStatusError","response",JSON.stringify(e.detail));
                 this.showErrorToast("Failed to get workflow status. Please contact administrator.");
             },
             _onDefinitionReceived: function (e) {
@@ -823,7 +850,7 @@ performed.
                 }
             },
             _onAssignmentFailure: function (e) {
-                console.warn("Failed to perform the workflow assignment with error: ", e.detail);
+                this.logWarning("WorkFlowAssignmentFailure","response",JSON.stringify(e.detail));
                 this.showErrorToast("Failed to perform the workflow assignment. Please contact administrator.");
             },
             _refreshView: function () {
