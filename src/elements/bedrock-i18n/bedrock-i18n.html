@@ -1,5 +1,6 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
+<link rel="import" href="../../../bower_components/iron-ajax/iron-request.html">
 <script src="../../../bower_components/intl-messageformat/dist/intl-messageformat.min.js"></script>
 
 <script>
@@ -108,7 +109,10 @@
        * Content is not appearing - Indicates the language used for the translation.
        */
       language: {
-        type: String
+        type: String,
+        value:function(){
+          return "";
+        }
       },
 
       /**
@@ -122,7 +126,10 @@
        * }
        */
       resources: {
-        type: Object
+        type: Object,
+        value:function(){
+          return {};
+        }
       },
       /**
        * Content is not appearing - Indicates the key for the translation. If it is set to <b>true</b>, then it uses provided key when
@@ -186,9 +193,9 @@
        */
     ready: function () {
       var _this = this;
+      var proto = this.constructor.prototype;
       if (this.nodeName == 'BEDROCK-INIT') {
         this.addEventListener('localize-resources-loaded', function () {
-          var proto = this.constructor.prototype;
           proto.__localizationCache.loadedResources = this.resources;
           this.fire('resources-loaded', {
             resources: this.resources,
@@ -196,6 +203,8 @@
           });
         });
       } else {
+        this.resources = proto.__localizationCache.loadedResources;
+        this.language = proto.__localizationCache.language;
         window.addEventListener('resources-loaded', function (e) {
           _this.resources = e.detail.resources;
           _this.language = e.detail.language;
@@ -214,6 +223,8 @@
 
       if (localeLanguage != undefined && localeLanguage != '') {
         this.language = localeLanguage;
+        var proto = this.constructor.prototype;
+        proto.__localizationCache.language = this.language;
       }
       if (resourcePath != undefined) {
         if (this.nodeName == 'BEDROCK-INIT') {
@@ -234,21 +245,14 @@
         ajax = proto.__localizationCache.ajax = document.createElement('iron-ajax');
       }
 
+      ajax.addEventListener('response',this.__onRequestResponse.bind(this));
+      ajax.addEventListener('error',this.__onRequestError.bind(this));
+      
       var request = proto.__localizationCache.requests[path];
       if (!request) {
         ajax.url = path;
         var request = ajax.generateRequest();
-
-        request.completes.then(
-          this.__onRequestResponse.bind(this),
-          this.__onRequestError.bind(this));
-
-        // Cache the instance so that it can be reused if the same path is loaded.
         proto.__localizationCache.requests[path] = request;
-      } else {
-        request.completes.then(
-          this.__onRequestResponse.bind(this),
-          this.__onRequestError.bind(this));
       }
     },
 
@@ -298,13 +302,12 @@
           for (var i = 1; i < arguments.length; i += 2) {
             args[arguments[i]] = arguments[i + 1];
           }
-
           return translatedMessage.format(args);
         };
     },
 
     __onRequestResponse: function (event) {
-      this.resources = event.response;
+      this.resources = event.detail.__data__.response;
       this.fire('localize-resources-loaded');
     },
 
