@@ -139,6 +139,23 @@ COPService.prototype = {
 
         //return response;
     },
+    publish: async function (request) {
+        //console.log('COPService.publish url ', request.url);
+        var copURL = "copservice/publish";
+        if (!request.body) {
+            return {
+                "dataOperationResponse": {
+                    "status": "Error",
+                    "statusDetail": {
+                        "code": "RSUI0001",
+                        "message": "Incorrect request for COP publish.",
+                        "messageType": "Error"
+                    }
+                }
+            };
+        }
+        return await this.post(copURL, request.body);
+    },
     _validateRequest: function (request) {
         if (!request.body) {
             return false;
