@@ -203,7 +203,7 @@
                                 class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" on-tap="_openEntityTypeFilterLov"></pebble-button>
                             <pebble-popover id="entityTypeFilterPopover" for="entityTypeFilterButton" no-overlap auto-fit-on-attach vertical-align="auto"
                                 horizontal-align="auto">
-                                <rock-entity-type-model-lov id="entityTypeModelLov" allowed-entity-types="[[_allowedEntityTypes]]" selected-items="{{selectedEntityTypes}}" preselected-entity-types="[[_typesCriterion]]" show-action-buttons></rock-entity-type-model-lov>
+                                <rock-entity-type-model-lov id="entityTypeModelLov" allowed-entity-types="[[_allowedEntityTypes]]" selected-items="{{selectedEntityTypes}}" show-action-buttons></rock-entity-type-model-lov>
                             </pebble-popover>
                             <bedrock-pubsub event-name="entity-type-model-lov-confirm-button-tap" handler="_onSelectedEntityTypesChange" target-id="entityTypeModelLov"></bedrock-pubsub>
                             <bedrock-pubsub event-name="entity-type-model-lov-close-button-tap" handler="_onEntityTypePopoverClose" target-id="entityTypeModelLov"></bedrock-pubsub>
@@ -226,6 +226,7 @@
                             <rock-business-function-dialog id="rollupDialog"></rock-business-function-dialog>
                             <rock-business-function-dialog id="wfTransitionDialog"></rock-business-function-dialog>
                             <rock-business-function-dialog id="wfAssignmentDialog"></rock-business-function-dialog>
+                            <rock-business-function-dialog id="rePublishDialog"></rock-business-function-dialog>
                         </div>
                     </div>
                 </div>
@@ -452,7 +453,28 @@
                 _onGridConfigChange: function () {
                     if (this._gridConfig && !_.isEmpty(this._gridConfig)) {
                         this._typesCriterion = this._gridConfig.dataRequest.typesCriterion;
+                        this.selectedEntityTypes = this._getSelectedEntityTypes(this._typesCriterion);
                     }
+                },
+
+                _getSelectedEntityTypes: function(entityTypes) {
+                    var selectedEntityTypesForLOV = [];
+                    for (var i in entityTypes) {
+                        var itemObj = {
+                            "title": entityTypes[i],
+                            "id": entityTypes[i]
+                        };
+                        if (!this._isItemPresent(selectedEntityTypesForLOV, entityTypes[i])) {
+                            selectedEntityTypesForLOV.push(itemObj);
+                        }
+                    }
+                    return selectedEntityTypesForLOV;
+                },
+                _isItemPresent: function (items, id) {
+                    var presentItem = items.find(function (item) {
+                        return item.id == id;
+                    });
+                    return !!presentItem;
                 },
 
                 //Rock search
@@ -896,7 +918,59 @@
                             rollupDialog.sharedData = {"context-data": this.contextData, "selected-entities": this._selectedEntities };
                             rollupDialog.open();
                         }
+                        else if (detail.data.eventName == "action-re-publish") {
+                            var validatePublishResult = this._validateRePublish();
+                            if(validatePublishResult.valid){                            
+                                var rePublishDialog = this.$$("#rePublishDialog");
+                                rePublishDialog.name = detail.data.componentName;
+                                rePublishDialog.sharedData = {"context-data": this.contextData, "selected-entities": this._selectedEntities };
+                                rePublishDialog.open();
+                            }else{
+                                this._showToastMessage(validatePublishResult);
+                            }
+                        }
                     }
+                },
+                _validateRePublish:function(){
+                    var resultObj = {
+                        valid:false,
+                        type:'error',
+                        message:"welcome"
+                    };
+
+                    var selectedEntities = this._selectedEntities;
+                    
+                    if(selectedEntities && selectedEntities.length <= 20)
+                    {
+                        resultObj.message = "Config Not Found."
+                        var rock_republish_config = this.getConfig("rock-re-publish");
+                        if(rock_republish_config){
+                            var rePublishConfig = rock_republish_config.steps;
+                            if(rePublishConfig && rePublishConfig.length > 0){
+                                var profiles = rePublishConfig[0].component.properties.profiles;
+                                if(profiles && profiles.length > 0){
+                                    var typesInConfig = [];
+                                    
+                                    _.each(profiles, function(element) {
+                                        typesInConfig = _.union(typesInConfig, element["types-criterion"]);
+                                    }); 
+                                    var isValid = true;
+                                    for (var index = 0; index < selectedEntities.length; index++) {
+                                        var element = selectedEntities[index];
+                                        if(typesInConfig.indexOf(element.type) == -1){
+                                            isValid = false;
+                                            resultObj.message = "You can publish only following entity types: "+typesInConfig.toString();
+                                            break;
+                                        }
+                                    }
+                                    resultObj.valid = isValid;
+                                }
+                            }
+                        }
+                    }else{
+                        resultObj.message = "Maximum 20 entities can be selected.."
+                    }
+                    return resultObj;
                 },
                 _showAssignmentDialog: function (detail, action) {
                     var assignmentDialog = this.$$("#wfAssignmentDialog");
