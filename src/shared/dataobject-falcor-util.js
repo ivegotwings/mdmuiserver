@@ -63,6 +63,10 @@ DataObjectFalcorUtil.getSelfCtx = function () {
 
 const selfCtx = DataObjectFalcorUtil.getSelfCtx();
 
+DataObjectFalcorUtil.createSelfCtxKey = function () {
+    return DataObjectFalcorUtil.createCtxKey(DataObjectFalcorUtil.getSelfCtx());
+};
+
 DataObjectFalcorUtil.boxDataObject = function (dataObject, boxOp) {
     var modDataObject = {};
 
