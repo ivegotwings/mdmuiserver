@@ -325,8 +325,7 @@ async function get(dataObjectIds, reqData) {
                     byIdsJson[dataObject.id] = dataObjectResponseJson;
                 }
 
-                if(isNearestGet)
-                {
+                if(isNearestGet) {
                     //In case of nearest get, comapare requested Id with nearest object Id resulted from response...
                     //If ids are not same then the response is for nearest context and hence populate as $ref in response Json
 
