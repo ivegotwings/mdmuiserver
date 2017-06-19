@@ -4,12 +4,12 @@
     MessageHelper = {};
 
     (function() {
-        MessageHelper.getAttributeMessages= function(attributes, attributeModels, messageCodeMapping) {
+        MessageHelper.getAttributeMessages= function(attributes, attributeModels, messageCodeMapping, localeHelper) {
             var attrMessages = {};
             for (var attributeName in attributes) {
                 if(attributeModels[attributeName]) {
                     var messageCodes = MessageHelper.getMessageCodes(attributes[attributeName]);
-                    var messages = MessageHelper.getMessagesFromCodes(messageCodes, messageCodeMapping);
+                    var messages = MessageHelper.getMessagesFromCodes(messageCodes, messageCodeMapping, localeHelper, attributeModels);
                     if (messages && messages.length) {
                         attrMessages[attributeName] = messages;
                     }
@@ -18,9 +18,9 @@
             return attrMessages; 
         };
         
-        MessageHelper.getRelationshipMessages= function(relationship, messageCodeMapping) {
+        MessageHelper.getRelationshipMessages= function(relationship, messageCodeMapping, localeHelper) {
             var messageCodes = MessageHelper.getMessageCodes(relationship[0]);
-            var messages = MessageHelper.getMessagesFromCodes(messageCodes, messageCodeMapping);
+            var messages = MessageHelper.getMessagesFromCodes(messageCodes, messageCodeMapping, localeHelper);
             return messages;
         };
 
@@ -31,24 +31,54 @@
                 var messages = properties.messages;
                 if(messages && messages.length > 0) {
                     for (var i=0; i< messages.length; i++) {
-                        messageCodes.push(messages[i].messageCode);
+                        messageCodes.push({ "code": messages[i].messageCode, "params": messages[i].messageParams });
                     }
                 }
             }
             return messageCodes;
         };
 
-        MessageHelper.getMessagesFromCodes= function (messageCodes, messageCodeMapping) {
+        MessageHelper.getMessagesFromCodes= function (messageCodes, messageCodeMapping, localeHelper, attributeModels) {
             var messages=[];
             if(messageCodes && messageCodes.length > 0) {
                 for(var i=0; i<messageCodes.length; i++){
-                    var code = messageCodes[i];
-                    if(code != 'SYS001') {
-                        var mes= messageCodeMapping[code];
+                    var messageCode = messageCodes[i];
+                    if(messageCode.code != 'SYS001') {
+                        var mes;
+
+                        //Pick message from locale
+                        if(localeHelper) {
+                            if(messageCode.params) {
+                                var params = messageCode.params;
+                                var localeParams = [messageCode.code];
+                                for(var i = 0; i < params.length; i++) {
+                                    localeParams.push(i);
+                                    //If attributename, then show external name
+                                    if(attributeModels) {
+                                        if(attributeModels[params[i]]) {
+                                            localeParams.push(attributeModels[params[i]].externalName);
+                                            continue;
+                                        }
+                                    }
+
+                                    localeParams.push(params[i]);
+                                }
+
+                                mes = localeHelper.apply(this, localeParams);
+                            } else {
+                                mes = localeHelper(messageCode.code);
+                            }                            
+                        }
+
+                        //If message not picked from locale, then pick from config mappings
+                        if(!mes) {
+                            mes = messageCodeMapping[messageCode.code];
+                        }
+                        
                         if(mes){
                             messages.push(mes);
                         } else{
-                            messages.push("Error with Code: " + code);
+                            messages.push("Error with Code: " + messageCode.code);
                         }
                     }
                 }
@@ -74,11 +104,11 @@
             return messageObjects;
         };
 
-        MessageHelper.getErrorsFromRelMessages= function(relMessages, messageCodeMapping) {
+        MessageHelper.getErrorsFromRelMessages= function(relMessages, messageCodeMapping, localeHelper) {
             var errorMessages = [];
             for(var i in relMessages) {
                var relObj = relMessages[i];
-               var attrMessages = MessageHelper.getAttributeMessages(relObj.relAttributes, relObj.attrModels, messageCodeMapping);
+               var attrMessages = MessageHelper.getAttributeMessages(relObj.relAttributes, relObj.attrModels, messageCodeMapping, localeHelper);
                var attributeErrors = MessageHelper.getErrorsFromAttrMessages(attrMessages, relObj.attrModels);
                var errorMessage = {
                    "attributeName": relObj.relTitle,
@@ -90,11 +120,11 @@
             return errorMessages;
         };
 
-        MessageHelper.getErrorsFromWhereUsedMessages= function(relMessages, messageCodeMapping) {
+        MessageHelper.getErrorsFromWhereUsedMessages= function(relMessages, messageCodeMapping, localeHelper) {
             var errorMessages = [];
             for(var i in relMessages) {
                var relObj = relMessages[i];
-               var attrMessages = MessageHelper.getAttributeMessages(relObj.relAttributes, relObj.attrModels, messageCodeMapping);
+               var attrMessages = MessageHelper.getAttributeMessages(relObj.relAttributes, relObj.attrModels, messageCodeMapping, localeHelper);
                var attributeErrors = MessageHelper.getErrorsFromAttrMessages(attrMessages, relObj.attrModels);
                var errorMessage = {
                    "fromEntity": relObj.fromEntityId,
