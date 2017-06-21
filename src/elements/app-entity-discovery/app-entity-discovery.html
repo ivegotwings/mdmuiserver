@@ -126,6 +126,7 @@
                 height: auto;
                 width: 30%;
                 display: block;
+                position: relative;
             }
 
             .grid-quick-manage-container{
@@ -138,7 +139,7 @@
                 border: 0px;
                 min-height: 0px;
                 width: 2px;
-                margin: 20px 0;
+                margin: 0;
             }
 
             .container {
@@ -164,7 +165,7 @@
         <rock-layout>
             <liquid-config-aggregate-get id="getEntityDiscoveryAppConfig" verbose operation="getbyids" request-id="req1" app-name="app-entity-discovery"
                 context-data="[[contextData]]" on-config-get-response="_onApplicationConfigReceived"></liquid-config-aggregate-get>
-            <rock-titlebar icon="pebble-md-icons:Advancesearch" main-title="Entity Search & Discovery" closable minimizable>
+            <rock-titlebar icon="pebble-md-icons:Advancesearch" main-title="Entity Search & Refine" closable minimizable>
                 <div id="dimensionContainer" align="right">
                     <rock-dimension-selector id="dimensionSelector" config-data="[[getConfig('rock-dimension-selector')]]" all-multi-select></rock-dimension-selector>
                 </div>
@@ -202,7 +203,7 @@
                                 class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" on-tap="_openEntityTypeFilterLov"></pebble-button>
                             <pebble-popover id="entityTypeFilterPopover" for="entityTypeFilterButton" no-overlap auto-fit-on-attach vertical-align="auto"
                                 horizontal-align="auto">
-                                <rock-entity-type-model-lov id="entityTypeModelLov" allowed-entity-types="[[_allowedEntityTypes]]" selected-items="{{selectedEntityTypes}}" preselected-entity-types="[[_typesCriterion]]" show-action-buttons></rock-entity-type-model-lov>
+                                <rock-entity-type-model-lov id="entityTypeModelLov" allowed-entity-types="[[_allowedEntityTypes]]" selected-items="{{selectedEntityTypes}}" show-action-buttons></rock-entity-type-model-lov>
                             </pebble-popover>
                             <bedrock-pubsub event-name="entity-type-model-lov-confirm-button-tap" handler="_onSelectedEntityTypesChange" target-id="entityTypeModelLov"></bedrock-pubsub>
                             <bedrock-pubsub event-name="entity-type-model-lov-close-button-tap" handler="_onEntityTypePopoverClose" target-id="entityTypeModelLov"></bedrock-pubsub>
@@ -225,6 +226,7 @@
                             <rock-business-function-dialog id="rollupDialog"></rock-business-function-dialog>
                             <rock-business-function-dialog id="wfTransitionDialog"></rock-business-function-dialog>
                             <rock-business-function-dialog id="wfAssignmentDialog"></rock-business-function-dialog>
+                            <rock-business-function-dialog id="rePublishDialog"></rock-business-function-dialog>
                         </div>
                     </div>
                 </div>
@@ -242,7 +244,7 @@
                     <div>
                         <pebble-vertical-divider></pebble-vertical-divider>
                     </div>
-                    <div class="quick-manage-container p-20">
+                    <div class="quick-manage-container p-15">
                         <rock-entity-quick-manage id="entityQuickManage" context-data="[[contextData]]" current-index="{{_currentIndex}}" total-records="[[_gridFullLength]]"
                             selected-entity="[[_selectedEntity]]" tab-config="{{getConfig('rock-entity-quick-manage', '', 'rock-tabs')}}"
                             toolbar-config="{{getConfig('rock-entity-quick-manage', '', 'pebble-toolbar')}}" fixes="{{getConfig('rock-entity-quick-manage', '', 'rock-entity-tofix')}}"></rock-entity-quick-manage>
@@ -379,7 +381,7 @@
 
                 ready: function () {
                     this.$$("#searchBar").searchInput = [];
-                    this._allowedEntityTypes = DataHelper.getAllowedEntityTypes();
+                    this._allowedEntityTypes = this.appSetting('allowedEntityTypes');
                     //get saved search id from query string
                     var _savedSearchId = DataHelper.getParamValue('_savedSearchId');
                     var workflowName = DataHelper.getParamValue('wfName');
@@ -420,7 +422,8 @@
                 attached: function () {
                     var userContext = {
                         "role": this.roleId,
-                        "user": this.userId
+                        "user": this.userId,
+                        "ownershipData": this.ownershipData
                     };
 
                     this.contextData[this.CONTEXT_TYPE_USER] = [userContext];
@@ -442,7 +445,7 @@
                     };
                 },
                 _onApplicationConfigReceived: function (e) {
-                    //console.log('Received configs ', JSON.stringify(e, null, 2));
+                    // this.logInfo("ConfigReceived","response",JSON.stringify(e, null, 2));
                     this.set('applicationConfig', e.detail);
                 },
                 // Refine Filter
@@ -450,7 +453,28 @@
                 _onGridConfigChange: function () {
                     if (this._gridConfig && !_.isEmpty(this._gridConfig)) {
                         this._typesCriterion = this._gridConfig.dataRequest.typesCriterion;
+                        this.selectedEntityTypes = this._getSelectedEntityTypes(this._typesCriterion);
                     }
+                },
+
+                _getSelectedEntityTypes: function(entityTypes) {
+                    var selectedEntityTypesForLOV = [];
+                    for (var i in entityTypes) {
+                        var itemObj = {
+                            "title": entityTypes[i],
+                            "id": entityTypes[i]
+                        };
+                        if (!this._isItemPresent(selectedEntityTypesForLOV, entityTypes[i])) {
+                            selectedEntityTypesForLOV.push(itemObj);
+                        }
+                    }
+                    return selectedEntityTypesForLOV;
+                },
+                _isItemPresent: function (items, id) {
+                    var presentItem = items.find(function (item) {
+                        return item.id == id;
+                    });
+                    return !!presentItem;
                 },
 
                 //Rock search
@@ -603,9 +627,7 @@
                 _loadSavedSearch: function (e, detail, sender) {
                     if (detail) {
                         this._savedSearchId = detail.id;
-                        document.querySelector("main-app").set('pageRoute.__queryParams', {
-                            "_savedSearchId": detail.id.toString()
-                        });
+                        ComponentHelper.setQueryParams({"_savedSearchId": detail.id});
                     }
                 },
 
@@ -896,7 +918,59 @@
                             rollupDialog.sharedData = {"context-data": this.contextData, "selected-entities": this._selectedEntities };
                             rollupDialog.open();
                         }
+                        else if (detail.data.eventName == "action-re-publish") {
+                            var validatePublishResult = this._validateRePublish();
+                            if(validatePublishResult.valid){                            
+                                var rePublishDialog = this.$$("#rePublishDialog");
+                                rePublishDialog.name = detail.data.componentName;
+                                rePublishDialog.sharedData = {"context-data": this.contextData, "selected-entities": this._selectedEntities };
+                                rePublishDialog.open();
+                            }else{
+                                this._showToastMessage(validatePublishResult);
+                            }
+                        }
                     }
+                },
+                _validateRePublish:function(){
+                    var resultObj = {
+                        valid:false,
+                        type:'error',
+                        message:"welcome"
+                    };
+
+                    var selectedEntities = this._selectedEntities;
+                    
+                    if(selectedEntities && selectedEntities.length <= 20)
+                    {
+                        resultObj.message = "Config Not Found."
+                        var rock_republish_config = this.getConfig("rock-re-publish");
+                        if(rock_republish_config){
+                            var rePublishConfig = rock_republish_config.steps;
+                            if(rePublishConfig && rePublishConfig.length > 0){
+                                var profiles = rePublishConfig[0].component.properties.profiles;
+                                if(profiles && profiles.length > 0){
+                                    var typesInConfig = [];
+                                    
+                                    _.each(profiles, function(element) {
+                                        typesInConfig = _.union(typesInConfig, element["types-criterion"]);
+                                    }); 
+                                    var isValid = true;
+                                    for (var index = 0; index < selectedEntities.length; index++) {
+                                        var element = selectedEntities[index];
+                                        if(typesInConfig.indexOf(element.type) == -1){
+                                            isValid = false;
+                                            resultObj.message = "You can publish only following entity types: "+typesInConfig.toString();
+                                            break;
+                                        }
+                                    }
+                                    resultObj.valid = isValid;
+                                }
+                            }
+                        }
+                    }else{
+                        resultObj.message = "Maximum 20 entities can be selected.."
+                    }
+                    return resultObj;
                 },
                 _showAssignmentDialog: function (detail, action) {
                     var assignmentDialog = this.$$("#wfAssignmentDialog");
@@ -905,9 +979,7 @@
                     assignmentDialog.open();
                 },
                 _onAppContextChanged: function (e) {
-                    if (this.verbose) {
-                        console.log("AppContext:- " + JSON.stringify(e.detail.contextData));
-                    }
+                    this.logInfo("AppContextChanged","contextData",JSON.stringify(e.detail.contextData));
 
                     this.contextData = {}; // To notify
                     this.contextData = e.detail.contextData;
@@ -956,9 +1028,12 @@
                     var selectedEntitiesObj = detail.data;
 
                     if(selectedEntitiesObj && selectedEntitiesObj.length) {
-                        var selectedEntities = selectedEntitiesObj.map(function (selectedEntityObj) {
-                            return selectedEntityObj.id;
-                        });
+                        var selectedEntities = [];
+                        for(var i=0; i < selectedEntitiesObj.length;i++){
+                            if(typeof selectedEntitiesObj[i].id == "string" || typeof selectedEntitiesObj[i].id == "number"){
+                                 selectedEntities.push(selectedEntitiesObj[i].id);
+                            }
+                         }
                         this.set("_typesCriterion", selectedEntities);
                         this._prepareContext();
                     } else {

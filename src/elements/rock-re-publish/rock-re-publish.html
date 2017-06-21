@@ -1,0 +1,192 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+
+<link rel="import" href="../liquid-rest/liquid-rest.html">
+
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+
+<!--<link rel="import" href="../rock-entity-lov/rock-entity-lov.html">-->
+
+<!--<link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">-->
+<!--
+<b><i>Content development is under progress... </b></i>
+
+@demo demo/index.html
+-->
+<dom-module id="rock-re-publish">
+    <template>
+        <style include="pebble-styles-shared">           
+            .message {
+                text-align: center;
+            }
+            .job-nav-screen {
+                text-align: center;
+            }
+        </style>
+        <pebble-spinner active="[[_loading]]"></pebble-spinner>
+        <div class="message">[[_message]]</div>
+        <liquid-rest id="rePublish" url="/cop/publish" method="POST" request-data={{_rePublishRequest}}
+            on-liquid-response="_onRePublishSuccess" on-liquid-error="_onRePublishFailure"></liquid-rest>        
+    </template>
+    <script>
+        (function () {
+            'use strict';
+
+            Polymer({
+                is: 'rock-re-publish',
+
+                properties: {
+                    contextData: {
+                         type:Object,
+                         value: function() {
+                            return {};
+                         }
+                    },
+                    /**
+                        * <b><i>Content development is under progress... </b></i> 
+                        */
+                    selectedEntities: {
+                        type: Array,
+                        value: function() {
+                            return [];
+                        }
+                    },
+
+                    profiles:{
+                        type:Array,
+                        value: function() {
+                            return [];
+                        }
+                    },
+
+                    _loading: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    _message: {
+                        type: String
+                    },    
+
+                    _rePublishRequest: {
+                        type: Object,
+                        value: function () { 
+                            return {}; 
+                        }
+                    },
+
+                    _rePublishResponse: {
+                        type: Object,
+                        value: function () { 
+                            return {}; 
+                        }
+                    },
+
+                    _isPublished:{
+                        type:Boolean,
+                        value:false
+                    }
+                },
+
+                behaviors: [
+                    RUFBehaviors.UIBehavior,
+                    RUFBehaviors.ComponentContextBehavior
+                ],
+                observers: [
+                    '_executeRePublishProcess(selectedEntities)'
+                ],
+                _executeRePublishProcess: function () {
+                    if(this.selectedEntities && this.selectedEntities.length > 0 &&
+                       this.profiles && this.profiles.length > 0) {
+                            this._loading = true;
+                            this._message = "Re-publish process started";
+                            this._generateRePublishRequest();
+                    }  
+                },
+                _generateRePublishRequest: function () {                    
+                    //Prepare request without entity
+                    var req = DataRequestHelper.createRePublishRequest(this.profiles); 
+                    //Add entities to the request
+                    var entities = [];
+                    for(var i = 0; i < this.selectedEntities.length; i++)
+                    {
+                        entities.push(this.selectedEntities[i].id);
+                    }
+                    req["params"]["query"]["ids"] = entities;
+                    this.set("_rePublishRequest", req);
+
+                    var liquidRePublish = this.$$("#rePublish");
+                    if (liquidRePublish) {
+                        liquidRePublish.generateRequest();
+                    }
+                },
+                _onRePublishSuccess: function (e) {
+                    var response = e.detail.response;
+                    if(response && response["dataObjectOperationResponse"]){
+                        this.set("_rePublishResponse", response['dataObjectOperationResponse']);
+                        if(this._rePublishResponse && this._rePublishResponse["status"]
+                            && (this._rePublishResponse["status"] == "success"))
+                            {
+                                this._isPublished = true;
+                            }
+                    }
+                    this._triggerFinishStep();
+                },
+                _onRePublishFailure: function (e) {
+                    console.warn("Failed to perform re-publish with error: ", e.detail);
+                    this._triggerFinishStep();
+                },
+                _triggerFinishStep: function() {
+
+                    var data = {
+                                "messages": [
+                                    {
+                                        "message": "Failed to perform re-publish. Please contact administrator."
+                                    }
+                                ],
+                                "actions": [                                    
+                                    {
+                                        "name": "goBack",
+                                        "text": "Take Me back to Where I started"
+                                    }                                                                
+                                ]                            
+                            };
+                    
+                    if(this._isPublished){
+                        data["messages"][0]["message"] = "Re-Publish successful.";
+                        data["messages"].push({
+                             "message": "You can view the job details"
+                        });
+                        data["actions"].push({
+                            "name": "goJob",
+                            "text": "Take Me to Job Details",
+                            "dataRoute":"dashboard"
+                        })
+                    }
+                    this._message = "";
+                    this._loading = false;
+                    
+                    this.businessFunctionData = data;                        
+                    var eventName = "onComplete";
+                    var eventDetail = {
+                        name: eventName
+                    }
+                    this.fireBedrockEvent(eventName, eventDetail, {
+                            ignoreId: true
+                    });
+                    
+                    //Reset
+                    this.selectedEntities = [];
+                    this.profiles = [];
+                },
+                _onTapAction:function(){
+
+                }
+            });
+        })();
+    </script>
+</dom-module>

@@ -103,7 +103,9 @@
 
             .quick-manage-container {
                 width: 30%;
+                position: relative;
             }
+            
             .grid-quick-manage-container{
                 width:70%;
             }
@@ -127,15 +129,11 @@
             #entityTypeFilterContainer{
                 padding-right: 10px;
             }
-            rock-entity-quick-manage::shadow rock-tabs::shadow rock-attribute-manage::shadow #buttonContainer {
-                width: 100% !important;
-                left: 500px !important;
-            }
         </style>
         <rock-layout>
             <liquid-config-aggregate-get id="getAssetsDiscoveryAppConfig" verbose operation="getbyids" request-id="req1" app-name="app-assets-discovery"
                 context-data="[[contextData]]" on-config-get-response="_onApplicationConfigReceived"></liquid-config-aggregate-get>
-            <rock-titlebar icon="pebble-md-icons:Advancesearch" main-title="Assets Search & Discovery" closable minimizable>
+            <rock-titlebar icon="pebble-md-icons:Advancesearch" main-title="Assets Search & Refine" closable minimizable>
                 <div id="dimensionContainer" align="right">
                     <rock-dimension-selector id="dimensionSelector" config-data="[[getConfig('rock-dimension-selector')]]" all-multi-select></rock-dimension-selector>
                 </div>
@@ -161,7 +159,7 @@
                                            class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" on-tap="_openEntityTypeFilterLov"></pebble-button>
                             <pebble-popover id="entityTypeFilterPopover" for="entityTypeFilterButton" no-overlap auto-fit-on-attach vertical-align="auto"
                                             horizontal-align="auto">
-                                <rock-entity-type-model-lov id="entityTypeModelLov" domains="[[_domains]]" allowed-entity-types="[[_allowedEntityTypes]]" selected-items="{{selectedEntityTypes}}" preselected-entity-types="[[_typesCriterion]]" show-action-buttons></rock-entity-type-model-lov>
+                                <rock-entity-type-model-lov id="entityTypeModelLov" domains="[[_domains]]" allowed-entity-types="[[_allowedEntityTypes]]" selected-items="{{selectedEntityTypes}}" show-action-buttons></rock-entity-type-model-lov>
                             </pebble-popover>
                             <bedrock-pubsub event-name="entity-type-model-lov-confirm-button-tap" handler="_onSelectedEntityTypesChange" target-id="entityTypeModelLov"></bedrock-pubsub>
                             <bedrock-pubsub event-name="entity-type-model-lov-close-button-tap" handler="_onEntityTypePopoverClose" target-id="entityTypeModelLov"></bedrock-pubsub>
@@ -180,8 +178,6 @@
                                 button-text="Assignment Actions" actions-data="[[getConfig('assignment-actions')]]"></pebble-actions>
                             <pebble-button class="btn btn-primary m-r-5" button-text="Quick Manage" on-tap="_onTapQuickManage"></pebble-button>
                             <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
-                            <pebble-actions id="actionsButton" button-icon="pebble-md-icons:actions" class="dropdownText dropdownIcon btn btn-actions dropdown-success"
-                                button-text="Actions" actions-data="[[getConfig('pebble-actions')]]"></pebble-actions>
                             <rock-business-function-dialog id="rollupDialog"></rock-business-function-dialog>
                         </div>
                     </div>
@@ -332,7 +328,7 @@
 
                 ready: function () {
                     this.$$("#searchBar").searchInput = [];
-                    this._allowedEntityTypes = DataHelper.getAllowedEntityTypes();
+                    this._allowedEntityTypes = this.appSetting('allowedEntityTypes');
                     var workflowName = DataHelper.getParamValue('wfName');
                     if (!_.isEmpty(workflowName)) {
                         var workflowActivityName = DataHelper.getParamValue('wfActivityName');
@@ -395,7 +391,27 @@
                     if (this._gridConfig &&  this._gridConfig.dataRequest) {
                         this._typesCriterion = this._gridConfig.dataRequest.typesCriterion;
                         this._domains= this._gridConfig.dataRequest.domains;
+                        this.selectedEntityTypes = this._getSelectedEntityTypes(this._typesCriterion);
                     }
+                },
+                _getSelectedEntityTypes: function(entityTypes) {
+                    var selectedEntityTypesForLOV = [];
+                    for (var i in entityTypes) {
+                        var itemObj = {
+                            "title": entityTypes[i],
+                            "id": entityTypes[i]
+                        };
+                        if (!this._isItemPresent(selectedEntityTypesForLOV, entityTypes[i])) {
+                            selectedEntityTypesForLOV.push(itemObj);
+                        }
+                    }
+                    return selectedEntityTypesForLOV;
+                },
+                _isItemPresent: function (items, id) {
+                    var presentItem = items.find(function (item) {
+                        return item.id == id;
+                    });
+                    return !!presentItem;
                 },
 
                 //Rock search
@@ -462,6 +478,8 @@
                             this.updateContext(this.CONTEXT_TYPE_ITEM, [itemContext]);
                             grid.clearSelection(); //Clear current selection
                             grid.selectItem(selectedItem); //
+                            this._currentIndex = grid.getSelectedItemIndex();
+                            grid.scrollToIndex(this._currentIndex);
                         }
                     } else {
                         this._currentIndex = -1;
@@ -526,7 +544,6 @@
                 },
                 _onSelectedEntityTypesChange: function (e, detail) {
                     var selectedEntitiesObj = detail.data;
-
                     if(selectedEntitiesObj && selectedEntitiesObj.length) {
                         var selectedEntities = selectedEntitiesObj.map(function (selectedEntityObj) {
                             return selectedEntityObj.id;
@@ -540,14 +557,6 @@
                 },
                 _onEntityTypePopoverClose: function(e, detail) {
                     this.$$("#entityTypeFilterPopover").close();
-                },
-
-
-
-                //Note: None of the below actions tap functions have been verified in this page. TODO: confirm if this is required in this page
-                // Action Button
-                _onActionsTap: function (e) {
-                    this.$$('#actionsPopover').show();
                 },
                 _onActionItemTap: function (e, detail, sender) {
                     this.successEntityIds = [];
@@ -591,9 +600,7 @@
                     }
                 },                                         
                 _onAppContextChanged: function (e) {
-                    if (this.verbose) {
-                        console.log("AppContext:- " + JSON.stringify(e.detail.contextData));
-                    }
+                    this.logInfo("AppContextChanged","contextData",JSON.stringify(e.detail.contextData));
 
                     this.contextData = {}; // To notify
                     this.contextData = e.detail.contextData;
@@ -608,6 +615,7 @@
                         this.$$("#assetsSearchGrid").refresh();
                     }
                 },
+
 
                 _generateAssignmentRequest: function () {
                     var req = DataRequestHelper.createWfChangeAssignmentRequest(this._selectedEntities[this._currentEntityIndex], this._workflowCriterion, this.contextData, this._currentWorkflowAction);
