@@ -1,0 +1,437 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+
+<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+<link rel="import" href="../liquid-rest/liquid-rest.html">
+
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-textarea/pebble-textarea.html">
+<!--
+<b><i>Content development is under progress... </b></i>
+
+@demo demo/index.html
+-->
+<dom-module id="rock-workflow-transition">
+    <template>
+        <style include="pebble-styles-shared">           
+            .message {
+                text-align: center;
+            }
+            .buttonSection {
+                text-align: center;
+            }            
+            pebble-textarea {
+                --textarea-container: {
+                    padding: 20px;
+                    margin: 0 auto;
+                    width: 300px;
+                }
+            }            
+           
+        </style>
+        <pebble-spinner active="[[_loading]]"></pebble-spinner>
+        <div class="message">[[_message]]</div>
+        <liquid-entity-model-get id="initWorkflowDefinitionsGet" operation="initiatesearch" last-response="{{initWorkflowDefinitionsGet}}"
+            on-response="_onInitWorkflowDefinitionsGetResponse" on-error="_onInitWorkflowDefinitionsGetError"></liquid-entity-model-get>
+
+        <liquid-entity-model-get id="workflowDefinitionsGet" operation="getsearchresultdetail" request-id="[[initWorkflowDefinitionsGet.content.requestId]]"
+            on-response="_onWorkflowDefinitionsGetResponse" on-error="_onWorkflowDefinitionsGetError"></liquid-entity-model-get>
+
+        <liquid-rest id="entityWfTransition" url="/pass-through-bulk/entitygovernservice/transitionWorkflow" method="POST" request-data={{_transitionRequest}}
+            on-liquid-response="_onTransitionSuccess" on-liquid-error="_onTransitionFailure"></liquid-rest>
+        
+        <template is="dom-if" if="[[_showTransitionSection]]">
+            <div class="textareaSection">
+                <pebble-textarea id="txtComments" autofocus label="Add a comment" value="{{_comments}}" show-error validation-errors="{{_validationErrors}}"></pebble-textarea>
+            </div>            
+            <div class="buttonSection">
+                <template is="dom-repeat" items="[[_currentWorkflowActions]]">
+                    <pebble-button id="[[item.id]]" class="btn btn-success" button-text="[[_getValue(item, 'actionText')]]" on-tap="_onTapAction"></pebble-button>
+                </template>
+            </div>            
+        </template>
+    </template>
+    <script>
+        (function () {
+            'use strict';
+
+            Polymer({
+                is: 'rock-workflow-transition',
+
+                properties: {
+          /**
+            * <b><i>Content development is under progress... </b></i> 
+            */
+                    contextData: {
+                         type:Object,
+                         value: function() {
+                            return {};
+                         }
+                    },
+          /**
+            * <b><i>Content development is under progress... </b></i> 
+            */
+                    selectedEntities: {
+                        type: Array,
+                        value: function() {
+                            return [];
+                        }
+                    },
+          /**
+            * <b><i>Content development is under progress... </b></i> 
+            */
+                    resultAttribute: {
+                        type: String
+                    },
+          /**
+            * <b><i>Content development is under progress... </b></i> 
+            */
+                    currentWorkflow: {
+                        type: Object,
+                        value: function() { 
+                            return {}; 
+                        }
+                    },
+
+                    _currentWorkflowDefinition: {
+                        type: Object,
+                        value: function() { 
+                            return {}; 
+                        }
+                    },
+
+                    _currentWorkflowActions: {
+                        type: Array,
+                        value: function() { 
+                            return []; 
+                        }
+                    },
+
+                    _loading: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    _message: {
+                        type: String
+                    },
+
+                    _showTransitionSection: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    _validationErrors: {
+                        type: Array,
+                        value: function() { 
+                            return[]; 
+                        }
+                    },
+
+                    _transitionRequest: {
+                        type: Object,
+                        value: function () { 
+                            return {}; 
+                        }
+                    },
+
+                    _responseMessages: {
+                        type: Array,
+                        value: function () { 
+                            return []; 
+                        }
+                    }                                        
+                },
+
+                behaviors: [
+                    RUFBehaviors.UIBehavior,
+                    RUFBehaviors.ComponentContextBehavior
+                ],
+
+                observers: [
+                    '_executeTransitionProcess(contextData, selectedEntities, currentWorkflow)'
+                ],
+                
+                _executeTransitionProcess: function () {
+                    // Start process when all the details are available
+                    if(this.contextData && !_.isEmpty(this.contextData) && 
+                       this.selectedEntities && this.selectedEntities.length > 0 &&
+                       this.currentWorkflow && !_.isEmpty(this.currentWorkflow)) {
+
+                           this._loading = true;
+                           this._message = "Transition execution process started";
+
+                           //Show actions and UI as per model definition
+                           this._initWorkflowDefinition();                           
+                    }     
+                },
+
+                _initWorkflowDefinition: function() {
+                    var initWorkflowDefinitionsGet = this.$$('#initWorkflowDefinitionsGet');
+
+                    if (typeof (initWorkflowDefinitionsGet) === "undefined" ||
+                        initWorkflowDefinitionsGet == null) {
+                        this.logError("InitGetError");
+                        return;
+                    }
+
+                    var itemContext = {};
+                    itemContext.atttributeNames = ["_ALL"];
+                    this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+
+                    initWorkflowDefinitionsGet.requestData = DataRequestHelper.createWorkflowDefinitionGetRequest(
+                            this.contextData);
+                    initWorkflowDefinitionsGet.generateRequest();
+                },
+
+                _onInitWorkflowDefinitionsGetResponse: function (e) {
+                    var workflowDefinitionsGet = this.$$('#workflowDefinitionsGet');
+
+                    if (typeof (workflowDefinitionsGet) === "undefined" ||
+                        workflowDefinitionsGet == null) {
+                            this.logError("IdNotFound");
+                        return;
+                    }
+
+                    workflowDefinitionsGet.requestData = DataRequestHelper.createWorkflowDefinitionGetRequest(
+                        this.contextData);
+                    workflowDefinitionsGet.generateRequest();
+                },
+
+                _onInitWorkflowDefinitionsGetError: function (e) {
+                    this.logError("WorkFlowInitiateError",e);
+                    this._message = "An error occured in the transition process, please contact administrator";
+                    this._loading = false;
+                },
+
+                _onWorkflowDefinitionsGetResponse: function(e, detail) {
+                    
+                    if(DataHelper.isValidObjectPath(detail, "response.content.entityModels"))
+                    {
+                        var _models = detail.response.content.entityModels;
+
+                        if(_models.length > 0)
+                        {
+                            for(var i = 0; i < _models.length; i++)
+                            {
+                                if(_models[i].data.attributes.workflowName.values[0].value == this.currentWorkflow.name)
+                                {
+                                    this._currentWorkflowDefinition = _models[i];
+                                    break;
+                                }
+                            }
+
+                            if(this._currentWorkflowDefinition)
+                            {
+                                this._enableWorkFlowActions();
+                            }                            
+                        }
+                    }
+                },
+
+                 _onWorkflowDefinitionsGetError: function (e) {
+                     this.logError("WorkFlowSearchError",e);
+                    this._message = "An error occured in the transition process, please contact administrator";
+                    this._loading = false;
+                },
+
+                _enableWorkFlowActions: function() {
+                   
+                   if(DataHelper.isValidObjectPath(this._currentWorkflowDefinition, "data.attributes.activities.group"))
+                   {
+                       var _activities = this._currentWorkflowDefinition.data.attributes.activities.group;
+
+                       for(var i = 0; i < _activities.length; i++)
+                       {
+                           if(_activities[i].activityName.values[0].value == this.currentWorkflow.activityName)
+                           {
+                               this._currentWorkflowActions = _activities[i].actions.group;
+                           }
+                       }
+                   }
+
+                   this._message = "";
+                   this._loading = false;
+                   this._showTransitionSection = true;
+                },
+
+                _getValue: function(item, property) {
+                    if(property)
+                    {
+                        if(item[property] && !_.isEmpty(item[property]))
+                        {
+                            return item[property].values[0].value;
+                        }
+
+                        return;
+                    }
+                    else
+                    {
+                        return item;
+                    }
+                },
+
+                _onTapAction: function(e) {                    
+                    var _commentsMode = this._getValue(e.model.item, 'commentsMode'); 
+                    if(_commentsMode && _commentsMode.toLowerCase() == "mandatory")
+                    {
+                        //Verify comments having data or not
+                        if(!this._comments)
+                        {
+                            this._raiseError("Required")
+                            return;
+                        }
+                    }
+
+                    this._executeTransitionSaveProcess(e.model.item);                    
+                },
+
+                _raiseError: function(message){
+                    this._validationErrors = [];
+                    this.push('_validationErrors', message);
+
+                    var _validationErrors = this._validationErrors;
+                    this._validationErrors = [];
+                    this._validationErrors = _validationErrors;
+                },
+
+                _executeTransitionSaveProcess: function(action) {
+                    this._message = "Transition save process started";
+                    this._loading = true;
+                    this._showTransitionSection = false;
+                    
+                    var firstItemContext = this.getFirstItemContext();
+                    firstItemContext.transitionTo = {
+                        "workflowName": this._currentWorkflowDefinition.name,
+                        "activityName": this.currentWorkflow.activityName,
+                        "action": this._getValue(action, 'actionName'),
+                        "comments": this._comments
+                    };
+
+                    var workflowTransitionRequestDataJson = DataRequestHelper.createWorkflowTransitionRequest(this.contextData);
+                    delete workflowTransitionRequestDataJson.entity; //Not needed for bulk
+
+                    var _entities = [];
+                    for(var i = 0; i < this.selectedEntities.length; i++)
+                    {
+                        _entities.push({
+                            "id": this.selectedEntities[i].id,
+                            "type": this.selectedEntities[i].type
+                        });
+                    }
+
+                    workflowTransitionRequestDataJson.entities = _entities;
+
+                    this.set("_transitionRequest", workflowTransitionRequestDataJson);
+                    this.$$("#entityWfTransition").generateRequest();                 
+                },
+
+                _getAttributeValue: function(id, attrName) {
+                    if(this.selectedEntities && this.selectedEntities.length > 0)
+                    {
+                        for(var i = 0; i < this.selectedEntities.length; i++) {
+                            if(this.selectedEntities[i].id == id) {
+                                return this.selectedEntities[i].attributes[attrName] ? this.selectedEntities[i].attributes[attrName].value : "Not found";
+                            }
+                        }
+                    }
+                },
+
+                _onTransitionSuccess: function(e, detail) {
+                    //Todo: Handle bulk messages here
+                    var request = e.detail.request;
+                    var responseList = e.detail.response;
+                    this._responseMessages = [];
+
+                    for(var i = 0; i < responseList.length; i++)
+                    {
+                        //set id
+                        var transitionResponse = {
+                            "id": responseList[i].id
+                        };
+
+                        //set name
+                        if(this.resultAttribute)
+                        {
+                            var attrValue = this._getAttributeValue(responseList[i].id, this.resultAttribute);
+                            transitionResponse[this.resultAttribute] = attrValue;
+                        }
+
+                        var response = DataHelper.isValidObjectPath(responseList[i], "operationResponse.response") ? responseList[i].operationResponse.response : {};
+                        
+                        //set text
+                        if (!_.isEmpty(response) && response.status.toLowerCase() == "success") {
+                            // Success - isCriteriaValid as false
+                            if (response.statusDetail && 
+                                response.statusDetail.hasOwnProperty('isCriteriaValid') && !response.statusDetail.isCriteriaValid) {
+                                var actionItem = "Workflow";
+
+                                if (DataHelper.isValidObjectPath(request, "requestData.params.workflow")) {
+                                    var workflow = request.requestData.params.workflow;
+                                    if (DataHelper.isValidObjectPath(workflow, "activity.action")) {
+                                        actionItem = workflow.activity.action;
+                                    }
+                                }
+
+                                transitionResponse["message"] = "'" + actionItem + "' action failed. Please check the business conditions in Summary tab";
+                            }
+                            else { //Success
+                                transitionResponse["message"] = response.statusDetail.message;
+                            }
+                        }
+                        else { //Error
+                            if(response.statusDetail && response.statusDetail.message) {
+                                transitionResponse["message"] = response.statusDetail.message;
+                            }                            
+                        }                        
+
+                        this._responseMessages.push(transitionResponse);
+                    }
+
+                    this._triggerFinishStep();
+                },
+
+                _onTransitionFailure: function(e, detail) {
+                    this.logError("WorkFlowTransitionError","response",JSON.stringify(e.detail.response.reason.message));
+                    this._message = "An error occured in the transition process, please contact administrator";
+                    this._loading = false;
+                },
+
+                _triggerFinishStep: function() {                    
+                    var data = {
+                                "messages": this._responseMessages,
+                                "actions": [                                    
+                                    {
+                                        "name": "goBack",
+                                        "text": "Take me back to where I started",
+                                        "isNotApp": true
+                                    }                                                                    
+                                ]                            
+                            };
+
+                        this.businessFunctionData = data;                        
+                        var eventName = "onComplete";
+                        var eventDetail = {
+                            name: eventName
+                        }
+
+                        this.fireBedrockEvent(eventName, eventDetail, {
+                                ignoreId: true
+                        });
+                        
+                        this._message = "About to complete, please wait...";
+                        this._loading = true;
+
+                        //Reset contextData, selectedEntities, currentWorkflow
+                        this.contextData = {};
+                        this.selectedEntities = [];
+                        this.currentWorkflow = {};
+                }              
+            });
+        })();
+    </script>
+</dom-module>
