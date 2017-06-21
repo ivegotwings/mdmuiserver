@@ -1,7 +1,9 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/paper-item/paper-item.html">
 
 <link rel="import" href="../pebble-icon/pebble-icon.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../pebble-popover/pebble-popover.html">
 
 <!--
 `<rock-header-search>` Represents a textbox with a search icon that provides the global search.
@@ -93,11 +95,39 @@ Custom property | Description | Default
         cursor: var(--search-action-hover-pointertype, pointer);
       }
 
+      .popup-title{
+        text-align:left;
+        font-size:var(--font-size-sm, 12px);
+        color:var(--text-primary-color,#1a2028);
+        font-weight: var(--font-bold, bold);
+        line-height: 24px;
+        @apply --popup-item;
+      }
+      .list{
+       @apply(--layout-vertical);
+      }      
+      paper-item #actionItem{
+        line-height: 16px;
+      }
+
     </style>
 
 <input id="searchInput" type="text" value="{{inputValue::input}}" placeholder="{{placeHolder}}" on-keyup="_searchOnEnter"
     class="search-input">
 <pebble-icon icon="pebble-md-icons:Searchsmall" on-tap="_search" class="search-action pebble-md-icons"></pebble-icon>
+
+<pebble-popover id="searchOptionsPopover" for="searchInput" auto-fit-on-attach no-overlap>
+    <div class="list">
+        <div class="popup-title">[[inputValue]]</div>
+        <template is="dom-repeat" items="[[_searchOptions]]" as="searchOption">
+            <paper-item data="[[searchOption]]" on-tap="_onSearchOptionSelect">
+                <div id="actionItem">
+                    [[searchOption.text]]
+                </div>
+            </paper-item>
+        </template>
+    </div>
+</pebble-popover>
 
 </template>
 
@@ -123,7 +153,8 @@ Custom property | Description | Default
                  */
                 inputValue: {
                     type: String,
-                    value: ""
+                    value: "",
+                    observer: "_onInputChange"
                 },
 
                 /*
@@ -132,16 +163,48 @@ Custom property | Description | Default
                 icon: {
                     type: String,
                     value: "pebble-icons:SearchArrow"
+                },
+
+                searchConfig: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    },
+                    observer: "_onSearchConfigChange"
+                },
+
+                _searchOptions: {
+                    type: Array,
+                    value: function () {
+                        return [];
+                    }
+                },
+
+                _selectedSearchOption: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
                 }
 
+            },
+
+            _onSearchConfigChange: function () {
+                if(this.searchConfig && !_.isEmpty(this.searchConfig)) {
+                    //Set searchOptions and default selectedSearchOption
+                    this._searchOptions = this.searchConfig.searchOptions;
+                    this._setDefaultSelectedOption();
+                }
             },
 
             /*
              * Can be used to open a global search page.
              */
             _search: function () {
-                ComponentHelper.appRoute("entity-discovery", {"searchtext": this.inputValue });
-                this.inputValue = '';
+                if(this._selectedSearchOption) {
+                    ComponentHelper.appRoute(this._selectedSearchOption.route, { "searchtext": this.inputValue });
+                    this.inputValue = '';
+                }
             },
 
             /*
@@ -150,6 +213,41 @@ Custom property | Description | Default
             _searchOnEnter: function (e) {
                 if (e.keyCode === 13) {
                     this._search();
+                }
+            },
+
+            _onInputChange: function () {
+                var searchOptionsPopover = this.$$('#searchOptionsPopover');
+
+                if (searchOptionsPopover) {
+                    if (this.inputValue && this.inputValue.trim() != "") {
+                        searchOptionsPopover.show();
+                    } else {                        
+                        this._setDefaultSelectedOption();
+                        searchOptionsPopover.hide();
+                    }
+                }
+            },
+
+            _setDefaultSelectedOption: function () {
+                if (this._searchOptions) {
+                    for (var i = 0; i < this._searchOptions.length; i++) {
+                        if (this._searchOptions[i].isDefault) {
+                            this._selectedSearchOption = this._searchOptions[i];
+                            break;
+                        }
+                    }
+                }
+           },
+            
+            _onSearchOptionSelect: function (e) {
+                var searchOptionsPopover = this.$$('#searchOptionsPopover');
+                var data = e.currentTarget.data;
+                this._selectedSearchOption = data;
+                this._search();
+
+                if (searchOptionsPopover) {
+                    searchOptionsPopover.hide();
                 }
             }
         });
