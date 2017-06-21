@@ -529,6 +529,48 @@ function buildErrorResponse(errorObject, primaryMessageToBePrefixedIfAny) {
     return errorResponse;
 }
 
+function buildRefResponse(dataObject, reqData) {
+    var dataObjectResponseJson = {};
+
+    if (!isEmpty(reqData.dataObjectFields)) {
+        _buildFieldsResponse(dataObject, reqData, dataObjectResponseJson);
+    }
+
+    var dataJson = dataObjectResponseJson['data'] = {};
+    var dataContextsJson = dataJson['contexts'] = {};
+    var pathToContexts = [pathKeys.root, reqData.dataIndex, reqData.dataObjectType, pathKeys.byIds, dataObject.id, 'data', 'contexts'];
+
+    var data = dataObject.data;
+    if (data && data.contexts) {
+        var selfCtxKey = falcorUtil.createSelfCtxKey();
+
+        for (let contextItem of data.contexts) {
+            var currContext = contextItem.context;
+            var currentCtxKey = falcorUtil.createCtxKey(currContext);
+
+            var pathToContextItem = mergePathSets(pathToContexts, [currentCtxKey])
+
+            if(currContext.selfContext) {
+                //Add selfcontext response as $ref...
+                dataContextsJson[selfCtxKey] = prepareValueJson($ref(pathToContextItem));
+            }
+            else {
+                //Add requested context response as $ref...
+                for (var i = 0; i < reqData.ctxKeys.length; i++) {
+                    var ctxKey = reqData.ctxKeys[i];
+                    if(ctxKey != selfCtxKey) {
+                        //Assumption: We cannot compare requested context key with the resulted context... Hence considering first key always... 
+                        dataContextsJson[ctxKey] = prepareValueJson($ref(pathToContextItem));
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    return dataObjectResponseJson;
+}
+
 module.exports = {
     buildResponse: buildResponse,
     buildErrorResponse: buildErrorResponse,
@@ -537,5 +579,6 @@ module.exports = {
     mergeAndCreatePath: mergeAndCreatePath,
     mergePathSets: mergePathSets,
     prepareValueJson: prepareValueJson,
+    buildRefResponse: buildRefResponse,
     pathKeys: pathKeys
 };
