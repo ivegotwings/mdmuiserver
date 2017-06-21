@@ -279,6 +279,9 @@ async function get(dataObjectIds, reqData) {
                 }
             }
         }
+        
+        //TURNING OFF THIS FEATURE TILL RDF FINISHES ITS WORK
+        isNearestGet = false;
 
         //Populate dataObject id in request query...
         //Nearest get is based on context and not Ids. Hence skipping Id population for request get
@@ -325,8 +328,7 @@ async function get(dataObjectIds, reqData) {
                     byIdsJson[dataObject.id] = dataObjectResponseJson;
                 }
 
-                if(isNearestGet)
-                {
+                if(isNearestGet) {
                     //In case of nearest get, comapare requested Id with nearest object Id resulted from response...
                     //If ids are not same then the response is for nearest context and hence populate as $ref in response Json
 
