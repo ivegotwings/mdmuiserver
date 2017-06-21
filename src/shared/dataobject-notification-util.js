@@ -20,10 +20,16 @@ DataObjectNotificationUtil.updateRequestObjectForNotification =  function(reques
                 if (isEmpty(notificationInfo.context)) {
                     notificationInfo.context = {};
                 }
-                
                 if (request.entity) {
-                    notificationInfo.context.id = request.entity.id;
-                    notificationInfo.context.type = request.entity.type;
+                    if(request.operationMode != undefined && request.operationMode == "whereUsedFlag"){
+                        if(request.data.relationships.hasimages.length > 0){
+                            notificationInfo.context.id = request.data.relationships.hasimages[0].relTo.id
+                            notificationInfo.context.type = request.data.relationships.hasimages[0].relTo.type;
+                        }
+                    }else{
+                        notificationInfo.context.id = request.entity.id;
+                        notificationInfo.context.type = request.entity.type;
+                    }
                 }
                 
                 notificationInfo.context.dataIndex = request.dataIndex;
