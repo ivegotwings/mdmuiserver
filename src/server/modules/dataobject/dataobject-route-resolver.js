@@ -26,6 +26,7 @@ const responseBuilder = require('./dataobject-falcor-response-builder');
 const createPath = responseBuilder.createPath,
     buildResponse = responseBuilder.buildResponse,
     buildErrorResponse = responseBuilder.buildErrorResponse,
+    buildRefResponse = responseBuilder.buildRefResponse,
     formatDataObjectForSave = responseBuilder.formatDataObjectForSave,
     mergeAndCreatePath = responseBuilder.mergeAndCreatePath,
     mergePathSets = responseBuilder.mergePathSets,
@@ -250,22 +251,14 @@ async function get(dataObjectIds, reqData) {
     var operation = reqData.operation;
     
     try{
-        var request = createGetRequest(reqData);
-
-        //update dataObject id in request query for current id
-        if(dataObjectIds.length > 1) {
-            request.params.query.ids = dataObjectIds;
-        }
-        else {
-            request.params.query.id = dataObjectIds[0];
-        }
-
-        //console.log('req to api ', JSON.stringify(request));
         var res = undefined;
         var isCoalesceGet = false;
+        var isNearestGet = false;
 
         var service = _getService(reqData.dataObjectType);
 
+        var request = createGetRequest(reqData);
+        
         if (request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel') {
             if (!isEmpty(request.params.query.contexts)) {
                 var contexts = request.params.query.contexts;
@@ -273,21 +266,47 @@ async function get(dataObjectIds, reqData) {
                     var firstContext = contexts[0];
                     //TODO: We need a fix to remove this classification context check when RDF fixes
                     if (firstContext && firstContext.classification) {
-                        res = await service.getCoalesce(request);
                         isCoalesceGet = true;
                     }
                 }
             }
         }
+        else if (request.dataIndex == "config" && reqData.dataObjectType == 'uiConfig') {
+            if(!isEmpty(request.params.query.contexts)) {
+                var contexts = request.params.query.contexts;
+                if (contexts && contexts.length > 0) {
+                    isNearestGet = true;
+                }
+            }
+        }
+        
+        //TURNING OFF THIS FEATURE TILL RDF FINISHES ITS WORK
+        isNearestGet = false;
 
-        if (!isCoalesceGet) {
+        //Populate dataObject id in request query...
+        //Nearest get is based on context and not Ids. Hence skipping Id population for request get
+        if(!isNearestGet) {
+            if(dataObjectIds.length > 1) {
+                request.params.query.ids = dataObjectIds;
+            }
+            else {
+                request.params.query.id = dataObjectIds[0];
+            }
+        }
+
+        //console.log('req to api ', JSON.stringify(request));
+
+        if (isCoalesceGet) {
+            res = await service.getCoalesce(request);
+        }
+        else if(isNearestGet) {
+            res = await service.getNearest(request);
+        }
+        else {
             res = await service.get(request);
         }
 
         //console.log('get res from api ', JSON.stringify(res, null, 4));
-
-        var dataObject;
-        //console.log(JSON.stringify(pathKeys, null, 4));
 
         var dataIndexInfo = pathKeys.dataIndexInfo[request.dataIndex];
         var collectionName = dataIndexInfo.collectionName;
@@ -307,6 +326,20 @@ async function get(dataObjectIds, reqData) {
                     var dataObjectResponseJson = buildResponse(dataObject, reqData);
 
                     byIdsJson[dataObject.id] = dataObjectResponseJson;
+                }
+
+                if(isNearestGet) {
+                    //In case of nearest get, comapare requested Id with nearest object Id resulted from response...
+                    //If ids are not same then the response is for nearest context and hence populate as $ref in response Json
+
+                    //Nearest get should always return first nearest object hence considering first requested Id and first dataObject in response...
+                    var requestedId = dataObjectIds[0];
+                    var dataObject = dataObjects[0];
+
+                    if(!isEmpty(dataObject) && requestedId != dataObject.id) {
+                        //populate as ref...
+                        byIdsJson[requestedId] = buildRefResponse(dataObject, reqData);
+                    }
                 }
             }
         }
