@@ -16,6 +16,7 @@
 <link rel="import" href="../pebble-lov/pebble-lov.html">
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-popover/pebble-popover.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
 <link rel="import" href="../pebble-horizontal-divider/pebble-horizontal-divider.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 <link rel="import" href="../pebble-accordion/pebble-accordion.html">
@@ -23,6 +24,7 @@
 <link rel="import" href="../rock-entity-lov/rock-entity-lov.html">
 <link rel="import" href="../rock-grid/rock-grid.html">
 <link rel="import" href="../rock-grid-data-sources/entity-search-grid-datasource.html">
+<link rel="import" href="../rock-business-function-dialog/rock-business-function-dialog.html">
 
 <!--
 
@@ -329,7 +331,7 @@ The following JSON object is a sample of data which binds the grid.
         text-align: center;
       }
     </style>
-
+    <pebble-spinner active="[[_loading]]"></pebble-spinner>
     <template is="dom-if" if="[[!_isMessageAvailable]]">
       <template is="dom-repeat" items="{{relationshipTypeList}}" as="relationship" index-as="colIndex" notify-dom-change>
         <div id="relContainer_[[relationship]]">
@@ -347,6 +349,8 @@ The following JSON object is a sample of data which binds the grid.
             <rock-grid id$="[[relationship]]" data-source-id="datasource_[[relationship]]" config="{{_getRelationshipGridConfig(relationship)}}"
               attribute-models="[[_getRelationshipAttributeModels(relationship)]]" page-size="10"></rock-grid>
             <bedrock-pubsub target-id="[[relationship]]" event-name="on-grid-msg-dialog-ok" handler="_onDialogOk"></bedrock-pubsub>
+            <bedrock-pubsub event-name="grid-download-item" handler="_onDownload" target-id="[[relationship]]"></bedrock-pubsub>
+            <bedrock-pubsub event-name="grid-upload-item" handler="_onUpload" target-id="[[relationship]]"></bedrock-pubsub>
             <div id="buttonContainer" align="center" hidden>
               <pebble-button id="cancel" class="button" button-text="Cancel" on-tap="_revertAll" elevation=1 raised></pebble-button>
               <pebble-button id="save" class="focus" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
@@ -361,6 +365,7 @@ The following JSON object is a sample of data which binds the grid.
 
       <liquid-entity-data-save name="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" last-response="{{_saveResponse}}"
         on-response="_onSaveResponse"></liquid-entity-data-save>
+      <rock-business-function-dialog id="entityUploadDialog"></rock-business-function-dialog>
       <!--<pebble-dialog id="errorsDialog" dialog-title="Errors on page">
         <p>Found below errors in entity details: </p>
         <template is="dom-repeat" items="[[_errorMessages]]" as="error">
@@ -546,6 +551,10 @@ The following JSON object is a sample of data which binds the grid.
             value: function () {
               return [];
             }
+          },
+          _loading: {
+              type: Boolean,
+              value: false
           }
         },
         /**
@@ -1219,7 +1228,65 @@ The following JSON object is a sample of data which binds the grid.
 
             this._hideAllRelationshipGrid(false);
           }
-        }
+        },
+        _onDownload: function (e) {
+            var rockGrid = Polymer.dom(this).node.$$('rock-grid');
+            var selectedItems = rockGrid.getSelectedItems();
+            if (selectedItems && selectedItems.length && this.contextData) {
+              this._loading = true;
+              var clonedDataContext = DataHelper.cloneObject(this.contextData);
+              var itemContext = {};
+              itemContext.id = [];
+              itemContext.type = [];
+
+              selectedItems.forEach(function (item) {
+                if (item) {
+                  itemContext.id.push(item.id);
+
+                  if (itemContext.type.indexOf(item.type) == -1) {
+                    itemContext.type.push(item.type);
+                  }
+                }
+              }, this);
+
+              itemContext.attributeNames = ["_ALL"];
+              itemContext.relationships = ["_ALL"];
+              itemContext.relationshipAttributes = ["_ALL"];
+              clonedDataContext[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+
+              var req = DataRequestHelper.createEntityGetRequestForDownload(clonedDataContext, ["downloadDataExcel"]);
+
+              if (req) {
+                req.fileName = "EntityData";
+                var _this = this;
+                RUFUtilities.fileDownload("/cop/downloadDataExcel", {
+                  httpMethod: 'POST',
+                  data: { data: JSON.stringify(req) },
+                  successCallback: function (url) {
+                    this._loading = false;
+                  }.bind(_this),
+                  failCallback: function (responseHtml, url, error) {
+                    this._onCOPDownloadFailure(error);
+                  }.bind(_this)
+                });
+              }
+
+            } else {
+              this.showInformationToast("Please select at least one entity from grid to download.");
+            }
+          },
+          _onCOPDownloadFailure: function (error) {
+            this.showErrorToast("Failed to download entity data. Please contact administrator: " + error);
+            this._loading = false;
+          },
+          _onUpload: function (e, detail) {
+              var entityUploadDialog = this.$$("#entityUploadDialog");
+              if(entityUploadDialog) {
+                entityUploadDialog.name = "rock-entity-upload";
+                entityUploadDialog.sharedData = { "context-data": this.contextData };
+                entityUploadDialog.open();
+              }
+          },
         // _requestForAddRelationshipList: function (relationship) {
         //   var relatedEntityContexts = this._getRelatedEntityContexts(relationship);
         //   var attributes = this._getFromEntityAttributeList(relationship);
