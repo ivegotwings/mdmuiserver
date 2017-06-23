@@ -21,21 +21,28 @@ DataObjectNotificationUtil.updateRequestObjectForNotification =  function(reques
                     notificationInfo.context = {};
                 }
                 if (request.entity) {
-                    if(request.operationMode != undefined && request.operationMode == "whereUsedFlag"){
-                        if(request.data.relationships.hasimages.length > 0){
-                            notificationInfo.context.id = request.data.relationships.hasimages[0].relTo.id
-                            notificationInfo.context.type = request.data.relationships.hasimages[0].relTo.type;
-                        }
-                    }else{
-                        notificationInfo.context.id = request.entity.id;
-                        notificationInfo.context.type = request.entity.type;
-                    }
+                 DataObjectNotificationUtil._populateNotificationContext(request,notificationInfo);                  
                 }
-                
                 notificationInfo.context.dataIndex = request.dataIndex;
             }
         }
-    }
+    }    
+};
+DataObjectNotificationUtil._populateNotificationContext = function(request,notificationInfo){     
+        notificationInfo.context.id = request.entity.id;
+        notificationInfo.context.type = request.entity.type;
+        if(request.operation != undefined && request.operation == "whereUsed"){ 
+            var relationshipList =request.data.relationships;
+            var relationshipNames = Object.keys(relationshipList);
+            if(!_.isEmpty(relationshipNames)){
+                var firstRelationshipName = relationshipNames[0];
+                var relationshipObjects = relationshipList[firstRelationshipName];
+                if(!_.isEmpty(relationshipNames)){
+                    notificationInfo.context.id = relationshipObjects[0].relTo.id;
+                    notificationInfo.context.type = relationshipObjects[0].relTo.type;
+                } 
+            }                                               
+        }
 };
 
 function isEmpty(obj) {
