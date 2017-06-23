@@ -1,32 +1,45 @@
 'use-strict'
 
-var DataObjectNotificationUtil = function() { };
+var DataObjectNotificationUtil = function () { };
 
-DataObjectNotificationUtil.updateRequestObjectForNotification =  function(request, userId, timeStamp, clientUrl, mode) {
+DataObjectNotificationUtil.updateRequestObjectForNotification = function (request, userId, timeStamp, clientUrl, mode) {
     if (request && request.clientState) {
         if (!isEmpty(request.clientState)) {
             var notificationInfo = request.clientState.notificationInfo;
-            if (!isEmpty(notificationInfo)) {  
+            if (!isEmpty(notificationInfo)) {
                 notificationInfo.id = getRandomId();
                 notificationInfo.timeStamp = timeStamp;
                 notificationInfo.source = "ui";
                 notificationInfo.userId = userId;
                 notificationInfo.connectionId = "";
 
-                if(mode && mode == "dev") {
+                if (mode && mode == "dev") {
                     notificationInfo.callbackUrl = clientUrl;
                 }
 
                 if (isEmpty(notificationInfo.context)) {
                     notificationInfo.context = {};
                 }
-                
                 if (request.entity) {
-                    notificationInfo.context.id = request.entity.id;
-                    notificationInfo.context.type = request.entity.type;
+                    DataObjectNotificationUtil._populateNotificationContext(request, notificationInfo);
                 }
-                
                 notificationInfo.context.dataIndex = request.dataIndex;
+            }
+        }
+    }
+};
+DataObjectNotificationUtil._populateNotificationContext = function (request, notificationInfo) {
+    notificationInfo.context.id = request.entity.id;
+    notificationInfo.context.type = request.entity.type;
+    if (request.operation && request.operation == "whereUsed") {
+        var relationshipList = request.data.relationships;
+        var relationshipNames = Object.keys(relationshipList);
+        if (!_.isEmpty(relationshipNames)) {
+            var firstRelationshipName = relationshipNames[0];
+            var relationshipObjects = relationshipList[firstRelationshipName];
+            if (!_.isEmpty(relationshipObjects)) {
+                notificationInfo.context.id = relationshipObjects[0].relTo.id;
+                notificationInfo.context.type = relationshipObjects[0].relTo.type;
             }
         }
     }
@@ -41,7 +54,7 @@ function isEmpty(obj) {
 };
 
 function getRandomId() {
-  function randomToken() {
+    function randomToken() {
         return Math.floor((1 + Math.random()) * 0x10000)
             .toString(16)
             .substring(1);
