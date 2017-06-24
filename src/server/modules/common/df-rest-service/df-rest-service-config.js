@@ -1,4 +1,4 @@
-{
+SERVICE_CONFIG = {
     "services": {
         "entityservice/get": {
             "url": "/entityappservice/get",
@@ -33,7 +33,7 @@
             }
         },
         "entitymodelservice/getcoalesce": {
-            "url": "/entityappmodelservice/getcoalesce",
+            "url": "/entitymodelservice/getcoalesce",
             "mode": "online",
             "offlineSettings": {
                 "operation": "get",
@@ -69,7 +69,7 @@
             "url": "/entitygovernservice/create",
             "mode": "online"
         },
-        "entitygovernservice/update":  {
+        "entitygovernservice/update": {
             "url": "/entitygovernservice/update",
             "mode": "online"
         },
@@ -203,7 +203,7 @@
                 "fieldToCompareInData": "id"
             }
         },
-         "requesttrackingservice/get": {
+        "requesttrackingservice/get": {
             "url": "/requesttrackingservice/get",
             "mode": "online",
             "offlineSettings": {
@@ -213,7 +213,7 @@
                 "fieldToCompareInData": "id"
             }
         },
-         "copservice/generateFieldMap": {
+        "copservice/generateFieldMap": {
             "url": "/rsConnectService/generateFieldMap",
             "mode": "online",
             "offlineSettings": {
@@ -263,4 +263,4 @@
             "offlineSettings": {}
         }
     }
-}
+};
