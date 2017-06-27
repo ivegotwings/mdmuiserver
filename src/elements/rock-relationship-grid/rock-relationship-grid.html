@@ -17,6 +17,8 @@
 <link rel="import" href="../rock-entity-lov/rock-entity-lov.html">
 <link rel="import" href="../rock-grid/rock-grid.html">
 <link rel="import" href="../rock-grid-data-sources/entity-relationship-grid-datasource.html">
+<link rel="import" href="../rock-business-function-dialog/rock-business-function-dialog.html">
+
 <link rel="import" href="../liquid-rest/liquid-rest.html">
 <link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
 
@@ -330,19 +332,14 @@ The following JSON object is a sample of data which binds the grid.
         <div id="relContainer_[[relationship]]">
           <pebble-accordion header-text="[[_getRelationshipTypeTitle(relationship)]]" default-icon="expand-less" open-icon="expand-more">
             <div class="relation-name-container">
-              <pebble-button icon="pebble-sm-icons:Add" id="[[relationship]]" class="btn btn-primary m-r-20" button-text="Add"
-                on-click="_onAddPopoverClick"></pebble-button>
-              <pebble-popover for$="[[relationship]]" auto-fit-on-attach vertical-align="auto" horizontal-align="auto" no-overlap>
-                <rock-entity-lov id="[[relationship]]" request-data="[[_requestForAddRelationshipList(relationship)]]" id-field="[[_getIdField(relationship)]]"
-                  title-pattern="[[_getTitlePattern(relationship)]]" multi-select no-sub-title show-action-buttons></rock-entity-lov>
-              </pebble-popover>
-              <bedrock-pubsub event-name="entity-lov-confirm-button-tap" handler="_onLovConfirmButtonTapped" target-id="[[relationship]]"></bedrock-pubsub>
-              <bedrock-pubsub event-name="entity-lov-close-button-tap" handler="_onLovCloseButtonTapped" target-id="[[relationship]]"></bedrock-pubsub>
+              <pebble-button icon="pebble-sm-icons:Add" id="button_[[relationship]]" relationship="[[relationship]]" class="btn btn-primary m-r-20" button-text="Add"
+                on-click="_onAddRelClick"></pebble-button>
             </div>
             <entity-relationship-grid-datasource id="datasource_[[relationship]]" request="[[_getRelationshipGridRequest(relationship)]]"
               data-formatter="{{dataFormatter}}"></entity-relationship-grid-datasource>
             <rock-grid id$="[[relationship]]" data-source-id="datasource_[[relationship]]" config="{{_getRelationshipGridConfig(relationship)}}"
               attribute-models="[[_getRelationshipAttributeModels(relationship)]]" page-size="10"></rock-grid>
+            <bedrock-pubsub event-name="download-original-asset" handler="_onOriginalAssetDownloadAction" ></bedrock-pubsub>
             <bedrock-pubsub target-id="[[relationship]]" event-name="on-grid-msg-dialog-ok" handler="_onDialogOk"></bedrock-pubsub>
             <div id="buttonContainer" align="center" hidden>
               <pebble-button id="cancel" class="button" button-text="Cancel" on-tap="_revertAll" elevation=1 raised></pebble-button>
@@ -374,8 +371,12 @@ The following JSON object is a sample of data which binds the grid.
           <paper-button dialog-confirm class="btn btn-secondary" on-tap="_skipErrors">Skip & Continue</paper-button>
         </div>
       </pebble-dialog>
-    </template>
 
+    </template>
+    <rock-business-function-dialog id="addRelDialog" name="rock-relationship-add"></rock-business-function-dialog>
+    <bedrock-pubsub event-name="refresh-relationship-grid" handler="_onRefreshRelationshipGridEvent" target-id="addRelDialog"></bedrock-pubsub>
+    <liquid-rest id="getDownloadUrl" url="/pass-through/binarystreamobjectservice/prepareDownload" method="POST"  on-liquid-response="_onGetDownloadUrlResponse">
+    </liquid-rest>
     <div id="messageCard">
     </div>
   </template>
@@ -522,12 +523,6 @@ The following JSON object is a sample of data which binds the grid.
               return {};
             }
           },
-          _relationships: {
-            type: Array,
-            value: function () {
-              return [];
-            }
-          },
           _relationshipModelRequest: {
             type: Object,
             value: function () {
@@ -592,42 +587,28 @@ The following JSON object is a sample of data which binds the grid.
         _initiateRelationshipGrid: function () {
           var relTypeAndAttributes = {};
           if (this.relationshipGridConfigs && Object.keys(this.relationshipGridConfigs).length) {
-            this._relationships = Object.keys(this.relationshipGridConfigs);
+              if (this.relationshipType == "Relationships") {
+                  var self=this;
+                  this.relationshipTypeList = Object.keys(this.relationshipGridConfigs).filter(function (item) {
+                      return self.relationshipGridConfigs[item].type=="Relationships";
+                  });
+              } else if (this.relationshipType == "Assets") {
+                  var self=this;
+                  this.relationshipTypeList = Object.keys(this.relationshipGridConfigs).filter(function (item) {
+                      return self.relationshipGridConfigs[item].type=="Assets";
 
-            if (this._relationships) {
-              this._relationships.forEach(function (item) {
-                if (item) {
-                  var relatedEntityAttributes = [];
-                  var relationshipAttributes = [];
-
-                  var columns = this.relationshipGridConfigs[item].gridConfig.tabular.columns;
-                  if (columns) {
-                    columns.forEach(function (col) {
-                      if (col && col.name != "Related Entity") {
-                        if (col.isRelatedEntityAttribute) {
-                          relatedEntityAttributes.push(col.name);
-                        } else {
-                          relationshipAttributes.push(col.name);
-                        }
+                  });
+              } else {
+                  this.relationshipTypeList = [this.relationshipType];
+              }
+              if (this.relationshipTypeList) {
+                  this.relationshipTypeList.forEach(function (item) {
+                      if (item) {
+                        relTypeAndAttributes[item] =this.relationshipGridConfigs[item].relationshipTypeAndAttributes;
                       }
-                    }, this);
-                  }
-                  relTypeAndAttributes[item] = {
-                    'relationshipAttributes': relationshipAttributes,
-                    'relatedEntityAttributes': relatedEntityAttributes
-                  }
-                }
-              }, this);
-            }
-
-            this._relationshipTypeAndAttributes = relTypeAndAttributes;
-
-            this.relationshipTypeList = undefined;
-            if (this.relationshipType == "Relationships") {
-              this.relationshipTypeList = this._relationships;
-            } else {
-              this.relationshipTypeList = [this.relationshipType];
-            }
+                  }, this);
+              }
+              this._relationshipTypeAndAttributes = relTypeAndAttributes;
           }
         },
         _getRelationshipTypeTitle: function (relationship) {
@@ -641,7 +622,7 @@ The following JSON object is a sample of data which binds the grid.
           return relationship;
         },
         _isRelationshipType: function (relationshipType) {
-          if (relationshipType && relationshipType != '' && this.relationshipType != "Relationships") {
+          if (relationshipType && relationshipType != '' && this.relationshipType != "Relationships" && this.relationshipType != "Assets") {
             return true;
           } else {
             return false;
@@ -650,7 +631,7 @@ The following JSON object is a sample of data which binds the grid.
         _getRelationshipGridConfig: function (relationshipTypeName) {
           var gridConfig = undefined;
           if (this.relationshipGridConfigs[relationshipTypeName]) {
-            gridConfig = this.relationshipGridConfigs[relationshipTypeName].gridConfig
+            gridConfig = this.relationshipGridConfigs[relationshipTypeName].gridConfig;
             if (gridConfig) {
               gridConfig.mode = "read";
             }
@@ -776,6 +757,26 @@ The following JSON object is a sample of data which binds the grid.
           }
           return data;
         },
+          _onAddRelClick:function (e) {
+              var rel=e.currentTarget.relationship;
+              var typesCriterion= this.relationshipGridConfigs[rel].relatedEntityTypes;
+              var title=this._getRelationshipTypeTitle(rel);
+              var dialog=this.$$("#addRelDialog");
+              var itemContext=ContextHelper.getFirstItemContext(this.contextData);
+              var entity={"id":itemContext.id,"type":itemContext.type};
+              var mode=this.relationshipGridConfigs[rel].type=="Assets"?"asset":"relationship";
+              dialog.sharedData = {};
+              dialog.sharedData = {
+                  "mode":mode,
+                  "context-data": this.contextData,
+                  "types-criterion":typesCriterion,
+                  "relationship-type":rel,
+                  "heading":title,
+                  "selected-entities":[entity],
+                  "self-context": this.relationshipGridConfigs[rel].selfContext
+              };
+              dialog.open();
+          },
         _onAddPopoverClick: function (e) {
           var popover = Polymer.dom(this).node.$$("pebble-popover[for=" + e.currentTarget.id + "]");
           this._currentSelectedLov = Polymer.dom(this).node.$$('rock-entity-lov[id=' + e.currentTarget.id + ']');
@@ -1169,8 +1170,8 @@ The following JSON object is a sample of data which binds the grid.
           }
         },
         _hideAllRelationshipGrid: function (boolVal) {
-          if (this._relationships) {
-            this._relationships.forEach(function (item) {
+          if (this.relationshipTypeList) {
+            this.relationshipTypeList.forEach(function (item) {
               if (item) {
                 var relDiv = Polymer.dom(this).node.$$('div[id=relContainer_' + item + ']');
                 if (relDiv) {
@@ -1302,7 +1303,57 @@ The following JSON object is a sample of data which binds the grid.
             titlePattern = addRelLovConfig.titlePattern;
           }
           return titlePattern;
-        }
+        },
+        _onRefreshRelationshipGridEvent:function (e,detail) {
+            this.fireBedrockEvent("refresh-entity-thumbnail",{},{"ignoreId":true});
+            var rel=detail.relationshipType;
+            var grid=this.$$("#"+rel);
+            grid.reRenderGrid();
+        },
+          //Download asset functions
+        _onOriginalAssetDownloadAction:function (e,detail) {
+              if(detail) {
+                  var fileName = detail.property_objectkey;
+                  if (fileName) {
+                      var req = {
+                          "binaryStreamObject": {
+                              "id": fileName,
+                              "type": "binarystreamobject",
+                              "data": {}
+                          }
+                      };
+                      var downloadUrlLiquid = this.$$("#getDownloadUrl");
+                      if (downloadUrlLiquid) {
+                          downloadUrlLiquid.requestData = req;
+                          downloadUrlLiquid.generateRequest();
+                      }
+                  }
+              }
+        },
+          _onGetDownloadUrlResponse:function (e) {
+              if (e.detail && e.detail.response && e.detail.response.response) {
+                  var response = e.detail.response.response;
+                  if (response.status.toLowerCase() == "success") {
+                      var binaryStreamObjects=response.binaryStreamObjects;
+                      if(binaryStreamObjects) {
+                          for (var i = 0; i < binaryStreamObjects.length; i++) {
+                              if (binaryStreamObjects[i].data) {
+                                  var downloadURL=binaryStreamObjects[i].data.properties.downloadURL;
+                                  if(downloadURL){
+                                      var a = document.createElement('a');
+                                      a.href = downloadURL;
+                                      a.download = "";
+                                      a.style.display = 'none';
+                                      document.body.appendChild(a);
+                                      a.click();
+                                      document.body.removeChild(a);
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          }
       });
     })();
   </script>
