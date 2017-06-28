@@ -1,19 +1,9 @@
-![Bower version](https://img.shields.io/bower/v/iron-data-table.svg)
-[![Build Status](https://travis-ci.org/Saulis/iron-data-table.svg?branch=master)](https://travis-ci.org/Saulis/iron-data-table)
-[![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/Saulis/iron-data-table?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
-# &lt;iron-data-table&gt;
 
-[Demos](https://saulis.github.io/iron-data-table/demo/) and [API Documentation](https://saulis.github.io/iron-data-table/)
+To install, run: `bower install pebble-data-table`
 
-### Project currently inactive, [maintainers needed](https://github.com/Saulis/iron-data-table/issues/197)
-#### For a similar table component, I recommend using [`<vaadin-grid>` 2.0](https://github.com/vaadin/vaadin-grid/tree/v2.0.0-alpha4)
 
-To install, run: `bower install iron-data-table`
-
-![](https://github.com/Saulis/iron-data-table/raw/master/iron-data-table.png)
-
-`iron-data-table` displays a table or a grid of data.
+`pebble-data-table` displays a table or a grid of data.
 It builds on top of `iron-list`, which provides the foundation for features like
 virtual scrolling and templating.
 
@@ -22,7 +12,7 @@ for the cells on each row item.
 
 Rows use flex layout which enables cells to fit the available space.
 
-Cell elements are placed outside the shadow root of the `iron-data-table` which
+Cell elements are placed outside the shadow root of the `pebble-data-table` which
 allows them to be styled by the user.
 
 ### Template model
@@ -61,14 +51,14 @@ bound from the model object provided to the template scope):
 ```html
 <template is="dom-bind">
   <iron-ajax url="data.json" last-response="{{data}}" auto></iron-ajax>
-  <iron-data-table items="[[data]]">
+  <pebble-data-table items="[[data]]">
     <data-table-column name="First Name">
       <template>[[item.name.first]]</template>
     </data-table-column>
     <data-table-column name="Last Name">
       <template>[[item.name.last]]</template>
     </data-table-column>
-  </iron-data-table>
+  </pebble-data-table>
 </template>
 ```
 
@@ -91,7 +81,7 @@ bound from the model object provided to the template scope):
 - Row Details (thanks to @gazal-k)
 
 ## Roadmap
-- `<iron-data-table>` is not actively maintained. For a similar table component, I recommend using [`<vaadin-grid>` 2.0](https://github.com/vaadin/vaadin-grid/tree/v2.0.0-alpha4)
+- `<pebble-data-table>` is not actively maintained. For a similar table component, I recommend using [`<vaadin-grid>` 2.0](https://github.com/vaadin/vaadin-grid/tree/v2.0.0-alpha4)
 
 # Contributing
 I'd appreciate any help and feedback on the component. If you have any ideas, opinions, nitpicks or anything at all about it, please don't hesitate to send an issue, PR or a message in the Gitter chat.
