@@ -334,6 +334,12 @@ The following JSON object is a sample of data which binds the grid.
             <div class="relation-name-container">
               <pebble-button icon="pebble-sm-icons:Add" id="button_[[relationship]]" relationship="[[relationship]]" class="btn btn-primary m-r-20" button-text="Add"
                 on-click="_onAddRelClick"></pebble-button>
+              <pebble-popover for$="button_[[relationship]]" auto-fit-on-attach vertical-align="auto" horizontal-align="auto" no-overlap>
+                <rock-entity-lov id="lov_[[relationship]]" request-data="[[_requestForAddRelationshipList(relationship)]]" id-field="[[_getIdField(relationship)]]"
+                                 title-pattern="[[_getTitlePattern(relationship)]]" multi-select no-sub-title show-action-buttons></rock-entity-lov>
+              </pebble-popover>
+              <bedrock-pubsub event-name="entity-lov-confirm-button-tap" handler="_onLovConfirmButtonTapped" target-id="lov_[[relationship]]"></bedrock-pubsub>
+              <bedrock-pubsub event-name="entity-lov-close-button-tap" handler="_onLovCloseButtonTapped" target-id="lov_[[relationship]]"></bedrock-pubsub>
             </div>
             <entity-relationship-grid-datasource id="datasource_[[relationship]]" request="[[_getRelationshipGridRequest(relationship)]]"
               data-formatter="{{dataFormatter}}"></entity-relationship-grid-datasource>
@@ -587,18 +593,9 @@ The following JSON object is a sample of data which binds the grid.
         _initiateRelationshipGrid: function () {
           var relTypeAndAttributes = {};
           if (this.relationshipGridConfigs && Object.keys(this.relationshipGridConfigs).length) {
-              if (this.relationshipType == "Relationships") {
-                  var self=this;
-                  this.relationshipTypeList = Object.keys(this.relationshipGridConfigs).filter(function (item) {
-                      return self.relationshipGridConfigs[item].type=="Relationships";
-                  });
-              } else if (this.relationshipType == "Assets") {
-                  var self=this;
-                  this.relationshipTypeList = Object.keys(this.relationshipGridConfigs).filter(function (item) {
-                      return self.relationshipGridConfigs[item].type=="Assets";
-
-                  });
-              } else {
+              if (this.relationshipType == "Relationships" || this.relationshipType == "Assets" ) {
+                  this.relationshipTypeList =this.defaultRelationshipNames;
+              }  else {
                   this.relationshipTypeList = [this.relationshipType];
               }
               if (this.relationshipTypeList) {
@@ -729,6 +726,7 @@ The following JSON object is a sample of data which binds the grid.
                             }
                           }, this);
                         }
+                        record["relationshipId"]=relItem.id;
                         if (relItem.relTo) {
                           record["Related Entity"] = record["id"] = relItem.relTo.id;
                           record["type"] = relItem.relTo.type;
@@ -747,6 +745,9 @@ The following JSON object is a sample of data which binds the grid.
                             }
                           }
                         }
+                        if(!record.thumbnailid){
+                              record.thumbnailid=this.typeThumbnailMapping[record.type];
+                        }
                         data.push(record);
                       }
                     }, this);
@@ -758,31 +759,31 @@ The following JSON object is a sample of data which binds the grid.
           return data;
         },
           _onAddRelClick:function (e) {
-              var rel=e.currentTarget.relationship;
-              var typesCriterion= this.relationshipGridConfigs[rel].relatedEntityTypes;
-              var title=this._getRelationshipTypeTitle(rel);
-              var dialog=this.$$("#addRelDialog");
-              var itemContext=ContextHelper.getFirstItemContext(this.contextData);
-              var entity={"id":itemContext.id,"type":itemContext.type};
-              var mode=this.relationshipGridConfigs[rel].type=="Assets"?"asset":"relationship";
-              dialog.sharedData = {};
-              dialog.sharedData = {
-                  "mode":mode,
-                  "context-data": this.contextData,
-                  "types-criterion":typesCriterion,
-                  "relationship-type":rel,
-                  "heading":title,
-                  "selected-entities":[entity],
-                  "self-context": this.relationshipGridConfigs[rel].selfContext
-              };
-              dialog.open();
+              if(this.addRelationshipMode=="lov"){
+                  var popover = Polymer.dom(this).node.$$("pebble-popover[for=" + e.currentTarget.id + "]");
+                  this._currentSelectedLov = Polymer.dom(this).node.$$('rock-entity-lov[id=lov_' + e.currentTarget.id + ']');
+                  popover.show();
+              } else {
+                  var rel = e.currentTarget.relationship;
+                  var typesCriterion = this.relationshipGridConfigs[rel].relatedEntityTypes;
+                  var title = this._getRelationshipTypeTitle(rel);
+                  var dialog = this.$$("#addRelDialog");
+                  var itemContext = ContextHelper.getFirstItemContext(this.contextData);
+                  var entity = {"id": itemContext.id, "type": itemContext.type};
+                  var mode = this.addRelationshipMode == "businessFunctionEntity" ? "relationship" : "asset";
+                  dialog.sharedData = {};
+                  dialog.sharedData = {
+                      "mode": mode,
+                      "context-data": this.contextData,
+                      "types-criterion": typesCriterion,
+                      "relationship-type": rel,
+                      "heading": title,
+                      "selected-entities": [entity],
+                      "self-context": this.relationshipGridConfigs[rel].selfContext
+                  };
+                  dialog.open();
+              }
           },
-        _onAddPopoverClick: function (e) {
-          var popover = Polymer.dom(this).node.$$("pebble-popover[for=" + e.currentTarget.id + "]");
-          this._currentSelectedLov = Polymer.dom(this).node.$$('rock-entity-lov[id=' + e.currentTarget.id + ']');
-
-          popover.show();
-        },
         _convertIntoEntityLovList: function (entitiesResponse) {
           if (entitiesResponse) {
             var items = [];
@@ -825,9 +826,9 @@ The following JSON object is a sample of data which binds the grid.
             var oldSelectedItemIds = [];
             var selectedItemIds = [...new Set(lov.selectedItems.map((obj) => obj.id))];
             var newItemIds = [];
-
+            var relType=event.detail.data.id.replace("lov_","");
             // TO-DO Pebble-LOV has to handle this filteration.
-            var currentRelGrid = Polymer.dom(this).node.$$('rock-grid[id=' + event.detail.data.id + ']');
+            var currentRelGrid = Polymer.dom(this).node.$$('rock-grid[id=' + relType + ']');
             if (currentRelGrid) {
               var data = currentRelGrid.getData();
               data.forEach(function (item) {
@@ -843,12 +844,13 @@ The following JSON object is a sample of data which binds the grid.
               }
             }, this);
 
-            this._addRelatedEntity(event.detail.data.id, newItemIds);
+            this._addRelatedEntity(relType, newItemIds);
           }
         },
         _onLovCloseButtonTapped: function (event) {
           if (event.detail) {
-            var currentLovPopover = Polymer.dom(this).node.$$('pebble-popover[for=' + event.detail.data.id + ']');
+            var id=event.detail.data.id.replace("lov_","");
+              var currentLovPopover = Polymer.dom(this).node.$$('pebble-popover[for=button_' + id + ']');
 
             if (currentLovPopover) {
               currentLovPopover.hide();
@@ -857,7 +859,7 @@ The following JSON object is a sample of data which binds the grid.
         },
         _addRelatedEntity: function (relationshipType, entityIds) {
           if (entityIds && entityIds.length > 0) {
-            var popover = Polymer.dom(this).node.$$("pebble-popover[for=" + relationshipType + "]");
+            var popover = Polymer.dom(this).node.$$("pebble-popover[for=button_" + relationshipType + "]");
             this._currentRelationshipItem = relationshipType;
 
             var relatedEntityContexts = this._getRelatedEntityContexts(this._currentRelationshipItem);
