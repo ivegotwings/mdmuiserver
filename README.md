@@ -269,7 +269,7 @@ Below steps are needed only for the first time when you setup your OSX dev machi
 
 7. Under the Search Domains pane select the + icon and add:
 
-   •  <<machine-name>>.riversand.com
+   •  machine-name.riversand.com
 
 8. Select 'OK' on the bottom right of the Network pane to save these settings.
 
@@ -296,10 +296,10 @@ Below steps are needed only for the first time when you setup your OSX dev machi
    • Copy 'rs' folder from AuthSetup-Package into OSX **root** '/var/lib' directory
 
 4. Open \var\lib\rs\dataplatform\config\dataplatformpodconfig.json file and edit nginx section as below: 
-   Provide node name as local system name. Example: <<machine-name>>.riversand.com
+   Provide node name as local system name. Example: machine-name.riversand.com
 
     • To find your Mac's machine-name, choose the apple icon from the top menu > “System Prefrences” > "sharing"
-    • At the top of the pane you will see "Computers on your local network can access your computer at: <<machine-name>>.riversand.com"
+    • At the top of the pane you will see "Computers on your local network can access your computer at: machine-name.riversand.com"
 
   ```
   "nginx": 
@@ -316,7 +316,7 @@ Below steps are needed only for the first time when you setup your OSX dev machi
    
    ```
    
- 5. In ui-platform codebase, update your **socket.io** config.js files to update as  https://<<machine-name>>.local. This is required to make socket.io work. Here is sample:  
+ 5. In ui-platform codebase, update your **socket.io** config.js files to update as  https://machine-name.local. This is required to make socket.io work. Here is sample:  
  
     ```
     {
