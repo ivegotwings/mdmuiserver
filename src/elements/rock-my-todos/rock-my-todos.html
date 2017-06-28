@@ -30,29 +30,40 @@
         #rock-my-todos .widget-box {
             padding-bottom: 0 !important;
         }
-        
+        rock-tabs{
+            --rock-tab-content: {
+                height: calc(100% - 180px);
+                overflow:auto;
+            }
+        }
         rock-tabs::shadow pebble-tab-group {
             margin-bottom: 20px;
             width: 100%;
         }
-        
+
         rock-tabs::shadow pebble-tab-group pebble-tab {
             margin-left: 0;
         }
     </style>
     <template>
+
+        <liquid-entity-model-get exclude-in-progress id="initWorkflowDefinitionMappingsGet" operation="initiatesearch" last-response="{{initWorkflowDefinitionMappingsGet}}"
+            on-response="_onInitWorkflowDefinitionMappingsGetResponse" on-error="_onInitWorkflowDefinitionMappingsGetError"></liquid-entity-model-get>
+        <liquid-entity-model-get exclude-in-progress id="workflowDefinitionMappingsGet" operation="getsearchresultdetail" request-id="[[initWorkflowDefinitionMappingsGet.content.requestId]]"
+            on-response="_onWorkflowDefinitionMappingsGetResponse" on-error="_onWorkflowDefinitionMappingsGetError"></liquid-entity-model-get>
+
+
         <liquid-entity-model-get exclude-in-progress id="initWorkflowDefinitionsGet" operation="initiatesearch" last-response="{{initWorkflowDefinitionsGet}}"
             on-response="_onInitWorkflowDefinitionsGetResponse" on-error="_onInitWorkflowDefinitionsGetError"></liquid-entity-model-get>
-
         <liquid-entity-model-get exclude-in-progress id="workflowDefinitionsGet" operation="getsearchresultdetail" request-id="[[initWorkflowDefinitionsGet.content.requestId]]"
             on-response="_onWorkflowDefinitionsGetResponse" on-error="_onWorkflowDefinitionsGetError"></liquid-entity-model-get>
 
         <div class="row-wrap">
             <div class="col-3">
-                <pebble-dropdown id="assignedTo" label="Assigned To" selected-value="All" items="All,Assigned to me,Unassigned"></pebble-dropdown>                
-            </div>            
+                <pebble-dropdown id="assignedTo" label="Assigned To" selected-value="All" items="All,Assigned to me,Unassigned"></pebble-dropdown>
+            </div>
         </div>
-        
+
         <rock-tabs id="rock-my-todos-tabs"></rock-tabs>
         <bedrock-pubsub event-name="component-creating" handler="_onComponentCreating"></bedrock-pubsub>
     </template>
@@ -65,9 +76,9 @@
                 is: 'rock-my-todos',
 
                 properties: {
-          /**
-            * <b><i>Content development is under progress... </b></i> 
-            */
+                    /**
+                      * <b><i>Content development is under progress... </b></i> 
+                      */
                     contextData: {
                         type: Object,
                         value: function () {
@@ -78,6 +89,13 @@
                     _assignedTo: {
                         type: String,
                         value: 'All'
+                    },
+
+                    _workflowDefinitionMappings: {
+                        type: Object,
+                        value: function () {
+                            return {}
+                        }
                     }
                 },
 
@@ -89,10 +107,89 @@
                 listeners: {
                     'change': '_onDropdownChange'
                 },
-          /**
-            * <b><i>Content development is under progress... </b></i> 
-            */
+                /**
+                  * <b><i>Content development is under progress... </b></i> 
+                  */
+
                 attached: function () {
+                    if (!_.isEmpty(this.contextData)) {
+                        var initWorkflowDefinitionMappingsGet = this.$$('#initWorkflowDefinitionMappingsGet');
+
+                        if (typeof (initWorkflowDefinitionMappingsGet) === "undefined" ||
+                            initWorkflowDefinitionMappingsGet == null) {
+                            this.logError("InitGetError");
+                            return;
+                        }
+
+                        initWorkflowDefinitionMappingsGet.requestData = DataRequestHelper.createWorkflowDefinitionMappingGetRequest();
+                        initWorkflowDefinitionMappingsGet.generateRequest();
+                    }
+                },
+
+                _onInitWorkflowDefinitionMappingsGetResponse: function () {
+                    if (!_.isEmpty(this.contextData)) {
+                        var workflowDefinitionMappingsGet = this.$$('#workflowDefinitionMappingsGet');
+
+                        if (typeof (workflowDefinitionMappingsGet) === "undefined" ||
+                            workflowDefinitionMappingsGet == null) {
+                            this.logError("InitGetError");
+                            return;
+                        }
+
+                        workflowDefinitionMappingsGet.requestData = DataRequestHelper.createWorkflowDefinitionMappingGetRequest();
+                        workflowDefinitionMappingsGet.generateRequest();
+                    }
+                },
+
+                _onInitWorkflowDefinitionMappingsGetError: function (e) {
+                    this.logError("InitWorkFlowError", e);
+                },
+
+                _onWorkflowDefinitionMappingsGetResponse: function (e) {
+                    var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response);
+
+                    if (responseContent) {
+                        var workflowDefinitionMappings = responseContent.entityModels;
+                        var workflowMappings = {};
+                        workflowDefinitionMappings.forEach(function (WDMapping) {
+                            if (WDMapping) {
+                                if (WDMapping.data && WDMapping.data.relationships) {
+                                    var relationshipTypes = Object.keys(WDMapping.data.relationships);
+                                    if (relationshipTypes && relationshipTypes.length) {
+                                        var relationships = WDMapping.data.relationships[relationshipTypes[0]];
+                                        if (relationships && relationships.length) {
+                                            relationships.forEach(function (relItem) {
+                                                if (relItem && relItem.relTo) {
+                                                    if (!workflowMappings[relItem.relTo.id]) {
+                                                        workflowMappings[relItem.relTo.id] = [];
+                                                    }
+                                                    workflowMappings[relItem.relTo.id].push(WDMapping.name);
+                                                }
+                                            }, this);
+                                        }
+                                    }
+                                }
+                            }
+                        }, this);
+
+                        this._workflowDefinitionMappings = workflowMappings;
+                        this._initWorkflowDefinitionGet();
+                    }
+                },
+
+                _onWorkflowDefinitionMappingsGetError: function (e) {
+                    this.logError("WorkFlowError", e);
+                },
+
+                _onComponentCreating: function (e, detail, sender) {
+                    var component = detail.data;
+
+                    if (component.properties) {
+                        component.properties['context-data'] = this.contextData;
+                    }
+                },
+
+                _initWorkflowDefinitionGet: function () {
                     if (!_.isEmpty(this.contextData)) {
                         var initWorkflowDefinitionsGet = this.$$('#initWorkflowDefinitionsGet');
 
@@ -112,30 +209,21 @@
                     }
                 },
 
-                _onComponentCreating: function (e, detail, sender) {
-                    var component = detail.data;
-
-                    if (component.properties) {
-                        component.properties['context-data'] = this.contextData;
-                    }
-                },
-
                 _onInitWorkflowDefinitionsGetResponse: function (e) {
                     var workflowDefinitionsGet = this.$$('#workflowDefinitionsGet');
 
                     if (typeof (workflowDefinitionsGet) === "undefined" ||
                         workflowDefinitionsGet == null) {
-                            this.logError("IdNotFound");
+                        this.logError("IdNotFound");
                         return;
                     }
 
-                    workflowDefinitionsGet.requestData = DataRequestHelper.createWorkflowDefinitionGetRequest(
-                        this.contextData);
+                    workflowDefinitionsGet.requestData = DataRequestHelper.createWorkflowDefinitionGetRequest(this.contextData);
                     workflowDefinitionsGet.generateRequest();
                 },
 
                 _onInitWorkflowDefinitionsGetError: function (e) {
-                    this.logError("InitWorkFlowError",e);
+                    this.logError("InitWorkFlowError", e);
                 },
 
                 _onWorkflowDefinitionsGetResponse: function (e) {
@@ -183,13 +271,13 @@
                                     }
                                 }
 
-                                if(noOfAllowedActivities < 1) {
+                                if (noOfAllowedActivities < 1) {
                                     continue;
                                 }
 
                                 var workflowName = AttributeHelper.getFirstAttributeValue(workflowAttributes.workflowName);
                                 var tabItem = {
-                                    "name": workflowName.replace(/\W/g,'_'),
+                                    "name": workflowName.replace(/\W/g, '_'),
                                     "title": workflowName,
                                     "enableDropdownMenu": false,
                                     "component": {
@@ -198,6 +286,7 @@
                                         "properties": {
                                             "config-context": {
                                                 "workflowName": workflowDefinition.name,
+                                                "mappedEntityTypes": this._workflowDefinitionMappings[workflowDefinition.id]
                                             },
                                             "assigned-to": this._assignedTo
                                         }
@@ -207,44 +296,47 @@
                             }
                         }
 
-                        if(tabConfig.tabItems instanceof Array && tabConfig.tabItems.length > 0) {
+                        if (tabConfig.tabItems instanceof Array && tabConfig.tabItems.length > 0) {
                             tabConfig.tabItems[0].selected = true;
                         }
                         this.$$('rock-tabs').config = tabConfig;
 
-                        this.logInfo("TodoSummaryList","lists",JSON.stringify(this.lists));
+                        this.logInfo("TodoSummaryList", "lists", JSON.stringify(this.lists));
                     }
                 },
 
                 _onWorkflowDefinitionsGetError: function (e) {
-                    this.logError("WorkFlowError",e);
+                    this.logError("WorkFlowError", e);
                 },
 
-                _onDropdownChange: function(e, details) {
-                    if(details) {
+                _onDropdownChange: function (e, details) {
+                    if (details) {
                         var assignedToList = this.$$("#assignedTo");
                         var rockTabs = this.$$('rock-tabs');
 
-                        if(assignedToList) {
+                        if (assignedToList) {
                             this._assignedTo = assignedToList.itemsArray[details.newValue];
                         }
 
-                        if(rockTabs) {
-                            var tabConfig  = rockTabs.config;
+                        if (rockTabs) {
+                            var tabConfig = rockTabs.config;
 
-                            if(tabConfig && tabConfig.tabItems && tabConfig.tabItems.length) {
-                                tabConfig.tabItems.forEach(function(tabItem) {
-                                    if(tabItem && tabItem.component) {
+                            if (tabConfig && tabConfig.tabItems && tabConfig.tabItems.length) {
+                                tabConfig.tabItems.forEach(function (tabItem) {
+                                    if (tabItem && tabItem.component) {
                                         tabItem.component.properties["assigned-to"] = this._assignedTo;
                                     }
                                 }, this);
                             }
-                            
+
                             rockTabs.reloadTabs();
                         }
                     }
-                }
+                },
 
+                refresh: function() {
+                    this.$$('rock-tabs').reloadCurrentTab();
+                }
             });
         })();
     </script>
