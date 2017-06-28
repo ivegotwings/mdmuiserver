@@ -211,10 +211,11 @@ function _buildRelationshipsResponse(rels, reqData, currentDataContextJson, path
             var relsJson = {};
             var relIds = [];
 
-            var relIdIndex = 0;
             for (var relKey in relTypeData) {
                 var rel = relTypeData[relKey];
-                rel.id = falcorUtil.createRelUniqueId(relTypeKey, rel, relIdIndex++);
+                if(!rel.id) {
+                    rel.id = falcorUtil.createRelUniqueId(relTypeKey, rel);
+                }
 
                 if (reqRelIds && reqRelIds.length > 0 && !arrayContains(reqRelIds, rel.id)) {
                     continue;
