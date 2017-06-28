@@ -17,8 +17,8 @@ const eventSubTypeMap = {
 
 const eventSubTypesOrder = [  "QUEUED",
                 "PROCESSING_STARTED",
-                "PROCESSING_COMPLETED",
                 "SUBMITTED",
+                "PROCESSING_COMPLETED",
                 "QUEUED_ERROR",
                 "PROCESSING_START_ERROR",
                 "PROCESSING_COMPLETE_ERROR",
@@ -35,18 +35,21 @@ Eventservice.prototype = {
             var validationResult = this._validateRequest(request);
 
             if (!validationResult) {
-                throw new Error("Incorrect request for download.");
+                throw new Error("Incorrect request for event service get");
             }
 
             //console.log('event get request', JSON.stringify(request));
 
             var attributesCriteria = request.params.query.filters.attributesCriterion;
-            var requestedEventSubType = undefined;
+            var reqExternalEventSubType = undefined;
 
             for (var i in attributesCriteria) {
                 if (attributesCriteria[i].eventSubType) {
-                    requestedEventSubType = attributesCriteria[i].eventSubType.eq;
-                    attributesCriteria.splice(i, 1);
+                    var criteriaEventSubType = attributesCriteria[i].eventSubType.eq;
+                    if(criteriaEventSubType && criteriaEventSubType.toUpperCase() != "ALL") {
+                        reqExternalEventSubType = attributesCriteria[i].eventSubType.eq;
+                        attributesCriteria.splice(i, 1);
+                    }
                     break;
                 }
             }
@@ -54,7 +57,7 @@ Eventservice.prototype = {
             delete request.params.options.from;
             delete request.params.options.to;
             //console.log('requested event sub type ', requestedEventSubType);
-            console.log('event get request to RDF', JSON.stringify(request));
+            //console.log('event get request to RDF', JSON.stringify(request));
 
             var res = await this.post(eventServiceGetUrl, request);
             
@@ -63,42 +66,59 @@ Eventservice.prototype = {
             if(res && res.response && res.response.events && res.response.events.length > 0) {
                 var events = res.response.events;
                 var filteredEvents = [];
-                console.log('events ', JSON.stringify(events));
+                //console.log('events ', JSON.stringify(events));
 
+                var me = this;
                 var groups = _.groupBy(events, function (event) { 
-                        if(event.data.attributes["taskId"]) {
-                            return event.data.attributes["taskId"].values[0].value; 
+                        var groupKey =  me._getAttributeValue(event, "taskId");
+
+                        if(!groupKey) {
+                            groupKey = me._getAttributeValue(event, "fileName");
                         }
-                        else if(event.data.attributes["fileName"]) {
-                            return event.data.attributes["fileName"].values[0].value; 
+
+                        if(!groupKey) {
+                            groupKey = "Unknown";
                         }
-                        else {
-                            return 'Unknown';
-                        }
+
+                        return groupKey;
                     });
 
-                console.log('groups ', JSON.stringify(groups));
+                //console.log('groups ', JSON.stringify(groups));
 
                 for(var groupKey in groups) {
                     var group = groups[groupKey];
                     var currentEventRecordIdx = 0;
                     var highOrderEvent = undefined;
+                    var highOrderRecordCount = 0;
 
                     for (var i = 0; i < group.length; i++) { // start with 2nd record as first one is alread picked up
                         var event = group[i];
                         if(event && event.data && event.data.attributes && event.data.attributes.eventSubType && event.data.attributes.eventSubType.values) {
-                            var eventSubType = event.data.attributes["eventSubType"].values[0].value;
+                            var eventSubType = this._getAttributeValue(event, "eventSubType");
                             var currentEventSubTypeIndex = eventSubTypesOrder.indexOf(eventSubType);
                             if(currentEventSubTypeIndex >= currentEventRecordIdx) {
                                 highOrderEvent = event;
                                 highOrderEvent.eventSubType = eventSubType;
+                                
+                                if(!this._getAttributeValue(highOrderEvent, "recordCount") && this._getAttributeValue(event, "recordCount")) {
+                                    this._setAttributeValue(highOrderEvent, "recordCount", this._getAttributeValue(event, "recordCount"));
+                                }
+
                                 currentEventRecordIdx = currentEventSubTypeIndex;
                             }
                         }
                     }
                     //console.log('current high order event ', JSON.stringify(highOrderEvent));
 
-                    if(highOrderEvent && (!requestedEventSubType || this._compareEventSubType(highOrderEvent.eventSubType, requestedEventSubType))) {
+                    if(highOrderEvent && (!reqExternalEventSubType || this._compareEventSubType(highOrderEvent.eventSubType, reqExternalEventSubType))) {
+
+                        if(reqExternalEventSubType) {
+                            this._setAttributeValue(highOrderEvent, "eventSubType", reqExternalEventSubType);
+                        } 
+                        else {
+                            this._setAttributeValue(highOrderEvent, "eventSubType", this._getExternalEventSubType(highOrderEvent.eventSubType));
+                        }
+                        
                         filteredEvents.push(highOrderEvent);
                     }
                 }
@@ -108,7 +128,7 @@ Eventservice.prototype = {
 
             finalResponse = res;
 
-            console.log('event get response: ', JSON.stringify(finalResponse, null, 2));
+            //console.log('event get response: ', JSON.stringify(finalResponse, null, 2));
         }
         catch(err) {
             console.log('Failed to get event data.\nError:', err.message, '\nStackTrace:', err.stack);
@@ -130,33 +150,6 @@ Eventservice.prototype = {
 
         return finalResponse;
     },
-    getDetail: async function (request) {
-         //console.log('prepare download request: ', request);
-        var response = {};
-
-        try {
-            return response;
-        }
-        catch(err) {
-            console.log('Failed to get event data.\nError:', err.message, '\nStackTrace:', err.stack);
-
-            response = { 
-                "response": {
-                "status": "Error",
-                "statusDetail": {
-                    "code": "RSUI0001",
-                    "message": err.message,
-                    "messageType": "Error"
-                    }
-                }
-            };
-        }
-
-        finally {
-        }
-
-        return response;
-    },
     _getExternalEventSubType: function (internalEventSubType) {
         var eventSubFilterMap = eventSubTypeMap;
 
@@ -172,17 +165,31 @@ Eventservice.prototype = {
 
         return "Unknown";
     },
-    _compareEventSubType: function(currentInternalEventSubType, requestedEventSubType) {
+    _compareEventSubType: function(currentInternalEventSubType, reqExternalEventSubType) {
         var externalEventSubType = this._getExternalEventSubType(currentInternalEventSubType);
-
-        //console.log('external event sub type ', externalEventSubType);
-
-        if(externalEventSubType == requestedEventSubType) {
-            return true;
+        return externalEventSubType == reqExternalEventSubType;
+    },
+    _setAttributeValue: function(event, attrName, val) {
+        if(event && event.data && event.data.attributes && event.data.attributes[attrName] && event.data.attributes[attrName].values) {
+            if(event.data.attributes[attrName].values.length > 0) {
+                event.data.attributes[attrName].values[0].value = val;
+            }
+            else {
+                event.data.attributes[attrName].values.push({
+                    "value": val,
+                    "source": "internal",
+                    "locale": "en-US"                    
+                })
+            }
         }
-        else {
-            return false;
+    },
+    _getAttributeValue: function(event, attrName) {
+        var val = undefined;
+        if(event && event.data && event.data.attributes && event.data.attributes[attrName] && event.data.attributes[attrName].values && event.data.attributes[attrName].values.length > 0) {
+            val = event.data.attributes[attrName].values[0].value;
         }
+        
+        return val;
     },
     _validateRequest: function (request) {
         return true;
