@@ -169,7 +169,7 @@ browsers currently installed on your machine. Internally this command runs `gulp
 
 
 
-
+##
 
 
 # Setup - OSX
@@ -262,7 +262,9 @@ Below steps are needed only for the first time when you setup your OSX dev machi
 6. Under the DNS Servers pane select the + icon and add each of the following IPs:
 
    • 127.0.0.1 
+
    • 8.8.8.8
+
    • 8.8.4.4
 
 7. Under the Search Domains pane select the + icon and add:
