@@ -1,1 +1,1 @@
-bedrock-externalref-classList
+bedrock-externalref-classlist
