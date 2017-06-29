@@ -19,6 +19,7 @@ const CONST_ALL = falcorUtil.CONST_ALL,
 
 const DataObjectManageService = require('./DataObjectManageService');
 const EntityCompositeModelGetService = require('./EntityCompositeModelGetService');
+const EventService = require('../event-service/EventService');
 
 //falcor utilty functions' references
 const responseBuilder = require('./dataobject-falcor-response-builder');
@@ -41,6 +42,7 @@ if (runOffline) {
 
 const dataObjectManageService = new DataObjectManageService(options);
 const entityCompositeModelGetService = new EntityCompositeModelGetService(options);
+const eventService = new EventService(options);
 
 async function initiateSearch(callPath, args) {
 
@@ -71,10 +73,21 @@ async function initiateSearch(callPath, args) {
             options.maxRecords = 1; // Do not load entity ids and types if only count is requested..
         }
 
-        //console.log('request str', JSON.stringify(request, null, 4));
-        delete request.params.fields; // while initiating search, we dont want any of the fields to be returned..all we want is resulted ids..
+        var dataObjectType = undefined;
+        
+        if(request.params.query && request.params.query.filters && 
+                request.params.query.filters.typesCriterion && request.params.query.filters.typesCriterion.length) {
+            dataObjectType = request.params.query.filters.typesCriterion[0]; // pick first object type..
+        }
 
-        var res = await dataObjectManageService.get(request);
+        var service = _getService(dataObjectType);
+
+        if(service != eventService) {
+             //console.log('request str', JSON.stringify(request, null, 4));
+            delete request.params.fields; // while initiating search, we dont want any of the fields to be returned..all we want is resulted ids..
+        }
+
+        var res = await service.get(request);
 
         // console.log('response raw str', JSON.stringify(res, null, 4));
         var totalRecords = 0;
@@ -152,9 +165,7 @@ function createGetRequest(reqData) {
     var contexts = falcorUtil.createCtxItems(reqData.ctxKeys);
     var valContexts = falcorUtil.createCtxItems(reqData.valCtxKeys);
 
-    var fields = {
-        'ctxTypes': ["properties"]
-    };
+    var fields = {};
 
     if (reqData.operation == "getMappings" && arrayContains(reqData.mapKeys, "attributeMap")) {
         fields.attributes = ['_ALL'];
@@ -241,6 +252,9 @@ function _getService(dataObjectType) {
     if (dataObjectType == 'entityCompositeModel') {
         return entityCompositeModelGetService;
     }
+    else if(dataObjectType == "externalevent") {
+        return eventService;
+    }
     else {
         return dataObjectManageService;
     }
@@ -287,10 +301,14 @@ async function get(dataObjectIds, reqData) {
         //Nearest get is based on context and not Ids. Hence skipping Id population for request get
         if(!isNearestGet) {
             if(dataObjectIds.length > 1) {
+                for(var idx in dataObjectIds) {
+                    dataObjectIds[idx] = dataObjectIds[idx].toString();
+                }
+
                 request.params.query.ids = dataObjectIds;
             }
             else {
-                request.params.query.id = dataObjectIds[0];
+                request.params.query.id = dataObjectIds[0].toString();
             }
         }
 

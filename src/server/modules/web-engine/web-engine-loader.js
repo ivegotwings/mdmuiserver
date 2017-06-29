@@ -79,6 +79,11 @@ passThroughRoute(app);
 
 logger.info('Web engine start - passthrough service routes are loaded');
 
+var eventServiceRoute = require('../event-service/event-service-route');
+eventServiceRoute(app);
+
+logger.info('Web engine start - event service routes are loaded');
+
 var copRoute = require('../cop/cop-route');
 copRoute(app);
 
