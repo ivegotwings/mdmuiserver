@@ -63,12 +63,18 @@
         removeStylesheet: function(id, container, root) {
             // $('STYLE[data-gs-style-id=' + id + ']').remove();
             var styleTag;
-            if(root.shadowRoot){
+            if(root.shadowRoot)
+            {
                 styleTag = root.shadowRoot.querySelector('style[data-gs-style-id='+id+']');
-            }else if(root.shadowRoot){
+            }
+            else if(root.firstElementChild)
+            {
                 styleTag = root.firstElementChild.querySelector('style[data-gs-style-id='+id+']');
             }
-            if(styleTag) $(styleTag).remove();
+            if(styleTag)
+            {
+                $(styleTag).remove();
+            } 
         },
 
         insertCSSRule: function(sheet, selector, rules, index) {
