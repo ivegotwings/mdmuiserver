@@ -20,7 +20,7 @@ module.exports = function(app) {
         fs.mkdirSync(dir);
     }
 
-    app.post('/file-upload', function (req, res) {
+    app.post('/data/file-upload', function (req, res) {
             if (!req.files) {
                 res.send('No files were uploaded.');
                 return;
