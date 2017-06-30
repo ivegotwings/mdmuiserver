@@ -2,10 +2,15 @@ var socketIo = require('socket.io');
 var api = require('./api/notification-manager');
 var userManager = require('./api/user-manager');
 var executionManager = require('../common/context-manager/execution-context');
+// var redis = require('socket.io-redis');
+// var DFConnection = require('./DFConnection');
 var defaultUserId = "unassigned";
 
 function initSockets(server) {
     var io = socketIo.listen(server, { origins: '*:*' });
+    //ToDo: Test out below implementation once implementation of redis is approved
+    // var dfConnection = new DFConnection();
+    // io.adapter(redis(dfConnection.getRedisUrl()));
     console.log('notification engine running . . .');
 
     io.sockets.on('connect', function (socket) {
