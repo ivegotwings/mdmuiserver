@@ -8,7 +8,7 @@ var PassThroughService = function (options) {
 PassThroughService.prototype = {
     call: async function (request) {
         //console.log('PassThroughService.call ', request.url);
-        var passThroughUrl = request.url.replace('/pass-through/', '');
+        var passThroughUrl = request.url.replace('/data/pass-through/', '');
 
         return await this.post(passThroughUrl, request.body);
     },
