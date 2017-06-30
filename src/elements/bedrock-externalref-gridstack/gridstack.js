@@ -62,8 +62,19 @@
 
         removeStylesheet: function(id, container, root) {
             // $('STYLE[data-gs-style-id=' + id + ']').remove();
-            var styleTag = root.shadowRoot.querySelector('style[data-gs-style-id='+id+']');
-            $(styleTag).remove();
+            var styleTag;
+            if(root.shadowRoot)
+            {
+                styleTag = root.shadowRoot.querySelector('style[data-gs-style-id='+id+']');
+            }
+            else if(root.firstElementChild)
+            {
+                styleTag = root.firstElementChild.querySelector('style[data-gs-style-id='+id+']');
+            }
+            if(styleTag)
+            {
+                $(styleTag).remove();
+            } 
         },
 
         insertCSSRule: function(sheet, selector, rules, index) {
@@ -1284,7 +1295,7 @@
         if (typeof minHeight != 'undefined') { el.attr('data-gs-min-height', minHeight); }
         if (typeof maxHeight != 'undefined') { el.attr('data-gs-max-height', maxHeight); }
         if (typeof id != 'undefined') { el.attr('data-gs-id', id); }
-        this.container.append(el);
+        // this.container.append(el);
         this._prepareElement(el, true);
         this._triggerAddEvent();
         this._updateContainerHeight();

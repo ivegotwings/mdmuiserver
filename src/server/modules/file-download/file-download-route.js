@@ -18,7 +18,7 @@ module.exports = function (app) {
         fs.mkdirSync(dir);
     }
 
-    app.get('/file-download', function (req, res) {
+    app.get('/data/file-download', function (req, res) {
         if (!req.query || !req.query["fileName"]) {
             res.send('File name is not there for download.');
             return;
