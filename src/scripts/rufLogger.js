@@ -6,7 +6,7 @@
 
     RUFUtilities.initializeLogger = function (sessionId) {
         log4JSLogger = log4javascript.getLogger("RUFLogging");
-        var ajaxAppender = new log4javascript.AjaxAppender("/sendlogs");
+        var ajaxAppender = new log4javascript.AjaxAppender("/data/sendlogs");
 
         switch (loglevel) {
             case "0": ajaxAppender.setThreshold(log4javascript.Level.OFF);

@@ -43,7 +43,7 @@ DataObjectFalcorUtil.getPathKeys = function () {
                 "name": "event",
                 "collectionName": "events",
                 "responseObjectName": "response",
-                "maxRecordsToReturn": 50
+                "maxRecordsToReturn": 500
             },
             "requestTracking": {
                 "name": "requestobject",

@@ -10,7 +10,7 @@ if(runOffline) {
 const passThroughService = new PassThroughService(options);
 
 var PassThroughRouter = function (app) {
-    app.post('/pass-through/*', async function (req, res) {
+    app.post('/data/pass-through/*', async function (req, res) {
         
         // var responseContent = "";
         // Object.keys(req).forEach(function(key){
