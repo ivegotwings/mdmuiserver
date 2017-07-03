@@ -2,8 +2,9 @@ const getNamespace = require('continuation-local-storage').getNamespace;
 var urlModule = require('url');
 
 function createSecurityContext(req) {
-    var tid = req.headers['tid'];
-    var uid = req.headers['uid'];
+    var tid = req.headers["x-rdp-tenantid"];
+    var uid = req.headers["x-rdp-userid"];
+    var role = req.headers["x-rdp-userroles"];
     var tenantConfig;
     if (tid) {
         tenantConfig = require(process.cwd() + "/tenant-configs/" + tid.toLowerCase() + "-tenant-config");
@@ -12,22 +13,20 @@ function createSecurityContext(req) {
         }
     }
 
-    var userId = req.headers["x-rdp-userid"] ? req.headers["x-rdp-userid"] : uid;
-
     var securityContext = {
-        'user': req.query.user,
-        'role': req.query.role,
+        'user': uid,
+        'role': role,
         'tenantId': tid,
         'clientAuthKey': tenantConfig && tenantConfig.clientAuthKey ? tenantConfig.clientAuthKey : "",
         'headers': {
             "clientId": tenantConfig && tenantConfig.clientId ? tenantConfig.clientId : "",
             "ownershipData": req.headers["x-rdp-ownershipdata"],
-            "userId": userId,
+            "userId": uid,
             "firstName": req.headers["x-rdp-firstname"],
             "lastName": req.headers["x-rdp-lastname"],
             "userName": req.headers["x-rdp-username"],
             "userEmail": req.headers["x-rdp-useremail"],
-            "userRoles": req.headers["x-rdp-userroles"]
+            "userRoles": role
         }
     };
    

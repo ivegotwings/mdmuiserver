@@ -43,7 +43,7 @@ DataObjectFalcorUtil.getPathKeys = function () {
                 "name": "event",
                 "collectionName": "events",
                 "responseObjectName": "response",
-                "maxRecordsToReturn": 50
+                "maxRecordsToReturn": 500
             },
             "requestTracking": {
                 "name": "requestobject",
@@ -717,11 +717,10 @@ DataObjectFalcorUtil.test = function () {
     console.log('test success');
 };
 
-DataObjectFalcorUtil.createRelUniqueId = function (relType, rel, index) {
+DataObjectFalcorUtil.createRelUniqueId = function (relType, rel) {
     if (rel) {
         var relDataObjectId = rel.relTo && rel.relTo.id && rel.relTo.id !== "" ? rel.relTo.id : "-1";
-        var idx = index ? index : 0;
-        return relType.concat("_", relDataObjectId, "_", idx);
+        return relType.concat("_", relDataObjectId);
     }
 
     return "";
