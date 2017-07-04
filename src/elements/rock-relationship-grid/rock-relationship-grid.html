@@ -367,7 +367,7 @@ The following JSON object is a sample of data which binds the grid.
               <rock-grid id$="[[relationship]]"  data-source="{{dataSource}}" data-source-id="datasource_[[relationship]]" config="{{relationshipGridConfig.gridConfig}}"
                 attribute-models="[[_getRelationshipAttributeModels(relationship)]]" grid-data-size="{{size}}"  record-size="{{totalRecords}}" total-count="{{totalCount}}" page-size="10"></rock-grid>
               <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="[[relationship]]"></bedrock-pubsub>
-              <bedrock-pubsub event-name="download-original-asset" handler="_onOriginalAssetDownloadAction" ></bedrock-pubsub>
+              <bedrock-pubsub event-name="download-original-asset" handler="_onOriginalAssetDownloadAction" target-id="[[relationship]]" ></bedrock-pubsub>
                 <bedrock-pubsub event-name="delete-item" handler="_onDeleteEntityRelationshipAction" target-id="[[relationship]]"></bedrock-pubsub>
                 <bedrock-pubsub target-id="[[relationship]]" event-name="on-grid-msg-dialog-ok" handler="_onDialogOk"></bedrock-pubsub>
               <div id="buttonContainer" align="center" hidden>
@@ -420,7 +420,7 @@ The following JSON object is a sample of data which binds the grid.
     </template>
     <rock-business-function-dialog id="addRelDialog" name="rock-relationship-add"></rock-business-function-dialog>
     <bedrock-pubsub event-name="refresh-relationship-grid" handler="_onRefreshRelationshipGridEvent" target-id="addRelDialog"></bedrock-pubsub>
-    <liquid-rest id="getDownloadUrl" url="/pass-through/binarystreamobjectservice/prepareDownload" method="POST"  on-liquid-response="_onGetDownloadUrlResponse">
+    <liquid-rest id="getDownloadUrl" url="/data/binarystreamobjectservice/prepareDownload" method="POST"  on-liquid-response="_onGetDownloadUrlResponse">
     </liquid-rest>
     <div id="messageCard">
     </div>
@@ -585,9 +585,9 @@ The following JSON object is a sample of data which binds the grid.
             value: "default"
         },
         _entityRelations: {
-            type: Object,
+            type: Array,
             value: function () {
-                return {};
+                return [];
             }
         },
         _deleteItemRelationshipType: {
@@ -784,7 +784,7 @@ The following JSON object is a sample of data which binds the grid.
 
                   var relationships = EntityHelper.getRelationshipsBasedOnContext(entity, this.getFirstDataContext(), isSelfContext);
                   if (!_.isEmpty(relationships)) {
-                    this._entityRelations[currentRel] = relationships[currentRel];
+                    this._entityRelations = relationships[currentRel];
 
                     if (this.dataObject) {
                       if (!this.dataObject[currentRel]) {
@@ -792,7 +792,7 @@ The following JSON object is a sample of data which binds the grid.
                       }
                     }
 
-                    this._entityRelations[currentRel].forEach(function (relItem) {
+                    this._entityRelations.forEach(function (relItem) {
                       if (relItem) {
                         var record = {};
                         if (relItem.attributes) {
@@ -1387,7 +1387,7 @@ The following JSON object is a sample of data which binds the grid.
                       };
                       var downloadUrlLiquid = this.$$("#getDownloadUrl");
                       if (downloadUrlLiquid) {
-                          downloadUrlLiquid.requestData = req;
+                          downloadUrlLiquid.requestData = [req];
                           downloadUrlLiquid.generateRequest();
                       }
                   }
@@ -1419,54 +1419,27 @@ The following JSON object is a sample of data which binds the grid.
           },
           _onDeleteEntityRelationshipAction: function (e, detail) {
               var updateRequest = DataRequestHelper.generateRelationshipProcessRequest(this.contextData);
-              this._deleteItemRelationshipType = this.relationshipType;
-
-              if (!this._entityRelations || _.isEmpty(this._entityRelations)) {
+              if (!this._entityRelations || !this._entityRelations.length) {
                   return;
               }
-
               var relDelItem;
-              var relationsByType = this._entityRelations[this._deleteItemRelationshipType];
-              //RelationshipType available when specific RelationshipType is selected in tab
-              if (relationsByType) {
-                  if (relationsByType.length > 0) {
-                      for (var i = 0; i < relationsByType.length; i++) {
-                          if (relationsByType[i].relTo.id == detail.id) {
-                              relDelItem = relationsByType[i];
+              var relations = this._entityRelations;
+              if (relations) {
+                  if (relations.length > 0) {
+                      for (var i = 0; i < relations.length; i++) {
+                          if (relations[i].relTo.id == detail.id) {
+                              relDelItem = relations[i];
                               break;
                           }
                       }
                   }
               }
-              else { //When root tab is selected
-                  var isRelFound = false;
-                  for (var key in this._entityRelations) {
-                      this._deleteItemRelationshipType = key;
-                      relationsByType = this._entityRelations[this._deleteItemRelationshipType];
-                      if (relationsByType.length > 0) {
-                          for (var i = 0; i < relationsByType.length; i++) {
-                              if (relationsByType[i].relTo.id == detail.id) {
-                                  relDelItem = relationsByType[i];
-                                  isRelFound = true;
-                                  break;
-                              }
-                          }
-                      }
-
-                      if (isRelFound) {
-                          break;
-                      }
-                  }
-              }
-
-              if (relDelItem && !_.isEmpty(relDelItem) && this._deleteItemRelationshipType) {
+              if (relDelItem && !_.isEmpty(relDelItem) && this.relationship) {
                   relDelItem.action = "delete";
-                  updateRequest.data.relationships[this._deleteItemRelationshipType] = [relDelItem];
-
+                  updateRequest.data.relationships[this.relationship] = [relDelItem];
                   this._saveRelationsRequest = {
                       "entities": [updateRequest]
                   };
-
                   var entitySaveLiquid = this.$$("#entityRelationsSaveService");
                   if (entitySaveLiquid) {
                       entitySaveLiquid.operation = "update";
@@ -1475,11 +1448,9 @@ The following JSON object is a sample of data which binds the grid.
               }
           },
           _onRelationsSaveResponse: function (e, detail) {
-              var relGrid = this.$$('rock-grid[id=' + this._deleteItemRelationshipType + ']');
-
+              var relGrid = this.$$('rock-grid[id=' + this.relationship + ']');
               if(relGrid) {
                   relGrid.reRenderGrid();
-                  this._deleteItemRelationshipType = null; //reset
               }
           },
           _onRelationsSaveError: function (e, detail) {
