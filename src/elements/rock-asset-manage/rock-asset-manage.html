@@ -15,6 +15,7 @@
 <link rel="import" href="../rock-business-function-dialog/rock-business-function-dialog.html">
 
 <link rel="import" href="../liquid-rest/liquid-rest.html">
+<link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
 
 <!--
  `rock-asset-manage` Represents an element that manages all the assets linked to an entity.
@@ -63,6 +64,7 @@
                         </liquid-rest>
                         <bedrock-pubsub event-name="grid-custom-toolbar-event" handler="_onCustomToolbarEvent" target-id="grid_[[asset]]"></bedrock-pubsub>
                         <bedrock-pubsub event-name="download-original-asset" handler="_onOriginalAssetDownloadAction" ></bedrock-pubsub>
+                        <bedrock-pubsub event-name="delete-asset-relationship" handler="_onDeleteAssetRelationshipAction"></bedrock-pubsub>
                     </pebble-accordion>
                 </div>
         </template>
@@ -71,6 +73,8 @@
         <div id="messageCard"> {{_message}}</div>
         <liquid-rest id="getDownloadUrl" url="/data/pass-through/binarystreamobjectservice/prepareDownload" method="POST"  on-liquid-response="_onGetDownloadUrlResponse">
         </liquid-rest>
+        <liquid-entity-data-save id="entitySaveService" request-data="[[_saveRequest]]" last-response="{{_saveResponse}}" on-response="_onSaveResponse" on-error="_onSaveError">
+        </liquid-entity-data-save>
     </template>
     <script>
         Polymer({
@@ -120,6 +124,16 @@
                     loadingThumbnailPath: {
                         type: String,
                         value: "/src/images/loading-thumbnail.svg"
+                    },
+                    _entityRelations: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _relationshipType: {
+                        type: String,
+                        value: null
                     }
                 },
                 observers: [
@@ -432,8 +446,8 @@
                                 }
                                 var relationships = EntityHelper.getRelationshipsBasedOnContext(entity, this.getFirstDataContext(), isSelfContext);
                                 if (!_.isEmpty(relationships)) {
-                                    var relatedEntities = relationships[currentRel];
-                                    relatedEntities.forEach(function (relItem) {
+                                    this._entityRelations[currentRel] = relationships[currentRel];                                    
+                                    this._entityRelations[currentRel].forEach(function (relItem) {
                                         if (relItem) {
                                             var record = {};
                                             if (relItem.attributes) {
@@ -555,6 +569,78 @@
                     }
                 }
             },
+            _onDeleteAssetRelationshipAction: function (e, detail) {
+                var updateRequest = DataRequestHelper.generateRelationshipProcessRequest(this.contextData);
+                this._relationshipType = this.configContext.relationshipTypeName;
+
+                if (!this._entityRelations || _.isEmpty(this._entityRelations)) {
+                    return;
+                }
+
+                var relDelItem;
+                var relationsByType = this._entityRelations[this._relationshipType];
+                //RelationshipType available when child item is selected in tab
+                if (relationsByType) {
+                    if (relationsByType.length > 0) {                        
+                        for (var i = 0; i < relationsByType.length; i++) {
+                            if (relationsByType[i].relTo.id == detail.id) {
+                                relDelItem = relationsByType[i];                                
+                                break;
+                            }
+                        }
+                    }
+                }
+                else { //When root tab is selected
+                    var isRelFound = false;
+                    for (var key in this._entityRelations) {
+                        this._relationshipType = key;
+                        relationsByType = this._entityRelations[this._relationshipType];
+                        if (relationsByType.length > 0) {                            
+                            for (var i = 0; i < relationsByType.length; i++) {
+                                if (relationsByType[i].relTo.id == detail.id) {
+                                    relDelItem = relationsByType[i];                                    
+                                    isRelFound = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (isRelFound) {
+                            break;
+                        }
+                    }
+                }
+
+                if (relDelItem && !_.isEmpty(relDelItem) && this._relationshipType) {
+                    relDelItem.action = "delete"; //Set delete
+                    updateRequest.data.relationships[this._relationshipType] = [relDelItem];
+
+                    this._saveRequest = {
+                        "entities": [updateRequest]
+                    };
+
+                    var entitySaveLiquid = this.$$("#entitySaveService");
+                    if (entitySaveLiquid) {
+                        entitySaveLiquid.operation = "update";
+                        entitySaveLiquid.generateRequest();
+                    }
+                }                
+            },
+
+            _onSaveResponse: function (e, detail) {
+                var grid = this.$$("#grid_"+ this._relationshipType);
+                    
+                if(grid) {
+                    grid.data = [];
+                    this._refreshGridByAssetName(this._relationshipType);
+                    this._relationshipType = null; //reset
+                }                               
+            },
+
+            _onSaveError: function (e, detail) {
+                this.showErrorToast("Unable to delete the asset relationship, please contact administrator.");
+            },
+
             _onCustomToolbarEvent:function (e,detail) {
                 if(detail && detail.name=="originalAssetDownload"){
                     this._originalAssetsDownload();
