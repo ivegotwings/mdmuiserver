@@ -724,7 +724,14 @@ DataObjectFalcorUtil.createRelUniqueId = function (relType, rel) {
     }
 
     return "";
-}
+};
+
+DataObjectFalcorUtil.mergePathSets = function () {
+    var mergedPathSets = [];
+    var args = Array.prototype.splice.call(arguments, 0);
+    var mergedPathSets = Array.prototype.concat.apply([], args);
+    return mergedPathSets;
+};
 
 function isEmpty(obj) {
     //if (obj === undefined) { return true };
