@@ -725,8 +725,9 @@ The following JSON object is a config sample which configures the grid in all ab
 			</template>
 			<div id="pebbleGridContainer" class="m-l-20 m-r-20 m-b-10">
 				<template is="dom-if" if="{{_isTabularMode(config.viewMode)}}">
-					<pebble-data-table id="[[id]]" page-size="[[pageSize]]" size="[[gridDataSize]]" selection-enabled="[[selectionEnabled]]" multi-selection="[[config.tabular.settings.isMultiSelect]]"
-					 data-source="[[dataSource]]" items="{{data}}" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" sort-order="{{sortOrder}}">
+					<pebble-data-table selection-info="[[selectionInfo]]" id="[[id]]" page-size="[[pageSize]]" size="[[gridDataSize]]" selection-enabled="[[selectionEnabled]]"
+					 multi-selection="[[config.tabular.settings.isMultiSelect]]" data-source="[[dataSource]]" items="{{data}}" selected-item="{{selectedItem}}"
+					 selected-items="{{selectedItems}}" sort-order="{{sortOrder}}">
 
 						<data-table-column name="Actions" hidden$="[[!_hasActions()]]">
 							<template>
@@ -1037,6 +1038,10 @@ The following JSON object is a config sample which configures the grid in all ab
 					},
 					_attributeModelMap: {
 						type: Object
+					},
+					selectionInfo: {
+						type: Object,
+						value: function () { return {} }
 					}
 				},
 				behaviors: [
@@ -1414,6 +1419,15 @@ The following JSON object is a config sample which configures the grid in all ab
 				 * Can be used to change the mode to edit mode.
 				 *
 				 */
+
+				getSelectionMode: function () {
+					if (this.selectionInfo && this.selectionInfo.mode) {
+						return this.selectionInfo.mode;
+					}
+					return 'count';//default value
+				},
+
+				
 				changeToEditMode: function (e, detail) {
 					this.set('config.mode', "edit");
 					this._dataChanged();
@@ -2032,17 +2046,45 @@ The following JSON object is a config sample which configures the grid in all ab
 						}
 					}
 				},
-				_sortDirectionChanged: function (e) {
-					if(e.detail && !e.detail.direction) {
-						this.sortOrder = [];
-					} 
-
+				_getDataSourceElement: function () {
+					var dataSourceElement;
 					if (this.dataSourceId) {
-						var dataSourceElement = Polymer.dom(this).node.parentNode.querySelector('#' + this.dataSourceId);
-						if (dataSourceElement) {
-							dataSourceElement.resetDataSource();
+						dataSourceElement = Polymer.dom(this).node.parentNode.querySelector('#' + this.dataSourceId);
+					}
+					return dataSourceElement
+				},
+				_sortDirectionChanged: function (e) {
+					if (e.detail && !e.detail.direction) {
+						this.sortOrder = [];
+					}
+					var dataSourceElement = this._getDataSourceElement();
+					if (dataSourceElement) {
+						dataSourceElement.resetDataSource();
+					}
+				},
+				getSelectedItemsAsQuery: function (e) {
+					var queryObject = {};
+					var dataSourceElement = this._getDataSourceElement();
+					var selectionMode = this.getSelectionMode();
+
+					if (dataSourceElement && dataSourceElement.request && dataSourceElement.request.params) {
+						var searchQueryParams = dataSourceElement.request.params;
+						if (selectionMode == 'query') {
+							queryObject = DataHelper.cloneObject(searchQueryParams.query);
+						} else if (selectionMode == 'count') {
+							var selectedItems = this.getSelectedItems();
+							if (selectedItems && selectedItems.length > 0) {
+								var entityIds = [];
+								for (var i = 0; i < selectedItems.length; i++) {
+									entityIds.push(selectedItems[i].id);
+								}
+								queryObject.ids = entityIds;
+								queryObject.filters = {};
+								queryObject.filters.typesCriterion = searchQueryParams.query.filters.typesCriterion;
+							}
 						}
 					}
+					return queryObject;
 				}
 			});
 		})();
