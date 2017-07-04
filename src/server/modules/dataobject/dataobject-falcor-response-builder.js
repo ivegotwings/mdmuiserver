@@ -1,6 +1,7 @@
 'use strict';
 
 const arrayContains = require('../common/utils/array-contains'),
+    arrayRemove = require('../common/utils/array-remove'),
     isEmpty = require('../common/utils/isEmpty'),
     isObject = require('../common/utils/isObject');
 
@@ -202,6 +203,7 @@ function _buildRelationshipsResponse(rels, reqData, currentDataContextJson, path
 
     //console.log('rels', JSON.stringify(rels)); 
     var relTypeKeys = _getKeyNames(rels, reqData.relTypes);
+    var originalRelIds = reqData.originalRelIds;
 
     for (let relTypeKey of relTypeKeys) {
         var relTypeData = rels[relTypeKey];
@@ -210,6 +212,10 @@ function _buildRelationshipsResponse(rels, reqData, currentDataContextJson, path
             var relTypeJson = relationshipsJson[relTypeKey] = {};
             var relsJson = {};
             var relIds = [];
+
+            if(originalRelIds && originalRelIds[relTypeKey]) {
+                relIds = originalRelIds[relTypeKey];
+            }
 
             for (var relKey in relTypeData) {
                 var rel = relTypeData[relKey];
@@ -221,9 +227,16 @@ function _buildRelationshipsResponse(rels, reqData, currentDataContextJson, path
                     continue;
                 }
 
-                relIds.push(rel.id);
+                if(arrayContains(relIds, rel.id)) {
+                    if(rel.action == "delete") {
+                        arrayRemove(relIds, rel.id);
+                    }
+                }
+                else {
+                    relIds.push(rel.id);
+                }
 
-                if (operation.toLowerCase() !== "getrelidonly") {
+                if (operation.toLowerCase() !== "getrelidonly" && rel.action !== "delete") {
                     _buildRelationshipDetailsResponse(rel, reqData, relTypeKey, relsJson, paths, basePath);
                 }
             }
