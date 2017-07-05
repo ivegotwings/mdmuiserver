@@ -46,7 +46,7 @@ global.config = {
     // server push). Using the 'both' option will create two output projects,
     // one for bundled and one for unbundled
     bundleType: 'both',
-    serverFilePaths: ['app.js', 'src/server/**/*.js', 'src/shared/**/*.js', 'src/shared/**/*.json', 'src/server/**/*.json'],
+    serverFilePaths: ['app.js', 'src/server/**/*.js', 'src/shared/**/*.js'],
     clientFilePaths: ['src/main-app*.*', 'src/elements/**/*.{js,css,html}', 'src/data/**/*.*', 'src/shared/**/*.js'],
     liveReloadPort: 35729
   },
