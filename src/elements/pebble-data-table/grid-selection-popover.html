@@ -1,0 +1,191 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+
+<dom-module id="grid-selection-popover">
+  <style include="pebble-styles-shared"></style>
+  <template>
+    <style>
+      li {
+        list-style: none;
+        -webkit-transition: all 0.3s;
+        -moz-transition: all 0.3s;
+        -o-transition: all 0.3s;
+        transition: all 0.3s;
+      }
+      .checkbox-wrapper {
+        margin-right: 10px;
+        float: left;
+        margin-top: 4px;
+        pointer-events: none;
+      }
+      .item-wrapper {
+        float: left;
+        padding: 5px 0;
+      }
+      .title {
+        font-size: 12px;
+        line-height: 14px;
+        word-break: break-word;
+        font-weight: 400;
+        text-transform: capitalize;
+      }
+      ul {
+        margin: 0px;
+        padding: 0px;
+        z-index: initial;
+      }
+      #actionButtons {
+        padding-top: 10px;
+        text-align: center;
+      }
+      .item {
+        text-align: left;
+        cursor: pointer;
+        color: var(--palette-steel-grey, #75808b);
+        @apply --popup-item;
+        overflow: hidden;
+      }
+      .item[selected] {
+        color: var(--dropdown-selected-font, #036bc3);
+      }
+
+      .item:hover,
+      .item[focused] {
+        background: var(--dropdown-selected, #e8f4f9);
+        color: var(--dropdown-selected-font, #036bc3);
+      }
+
+     /* pebble-button.reset-search {
+        --pebble-button-paper-style: {
+          color: var(--button-text-color, #ffffff);
+          background-color: var(--success-button-color, #09c021);
+          border-color: var(--success-button-color, #09c021);
+          font-weight: var(--font-bold, bold);
+          height: 30px;
+        }
+      }*/
+    </style>
+    <pebble-icon id="gridSelectionFilterIcon" icon="[[icon]]" on-tap="_onselectionGridOpenIcon" for="gridSelectionPopover"></pebble-icon>
+    <pebble-popover on-iron-overlay-closed="_onClose" id="gridSelectionPopover" for="gridSelectionFilterIcon" no-overlap auto-fit-on-attach
+      vertical-align="auto" horizontal-align="auto">
+      <div style="position:relative;z-index:1000">
+        <ul>
+          <template is="dom-repeat" items="{{searchSelectionOptions}}">
+            <li class="item" on-tap="_onsearchSelection" id="[[index]]">
+              <div class="checkbox-wrapper">
+                <pebble-checkbox item="[[item.value]]" on-tap="_onsearchSelectionCheckbox" checked="{{item.checked}}"></pebble-checkbox>
+              </div>
+              <div class="item-wrapper">
+                <div class="title">[[item.label]]</div>
+              </div>
+            </li>
+          </template>
+        </ul>
+      </div>
+      <div id="actionButtons" class="buttons">
+        <pebble-button id="cancelButton" class="close btn btn-secondary m-r-5" button-text="Close" noink elevation="2" on-tap="_onClose"></pebble-button>
+        <pebble-button id="confirmButton" class="apply btn btn-success" button-text="Apply" noink elevation="2" on-tap="_onApply"></pebble-button>
+      </div>
+    </pebble-popover>
+    <bedrock-pubsub event-name="on-popover-close" handler="_onPopoverClose"></bedrock-pubsub>
+
+  </template>
+  <script>
+    Polymer({
+      is: 'grid-selection-popover',
+      ready: function () {
+        this.searchSelectionOptions = [
+          { itemCount: '20', mode: "count", label: 'Select first 20', checked: false },
+          { itemCount: '50', mode: "count", label: 'Select first 50', checked: false },
+          { mode: "query", label: 'Select all search criteria', checked: false }
+        ];
+      },
+      properties: {
+        searchSelectionOptions: {
+          type: Array,
+          value: function () {
+            return [];
+          }
+        },
+        searchSelected: {
+          type: Object,
+          value: function () {
+            return {}
+          }
+        },
+        previousStateKey: {
+          type: String,
+          value: ''
+        },
+        icon: {
+          type: String,
+          value: 'pebble-lg-icons:arrow-down'
+        }
+      },
+      _onselectionGridOpenIcon: function (e) {
+        this.$$('#gridSelectionPopover').show();
+      },
+      _onPopoverClose: function () {
+        this.onClose();
+      },
+      _onClose: function () {
+        this.$$('#gridSelectionPopover').hide();
+        if (this.previousStateKey != '') {
+          var completeSearchList = DataHelper.cloneObject(this.searchSelectionOptions);
+          completeSearchList.forEach(function (value, key) {
+            if (this.previousStateKey == key) {
+              value.checked = true;
+            } else {
+              value.checked = false;
+            }
+          }.bind(this));
+          this.set("searchSelectionOptions", completeSearchList);
+        } else {
+          this.resetSelection();
+        }
+      },
+      _onsearchSelection: function (e) {
+        this.searchSelected = Object.create({});
+        var checkedId = parseInt(e.currentTarget.id);
+        var completeSearchList = DataHelper.cloneObject(this.searchSelectionOptions);
+        completeSearchList.forEach(function (value, key) {
+          if (checkedId == key) {
+            value.checked = !value.checked;
+            if (value.checked == true) {
+              this.searchSelected = value;
+            }
+          } else {
+            value.checked = false;
+          }
+        }.bind(this));
+        this.set("searchSelectionOptions", completeSearchList);
+      },
+      _onApply: function (e) {
+        this.$$('#gridSelectionPopover').hide();
+        var detail = this.searchSelected;
+        if (Object.keys(this.searchSelected).length > 0) {
+          var completeSearchList = DataHelper.cloneObject(this.searchSelectionOptions);
+          completeSearchList.forEach(function (value, key) {
+            if (value && value.checked == true) {
+              this.previousStateKey = key.toString();
+            }
+          }.bind(this));
+        } else {
+          this.previousStateKey = '';
+        }
+        this.fire("selection-changed", detail);
+      },
+      /* _resetPopoeverSelection: function () {
+         this._resetSelection();
+       },*/
+      resetSelection: function () {
+        this.searchSelected = Object.create({});
+        var completeSearchList = DataHelper.cloneObject(this.searchSelectionOptions);
+        completeSearchList.forEach(function (value, key) {
+          value.checked = false;
+        });
+        this.set("searchSelectionOptions", completeSearchList);
+      }
+    });
+  </script>
+</dom-module>
