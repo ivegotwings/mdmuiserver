@@ -43,6 +43,9 @@
 
         <liquid-rest id="entityWfTransition" url="/pass-through-bulk/entitygovernservice/transitionWorkflow" method="POST" request-data={{_transitionRequest}}
             on-liquid-response="_onTransitionSuccess" on-liquid-error="_onTransitionFailure"></liquid-rest>
+
+        <liquid-rest id="asyncEntityWfTransition" url="/data/pass-through/bulkentityservice/createtask" method="POST" request-data={{_asyncTransitionRequest}}
+            on-liquid-response="_onAsyncTransitionSuccess" on-liquid-error="_onAsyncTransitionFailure"></liquid-rest>
         
         <template is="dom-if" if="[[_showTransitionSection]]">
             <div class="textareaSection">
@@ -63,33 +66,55 @@
                 is: 'rock-workflow-transition',
 
                 properties: {
-          /**
-            * <b><i>Content development is under progress... </b></i> 
-            */
+
+                    /**
+                     * Represents selection mode query or count                     
+                     */
+                    selectionMode: {
+                        type: String,
+                        value: "count"
+                    },
+
+                    /** 
+                     * Represents criteria query                     
+                     */
+                    selectionQuery: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                   /**
+                    * <b><i>Content development is under progress... </b></i> 
+                    */
                     contextData: {
                          type:Object,
                          value: function() {
                             return {};
                          }
                     },
-          /**
-            * <b><i>Content development is under progress... </b></i> 
-            */
+
+                   /**
+                    * <b><i>Content development is under progress... </b></i> 
+                    */
                     selectedEntities: {
                         type: Array,
                         value: function() {
                             return [];
                         }
                     },
-          /**
-            * <b><i>Content development is under progress... </b></i> 
-            */
+
+                   /**
+                    * <b><i>Content development is under progress... </b></i> 
+                    */
                     resultAttribute: {
-                        type: String
+                        type: Object
                     },
-          /**
-            * <b><i>Content development is under progress... </b></i> 
-            */
+
+                   /**
+                    * <b><i>Content development is under progress... </b></i> 
+                    */
                     currentWorkflow: {
                         type: Object,
                         value: function() { 
@@ -144,7 +169,12 @@
                         value: function () { 
                             return []; 
                         }
-                    }                                        
+                    },
+
+                    syncThreshold: {
+                        type: String,
+                        value: 20
+                    }          
                 },
 
                 behaviors: [
@@ -153,13 +183,12 @@
                 ],
 
                 observers: [
-                    '_executeTransitionProcess(contextData, selectedEntities, currentWorkflow)'
+                    '_executeTransitionProcess(contextData, currentWorkflow)'
                 ],
                 
                 _executeTransitionProcess: function () {
                     // Start process when all the details are available
-                    if(this.contextData && !_.isEmpty(this.contextData) && 
-                       this.selectedEntities && this.selectedEntities.length > 0 &&
+                    if(this.contextData && !_.isEmpty(this.contextData) &&
                        this.currentWorkflow && !_.isEmpty(this.currentWorkflow)) {
 
                            this._loading = true;
@@ -287,7 +316,7 @@
                         }
                     }
 
-                    this._executeTransitionSaveProcess(e.model.item);                    
+                    this._executeTransitionSaveProcess(e.model.item);                
                 },
 
                 _raiseError: function(message){
@@ -300,6 +329,14 @@
                 },
 
                 _executeTransitionSaveProcess: function(action) {
+
+                    // No selectionMode or selectionMode as count should have selectedEntities to do process
+                    if((!this.selectionMode || this.selectionMode == "count") && (!this.selectedEntities || this.selectedEntities.length == 0)) {
+                        this._message = "Entities not available for the process";
+                        this._loading = false;
+                        return;
+                    }
+
                     this._message = "Transition save process started";
                     this._loading = true;
                     this._showTransitionSection = false;
@@ -313,21 +350,45 @@
                     };
 
                     var workflowTransitionRequestDataJson = DataRequestHelper.createWorkflowTransitionRequest(this.contextData);
-                    delete workflowTransitionRequestDataJson.entity; //Not needed for bulk
+                    delete workflowTransitionRequestDataJson.entity; //Not needed for bulk                    
 
-                    var _entities = [];
-                    for(var i = 0; i < this.selectedEntities.length; i++)
-                    {
-                        _entities.push({
+                    var entities = [];
+                    var entityTypes = [];
+                    for (var i = 0; i < this.selectedEntities.length; i++) {
+                        entities.push({
                             "id": this.selectedEntities[i].id,
                             "type": this.selectedEntities[i].type
                         });
+
+                        if(entityTypes.indexOf(this.selectedEntities[i].type) == -1) {
+                           entityTypes.push(this.selectedEntities[i].type); 
+                        }
                     }
+                    
+                    if(this.selectionMode == "query" || (this.selectionMode == "count" && this.selectedEntities.length > this.syncThreshold)) {                       
 
-                    workflowTransitionRequestDataJson.entities = _entities;
+                        if(!this.selectionQuery || _.isEmpty(this.selectionQuery)) {
+                            this._message = "Selection query not available for the process";
+                            this._loading = false;
+                            return;
+                        }
 
-                    this.set("_transitionRequest", workflowTransitionRequestDataJson);
-                    this.$$("#entityWfTransition").generateRequest();                 
+                        workflowTransitionRequestDataJson.params.query = this.selectionQuery;
+
+                        //Async process
+                        var asyncLiquidWfTransition = this.$$("#asyncEntityWfTransition");
+                        workflowTransitionRequestDataJson.params.taskType = "transitionWorkflow-query";
+                        workflowTransitionRequestDataJson.params.operationType = "inboundService";
+                        this.set("_asyncTransitionRequest", workflowTransitionRequestDataJson);
+                        if (asyncLiquidWfTransition) {
+                            asyncLiquidWfTransition.generateRequest();
+                        }
+                    }
+                    else { // Sync process
+                        workflowTransitionRequestDataJson.entities = entities;
+                        this.set("_transitionRequest", workflowTransitionRequestDataJson);
+                        this.$$("#entityWfTransition").generateRequest();
+                    }                           
                 },
 
                 _getAttributeValue: function(id, attrName) {
@@ -335,7 +396,11 @@
                     {
                         for(var i = 0; i < this.selectedEntities.length; i++) {
                             if(this.selectedEntities[i].id == id) {
-                                return this.selectedEntities[i].attributes[attrName] ? this.selectedEntities[i].attributes[attrName].value : "Not found";
+                                var attribute;
+                                if(this.selectedEntities[i] && DataHelper.isValidObjectPath(this.selectedEntities[i], "data.attributes")) {
+                                    attribute = this.selectedEntities[i].data.attributes[attrName];
+                                }
+                                return attribute ? attribute.values[0].value : "Not found";
                             }
                         }
                     }
@@ -351,16 +416,16 @@
                     {
                         //set id
                         var transitionResponse = {
-                            "id": responseList[i].id
+                            "Entity Id": responseList[i].id
                         };
 
                         //set name
-                        if(this.resultAttribute)
+                        if(this.resultAttribute && !_.isEmpty(this.resultAttribute))
                         {
-                            var attrValue = this._getAttributeValue(responseList[i].id, this.resultAttribute);
-                            transitionResponse[this.resultAttribute] = attrValue;
+                            var attrValue = this._getAttributeValue(responseList[i].id, this.resultAttribute.name);
+                            transitionResponse[this.resultAttribute.externalName] = attrValue;
                         }
-
+                        
                         var response = DataHelper.isValidObjectPath(responseList[i], "operationResponse.response") ? responseList[i].operationResponse.response : {};
                         
                         //set text
@@ -377,15 +442,15 @@
                                     }
                                 }
 
-                                transitionResponse["message"] = "'" + actionItem + "' action failed. Please check the business conditions in Summary tab";
+                                transitionResponse["Message"] = "'" + actionItem + "' action failed. Please check the business conditions in Summary tab";
                             }
                             else { //Success
-                                transitionResponse["message"] = response.statusDetail.message;
+                                transitionResponse["Message"] = response.statusDetail.message;
                             }
                         }
                         else { //Error
                             if(response.statusDetail && response.statusDetail.message) {
-                                transitionResponse["message"] = response.statusDetail.message;
+                                transitionResponse["Message"] = response.statusDetail.message;
                             }                            
                         }                        
 
@@ -396,12 +461,41 @@
                 },
 
                 _onTransitionFailure: function(e, detail) {
-                    this.logError("WorkFlowTransitionError","response",JSON.stringify(e.detail.response.reason.message));
                     this._message = "An error occured in the transition process, please contact administrator";
                     this._loading = false;
+                    this.logError("WorkFlowTransitionError","response",JSON.stringify(e.detail.response.reason.message));                    
                 },
 
-                _triggerFinishStep: function() {                    
+                _onAsyncTransitionSuccess: function (e) {
+                    var response = e.detail.response && e.detail.response.response ? e.detail.response.response : e.detail.response;
+                    var request = e.detail.response ? e.detail.response.request : undefined;
+
+                    if((!response || _.isEmpty(response)) ||
+                       (DataHelper.isValidObjectPath(response, "dataObjectOperationResponse.status") && response.dataObjectOperationResponse.status.toLowerCase() == "error") ||
+                       (response.status && response.status.toLowerCase() == "error")) {
+                        this._message = "Bulk transition request failed";
+                        this._loading = false;
+                        return;
+                    } else {
+                        if(response.status && response.status.toLowerCase() == "success") {                            
+                            this._responseMessages.push({                                
+                                "Task Id": request ? request.taskId : "Not available",
+                                "Message": "Transition process triggered, please verify the status in jobs"
+                            });
+                        }
+                                                
+                        this._message = "Transition request triggered successfully";                        
+                        this._triggerFinishStep(true);
+                    }                    
+                },
+
+                _onAsyncTransitionFailure: function (e) {
+                   this._message = "An error occured in the transition process, please contact administrator";
+                   this._loading = false;
+                   this.logError("WorkFlowTransitionError","response",JSON.stringify(e.detail.response.reason.message));
+                },
+
+                _triggerFinishStep: function(isJob) {                    
                     var data = {
                                 "messages": this._responseMessages,
                                 "actions": [                                    
@@ -409,9 +503,18 @@
                                         "name": "goBack",
                                         "text": "Take me back to where I started",
                                         "isNotApp": true
-                                    }                                                                    
+                                    }                                                                   
                                 ]                            
                             };
+
+                        if(isJob) {
+                            data.actions.push({
+                                        "name": "gotoJobDetails",
+                                        "text": "Take Me to Job Details",
+                                        "isNotApp": true,
+                                        "dataRoute":"dashboard"
+                                    });
+                        }
 
                         this.businessFunctionData = data;                        
                         var eventName = "onComplete";
