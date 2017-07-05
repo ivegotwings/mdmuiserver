@@ -261,6 +261,11 @@ SERVICE_CONFIG = {
             "url": "/binaryobjectservice/delete",
             "mode": "online",
             "offlineSettings": {}
+        },
+        "bulkentityservice/createtask": {
+            "url": "/bulkentityservice/createtask",
+            "mode": "online",
+            "offlineSettings": {}
         }
     }
 };
