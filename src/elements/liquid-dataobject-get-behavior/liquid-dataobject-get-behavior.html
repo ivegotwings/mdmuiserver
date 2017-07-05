@@ -256,8 +256,8 @@
 
             var jsonDataPath = this._getJsonDataPath(reqData, basePath, ctxKeys);
 
-            if (isRelationshipsRequested) {
-                var dataObjectFieldsPath = this._mergePathSets(basePath, [dataObjectFields]);
+            if (isRelationshipsRequested || jsonDataPath) {
+                var dataObjectFieldsPath = utils.mergePathSets(basePath, [dataObjectFields]);
                 paths.push(dataObjectFieldsPath);
             }
             else {
@@ -288,6 +288,7 @@
         },
         _callObjectKeysGet: function (model, request, basePath, loadAllFlags, ctxKeys, valCtxKeys) {
             var reqData = request.requestData;
+            var utils = SharedUtils.DataObjectFalcorUtil;
             var paths = [];
 
             if (!loadAllFlags.needObjectKeyResolution) {
@@ -295,17 +296,17 @@
             }
 
             if (loadAllFlags.loadAttributeNames) {
-                var attributeMapPath = this._mergePathSets(basePath, ['data', 'contexts', ctxKeys, 'mappings', 'attributeMap']);
+                var attributeMapPath = utils.mergePathSets(basePath, ['data', 'contexts', ctxKeys, 'mappings', 'attributeMap']);
                 paths.push(attributeMapPath);
             }
 
             if (loadAllFlags.loadRelationshipsTypes) {
-                var relationshipMapPath = this._mergePathSets(basePath, ['data', 'contexts', ctxKeys, 'mappings', 'relationshipMap']);
+                var relationshipMapPath = utils.mergePathSets(basePath, ['data', 'contexts', ctxKeys, 'mappings', 'relationshipMap']);
                 paths.push(relationshipMapPath);
             }
 
             if (loadAllFlags.loadContexts) {
-                var contextMapPath = this._mergePathSets(basePath, ['data', 'mappings', 'contextMap']);
+                var contextMapPath = utils.mergePathSets(basePath, ['data', 'mappings', 'contextMap']);
                 paths.push(contextMapPath);
             }
 
@@ -426,6 +427,7 @@
         },
         _callGetRelationships: function (model, paths, request, basePath, ctxKeys, valCtxKeys, relTypes, dataObjectFields) {
             var reqData = request.requestData;
+            var utils = SharedUtils.DataObjectFalcorUtil;
 
             var relAttrNames = reqData.params.fields.relationshipAttributes === undefined ? [] : reqData.params.fields.relationshipAttributes;
 
@@ -434,20 +436,20 @@
             var relatedDataObjectAttrs = reqData.params.fields.relatedEntityAttributes === undefined ? [] : reqData.params.fields.relatedEntityAttributes;
             DataHelper.arrayRemove(relatedDataObjectAttrs, '_ALL'); //TODO: Fix this once we have logic to resolve ALL...
 
-            var relIdCreatePath = this._mergePathSets(basePath, ['data', 'contexts', ctxKeys, 'relationships', relTypes, 'relIds']);
+            var relIdCreatePath = utils.mergePathSets(basePath, ['data', 'contexts', ctxKeys, 'relationships', relTypes, 'relIds']);
 
             var attrDetailPath = this._getAttributeDetailPath(valCtxKeys);
 
             var relAttrsPath = [];
             if (relAttrNames.length > 0) {
-                var relAttrsPath = this._mergePathSets(['attributes', relAttrNames], attrDetailPath);
+                var relAttrsPath = utils.mergePathSets(['attributes', relAttrNames], attrDetailPath);
             }
 
-            var relToObjectPath_Fields = this._mergePathSets(['relToObject']);
+            var relToObjectPath_Fields = utils.mergePathSets(['relToObject']);
 
             var relToObjectPath_Attrs = [];
             if (relatedDataObjectAttrs.length > 0)
-                relToObjectPath_Attrs = this._mergePathSets(['relToObject', 'data', 'contexts', ctxKeys, 'attributes', relatedDataObjectAttrs], attrDetailPath);
+                relToObjectPath_Attrs = utils.mergePathSets(['relToObject', 'data', 'contexts', ctxKeys, 'attributes', relatedDataObjectAttrs], attrDetailPath);
 
             var self = this;
 
@@ -659,14 +661,14 @@
             }
 
             if (attrs.length > 0) {
-                attributesPath = this._mergePathSets(basePath, ['data', 'contexts', ctxKeys, 'attributes', attrs], attrDetailPath);
+                attributesPath = utils.mergePathSets(basePath, ['data', 'contexts', ctxKeys, 'attributes', attrs], attrDetailPath);
             }
 
             return attributesPath;
         },
         _getJsonDataPath: function (reqData, basePath, ctxKeys) {
             if (reqData.params.fields.jsonData) {
-                return this._mergePathSets(basePath, ['data', 'contexts', ctxKeys], ['jsonData']);
+                return SharedUtils.DataObjectFalcorUtil.mergePathSets(basePath, ['data', 'contexts', ctxKeys], ['jsonData']);
             }
             else {
                 return undefined;
@@ -714,24 +716,29 @@
 
                             if (from != -1) {
                                 var filteredRelIds = relIds.slice(from, to + 1);
-                                var relBasePath = self._mergePathSets(basePath, ['data', 'contexts', ctxKey, 'relationships', relType, 'rels', filteredRelIds]);
+                                var relBasePath = utils.mergePathSets(basePath, ['data', 'contexts', ctxKey, 'relationships', relType, 'rels', filteredRelIds]);
 
                                 //must have paths for eachrel..rel fields and relTo with only fields..
-                                relDetailGetPaths.push(self._mergePathSets(relBasePath, relFieldsPath));
-                                //relDetailGetPaths.push(self._mergePathSets(relBasePath, relToObjectPath_Fields));
+                                relDetailGetPaths.push(utils.mergePathSets(relBasePath, relFieldsPath));
+                                //relDetailGetPaths.push(utils.mergePathSets(relBasePath, relToObjectPath_Fields));
 
                                 //rel attrs..only if requested...
                                 if (relAttrsPath.length > 0) {
-                                    relDetailGetPaths.push(self._mergePathSets(relBasePath, relAttrsPath));
+                                    relDetailGetPaths.push(utils.mergePathSets(relBasePath, relAttrsPath));
                                 }
 
                                 //related entity attrs..only if requested...
                                 if (relToObjectPath_Attrs.length > 0) {
-                                    relDetailGetPaths.push(self._mergePathSets(relBasePath, relToObjectPath_Attrs));
+                                    relDetailGetPaths.push(utils.mergePathSets(relBasePath, relToObjectPath_Attrs));
                                 }
                             }
                             else {
-                                throw "requested range is not available for relationships";
+                                //Commented below line because of,
+                                //rock-grid internally uses iron-data-table and iron-data-table has functionality of vitualization where it's loading 2 page very first time.
+                                //2 pages are necessary to satisfy all possible scenarion of virtualization (To get scroll bar in grid).
+                                //So here if page size and record size is same for second page "from" will become "-1" and due to this throw it will not return any thing to iron-data-tale.
+                                //if there is no record iron-data-table requires atlest blank response to stop second page loading.
+                                //throw "requested range is not available for relationships";
                             }
                         }
                     }
@@ -773,12 +780,6 @@
             }
 
             return dataObjects;
-        },
-        _mergePathSets: function () {
-            var mergedPathSets = [];
-            var args = Array.prototype.splice.call(arguments, 0);
-            var mergedPathSets = Array.prototype.concat.apply([], args);
-            return mergedPathSets;
         },
         _makeFalcorGetCall: function (model, paths, noCache) {
             if (noCache && paths) {

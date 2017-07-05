@@ -49,6 +49,9 @@
             else if (op === 'update') {
                 return this._callUpdate(model, request);
             }
+            else if (op === 'delete') {
+                return this._callDelete(model, request);
+            }
             else {
                 throw 'exception: operation ' + op + ' is not supported in ' + this.is + ' element.';
             }
@@ -95,7 +98,7 @@
             }
         },
         _callCreate: function(model, request) {
-            var jsonEnvelopeCreateResponse = this._createJsonEnvelope(request);
+            var jsonEnvelopeCreateResponse = this._createJsonEnvelope(request, model, "create");
             var jsonEnvelope = jsonEnvelopeCreateResponse.jsonEnvelope;
 
             if(jsonEnvelope === {}) {
@@ -116,7 +119,7 @@
             return model.call([pathKeys.root, this.dataIndex, dataObjectTypes, "create"], [jsonEnvelope], [], []);
         },
         _callUpdate: function(model, request) {
-            var jsonEnvelopeCreateResponse = this._createJsonEnvelope(request);
+            var jsonEnvelopeCreateResponse = this._createJsonEnvelope(request, model, "update");
             var jsonEnvelope = jsonEnvelopeCreateResponse.jsonEnvelope;
 
             if(jsonEnvelope === {}) {
@@ -137,7 +140,29 @@
 
             return model.call([pathKeys.root, this.dataIndex, dataObjectTypes, pathKeys.byIds, dataObjectIds, "update"], [jsonEnvelope], [], []);
         },
-        _createJsonEnvelope: function(request) {
+        _callDelete: function(model, request) {
+            var jsonEnvelopeCreateResponse = this._createJsonEnvelope(request, model, "delete");
+            var jsonEnvelope = jsonEnvelopeCreateResponse.jsonEnvelope;
+
+            if(jsonEnvelope === {}) {
+                return;
+            }
+
+            var pathKeys = this._pathKeys;
+            var dataIndex = this.dataIndex;
+            var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
+
+            var dataObjectIds = jsonEnvelopeCreateResponse.dataObjectIds;
+            var dataObjectTypes = jsonEnvelopeCreateResponse.dataObjectTypes;
+
+            if(this.verbose) {
+                console.log('dataobject json envelope', jsonEnvelope);
+                console.log('model cache before save call', model.getCache());
+            }
+
+            return model.call([pathKeys.root, this.dataIndex, dataObjectTypes, pathKeys.byIds, dataObjectIds, "delete"], [jsonEnvelope], [], []);
+        },
+        _createJsonEnvelope: function(request, model, operation) {
             var reqData = request.requestData;
             var pathKeys = this._pathKeys;
             var dataIndex = this.dataIndex;
@@ -185,6 +210,13 @@
                 var dataObjectId = dataObject.id;
                 var dataObjectType = dataObject.type;
 
+                if(operation == 'update') {
+                    //Check whether relationships process is requested...
+                    //If yes, populate original relIds in order to return back all the relIds from nodeJs to solve falcor issue
+                    var basePath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds, dataObjectId, 'data', 'contexts'];
+                    this._prepareOriginalRelIdsForRelationshipsSave(dataObject, model, basePath)
+                }
+
                 var dataObjectTypeJson = SharedUtils.DataObjectFalcorUtil.getOrCreate(dataObjectsBaseJson, dataObjectType, {});
                 dataObjectsByIdJson = SharedUtils.DataObjectFalcorUtil.getOrCreate(dataObjectTypeJson, pathKeys.byIds, {});
                 dataObjectsByIdJson[dataObjectId] = dataObject; //SharedUtils.DataObjectFalcorUtil.boxDataObject(dataObject, SharedUtils.DataObjectFalcorUtil.boxJsonObject);
@@ -197,6 +229,59 @@
             }
 
             return { 'jsonEnvelope': jsonEnvelope, 'dataObjectIds': dataObjectIds, 'dataObjectTypes': dataObjectTypes };
+        },
+        _prepareOriginalRelIdsForRelationshipsSave: function (dataObject, model, basePath) {
+            if(dataObject.data && dataObject.data.relationships) {
+                var relTypeKeys = [];
+                var rels = dataObject.data.relationships;
+                if (!_.isEmpty(rels)) {
+                    relTypeKeys = Object.keys(rels);
+                    var originalRelIds = rels['originalRelIds'] = {};
+                    var utils =SharedUtils.DataObjectFalcorUtil;
+
+                    var contextPath;
+                    var contexts = dataObject.data.contexts;
+                    if(contexts && contexts.length > 0) {
+                        //TODO:: Prepare path for the requested context...
+                        //Currently it is not implemented hence considering self context key
+                        var selfCtxKey = utils.createSelfCtxKey();
+                        contextPath = utils.mergePathSets(basePath, selfCtxKey);
+
+                    }
+                    else {
+                        var selfCtxKey = utils.createSelfCtxKey();
+                        contextPath = utils.mergePathSets(basePath, selfCtxKey);
+                    }
+
+                    for (let relTypeKey of relTypeKeys) {
+                        var relTypeData = rels[relTypeKey];
+                        var relIdsPath = utils.mergePathSets(contextPath, ['relationships', relTypeKey, 'relIds']);
+                        var relIdsJson = model.getCache(relIdsPath);    //get original rel ids from local cache
+
+                        if(relIdsJson) {
+                            var originalRelIdsForType;
+                            var pathObject = relIdsJson;
+
+                            //Walk through relIdsJson and get originalRelIds
+                            for(let pathItem of relIdsPath) {
+                                pathObject = pathObject[pathItem];
+
+                                if(!pathObject) {
+                                    break;
+                                }
+
+                                if(pathItem == 'relIds') {
+                                    originalRelIdsForType = pathObject.value;
+                                }
+                            }
+
+                            if(originalRelIdsForType) {
+                                originalRelIds[relTypeKey] = originalRelIdsForType;
+                            }
+                        }
+                    }
+                }
+            }
         },
         _getDataObjectPathKeys: function() {
             return SharedUtils.DataObjectFalcorUtil.getPathKeys();
