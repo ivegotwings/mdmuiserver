@@ -33,7 +33,7 @@ SERVICE_CONFIG = {
             }
         },
         "entitymodelservice/getcoalesce": {
-            "url": "/entitymodelservice/getcoalesce",
+            "url": "/entityappmodelservice/getcoalesce",
             "mode": "online",
             "offlineSettings": {
                 "operation": "get",
