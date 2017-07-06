@@ -16,8 +16,8 @@ var EventDataRouter = function (app) {
         res.status(200).send(response);
     });
 
-    app.post('/data/eventservice/getdetail', async function (req, res) {
-        var response = await eventService.getDetail(req);
+    app.post('/data/eventservice/getTaskdetails', async function (req, res) {
+        var response = await eventService.getTaskDetails(req);
         //console.log('prepare upload response:', JSON.stringify(response, null, 2));
         res.status(200).send(response);
     });
