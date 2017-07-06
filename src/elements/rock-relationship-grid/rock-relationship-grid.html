@@ -344,6 +344,7 @@ The following JSON object is a sample of data which binds the grid.
             <rock-grid id$="[[relationship]]" data-source-id="datasource_[[relationship]]" config="{{_getRelationshipGridConfig(relationship)}}"
               attribute-models="[[_getRelationshipAttributeModels(relationship)]]" page-size="10"></rock-grid>
             <bedrock-pubsub target-id="[[relationship]]" event-name="on-grid-msg-dialog-ok" handler="_onDialogOk"></bedrock-pubsub>
+            <bedrock-pubsub event-name="delete-item" handler="_onDeleteEntityRelationshipAction" target-id="[[relationship]]"></bedrock-pubsub>
             <div id="buttonContainer" align="center" hidden>
               <pebble-button id="cancel" class="button" button-text="Cancel" on-tap="_revertAll" elevation=1 raised></pebble-button>
               <pebble-button id="save" class="focus" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
@@ -361,6 +362,8 @@ The following JSON object is a sample of data which binds the grid.
       <liquid-rest id="entityGovernService" url="/data/pass-through/entitygovernservice/validate" method="POST" request-data={{_entityGovernRequest}}
         on-liquid-response="_onEntityGovernResponse" on-liquid-error="_onEntityGovernFailed">
       </liquid-rest>
+      <liquid-entity-data-save id="entityRelationsSaveService" request-data="[[_saveRelationsRequest]]" last-response="{{_saveRelationsResponse}}" on-response="_onRelationsSaveResponse" on-error="_onRelationsSaveError">
+        </liquid-entity-data-save>
       <pebble-dialog id="errorsDialog" dialog-title="Errors on page">
         <p>Found below errors in entity details: </p>
         <ul>
@@ -537,6 +540,16 @@ The following JSON object is a sample of data which binds the grid.
           _isMessageAvailable: {
             type: Boolean,
             value: false
+          },
+          _entityRelations: {
+              type: Object,
+              value: function () {
+                return {};
+              }
+          },
+          _deleteItemRelationshipType: {
+              type: String,
+              value: null
           }
         },
           /**
@@ -730,7 +743,7 @@ The following JSON object is a sample of data which binds the grid.
 
                   var relationships = EntityHelper.getRelationshipsBasedOnContext(entity, this.getFirstDataContext(), isSelfContext);
                   if (!_.isEmpty(relationships)) {
-                    var relatedEntities = relationships[currentRel];
+                    this._entityRelations[currentRel] = relationships[currentRel];
 
                     if (this.dataObject) {
                       if (!this.dataObject[currentRel]) {
@@ -738,7 +751,7 @@ The following JSON object is a sample of data which binds the grid.
                       }
                     }
 
-                    relatedEntities.forEach(function (relItem) {
+                    this._entityRelations[currentRel].forEach(function (relItem) {
                       if (relItem) {
                         var record = {};
                         if (relItem.attributes) {
@@ -980,7 +993,7 @@ The following JSON object is a sample of data which binds the grid.
               var relAndRelEntityAttributes = this._getAttributeList(currentRel);
               var valueContext = this.getFirstValueContext();
 
-              if (!_.isEmpty(modifiedRelData)) {
+              if (!_.isEmpty(modifiedRelData)) {                
                 modifiedRelData.forEach(function (modItem) {
                   var key = "";
                   var relObject;
@@ -1299,7 +1312,75 @@ The following JSON object is a sample of data which binds the grid.
             titlePattern = addRelLovConfig.titlePattern;
           }
           return titlePattern;
-        }
+        },
+        _onDeleteEntityRelationshipAction: function (e, detail) {
+            var updateRequest = DataRequestHelper.generateRelationshipProcessRequest(this.contextData);
+            this._deleteItemRelationshipType = this.relationshipType;
+
+            if (!this._entityRelations || _.isEmpty(this._entityRelations)) {
+              return;
+            }
+
+            var relDelItem;
+            var relationsByType = this._entityRelations[this._deleteItemRelationshipType];
+            //RelationshipType available when specific RelationshipType is selected in tab
+            if (relationsByType) {
+              if (relationsByType.length > 0) {                
+                  for (var i = 0; i < relationsByType.length; i++) {
+                    if (relationsByType[i].relTo.id == detail.id) {
+                      relDelItem = relationsByType[i];
+                      break;
+                  }
+                }
+              }
+            }
+            else { //When root tab is selected
+              var isRelFound = false;
+              for (var key in this._entityRelations) {
+                this._deleteItemRelationshipType = key;
+                relationsByType = this._entityRelations[this._deleteItemRelationshipType];
+                if (relationsByType.length > 0) {                  
+                  for (var i = 0; i < relationsByType.length; i++) {
+                    if (relationsByType[i].relTo.id == detail.id) {
+                      relDelItem = relationsByType[i];                      
+                      isRelFound = true;
+                      break;
+                    }
+                  }
+                }
+
+                if (isRelFound) {
+                  break;
+                }
+              }
+            }
+
+            if (relDelItem && !_.isEmpty(relDelItem) && this._deleteItemRelationshipType) {
+                relDelItem.action = "delete";
+                updateRequest.data.relationships[this._deleteItemRelationshipType] = [relDelItem];
+
+                this._saveRelationsRequest = {
+                  "entities": [updateRequest]
+                };
+
+                var entitySaveLiquid = this.$$("#entityRelationsSaveService");
+                if (entitySaveLiquid) {
+                  entitySaveLiquid.operation = "update";
+                  entitySaveLiquid.generateRequest();
+                }
+              }                       
+          },
+          _onRelationsSaveResponse: function (e, detail) {
+            var relGrid = this.$$('rock-grid[id=' + this._deleteItemRelationshipType + ']');
+            
+            if(relGrid) {
+              relGrid.reRenderGrid();
+              this._deleteItemRelationshipType = null; //reset
+            }
+          },
+          _onRelationsSaveError: function (e, detail) {
+            this.showErrorToast("Unable to delete the entity relationship, please contact administrator.");
+          }
       });
     })();
   </script>
