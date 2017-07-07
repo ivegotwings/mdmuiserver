@@ -1,8 +1,11 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html" />
 
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html" />
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html" />
 
 <link rel="import" href="../pebble-button/pebble-button.html" />
+
+<link rel="import" href="../pebble-graph-pie/pebble-graph-pie.html" />
 
 <dom-module id="rock-task-summary">
     <template>
@@ -94,10 +97,11 @@
                     <div class="attribute-value trim" title="[[taskDetails.submittedBy]]">[[taskDetails.submittedBy]]</div>
                 </div>
             </div>
-            <div class="col-5">
-                <pebble-button class="btn btn-primary m-r-5" button-text="In Progress" on-tap="_onInProgressClick"></pebble-button>
-                <pebble-button class="btn btn-primary m-r-5" button-text="Completed" on-tap="_onCompletedClick"></pebble-button>
-                <pebble-button class="btn btn-primary m-r-5" button-text="Errors" on-tap="_onErrorsClick"></pebble-button>
+            <div class="col-5 text-center">
+                <template is="dom-if" if="[[showChart]]">
+                    <pebble-graph-pie id="processingDetails" data="[[chartData]]"></pebble-graph-pie>
+                    <bedrock-pubsub event-name="on-Tap" handler="_onTap" target-id="processingDetails"></bedrock-pubsub>
+                </template>
             </div>
         </div>
     </template>
@@ -113,7 +117,18 @@
                         type: Object,
                         value: function () {
                             return {};
+                        },
+                        observer: '_onTaskDetailsChanged'
+                    },
+                    chartData: {
+                        type: Array,
+                        value: function () {
+                            return [];
                         }
+                    },
+                    showChart: {
+                        type: Boolean,
+                        value: false
                     }
                 },
 
@@ -121,16 +136,47 @@
                     RUFBehaviors.UIBehavior,
                 ],
 
-                _onInProgressClick: function () {
-                    this.fireBedrockEvent("show-inprogress");
+                _onTaskDetailsChanged: function () {
+                    if (this.taskDetails && this.taskDetails.taskStats) {
+                        var taskStats = this.taskDetails.taskStats;
+                        var index = 0;
+                        var chartData = [];
+                        var self = this;
+
+                        Object.keys(taskStats).map(function (key) {
+                            var taskCompletedInPercentage = parseInt(taskStats[key].replace(/\%$/, ''));
+
+                            if (taskCompletedInPercentage > 0) {
+                                if (key == "processing" || key == "error" || key == "success") {
+                                    var taskStat = {
+                                        "id": ++index,
+                                        "key": key,
+                                        "value": taskCompletedInPercentage.toString(),
+                                        "unit": "%"
+                                    }
+
+                                    chartData.push(taskStat);
+                                }
+                            }
+                        });
+
+                        this.set("chartData", chartData);
+                    }
                 },
 
-                _onCompletedClick: function () {
-                    this.fireBedrockEvent("show-completed");
-                },
+                _onTap: function (e) {
+                    console.log('selection changed ', JSON.stringify(e));
+                    if(e.detail.data.key === "processing") {
+                        this.fireBedrockEvent("show-inprogress");
+                    }
 
-                _onErrorsClick: function () {
-                    this.fireBedrockEvent("show-errors");
+                    if(e.detail.data.key === "completed") {
+                        this.fireBedrockEvent("show-completed");
+                    }
+
+                    if(e.detail.data.key === "error") {
+                        this.fireBedrockEvent("show-errors");
+                    }
                 }
             });
         })();
