@@ -166,15 +166,18 @@ Eventservice.prototype = {
             var taskId = request.body.taskId;
             //console.log('Get details for ', taskId);
 
-            //Generate event get request...
-            var eventsGetRequest = this._generateEventsGetReqForTaskDetails(taskId);
+            //Get Batch Events to get basic information of reuested tasks...
+            var attributeNames = ["fileName", "eventType", "eventSubType", "recordCount", "createdOn", "userId", "profileType", "taskType", "message"];
+            var eventTypeFilterString = "BATCH_COLLECT_ENTITY_IMPORT BATCH_TRANSFORM_ENTITY_IMPORT BATCH_TRANSFORM_ENTITY_EXPORT BATCH_EXTRACT";
+            var eventSubTypeFilterString = "";
+            var eventsGetRequest = this._generateEventsGetReq(taskId, attributeNames, eventTypeFilterString, eventSubTypeFilterString, false);
             
-            //console.log('event get request to RDF', JSON.stringify(eventsGetRequest));
+            //console.log('Batch events get request to RDF', JSON.stringify(eventsGetRequest));
             var eventServiceGetUrl = 'eventservice/get';
-            var res = await this.post(eventServiceGetUrl, eventsGetRequest);
+            var batchEventsGetRes = await this.post(eventServiceGetUrl, eventsGetRequest);
 
-            if(res && res.response && res.response.events && res.response.events.length > 0) {
-                var events = res.response.events;
+            if(batchEventsGetRes && batchEventsGetRes.response && batchEventsGetRes.response.events && batchEventsGetRes.response.events.length > 0) {
+                var events = batchEventsGetRes.response.events;
                 var currentEventRecordIdx = 0;
                 var highOrderEvent = undefined;
 
@@ -229,42 +232,97 @@ Eventservice.prototype = {
                     }
 
                     var taskStats = response["taskStats"] = {};
-                    taskStats.error = "0%";
-                    taskStats.processing = "0%";
-                    taskStats.success = "0%"; 
-                    taskStats.createRecords = "0%";
-                    taskStats.updateRecords = "0%";
-                    taskStats.deleteRecords = "0%";
+                    taskStats.error = "N/A";
+                    taskStats.processing = "N/A";
+                    taskStats.success = "N/A"; 
+                    taskStats.createRecords = "N/A";
+                    taskStats.updateRecords = "N/A";
+                    taskStats.deleteRecords = "N/A";
 
                     //Get in progress requests stats in RDF based on the status of highOrderEvent
                     if(eventSubType == "PROCESSING_COMPLETED") {
+
                         if(totalRecords == "N/A" || totalRecords == "0") {
                             taskStats.success = "100%";
+                            taskStats.error = "0%";
+                            taskStats.processing = "0%";
                             response.taskStatus = "Completed";
                         }
                         else {
-                            //Generate request tracking get request...
-                            var requestTrackingGetRequest = this._generateRequestTrackingGetReqForTaskDetails(taskId);
 
-                            //console.log('Request tracking get request to RDF', JSON.stringify(requestTrackingGetRequest));
-                            var requestTrackingGetUrl = 'requesttrackingservice/get';
-                            var reqTrackingRes = await this.post(requestTrackingGetUrl, requestTrackingGetRequest);
+                            //Get errored record events within COP/RSConnect for a requested task 
+                            var preProcessErroredRecordsCount = 0;
+                            var lastErroredRecordEvent;
+                            var attributeNames = [];
+                            var eventTypeFilterString = "RECORD_TRANSFORM_ENTITY_IMPORT RECORD_PUBLISH_ENTITY_IMPORT RECORD_LOAD";
+                            var eventSubTypeFilterString = "PROCESSING_COMPLETE_WITH_WARNING PROCESSING_ERROR";
+                            var eventsGetRequest = this._generateEventsGetReq(taskId, attributeNames, eventTypeFilterString, eventSubTypeFilterString, true);
 
-                            if (reqTrackingRes && reqTrackingRes.response && reqTrackingRes.response.requestObject && reqTrackingRes.response.requestObject.length > 0) {
-                                _populateTaskDetailsBasedOnReqTrackingResponse(response, reqTrackingRes);
+                            //console.log('Record events get request to RDF', JSON.stringify(eventsGetRequest));
+                            var recordEventsGetRes = await this.post(eventServiceGetUrl, eventsGetRequest);
+                            if (recordEventsGetRes && recordEventsGetRes.response) {
+                                preProcessErroredRecordsCount = recordEventsGetRes.response.totalRecords;
+
+                                if(recordEventsGetRes.response.events && recordEventsGetRes.response.events.length > 0) {
+                                    lastErroredRecordEvent = recordEventsGetRes.response.events[0];
+                                }
+                            }
+
+                            if(totalRecords == preProcessErroredRecordsCount) {
+                                //All records errored out...
+                                taskStats.error = "100%";
+                                taskStats.processing = "0%";
+                                taskStats.success = "0%"; 
+                                response.taskStatus = "Errored"; 
+
+                                //End time is the time when last errored record event has been created...
+                                if(lastErroredRecordEvent && lastErroredRecordEvent.properties) {
+                                    var endTime = lastErroredRecordEvent.properties.createdDate;
+
+                                    if (endTime) {
+                                        response.endTime = this._formatDate(new Date(endTime));
+                                    }
+                                }
                             }
                             else {
-                                taskStats.processing = "100%";
-                                response.taskStatus = "Processing";
+                                //Generate request tracking get request...
+                                var requestTrackingGetRequest = this._generateRequestTrackingGetReqForTaskDetails(taskId);
+
+                                //console.log('Request tracking get request to RDF', JSON.stringify(requestTrackingGetRequest));
+                                var requestTrackingGetUrl = 'requesttrackingservice/get';
+                                var reqTrackingRes = await this.post(requestTrackingGetUrl, requestTrackingGetRequest);
+
+                                if (reqTrackingRes && reqTrackingRes.response && reqTrackingRes.response.requestObject && reqTrackingRes.response.requestObject.length > 0) {
+                                    _populateTaskDetailsBasedOnReqTrackingResponse(response, reqTrackingRes, preProcessErroredRecordsCount);
+                                }
+                                else {
+                                    taskStats.processing = "100%";
+                                    taskStats.success = "0%";
+                                    taskStats.error = "0%";
+                                    response.taskStatus = "Processing";
+                                }
                             }
                         }
                     }
-                    else if(eventSubType == "PROCESSING_ERROR") {
+                    else if(eventSubType == "PROCESSING_ERROR" || eventSubType == "PROCESSING_COMPLETE_ERROR") {
                         taskStats.error = "100%";
+                        taskStats.processing = "0%";
+                        taskStats.success = "0%"; 
                         response.taskStatus = "Errored"; 
+
+                        //End time is the time when error event has been created...
+                        if (highOrderEvent && highOrderEvent.properties) {
+                            var endTime = highOrderEvent.properties.createdDate;
+
+                            if (endTime) {
+                                response.endTime = this._formatDate(new Date(endTime));
+                            }
+                        }
                     }
                     else {
                         taskStats.processing = "100%";
+                        taskStats.success = "0%";
+                        taskStats.error = "0%";
                         response.taskStatus = "Processing"; 
                     }
                 }
@@ -292,14 +350,17 @@ Eventservice.prototype = {
 
         return response;
     },
-    _generateEventsGetReqForTaskDetails: function (taskId) {
+    _generateEventsGetReq: function (taskId, attributeNames, eventTypesFilterString, eventSubTypesFilterString, isRecordCountGet) {
         var types = ["externalevent"];
-        var attributeNames = ["fileName", "eventType", "eventSubType", "recordCount", "createdOn", "userId", "profileType", "taskType", "message"];
-        var req = this._getRequestJson(types, attributeNames);
-        req.params.query.valueContexts = [{
-                        "source": "internal",
-                        "locale": "en-US"
-                    }];
+        var req = this._getRequestJson(types);
+
+        if(attributeNames && attributeNames.length > 0) {
+            req.params.fields.attributes = attributeNames;
+            req.params.query.valueContexts = [{
+                            "source": "internal",
+                            "locale": "en-US"
+                        }];
+        }
 
         var attributesCriteria = [];
         var taskIdCriterion = {
@@ -307,13 +368,24 @@ Eventservice.prototype = {
                 "exact": taskId
             }
         };
-        var eventTypeCriterion = {
-            "eventType": {
-                "contains": "BATCH_COLLECT_ENTITY_IMPORT BATCH_TRANSFORM_ENTITY_IMPORT BATCH_TRANSFORM_ENTITY_EXPORT BATCH_EXTRACT"
-            }
-        };
         attributesCriteria.push(taskIdCriterion);
-        attributesCriteria.push(eventTypeCriterion);
+
+        if (eventTypesFilterString && eventTypesFilterString.length > 0) {
+            var eventTypeCriterion = {
+                "eventType": {
+                    "contains": eventTypesFilterString
+                }
+            };
+            attributesCriteria.push(eventTypeCriterion);
+        }
+         if (eventSubTypesFilterString && eventSubTypesFilterString.length > 0) {
+            var eventSubTypeCriterion = {
+                "eventSubType": {
+                    "contains": eventSubTypesFilterString
+                }
+            };
+            attributesCriteria.push(eventSubTypeCriterion);
+        }
         req.params.query.filters.attributesCriterion = attributesCriteria;
         
         req.params.sort = {
@@ -323,12 +395,20 @@ Eventservice.prototype = {
             }]
         };
 
+        if(isRecordCountGet) {
+            req.params.options = {
+                "maxRecords": 1
+            }
+        }
+
         return req;
     },
     _generateRequestTrackingGetReqForTaskDetails: function (taskId) {
         var types = ["requestObject"];
+        var req = this._getRequestJson(types);
+
         var attributeNames = ["entityId", "entityType", "entityAction", "requestStatus"];
-        var req = this._getRequestJson(types, attributeNames);
+        req.params.fields.attributes = attributeNames;
         req.params.query.valueContexts = [{
                         "source": "internal",
                         "locale": "en-US"
@@ -355,9 +435,16 @@ Eventservice.prototype = {
         attributesCriteria.push(entityActionCriterion);
         req.params.query.filters.attributesCriterion = attributesCriteria;
 
+        //  req.params.sort = {
+        //     "properties": [{
+        //         "createdDate": "_ASC",
+        //         "sortType": "_DATETIME"
+        //     }]
+        // };
+
         return req;
     },
-    _getRequestJson: function (types, attributeNames) {
+    _getRequestJson: function (types) {
         var req = {
                 "params": {
                     "query": {
@@ -368,15 +455,14 @@ Eventservice.prototype = {
                     "fields": {
                         "ctxTypes": [
                             "properties"
-                        ],
-                        "attributes": attributeNames
+                        ]
                     }
                 }
             };
 
         return req;
     },
-    _populateTaskDetailsBasedOnReqTrackingResponse: function (taskDetails, reqTrackingResponse) {
+    _populateTaskDetailsBasedOnReqTrackingResponse: function (taskDetails, reqTrackingResponse, preProcessErroredRecordsCount) {
         var requestObjects = reqTrackingResponse.response.requestObject;
 
         var successCount = 0;
@@ -429,17 +515,17 @@ Eventservice.prototype = {
             response.taskStats.error = "100%";
         }
         else {
-            if (totalRecordCount == successCount + errorCount) {
+            if (totalRecordCount == successCount + errorCount + preProcessErroredRecordsCount) {
                 response.taskStatus = "Completed With Errors";
             }
             else {
                 response.taskStatus = "Processing"
             }
 
-            var inProgressCount = totalRecordCount - (successCount + errorCount);
+            var inProgressCount = totalRecordCount - (successCount + errorCount + preProcessErroredRecordsCount);
 
             var successPercentage = (successCount * 100) / totalRecordCount;
-            var errorPercentage = (errorCount * 100) / totalRecordCount;
+            var errorPercentage = ((errorCount + preProcessErroredRecordsCount) * 100) / totalRecordCount;
             var inProgressPercentage = (inProgressCount * 100) / totalRecordCount;
 
             response.taskStats.success = parseInt(successPercentage) + "%";
@@ -454,6 +540,19 @@ Eventservice.prototype = {
         response.taskStats.createRecords = parseInt(createPercentage) + "%";
         response.taskStats.updateRecords = parseInt(updatePercentage) + "%";
         response.taskStats.deleteRecords = parseInt(deletePercentage) + "%";
+
+        //TODO:: Commenting end time calculation as requestObjects do not have created date...
+        // if(response.taskStatus != "Processing") {
+        //     //Task has been completed... End time is the time of last request object creation...
+        //     var lastCreatedReqObj = requestObjects[requestObjects.length - 1];
+        //     if (lastCreatedReqObj && lastCreatedReqObj.properties) {
+        //         var endTime = lastCreatedReqObj.properties.createdDate;
+
+        //         if (endTime) {
+        //             response.endTime = this._formatDate(new Date(endTime));
+        //         }
+        //     }
+        // }
 
         response.successEntities = {
             "ids": successObjIds,
