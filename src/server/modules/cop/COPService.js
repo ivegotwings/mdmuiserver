@@ -139,6 +139,21 @@ COPService.prototype = {
 
         //return response;
     },
+    downloadDataJob: async function (request, response) {
+        var downloadDataURL = "copservice/downloadDataJob";
+        var timeStamp = Date.now();
+        var parsedRequest = JSON.parse(request.body.data);
+        var fileName = parsedRequest.fileName + '-' + timeStamp;
+
+        //console.log('downloadDataRequest: ', JSON.stringify(request.body, null, 2));
+        var copResponse = await this.post(downloadDataURL, parsedRequest);
+
+        if (copResponse && copResponse.response && copResponse.response.status.toLowerCase() == "success") {
+            this._downloadFileContent(copResponse.response, fileName, request, response);
+        }
+
+        //return response;
+    },
     publish: async function (request) {
         //console.log('COPService.publish url ', request.url);
         var copURL = "copservice/publish";
