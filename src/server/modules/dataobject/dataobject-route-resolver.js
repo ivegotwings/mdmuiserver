@@ -228,6 +228,7 @@ function createGetRequest(reqData) {
 
     if (reqData.dataIndex == "config" && contexts && contexts.length > 0) {
         filters.excludeNonContextual = true;
+        fields.attributes = ['_ALL'];
     }
 
     if (!isEmpty(filters)) {

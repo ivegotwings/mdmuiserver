@@ -35,7 +35,7 @@ This command would create local folder for the repository. Make sure you are in 
     - platformsvc-authenticationsvc
     - var
 2. Open \var\lib\rs\dataplatform\config\dataplatformpodconfig.json file and edit nginx section as below: 
-Provide node name as local system name. Example: <<machine-name>>.riversand.com. This has to be FQDN (Fully qualified domain name) where domain is riversand.com.  DO NOT USE localhost.
+Provide node name as local system name. Example: <<MACHINE-NAME>>.riversand.com. This has to be FQDN (Fully qualified domain name) where domain is riversand.com.  DO NOT USE localhost.
 
   ```
   "nginx": 
@@ -45,19 +45,19 @@ Provide node name as local system name. Example: <<machine-name>>.riversand.com.
          "httpPort": 80,
          "nodes": 
          [
-            "machinename.riversand.com"
+            "MACHINE-NAME.riversand.com"
          ]
       }
    }, 
    
    ```
    
- 3. In ui-platform codebase, update your **socket.io** config.js files to update as  https://<<machine-name>>.riversand.com. This is required to make socket.io work. Here is sample:  
+ 3. In ui-platform codebase, update your **socket.io** config.js files to update as  https://<<MACHINE-NAME>>.riversand.com. This is required to make socket.io work. Here is sample:  
  
     ```
     {
         "notificationManager" : {
-            "url": "https://machinename.riversand.com"
+            "url": "https://MACHINE-NAME.riversand.com"
         }
      },
      
@@ -83,7 +83,7 @@ Provide node name as local system name. Example: <<machine-name>>.riversand.com.
      
 5. Run your normal ui-platform using “npm run app” in ui-platform folder.
 
-6. With this, when you open your browser with https://machinename.riversand.com it would redirect you to ask for auth0 authentication and further redirect you to ui app.
+6. With this, when you open your browser with https://MACHINE-NAME.riversand.com it would redirect you to ask for auth0 authentication and further redirect you to ui app.
 
 ## Handy Commands for nginx:
 
@@ -241,11 +241,11 @@ Below steps are needed only for the first time when you setup your OSX dev machi
 
 4. Test DNS using the following:
 
-    `dig machinename.riversand.com @127.0.0.1`
+    `dig MACHINE-NAME.riversand.com @127.0.0.1`
 
 5. Confirm A record has been created. You should get a response of:
 
-    `machinename.riversand.com. 0	IN	A	127.0.0.1`
+    `MACHINE-NAME.riversand.com. 0	IN	A	127.0.0.1`
 
 ## Setup DNS Server
 
@@ -269,7 +269,7 @@ Below steps are needed only for the first time when you setup your OSX dev machi
 
 7. Under the Search Domains pane select the + icon and add:
 
-   •  machine-name.riversand.com
+   •  MACHINE-NAME.riversand.com
 
 8. Select 'OK' on the bottom right of the Network pane to save these settings.
 
@@ -296,10 +296,10 @@ Below steps are needed only for the first time when you setup your OSX dev machi
    • Copy 'rs' folder from AuthSetup-Package into OSX **root** '/var/lib' directory
 
 4. Open \var\lib\rs\dataplatform\config\dataplatformpodconfig.json file and edit nginx section as below: 
-   Provide node name as local system name. Example: machine-name.riversand.com
+   Provide node name as local system name. Example: MACHINE-NAME.riversand.com
 
-    • To find your Mac's machine-name, choose the apple icon from the top menu > “System Prefrences” > "sharing"
-    • At the top of the pane you will see "Computers on your local network can access your computer at: machine-name.riversand.com"
+    • To find your Mac's MACHINE-NAME, choose the apple icon from the top menu > “System Prefrences” > "sharing"
+    • At the top of the pane you will see "Computers on your local network can access your computer at: MACHINE-NAME.riversand.com"
 
   ```
   "nginx": 
@@ -309,19 +309,19 @@ Below steps are needed only for the first time when you setup your OSX dev machi
          "httpPort": 80,
          "nodes": 
          [
-            "machinename.riversand.com"
+            "MACHINE-NAME.riversand.com"
          ]
       }
    }, 
    
    ```
    
- 5. In ui-platform codebase, update your **socket.io** config.js files to update as  https://machine-name.local. This is required to make socket.io work. Here is sample:  
+ 5. In ui-platform codebase, update your **socket.io** config.js files to update as  https://MACHINE-NAME.local. This is required to make socket.io work. Here is sample:  
  
     ```
     {
         "notificationManager" : {
-            "url": "https://machinename.local"
+            "url": "https://MACHINE-NAME.local"
         }
      },
      
@@ -371,7 +371,7 @@ Below steps are needed only for the first time when you setup your OSX dev machi
      
 6. Run your normal ui-platform using `npm run app` in ui-platform folder.
 
-7. With this, when you open your browser with https://machinename.riversand.com it would redirect you to ask for auth0 authentication and further redirect you to ui app.
+7. With this, when you open your browser with https://MACHINE-NAME.riversand.com it would redirect you to ask for auth0 authentication and further redirect you to ui app.
 
 
 
