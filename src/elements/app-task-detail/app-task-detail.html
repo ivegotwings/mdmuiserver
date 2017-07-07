@@ -4,6 +4,7 @@
 <link rel="import" href="../bedrock-app-behavior/bedrock-app-behavior.html" />
 
 <link rel="import" href="../liquid-config-aggregate-get/liquid-config-aggregate-get.html">
+<link rel="import" href="../liquid-rest/liquid-rest.html" />
 
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html" />
 <link rel="import" href="../pebble-accordion/pebble-accordion.html" />
@@ -14,7 +15,7 @@
 <link rel="import" href="../rock-dimension-selector/rock-dimension-selector.html" />
 <link rel="import" href="../rock-layout/rock-header/rock-header.html" />
 <link rel="import" href="../rock-task-summary/rock-task-summary.html" />
-<link rel="import" href="../rock-job-entity-detail-grid/rock-job-entity-detail-grid.html" />
+<link rel="import" href="../rock-task-error-grid/rock-task-error-grid.html" />
 <link rel="import" href="../rock-entity-search-discovery/rock-entity-search-discovery.html" />
 
 <dom-module id="app-task-detail">
@@ -33,6 +34,8 @@
         <rock-layout>
             <liquid-config-aggregate-get id="getEntityDiscoveryAppConfig" operation="getbyids" request-id="req1" app-name="app-task-detail"
                 context-data="[[contextData]]" on-config-get-response="_onApplicationConfigReceived"></liquid-config-aggregate-get>
+            <liquid-rest id="taskDetailsGet" url="/data/eventservice/getTaskDetails" method="POST" request-data={{_taskDetailSummaryGetRequest}}
+                on-liquid-response="_onTaskDetailSummaryGetResponse" on-liquid-error="_onTaskDetailSummaryGetError"></liquid-rest>
             <rock-titlebar icon="pebble-md-icons:Advancesearch" main-title="App Task Details" closable minimizable>
                 <div id="dimensionContainer" align="right">
                     <rock-dimension-selector id="dimensionSelector" config-data="[[getConfig('rock-dimension-selector')]]" all-multi-select></rock-dimension-selector>
@@ -41,24 +44,26 @@
             <div class="flex">
                 <div class="summary-container">
                     <pebble-accordion header-text="Summary & Filters" default-icon="chevron-right" open-icon="expand-more">
-                        <rock-task-summary id="rockTaskSummary" show-completed></rock-task-summary>
+                        <rock-task-summary id="rockTaskSummary" task-details="[[_taskDetails]]"></rock-task-summary>
                     </pebble-accordion>
                 </div>
                 <div class="p-l-20 p-r-20">
                     <pebble-horizontal-divider></pebble-horizontal-divider>
                 </div>
-                <template is="dom-if" if="[[_isDefault(_showInProgressTasks, applicationConfig)]]">
-                    <div class="p-l-20 p-r-20">In Progress Tasks</div>
+                <!--<template is="dom-if" if="[[_isDefault(_showInProgressTasks, applicationConfig)]]">-->
+                <template is="dom-if" if="[[_showInProgressTasks]]">
+                    <!--<div class="p-l-20 p-r-20">Content Development in Progress</div>-->
                 </template>
-                <template is="dom-if" if="[[_isDefault(_showCompletedTasks, applicationConfig)]]">
+                <template is="dom-if" if="[[_showCompletedTasks]]">
                     <div class="flex">
-                        <rock-entity-search-discovery id="entitySearchDiscoveryGrid" context-data="[[contextData]]" task-id="[[taskId]]" entity-id-list="[[entityIdList]]" entity-type-list="[[entityTypeList]]"></rock-entity-search-discovery>
+                        <rock-entity-search-discovery id="entitySearchDiscoveryGrid" context-data="[[contextData]]" entity-id-list="[[entityIdList]]"
+                            entity-type-list="[[entityTypeList]]"></rock-entity-search-discovery>
                     </div>
                 </template>
-                <template is="dom-if" if="[[_isDefault(_showErroredTasks, applicationConfig)]]">
+                <template is="dom-if" if="[[_showErroredTasks]]">
                     <div class="flex">
-                        <rock-job-entity-detail-grid id="jobEntityDetailGrid" task-id="[[taskId]]" context-data="[[contextData]]" grid-config="[[getConfig('rock-job-entity-detail-grid')]]">
-                        </rock-job-entity-detail-grid>
+                        <rock-task-error-grid id="jobEntityDetailGrid" task-id="[[taskId]]" context-data="[[contextData]]" grid-config="[[getConfig('rock-task-error-grid')]]">
+                        </rock-task-error-grid>
                     </div>
                 </template>
                 <template is="dom-if" if="[[_showDefaultMessage]]">
@@ -81,6 +86,16 @@
                 is: "app-task-detail",
 
                 properties: {
+                    taskId: {
+                        type: String,
+                        value: ""
+                    },
+                    _taskDetails: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
                     _showInProgressTasks: {
                         type: Boolean,
                         value: false
@@ -101,6 +116,13 @@
                     RUFBehaviors.AppBehavior
                 ],
 
+                ready: function () {
+                    this.taskId = DataHelper.getParamValue("id");
+                    this._taskDetailSummaryGetRequest = {
+                        "taskId": this.taskId
+                    }
+                },
+
                 attached: function () {
                     var userContext = {
                         "role": this.roleId,
@@ -110,50 +132,62 @@
 
                     this.contextData[this.CONTEXT_TYPE_USER] = [userContext];
 
-                    if (DataHelper.getParamValue('searchtext')) {
-                        this.$$('#searchBar').query = this._searchQuery;
+                    var taskDetailsGet = this.$$("#taskDetailsGet");
+                    if (taskDetailsGet) {
+                        taskDetailsGet.generateRequest();
                     }
-                    this._searchTimeStamp = new Date().toLocaleString();
                 },
 
-                _onInProgressClick: function (e, detail) {
-                    var taskStats = detail.taskStats;
+                _onTaskDetailSummaryGetResponse: function (e, detail) {
+                    this._taskDetails = detail.response;
+                    var taskStats = this._taskDetails.taskStats;
 
-                    if (!DataHelper.isEmptyObject(taskStats)) {
-                        this._showDefaultMessage = false;
-                        this._showInProgressTasks = true;
-                        this._showCompletedTasks = false;
-                        this._showErroredTasks = false;
+                    if (taskStats) {
+                        if (taskStats.successEntites && taskStats.successEntites.ids &&
+                            taskStats.successEntites.ids.length > 0) {
+                            this._showCompletedTasks = true;
+                            return;
+                        }
+
+                        if (this._taskDetails.taskStatus.toLowerCase() == "errored") {
+                            this._showErroredTasks = true;
+                            return;
+                        }
+
+                        this._showDefaultMessage = true;
+                    }
+                },
+
+                _onTaskDetailSummaryGetError: function (e, detail) {
+                    // Show Error Toast
+                },
+
+                _onInProgressClick: function (e) {
+                    this._showDefaultMessage = true;
+                },
+
+                _onCompletedClick: function (e) {
+                    var sucessEntities = this._taskDetails.successEntities;
+
+                    if (!DataHelper.isEmptyObject(sucessEntities)) {
+                        this.entityIdList = sucessEntities.ids;
+                        this.entityTypeList = sucessEntities.types;
+                        this._showCompletedTasks = true;
+                        this._showDefaultMessage = !this._showCompletedTasks;
+                        this._showInProgressTasks = !this._showCompletedTasks;
+                        this._showErroredTasks = !this._showCompletedTasks;
                     } else {
                         this._showDefaultMessage = true;
                     }
                 },
 
-                _onCompletedClick: function (e, detail) {
-                    this.taskId = DataHelper.getParamValue("id");
-                    var taskStats = detail.taskStats;
-
+                _onErrorsClick: function (e) {
                     if (!DataHelper.isEmptyObject(taskStats)) {
-                        this.entityIdList = ["1cd6100d-74ea-4d20-8dbf-4c61ccec125c", "4abe6072-f971-4152-b768-1eaf94726f6b", "36db32ec-5af0-4f7f-b717-b9931f0f4deb"];
-                        this.entityTypeList = ["sku", "lot"];
-                        this._showDefaultMessage = false;
-                        this._showCompletedTasks = true;
-                        this._showInProgressTasks = false;
-                        this._showErroredTasks = false;
-                    } else {
-                        this._showDefaultMessage = true;
-                    }
-                },
-
-                _onErrorsClick: function (e, detail) {
-                    this.taskId = DataHelper.getParamValue("id");
-                    var taskStats = detail.taskStats;
-
-                    if (!DataHelper.isEmptyObject(taskStats)) {
-                        this._showDefaultMessage = false;
-                        this._showCompletedTasks = true;
-                        this._showInProgressTasks = false;
-                        this._showCompletedTasks = false;
+                        this.taskId = this._taskDetails.taskId;
+                        this._showErroredTasks = true;
+                        this._showDefaultMessage = !this._showErroredTasks;
+                        this._showInProgressTasks = !this._showErroredTasks;
+                        this._showCompletedTasks = !this._showErroredTasks;
                     } else {
                         this._showDefaultMessage = true;
                     }
