@@ -255,7 +255,7 @@ Eventservice.prototype = {
                             var lastErroredRecordEvent;
                             var attributeNames = [];
                             var eventTypeFilterString = "RECORD_TRANSFORM_ENTITY_IMPORT RECORD_PUBLISH_ENTITY_IMPORT RECORD_LOAD";
-                            var eventSubTypeFilterString = "PROCESSING_COMPLETE_WITH_WARNING PROCESSING_ERROR";
+                            var eventSubTypeFilterString = "PROCESSING_ERROR";
                             var eventsGetRequest = this._generateEventsGetReq(taskId, attributeNames, eventTypeFilterString, eventSubTypeFilterString, true);
 
                             //console.log('Record events get request to RDF', JSON.stringify(eventsGetRequest));
@@ -291,9 +291,9 @@ Eventservice.prototype = {
                                 //console.log('Request tracking get request to RDF', JSON.stringify(requestTrackingGetRequest));
                                 var requestTrackingGetUrl = 'requesttrackingservice/get';
                                 var reqTrackingRes = await this.post(requestTrackingGetUrl, requestTrackingGetRequest);
-
-                                if (reqTrackingRes && reqTrackingRes.response && reqTrackingRes.response.requestObject && reqTrackingRes.response.requestObject.length > 0) {
-                                    _populateTaskDetailsBasedOnReqTrackingResponse(response, reqTrackingRes, preProcessErroredRecordsCount);
+                                
+                                if (reqTrackingRes && reqTrackingRes.response && reqTrackingRes.response.requestObjects && reqTrackingRes.response.requestObjects.length > 0) {
+                                    this._populateTaskDetailsBasedOnReqTrackingResponse(response, reqTrackingRes, preProcessErroredRecordsCount);
                                 }
                                 else {
                                     taskStats.processing = "100%";
@@ -309,9 +309,10 @@ Eventservice.prototype = {
                         taskStats.processing = "0%";
                         taskStats.success = "0%"; 
                         response.taskStatus = "Errored"; 
+                        response.preProcessFailure = true;
 
                         //End time is the time when error event has been created...
-                        if (highOrderEvent && highOrderEvent.properties) {
+                        if (highOrderEvent.properties) {
                             var endTime = highOrderEvent.properties.createdDate;
 
                             if (endTime) {
@@ -410,7 +411,7 @@ Eventservice.prototype = {
         var attributeNames = ["entityId", "entityType", "entityAction", "requestStatus"];
         req.params.fields.attributes = attributeNames;
         req.params.query.valueContexts = [{
-                        "source": "internal",
+                        "source": "rdp",
                         "locale": "en-US"
                     }];
 
@@ -463,12 +464,13 @@ Eventservice.prototype = {
         return req;
     },
     _populateTaskDetailsBasedOnReqTrackingResponse: function (taskDetails, reqTrackingResponse, preProcessErroredRecordsCount) {
-        var requestObjects = reqTrackingResponse.response.requestObject;
+        var requestObjects = reqTrackingResponse.response.requestObjects;
 
         var successCount = 0;
         var errorCount = 0;
         var createCount = 0;
         var updateCount = 0;
+        var deleteCount = 0;
         var successObjIds = [];
         var successObjTypes = [];
 
@@ -498,28 +500,34 @@ Eventservice.prototype = {
                     break;
                 case "update":
                     updateCount++;
+                    break;
                 case "delete":
                     deleteCount++;
+                    break;
             }
         }
 
         //Calculate various stats
-        var totalRecordCount = parseInt(response.totalRecords);
+        var totalRecordCount = parseInt(taskDetails.totalRecords);
 
         if (totalRecordCount == successCount) {
-            response.taskStatus = "Completed";
-            response.taskStats.success = "100%";
+            taskDetails.taskStatus = "Completed";
+            taskDetails.taskStats.success = "100%";
+            taskDetails.taskStats.error = "0%";
+            taskDetails.taskStats.processing = "0%";
         }
         else if (totalRecordCount == errorCount) {
-            response.taskStatus = "Errored";
-            response.taskStats.error = "100%";
+            taskDetails.taskStatus = "Errored";
+            taskDetails.taskStats.error = "100%";
+            taskDetails.taskStats.success = "0%";
+            taskDetails.taskStats.processing = "0%";
         }
         else {
             if (totalRecordCount == successCount + errorCount + preProcessErroredRecordsCount) {
-                response.taskStatus = "Completed With Errors";
+                taskDetails.taskStatus = "Completed With Errors";
             }
             else {
-                response.taskStatus = "Processing"
+                taskDetails.taskStatus = "Processing"
             }
 
             var inProgressCount = totalRecordCount - (successCount + errorCount + preProcessErroredRecordsCount);
@@ -528,33 +536,33 @@ Eventservice.prototype = {
             var errorPercentage = ((errorCount + preProcessErroredRecordsCount) * 100) / totalRecordCount;
             var inProgressPercentage = (inProgressCount * 100) / totalRecordCount;
 
-            response.taskStats.success = parseInt(successPercentage) + "%";
-            response.taskStats.error = parseInt(errorPercentage) + "%";
-            response.taskStats.processing = parseInt(inProgressPercentage) + "%";
+            taskDetails.taskStats.success = parseInt(successPercentage) + "%";
+            taskDetails.taskStats.error = parseInt(errorPercentage) + "%";
+            taskDetails.taskStats.processing = parseInt(inProgressPercentage) + "%";
         }
 
         var createPercentage = (createCount * 100) / totalRecordCount;
         var updatePercentage = (updateCount * 100) / totalRecordCount;
         var deletePercentage = (deleteCount * 100) / totalRecordCount;
 
-        response.taskStats.createRecords = parseInt(createPercentage) + "%";
-        response.taskStats.updateRecords = parseInt(updatePercentage) + "%";
-        response.taskStats.deleteRecords = parseInt(deletePercentage) + "%";
+        taskDetails.taskStats.createRecords = parseInt(createPercentage) + "%";
+        taskDetails.taskStats.updateRecords = parseInt(updatePercentage) + "%";
+        taskDetails.taskStats.deleteRecords = parseInt(deletePercentage) + "%";
 
         //TODO:: Commenting end time calculation as requestObjects do not have created date...
-        // if(response.taskStatus != "Processing") {
+        // if(taskDetails.taskStatus != "Processing") {
         //     //Task has been completed... End time is the time of last request object creation...
         //     var lastCreatedReqObj = requestObjects[requestObjects.length - 1];
         //     if (lastCreatedReqObj && lastCreatedReqObj.properties) {
         //         var endTime = lastCreatedReqObj.properties.createdDate;
 
         //         if (endTime) {
-        //             response.endTime = this._formatDate(new Date(endTime));
+        //             taskDetails.endTime = this._formatDate(new Date(endTime));
         //         }
         //     }
         // }
 
-        response.successEntities = {
+        taskDetails.successEntities = {
             "ids": successObjIds,
             "types": successObjTypes
         }
