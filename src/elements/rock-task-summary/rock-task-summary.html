@@ -1,0 +1,219 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html" />
+
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html" />
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html" />
+
+<link rel="import" href="../pebble-button/pebble-button.html" />
+
+<link rel="import" href="../pebble-graph-pie/pebble-graph-pie.html" />
+
+<dom-module id="rock-task-summary">
+    <template>
+        <style include="pebble-styles-shared"></style>
+        <style include="iron-flex"></style>
+        <style is="custom-style">
+            .attributes-container {
+                display: -webkit-box;
+                display: -webkit-flex;
+                display: -ms-flexbox;
+                display: flex;
+                flex-wrap: wrap;
+                -webkit-flex-wrap: wrap;
+                /* Safari 6.1+ */
+                @apply(--layout-horizontal);
+                width: calc(70% - 90px);
+                float: left;
+            }
+
+            .attribute {
+                width: 24%;
+                height: 50px;
+                line-height: 20px;
+            }
+
+            .attribute-label {
+                width: 30%;
+                height: 35%;
+                font-family: var(--default-font-family);
+                font-size: var(--default-font-size, 14px);
+                font-weight: normal;
+                font-style: normal;
+                font-stretch: normal;
+                color: var(--attrpanel-color-text, #1a2028);
+                opacity: 0.7;
+            }
+
+            .attribute-value {
+                font-size: var(--font-size-sm, 12px);
+                font-weight: var(--font-medium, 500);
+                color: var(--buttontext-color, #616161);
+                width: 75%;
+            }
+
+            .trim {
+                text-overflow: ellipsis;
+                overflow: hidden;
+                white-space: nowrap;
+            }
+
+            pebble-image-viewer {
+                padding: 2%;
+            }
+        </style>
+        <div class="row-wrap">
+            <div class="col-7 attributes-container">
+                <div class="attribute trim">
+                    <div class="attribute-label">File Name</div>
+                    <template is="dom-if" if="[[_isFileIdAvailable(taskDetails.fileId)]]">
+                        <div class="attribute-value trim" title="[[taskDetails.taskId]]">
+                            <a href="#" class="btn-link" on-tap="_onDownloadClick">[[taskDetails.fileName]]</a>
+                        </div>
+                    </template>
+                    <template is="dom-if" if="[[!_isFileIdAvailable(taskDetails.fileId)]]">
+                        <div class="attribute-value trim" title="[[taskDetails.fileName]]">[[taskDetails.fileName]]</div>
+                    </template>
+                </div>
+
+                <div id="attribute" class="attribute trim">
+                    <div class="attribute-label">Task ID</div>
+                    <div class="attribute-value trim" title="[[taskDetails.taskId]]">[[taskDetails.taskId]]</div>
+                </div>
+
+                <div id="attribute" class="attribute trim">
+                    <div class="attribute-label">Task Type</div>
+                    <div class="attribute-value trim" title="[[taskDetails.taskType]]">[[taskDetails.taskType]]</div>
+                </div>
+
+                <div id="attribute" class="attribute trim">
+                    <div class="attribute-label">Task Status</div>
+                    <div class="attribute-value trim" title="[[taskDetails.taskStatus]]">[[taskDetails.taskStatus]]</div>
+                </div>
+
+                <div id="attribute" class="attribute trim">
+                    <div class="attribute-label">Start Time</div>
+                    <div class="attribute-value trim" title="[[taskDetails.startTime]]">[[taskDetails.startTime]]</div>
+                </div>
+
+                <div id="attribute" class="attribute trim">
+                    <div class="attribute-label">End Time</div>
+                    <div class="attribute-value trim" title="[[taskDetails.endTime]]">[[taskDetails.endTime]]</div>
+                </div>
+
+                <div id="attribute" class="attribute trim">
+                    <div class="attribute-label">Submitted By</div>
+                    <div class="attribute-value trim" title="[[taskDetails.submittedBy]]">[[taskDetails.submittedBy]]</div>
+                </div>
+            </div>
+            <div class="col-4 text-center">
+                <template is="dom-if" if="[[showChart]]">
+                    <pebble-graph-pie id="processingDetails" data="[[chartData]]"></pebble-graph-pie>
+                    <bedrock-pubsub event-name="on-selection-changed" handler="_onSelectionChanged" target-id="processingDetails"></bedrock-pubsub>
+                </template>
+            </div>
+            <div class="col-1 text-right">
+                <pebble-button id="refreshButton" button-text="Refresh" on-tap="_onRefreshClick" noink class="btn btn-primary m-r-5">
+                </pebble-button>
+            </div>
+        </div>
+    </template>
+    <script>
+        (function () {
+            'use strict';
+
+            Polymer({
+                is: "rock-task-summary",
+
+                properties: {
+                    taskDetails: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        },
+                        observer: '_onTaskDetailsChanged'
+                    },
+                    chartData: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    showChart: {
+                        type: Boolean,
+                        value: false
+                    }
+                },
+
+                behaviors: [
+                    RUFBehaviors.UIBehavior,
+                ],
+
+                _onTaskDetailsChanged: function () {
+                    if (this.taskDetails && this.taskDetails.taskStats) {
+                        var taskStats = this.taskDetails.taskStats;
+                        var index = 0;
+                        var chartData = [];
+                        var self = this;
+
+                        Object.keys(taskStats).map(function (key) {
+                            if(key == "processing" || key == "error" || key == "success") {
+                                var taskCompletedInPercentage = parseInt(taskStats[key].replace(/\%$/, ''));
+
+                                if (taskCompletedInPercentage > 0) {
+                                    var taskStat = {
+                                        "id": ++index,
+                                        "key": key,
+                                        "value": taskCompletedInPercentage.toString(),
+                                        "unit": "%"
+                                    }
+
+                                    if(key == "processing") {
+                                        taskStat.color = "#f2e91d";
+                                    }
+                                    else if(key == "error") {
+                                        taskStat.color = "#d71921";
+                                    }
+                                    else {
+                                        taskStat.color = "#09c021"; //success
+                                    }
+
+                                    chartData.push(taskStat);
+                                }
+                            }
+                        });
+
+                        this.set("chartData", chartData);
+                    }
+                },
+
+                _onSelectionChanged: function (e) {
+                    console.log('selection changed ', JSON.stringify(e));
+                    if (e.detail.data.key === "processing") {
+                        this.fireBedrockEvent("show-inprogress");
+                    }
+
+                    if (e.detail.data.key === "completed") {
+                        this.fireBedrockEvent("show-completed");
+                    }
+
+                    if (e.detail.data.key === "error") {
+                        this.fireBedrockEvent("show-errors");
+                    }
+                },
+
+                _onDownloadClick: function () {},
+
+                _isFileIdAvailable: function () {
+                    if (this.taskDetails.fileId !== "N/A") {
+                        return true;
+                    } else {
+                        return false
+                    }
+                },
+
+                _onRefreshClick: function() {
+                    this.fireBedrockEvent("refresh-task-details");
+                }
+            });
+        })();
+    </script>
+</dom-module>
