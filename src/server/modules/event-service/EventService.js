@@ -29,6 +29,20 @@ const eventSubTypesOrder = [  "QUEUED",
 
 Eventservice.prototype = {
     get: async function (request) {
+        var response = {};
+
+        if(request.params.isTaskListGetRequest) {
+            delete request.params.isTaskListGetRequest;
+            response = await this.getTaskList(request);
+        }
+        else {
+            var eventServiceGetUrl = 'eventservice/get';
+            response = await this.post(eventServiceGetUrl, request);
+        }
+
+        return response;
+    },
+    getTaskList: async function (request) {
          //console.log('prepare download request: ', request);
         var finalResponse = {};
 
@@ -167,7 +181,7 @@ Eventservice.prototype = {
             //console.log('Get details for ', taskId);
 
             //Get Batch Events to get basic information of reuested tasks...
-            var attributeNames = ["fileName", "eventType", "eventSubType", "recordCount", "createdOn", "userId", "profileType", "taskType", "message"];
+            var attributeNames = ["fileId", "fileName", "eventType", "eventSubType", "recordCount", "createdOn", "userId", "profileType", "taskType", "message", "integrationType"];
             var eventTypeFilterString = "BATCH_COLLECT_ENTITY_IMPORT BATCH_TRANSFORM_ENTITY_IMPORT BATCH_TRANSFORM_ENTITY_EXPORT BATCH_EXTRACT";
             var eventSubTypeFilterString = "";
             var eventsGetRequest = this._generateEventsGetReq(taskId, attributeNames, eventTypeFilterString, eventSubTypeFilterString, false);
@@ -200,10 +214,7 @@ Eventservice.prototype = {
 
                 if(highOrderEvent) {
                     var eventSubType = this._getAttributeValue(highOrderEvent, "eventSubType");
-                    var taskType = this._getAttributeValue(highOrderEvent, "profileType");
-                    if(!taskType) {
-                        taskType = this._getAttributeValue(highOrderEvent, "taskType");
-                    }
+                    var taskType = this._getTaskTypeFromEvent(highOrderEvent);
 
                     var fileName = this._getAttributeValue(highOrderEvent, "fileName");
                     var fileId = this._getAttributeValue(highOrderEvent, "fileId");
@@ -212,7 +223,7 @@ Eventservice.prototype = {
                     var message = this._getAttributeValue(highOrderEvent, "message");
 
                     response.taskId = taskId;
-                    response.taskType = taskType ? taskType : "N/A";
+                    response.taskType = taskType;
                     response.fileName = fileName ? fileName : "N/A";
                     response.fileId = fileId ? fileId : "N/A";
                     response.submittedBy = submittedBy ? submittedBy : "N/A";
@@ -607,6 +618,48 @@ Eventservice.prototype = {
         }
         
         return val;
+    },
+    _getTaskTypeFromEvent: function(event) {
+        var taskType;
+
+        var taskType = this._getAttributeValue(event, "profileType");
+        if (!taskType) {
+            taskType = this._getAttributeValue(event, "taskType");
+        }
+
+        if(taskType) {
+            switch(taskType.toLowerCase()) {
+                case "entity_import":
+                    taskType = "Entity data imports";
+
+                    var integrationType = this._getAttributeValue(event, "integrationType");
+                    if(integrationType && integrationType.toLowerCase() == "system") {
+                        taskType = "System integrations - entity data imports";
+                    }
+                    break;
+                case "entity_export":
+                    taskType = "Entity data exports";
+
+                    var integrationType = this._getAttributeValue(event, "integrationType");
+                    if(integrationType && integrationType.toLowerCase() == "system") {
+                        taskType = "System integrations - entity data exports";
+                    }
+                    break;
+                case "transitionworkflow":
+                case "transitionworkflow-query":
+                    taskType = "Bulk Workflow Transitions";
+                    break;
+                case "changeassignment":
+                case "changeassignment-query":
+                    taskType = "Bulk Workflow Assignments";
+                    break;
+            }
+        }
+        else {
+            taskType = "N/A";
+        }
+
+        return taskType;
     },
     _validateRequest: function (request) {
         return true;

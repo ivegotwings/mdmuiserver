@@ -15,7 +15,7 @@
 <link rel="import" href="../rock-grid/rock-grid.html">
 <link rel="import" href="../rock-entity-search-filter/rock-entity-search-filter.html">
 
-<link rel="import" href="job-entity-detail-datasource.html">
+<link rel="import" href="task-error-grid-datasource.html">
 <!--
 `<rock-task-error-grid>`
 <b><i>Content development is under progress... </b></i>
@@ -29,13 +29,13 @@
 
     <template>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
-        <rock-grid id="entityGrid" selection-enabled data-source="{{dataSource}}" data-source-id="entityGridDataSource" config="{{gridConfig}}"
+        <rock-grid id="errorGrid" selection-enabled data-source="{{dataSource}}" data-source-id="errorGridDataSource" config="{{gridConfig}}"
             record-size="{{totalRecords}}" grid-data-size="{{size}}" page-size="10" selected-item="{{selectedEntity}}" total-count="{{totalCount}}"
             max-configured-count="[[maxConfiguredCount]]"></rock-grid>
-        <job-entity-detail-datasource id="entityGridDataSource" request="{{request}}" data-source="{{dataSource}}" data-formatter="{{dataFormatter}}"
-            current-record-size="{{size}}" total-records="{{totalRecords}}" total-count="{{totalCount}}"></job-entity-detail-datasource>
-        <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="entityGrid"></bedrock-pubsub>
-        <bedrock-pubsub event-name="grid-download-item" handler="_onDownload" target-id="entityGrid"></bedrock-pubsub>
+        <task-error-grid-datasource id="errorGridDataSource" request="{{request}}" data-source="{{dataSource}}" data-formatter="{{dataFormatter}}"
+            current-record-size="{{size}}" total-records="{{totalRecords}}" total-count="{{totalCount}}"></task-error-grid-datasource>
+        <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="errorGrid"></bedrock-pubsub>
+        <bedrock-pubsub event-name="grid-download-item" handler="_onDownload" target-id="errorGrid"></bedrock-pubsub>
     </template>
 
     <script>
@@ -56,7 +56,7 @@
           /**
             * <b><i>Content development is under progress... </b></i> 
             */
-                    selectedEntity: {
+                    selectedErrorRecord: {
                         type: Object,
                         value: function () {
                             return {};
@@ -100,7 +100,7 @@
             * <b><i>Content development is under progress... </b></i> 
             */
                 ready: function () {
-                    this.dataFormatter = this._formatRequestTrackingObject.bind(this);
+                    this.dataFormatter = this._formatErrorEvents.bind(this);
                 },
                 _gridConfigChanged: function (gridConfig, contextData, taskId) {
                     if (!taskId || !gridConfig || _.isEmpty(gridConfig) || !contextData || _.isEmpty(contextData)) {
@@ -113,7 +113,7 @@
                     }
 
                     var clonedContextData = DataHelper.cloneObject(contextData);
-                    clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [{ "type": "requestObject" }];
+                    clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [{ "type": "externalevent" }];
                     var req = DataRequestHelper.createEntityGetRequest(clonedContextData);
 
                     req.params.fields.attributes = attributes;
@@ -122,43 +122,47 @@
                     req.params.query.valueContexts = [
                         {
                             "locale": "en-US",
-                            "source": "rdp"
+                            "source": "internal"
                         }
                     ];
 
                     req.params.query.filters.attributesCriterion = [
                         {
                             "taskId": {
-                                "eq": this.taskId
+                                "exact": this.taskId
                             }
                         },
                         {
-                            "serviceName": { "eq": "entityManageService" }
+                            "eventType": { 
+                                "contains": "RECORD_TRANSFORM_ENTITY_IMPORT RECORD_PUBLISH_ENTITY_IMPORT RECORD_LOAD"
+                            }
                         },
                         {
-                            "entityAction": { "contains": "create update" }
+                            "eventSubType": { 
+                                "eq": "PROCESSING_ERROR" 
+                            }
                         }
                     ];
 
                     this.set('request', req);
                     
-                    this._getEntityGrid().reRenderGrid();
+                    this._getErrorGrid().reRenderGrid();
                     
                     setTimeout(function () {
                         this._setGridHeight();
                     }.bind(this), 100);
                 },
-                _getEntityGrid: function () {
-                    return ElementHelper.getElement(this, "#entityGrid");
+                _getErrorGrid: function () {
+                    return ElementHelper.getElement(this, "#errorGrid");
                 },
                 _onSelectingGridItem: function (e, detail, sender) {
-                    this.selectedEntity = detail.item;
+                    this.selectedErrorRecord = detail.item;
                 },
           /**
             * <b><i>Content development is under progress... </b></i> 
             */
                 getSelectedItemIndex: function () {
-                    return this._getEntityGrid().getSelectedItemIndex();
+                    return this._getErrorGrid().getSelectedItemIndex();
                 },
                 _setGridHeight: function () {
                     var layout = this.parentElement.parentNode.parentNode.root.querySelector('#rockLayoutContainer')
@@ -182,34 +186,34 @@
             * <b><i>Content development is under progress... </b></i> 
             */
                 notifyResize: function () {
-                    this._getEntityGrid().notifyResize();
+                    this._getErrorGrid().notifyResize();
                 },
           /**
             * <b><i>Content development is under progress... </b></i> 
             */
                 scrollToIndex: function (index) {
-                    this._getEntityGrid().scrollToIndex(index);
+                    this._getErrorGrid().scrollToIndex(index);
                 },
                 /**
                  *  Can be used to select an item.
                  */
                 selectItem: function (item) {
-                    this._getEntityGrid().selectItem(item);
+                    this._getErrorGrid().selectItem(item);
                 },
 
                 /**
                  * Can be used to get the grid data.
                  */
                 getData: function () {
-                    return this._getEntityGrid().getData();
+                    return this._getErrorGrid().getData();
                 },
-                _formatRequestTrackingObject: function (data) {
+                _formatErrorEvents: function (data) {
                     var formattedData = [];
                     if (data && data.content) {
-                        var requestObjects = data.content.requestObjects;
+                        var errorEvents = data.content.events;
                         var contextData = DataHelper.cloneObject(this.contextData);
-                        if (requestObjects) {
-                            formattedData = DataTransformHelper.transformEntitiesToSimpleSchema(requestObjects,
+                        if (errorEvents) {
+                            formattedData = DataTransformHelper.transformEntitiesToSimpleSchema(errorEvents,
                                 this._attributes, contextData);
                         }
                     }
@@ -217,57 +221,57 @@
                     return formattedData;
                 },
                 _onDownload: function (e) {
-                    var rockGrid = Polymer.dom(this).node.$$('rock-grid');
-                    var selectedItems = rockGrid.getSelectedItems();
-                    if (selectedItems && selectedItems.length && this.contextData) {
-                        this._loading = true;
-                        var clonedDataContext = DataHelper.cloneObject(this.contextData);
-                        var itemContext = {};
-                        itemContext.id = [];
-                        itemContext.type = [];
+                    // var rockGrid = Polymer.dom(this).node.$$('rock-grid');
+                    // var selectedItems = rockGrid.getSelectedItems();
+                    // if (selectedItems && selectedItems.length && this.contextData) {
+                    //     this._loading = true;
+                    //     var clonedDataContext = DataHelper.cloneObject(this.contextData);
+                    //     var itemContext = {};
+                    //     itemContext.id = [];
+                    //     itemContext.type = [];
 
-                        selectedItems.forEach(function (item) {
-                            if (item) {
-                                itemContext.id.push(item.entityId);
+                    //     selectedItems.forEach(function (item) {
+                    //         if (item) {
+                    //             itemContext.id.push(item.entityId);
 
-                                if (itemContext.type.indexOf(item.entityType) == -1) {
-                                    itemContext.type.push(item.entityType);
-                                }
-                            }
-                        }, this);
+                    //             if (itemContext.type.indexOf(item.entityType) == -1) {
+                    //                 itemContext.type.push(item.entityType);
+                    //             }
+                    //         }
+                    //     }, this);
 
-                        itemContext.attributeNames = ["_ALL"];
-                        itemContext.relationships = ["_ALL"];
-                        itemContext.relationshipAttributes = ["_ALL"];
-                        clonedDataContext[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+                    //     itemContext.attributeNames = ["_ALL"];
+                    //     itemContext.relationships = ["_ALL"];
+                    //     itemContext.relationshipAttributes = ["_ALL"];
+                    //     clonedDataContext[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
 
-                        var req = DataRequestHelper.createEntityGetRequestForDownload(clonedDataContext, ["downloadDataExcel"]);
+                    //     var req = DataRequestHelper.createEntityGetRequestForDownload(clonedDataContext, ["downloadDataExcel"]);
 
-                        if (req) {
+                    //     if (req) {
 
-                            req.fileName = "EntityData";
-                            var _this = this;
-                            RUFUtilities.fileDownload("/data/cop/downloadDataExcel", {
-                                httpMethod: 'POST',
-                                data: { data: JSON.stringify(req) },
-                                successCallback: function (url) {
-                                    this._loading = false;
-                                }.bind(_this),
-                                failCallback: function (responseHtml, url, error) {
-                                    this._onCOPDownloadFailure(error);
-                                }.bind(_this)
-                            });
+                    //         req.fileName = "EntityData";
+                    //         var _this = this;
+                    //         RUFUtilities.fileDownload("/data/cop/downloadDataExcel", {
+                    //             httpMethod: 'POST',
+                    //             data: { data: JSON.stringify(req) },
+                    //             successCallback: function (url) {
+                    //                 this._loading = false;
+                    //             }.bind(_this),
+                    //             failCallback: function (responseHtml, url, error) {
+                    //                 this._onCOPDownloadFailure(error);
+                    //             }.bind(_this)
+                    //         });
                            
-                        }
+                    //     }
 
-                    } else {
-                        this.showInformationToast("Please select at least one entity from grid to download.");
-                    }
-                },
-                _onCOPDownloadFailure: function (e) {
-                    this.showErrorToast("Failed to download entity data. Please contact administrator.");
-                    this._loading = false;
+                    // } else {
+                    //     this.showInformationToast("Please select at least one error record from grid to download.");
+                    // }
                 }
+                // _onCOPDownloadFailure: function (e) {
+                //     this.showErrorToast("Failed to download error data. Please contact administrator.");
+                //     this._loading = false;
+                // }
             });
         })();
     </script>
