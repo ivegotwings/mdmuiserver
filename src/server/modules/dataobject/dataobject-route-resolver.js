@@ -228,6 +228,7 @@ function createGetRequest(reqData) {
 
     if (reqData.dataIndex == "config" && contexts && contexts.length > 0) {
         filters.excludeNonContextual = true;
+        fields.attributes = ['_ALL'];
     }
 
     if (!isEmpty(filters)) {
@@ -436,6 +437,10 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
         for (var dataObjectId in dataObjects) {
             var dataObject = dataObjects[dataObjectId];
             formatDataObjectForSave(dataObject);
+
+            //Extract original rel ids from request dataobject if relationships are requested for process.
+            var originalRelIds = _getOriginalRelIds(dataObject);
+
             //console.log('dataObject data', JSON.stringify(dataObject, null, 4));
 
             var apiRequestObj = { 'includeRequest': false, 'dataIndex': dataIndex, 'clientState': clientState };
@@ -472,6 +477,7 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
                             'attrNames': [CONST_ALL],
                             'relTypes': [CONST_ALL],
                             'relAttrNames': [CONST_ALL],
+                            'originalRelIds': originalRelIds,
                             'relFields': [CONST_ALL],
                             'valFields': [CONST_ALL],
                             'mapKeys': [CONST_ALL],
@@ -593,7 +599,8 @@ async function deleteDataObjects(callPath, args, operation) {
     try{
         var jsonEnvelope = args[0];
         var dataIndex = callPath.dataIndexes[0];
-        var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][pathKeys.byIds];
+        var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
+        var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
         var clientState = jsonEnvelope.json.clientState;
 
         response = processData(dataIndex, dataObjects, "delete", operation, clientState);
@@ -605,6 +612,21 @@ async function deleteDataObjects(callPath, args, operation) {
     }
 
     return response;
+}
+
+function _getOriginalRelIds(dataObject) {
+    var originalRelIds;
+
+    if(dataObject.data && dataObject.data.relationships) {
+        var rels = dataObject.data.relationships;
+
+        if(rels.originalRelIds) {
+            originalRelIds = rels.originalRelIds;
+            delete rels.originalRelIds;
+        }
+    }
+
+    return originalRelIds;
 }
 
 module.exports = {
