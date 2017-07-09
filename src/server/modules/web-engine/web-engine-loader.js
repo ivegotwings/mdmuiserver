@@ -115,6 +115,11 @@ binaryStreamObjectRoute(app);
 
 logger.info('Web engine start - binary stream object service routes are loaded');
 
+var binaryObjectRoute = require('../binaryobject/binaryobject-route');
+binaryObjectRoute(app);
+
+logger.info('Web engine start - binary object service routes are loaded');
+
 //register static file root ...index.html..
 app.get('*', function (req, res) {
     if (!renderAuthenticatedPage(req, res)) {
