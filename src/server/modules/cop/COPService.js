@@ -139,6 +139,24 @@ COPService.prototype = {
 
         //return response;
     },
+    downloadDataJob: async function (request, response) {
+        var downloadDataURL = "copservice/downloadDataJob";
+        if (!request.body) {
+            return {
+                "dataOperationResponse": {
+                    "status": "Error",
+                    "statusDetail": {
+                        "code": "RSUI0001",
+                        "message": "Incorrect request for COP bulk download.",
+                        "messageType": "Error"
+                    }
+                }
+            };
+        }
+
+        //console.log('downloadDataRequest: ', JSON.stringify(request.body, null, 2));
+        return await this.post(downloadDataURL, request.body);
+    },
     publish: async function (request) {
         //console.log('COPService.publish url ', request.url);
         var copURL = "copservice/publish";
