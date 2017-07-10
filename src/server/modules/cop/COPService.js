@@ -141,18 +141,21 @@ COPService.prototype = {
     },
     downloadDataJob: async function (request, response) {
         var downloadDataURL = "copservice/downloadDataJob";
-        var timeStamp = Date.now();
-        var parsedRequest = JSON.parse(request.body.data);
-        var fileName = parsedRequest.fileName + '-' + timeStamp;
-
-        //console.log('downloadDataRequest: ', JSON.stringify(request.body, null, 2));
-        var copResponse = await this.post(downloadDataURL, parsedRequest);
-
-        if (copResponse && copResponse.response && copResponse.response.status.toLowerCase() == "success") {
-            this._downloadFileContent(copResponse.response, fileName, request, response);
+        if (!request.body) {
+            return {
+                "dataOperationResponse": {
+                    "status": "Error",
+                    "statusDetail": {
+                        "code": "RSUI0001",
+                        "message": "Incorrect request for COP bulk download.",
+                        "messageType": "Error"
+                    }
+                }
+            };
         }
 
-        //return response;
+        //console.log('downloadDataRequest: ', JSON.stringify(request.body, null, 2));
+        return await this.post(downloadDataURL, request.body);
     },
     publish: async function (request) {
         //console.log('COPService.publish url ', request.url);
