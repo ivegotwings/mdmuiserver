@@ -182,7 +182,7 @@ Eventservice.prototype = {
 
             //Get Batch Events to get basic information of reuested tasks...
             var attributeNames = ["fileId", "fileName", "eventType", "eventSubType", "recordCount", "createdOn", "userId", "profileType", "taskType", "message", "integrationType"];
-            var eventTypeFilterString = "BATCH_COLLECT_ENTITY_IMPORT BATCH_TRANSFORM_ENTITY_IMPORT BATCH_TRANSFORM_ENTITY_EXPORT BATCH_EXTRACT";
+            var eventTypeFilterString = "BATCH_COLLECT_ENTITY_IMPORT BATCH_COLLECT_ENTITY_EXPORT BATCH_TRANSFORM_ENTITY_IMPORT BATCH_TRANSFORM_ENTITY_EXPORT BATCH_EXTRACT";
             var eventSubTypeFilterString = "";
             var eventsGetRequest = this._generateEventsGetReq(taskId, attributeNames, eventTypeFilterString, eventSubTypeFilterString, false);
             
@@ -315,7 +315,8 @@ Eventservice.prototype = {
                             }
                         }
                     }
-                    else if(eventSubType == "PROCESSING_ERROR" || eventSubType == "PROCESSING_COMPLETE_ERROR") {
+                    else if(eventSubType == "PROCESSING_ERROR" || eventSubType == "PROCESSING_COMPLETE_ERROR" ||
+                    eventSubType == "PROCESSING_START_ERROR" || eventSubType == "PROCESSING_SUBMISSION_ERROR") {
                         taskStats.error = "100%";
                         taskStats.processing = "0%";
                         taskStats.success = "0%"; 
