@@ -104,11 +104,22 @@
                         type: Array,
                         value: [
                             { "value": "ASSET_IMPORT_RECORD", "title": "Asset uploads" },
-                            { "value": "BATCH_TRANSFORM_ENTITY_IMPORT", "title": "Entity data imports" },
-                            { "value": "BATCH_TRANSFORM_ENTITY_EXPORT", "title": "Entity data exports" },
-                            { "value": "BATCH_COLLECT_ENTITY_IMPORT", "title": "System integrations - entity data imports" },
-                            { "value": "BATCH_COLLECT_ENTITY_EXPORT", "title": "System integrations - entity data exports" }
+                            { "value": "WORKFLOW_TRANSITION", "title": "Bulk Workflow Transitions"},
+                            { "value": "WORKFLOW_ASSIGNMENT", "title": "Bulk Workflow Assignments"},
+                            { "value": "USER_ENTITY_IMPORT", "title": "Entity data imports" },
+                            { "value": "USER_ENTITY_EXPORT", "title": "Entity data exports" },
+                            { "value": "SYSTEM_ENTITY_IMPORT", "title": "System integrations - entity data imports" },
+                            { "value": "SYSTEM_ENTITY_EXPORT", "title": "System integrations - entity data exports" }
                         ]
+                    },
+                    eventSubTypeMap: {
+                        type: Object,
+                        value: {
+                            'QUEUED': ['QUEUED', 'QUEUED_SUCCESS', 'PROCESSING_STARTED'],
+                            'PROCESSING': ['SUBMITTED', 'PROCESSING_COMPLETED', "PROCESSING_COMPLETE_WITH_WARNING"],
+                            'ERRORED': ['PROCESSING_ERROR', 'ABORTED', 'SUBMISSION_ERROR', 'QUEUED_ERROR', "PROCESSING_START_ERROR", 
+                                "PROCESSING_COMPLETE_ERROR", "PROCESSING_SUBMISSION_ERROR"]
+                        }
                     },
                     /**
                       * <b><i>Content development is under progress... </b></i> 
@@ -172,7 +183,7 @@
                       */
                     selectedEventType: {
                         type: String,
-                        value: "BATCH_TRANSFORM_ENTITY_IMPORT",
+                        value: "USER_ENTITY_IMPORT",
                         observer: "_onEventTypeFilterChanged"
                     },
                     /**
@@ -232,13 +243,15 @@
 
                     this._addEventTypeCriterion(attributesCriteria);
                     this._addEventSubTypeCriterion(attributesCriteria);
+                    this._addTaskTypeCriterion(attributesCriteria);
+                    this._addIntegrationTypeCriterion(attributesCriteria);
                     
                     req.params.query.filters.attributesCriterion = attributesCriteria;
 
                     if (this.config.dataRequest && this.config.dataRequest.attributes) {
-                         req.params.fields.attributes = this.config.dataRequest.attributes;
+                        req.params.fields.attributes = this.config.dataRequest.attributes;
                     } else {
-                    req.params.fields.attributes = ["_ALL"];
+                        req.params.fields.attributes = ["_ALL"];
                     }
 
                     if (!this.getAllUsersEvents) {
@@ -255,17 +268,58 @@
                         }]
                     };
 
+                    req.params.isTaskListGetRequest = true;
+
                     this.set("request", req);
 
                     this.$$("#importlistGrid").reloadListData();
                 },
                 _addEventTypeCriterion: function(attributesCriterion) {
-                    
-                    if(this.selectedEventType && this.selectedEventType != "ALL") {
-                        var eventTypeCriterion = {
-                            "eventType": {
-                                "eq": this.selectedEventType
-                            }
+                    if(this.selectedEventType) {
+                        var eventTypeCriterion;
+                        switch(this.selectedEventType) {
+                            case "USER_ENTITY_IMPORT":
+                                eventTypeCriterion = {
+                                    "eventType": {
+                                        "eq": "BATCH_TRANSFORM_ENTITY_IMPORT"
+                                    }
+                                }
+                                break;
+                            case "USER_ENTITY_EXPORT":
+                                eventTypeCriterion = {
+                                    "eventType": {
+                                        "eq": "BATCH_TRANSFORM_ENTITY_EXPORT"
+                                    }
+                                }
+                                break;
+                            case "SYSTEM_ENTITY_IMPORT":
+                                eventTypeCriterion = {
+                                    "eventType": {
+                                        "contains": "BATCH_COLLECT_ENTITY_IMPORT BATCH_TRANSFORM_ENTITY_IMPORT"
+                                    }
+                                }
+                                break;
+                            case "SYSTEM_ENTITY_EXPORT":
+                                eventTypeCriterion = {
+                                    "eventType": {
+                                        "contains": "BATCH_COLLECT_ENTITY_EXPORT BATCH_TRANSFORM_ENTITY_EXPORT"
+                                    }
+                                }
+                                break;
+                            case "WORKFLOW_TRANSITION":
+                            case "WORKFLOW_ASSIGNMENT":
+                                eventTypeCriterion = {
+                                    "eventType": {
+                                        "contains": "BATCH_INBOUND BATCH_EXTRACT"
+                                    }
+                                }
+                                break;
+                            default:
+                                eventTypeCriterion = {
+                                    "eventType": {
+                                        "eq": this.selectedEventType
+                                    }
+                                }
                         }
 
                         attributesCriterion.push(eventTypeCriterion);
@@ -282,6 +336,52 @@
                         attributesCriterion.push(eventSubTypeCriterion);
                     }
                 },
+                _addTaskTypeCriterion: function(attributesCriterion) {
+                    if(this.selectedEventType) {
+                        var taskTypeCriterion;
+                        if(this.selectedEventType == "WORKFLOW_TRANSITION") {
+                            taskTypeCriterion = {
+                                "taskType": {
+                                    "contains": "transitionWorkflow*"
+                                }
+                            };
+                        }
+                        else if(this.selectedEventType == "WORKFLOW_ASSIGNMENT") {
+                            taskTypeCriterion = {
+                                "taskType": {
+                                    "contains": "changeAssignment*"
+                                }
+                            };
+                        }
+
+                        if(taskTypeCriterion) {
+                            attributesCriterion.push(taskTypeCriterion);
+                        }
+                    }
+                },
+                _addIntegrationTypeCriterion: function(attributesCriterion) {
+                    if(this.selectedEventType) {
+                        var integrationTypeCriterion;
+                        if(this.selectedEventType == "USER_ENTITY_IMPORT" || this.selectedEventType == "USER_ENTITY_EXPORT") {
+                            integrationTypeCriterion = {
+                                "integrationType": {
+                                    "eq": "User"
+                                }
+                            };
+                        }
+                        else if(this.selectedEventType == "SYSTEM_ENTITY_IMPORT" || this.selectedEventType == "SYSTEM_ENTITY_EXPORT") {
+                            integrationTypeCriterion = {
+                                "integrationType": {
+                                    "eq": "System"
+                                }
+                            };
+                        }
+
+                        if(integrationTypeCriterion) {
+                            attributesCriterion.push(integrationTypeCriterion);
+                        }
+                    }
+                },
                 _getEventFormattedData: function (data) {
                     var attributeNames = this._getAttributeNamesFromListConfig(this.config);
                     
@@ -294,8 +394,14 @@
 
                     for (var i in events) {
                         var event = events[i];
+                        event.eventSubType = this._getExternalEventSubType(event.eventSubType);
                         var eventTypeCode = event.eventType;
                         var eventSubTypeCode = event.eventSubType;
+
+                        if(this.selectedEventType == "WORKFLOW_TRANSITION" || this.selectedEventType == "WORKFLOW_ASSIGNMENT") {
+                            event.fileName = event.taskId;  //Title of the task in list view
+                        }
+
                         event.fileTypeImage = this._getIconPath(event.formatter);
                         event.createdOn = this._formatDate(new Date(event.createdOn));
                         
@@ -383,7 +489,23 @@
                             }
                         }
 
+                        for (var i in attributesCriteria) {
+                            if (attributesCriteria[i].taskType) {
+                                attributesCriteria.splice(i, 1);
+                                break;
+                            }
+                        }
+
+                        for (var i in attributesCriteria) {
+                            if (attributesCriteria[i].integrationType) {
+                                attributesCriteria.splice(i, 1);
+                                break;
+                            }
+                        }
+
                         this._addEventTypeCriterion(attributesCriteria);
+                        this._addTaskTypeCriterion(attributesCriteria);
+                        this._addIntegrationTypeCriterion(attributesCriteria);
 
                         this.$$("#importlistGrid").reloadListData();
                     }
@@ -475,6 +597,19 @@
                 _refreshList: function () {
                     this.$$("#eventDataSource").resetDataSource();
                     this.$$("#importlistGrid").reloadListData();
+                },
+                _getExternalEventSubType: function (internalEventSubType) {
+                    var eventSubFilterMap = this.eventSubTypeMap;
+
+                    for(var key in eventSubFilterMap) {
+                        var eventSubTypeFilters = eventSubFilterMap[key];
+
+                        if(eventSubTypeFilters.indexOf(internalEventSubType) > -1) {
+                            return key;
+                        }
+                    }
+
+                    return internalEventSubType;
                 }
             });
         })();
