@@ -7,6 +7,7 @@
 <link rel="import" href="../liquid-rest/liquid-rest.html" />
 
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html" />
+<link rel="import" href="../pebble-spinner/pebble-spinner.html" />
 <link rel="import" href="../pebble-accordion/pebble-accordion.html" />
 <link rel="import" href="../pebble-horizontal-divider/pebble-horizontal-divider.html" />
 
@@ -24,18 +25,29 @@
         <style include="iron-flex"></style>
         <style is="custom-style">
             .summary-container {
-                padding: 10px 20px 10px 20px;
+                padding: 20px;
             }
 
             pebble-horizontal-divider {
                 background-color: var(--palette-pale-grey-three, #e7ebf0);
             }
+
+            .message-box {
+                font-family: 'Roboto', Helvetica, Arial, sans-serif;
+                font-size: 14px;
+                font-weight: normal;
+                font-style: normal;
+                font-stretch: normal;
+                color: #1a2028;
+                opacity: 0.7;
+            }
         </style>
         <rock-layout>
             <liquid-config-aggregate-get id="getEntityDiscoveryAppConfig" operation="getbyids" request-id="req1" app-name="app-task-detail"
                 context-data="[[contextData]]" on-config-get-response="_onApplicationConfigReceived"></liquid-config-aggregate-get>
-            <liquid-rest id="taskDetailsGet" url="/data/eventservice/getTaskDetails" method="POST" request-data={{_taskDetailSummaryGetRequest}}
-                on-liquid-response="_onTaskDetailSummaryGetResponse" on-liquid-error="_onTaskDetailSummaryGetError"></liquid-rest>
+            <liquid-rest id="taskDetailsGet" url="/data/eventservice/getTaskDetails" method="POST" request-data={{_taskDetailsGetRequest}}
+                on-liquid-response="_onTaskDetailsGetResponse" on-liquid-error="_onTaskDetailsGetError"></liquid-rest>
+            <pebble-spinner active="[[_loading]]"></pebble-spinner>
             <rock-titlebar icon="pebble-md-icons:Advancesearch" main-title="App Task Details" closable minimizable>
                 <div id="dimensionContainer" align="right">
                     <rock-dimension-selector id="dimensionSelector" config-data="[[getConfig('rock-dimension-selector')]]" all-multi-select></rock-dimension-selector>
@@ -43,31 +55,33 @@
             </rock-titlebar>
             <div class="flex">
                 <div class="summary-container">
-                    <pebble-accordion header-text="Summary & Filters" default-icon="chevron-right" open-icon="expand-more">
-                        <rock-task-summary id="rockTaskSummary" task-details="[[_taskDetails]]" show-chart="[[showChart]]"></rock-task-summary>
-                    </pebble-accordion>
-                </div>
-                <div class="p-l-20 p-r-20">
+                    <template is="dom-if" if="[[_isTaskDetailsLoading)]]">
+                        <pebble-accordion header-text="Summary & Filters" default-icon="chevron-right" open-icon="expand-more">
+                            <rock-task-summary id="rockTaskSummary" task-details="[[_taskDetails]]" show-chart="[[showChart]]"></rock-task-summary>
+                        </pebble-accordion>
+                    </template>
                     <pebble-horizontal-divider></pebble-horizontal-divider>
                 </div>
                 <template is="dom-if" if="[[_showInProgressTasks]]">
                     <!--<div class="p-l-20 p-r-20">Content Development in Progress</div>-->
                 </template>
-                <template is="dom-if" if="[[_showCompletedTasks]]">
+                <template is="dom-if" if="[[_isConfigLoaded(_showCompletedTasks, applicationConfig)]]">
                     <div class="flex">
                         <rock-entity-search-discovery id="entitySearchDiscoveryGrid" context-data="[[contextData]]" entity-id-list="[[entityIdList]]"
                             entity-type-list="[[entityTypeList]]"></rock-entity-search-discovery>
                     </div>
                 </template>
-                <template is="dom-if" if="[[_showErroredTasks]]">
+                <template is="dom-if" if="[[_isConfigLoaded(_showErroredTasks, applicationConfig)]]">
                     <div class="flex">
                         <rock-task-error-grid id="jobEntityDetailGrid" task-id="[[taskId]]" context-data="[[contextData]]" grid-config="[[getConfig('rock-task-error-grid')]]">
                         </rock-task-error-grid>
                     </div>
                 </template>
-                <template is="dom-if" if="[[_showDefaultMessage]]">
+                <template is="dom-if" if="[[_showMessage]]">
                     <div class="flex">
-                        <div class="col-7 text-right">No details available for the current task</div>
+                        <div class="col-12 text-center">
+                            <div id="messagePanel" class="message-box">[[_message]]</div>
+                        </div>
                     </div>
                 </template>
             </div>
@@ -76,6 +90,7 @@
         <bedrock-pubsub event-name="show-inprogress" handler="_onInProgressClick" target-id="rockTaskSummary"></bedrock-pubsub>
         <bedrock-pubsub event-name="show-completed" handler="_onCompletedClick" target-id="rockTaskSummary"></bedrock-pubsub>
         <bedrock-pubsub event-name="show-errors" handler="_onErrorsClick" target-id="rockTaskSummary"></bedrock-pubsub>
+        <bedrock-pubsub event-name="refresh-task-details" handler="_onRefreshClick" target-id="rockTaskSummary"></bedrock-pubsub>
     </template>
     <script>
         (function () {
@@ -108,6 +123,26 @@
                     _showErroredTasks: {
                         type: Boolean,
                         value: false
+                    },
+
+                    _loading: {
+                        type: Boolean,
+                        value: true
+                    },
+
+                    _isTaskDetailsLoading: {
+                        type: Boolean,
+                        computed: "_computeStatus(_loading)"
+                    },
+
+                    _message: {
+                        type: String,
+                        value: ""
+                    },
+
+                    _defaultMessage: {
+                        type: String,
+                        value: "No details available for the current task"
                     }
                 },
 
@@ -117,9 +152,11 @@
 
                 ready: function () {
                     this.taskId = DataHelper.getParamValue("id");
-                    this._taskDetailSummaryGetRequest = {
+                    this._taskDetailsGetRequest = {
                         "taskId": this.taskId
                     }
+
+                    this._message = this._defaultMessage;
                 },
 
                 attached: function () {
@@ -131,18 +168,35 @@
 
                     this.contextData[this.CONTEXT_TYPE_USER] = [userContext];
 
+                    this._initiateTaskDetailsGetRequest();
+                },
+
+                _isConfigLoaded: function () {
+                    if (!DataHelper.isEmptyObject(this.applicationConfig)) {
+                        if (this._showCompletedTasks || this._showErroredTasks) {
+                            return true;
+                        }
+                    }
+                },
+
+                _computeStatus: function () {
+                    return !this._loading;
+                },
+
+                _initiateTaskDetailsGetRequest: function () {
                     var taskDetailsGet = this.$$("#taskDetailsGet");
                     if (taskDetailsGet) {
                         taskDetailsGet.generateRequest();
                     }
                 },
 
-                _onTaskDetailSummaryGetResponse: function (e, detail) {
+                _onTaskDetailsGetResponse: function (e, detail) {
+                    this._loading = false;
                     this._taskDetails = detail.response;
 
                     //var taskStatus = this._taskDetails.taskStatus.toLowerCase();
                     //if(taskStatus == "processing" || taskStatus == "completed with errors") {
-                        this.showChart = true;
+                    this.showChart = true;
                     //}
 
                     if (this._taskDetails) {
@@ -151,17 +205,20 @@
                             this.entityIdList = this._taskDetails.successEntities.ids;
                             this.entityTypeList = this._taskDetails.successEntities.types;
                             this._showCompletedTasks = true;
-                        }
-                        else if (this._taskDetails.taskStatus.toLowerCase() == "errored") {
-                            this._showErroredTasks = true;
-                        }
-                        else {
-                            this._showDefaultMessage = true;
+                        } else if (this._taskDetails.taskStatus.toLowerCase() == "errored") {
+                            if (this._taskDetails.preProcessFailure) {
+                                this._message = this._taskDetails.message;
+                                this._showMessage = true;
+                            } else {
+                                this._showErroredTasks = true;
+                            }
+                        } else {
+                            this._showMessage = true;
                         }
                     }
                 },
 
-                _onTaskDetailSummaryGetError: function (e, detail) {
+                _onTaskDetailsGetError: function (e, detail) {
                     // Show Error Toast
                 },
 
@@ -176,11 +233,12 @@
                         this.entityIdList = successEntities.ids;
                         this.entityTypeList = successEntities.types;
                         this._showCompletedTasks = true;
-                        this._showDefaultMessage = !this._showCompletedTasks;
+                        this._showMessage = !this._showCompletedTasks;
                         this._showInProgressTasks = !this._showCompletedTasks;
                         this._showErroredTasks = !this._showCompletedTasks;
                     } else {
-                        this._showDefaultMessage = true;
+                        this._message = this._defaultMessage;
+                        this._showMessage = true;
                     }
 
                     //this.showChart = false;
@@ -190,11 +248,12 @@
                     if (!DataHelper.isEmptyObject(this._taskDetails)) {
                         this.taskId = this._taskDetails.taskId;
                         this._showErroredTasks = true;
-                        this._showDefaultMessage = !this._showErroredTasks;
+                        this._showMessage = !this._showErroredTasks;
                         this._showInProgressTasks = !this._showErroredTasks;
                         this._showCompletedTasks = !this._showErroredTasks;
                     } else {
-                        this._showDefaultMessage = true;
+                        this._message = this._defaultMessage;
+                        this._showMessage = true;
                     }
 
                     this.showChart = true;
@@ -213,6 +272,11 @@
                     if (this.$$("#entitySearchDiscoveryGrid")) {
                         this.$$("#entitySearchDiscoveryGrid").refresh();
                     }
+                },
+
+                _onRefreshClick: function () {
+                    this._loading = true;
+                    this._initiateTaskDetailsGetRequest();
                 }
             });
         })();

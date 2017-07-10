@@ -266,6 +266,11 @@ SERVICE_CONFIG = {
             "url": "/bulkentityservice/createtask",
             "mode": "online",
             "offlineSettings": {}
+        },
+        "binaryobjectservice/getById": {
+            "url": "/binaryobjectservice/getById",
+            "mode": "online",
+            "offlineSettings": {}
         }
     }
 };
