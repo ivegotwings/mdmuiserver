@@ -71,11 +71,13 @@ It renders the list of attributes based on the specified relationship type.
             </template>
         </template>
         <template is="dom-if" if="{{isUpDirection}}">
-            <rock-where-used-grid id="entityRelationshipGrid" relationship-type="[[configContext.relationshipTypeName]]" relationship-title="[[configContext.relationshipTitle]]"
-                rel-req="[[requestObj]]" relationship-grid-configs="{{_relationshipGridConfigs}}" page-size="100" context-data="[[contextData]]"
-                do-sync-validation$="[[doSyncValidation]]" message-code-mapping="[[messageCodeMapping]]"></rock-where-used-grid>
+            <template is="dom-repeat" items="{{relationshipTypeList}}" as="relationship" index-as="colIndex" notify-dom-change>
+                <rock-where-used-grid id="entityRelationshipGrid" relationship="[[relationship]]"  relationship-title="[[configContext.relationshipTitle]]"
+                    rel-req="[[requestObj]]" relationship-grid-config="[[_getRelationshipGridConfig(relationship)]]" page-size="100" context-data="[[contextData]]"
+                    do-sync-validation$="[[doSyncValidation]]" message-code-mapping="[[messageCodeMapping]]"></rock-where-used-grid>
+            </template>
         </template>
-        <div id="messageCard" hidden="[[_isMessageAvailable]]">
+        <div id="messageCard" hidden="[[!_isMessageAvailable]]">
         </div>
         <bedrock-pubsub event-name="grid-selecting-item" handler="onSelectingGridItem" target-id="entityRelationshipGrid"></bedrock-pubsub>
     </template>
@@ -168,7 +170,7 @@ It renders the list of attributes based on the specified relationship type.
                     },
                     _isMessageAvailable: {
                         type: Boolean,
-                        value: true
+                        value: false
                     },
                     /**
                       * <b><i>Content development is under progress... </b></i> 
@@ -185,7 +187,6 @@ It renders the list of attributes based on the specified relationship type.
 
                 observers: [
                     'initiateRelationshipManage(relationshipGridConfigs, contextData.Contexts)',
-                    '_initiateRelationshipGrid(_relationshipGridConfigs)',
                 ],
 
                 behaviors: [
@@ -209,9 +210,31 @@ It renders the list of attributes based on the specified relationship type.
                     if (_.isEmpty(this.relationshipGridConfigs) || _.isEmpty(this.contextData)) {
                         return;
                     }
+                    if (!this.configContext.relationshipTypeName ) {
+                        if(this.configContext.relationshipNames) {
+                            this._relationships = this.configContext.relationshipNames;
+                        }else{
+                            this._isMessageAvailable = true;
+                            var messageDiv = this.$.messageCard;
+                            if (messageDiv) {
+                                messageDiv.textContent = "No Default Relationship is configured. Please select a relationship from the menu.";
+                            }
+                            return;
+                        }
+                    }  else {
+                        this._relationships = [this.configContext.relationshipTypeName];
+                        if(!this.relationshipGridConfigs[this.configContext.relationshipTypeName]){
+                            this._isMessageAvailable = true;
+                            var messageDiv = this.$.messageCard;
+                            if (messageDiv) {
+                                messageDiv.textContent = "Relationships are not configured for current entity type: " + this.configContext.relationshipTitle;
+                            }
+                            return;
+                        }
+                    }
 
-                    Object.keys(this.relationshipGridConfigs).forEach(function (relType) {
-                        if (relType) {
+                    this._relationships.forEach(function (relType) {
+                        if (relType && this.relationshipGridConfigs[relType]) {
                             var relGridConfig=this.relationshipGridConfigs[relType].gridConfig;
                             if(relGridConfig) {
                                 var relatedEntityAttributes = [];
@@ -384,6 +407,7 @@ It renders the list of attributes based on the specified relationship type.
                                                 DataHelper.arrayRemove(this._tracker, relType);
                                                 if (this._tracker.length == 0) {
                                                     this._relationshipGridConfigs = this._relConfig;
+                                                    this.relationshipTypeList=this._relationships;
                                                 }
                                             }
                                         }
@@ -399,7 +423,7 @@ It renders the list of attributes based on the specified relationship type.
 
                             //TODO: Needs to change it with proper component
                             if (this._tracker.length == 0) {
-                                this._isMessageAvailable = false;
+                                this._isMessageAvailable = true;
                                 var messageDiv = Polymer.dom(this).node.$.messageCard;
                                 if (messageDiv) {
                                     messageDiv.textContent = "Relationships are not configured for current entity type: " + this.entityType;
@@ -476,16 +500,7 @@ It renders the list of attributes based on the specified relationship type.
                     DataHelper.arrayRemove(this._tracker, relType);
                     if (this._tracker.length == 0) {
                         this._relationshipGridConfigs = this._relConfig;
-                    }
-                },
-                _initiateRelationshipGrid: function () {
-                    var relTypeAndAttributes = {};
-                    if (this._relationshipGridConfigs && Object.keys(this._relationshipGridConfigs).length) {
-                        if (!this.configContext.relationshipTypeName ) {
-                            this.relationshipTypeList =this.configContext.relationshipNames;
-                        }  else {
-                            this.relationshipTypeList = [this.configContext.relationshipTypeName];
-                        }
+                        this.relationshipTypeList=this._relationships;
                     }
                 },
                 _getRelationshipGridConfig: function (relationshipTypeName) {
