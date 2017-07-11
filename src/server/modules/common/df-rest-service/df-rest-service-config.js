@@ -3,6 +3,7 @@ SERVICE_CONFIG = {
         "entityservice/get": {
             "url": "/entityappservice/get",
             "mode": "online",
+            "timeout": 180000,
             "offlineSettings": {
                 "operation": "get",
                 "requestPathToSelectDataFile": "params.query.filters.typesCriterion",
@@ -187,6 +188,13 @@ SERVICE_CONFIG = {
             "offlineSettings": {
             }
         },
+        "copservice/downloadDataJob": {
+            "url": "/rsConnectService/downloadDataJob",
+            "mode": "online",
+            "timeout": 600000,
+            "offlineSettings": {
+            }
+        },
         "entityservice/getcontext": {
             "url": "/entityservice/getcontext",
             "mode": "online",
@@ -264,6 +272,11 @@ SERVICE_CONFIG = {
         },
         "bulkentityservice/createtask": {
             "url": "/bulkentityservice/createtask",
+            "mode": "online",
+            "offlineSettings": {}
+        },
+        "binaryobjectservice/getById": {
+            "url": "/binaryobjectservice/getById",
             "mode": "online",
             "offlineSettings": {}
         }
