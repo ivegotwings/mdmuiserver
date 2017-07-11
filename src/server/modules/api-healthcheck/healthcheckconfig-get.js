@@ -25,7 +25,7 @@ var request = {
         },
         "contexts": [
           {
-            "app": "app-healthcheck-system"
+            "app": "app-system-healthcheck"
           }
         ]
       },
