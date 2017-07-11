@@ -18,6 +18,7 @@
 
 <link rel="import" href="../rock-grid/rock-grid.html">
 <link rel="import" href="assets-search-grid-datasource.html">
+<link rel="import" href="../rock-business-function-dialog/rock-business-function-dialog.html">
 
 <!--
 `rock-assets-search-grid` Represents a component that renders the asset entities in the grid.
@@ -46,9 +47,10 @@
             <bedrock-pubsub event-name="grid-download-item" handler="_onDownload" target-id="entityGrid"></bedrock-pubsub>
             <bedrock-pubsub event-name="grid-upload-item" handler="_onUpload" target-id="entityGrid"></bedrock-pubsub>
             <bedrock-pubsub event-name="grid-custom-toolbar-event" handler="_onCustomToolbarEvent" target-id="entityGrid"></bedrock-pubsub>
-            <bedrock-pubsub event-name="download-original-asset" handler="_onOriginalAssetDownloadAction" ></bedrock-pubsub>
+            <bedrock-pubsub event-name="download-original-asset" handler="_onOriginalAssetDownloadAction" target-id="entityGrid"></bedrock-pubsub>
         </template>
         <rock-business-function-dialog id="entityUploadDialog"></rock-business-function-dialog>
+        <rock-business-function-dialog id="entityDownloadDialog"></rock-business-function-dialog>
     </template>
 
     <script>
@@ -683,61 +685,22 @@
                     this.$$("#entityUploadDialog").sharedData = { "context-data": this.contextData };
                     this.$$("#entityUploadDialog").open();
                 },
-                _onDownload: function (e) {
-                    var rockGrid = Polymer.dom(this).node.$$('rock-grid');
-                    var selectedItems=rockGrid.getSelectedItems();
+                _onDownload: function (e, detail) {
+                    var selectedItems = this.getSelectedItems();
+                    var selectionMode = this.getSelectionMode();
+                    var selectionQuery = this.getSelectedItemsAsQuery();
+
                     if (selectedItems && selectedItems.length && this.contextData) {
-                        this._loading = true;
-                        var clonedDataContext = DataHelper.cloneObject(this.contextData);
-                        var itemContext = {};
-                        itemContext.id = [];
-                        itemContext.type = [];
-
-                        selectedItems.forEach(function (item) {
-                            if (item) {
-                                itemContext.id.push(item.id);
-
-                                if (itemContext.type.indexOf(item.type) == -1) {
-                                    itemContext.type.push(item.type);
-                                }
-                            }
-                        }, this);
-
-                        itemContext.attributeNames = ["_ALL"];
-                        itemContext.relationships = ["_ALL"];
-                        itemContext.relationshipAttributes = ["_ALL"];
-                        clonedDataContext[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
-
-                        var req = DataRequestHelper.createEntityGetRequest(clonedDataContext);
-
-                        if (req) {
-                            if (req.params) {
-                                req.params.rsconnect = {
-                                    "profiles": [
-                                        "downloadDataExcel"
-                                    ]
-                                }
-                            }
-                            req.fileName = "EntityData";
-                            var _this = this;
-                            RUFUtilities.fileDownload("/data/cop/downloadDataExcel", {
-                                httpMethod: 'POST',
-                                data:  {data: JSON.stringify(req)},
-                                successCallback: function (url) {
-                                    this._loading = false;
-                                }.bind(_this),
-                                failCallback: function(responseHtml, url, error){
-                                   this._onCOPDownloadFailure(error);
-                                }.bind(_this)
-                            });
-                        }
+                        var entityDownloadDialog = this.$$("#entityDownloadDialog");
+                        entityDownloadDialog.name = "rock-entity-download";
+                        entityDownloadDialog.sharedData = { "context-data": this.contextData,
+                                                            "selected-entities": selectedItems,
+                                                            "selection-query": selectionQuery,
+                                                            "selection-mode": selectionMode };
+                        entityDownloadDialog.open();
                     } else {
                         this.showInformationToast("Please select at least one entity from grid to download.");
                     }
-                },
-                _onCOPDownloadFailure: function (e) {
-                    this.showErrorToast("Failed to download entity data. Please contact administrator.");
-                    this._loading = false;
                 },
           /**
             * <b><i>Content development is under progress... </b></i> 
@@ -745,6 +708,12 @@
                 getSelectedItems: function () {
                     var rockGrid = Polymer.dom(this).node.$$('rock-grid');
                     return rockGrid.getSelectedItems();
+                },
+                getSelectedItemsAsQuery: function () {
+                    return this._getEntityGrid().getSelectedItemsAsQuery();
+                },
+                getSelectionMode: function () {
+                    return this._getEntityGrid().getSelectionMode();
                 }
             });
         })();

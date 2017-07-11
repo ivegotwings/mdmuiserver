@@ -3,6 +3,7 @@ SERVICE_CONFIG = {
         "entityservice/get": {
             "url": "/entityappservice/get",
             "mode": "online",
+            "timeout": 180000,
             "offlineSettings": {
                 "operation": "get",
                 "requestPathToSelectDataFile": "params.query.filters.typesCriterion",
@@ -182,6 +183,13 @@ SERVICE_CONFIG = {
         },
         "copservice/downloadDataExcel": {
             "url": "/rsConnectService/downloadDataExcel",
+            "mode": "online",
+            "timeout": 600000,
+            "offlineSettings": {
+            }
+        },
+        "copservice/downloadDataJob": {
+            "url": "/rsConnectService/downloadDataJob",
             "mode": "online",
             "timeout": 600000,
             "offlineSettings": {
