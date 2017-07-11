@@ -104,6 +104,11 @@ clientLoggingRoute(app);
 
 logger.info('Web engine start - client logger routes are loaded');
 
+var healthCheckRoute = require('../api-healthcheck/api-health-check-route');
+healthCheckRoute(app);
+
+logger.info('Web engine start - client logger routes are loaded');
+
 var notificationEngine = require("../notification-engine/socket");
 var notificationService = require('../notification-service/notification-route');
 notificationService(app);
@@ -114,6 +119,11 @@ var binaryStreamObjectRoute = require('../binarystreamobject/binarystreamobject-
 binaryStreamObjectRoute(app);
 
 logger.info('Web engine start - binary stream object service routes are loaded');
+
+var binaryObjectRoute = require('../binaryobject/binaryobject-route');
+binaryObjectRoute(app);
+
+logger.info('Web engine start - binary object service routes are loaded');
 
 //register static file root ...index.html..
 app.get('*', function (req, res) {
