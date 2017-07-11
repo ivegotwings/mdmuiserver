@@ -2,7 +2,7 @@
 <link rel="import" href="../../../bower_components/iron-flex-layout/iron-flex-layout-classes.html">
 <link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
-<!--<link rel="import" href="../../../bower_components/d3/d3.html">-->
+<link rel="import" href="../../../../bower_components/paper-button/paper-button.html">
 <script src="https://d3js.org/d3.v3.min.js"></script>
 
 <!--
@@ -29,11 +29,9 @@ Custom property | Description | Default
   <polymer-element name="pebble-graph-pie">
     <template>
       <style is="custom-style" include="iron-flex iron-flex-alignment">
-         :host {
-          display: block;
-          height: 135px;
-          width: 135px;
-          float: right;
+        :host {
+            display: block;
+            height: 500px;
         }
 
         *:focus {
@@ -49,18 +47,24 @@ Custom property | Description | Default
           margin: 0 0 0 20px;
         }
 
-        svg {
-          margin: 0;
-        }
+            svg {
+              float: right;
+              margin: -5% 3% 0 0;
+            }
 
         .arc path {
           stroke: #fff;
-          cursor: pointer;
         }
-        .arc path:hover{
-          fill: red;
+
+        .legend {
+          font-size: 12px;
         }
-      </style>
+        rect {
+          stroke-width: 2;
+        }
+  
+        </style>
+      <paper-button id="pie-button" on-tap="handleTap" raised >Reset Pie</paper-button>
       <svg id="svg"></svg>
     </template>
     <script>
@@ -90,9 +94,9 @@ Custom property | Description | Default
         ],
 
         createElements: function () {
-          var width = 135,
-            height = 135,
-            radius = Math.min(width, height) / 2;
+          var width = 800,
+            height = 500,
+            radius = Math.min(width, height) / 2.1;
 
           this.color = d3.scale.ordinal().range(["#a6cee3", "#1f78b4", "#b2df8a", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f", "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928"]);
 
@@ -101,7 +105,7 @@ Custom property | Description | Default
             .innerRadius(0);
 
           this.pie = d3.layout.pie()
-            .sort(null)
+            .sort( function(d) { return null; } )
             .value(function (d) {
               return d.value;
             });
@@ -111,14 +115,23 @@ Custom property | Description | Default
             .attr("height", height)
             .append("g")
             .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
+
+            
         },
+
         drawChart: function () {
+          arr = [];
+          var width = 500,
+          height = 500,
+          radius = Math.min(width, height) / 2.1;
+          var legendRectSize = 18;
+          var legendSpacing = 4;
           var me = this;
           me.data.forEach(function (d) {
             d.value = +d.value;
           });
 
-          me.g = me.svg.selectAll(".arc")
+          me.g = me.svg.selectAll("g.arc")
             .data(me.pie(me.data))
             .enter().append("g")
             .attr("class", "arc");
@@ -127,43 +140,115 @@ Custom property | Description | Default
             .attr("d", me.arc)
             .style('outline', 0)
             .style("fill", function (d) {
-              return (d.data.color ? d.data.color : me.color(d.data.key));
+              return me.color(d.data.key);
             })
-            .on("click", function (d) {
-              me._fireSelectionEvent(d);
-              d3.select(this)
-                .style('outline', 0)
-            })
-            .on("blur", function (d) {
-              d3.select(this)
-                .attr('opacity', 1)
-                .style('outline', 0)
+
+          var legend = me.svg.selectAll('.legend')
+          .data(me.color.domain())
+          .enter()
+          .append('g')
+          .attr('class', 'legend')
+          .attr('transform', function(d, i) {
+            var height = legendRectSize + legendSpacing;
+            var offset =  height * me.color.domain().length / 2;
+            var horz = 15 * legendRectSize;
+            var vert = i * height - offset;
+            return 'translate(' + horz + ',' + vert + ')';
+          });
+
+          legend.append('rect')
+            .attr('width', legendRectSize)
+            .attr('height', legendRectSize)
+            .style('fill', me.color)
+            .style('stroke', me.color)
+            /*.style('stroke-width', 3);*/
+
+          legend.append('text')
+            .attr('x', legendRectSize + legendSpacing)
+            .attr('y', legendRectSize - legendSpacing)
+            .text(function(d) { return d; });
+
+          legend.on("click", function(d, index){              
+              var g = me.g[0][index];
+              var d = d3.select(me.g[0][index]).datum();
+              d3.select(g)
+                  .transition()
+                  .duration(400)
+                  .attr("transform",function(d){
+                      if (!d.data._expanded){
+                          d.data._expanded = true;
+                          me._fireSelectionEvent(d);
+                          var a = d.startAngle + (d.endAngle - d.startAngle)/2 - Math.PI/2;
+                          var x = Math.cos(a) * 20;
+                          var y = Math.sin(a) * 20;
+                          return 'translate(' + x + ',' + y + ')';                
+                      } else {
+                          d.data._expanded = false;
+                          me._fireSelectionEvent2(d);
+                          return 'translate(0,0)';                
+                      }                
+                });
             });
 
-          /*me.g.append("text")
-            .attr("transform", function (d) {
-              return "translate(" + me.arc.centroid(d) + ")";
-            })
+          me.g.on("click", function (d) {
+              d3.select(this)
+                  .transition()
+                  .duration(400)
+                  .attr("transform",function(d){
+                      if (!d.data._expanded){
+                          d.data._expanded = true;
+                          me._fireSelectionEvent(d);
+                          var a = d.startAngle + (d.endAngle - d.startAngle)/2 - Math.PI/2;
+                          var x = Math.cos(a) * 20;
+                          var y = Math.sin(a) * 20;
+                          return 'translate(' + x + ',' + y + ')';                
+                      } else {
+                          d.data._expanded = false;
+                          me._fireSelectionEvent2(d);
+                          return 'translate(0,0)';                
+                      }                
+                });
+            });
+
+          me.g.filter(function(d) { return d.endAngle - d.startAngle > .2; }).append("text")
             .attr("dy", ".35em")
-            .style("text-anchor", "middle")
-            .text(function (d) {
-              return d.data.key;
-            });*/
-
-          me.g.append("text")
-            .attr("transform", function (d) {
-              return "translate(" + me.arc.centroid(d) + ")";
+            .attr("text-anchor", "middle")
+            .attr("transform", function(d) { 
+              d.outerRadius = radius; 
+              d.innerRadius = radius/2; 
+              return "translate(" + me.arc.centroid(d) + ")rotate(" + angle(d) + ")";
             })
-            .attr("dy", 10)
-            .style("text-anchor", "middle")
-            .text(function (d) {
-              return d.data.value + ((d.data.unit) ? d.data.unit : "");;
-            });
+            .style("fill", "White")
+            .style("font", "bold 12px Arial")
+            .text(function(d) { return d.data.key + " - " + d.data.value; });
+
+          function angle(d) {
+            var a = (d.startAngle + d.endAngle) * 90 / Math.PI - 90;
+            return a > 90 ? a - 180 : a;
+          }
+        },
+
+
+        handleTap: function(d) {
+              d3.selectAll('.arc')
+                  .transition()
+                  .duration(400)
+                  .attr("transform",'translate(0,0)');
+                  location.reload();
         },
         _fireSelectionEvent: function (d) {
-          console.log('firing tap event with data ', JSON.stringify(d));
+          //console.log('firing tap event with data ', JSON.stringify(d));
           this.fireBedrockEvent('selection-changed', d, { bubbles: true });
-        },
+          arr.push(d.data);
+          console.log('dynamic array includes ', JSON.stringify(arr));
+        },   
+
+        _fireSelectionEvent2: function (d) {  
+        //console.log('firing tap event with data ', JSON.stringify(d));
+        arr.splice(d.data, 1);
+        console.log('dynamic array includes ', JSON.stringify(arr));
+        }, 
+
         refreshChart: function () {
           var me = this;
           me.g.data(me.pie(me.data))
@@ -174,13 +259,14 @@ Custom property | Description | Default
               return "translate(" + me.arc.centroid(d) + ")";
             });
         },
+
         _onDataChanged: function () {
           if (this.data && this.data.length > 0) {
             this.createElements();
             this.drawChart();
           }
         },
-        attached: function () {}
+                
       });
     </script>
   </polymer-element>
