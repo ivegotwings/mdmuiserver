@@ -3,6 +3,7 @@ SERVICE_CONFIG = {
         "entityservice/get": {
             "url": "/entityappservice/get",
             "mode": "online",
+            "timeout": 180000,
             "offlineSettings": {
                 "operation": "get",
                 "requestPathToSelectDataFile": "params.query.filters.typesCriterion",
