@@ -182,7 +182,7 @@ Eventservice.prototype = {
 
             //Get Batch Events to get basic information of reuested tasks...
             var attributeNames = ["fileId", "fileName", "eventType", "eventSubType", "recordCount", "createdOn", "userId", "profileType", "taskType", "message", "integrationType"];
-            var eventTypeFilterString = "BATCH_COLLECT_ENTITY_IMPORT BATCH_COLLECT_ENTITY_EXPORT BATCH_TRANSFORM_ENTITY_IMPORT BATCH_TRANSFORM_ENTITY_EXPORT BATCH_EXTRACT";
+            var eventTypeFilterString = "BATCH_COLLECT_ENTITY_IMPORT BATCH_COLLECT_ENTITY_EXPORT BATCH_TRANSFORM_ENTITY_IMPORT BATCH_TRANSFORM_ENTITY_EXPORT BATCH_EXTRACT BATCH_PUBLISH_ENTITY_EXPORT";
             var eventSubTypeFilterString = "";
             var eventsGetRequest = this._generateEventsGetReq(taskId, attributeNames, eventTypeFilterString, eventSubTypeFilterString, false);
             
@@ -302,7 +302,7 @@ Eventservice.prototype = {
                                 //console.log('Request tracking get request to RDF', JSON.stringify(requestTrackingGetRequest));
                                 var requestTrackingGetUrl = 'requesttrackingservice/get';
                                 var reqTrackingRes = await this.post(requestTrackingGetUrl, requestTrackingGetRequest);
-                                
+
                                 if (reqTrackingRes && reqTrackingRes.response && reqTrackingRes.response.requestObjects && reqTrackingRes.response.requestObjects.length > 0) {
                                     this._populateTaskDetailsBasedOnReqTrackingResponse(response, reqTrackingRes, preProcessErroredRecordsCount);
                                 }
