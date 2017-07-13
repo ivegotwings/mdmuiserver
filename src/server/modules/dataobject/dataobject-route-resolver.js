@@ -206,8 +206,7 @@ function createGetRequest(reqData) {
     }
 
     var options = {
-        maxRecords: 2000,
-        includeRequest: false
+        maxRecords: 2000
     };
 
     var filters = {};
@@ -443,7 +442,7 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
 
             //console.log('dataObject data', JSON.stringify(dataObject, null, 4));
 
-            var apiRequestObj = { 'includeRequest': false, 'dataIndex': dataIndex, 'clientState': clientState };
+            var apiRequestObj = { 'dataIndex': dataIndex, 'clientState': clientState };
             apiRequestObj[dataIndexInfo.name] = dataObject;
             
             //console.log('api request data for process dataObjects', JSON.stringify(apiRequestObj));
