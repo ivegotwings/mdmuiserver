@@ -92,6 +92,8 @@ async function initiateSearch(callPath, args) {
         // console.log('response raw str', JSON.stringify(res, null, 4));
         var totalRecords = 0;
 
+        var resultRecordSize = 0;
+
         var collectionName = dataIndexInfo.collectionName;
 
         var dataObjectResponse = res ? res[dataIndexInfo.responseObjectName] : undefined;
@@ -101,11 +103,9 @@ async function initiateSearch(callPath, args) {
             var dataObjects = dataObjectResponse[collectionName];
             var index = 0;
             if (dataObjects !== undefined) {
-                if(operation === "initiatesearchandgetcount") {
-                    totalRecords = dataObjectResponse.totalRecords;
-                }
-                else if(operation === "search") {
-                    totalRecords = dataObjects.length;
+                totalRecords = dataObjectResponse.totalRecords;
+                if(operation === "search") {
+                    resultRecordSize = dataObjects.length;                   
                     for (let dataObject of dataObjects) {
                         if (dataObject.id !== undefined) {
                             var dataObjectType = dataObject.type;
@@ -129,9 +129,9 @@ async function initiateSearch(callPath, args) {
                 }
             }
         }
-
         response.push(mergeAndCreatePath(basePath, ["maxRecords"], $atom(maxRecordsSupported)));
         response.push(mergeAndCreatePath(basePath, ["totalRecords"], $atom(totalRecords)));
+        response.push(mergeAndCreatePath(basePath, ["resultRecordSize"], $atom(resultRecordSize)));
         response.push(mergeAndCreatePath(basePath, ["requestId"], $atom(requestId)));
         //response.push(mergeAndCreatePath(basePath, ["request"], $atom(request)));
     }
