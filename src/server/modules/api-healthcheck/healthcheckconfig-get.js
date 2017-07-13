@@ -35,8 +35,7 @@ var request = {
         ]
       },
       "options": {
-        "maxRecords": 2000,
-        "includeRequest": false
+        "maxRecords": 2000
       }
     }
   },
