@@ -22,10 +22,15 @@ function prepareNotificationObject(data) {
                     var requestGroupId = attributes['requestGroupId'];
                     var description = attributes["description"];
 
+                    var desc = "";
+                    if(description && description.values && description.values.length) {
+                        desc = description.values[0].value;
+                    }
+
                     if (!isEmpty(serviceName) && !isEmpty(requestStatus) && !isEmpty(requestGroupId)) {
                         notificationInfo.requestId = requestGroupId.values[0].value;
                         notificationInfo.status = requestStatus.values[0].value;
-                        notificationInfo.action = getAction(serviceName.values[0].value, notificationInfo.status, notificationInfo.operation, description.values[0].value);
+                        notificationInfo.action = getAction(serviceName.values[0].value, notificationInfo.status, notificationInfo.operation, desc);
                         notificationInfo.description = "";
                     }
                 }
