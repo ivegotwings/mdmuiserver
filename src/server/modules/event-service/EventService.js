@@ -303,7 +303,7 @@ Eventservice.prototype = {
                                     }
                                 }
                             }
-                            else if (!(eventType == "BATCH_PUBLISH_ENTITY_EXPORT" || eventType == "BATCH_PUBLISH_ENTITY_EXPORT")) {
+                            else if (!(eventType == "BATCH_TRANSFORM_ENTITY_EXPORT" || eventType == "BATCH_PUBLISH_ENTITY_EXPORT")) {
                                 //Generate request tracking get request...
                                 var requestTrackingGetRequest = this._generateRequestTrackingGetReqForTaskDetails(taskId);
 
