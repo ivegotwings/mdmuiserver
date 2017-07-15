@@ -261,8 +261,15 @@ Eventservice.prototype = {
 
                     //Get in progress requests stats in RDF based on the status of highOrderEvent
                     if (eventSubType == "PROCESSING_COMPLETED") {
-
-                        if ((response.totalRecords == "N/A" || response.totalRecords == "0") || (eventType == "BATCH_PUBLISH_ENTITY_EXPORT")) {
+                        if(eventType == "BATCH_PUBLISH_ENTITY_EXPORT") {
+                            taskStats.success = "100%";
+                            taskStats.error = "0%";
+                            taskStats.processing = "0%";
+                            response.taskStatus = "Completed";
+                        }
+                        else if ((eventType != "BATCH_COLLECT_ENTITY_EXPORT" && eventType != "BATCH_TRANSFORM_ENTITY_EXPORT" 
+                            && (response.totalRecords == "N/A" || response.totalRecords == "0"))) {
+                            //console.log(' marking complete sooner ', JSON.stringify(response), JSON.stringify(highOrderEvent));
                             taskStats.success = "100%";
                             taskStats.error = "0%";
                             taskStats.processing = "0%";
@@ -309,7 +316,7 @@ Eventservice.prototype = {
                                     }
                                 }
                             }
-                            else if (!(eventType == "BATCH_TRANSFORM_ENTITY_EXPORT" || eventType == "BATCH_PUBLISH_ENTITY_EXPORT")) {
+                            else if (!(eventType == "BATCH_COLLECT_ENTITY_EXPORT" || eventType == "BATCH_TRANSFORM_ENTITY_EXPORT" || eventType == "BATCH_PUBLISH_ENTITY_EXPORT")) {
                                 //Generate request tracking get request...
                                 var requestTrackingGetRequest = this._generateRequestTrackingGetReqForTaskDetails(taskId);
 
@@ -327,6 +334,13 @@ Eventservice.prototype = {
                                     taskStats.error = "0%";
                                     response.taskStatus = "Processing";
                                 }
+                            }
+                            else {
+                                //console.log('no filter, so writing processing as generic status');
+                                taskStats.processing = "100%";
+                                taskStats.success = "0%";
+                                taskStats.error = "0%";
+                                response.taskStatus = "Processing";
                             }
                         }
                     }
