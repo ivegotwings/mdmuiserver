@@ -261,8 +261,15 @@ Eventservice.prototype = {
 
                     //Get in progress requests stats in RDF based on the status of highOrderEvent
                     if (eventSubType == "PROCESSING_COMPLETED") {
-
-                        if ((response.totalRecords == "N/A" || response.totalRecords == "0") || (eventType == "BATCH_PUBLISH_ENTITY_EXPORT")) {
+                        if(eventType == "BATCH_PUBLISH_ENTITY_EXPORT") {
+                            taskStats.success = "100%";
+                            taskStats.error = "0%";
+                            taskStats.processing = "0%";
+                            response.taskStatus = "Completed";
+                        }
+                        else if ((eventType != "BATCH_COLLECT_ENTITY_EXPORT" && eventType != "BATCH_TRANSFORM_ENTITY_EXPORT" 
+                            && (response.totalRecords == "N/A" || response.totalRecords == "0"))) {
+                            //console.log(' marking complete sooner ', JSON.stringify(response), JSON.stringify(highOrderEvent));
                             taskStats.success = "100%";
                             taskStats.error = "0%";
                             taskStats.processing = "0%";
@@ -279,8 +286,14 @@ Eventservice.prototype = {
 
                             //console.log('Record events get request to RDF', JSON.stringify(eventsGetRequest));
                             var recordEventsGetRes = await this.post(eventServiceGetUrl, eventsGetRequest);
+                            //console.log('Record events get response to RDF', JSON.stringify(recordEventsGetRes));
                             if (recordEventsGetRes && recordEventsGetRes.response) {
                                 preProcessErroredRecordsCount = recordEventsGetRes.response.totalRecords;
+
+                                // Just to make sure if errors are more than total records submitted
+                                if(preProcessErroredRecordsCount > totalRecords) {
+                                    preProcessErroredRecordsCount = totalRecords;
+                                }
 
                                 if (recordEventsGetRes.response.events && recordEventsGetRes.response.events.length > 0) {
                                     lastErroredRecordEvent = recordEventsGetRes.response.events[0];
@@ -303,14 +316,15 @@ Eventservice.prototype = {
                                     }
                                 }
                             }
-                            else if (!(eventType == "BATCH_TRANSFORM_ENTITY_EXPORT" || eventType == "BATCH_PUBLISH_ENTITY_EXPORT")) {
+                            else if (!(eventType == "BATCH_COLLECT_ENTITY_EXPORT" || eventType == "BATCH_TRANSFORM_ENTITY_EXPORT" || eventType == "BATCH_PUBLISH_ENTITY_EXPORT")) {
                                 //Generate request tracking get request...
                                 var requestTrackingGetRequest = this._generateRequestTrackingGetReqForTaskDetails(taskId);
 
                                 //console.log('Request tracking get request to RDF', JSON.stringify(requestTrackingGetRequest));
                                 var requestTrackingGetUrl = 'requesttrackingservice/get';
                                 var reqTrackingRes = await this.post(requestTrackingGetUrl, requestTrackingGetRequest);
-
+                                //console.log('Request tracking get response from RDF', JSON.stringify(reqTrackingRes));
+                                //console.log('Response object so far', JSON.stringify(response, null, 2));
                                 if (reqTrackingRes && reqTrackingRes.response && reqTrackingRes.response.requestObjects && reqTrackingRes.response.requestObjects.length > 0) {
                                     this._populateTaskDetailsBasedOnReqTrackingResponse(response, reqTrackingRes, preProcessErroredRecordsCount);
                                 }
@@ -320,6 +334,13 @@ Eventservice.prototype = {
                                     taskStats.error = "0%";
                                     response.taskStatus = "Processing";
                                 }
+                            }
+                            else {
+                                //console.log('no filter, so writing processing as generic status');
+                                taskStats.processing = "100%";
+                                taskStats.success = "0%";
+                                taskStats.error = "0%";
+                                response.taskStatus = "Processing";
                             }
                         }
                     }
@@ -552,6 +573,18 @@ Eventservice.prototype = {
             var successPercentage = (successCount * 100) / totalRecordCount;
             var errorPercentage = ((errorCount + preProcessErroredRecordsCount) * 100) / totalRecordCount;
             var inProgressPercentage = (inProgressCount * 100) / totalRecordCount;
+
+            if(successPercentage > 100) {
+                successPercentage = 100;
+            }
+
+            if(errorPercentage > 100) {
+                errorPercentage = 100;
+            }
+
+            if(inProgressPercentage > 100) {
+                inProgressPercentage = 100;
+            }
 
             taskDetails.taskStats.success = parseInt(successPercentage) + "%";
             taskDetails.taskStats.error = parseInt(errorPercentage) + "%";
