@@ -302,10 +302,11 @@ COPService.prototype = {
         if (copResponse && copResponse.binaryObjects && copResponse.binaryObjects.length) {
             var binaryObject = copResponse.binaryObjects[0];
             if (binaryObject) {
-                var fileExtension = "xlsx";
+                var fileExtension = "xlsm";
                 if (binaryObject.properties && binaryObject.properties.extension) {
                     fileExtension = binaryObject.properties.extension;
                 }
+                
                 var blob = binaryObject.data && binaryObject.data.blob ? binaryObject.data.blob : "";
                 response.cookie('fileDownload',true, { path: "/", httpOnly: false });
                 response.writeHead(200, {

@@ -20,11 +20,17 @@ function prepareNotificationObject(data) {
                     var requestStatus = attributes['requestStatus'];
                     var serviceName = attributes['serviceName'];
                     var requestGroupId = attributes['requestGroupId'];
+                    var description = attributes["description"];
+
+                    var desc = "";
+                    if(description && description.values && description.values.length) {
+                        desc = description.values[0].value;
+                    }
 
                     if (!isEmpty(serviceName) && !isEmpty(requestStatus) && !isEmpty(requestGroupId)) {
                         notificationInfo.requestId = requestGroupId.values[0].value;
                         notificationInfo.status = requestStatus.values[0].value;
-                        notificationInfo.action = getAction(serviceName.values[0].value, notificationInfo.status, notificationInfo.operation);
+                        notificationInfo.action = getAction(serviceName.values[0].value, notificationInfo.status, notificationInfo.operation, desc);
                         notificationInfo.description = "";
                     }
                 }
@@ -35,15 +41,23 @@ function prepareNotificationObject(data) {
     return notificationInfo;
 };
 
-function getAction(serviceName, status, operation) {
+function getAction(serviceName, status, operation, description) {
     var action = "";
 
     if (!isEmpty(status) && !isEmpty(status)) {
         if (serviceName.toLowerCase() == "entitymanageservice") {
             if (status.toLowerCase() == "success") {
-                action = enums.actions.SaveComplete;
+                if (description == "System Manage Complete") {
+                    action = enums.actions.SystemSaveComplete;
+                } else {
+                    action = enums.actions.SaveComplete;
+                }
             } else {
-                action = enums.actions.SaveFail;
+                if (description == "System Manage Complete") {
+                    action = enums.actions.SystemSaveFail;
+                } else {
+                    action = enums.actions.SaveFail;
+                }
             }
         }
 

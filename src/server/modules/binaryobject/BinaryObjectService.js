@@ -8,35 +8,55 @@ var BinaryObjectService = function (options) {
 
 BinaryObjectService.prototype = {
     downloadBinaryObject: async function (request, response) {
-        var URL = 'binaryobjectservice/getById';
-        var parsedRequest = JSON.parse(request.body.data);
-        var fileName = parsedRequest.fileName;
+        try {
+            var URL = 'binaryobjectservice/getById';
+            var parsedRequest = JSON.parse(request.body.data);
+            var fileName = parsedRequest.fileName;
 
-        var binaryObjectResponse = await this.post(URL, parsedRequest);
-        if (binaryObjectResponse && binaryObjectResponse.response) {
-            this._downloadFileContent(binaryObjectResponse.response, fileName, response);
+            var binaryObjectResponse = await this.post(URL, parsedRequest);
+            if (binaryObjectResponse && binaryObjectResponse.response) {
+                this._downloadFileContent(binaryObjectResponse.response, fileName, response);
+            }
+            else {
+                console.log('no binary object response found!!');
+            }
         }
-
+        catch (err) {
+            console.log('Failed to get task details.\nError:', err.message, '\nStackTrace:', err.stack);
+        }
+        finally {
+        }
     },
     _downloadFileContent: function (binaryObjectResponse, fileName, response) {
         if (binaryObjectResponse && binaryObjectResponse.binaryObjects && binaryObjectResponse.binaryObjects.length > 0) {
             var binaryObject = binaryObjectResponse.binaryObjects[0];
+            //console.log('binary object retrived ', JSON.stringify(binaryObject));
+
             if (binaryObject) {
+
+                var fileExtension = "xlsm";
+                if (binaryObject.properties && binaryObject.properties.extension) {
+                    fileExtension = binaryObject.properties.extension;
+                }
+
                 var blob = (binaryObject.data && binaryObject.data.blob) ? binaryObject.data.blob : "";
                 response.cookie('fileDownload', true, { path: "/", httpOnly: false });
                 response.writeHead(200, {
                     'Content-Type': 'vnd.ms-excel', //ToDo: need to use different mime types based on file extensions
-                    'Content-disposition': 'attachment;filename=' + fileName
+                    'Content-disposition': 'attachment;filename=' + fileName + "." + fileExtension
                 });
-
 
                 var baseString = new Buffer(blob, 'base64');
                 var utfString = baseString.toString('utf8');
 
-                if(utfString) {
-                    var jsonParsedResponse = JSON.parse(utfString);
-                    if(jsonParsedResponse && jsonParsedResponse.binaryObject && jsonParsedResponse.binaryObject.data && jsonParsedResponse.binaryObject.data.blob) {
-                        blob = jsonParsedResponse.binaryObject.data.blob;
+                if (utfString) {
+                    try {
+                        var jsonParsedResponse = JSON.parse(utfString);
+                        if (jsonParsedResponse && jsonParsedResponse.binaryObject && jsonParsedResponse.binaryObject.data && jsonParsedResponse.binaryObject.data.blob) {
+                            blob = jsonParsedResponse.binaryObject.data.blob;
+                        }
+                    }
+                    catch (e) {
                     }
                 }
 
