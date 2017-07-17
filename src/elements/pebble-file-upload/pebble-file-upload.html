@@ -296,6 +296,26 @@ It takes additional data through properties. It is available in small, medium, a
                         type: Object,
                         value: {}
                     },
+                    _fileExtensionMappings: {
+                        type: Object,
+                        value: function() {
+                            return {
+                                "application/msword": ".doc",
+                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+                                "application/vnd.openxmlformats-officedocument.wordprocessingml.template": ".dotx",
+                                "application/vnd.ms-word.document.macroEnabled.12": ".docm",
+                                "application/vnd.ms-word.template.macroEnabled.12": ".dotm",
+                                "application/vnd.ms-excel": ".xls",
+                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+                                "application/vnd.openxmlformats-officedocument.spreadsheetml.template": ".xltx",
+                                "application/vnd.ms-excel.sheet.macroEnabled.12": ".xlsm",
+                                "application/vnd.ms-excel.template.macroEnabled.12": ".xltm",
+                                "application/vnd.ms-excel.addin.macroEnabled.12": ".xlam",
+                                "application/vnd.ms-excel.sheet.binary.macroEnabled.12": ".xlsb",
+                                "image/*": ".jpg, .jpeg, .png, .gif"
+                            }
+                        }
+                    }
                 },
                 behaviors: [
                     RUFBehaviors.UIBehavior,
@@ -359,13 +379,8 @@ It takes additional data through properties. It is available in small, medium, a
                     var file = event.dataTransfer.files[0];
 
                     // Check if filetype is accepted
-                    var mimeType = ((file.type !== '') ? file.type.match(/^[^\/]*\//)[0] : null);
-                    var fileType = file.name.match(/\.[^\.]*$/)[0];
-                    if ((this.accept !== '' && !(this.accept.indexOf(mimeType) > -1) || this.accept.indexOf(fileType) > -1)) {
-                        if(file.size > this.sizeLimit){
-                            this.showErrorToast("The size of the file exceeded the maximum limit");
-                            return;
-                        }
+                    var isFileValid = this._validateFile(file);
+                    if(!isFileValid) {
                         return;
                     }
 
@@ -386,17 +401,57 @@ It takes additional data through properties. It is available in small, medium, a
                         this.set('file', undefined);
                     } else {
                         var file = input.files[0];
-                        if (file.size < this.sizeLimit) {
+                        var isFileValid = this._validateFile(file);
+                        if(isFileValid) {
                             this.progress = 0;
                             this.error = false;
                             this.complete = false;
                             this._uploadFile(file);
                             this.set('file', file);
-                        }
-                        else{
-                            this.showErrorToast("The size of the file exceeded the maximum limit");
+                        } else {
+                            return;
                         }
                     }
+                },
+
+                _validateFile: function(file) {
+                    var mimeType = ((file.type !== '') ? file.type.match(/^[^\/]*\//)[0] : null);
+                    var fileType = file.name.match(/\.[^\.]*$/)[0];
+                    if ((this.accept !== '' && !(this.accept.indexOf(mimeType) > -1) || this.accept.indexOf(fileType) > -1)) {
+                        if(file.size > this.sizeLimit){
+                            this.showErrorToast("The size of the file exceeded the maximum limit");
+                            return false;
+                        }
+                        var type = mimeType ? mimeType : fileType;
+                        var extensions = this._getAllowedExtensions();
+                        var message = "The file type " + type + " is not a valid extension."
+                        if(extensions) {
+                            message = message + " Valid extensions are " + extensions + ".";
+                        }
+                        this.showErrorToast(message);
+                        return false;
+                    }
+                    return true;
+                },
+
+                _getAllowedExtensions: function() {
+                    var accept = this.accept.replace(/ /g,'');
+                    var fileTypes = accept.split(",");
+                    var allowedExtensions = undefined;
+                    if(fileTypes && fileTypes.length > 0) {
+                        for(var i=0; i<fileTypes.length; i++) {
+                            var fileType = fileTypes[i];
+                            var extension = this._fileExtensionMappings[fileType];
+                            if(extension) {
+                                if(allowedExtensions) {
+                                    allowedExtensions = allowedExtensions + ", " + extension;
+                                } else {
+                                    allowedExtensions = extension;
+                                }
+                            }
+                        }
+                    }
+                    return allowedExtensions;
                 },
 
                 /**
