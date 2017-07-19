@@ -188,7 +188,7 @@ Eventservice.prototype = {
             //console.log('Get details for ', taskId);
 
             //Get Batch Events to get basic information of reuested tasks...
-            var attributeNames = ["fileId", "fileName", "eventType", "eventSubType", "recordCount", "createdOn", "userId", "profileType", "taskType", "message", "integrationType"];
+            var attributeNames = ["fileId", "fileName", "formatter", "eventType", "eventSubType", "recordCount", "createdOn", "userId", "profileType", "taskType", "message", "integrationType"];
             var eventTypeFilterString = "BATCH_COLLECT_ENTITY_IMPORT BATCH_TRANSFORM_ENTITY_IMPORT BATCH_EXTRACT BATCH_COLLECT_ENTITY_EXPORT BATCH_TRANSFORM_ENTITY_EXPORT BATCH_PUBLISH_ENTITY_EXPORT";
             var eventSubTypeFilterString = "";
             var eventsGetRequest = this._generateEventsGetReq(taskId, attributeNames, eventTypeFilterString, eventSubTypeFilterString, false);
@@ -227,6 +227,7 @@ Eventservice.prototype = {
 
                     var fileName = this._getAttributeValue(highOrderEvent, "fileName");
                     var fileId = this._getAttributeValue(highOrderEvent, "fileId");
+                    var formatter = this._getAttributeValue(highOrderEvent, "formatter");
                     var submittedBy = this._getAttributeValue(highOrderEvent, "userId");
                     var totalRecords = this._getAttributeValue(highOrderEvent, "recordCount");
                     var message = this._getAttributeValue(highOrderEvent, "message");
@@ -235,7 +236,8 @@ Eventservice.prototype = {
                     response.taskType = taskType;
                     response.fileId = fileId ? fileId : "N/A";
                     response.fileName = fileName ? fileName : response.fileId;
-                    response.submittedBy = submittedBy ? submittedBy : "N/A";
+                    response.fileFormat = formatter ? formatter : "N/A";
+                    response.submittedBy = submittedBy ? submittedBy.replace("_user", "") : "N/A";
                     response.totalRecords = totalRecords ? totalRecords : "N/A";
                     response.message = message ? message : "N/A";
                     response.endTime = "N/A";
@@ -318,7 +320,12 @@ Eventservice.prototype = {
                             }
                             else if (!(eventType == "BATCH_COLLECT_ENTITY_EXPORT" || eventType == "BATCH_TRANSFORM_ENTITY_EXPORT" || eventType == "BATCH_PUBLISH_ENTITY_EXPORT")) {
                                 //Generate request tracking get request...
-                                var requestTrackingGetRequest = this._generateRequestTrackingGetReqForTaskDetails(taskId);
+                                var isBulkWorkflowTask = false;
+                                if(taskType.toLowerCase().indexOf("workflow") >= 0) {
+                                    isBulkWorkflowTask = true;
+                                }
+
+                                var requestTrackingGetRequest = this._generateRequestTrackingGetReqForTaskDetails(taskId, isBulkWorkflowTask);
 
                                 //console.log('Request tracking get request to RDF', JSON.stringify(requestTrackingGetRequest));
                                 var requestTrackingGetUrl = 'requesttrackingservice/get';
@@ -326,7 +333,7 @@ Eventservice.prototype = {
                                 //console.log('Request tracking get response from RDF', JSON.stringify(reqTrackingRes));
                                 //console.log('Response object so far', JSON.stringify(response, null, 2));
                                 if (reqTrackingRes && reqTrackingRes.response && reqTrackingRes.response.requestObjects && reqTrackingRes.response.requestObjects.length > 0) {
-                                    this._populateTaskDetailsBasedOnReqTrackingResponse(response, reqTrackingRes, preProcessErroredRecordsCount);
+                                    this._populateTaskDetailsBasedOnReqTrackingResponse(response, reqTrackingRes, preProcessErroredRecordsCount, isBulkWorkflowTask);
                                 }
                                 else {
                                     taskStats.processing = "100%";
@@ -445,7 +452,7 @@ Eventservice.prototype = {
 
         return req;
     },
-    _generateRequestTrackingGetReqForTaskDetails: function (taskId) {
+    _generateRequestTrackingGetReqForTaskDetails: function (taskId, isBulkWorkflowTask) {
         var types = ["requestObject"];
         var req = this._getRequestJson(types);
 
@@ -457,24 +464,37 @@ Eventservice.prototype = {
         }];
 
         var attributesCriteria = [];
+
+        //Add task id criterion...
         var taskIdCriterion = {
             "taskId": {
                 "exact": taskId
             }
         };
+        attributesCriteria.push(taskIdCriterion);
+
+        //Add service name criterion...
+        var serviceName = "entityManageService";
+        if(isBulkWorkflowTask) {
+            serviceName = "entityGovernService";
+        }
+
         var serviceNameCriterion = {
             "serviceName": {
-                "eq": "entityManageService"
+                "eq": serviceName
             }
         };
-        var entityActionCriterion = {
-            "entityAction": {
-                "contains": "create update delete"
-            }
-        };
-        attributesCriteria.push(taskIdCriterion);
         attributesCriteria.push(serviceNameCriterion);
-        attributesCriteria.push(entityActionCriterion);
+
+        if(!isBulkWorkflowTask) {
+            var entityActionCriterion = {
+                "entityAction": {
+                    "contains": "create update delete"
+                }
+            };
+            attributesCriteria.push(entityActionCriterion);
+        }
+        
         req.params.query.filters.attributesCriterion = attributesCriteria;
 
         //  req.params.sort = {
@@ -501,7 +521,7 @@ Eventservice.prototype = {
 
         return req;
     },
-    _populateTaskDetailsBasedOnReqTrackingResponse: function (taskDetails, reqTrackingResponse, preProcessErroredRecordsCount) {
+    _populateTaskDetailsBasedOnReqTrackingResponse: function (taskDetails, reqTrackingResponse, preProcessErroredRecordsCount, isBulkWorkflowTask) {
         var requestObjects = reqTrackingResponse.response.requestObjects;
 
         var successCount = 0;
@@ -512,36 +532,90 @@ Eventservice.prototype = {
         var successObjIds = [];
         var successObjTypes = [];
 
-        for (var i = 0; i < requestObjects.length; i++) {
-            var reqObj = requestObjects[i];
+        if(isBulkWorkflowTask) {
+            var me = this;
+            var groups = _.groupBy(requestObjects, function (reqObj) {
+                var groupKey = me._getAttributeValue(reqObj, "entityId");
 
-            var objId = this._getAttributeValue(reqObj, "entityId");
-            var objType = this._getAttributeValue(reqObj, "entityType");
-            var objStatus = this._getAttributeValue(reqObj, "requestStatus");
-            var objAction = this._getAttributeValue(reqObj, "entityAction");
+                if (!groupKey) {
+                    groupKey = "Unknown";
+                }
 
-            if (objStatus == "success") {
-                successCount++;
-                successObjIds.push(objId);
+                return groupKey;
+            });
 
-                if (successObjTypes.indexOf(objType) < 0) {
-                    successObjTypes.push(objType);
+            //console.log('Req Objects groups ', JSON.stringify(groups));
+
+            for (var groupKey in groups) {
+                var group = groups[groupKey];
+
+                var objId = undefined;
+                var objType = undefined;
+                var errored = false;
+                var processing = false;
+
+                for (var i = 0; i < group.length; i++) {
+                    var reqObj = group[i];
+
+                    if(!objId) {
+                        objId = this._getAttributeValue(reqObj, "entityId");
+                        objType = this._getAttributeValue(reqObj, "entityType");
+                    }
+
+                    var objStatus = this._getAttributeValue(reqObj, "requestStatus");
+                    if(objStatus == "error") {
+                        errorCount++;
+                        errored = true;
+                        break;
+                    }
+                    else if(objStatus == "inProgress") {
+                        processing = true;
+                        break;
+                    }
+                }
+
+                if(!errored && !processing) {
+                    successCount++;
+                    successObjIds.push(objId);
+
+                    if (successObjTypes.indexOf(objType) < 0) {
+                        successObjTypes.push(objType);
+                    }
                 }
             }
-            else if (objStatus == "error") {
-                errorCount++;
-            }
+        }
+        else {
+            for (var i = 0; i < requestObjects.length; i++) {
+                var reqObj = requestObjects[i];
 
-            switch (objAction) {
-                case "create":
-                    createCount++;
-                    break;
-                case "update":
-                    updateCount++;
-                    break;
-                case "delete":
-                    deleteCount++;
-                    break;
+                var objId = this._getAttributeValue(reqObj, "entityId");
+                var objType = this._getAttributeValue(reqObj, "entityType");
+                var objStatus = this._getAttributeValue(reqObj, "requestStatus");
+                var objAction = this._getAttributeValue(reqObj, "entityAction");
+
+                if (objStatus == "success") {
+                    successCount++;
+                    successObjIds.push(objId);
+
+                    if (successObjTypes.indexOf(objType) < 0) {
+                        successObjTypes.push(objType);
+                    }
+                }
+                else if (objStatus == "error") {
+                    errorCount++;
+                }
+
+                switch (objAction) {
+                    case "create":
+                        createCount++;
+                        break;
+                    case "update":
+                        updateCount++;
+                        break;
+                    case "delete":
+                        deleteCount++;
+                        break;
+                }
             }
         }
 
