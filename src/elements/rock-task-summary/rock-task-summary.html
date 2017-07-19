@@ -102,6 +102,22 @@
                 background: var(--error-color, #ed204c);
             }
 
+            .create-records::before {
+                background: var(--action-create-color, #0000FF);
+            }
+
+            .update-records::before {
+                background: var(--action-update-color, #FFA500);
+            }
+
+            .delete-records::before {
+                background: var(--action-delete-color, #FA8072);
+            }
+
+            .no-change-records::before {
+                background: var(--no-change-record-color, #808080);
+            }
+
             .card {
                 box-shadow: 0 0px 6px 0px rgba(193, 202, 211, 0.7);
                 padding: 5px 15px 0;
@@ -122,7 +138,7 @@
             }
         </style>
         <div class="row-wrap p-b-10">
-            <div class="col-7 attributes-container">
+            <div class="col-5 attributes-container">
                 <div class="attribute trim">
                     <div class="attribute-label">File Name</div>
                     <template is="dom-if" if="[[_isFileIdAvailable(taskDetails.fileId)]]">
@@ -167,19 +183,33 @@
                 <pebble-spinner active="[[_downloadInProgress]]"></pebble-spinner>
             </div>
             <div class="col-3 text-center">
-                    <div class="card">
-                        <div class="card-title">Processing details</div>
-                        <ul class="graph-details">
-                            <li class="success">Success</li>
-                            <li class="processing">Processing</li>
-                            <li class="error">Error</li>
-                        </ul>
-                        <pebble-graph-pie id="processingDetails" data="[[chartData]]" class="align-with-title"></pebble-graph-pie>
-                        <bedrock-pubsub event-name="selection-changed" handler="_onSelectionChanged" target-id="processingDetails"></bedrock-pubsub>
-                        <div class="clearfix"></div>
-                    </div>
+                <div class="card">
+                    <div class="card-title">Processing details</div>
+                    <ul class="graph-details">
+                        <li class="success">Success</li>
+                        <li class="processing">Processing</li>
+                        <li class="error">Error</li>
+                    </ul>
+                    <pebble-graph-pie id="processingDetails" data="[[processingDetails]]" class="align-with-title"></pebble-graph-pie>
+                    <bedrock-pubsub event-name="selection-changed" handler="_onSelectionChanged" target-id="processingDetails"></bedrock-pubsub>
+                    <div class="clearfix"></div>
+                </div>
             </div>
-            <div class="col-2 text-right">
+            <div class="col-3 text-center">
+                <div class="card">
+                    <div class="card-title">Sub details</div>
+                    <ul class="graph-details">
+                        <li class="create-records">Create</li>
+                        <li class="update-records">Update</li>
+                        <li class="delete-records">Delete</li>
+                        <li class="no-change-records">No Change</li>
+                    </ul>
+                    <pebble-graph-pie id="processingSubDetails" data="[[subProcessingDetails]]" class="align-with-title"></pebble-graph-pie>
+                    <bedrock-pubsub event-name="selection-changed" handler="_onSelectionChanged" target-id="processingSubDetails"></bedrock-pubsub>
+                    <div class="clearfix"></div>
+                </div>
+            </div>
+            <div class="col-1 text-right">
                 <pebble-button id="refreshButton" button-text="Refresh" on-tap="_onRefreshClick" noink class="btn btn-primary">
                 </pebble-button>
             </div>
@@ -200,7 +230,7 @@
                         },
                         observer: '_onTaskDetailsChanged'
                     },
-                    chartData: {
+                    processingDetails: {
                         type: Array,
                         value: function () {
                             return [];
@@ -220,13 +250,14 @@
                     if (this.taskDetails && this.taskDetails.taskStats) {
                         var taskStats = this.taskDetails.taskStats;
                         var index = 0;
-                        var chartData = [];
+                        var processingDetails = [];
+                        var subProcessingDetails = [];
                         var self = this;
 
                         Object.keys(taskStats).map(function (key) {
-                            if (key == "processing" || key == "error" || key == "success") {
-                                var taskCompletedInPercentage = parseInt(taskStats[key].replace(/\%$/, ''));
+                            var taskCompletedInPercentage = parseInt(taskStats[key].replace(/\%$/, ''));
 
+                            if (key == "processing" || key == "error" || key == "success") {
                                 if (taskCompletedInPercentage > 0) {
                                     var taskStat = {
                                         "id": ++index,
@@ -243,13 +274,47 @@
                                         taskStat.color = "#09c021"; //success
                                     }
 
+                                    processingDetails.push(taskStat);
+                                }
+                            }
 
-                                    chartData.push(taskStat);
+                            if (key == "createRecords" || key == "updateRecords" || key == "deleteRecords") {
+                                if (taskCompletedInPercentage > 0) {
+                                    var taskStat = {
+                                        "id": ++index,
+                                        "key": key,
+                                        "value": taskCompletedInPercentage.toString(),
+                                        "unit": "%"
+                                    }
+
+                                    if (key == "createRecords") {
+                                        taskStat.color = "#0000FF";
+                                    } else if (key == "updateRecords") {
+                                        taskStat.color = "#FFA500";
+                                    } else {
+                                        taskStat.color = "#FA8072"; //delete
+                                    }
+
+                                    subProcessingDetails.push(taskStat);
                                 }
                             }
                         });
 
-                        this.set("chartData", chartData);
+                        this.set("processingDetails", processingDetails);
+
+                        if (this.taskDetails.preProcessFailure) {
+                            var taskStat = {
+                                "id": ++index,
+                                "key": "noChange",
+                                "value": 100,
+                                "unit": "%",
+                                "color": "#808080"
+                            }
+
+                            subProcessingDetails.push(taskStat);
+                        }
+
+                        this.set("subProcessingDetails", subProcessingDetails);
                     }
                 },
 
@@ -285,7 +350,8 @@
                                 "id": this.taskDetails.fileId
                             }
                         },
-                        "fileName": this.taskDetails.fileName
+                        "fileName": this.taskDetails.fileName,
+                        "fileFormat": this.taskDetails.fileFormat
                     }
 
                     var _this = this;
