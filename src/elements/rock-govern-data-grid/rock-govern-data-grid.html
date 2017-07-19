@@ -130,8 +130,8 @@
             <span class="grid-header">[[title]]</span>
             <entity-govern-grid-datasource id="governGridDataSource" context-data="[[contextData]]" 
                 data-source="{{dataSource}}" request="{{request}}" data-formatter="{{dataFormatter}}" 
-                business-conditions-data="{{businessConditionsData}}" current-record-size="{{gridDataSize}}" 
-                total-records="{{totalRecords}}" total-count="{{totalCount}}" business-conditions-for-entity-types="{{businessConditionsForEntityTypes}}"></entity-govern-grid-datasource>
+                header-data="{{headerData}}" current-record-size="{{gridDataSize}}" 
+                total-records="{{totalRecords}}" total-count="{{totalCount}}"></entity-govern-grid-datasource>
             <pebble-data-table id="govern-grid" data-source="[[dataSource]]" size="[[gridDataSize]]" 
                 page-size="20" selected-items="{{selectedItems}}" selected-item="{{selectedItem}}" multi-selection>
                 <data-table-column name="Entity Name" data-tooltip="Entity Name" class="tooltip-bottom">
@@ -143,12 +143,12 @@
                 </data-table-column>
                 <data-table-column name="Workflow Name" data-tooltip="Workflow Name" class="tooltip-bottom">
                     <template>
-                        <div index="[[index]]" class="cell">[[item.workflowName]]</div>
+                        <div index="[[index]]" class="cell">[[item.workflowLongName]]</div>
                     </template>
                 </data-table-column>
                 <data-table-column name="Activity Name" data-tooltip="Activity Name" class="tooltip-bottom">
                     <template>
-                        <div index="[[index]]" class="cell">[[item.activityName]]</div>
+                        <div index="[[index]]" class="cell">[[item.activityLongName]]</div>
                     </template>
                 </data-table-column>
                 <data-table-column name="Assigned To" data-tooltip="Assigned To" class="tooltip-bottom">
@@ -168,13 +168,13 @@
                         </template>
                     </template>
                 </data-table-column>
-                <template is="dom-repeat" id="columns-template" items="[[businessConditionsData]]" as="businessCondition" index-as="colIndex">
+                <template is="dom-repeat" id="columns-template" items="[[headerData]]" as="businessCondition" index-as="colIndex">
                     <data-table-column name="[[businessCondition.name]]" class="tooltip-bottom" data-tooltip="[[businessCondition.name]]" column-object="[[businessCondition]]" column-index="{{colIndex}}">
                         <template>
                             <div class="entity-icon-outer">
                                 <pebble-icon icon="[[_getIconByType(item, column.columnObject)]]" class="pebble-sm-icons"></pebble-icon>
                             </div>
-                            <div class$="cell entity-content [[_getClassByType(item, column.columnObject)]]">[[_columnValue(item, column.columnObject)]]</div>
+                            <div class$="cell entity-content [[_getClassByType(item, column.columnObject)]]">[[_getStatus(item, column.columnObject)]]</div>
                         </template>
                     </data-table-column>
                 </template>
@@ -195,12 +195,12 @@
                             return {};
                         }
                     },
-                    businessConditionsData: {
+                    headerData: {
                         type: Array,
                         value: function () {
                             return [];
                         },
-                        observer: '_businessConditionsChanged'
+                        observer: '_headersChanged'
                     },
                     /**
                      * Specifies the format of the data that are passed to the `remote-data`.
@@ -240,10 +240,6 @@
 						type: Number,
 						value: 0
 					},
-                    businessConditionsForEntityTypes: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
                     /**
 					 * Indicates an array that contains the selected items when `multiSelection` is set to true.
 					 * It indicates null if no item is selected.
@@ -447,6 +443,7 @@
 				},
                 _prepareGridData: function(data) {
                     var entitiesGovernData = data.entitiesGovernData;
+                    var businessConditionsForEntityTypes = data.businessConditionsForEntityTypes;
                     var gridData = [];
                     if(!_.isEmpty(entitiesGovernData)) {
                         for(var i=0; i<entitiesGovernData.length; i++) {
@@ -455,41 +452,46 @@
                                 "id": entityGovernData.id,
                                 "entityName": entityGovernData.name,
                                 "type": entityGovernData.type,
-                                "workflowName": entityGovernData.workflowLongName,
-                                "activityName": entityGovernData.activityLongName,
+                                "workflowLongName": entityGovernData.workflowLongName,
+                                "activityLongName": entityGovernData.activityLongName,
+                                "workflowName": entityGovernData.workflowName,
+                                "activityName": entityGovernData.activityName,
                                 "assignedUser": entityGovernData.assignedUser,
                                 "allowedRoles": entityGovernData.allowedRoles,
                                 "actions": entityGovernData.actions,
                                 "previousStepComments": entityGovernData.previousStepComments,
-                                "businessConditions": entityGovernData.businessConditions,
                                 "linkTemplate": "entity-manage?id={id}&type={type}"
                             };
+                            this._addBusinessConditionsData(rowData, entityGovernData.businessConditions, businessConditionsForEntityTypes);
                             gridData.push(rowData);
                         }
                     }
                     return gridData;
                 },
-                _columnValue: function(entity, businessCondition) {
-                    var status = "";
-                    if(!_.isEmpty(entity) && !_.isEmpty(businessCondition)) {
-                        var entityType = entity.type;
-                        var entityBusinessCondition = undefined
-                        if(entity.businessConditions && entity.businessConditions.length > 0) {
-                            entityBusinessCondition = entity.businessConditions.find(obj => obj.id == businessCondition.id);
-                        }
-                        if(entityBusinessCondition) {
-                            status = entityBusinessCondition.status;
-                        } else {
-                             var entityTypeBusinessConditions = this.businessConditionsForEntityTypes && 
-                                                                this.businessConditionsForEntityTypes[entityType] && 
-                                                                this.businessConditionsForEntityTypes[entityType].businessConditions ? 
-                                                                this.businessConditionsForEntityTypes[entityType].businessConditions : [];
-                            if(!_.isEmpty(entityTypeBusinessConditions) && entityTypeBusinessConditions.indexOf(businessCondition.id) != -1) {
-                                status = "unknown";
+                _addBusinessConditionsData: function(rowData, entityBusinessConditions, businessConditionsForEntityTypes) {
+                    if(!_.isEmpty(this.headerData)) {
+                        var status = "";
+                        for(var i=0; i < this.headerData.length; i++) {
+                            var bizcon = this.headerData[i];
+                            var entityType = rowData.type;
+                            var entityBusinessCondition = undefined
+                            if(!_.isEmpty(entityBusinessConditions)) {
+                                entityBusinessCondition = entityBusinessConditions.find( obj => obj.id === bizcon.id);
                             }
+                            if(entityBusinessCondition) {
+                                status = entityBusinessCondition.status;
+                            } else {
+                                var entityTypeBusinessConditions = businessConditionsForEntityTypes && 
+                                                                    businessConditionsForEntityTypes[entityType] && 
+                                                                    businessConditionsForEntityTypes[entityType].businessConditions ? 
+                                                                    businessConditionsForEntityTypes[entityType].businessConditions : [];
+                                if(!_.isEmpty(entityTypeBusinessConditions) && entityTypeBusinessConditions.indexOf(bizcon.id) != -1) {
+                                    status = "unknown";
+                                }
+                            }
+                            rowData[bizcon.id] = this._getBusinessConditionStatus(status);
                         }
                     }
-                    return this._getBusinessConditionStatus(status);
                 },
                 _getBusinessConditionStatus: function(status) {
                     if(typeof(status) === "boolean") {
@@ -521,8 +523,11 @@
                             });
                     }
 				},
+                _getStatus: function(entity, businessCondition) {
+                    return entity[businessCondition.id];
+                },
                 _getIconByType: function (entity, businessCondition) {
-                    var type = this._columnValue(entity, businessCondition);
+                    var type = entity[businessCondition.id];
                     if(type == "Invalid") {
                         return 'pebble-sm-icons:errorcheck';
                     } else if(type == "Valid") {
@@ -534,7 +539,7 @@
                     }
                 },
                 _getClassByType: function(entity,  businessCondition) {
-                    var type = this._columnValue(entity, businessCondition);
+                    var type = entity[businessCondition.id];
                     if(type == "Invalid") {
                         return "Invalid";
                     } else if(type == "Valid") {
@@ -557,7 +562,7 @@
                     var title = "Showing 1 - " + totalRecords + " items of total " + totalCount + " results ";
                     this.set("title", title);
                 },
-                _businessConditionsChanged: function(businessConditionsData) {
+                _headersChanged: function(headerData) {
                     this.$$("#columns-template").render();
                 }
             });
