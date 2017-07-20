@@ -18,6 +18,7 @@
 
 <link rel="import" href="../rock-relationship-grid/rock-relationship-grid.html">
 <link rel="import" href="../rock-where-used-grid/rock-where-used-grid.html">
+<link rel="import" href="../rock-business-function-dialog/rock-business-function-dialog.html">
 
 <!--
 `rock-relationship-manage` Represents a relationship component in the framework.
@@ -58,7 +59,7 @@ It renders the list of attributes based on the specified relationship type.
                 };
                 --rock-grid-iron-list: {
                      will-change: normal;
-                } 
+                }
             }
 
         </style>
@@ -71,12 +72,15 @@ It renders the list of attributes based on the specified relationship type.
                 do-sync-validation$="[[doSyncValidation]]" message-code-mapping="[[messageCodeMapping]]" functional-mode="[[functionalMode]]"
                 type-thumbnail-mapping="[[_typeThumbnailMapping]]"></rock-relationship-grid>
         </template>
-        <template is="dom-if" if="{{_isUpdirection(relationship)}}">
+        <template is="dom-if" if="{{_isUpdirection(relationship)}}">             
             <rock-where-used-grid id="entityRelationshipGrid_[[relationship]]" relationship="[[relationship]]" relationship-title="[[configContext.relationshipTitle]]"
                 rel-req="[[requestObj]]" relationship-grid-config="[[_getRelationshipGridConfig(relationship)]]" page-size="100"
-                context-data="[[contextData]]" do-sync-validation$="[[doSyncValidation]]" message-code-mapping="[[messageCodeMapping]]"></rock-where-used-grid>
+                context-data="[[contextData]]" do-sync-validation$="[[doSyncValidation]]" message-code-mapping="[[messageCodeMapping]]" govern-grid-actions-config="[[workflowActions]]"></rock-where-used-grid>
+            <bedrock-pubsub event-name="govern-grid-action-click" handler="_onWorkflowActionTap" target-id="entityRelationshipGrid_[[relationship]]"></bedrock-pubsub>
+            <rock-business-function-dialog id="wfTransitionDialog"></rock-business-function-dialog>
+            <rock-business-function-dialog id="wfAssignmentDialog"></rock-business-function-dialog>
         </template>
-      </template>            
+      </template>
       <div id="messageCard" hidden="[[!_isMessageAvailable]]">
       </div>
     </template>
@@ -195,6 +199,7 @@ It renders the list of attributes based on the specified relationship type.
                 ready: function () {
                     this.relationshipGridConfigs = this.getParentAppConfig('rock-relationship-manage', '', 'relationshipGridConfig');
                     this.messageCodeMapping = this.getParentAppConfig('rock-relationship-manage', '', 'messageCodeMapping');
+                    this.workflowActions = this.getParentAppConfig('rock-relationship-manage', '', 'workflowActions');
                 },
                 /**
                   * <b><i>Content development is under progress... </b></i> 
@@ -503,6 +508,120 @@ It renders the list of attributes based on the specified relationship type.
                     }
 
                     return false;
+                },
+                _onWorkflowActionTap: function(e, detail) {
+                    var selectedItems;
+                    var relationship = detail.data.relationship;
+                    var selectionMode = "count"; //set default
+                    var selectionQuery = {};
+
+                    if(this.$$("rock-where-used-grid[id=entityRelationshipGrid_" + relationship + "]")) {
+                        selectedItems = this.$$("rock-where-used-grid[id=entityRelationshipGrid_" + relationship + "]").getSelectedItems();
+                    }
+
+                    //SelectedItems should not be blank, because using count
+                    if(_.isEmpty(selectedItems)) {
+                        this.showErrorToast("Select atleast one entity for which you want to perform this action.");
+                        return;
+                    }
+
+                    //Workflow and activity name should be same for the selected items to process Transitions or Assignments
+                    if(!this._isSelectedItemsValid(selectedItems)) {
+                        this.showErrorToast("All selected entities should be under same workflow and activity to perform this action");
+                        return;
+                    }
+
+                    //Prepare selectedItems as per business function requirement
+                    var businessFunctionSelectedItems = [];
+                    var entityIds = [];
+                    var entityTypes = [];
+
+                    for(var i = 0; i < selectedItems.length; i++) {
+                        businessFunctionSelectedItems.push({
+                            "id": selectedItems[i].id,
+                            "type": selectedItems[i].type,
+                            "workflowName": selectedItems[i].workflowName,
+                            "workflowLongName": selectedItems[i].workflowLongName,
+                            "activityName": selectedItems[i].activityName,
+                            "activityLongName": selectedItems[i].activityLongName,
+                            "data": {
+                                "attributes": {
+                                    "producttitle": {
+                                        "values": [{
+                                            "value": selectedItems[i].entityName
+                                        }]
+                                    }
+                                }
+                            }
+                        });
+
+                        //For selectionQuery - Remove when selection implemented for the govern grid
+                        entityIds.push(selectedItems[i].id);
+                        if(entityTypes.indexOf(selectedItems[i].type) == -1) {
+                            entityTypes.push(selectedItems[i].type);
+                        }
+                    }
+
+                    //Prepare selectionQuery - Remove when selection implemented for the govern grid
+                    selectionQuery.ids = entityIds;
+                    selectionQuery.filters = {
+                        "typesCriterion": entityTypes
+                    };
+
+                    if(detail.data.eventName == "action-takeTask" || detail.data.eventName == "action-releaseTask") {
+                        var action = detail.data.eventName == "action-takeTask" ? "take" : "release";
+                        this._showAssignmentDialog(detail, action, selectionMode, selectionQuery, businessFunctionSelectedItems);
+                    }
+                    else if(detail.data.eventName == "action-wfTransitions") {
+                        this._showTransitionDialog(detail, action, selectionMode, selectionQuery, businessFunctionSelectedItems);
+                    }
+                },
+                _isSelectedItemsValid: function(selectedItems) {
+                    var isValid = true;
+                    for(var i = 0; i < selectedItems.length; i++) {
+                        if(i == 0) {
+                            continue;
+                        }
+
+                        if(selectedItems[i].workflowName != selectedItems[i - 1].workflowName ||
+                           selectedItems[i].activityName != selectedItems[i - 1].activityName) {
+                            isValid = false;
+                            break;
+                        }
+                    }
+
+                    return isValid;
+                },
+                _showAssignmentDialog: function (detail, action, selectionMode, selectionQuery, selectedItems) {
+                    //Pick the workflow details from one of the selectedItems
+                    var wfName = selectedItems[0].workflowName;
+                    var wfExternalName = selectedItems[0].workflowLongName;
+                    var wfActivityName = selectedItems[0].activityName;
+                    var wfActivityExternalName = selectedItems[0].activityLongName;
+
+                    var assignmentDialog = this.$$("#wfAssignmentDialog");
+                    assignmentDialog.name = detail.data.componentName;
+                    assignmentDialog.sharedData = { "selection-mode": selectionMode, "selection-query": selectionQuery, "selected-entities": selectedItems, "context-data": this.contextData, "assignment-Action": action, "workflow-name": wfName, "workflow-external-name": wfExternalName, "workflow-activity-name": wfActivityName, "workflow-activity-external-name": wfActivityExternalName };
+                    assignmentDialog.open();
+                },
+                _showTransitionDialog: function (detail, action, selectionMode, selectionQuery, selectedItems) {
+                    //Pick the workflow details from one of the selectedItems
+                    var wfName = selectedItems[0].workflowName;
+                    var wfExternalName = selectedItems[0].workflowLongName;
+                    var wfActivityName = selectedItems[0].activityName;
+                    var wfActivityExternalName = selectedItems[0].activityLongName;
+
+                    var currentWorkflow = {
+                        "name": wfExternalName,
+                        "activityName": wfActivityName
+                    }
+
+                    var transitionDialog = this.$$("#wfTransitionDialog");
+                    transitionDialog.name = detail.data.componentName;
+                    transitionDialog.sharedData = { "selection-mode": selectionMode, "selection-query": selectionQuery, "selected-entities": selectedItems, "context-data": this.contextData, "current-workflow": currentWorkflow };
+                    transitionDialog.open();
+                    var existingTitle = transitionDialog.getTitle();
+                    transitionDialog.setTitle(existingTitle + " - " + wfActivityExternalName);
                 }
             });
         })();
