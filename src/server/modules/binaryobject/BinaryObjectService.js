@@ -1,5 +1,6 @@
 var DFRestService = require('../common/df-rest-service/DFRestService'),
     isEmpty = require('../common/utils/isEmpty'),
+    mime = require('mime-types'),
     uuidV1 = require('uuid/v1');
 
 var BinaryObjectService = function (options) {
@@ -11,11 +12,10 @@ BinaryObjectService.prototype = {
         try {
             var URL = 'binaryobjectservice/getById';
             var parsedRequest = JSON.parse(request.body.data);
-            var fileName = parsedRequest.fileName;
 
             var binaryObjectResponse = await this.post(URL, parsedRequest);
             if (binaryObjectResponse && binaryObjectResponse.response) {
-                this._downloadFileContent(binaryObjectResponse.response, fileName, response);
+                this._downloadFileContent(binaryObjectResponse.response, parsedRequest, response);
             }
             else {
                 console.log('no binary object response found!!');
@@ -27,33 +27,55 @@ BinaryObjectService.prototype = {
         finally {
         }
     },
-    _downloadFileContent: function (binaryObjectResponse, fileName, response) {
+    _downloadFileContent: function (binaryObjectResponse, parsedRequest, response) {
         if (binaryObjectResponse && binaryObjectResponse.binaryObjects && binaryObjectResponse.binaryObjects.length > 0) {
             var binaryObject = binaryObjectResponse.binaryObjects[0];
             //console.log('binary object retrived ', JSON.stringify(binaryObject));
 
             if (binaryObject) {
+                var fileName = parsedRequest.fileName;
+                var taskType = parsedRequest.taskType;
+                var fileExtension = 'xlsm';
+                
+                //Get filename and file extension from binary object
+                if (binaryObject.properties) {
+                    if(binaryObject.properties.fileName) {
+                        fileName = binaryObject.properties.fileName;
+                    }
 
-                var fileExtension = "xlsm";
-                if (binaryObject.properties && binaryObject.properties.extension) {
-                    fileExtension = binaryObject.properties.extension;
+                    if(binaryObject.properties.extension) {
+                        fileExtension = binaryObject.properties.extension;
+                    }
+                }
+
+                //Get content type based on extension
+                var contentType = mime.lookup(fileExtension);
+
+                //Identify object type...
+                var objectType = 'binaryObject';
+                if(taskType && taskType.toLowerCase().indexOf("system") >= 0) {
+                    objectType = 'dataObject';
                 }
 
                 var blob = (binaryObject.data && binaryObject.data.blob) ? binaryObject.data.blob : "";
                 response.cookie('fileDownload', true, { path: "/", httpOnly: false });
                 response.writeHead(200, {
-                    'Content-Type': 'vnd.ms-excel', //ToDo: need to use different mime types based on file extensions
+                    'Content-Type': contentType, 
                     'Content-disposition': 'attachment;filename=' + fileName + "." + fileExtension
                 });
 
                 var baseString = new Buffer(blob, 'base64');
+
                 var utfString = baseString.toString('utf8');
 
                 if (utfString) {
                     try {
                         var jsonParsedResponse = JSON.parse(utfString);
-                        if (jsonParsedResponse && jsonParsedResponse.binaryObject && jsonParsedResponse.binaryObject.data && jsonParsedResponse.binaryObject.data.blob) {
-                            blob = jsonParsedResponse.binaryObject.data.blob;
+                        if (jsonParsedResponse) {
+                            var object = jsonParsedResponse[objectType];
+                            if(object && object.data && object.data.blob) {
+                                blob = object.data.blob;
+                            }
                         }
                     }
                     catch (e) {
@@ -65,7 +87,6 @@ BinaryObjectService.prototype = {
         } else {
             response.status(500).send('binaryObjects not found in response of download service.!')
         }
-
     }
 };
 
