@@ -34,26 +34,31 @@
                 behaviors: [
                     RUFBehaviors.UIBehavior
                 ],
-         /**
-           * Content is not appearing - Content development is under progress.
-           */
+                /**
+                  * Content is not appearing - Content development is under progress.
+                  */
                 attached: function () {
                     window.RUFEventHandlers = window.RUFEventHandlers || {};
                     RUFEventHandlers.reloadClick = function () {
                         if (event.currentTarget) {
                             var appId = event.currentTarget.getAttribute('appId');
+                            var appElement;
+
                             if (appId) {
-                                var appElement = ComponentHelper.getAppById(appId);
-                                if (appElement && appElement.refresh) {
-                                    appElement.refresh();
-                                    RUFEventHandlers.continueClick();
-                                }
+                                appElement = ComponentHelper.getAppById(appId);
+                            } else {
+                                appElement = ComponentHelper.getCurrentActiveApp();
+                            }
+
+                            if (appElement && appElement.refresh) {
+                                appElement.refresh();
+                                RUFEventHandlers.continueClick();
                             }
                         }
                     };
-         /**
-           * Content is not appearing - Content development is under progress.
-           */
+                    /**
+                      * Content is not appearing - Content development is under progress.
+                      */
                     RUFEventHandlers.continueClick = function () {
                         if (event.target) {
                             var toast = this._getPebbleToast(event.target);
@@ -99,6 +104,13 @@
                             case actions.WorkflowAssignmentFail:
                                 self._onWorkflowTransitionFail(data);
                                 break;
+                            case actions.RSConnectComplete:
+                                self._onRSConnectComplete(data);
+                                break;
+                            case actions.RSConnectFail:
+                                self._onRSConnectFail(data);
+                                break;
+
                         }
                     }
                 },
@@ -109,7 +121,7 @@
                             "id": data.context.id,
                             "type": data.context.type
                         };
-                        
+
                         LiquidDataObjectUtils.invalidateDataObjectCache(dataObject);
                     }
                 },
@@ -129,7 +141,7 @@
                                     description = data.context.workflowAction + " in " + data.context.workflowName + ": " + data.context.workflowActivityName + " has been successfully done for a/an " + data.context.type + " with ID " + data.context.id + ".";
                                     data.description = description;
                                     this._prepareParamsForEntityManageApp(data);
-                                    this._notifyUIOnBadge(data);
+                                    this._notifyUIOnBadge(data, false);
                                 }
                             }
                         }
@@ -155,7 +167,7 @@
                             var description = "";
                             var actions = "";
                             if (isActiveApp) {
-                               // var link = "/" + data.tenantId + "/entity-manage?id=" + data.context.id + "&type=" + data.context.type;
+                                // var link = "/" + data.tenantId + "/entity-manage?id=" + data.context.id + "&type=" + data.context.type;
                                 description = 'Some changes that you made have been verified by the system. Do you want to refresh the page to see the changes?';
                                 actions = '<div id="toast-button"><a href="#" onclick="RUFEventHandlers.reloadClick()" appId="' + data.context.appInstanceId + '">Reload</a></div>';
 
@@ -165,7 +177,7 @@
                                 description = 'Some changes that you made have been verified by the system for a/an ' + data.context.type + ' with ID ' + data.context.id + '.';
                                 data.description = description;
                                 this._prepareParamsForEntityManageApp(data);
-                                this._notifyUIOnBadge(data);
+                                this._notifyUIOnBadge(data, false);
                             }
                         }
                     }
@@ -179,7 +191,7 @@
                     if (data && data.context) {
                         data.description = data.context.type + " " + data.context.id + " has some errors. Please resolve.";
                         this._prepareParamsForEntityManageApp(data);
-                        this._notifyUIOnBadge(data);
+                        this._notifyUIOnBadge(data, false);
                     }
                 },
 
@@ -189,9 +201,62 @@
                         if (data && data.context) {
                             data.description = data.context.type + " " + data.context.id + " could not be " + data.context.workflowAction + " in " + data.context.workflowName + ": " + data.context.workflowActivityName;
                             this._prepareParamsForEntityManageApp(data);
-                            this._notifyUIOnBadge(data);
+                            this._notifyUIOnBadge(data, false);
                         }
                     }
+                },
+
+
+                _onRSConnectComplete: function (data) {
+                    this._prepareParamsForTaskDetailApp(data, "success");
+
+                    var appName = data.paramData.appName;
+                    var appParams = data.paramData.params;
+
+                    if (appName && appParams) {
+                        var description = "";
+                        var actions = "";
+                        if (this._isAppOpened(appName, appParams)) {
+                            description = 'File for current task is ready for download. Please click on reload';
+                            actions = '<div id="toast-button"><a href="#" onclick="RUFEventHandlers.reloadClick()">Reload</a></div>';
+
+                            data.description = description + actions;
+                            this._sendToast(data);
+                        } else {
+                            description = 'File for task id: ' + data.workAutomationId + ' is ready for download.';
+                            data.description = description;
+                            this._notifyUIOnBadge(data, true);
+                        }
+                    }
+
+                    //incase needs to do some other stuff. right now not in use.
+                    this._fireNotificationEvent("rsConnnect-complete", data);
+                },
+
+                _onRSConnectFail: function (data) {
+                    this._prepareParamsForTaskDetailApp(data, "error");
+
+                    var appName = data.paramData.appName;
+                    var appParams = data.paramData.params;
+
+                    if (appName && appParams) {
+                        var description = "";
+                        var actions = "";
+                        if (this._isAppOpened(appName, appParams)) {
+                            description = 'Current task is failed for download. Please click on reload for more details.';
+                            actions = '<div id="toast-button"><a href="#" onclick="RUFEventHandlers.reloadClick()">Reload</a></div>';
+
+                            data.description = description + actions;
+                            this._sendToast(data);
+                        } else {
+                            description = 'Task id: ' + data.workAutomationId + ' is failed for download.';
+                            data.description = description;
+                            this._notifyUIOnBadge(data, true);
+                        }
+                    }
+
+                    //incase needs to do some other stuff. right now not in use.
+                    this._fireNotificationEvent("rsConnnect-fail", data);
                 },
 
                 //if app is active: fire event with given event name for active app.
@@ -207,20 +272,26 @@
                 },
 
                 // update notification badge and notification list.
-                _notifyUIOnBadge: function (data) {
+                _notifyUIOnBadge: function (data, isSystem) {
                     var mainApp = document.querySelector("main-app");
 
                     if (!mainApp) {
                         return;
                     }
 
-                    var notificationElement = mainApp.$$('#notificationsList');
+                    var notificationElement, notificationLabelElement;
+
+                    if (!isSystem) {
+                        notificationElement = mainApp.$$('#userNotificationsList');
+                        notificationLabelElement = mainApp.$$('#mdmUserNotifications');
+                    } else {
+                        notificationElement = mainApp.$$('#systemNotificationsList');
+                        notificationLabelElement = mainApp.$$('#mdmSystemNotifications');
+                    }
 
                     if (!notificationElement) {
                         return;
                     }
-
-                    var notificationLabelElement = mainApp.$$('#mdmNotifications');
 
                     if (notificationElement) {
                         var notifications = notificationElement.notifications;
@@ -267,14 +338,14 @@
                                 pebbleToastElement.setAttribute('id', 'dataobject-notification-toast');
                                 mainApp.root.appendChild(pebbleToastElement);
                             }
-                            
+
                             if (pebbleToastElement && !pebbleToastElement.opened) {
                                 pebbleToastElement.uniqueId = data.context.id;
                                 pebbleToastElement.innerHTML = data.description;
                                 pebbleToastElement.toastType = data.status;
                                 pebbleToastElement.alignToast = "top";
                                 pebbleToastElement.toastDuration = 25000;
-                                pebbleToastElement.autoClose = true; 
+                                pebbleToastElement.autoClose = true;
                                 pebbleToastElement.show();
                             }
                         }
@@ -293,19 +364,27 @@
 
                 _onNotificationTap: function (e, detail) {
                     var appId = detail.appId;
-                    var params = {
-                        "id": detail.id,
-                        "type": detail.type
-                    };
+                    var appName = detail.appName;
+                    var params = detail.params;
 
                     if (appId) {
                         var appElement = ComponentHelper.getAppById(appId);
                         if (appElement && appElement.refresh) {
                             appElement.refresh();
                         }
+                    } else {
+                        var viewName = ComponentHelper.getViewNameWithQueryParams(params, appName);
+                        var contentView = document.querySelector("main-app").$$("rock-content-view-manager").$$('rock-content-view[name="' + viewName + '"]');
+
+                        if (contentView) {
+                            var appElement = contentView.$.content.firstElementChild;
+                            if (appElement && appElement.refresh) {
+                                appElement.refresh();
+                            }
+                        }
                     }
 
-                    ComponentHelper.appRoute("entity-manage", params);
+                    ComponentHelper.appRoute(appName, params);
 
                     var mainApp = document.querySelector("main-app");
 
@@ -313,21 +392,60 @@
                         return;
                     }
 
-                    var notificationElementPopover = mainApp.$$('#popoverNotifications');
+                    var userNotificationElementPopover = mainApp.$$('#popoverUserNotifications');
+                    var systemNotificationElementPopover = mainApp.$$('#popoverSystemNotifications');
 
-                    if (notificationElementPopover) {
-                        notificationElementPopover.hide();
+                    if (userNotificationElementPopover) {
+                        userNotificationElementPopover.hide();
+                    }
+
+                    if (systemNotificationElementPopover) {
+                        systemNotificationElementPopover.hide();
                     }
                 },
 
                 _prepareParamsForEntityManageApp: function (data) {
                     if (data) {
                         data.paramData = {
-                            "id": data.context.id,
-                            "type": data.context.type,
-                            "appId": data.context.appInstanceId
+                            "params": {
+                                "id": data.context.id,
+                                "type": data.context.type
+                            },
+                            "appId": data.context.appInstanceId,
+                            "appName": "entity-manage"
                         };
                     }
+                },
+
+                _prepareParamsForTaskDetailApp: function (data, msgType) {
+                    if (data) {
+                        data.paramData = {
+                            "params": {
+                                "id": data.workAutomationId
+                            },
+                            "appName": "task-detail",
+                            "type": msgType
+                        };
+                    }
+                },
+
+                _isAppOpened: function (appName, params) {
+                    var mainApp = document.querySelector("main-app");
+                    if (mainApp && mainApp.pageRoute) {
+                        var pageRoute = mainApp.pageRoute;
+
+                        if (pageRoute.path.indexOf(appName) > 0) {
+                            var utils = SharedUtils.DataObjectFalcorUtil;
+                            if (utils.compareObjects(params, pageRoute.__queryParams)) {
+                                return true;
+                            } else {
+                                return false;
+                            }
+                        } else {
+                            return false;
+                        }
+                    }
+                    return false;
                 }
             });
         })();
