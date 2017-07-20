@@ -188,7 +188,7 @@ Eventservice.prototype = {
             //console.log('Get details for ', taskId);
 
             //Get Batch Events to get basic information of reuested tasks...
-            var attributeNames = ["fileId", "fileName", "eventType", "eventSubType", "recordCount", "createdOn", "userId", "profileType", "taskType", "message", "integrationType"];
+            var attributeNames = ["fileId", "fileName", "fileType", "eventType", "eventSubType", "recordCount", "createdOn", "userId", "profileType", "taskType", "message", "integrationType"];
             var eventTypeFilterString = "BATCH_COLLECT_ENTITY_IMPORT BATCH_TRANSFORM_ENTITY_IMPORT BATCH_EXTRACT BATCH_COLLECT_ENTITY_EXPORT BATCH_TRANSFORM_ENTITY_EXPORT BATCH_PUBLISH_ENTITY_EXPORT";
             var eventSubTypeFilterString = "";
             var eventsGetRequest = this._generateEventsGetReq(taskId, attributeNames, eventTypeFilterString, eventSubTypeFilterString, false);
@@ -202,7 +202,6 @@ Eventservice.prototype = {
             if (batchEventsGetRes && batchEventsGetRes.response && batchEventsGetRes.response.events && batchEventsGetRes.response.events.length > 0) {
                 var events = batchEventsGetRes.response.events;
                 var highOrderEvent = events[0];
-                var lowerOrderEvent = events[events.length-1];
                 var processingStartedEvent = undefined;
 
                 for (var i = 1; i < events.length; i++) {
@@ -227,6 +226,7 @@ Eventservice.prototype = {
 
                     var fileName = this._getAttributeValue(highOrderEvent, "fileName");
                     var fileId = this._getAttributeValue(highOrderEvent, "fileId");
+                    var fileType = this._getAttributeValue(highOrderEvent, "fileType");
                     var submittedBy = this._getAttributeValue(highOrderEvent, "userId");
                     var totalRecords = this._getAttributeValue(highOrderEvent, "recordCount");
                     var message = this._getAttributeValue(highOrderEvent, "message");
@@ -235,6 +235,7 @@ Eventservice.prototype = {
                     response.taskType = taskType;
                     response.fileId = fileId ? fileId : "N/A";
                     response.fileName = fileName ? fileName : response.fileId;
+                    response.fileType = fileType ? fileType : "N/A";
                     response.submittedBy = submittedBy ? submittedBy.replace("_user", "") : "N/A";
                     response.totalRecords = totalRecords ? totalRecords : "N/A";
                     response.message = message ? message : "N/A";
@@ -288,7 +289,7 @@ Eventservice.prototype = {
                             //Get errored record events within COP/RSConnect for a requested task 
                             var preProcessErroredRecordsCount = 0;
                             var lastErroredRecordEvent;
-                            var attributeNames = [];
+                            var attributeNames = ["createdOn"]; //This attribute is needed to get endTime
                             var eventTypeFilterString = "RECORD_TRANSFORM_ENTITY_IMPORT RECORD_PUBLISH_ENTITY_IMPORT RECORD_PUBLISH_ENTITY_EXPORT RECORD_LOAD";
                             var eventSubTypeFilterString = "PROCESSING_ERROR PROCESSING_COMPLETE_ERROR";
                             var eventsGetRequest = this._generateEventsGetReq(taskId, attributeNames, eventTypeFilterString, eventSubTypeFilterString, true);
@@ -746,10 +747,9 @@ Eventservice.prototype = {
         return val;
     },
     _getEventCreatedDate: function (event) {
-        var createdDate = undefined;
+        var createdDate = 'N/A';
         if (event && event.properties) {
             var endTime = event.properties.createdDate;
-
             if (endTime) {
                 createdDate = this._formatDate(new Date(endTime));
             }
