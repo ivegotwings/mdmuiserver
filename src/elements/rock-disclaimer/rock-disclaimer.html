@@ -1,13 +1,14 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 
-<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../bedrock-helpers/security-context-helper.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 <link rel="import" href="../pebble-dialog/pebble-dialog.html">
 <link rel="import" href="../pebble-icons/pebble-icons.html">
-<link rel="import" href="../bedrock-helpers/security-context-helper.html">
 
 <!--
-`rock-footer` Represents an element that renders the footer for an App.
+`rock-disclaimer` Represents an element that renders the disclaimer for an App.
 @demo demo/index.html
 -->
 
@@ -40,8 +41,7 @@
                 }
 			}
         </style>
-        <app-localstorage-document id="userNameStorage" key="userName" data="{{_userName}}" session-only="true"></app-localstorage-document>
-        <app-localstorage-document id="disclaimerStorage" key="disclaimer" data="{{_agreed}}" session-only="true"></app-localstorage-document>
+        <app-localstorage-document id="disclaimerStorage" key="disclaimer" data="{{_disclaimerObject}}" session-only="true"></app-localstorage-document>
         
         <pebble-dialog id="disclaimerDialog" modal small vertical-offset="150" horizontal-align="auto" vertical-align="auto" 
             no-cancel-on-outside-click no-cancel-on-esc-key>
@@ -56,6 +56,7 @@
                 <pebble-button id="accept" button-text="Accept" on-tap="_accepted" ></pebble-button>
             </div>
         </pebble-dialog>
+        <bedrock-pubsub on-bedrock-event-user-logout="_clearSession"></bedrock-pubsub>
     </template>
 
     <script>
@@ -84,13 +85,11 @@
                         type:Boolean,
                         observer: '_appViewOpened'
                     },
-                    _userName:{
-                        type:String,
-                        value:"",
-                    },
-                    _agreed: {
-                        type: Boolean,
-                        value: false
+                    _disclaimerObject:{
+                        type:Object,
+                        value:function(){
+                            return {};
+                        }
                     },
                     _currentMessageId:{
                         type:Number,
@@ -110,19 +109,21 @@
                     }
                 },
                 _onUserDetailsChange: function(){
+                    var disclaimerObj = this._disclaimerObject ? JSON.parse(this._disclaimerObject) : {};
                     if(this.userDetails && this.userDetails.isAuthenticated)
                     {
-                        if(this._userName && (this._userName != this.userDetails.userName)){
-                            this._userName = "";
-                            this._agreed = false;
+                        if(this.disclaimerObj && (this.disclaimerObj.userName != this.userDetails.userName)){
+                            disclaimerObj = {userName:"", agreed:false}
                         }
-                        this._userName = this.userDetails.userName;
+                        disclaimerObj.userName = this.userDetails.userName;
                     }
+                    this._disclaimerObject = JSON.stringify(disclaimerObj);
                 },
                 _appViewOpened: function(){
                     if(this.messages && this.messages.length > 0)
                     {
-                        if(!this._agreed)
+                        var disclaimerObj =JSON.parse(this._disclaimerObject);
+                        if(disclaimerObj && !disclaimerObj.agreed)
                         {
                             this._openDialog(0);
                         }
@@ -149,11 +150,12 @@
                     this._currentMessageText = this._computeMessage('message');
                     //setting message icons
                     this._currentMessageIcon = this._computeMessage('icon');
-                    
                     this.$.disclaimerDialog.open();
                 },
                 _accepted:function(){
-                    this._agreed = true;
+                    var disclaimerObj =JSON.parse(this._disclaimerObject);
+                    disclaimerObj.agreed = true;
+                    this._disclaimerObject =JSON.stringify(disclaimerObj);
                     this.$.disclaimerDialog.close();
                 },
                 _denied:function(){
@@ -162,12 +164,10 @@
                         var nextMessageId = this._currentMessageId + 1;
                         this._openDialog(nextMessageId);
                     }else{
-                        this.$.deny.hidden = true;
                         SecurityContextHelper.logout();
                     }
                 },
-                clearSession:function(){
-                    this.$.userNameStorage.destroy();
+                _clearSession:function(){
                     this.$.disclaimerStorage.destroy();
                 }
             });

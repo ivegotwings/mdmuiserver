@@ -138,7 +138,7 @@
             }
         </style>
         <div class="row-wrap p-b-10">
-            <div class="col-5 attributes-container">
+            <div id="attributesContainer" class="col-7 attributes-container">
                 <div class="attribute trim">
                     <div class="attribute-label">File Name</div>
                     <template is="dom-if" if="[[_isFileIdAvailable(taskDetails.fileId)]]">
@@ -180,9 +180,14 @@
                     <div class="attribute-label">Submitted By</div>
                     <div class="attribute-value trim" title="[[taskDetails.submittedBy]]">[[taskDetails.submittedBy]]</div>
                 </div>
+
+                <div id="attribute" class="attribute trim">
+                    <div class="attribute-label">Total Records</div>
+                    <div class="attribute-value trim" title="[[taskDetails.totalRecords]]">[[taskDetails.totalRecords]]</div>
+                </div>
                 <pebble-spinner active="[[_downloadInProgress]]"></pebble-spinner>
             </div>
-            <div class="col-3 text-center">
+            <div id="processingDetails" class="col-3 text-center">
                 <div class="card">
                     <div class="card-title">Processing details</div>
                     <ul class="graph-details">
@@ -195,21 +200,23 @@
                     <div class="clearfix"></div>
                 </div>
             </div>
-            <div class="col-3 text-center">
-                <div class="card">
-                    <div class="card-title">Sub details</div>
-                    <ul class="graph-details">
-                        <li class="create-records">Create</li>
-                        <li class="update-records">Update</li>
-                        <li class="delete-records">Delete</li>
-                        <li class="no-change-records">No Change</li>
-                    </ul>
-                    <pebble-graph-pie id="processingSubDetails" data="[[subProcessingDetails]]" class="align-with-title"></pebble-graph-pie>
-                    <bedrock-pubsub event-name="selection-changed" handler="_onSelectionChanged" target-id="processingSubDetails"></bedrock-pubsub>
-                    <div class="clearfix"></div>
+            <template is="dom-if" if="[[_showProcessingSubDetailsGraph]]">
+                <div class="col-3 text-center">
+                    <div class="card">
+                        <div class="card-title">Sub details</div>
+                        <ul class="graph-details">
+                            <li class="create-records">Create</li>
+                            <li class="update-records">Update</li>
+                            <li class="delete-records">Delete</li>
+                            <li class="no-change-records">No Change</li>
+                        </ul>
+                        <pebble-graph-pie id="processingSubDetails" data="[[subProcessingDetails]]" class="align-with-title"></pebble-graph-pie>
+                        <bedrock-pubsub event-name="selection-changed" handler="_onSelectionChanged" target-id="processingSubDetails"></bedrock-pubsub>
+                        <div class="clearfix"></div>
+                    </div>
                 </div>
-            </div>
-            <div class="col-1 text-right">
+            </template>
+            <div id="sidebar" class="col-2 text-right">
                 <pebble-button id="refreshButton" button-text="Refresh" on-tap="_onRefreshClick" noink class="btn btn-primary">
                 </pebble-button>
             </div>
@@ -240,6 +247,10 @@
                         type: Boolean,
                         value: false
                     },
+                    _showProcessingSubDetailsGraph: {
+                        type: Boolean,
+                        value: false
+                    }
                 },
 
                 behaviors: [
@@ -253,6 +264,20 @@
                         var processingDetails = [];
                         var subProcessingDetails = [];
                         var self = this;
+
+                        if (this.taskDetails.taskType.indexOf("imports") > 0) {
+                            this._showProcessingSubDetailsGraph = true;
+
+                            var attributeContainer = this.$$("#attributesContainer");
+                            if(attributeContainer && attributeContainer.classList.contains("col-7")) {
+                                attributeContainer.classList.value = attributeContainer.classList.value.replace("col-7", "col-5");
+                            }
+
+                            var sidebar = this.$$("#sidebar");
+                            if(sidebar && sidebar.classList.contains("col-2")) {
+                                sidebar.classList.value = sidebar.classList.value.replace("col-2", "col-1");
+                            }
+                        }
 
                         Object.keys(taskStats).map(function (key) {
                             var taskCompletedInPercentage = parseInt(taskStats[key].replace(/\%$/, ''));
@@ -278,7 +303,7 @@
                                 }
                             }
 
-                            if (key == "createRecords" || key == "updateRecords" || key == "deleteRecords") {
+                            if (key == "createRecords" || key == "updateRecords" || key == "deleteRecords" || key == "noChangeRecords") {
                                 if (taskCompletedInPercentage > 0) {
                                     var taskStat = {
                                         "id": ++index,
@@ -291,8 +316,10 @@
                                         taskStat.color = "#0000FF";
                                     } else if (key == "updateRecords") {
                                         taskStat.color = "#FFA500";
+                                    } else if (key == "deleteRecords") {
+                                        taskStat.color = "#FA8072";
                                     } else {
-                                        taskStat.color = "#FA8072"; //delete
+                                        taskStat.color = "#808080"; //noChange
                                     }
 
                                     subProcessingDetails.push(taskStat);
@@ -301,19 +328,6 @@
                         });
 
                         this.set("processingDetails", processingDetails);
-
-                        if (this.taskDetails.preProcessFailure) {
-                            var taskStat = {
-                                "id": ++index,
-                                "key": "noChange",
-                                "value": 100,
-                                "unit": "%",
-                                "color": "#808080"
-                            }
-
-                            subProcessingDetails.push(taskStat);
-                        }
-
                         this.set("subProcessingDetails", subProcessingDetails);
                     }
                 },
@@ -350,7 +364,8 @@
                                 "id": this.taskDetails.fileId
                             }
                         },
-                        "fileName": this.taskDetails.fileName
+                        "fileName": this.taskDetails.fileName,
+                        "taskType": this.taskDetails.taskType
                     }
 
                     var _this = this;
