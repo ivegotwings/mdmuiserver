@@ -19,16 +19,16 @@ function prepareNotificationObject(data) {
                 if (!isEmpty(notificationInfo)) {
                     var requestStatus = attributes['requestStatus'];
                     var serviceName = attributes['serviceName'];
-                    var requestGroupId = attributes['requestGroupId'];
+                    var requestId = attributes['requestId'];
                     var description = attributes["description"];
 
                     var desc = "";
-                    if(description && description.values && description.values.length) {
+                    if (description && description.values && description.values.length) {
                         desc = description.values[0].value;
                     }
 
-                    if (!isEmpty(serviceName) && !isEmpty(requestStatus) && !isEmpty(requestGroupId)) {
-                        notificationInfo.requestId = requestGroupId.values[0].value;
+                    if (!isEmpty(serviceName) && !isEmpty(requestStatus) && !isEmpty(requestId)) {
+                        notificationInfo.requestId = requestId.values[0].value;
                         notificationInfo.status = requestStatus.values[0].value;
                         notificationInfo.action = getAction(serviceName.values[0].value, notificationInfo.status, notificationInfo.operation, desc);
                         notificationInfo.description = "";
@@ -84,6 +84,14 @@ function getAction(serviceName, status, operation, description) {
                 }
             }
         }
+
+        if (serviceName.toLowerCase() == "rsconnectservice") {
+            if (status.toLowerCase() == "success") {
+                action = enums.actions.RSConnectComplete;
+            } else {
+                action = enums.actions.RSConnectFail;
+            }
+        }
     }
 
     return action;
@@ -106,6 +114,11 @@ module.exports = function (app) {
             // console.log('-------------------------------------------------------------------\n\n');
 
             if (!isEmpty(notificationInfo)) {
+
+                if(notificationObject.properties) {
+                    notificationInfo.workAutomationId = notificationObject.properties.workAutomationId;
+                }
+
                 notificationInfo.tenantId = req.body.tenantId;
                 if (notificationInfo.userId) {
                     // console.log('------------------ notification message to browser ---------------------');
