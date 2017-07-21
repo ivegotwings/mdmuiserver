@@ -64,6 +64,8 @@ It renders the list of attributes based on the specified relationship type.
 
         </style>
 
+      <rock-business-function-dialog id="wfTransitionDialog"></rock-business-function-dialog>
+      <rock-business-function-dialog id="wfAssignmentDialog"></rock-business-function-dialog>
       <template is="dom-repeat" items="{{relationshipTypeList}}" as="relationship" index-as="colIndex" notify-dom-change>
          <template is="dom-if" if="{{!_isUpdirection(relationship)}}">
             <rock-relationship-grid id="entityRelationshipGrid_[[relationship]]" relationship="[[relationship]]" add-relationship-mode="[[configContext.addRelationshipMode]]"
@@ -77,8 +79,6 @@ It renders the list of attributes based on the specified relationship type.
                 rel-req="[[requestObj]]" relationship-grid-config="[[_getRelationshipGridConfig(relationship)]]" page-size="100"
                 context-data="[[contextData]]" do-sync-validation$="[[doSyncValidation]]" message-code-mapping="[[messageCodeMapping]]" govern-grid-actions-config="[[workflowActions]]"></rock-where-used-grid>
             <bedrock-pubsub event-name="govern-grid-action-click" handler="_onWorkflowActionTap" target-id="entityRelationshipGrid_[[relationship]]"></bedrock-pubsub>
-            <rock-business-function-dialog id="wfTransitionDialog"></rock-business-function-dialog>
-            <rock-business-function-dialog id="wfAssignmentDialog"></rock-business-function-dialog>
         </template>
       </template>
       <div id="messageCard" hidden="[[!_isMessageAvailable]]">
@@ -536,53 +536,39 @@ It renders the list of attributes based on the specified relationship type.
                     var entityIds = [];
                     var entityTypes = [];
 
+                    //Pick the workflow details from one of the selectedItems
+                    var wfDetails = {
+                        "workflowName": selectedItems[0].workflowName,
+                        "workflowLongName": selectedItems[0].workflowLongName,
+                        "activityName": selectedItems[0].activityName,
+                        "activityLongName": selectedItems[0].activityLongName
+                    };
+
+                    //Prepare required details for BF process
                     for(var i = 0; i < selectedItems.length; i++) {
                         businessFunctionSelectedItems.push({
                             "id": selectedItems[i].id,
-                            "type": selectedItems[i].type,
-                            "workflowName": selectedItems[i].workflowName,
-                            "workflowLongName": selectedItems[i].workflowLongName,
-                            "activityName": selectedItems[i].activityName,
-                            "activityLongName": selectedItems[i].activityLongName,
-                            "data": {
-                                "attributes": {
-                                    "producttitle": {
-                                        "values": [{
-                                            "value": selectedItems[i].entityName
-                                        }]
-                                    }
-                                }
-                            }
+                            "type": selectedItems[i].type
                         });
-
-                        //For selectionQuery - Remove when selection implemented for the govern grid
-                        entityIds.push(selectedItems[i].id);
-                        if(entityTypes.indexOf(selectedItems[i].type) == -1) {
-                            entityTypes.push(selectedItems[i].type);
-                        }
                     }
 
                     //Prepare selectionQuery - Remove when selection implemented for the govern grid
-                    selectionQuery.ids = entityIds;
+                    selectionQuery.ids = [...new Set(selectedItems.map((obj) => obj.id))];
                     selectionQuery.filters = {
-                        "typesCriterion": entityTypes
+                        "typesCriterion": [...new Set(selectedItems.map((obj) => obj.type))]
                     };
 
                     if(detail.data.eventName == "action-takeTask" || detail.data.eventName == "action-releaseTask") {
                         var action = detail.data.eventName == "action-takeTask" ? "take" : "release";
-                        this._showAssignmentDialog(detail, action, selectionMode, selectionQuery, businessFunctionSelectedItems);
+                        this._showAssignmentDialog(detail, action, selectionMode, selectionQuery, businessFunctionSelectedItems, wfDetails);
                     }
                     else if(detail.data.eventName == "action-wfTransitions") {
-                        this._showTransitionDialog(detail, action, selectionMode, selectionQuery, businessFunctionSelectedItems);
+                        this._showTransitionDialog(detail, action, selectionMode, selectionQuery, businessFunctionSelectedItems, wfDetails);
                     }
                 },
                 _isSelectedItemsValid: function(selectedItems) {
                     var isValid = true;
-                    for(var i = 0; i < selectedItems.length; i++) {
-                        if(i == 0) {
-                            continue;
-                        }
-
+                    for(var i = 1; i < selectedItems.length; i++) {
                         if(selectedItems[i].workflowName != selectedItems[i - 1].workflowName ||
                            selectedItems[i].activityName != selectedItems[i - 1].activityName) {
                             isValid = false;
@@ -592,28 +578,17 @@ It renders the list of attributes based on the specified relationship type.
 
                     return isValid;
                 },
-                _showAssignmentDialog: function (detail, action, selectionMode, selectionQuery, selectedItems) {
-                    //Pick the workflow details from one of the selectedItems
-                    var wfName = selectedItems[0].workflowName;
-                    var wfExternalName = selectedItems[0].workflowLongName;
-                    var wfActivityName = selectedItems[0].activityName;
-                    var wfActivityExternalName = selectedItems[0].activityLongName;
-
+                _showAssignmentDialog: function (detail, action, selectionMode, selectionQuery, selectedItems, wfDetails) {
                     var assignmentDialog = this.$$("#wfAssignmentDialog");
                     assignmentDialog.name = detail.data.componentName;
-                    assignmentDialog.sharedData = { "selection-mode": selectionMode, "selection-query": selectionQuery, "selected-entities": selectedItems, "context-data": this.contextData, "assignment-Action": action, "workflow-name": wfName, "workflow-external-name": wfExternalName, "workflow-activity-name": wfActivityName, "workflow-activity-external-name": wfActivityExternalName };
+                    assignmentDialog.sharedData = { "selection-mode": selectionMode, "selection-query": selectionQuery, "selected-entities": selectedItems, "context-data": this.contextData, "assignment-Action": action, "workflow-external-name": wfDetails.workflowLongName, "workflow-activity-external-name": wfDetails.activityLongName, "workflow-name": wfDetails.workflowName, "workflow-activity-name": wfDetails.activityName };
                     assignmentDialog.open();
                 },
-                _showTransitionDialog: function (detail, action, selectionMode, selectionQuery, selectedItems) {
-                    //Pick the workflow details from one of the selectedItems
-                    var wfName = selectedItems[0].workflowName;
-                    var wfExternalName = selectedItems[0].workflowLongName;
-                    var wfActivityName = selectedItems[0].activityName;
-                    var wfActivityExternalName = selectedItems[0].activityLongName;
-
+                _showTransitionDialog: function (detail, action, selectionMode, selectionQuery, selectedItems, wfDetails) {
                     var currentWorkflow = {
-                        "name": wfExternalName,
-                        "activityName": wfActivityName
+                        "name": wfDetails.workflowLongName,
+                        "activityName": wfDetails.activityName,
+                        "activityExternalName": wfDetails.activityLongName
                     }
 
                     var transitionDialog = this.$$("#wfTransitionDialog");
@@ -621,7 +596,7 @@ It renders the list of attributes based on the specified relationship type.
                     transitionDialog.sharedData = { "selection-mode": selectionMode, "selection-query": selectionQuery, "selected-entities": selectedItems, "context-data": this.contextData, "current-workflow": currentWorkflow };
                     transitionDialog.open();
                     var existingTitle = transitionDialog.getTitle();
-                    transitionDialog.setTitle(existingTitle + " - " + wfActivityExternalName);
+                    transitionDialog.setTitle(existingTitle + " - " + wfDetails.activityLongName);
                 }
             });
         })();
