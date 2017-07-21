@@ -38,13 +38,44 @@ BinaryObjectService.prototype = {
                 var fileExtension = 'xlsm';
                 
                 //Get filename and file extension from binary object
+                var areFileDetailsAvailableInBinaryObject = false;
                 if (binaryObject.properties) {
                     if(binaryObject.properties.fileName) {
                         fileName = binaryObject.properties.fileName;
                     }
 
                     if(binaryObject.properties.extension) {
+                        areFileDetailsAvailableInBinaryObject = true;
                         fileExtension = binaryObject.properties.extension;
+
+                        //Remove extension from fileName if exists...
+                        var indexOfExtension = fileName.lastIndexOf("." + fileExtension);
+                        if(indexOfExtension > 0) {
+                            fileName = fileName.substr(0, indexOfExtension);
+                        }
+                    }
+                }
+
+                if(!areFileDetailsAvailableInBinaryObject) {
+                    //File details are not available...
+                    //Try to get details from fileName of the parsedRequest object
+                    var indexOfExtension = fileName.lastIndexOf(".");
+
+                    if(indexOfExtension > 0) {
+                        //This logic is buggy in case fileName having '.' without extension
+                        //TODO:: how to validate? regex??
+                        fileExtension = fileName.substr(indexOfExtension, fileName.length);
+                        fileName = fileName.substr(0, indexOfExtension);
+                    } else {
+                        //fileName is not having extension...
+                        //Find out extension based on file type...
+                        var fileType = parsedRequest.fileType;
+                        if(fileType && fileType.toLowerCase() == 'rsjson') {
+                            fileExtension = 'json';
+                        } else {
+                            //Set default extension
+                            fileExtension = 'xlsm';
+                        }
                     }
                 }
 
