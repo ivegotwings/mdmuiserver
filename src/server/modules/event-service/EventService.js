@@ -188,7 +188,7 @@ Eventservice.prototype = {
             //console.log('Get details for ', taskId);
 
             //Get Batch Events to get basic information of reuested tasks...
-            var attributeNames = ["fileId", "fileName", "fileType", "eventType", "eventSubType", "recordCount", "createdOn", "userId", "profileType", "taskType", "message", "integrationType"];
+            var attributeNames = ["fileId", "fileName", "fileType", "eventType", "eventSubType", "recordCount", "createdOn", "userId", "profileType", "taskName", "taskType", "message", "integrationType"];
             var eventTypeFilterString = "BATCH_COLLECT_ENTITY_IMPORT BATCH_TRANSFORM_ENTITY_IMPORT BATCH_EXTRACT BATCH_COLLECT_ENTITY_EXPORT BATCH_TRANSFORM_ENTITY_EXPORT BATCH_PUBLISH_ENTITY_EXPORT";
             var eventSubTypeFilterString = "";
             var eventsGetRequest = this._generateEventsGetReq(taskId, attributeNames, eventTypeFilterString, eventSubTypeFilterString, false);
@@ -201,15 +201,23 @@ Eventservice.prototype = {
 
             if (batchEventsGetRes && batchEventsGetRes.response && batchEventsGetRes.response.events && batchEventsGetRes.response.events.length > 0) {
                 var events = batchEventsGetRes.response.events;
-                var highOrderEvent = events[0];
+                var highOrderEvent = undefined;
                 var processingStartedEvent = undefined;
+                var currentEventRecordIdx = 0;
 
-                for (var i = 1; i < events.length; i++) {
+                for (var i = 0; i < events.length; i++) {
                     var event = events[i];
                     if (event && event.data && event.data.attributes) {
                         var eventSubType = this._getAttributeValue(event, "eventSubType");
-                        if (!this._getAttributeValue(highOrderEvent, "recordCount") && this._getAttributeValue(event, "recordCount")) {
-                            this._setAttributeValue(highOrderEvent, "recordCount", this._getAttributeValue(event, "recordCount"));
+                        var currentEventSubTypeIndex = eventSubTypesOrder.indexOf(eventSubType);
+                        if (currentEventSubTypeIndex >= currentEventRecordIdx) {
+                            highOrderEvent = event;
+
+                            if (!this._getAttributeValue(highOrderEvent, "recordCount") && this._getAttributeValue(event, "recordCount")) {
+                                this._setAttributeValue(highOrderEvent, "recordCount", this._getAttributeValue(event, "recordCount"));
+                            }
+
+                            currentEventRecordIdx = currentEventSubTypeIndex;
                         }
 
                         if (!processingStartedEvent && eventSubType == "PROCESSING_STARTED") {
@@ -224,6 +232,7 @@ Eventservice.prototype = {
                     var eventSubType = this._getAttributeValue(highOrderEvent, "eventSubType");
                     var taskType = this._getTaskTypeFromEvent(highOrderEvent);
 
+                    var taskName = this._getAttributeValue(highOrderEvent, "taskName");
                     var fileName = this._getAttributeValue(highOrderEvent, "fileName");
                     var fileId = this._getAttributeValue(highOrderEvent, "fileId");
                     var fileType = this._getAttributeValue(highOrderEvent, "fileType");
@@ -232,6 +241,7 @@ Eventservice.prototype = {
                     var message = this._getAttributeValue(highOrderEvent, "message");
 
                     response.taskId = taskId;
+                    response.taskName = taskName ? taskName : "N/A";
                     response.taskType = taskType;
                     response.fileId = fileId ? fileId : "N/A";
                     response.fileName = fileName ? fileName : response.fileId;
