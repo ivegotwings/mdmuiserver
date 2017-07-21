@@ -104,8 +104,12 @@ Custom property | Description | Default
                 float: left;
             }
 
-            .entity-content.false, .entity-content.unkown {
+            .entity-content.unkown {
                 color: var(--text-primary-color, #1a2028);
+            }
+
+            .entity-content.false {
+                color:#F6444A
             }
         </style>
         <liquid-entity-model-get exclude-in-progress id="workflowMappingsGet" operation="getbyids" request-id="workflowMappingsGet" on-response="_onWorkflowMappingsGetResponse"
@@ -374,7 +378,6 @@ Custom property | Description | Default
                         this._setEntityBusinessConditionsGovernData(entities[0]);
 
                         this._requestWorkflowDefinition();
-                        this._requestOriginalBusinessConditions();
 
                         // Note: Could be optimized.Why to bring all RuleMappings?
                         this._requestRuleContextMappings();
@@ -390,6 +393,67 @@ Custom property | Description | Default
                 this._showMessage(this._errorMessage);
             },
 
+            _setEntityWorkflowGovernData: function (entityGovernData) {
+                if (typeof (entityGovernData) && typeof (entityGovernData.data) !== "undefined" && typeof (entityGovernData.data.contexts) !== "undefined") {
+                    var contextualEntityGovernData = entityGovernData.data.contexts;
+
+                    if (typeof (contextualEntityGovernData) !== "undefined" && contextualEntityGovernData.length > 0) {
+                        this._entityGovernWorkflowNames = [];
+                        this._entityWorkflowGovernData = [];
+
+                        for (var i = 0; i < contextualEntityGovernData.length; i++) {
+
+                            // Non Worflow ContextInformation should be ignored
+                            if (typeof (contextualEntityGovernData[i].context.workflow) !== "undefined") {
+                                var workflowContext = contextualEntityGovernData[i].context;
+                                var attributes = contextualEntityGovernData[i].attributes;
+
+                                if (typeof (workflowContext) !== "undefined" && typeof (attributes) !== "undefined") {
+
+                                    var workflowGovernData = {
+                                        "id": workflowContext.workflow,
+                                        "name": workflowContext.workflow,
+                                        "attributes": attributes // Workflow Attributes [Also includes activities]
+                                    }
+
+                                    this.push("_entityGovernWorkflowNames", workflowContext.workflow);
+                                    this.push("_entityWorkflowGovernData", workflowGovernData);
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+
+            _setEntityBusinessConditionsGovernData: function (entityGovernData) {
+                if (typeof (entityGovernData) && typeof (entityGovernData.data) !== "undefined" && typeof (entityGovernData.data.attributes) !== "undefined") {
+                    var entityGovernDataAttributes = entityGovernData.data.attributes;
+                    var entityBusinessConditions = [];
+
+                    if (typeof (entityGovernDataAttributes.businessConditions) !== "undefined" && typeof (entityGovernDataAttributes.businessConditions.group) !== "undefined") {
+                        entityBusinessConditions = entityGovernDataAttributes.businessConditions.group;
+                    }
+
+                    if (typeof (entityBusinessConditions) !== "undefined" && entityBusinessConditions.length > 0) {
+                        this._entityBusinessConditionNames = [];
+                        this._entityBusinessConditionsGovernData = [];
+
+                        for (var i = 0; i < entityBusinessConditions.length; i++) {
+                            var businessConditionId = AttributeHelper.getFirstAttributeValue(entityBusinessConditions[i].businessConditionName);
+                            var businessConditionStatus = AttributeHelper.getFirstAttributeValue(entityBusinessConditions[i].businessConditionStatus);
+
+                            var businessConditionGovernData = {
+                                "id": businessConditionId,
+                                "name": businessConditionId,
+                                "status": businessConditionStatus
+                            }
+
+                            this.push("_entityBusinessConditionNames", businessConditionId);
+                            this.push("_entityBusinessConditionsGovernData", businessConditionGovernData);
+                        }
+                    }
+                }
+            },
 
             _requestWorkflowDefinition: function () {
                 if (this._entityGovernWorkflowNames.length > 0) {
@@ -443,80 +507,6 @@ Custom property | Description | Default
                 RUFUtilities.Logger.error("Failed to get workflow definition with error: " + e.detail.response.reason.message);
                 this._showMessage(this._errorMessage);
             },
-
-
-            _requestOriginalBusinessConditions: function () {
-                if (this._entityBusinessConditionNames.length) {
-                    this._requestBusinessConditions(this._entityBusinessConditionNames, "businessConditionsGet");
-                } else {
-                    this._showMessage(this._nothingToFixMessage);
-                }
-            },
-
-            _isBusinessConditionAllowedForRole: function(businessCondition) {
-                var allowedRoles;
-                if(DataHelper.isValidObjectPath(businessCondition, "data.attributes"))
-                {
-                    allowedRoles = businessCondition.data.attributes.impactedRoles;
-                }                
-                var userContext = this.contextData.UserContexts[0];
-
-                if(allowedRoles && userContext.role) {
-                   for(var i = 0; i < allowedRoles.values.length; i++) {
-                      //Check for _ALL or user role  
-                      if(allowedRoles.values[i].value == "_ALL" || 
-                         allowedRoles.values[i].value.toLowerCase() == userContext.role.toLowerCase()) {
-                          return true;
-                      }
-                   }
-                   
-                   //Not have "_ALL" / user role
-                   return false;
-                }
-
-                //No allowedRoles OR No user role, then BC is applicable to any role   
-                return true;
-            },
-
-            _onBusinessConditionsGetResponse: function (e) {
-                var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response);
-
-                if (responseContent) {
-                    var businessConditions = responseContent.entityModels;
-
-                    if (typeof (businessConditions) !== "undefined" && businessConditions.length > 0) {
-                        this._originalBusinessConditions = [];
-
-                        for (var i = 0; i < businessConditions.length; i++) {
-                            var businessCondition = {};
-                            businessCondition["id"] = businessConditions[i].id;
-                            businessCondition["name"] = businessConditions[i].name;
-
-                            // LongNames are required for Displaying BusinessConditions
-                            var formattedBusinessCondition = this._entityBusinessConditionsGovernData.find(businessCondition => businessCondition.id === businessConditions[i].id);
-
-                            if (formattedBusinessCondition && this._isBusinessConditionAllowedForRole(businessConditions[i])) {
-                               formattedBusinessCondition["name"] = businessConditions[i].name;
-                               formattedBusinessCondition["isAllowedToShow"] = true;
-                            }
-
-                            this.push("_originalBusinessConditions", businessCondition);
-                        }
-                        this._prepareToFixData();
-                    } else {
-                        this._showMessage(this._errorMessage);
-                    }
-                } else {
-                    RUFUtilities.Logger.error("EntityModelGetByIdsResponse Content not found.");
-                    this._showMessage(this._errorMessage);
-                }
-            },
-
-            _onBusinessConditionsGetError: function (e) {
-                RUFUtilities.Logger.error("EntityModelGetByIdsError:- " + e.detail.response.reason.message);
-                this._showMessage(this._errorMessage);
-            },
-
 
             _requestRuleContextMappings: function () {
                 if (this._entityGovernWorkflowNames.length > 0 || this._entityBusinessConditionNames.length > 0) {
@@ -600,7 +590,8 @@ Custom property | Description | Default
 
                     if(allBusinessConditions && allBusinessConditions.length > 0) {
                         this._entityTypeBusinessConditions = allBusinessConditions;
-                        this._prepareToFixData();
+                        var allBusinessConditionIds = this._getBusinessConditionIds(this._entityTypeBusinessConditions);
+                        this._requestBusinessConditions(allBusinessConditionIds);
                     } else {
                         this._showMessage(this._errorMessage);
                     }
@@ -615,69 +606,107 @@ Custom property | Description | Default
                 this._showMessage(this._errorMessage);
             },
 
+            _getBusinessConditionIds: function(businessConditions) {
+                var businessConditionIds = [];
+                if(!_.isEmpty(businessConditions)) {
+                    businessConditions.forEach(function(businessCondition) {
+                        if(businessCondition.relTo && businessCondition.relTo.id) {
+                            businessConditionIds.push(businessCondition.relTo.id);
+                        }
+                    }, this);
+                }
+                return businessConditionIds;
+            },
 
-            _setEntityWorkflowGovernData: function (entityGovernData) {
-                if (typeof (entityGovernData) && typeof (entityGovernData.data) !== "undefined" && typeof (entityGovernData.data.contexts) !== "undefined") {
-                    var contextualEntityGovernData = entityGovernData.data.contexts;
+            _requestBusinessConditions: function(businessConditionIds) {
+                if (businessConditionIds.length) {
 
-                    if (typeof (contextualEntityGovernData) !== "undefined" && contextualEntityGovernData.length > 0) {
-                        this._entityGovernWorkflowNames = [];
-                        this._entityWorkflowGovernData = [];
+                    var clonedContextData = DataHelper.cloneObject(this._clonedContextData);
 
-                        for (var i = 0; i < contextualEntityGovernData.length; i++) {
+                    // Prepare ItemContext
+                    var itemContext = ContextHelper.getFirstItemContext(clonedContextData);
+                    itemContext.id = businessConditionIds;
+                    itemContext.type = "businessCondition";
+                    clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+                    clonedContextData.ItemContexts[0].attributeNames = ["impactedRoles"];
 
-                            // Non Worflow ContextInformation should be ignored
-                            if (typeof (contextualEntityGovernData[i].context.workflow) !== "undefined") {
-                                var workflowContext = contextualEntityGovernData[i].context;
-                                var attributes = contextualEntityGovernData[i].attributes;
+                    // Create Request and Get
+                    var businessConditionsGet = this.$$("#businessConditionsGet");
+                    businessConditionsGet.requestData = DataRequestHelper.createEntityGetRequest(clonedContextData);
+                    businessConditionsGet.generateRequest();
+                }
+            },
 
-                                if (typeof (workflowContext) !== "undefined" && typeof (attributes) !== "undefined") {
+            _onBusinessConditionsGetResponse: function (e) {
+                var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response);
 
-                                    var workflowGovernData = {
-                                        "id": workflowContext.workflow,
-                                        "name": workflowContext.workflow,
-                                        "attributes": attributes // Workflow Attributes [Also includes activities]
-                                    }
+                if (responseContent) {
+                    var businessConditions = responseContent.entityModels;
 
-                                    this.push("_entityGovernWorkflowNames", workflowContext.workflow);
-                                    this.push("_entityWorkflowGovernData", workflowGovernData);
+                    if (typeof (businessConditions) !== "undefined" && businessConditions.length > 0) {
+                        this._originalBusinessConditions = [];
+
+                        for (var i = 0; i < businessConditions.length; i++) {
+                            var businessCondition = {};
+                            businessCondition["id"] = businessConditions[i].id;
+                            businessCondition["name"] = businessConditions[i].name;
+
+                            // LongNames are required for Displaying BusinessConditions
+                            if(this._isBusinessConditionAllowedForRole(businessConditions[i])) {
+                                var formattedBusinessCondition = this._entityBusinessConditionsGovernData.find(businessCondition => businessCondition.id === businessConditions[i].id);
+                                if (formattedBusinessCondition) {
+                                    formattedBusinessCondition["name"] = businessConditions[i].name;
+                                    formattedBusinessCondition["isAllowedToShow"] = true;
+                                } else {
+                                    formattedBusinessCondition = {};
+                                    formattedBusinessCondition["id"] = businessConditions[i].id;
+                                    formattedBusinessCondition["name"] = businessConditions[i].name;
+                                    formattedBusinessCondition["isAllowedToShow"] = true;
+                                    formattedBusinessCondition["status"] = "unknown";
+                                    this._entityBusinessConditionsGovernData.push(formattedBusinessCondition);
                                 }
+                                this.push("_originalBusinessConditions", businessCondition);
                             }
                         }
+                        this._prepareToFixData();
+                    } else {
+                        this._showMessage(this._errorMessage);
                     }
+                } else {
+                    RUFUtilities.Logger.error("EntityModelGetByIdsResponse Content not found.");
+                    this._showMessage(this._errorMessage);
                 }
             },
 
-            _setEntityBusinessConditionsGovernData: function (entityGovernData) {
-                if (typeof (entityGovernData) && typeof (entityGovernData.data) !== "undefined" && typeof (entityGovernData.data.attributes) !== "undefined") {
-                    var entityGovernDataAttributes = entityGovernData.data.attributes;
-                    var entityBusinessConditions = [];
-
-                    if (typeof (entityGovernDataAttributes.businessConditions) !== "undefined" && typeof (entityGovernDataAttributes.businessConditions.group) !== "undefined") {
-                        entityBusinessConditions = entityGovernDataAttributes.businessConditions.group;
-                    }
-
-                    if (typeof (entityBusinessConditions) !== "undefined" && entityBusinessConditions.length > 0) {
-                        this._entityBusinessConditionNames = [];
-                        this._entityBusinessConditionsGovernData = [];
-
-                        for (var i = 0; i < entityBusinessConditions.length; i++) {
-                            var businessConditionId = AttributeHelper.getFirstAttributeValue(entityBusinessConditions[i].businessConditionName);
-                            var businessConditionStatus = AttributeHelper.getFirstAttributeValue(entityBusinessConditions[i].businessConditionStatus);
-
-                            var businessConditionGovernData = {
-                                "id": businessConditionId,
-                                "name": businessConditionId,
-                                "status": businessConditionStatus
-                            }
-
-                            this.push("_entityBusinessConditionNames", businessConditionId);
-                            this.push("_entityBusinessConditionsGovernData", businessConditionGovernData);
-                        }
-                    }
-                }
+            _onBusinessConditionsGetError: function (e) {
+                RUFUtilities.Logger.error("EntityModelGetByIdsError:- " + e.detail.response.reason.message);
+                this._showMessage(this._errorMessage);
             },
 
+            _isBusinessConditionAllowedForRole: function(businessCondition) {
+                var allowedRoles;
+                if(DataHelper.isValidObjectPath(businessCondition, "data.attributes"))
+                {
+                    allowedRoles = businessCondition.data.attributes.impactedRoles;
+                }                
+                var userContext = this.contextData.UserContexts[0];
+
+                if(allowedRoles && userContext.role) {
+                   for(var i = 0; i < allowedRoles.values.length; i++) {
+                      //Check for _ALL or user role  
+                      if(allowedRoles.values[i].value == "_ALL" || 
+                         allowedRoles.values[i].value.toLowerCase() == userContext.role.toLowerCase()) {
+                          return true;
+                      }
+                   }
+                   
+                   //Not have "_ALL" / user role
+                   return false;
+                }
+
+                //No allowedRoles OR No user role, then BC is applicable to any role   
+                return true;
+            },
 
             _prepareToFixData: function () {
                 if (this._isDataSetPrepared()) {
@@ -719,11 +748,8 @@ Custom property | Description | Default
                                 var businessConditionAttrs = workflowMappedBusinessConditions[j].attributes;
                                 if(businessConditionAttrs && AttributeHelper.getFirstAttributeValue(businessConditionAttrs.stepName) == tofixWorkflowData.workflowActivityName) {
                                     workflowBusinessConditions.push(workflowMappedBusinessConditions[j].relTo.id);
-                                    var toFixBusinessCondition = this._getBusinessConditionStatusAndPrepareToFixData(workflowMappedBusinessConditions[j]);
-                                    if (toFixBusinessCondition && !DataHelper.containsObject(toFixBusinessCondition, tofixWorkflowData.businessConditions)) {
-                                        if(toFixBusinessCondition.status === "unknown") {
-                                            unkownBusinessConditionIds.push(toFixBusinessCondition.id);
-                                        }
+                                    var toFixBusinessCondition = this._entityBusinessConditionsGovernData.find(obj => obj.id == workflowMappedBusinessConditions[j].relTo.id);
+                                    if (toFixBusinessCondition && !DataHelper.containsObject(toFixBusinessCondition, tofixWorkflowData.businessConditions) && toFixBusinessCondition.isAllowedToShow) {
                                         tofixWorkflowData.businessConditions.push(toFixBusinessCondition); 
                                     }
                                 }
@@ -740,11 +766,8 @@ Custom property | Description | Default
                     for (var x = 0; x < this._entityTypeBusinessConditions.length; x++) {
                         var businessCondition = this._entityTypeBusinessConditions[x];
                         if(workflowBusinessConditions.indexOf(businessCondition.relTo.id) == -1) {
-                            var toFixBusinessCondition = this._getBusinessConditionStatusAndPrepareToFixData(businessCondition);
-                            if (toFixBusinessCondition && !DataHelper.containsObject(toFixBusinessCondition, tofixGlobalData.businessConditions)) {
-                                if(toFixBusinessCondition.status === "unknown" && unkownBusinessConditionIds.indexOf(toFixBusinessCondition.id) == -1) {
-                                    unkownBusinessConditionIds.push(toFixBusinessCondition.id);
-                                }
+                            var toFixBusinessCondition = this._entityBusinessConditionsGovernData.find(obj => obj.id == businessCondition.relTo.id);
+                            if (toFixBusinessCondition && !DataHelper.containsObject(toFixBusinessCondition, tofixGlobalData.businessConditions) && toFixBusinessCondition.isAllowedToShow) {
                                 tofixGlobalData.businessConditions.push(toFixBusinessCondition);
                             }
                         }
@@ -755,76 +778,7 @@ Custom property | Description | Default
                     }
 
                     this.set("_tofixData", _tofixData);
-                    if(unkownBusinessConditionIds.length > 0) {
-                        this._requestUnkownBusinessConditions(unkownBusinessConditionIds);
-                    } else {
-                        this._isToFixDataExists = true;
-                    }
-                }
-            },
-
-            _requestUnkownBusinessConditions: function (businessConditionIds) {
-                if (businessConditionIds.length) {
-                    this._requestBusinessConditions(businessConditionIds, "unknownBusinessConditionsGet");
-                }
-            },
-
-
-
-            _onUnkownBusinessConditionsGetResponse: function (e) {
-                var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response);
-
-                if (responseContent) {
-                    var businessConditions = responseContent.entityModels;
-
-                    if (typeof (businessConditions) !== "undefined" && businessConditions.length > 0) {
-                        for (var i = 0; i < businessConditions.length; i++) {
-
-                            // LongNames are required for Displaying BusinessConditions
-                            for(var j = 0; j < this._tofixData.length; j++) {
-                                for(var k = 0; k < this._tofixData[j].businessConditions.length; k++) {
-                                    if(this._tofixData[j].businessConditions[k].id == businessConditions[i].id) {
-                                        this._tofixData[j].businessConditions[k].name = businessConditions[i].name;
-                                    }
-                                }
-                            }
-                        }
-                    }
-
                     this._isToFixDataExists = true;
-                } else {
-                    RUFUtilities.Logger.error("EntityModelGetByIdsResponse Content not found.");
-                    this._showMessage(this._errorMessage);
-                }
-            },
-
-            _onUnkownBusinessConditionsGetError: function (e) {
-                RUFUtilities.Logger.error("UnkownBusinessConditionsGetError:- " + e.detail.response.reason.message);
-                this._showMessage(this._errorMessage);
-            },
-
-            _requestBusinessConditions: function(businessConditionIds, liquidElementId) {
-                if (businessConditionIds.length) {
-
-                    var businessConditionsGet = this.$$('#' + liquidElementId);
-                    if (typeof (businessConditionsGet) === "undefined" || businessConditionsGet == null) {
-                        RUFUtilities.Logger.error("Element having id " + liquidElementId + " not found.");
-                        this._showMessage(this._errorMessage);
-                        return;
-                    }
-
-                    var clonedContextData = DataHelper.cloneObject(this._clonedContextData);
-
-                    // Prepare ItemContext
-                    var itemContext = ContextHelper.getFirstItemContext(clonedContextData);
-                    itemContext.id = businessConditionIds;
-                    itemContext.type = "businessCondition";
-                    clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
-                    clonedContextData.ItemContexts[0].attributeNames = ["impactedRoles"];
-
-                    // Create Request and Get
-                    businessConditionsGet.requestData = DataRequestHelper.createEntityGetRequest(clonedContextData);
-                    businessConditionsGet.generateRequest();
                 }
             },
 
@@ -888,36 +842,9 @@ Custom property | Description | Default
                 }
             },
 
-            _getBusinessConditionStatusAndPrepareToFixData: function(businessCondition) {
-               var unknown = {
-                    "id" : businessCondition.relTo.id,
-                    "name": businessCondition.relTo.id.replace("_" + businessCondition.relTo.type, ""),
-                    "status": "unknown"
-                };
-                for (var i = 0; i < this._entityBusinessConditionsGovernData.length; i++) {
-                    if(this._entityBusinessConditionsGovernData[i].id == businessCondition.relTo.id) {
-                        if(this._entityBusinessConditionsGovernData[i].isAllowedToShow)
-                        {
-                            return this._entityBusinessConditionsGovernData[i];
-                        }
-                        //When not to show the BC
-                        return;
-                    }
-                }
-                return unknown;
-            },
-
             _showMessage: function (message) {
                 this.$$("#messagePanel").innerHTML = message;
                 this._isToFixDataExists = true;
-            },
-
-            _onTap: function (e) {
-                var businessConditionDialog = this.$$("#businessConditionDialog");
-                businessConditionDialog.name = "fix-attribute-errors";
-                businessConditionDialog.sharedData={"business-condition-id":e.currentTarget.data.id,"context-data":this.contextData};
-                businessConditionDialog.open();
-                businessConditionDialog.setTitle("Fix- " + e.currentTarget.data.name);
             },
 
             _getIconByType: function (type) {
@@ -955,6 +882,14 @@ Custom property | Description | Default
                 }
 
                 return workflowDataContexts
+            },
+            
+            _onTap: function (e) {
+                var businessConditionDialog = this.$$("#businessConditionDialog");
+                businessConditionDialog.name = "fix-attribute-errors";
+                businessConditionDialog.sharedData={"business-condition-id":e.currentTarget.data.id,"context-data":this.contextData};
+                businessConditionDialog.open();
+                businessConditionDialog.setTitle("Fix- " + e.currentTarget.data.name);
             },
 
             refresh: function() {
