@@ -23,7 +23,8 @@ const eventTypesOrder = ["BATCH_COLLECT_ENTITY_IMPORT",
     "BATCH_TRANSFORM_ENTITY_EXPORT",
     "BATCH_PUBLISH_ENTITY_EXPORT"];
 
-const eventSubTypesOrder = ["QUEUED",
+const eventSubTypesOrder = ["NONE",
+    "QUEUED",
     "QUEUED_SUCCESS",
     "PROCESSING_STARTED",
     "SUBMITTED",
@@ -120,15 +121,17 @@ Eventservice.prototype = {
                         if (event && event.data && event.data.attributes && event.data.attributes.eventSubType && event.data.attributes.eventSubType.values) {
                             var eventSubType = this._getAttributeValue(event, "eventSubType");
                             var currentEventSubTypeIndex = eventSubTypesOrder.indexOf(eventSubType);
-                            if (currentEventSubTypeIndex >= currentEventRecordIdx) {
+                            if (currentEventSubTypeIndex > currentEventRecordIdx) {
                                 highOrderEvent = event;
                                 highOrderEvent.eventSubType = eventSubType;
 
+                                currentEventRecordIdx = currentEventSubTypeIndex;
+                            }
+
+                            if(highOrderEvent) {
                                 if (!this._getAttributeValue(highOrderEvent, "recordCount") && this._getAttributeValue(event, "recordCount")) {
                                     this._setAttributeValue(highOrderEvent, "recordCount", this._getAttributeValue(event, "recordCount"));
                                 }
-
-                                currentEventRecordIdx = currentEventSubTypeIndex;
                             }
                         }
                     }
@@ -210,14 +213,16 @@ Eventservice.prototype = {
                     if (event && event.data && event.data.attributes) {
                         var eventSubType = this._getAttributeValue(event, "eventSubType");
                         var currentEventSubTypeIndex = eventSubTypesOrder.indexOf(eventSubType);
-                        if (currentEventSubTypeIndex >= currentEventRecordIdx) {
+                        if (currentEventSubTypeIndex > currentEventRecordIdx) {
                             highOrderEvent = event;
 
+                            currentEventRecordIdx = currentEventSubTypeIndex;
+                        }
+
+                        if(highOrderEvent) {
                             if (!this._getAttributeValue(highOrderEvent, "recordCount") && this._getAttributeValue(event, "recordCount")) {
                                 this._setAttributeValue(highOrderEvent, "recordCount", this._getAttributeValue(event, "recordCount"));
                             }
-
-                            currentEventRecordIdx = currentEventSubTypeIndex;
                         }
 
                         if (!processingStartedEvent && eventSubType == "PROCESSING_STARTED") {
@@ -275,7 +280,13 @@ Eventservice.prototype = {
 
                     //Get in progress requests stats in RDF based on the status of highOrderEvent
                     if (eventSubType == "PROCESSING_COMPLETED") {
-                        if(eventType == "BATCH_PUBLISH_ENTITY_EXPORT") {
+                        if(eventType == "BATCH_COLLECT_ENTITY_IMPORT" || eventType == "BATCH_COLLECT_ENTITY_EXPORT") {
+                            taskStats.processing = "100%";
+                            taskStats.success = "0%";
+                            taskStats.error = "0%";
+                            response.taskStatus = "Processing";
+                        }
+                        else if(eventType == "BATCH_PUBLISH_ENTITY_EXPORT") {
                             taskStats.success = "100%";
                             taskStats.error = "0%";
                             taskStats.processing = "0%";
@@ -284,8 +295,7 @@ Eventservice.prototype = {
                             //End time is the time when event has been created...
                             response.endTime = this._getEventCreatedDate(highOrderEvent);
                         }
-                        else if ((eventType != "BATCH_COLLECT_ENTITY_EXPORT" && eventType != "BATCH_TRANSFORM_ENTITY_EXPORT" 
-                            && (response.totalRecords == "N/A" || response.totalRecords == "0"))) {
+                        else if ((eventType != "BATCH_TRANSFORM_ENTITY_EXPORT" && (response.totalRecords == "N/A" || response.totalRecords == "0"))) {
                             //console.log(' marking complete sooner ', JSON.stringify(response), JSON.stringify(highOrderEvent));
                             taskStats.success = "100%";
                             taskStats.error = "0%";
@@ -499,6 +509,13 @@ Eventservice.prototype = {
                 }
             };
             attributesCriteria.push(entityActionCriterion);
+
+            var impactedEventCriterion = {
+                "impacted": {
+                    "exact": "false"
+                }
+            };
+            attributesCriteria.push(impactedEventCriterion);
         }
         
         req.params.query.filters.attributesCriterion = attributesCriteria;
