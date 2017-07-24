@@ -444,6 +444,7 @@ performed.
                 LiquidDataObjectUtils.invalidateDataObjectCache(entity);
 
                 this._startDataLoad();
+                this._setWorkflowActions();
                 this._refreshEntityThumbnail();
             },
             _refreshEntityThumbnail:function () {
@@ -597,6 +598,49 @@ performed.
                     }
                 }
             },
+            _setWorkflowActions: function() {
+                if(!_.isEmpty(this.contextData)) {
+                    this._isSetWorkflowActions = true;
+                    this.workflowMappingDefinitionRequest = DataRequestHelper.createWorkflowMappingGetRequest(this.contextData);
+                    this.$$('#getWorkflowMappingDefinition').generateRequest();
+                }
+            },
+            //Enable/Disable action items
+            _toggleActionItems: function(runtimeInstanceEntity) {
+                if (this.$$("#assignmentActions")) {
+                    var items = this.$$("#assignmentActions").getActionItems();
+                    var userContext = ContextHelper.getFirstUserContext(this.contextData);
+                    var assignedUser;
+
+                    if (DataHelper.isValidObjectPath(runtimeInstanceEntity, "data.contexts.0.attributes.activities.group.0.assignedUser")) {
+                        assignedUser = AttributeHelper.getFirstAttributeValue(runtimeInstanceEntity.data.contexts[0].attributes.activities.group[0].assignedUser);
+                    }
+
+                    //Default enable both
+                    if (!_.isEmpty(items)) {
+                        for (var i = 0; i < items.length; i++) {
+                            items[i].removeAttribute("disabled");
+                        }
+                    }
+
+                    if (assignedUser && !_.isEmpty(userContext) && !_.isEmpty(items)) {
+                        var disableActionName;
+                        if (userContext.user == assignedUser) {
+                            disableActionName = "takeTask";
+                        }
+                        else {
+                            disableActionName = "releaseTask";
+                        }
+
+                        for (var i = 0; i < items.length; i++) {
+                            if (items[i].data.name == disableActionName) {
+                                items[i].setAttribute("disabled", "");
+                                break;
+                            }
+                        }
+                    }
+                }
+            },
             _onAssignActionTap: function (e, detail, sender) {
                 this._failedWorkflows = [];
                 this._doneWorkflows = [];
@@ -630,6 +674,7 @@ performed.
                 }
             },
             _onMappingsGetFailed: function(e) {
+                this._isSetWorkflowActions = false; //reset
                 this.logWarning("WorkFlowMappingError","response",JSON.stringify(e.detail));
                 this.showErrorToast("Failed to get workflow mappings. Please contact administrator.");
             },
@@ -643,6 +688,12 @@ performed.
                         //console.log('runtime instance entities ', JSON.stringify(runtimeInstanceEntities, null, 2));
 
                         var runtimeInstanceEntity = runtimeInstanceEntities[0];
+                        
+                        if(this._isSetWorkflowActions) {                            
+                            this._toggleActionItems(runtimeInstanceEntity);
+                            this._isSetWorkflowActions = false; //reset
+                            return;
+                        }                        
 
                         if(runtimeInstanceEntity && runtimeInstanceEntity.data) {
                             var foundWorkflowNames = [];
@@ -684,6 +735,7 @@ performed.
                 } 
             },
             _onRunningInstanceGetFailed: function (e) {
+                this._isSetWorkflowActions = false; //reset
                 this.logWarning("WorkFlowStatusError","response",JSON.stringify(e.detail));
                 this.showErrorToast("Failed to get workflow status. Please contact administrator.");
             },
