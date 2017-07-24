@@ -23,6 +23,7 @@
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 <link rel="import" href="../pebble-accordion/pebble-accordion.html">
 <link rel="import" href="../pebble-toggle-button/pebble-toggle-button.html">
+<link rel="import" href="../pebble-actions/pebble-actions.html">
 
 <link rel="import" href="../rock-entity-lov/rock-entity-lov.html">
 <link rel="import" href="../rock-grid/rock-grid.html">
@@ -338,10 +339,17 @@ The following JSON object is a sample of data which binds the grid.
           --pebble-toggle-button-checked-bar-color: var(--success-color, #4caf50);
           --pebble-toggle-button-checked-button-color: var(--success-color, #4caf50);
           --pebble-toggle-button-checked-ink-color: var(--success-color, #4caf50);
+          --pebble-toggle-button-label-color: var(--secondary-button-text-color, #75808b);
       }
       .toggle-button {
           float: right;
-          padding: 10px 20px 0px 0px;
+          padding: 16px 20px 0px 0px;
+          font-size: var(--font-size-sm, 12px);
+
+      }
+      .govern-grid-actions {
+          float: right;
+          margin: 10px 10px 0px 0px;
       }
     </style>
     <pebble-spinner active="[[_loading]]"></pebble-spinner>
@@ -357,14 +365,22 @@ The following JSON object is a sample of data which binds the grid.
               <bedrock-pubsub event-name="entity-lov-confirm-button-tap" handler="_onLovConfirmButtonTapped" target-id="[[relationship]]"></bedrock-pubsub>
               <bedrock-pubsub event-name="entity-lov-close-button-tap" handler="_onLovCloseButtonTapped" target-id="[[relationship]]"></bedrock-pubsub>
             </div>-->
-            <pebble-toggle-button class="toggle-button" checked="{{_loadGovernData}}">Govern Data</pebble-toggle-button>
+            <template is="dom-if" if="[[_showToggle()]]">
+              <pebble-toggle-button class="toggle-button" noink checked="{{_loadGovernData}}">Govern Data</pebble-toggle-button>
+              <template is="dom-if" if="[[_loadActions(_loadGovernData, governGridActionsConfig)]]">
+                <pebble-actions id="governGridActions" button-icon="[[governGridActionsConfig.icon]]" class="dropdownText dropdownIcon btn btn-actions dropdown-success govern-grid-actions" button-text="[[governGridActionsConfig.title]]" actions-data="[[governGridActionsConfig.actionsData]]"></pebble-actions>
+                <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onGovernGridActionTap" target-id=""></bedrock-pubsub>
+              </template>
+            </template>
             <entity-search-grid-datasource id="datasource_[[relationship]]" request="[[_getRelationshipGridRequest(relationship)]]" data-source="{{dataSource}}"
-                                           data-formatter="{{dataFormatter}}" current-record-size="{{size}}" total-records="{{totalRecords}}"
+                                           data-formatter="{{dataFormatter}}" buffer-record-size="{{size}}" current-record-size="{{currentRecordSize}}" result-record-size="{{resultRecordSize}}"
                                            total-count="{{totalCount}}"></entity-search-grid-datasource>
             <rock-grid hidden$="[[_loadGovernData]]" id$="[[relationship]]" data-source="{{dataSource}}" data-source-id="datasource_[[relationship]]" config="{{relationshipGridConfig.gridConfig}}"
-              attribute-models="[[_getRelationshipAttributeModels(relationship)]]" grid-data-size="{{size}}"  record-size="{{totalRecords}}" total-count="{{totalCount}}"  page-size="10"></rock-grid>
+              attribute-models="[[_getRelationshipAttributeModels(relationship)]]" grid-data-size="{{size}}"  current-record-size="{{currentRecordSize}}" result-record-size="{{resultRecordSize}}" total-count="{{totalCount}}"  page-size="10"></rock-grid>
+
+
             <template is="dom-if" if="[[_loadGovernData]]">
-              <rock-govern-data-grid id$="[[relationship]]" context-data="[[contextData]]" request="[[_getRelationshipGridRequest(relationship)]]"></rock-govern-data-grid>
+              <rock-govern-data-grid id$="[[relationship]]" context-data="[[contextData]]" request="[[_getRelationshipGridRequest(relationship)]]" entity-name-attribute="[[governDataConfig.entityNameAttribute]]"></rock-govern-data-grid>
             </template>
             <bedrock-pubsub target-id="[[relationship]]" event-name="on-grid-msg-dialog-ok" handler="_onDialogOk"></bedrock-pubsub>
             <bedrock-pubsub event-name="grid-download-item" handler="_onDownload" target-id="[[relationship]]"></bedrock-pubsub>
@@ -540,6 +556,10 @@ The following JSON object is a sample of data which binds the grid.
             messageCodeMapping: {
               type: Object,
               value: function () { return {}; }
+            },
+            governDataConfig: {
+                type: Object,
+                computed: '_computeGovernConfig(relationshipGridConfig)'
             },
             _loadGovernData: {
               type: Boolean,
@@ -918,7 +938,7 @@ The following JSON object is a sample of data which binds the grid.
 
                   if (relationships) {
                     relationships.forEach(function (relItem) {
-                      if (relItem.id.indexOf(entityId) >= 0) {
+                      if (relItem.relTo && relItem.relTo.id == entityId) {
                         relObject = relItem;
                       }
                     }, this);
@@ -1093,6 +1113,40 @@ The following JSON object is a sample of data which binds the grid.
                 entityUploadDialog.open();
               }
           },
+          _computeGovernConfig: function(relationshipGridConfig) {
+              if(relationshipGridConfig) {
+                return relationshipGridConfig.governDataConfig;
+              }
+          },
+          _showToggle: function() {
+              if(this.governDataConfig && this.governDataConfig.showGovernDataToggle) {
+                return true;
+              }
+              return false;
+          },
+         _onGovernGridActionTap: function (e, detail) {
+              detail.data.relationship = this.relationship;
+              this.fireBedrockEvent("govern-grid-action-click", detail);
+         },
+         _loadActions: function(_loadGovernData, governGridActionsConfig) {
+              if(_loadGovernData && governGridActionsConfig) {
+                return true;
+              }
+              return false;
+         },
+         getSelectedItems: function() {
+              var grid;
+              if(this._loadGovernData) {
+                grid = this.$$("rock-govern-data-grid[id=" + this.relationship + "]");
+              } else {
+                grid = this.$$("rock-grid[id=" + this.relationship + "]");
+              }
+
+              if(grid) {
+                return grid.getSelectedItems();
+              }
+         }
+
           // _requestForAddRelationshipList: function (relationship) {
         //   var relatedEntityContexts = this._getRelatedEntityContexts(relationship);
         //   var attributes = this._getFromEntityAttributeList(relationship);
