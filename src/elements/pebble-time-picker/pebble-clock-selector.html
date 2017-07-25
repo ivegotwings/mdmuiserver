@@ -1,6 +1,7 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="../../../bower_components/iron-resizable-behavior/iron-resizable-behavior.html">
 <link rel="import" href="../../../bower_components/shadycss/apply-shim.html">
+<link rel="import" href="../../../bower_components/polymer/lib/utils/async.html">
 
 <link rel="import" href="../bedrock-externalref-classlist-temp/bedrock-externalref-classlist-temp.html">
 
@@ -271,7 +272,7 @@
                     }.bind(this), this.$.clockHand);
 
                     this.$.clock.classList.add('animating');
-                    this.async(function () {
+                    Polymer.Async.microTask.run(() => {
                         this._setHandRotation(rotate);
                     });
 
@@ -474,11 +475,11 @@
                     this._setTransformOrigin(this.$.clockHand, v);
                     this._setTransformOrigin(this.$.clipCircle, v);
 
-                    this.async(function () {
+                    setTimeout(() => {
                         // FIXME: this is hacky, but for some reason we need to wait a bit
                         // to get an accurate measurement
                         this._bounds = this.$.face.getBoundingClientRect();
-                    }.bind(this), 150);
+                    }, 150);
                 },
                 _positionClockPoints: function () {
                     if (!this._radius) {
@@ -543,6 +544,39 @@
                     if (distance < this._selectorInner || distance > this._selectorOuter) {
                         return;
                     }
+                }
+            },
+                _getSelectArea: function (radius, outer, inner) {
+                    return '\n' +
+                        'M ' + (radius - outer) + ' ' + radius + '\n' +
+                        'A ' + outer + ' ' + outer + ' 0 0 0 ' + (radius + outer) + ' ' + radius + '\n' +
+                        'A ' + outer + ' ' + outer + ' 0 0 0 ' + (radius - outer) + ' ' + radius + '\n' +
+                        'M ' + (radius - inner) + ' ' + radius + '\n' +
+                        'A ' + inner + ' ' + inner + ' 0 0 1 ' + (radius + inner) + ' ' + radius + '\n' +
+                        'A ' + inner + ' ' + inner + ' 0 0 1 ' + (radius - inner) + ' ' + radius;
+                },
+
+                //Update clock selector before actual touch
+                _onTouchWrapper: function (event) {
+                    var vm = this;
+
+                    vm._updateSize();
+
+                    setTimeout(() => {
+                        // to get an accurate results
+                        this._onTouch(event);
+                    }, 150);
+                },
+
+                _onTouch: function (event) {
+                    var x = event.detail.x - this._bounds.left - this._radius;
+                    var y = event.detail.y - this._bounds.top - this._radius;
+
+                    /* only rotate while in the touch area */
+                    var distance = Math.abs(Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2)));
+                    if (distance < this._selectorInner || distance > this._selectorOuter) {
+                        return;
+                    }
 
                     /* don't animate while tracking */
                     this.animated = event.type !== 'track';
@@ -595,6 +629,5 @@
                 }
             });
         })();
-
     </script>
 </dom-module>
