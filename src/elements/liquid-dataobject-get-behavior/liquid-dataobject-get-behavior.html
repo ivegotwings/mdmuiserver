@@ -126,7 +126,7 @@
             }
 
             var isIdExists = requestData.params.query.id !== undefined || requestData.params.query.ids !== undefined;
-            var isNameExists = requestData.params.query.name !== undefined;
+            var isNameExists = requestData.params.query.name !== undefined || requestData.params.query.names !== undefined;
             var isCtxExists = requestData.params.query.contexts !== undefined && requestData.params.query.contexts.length > 0;
             var isTypeCriterionExists = requestData.params.query.filters !== undefined && requestData.params.query.filters.typesCriterion !== undefined && requestData.params.query.filters.typesCriterion.length > 0;
 
@@ -332,7 +332,7 @@
             var self = this,
                 reqId = request.requestId === undefined ? '' : request.requestId,
                 reqData = request.requestData,
-                totalRecords = 0;
+                resultSize = 0;
 
             if (reqId === '') {
                 return {}; // this means do nothing..
@@ -344,30 +344,30 @@
 
             var pathKeys = this._pathKeys;
             var dataIndex = this.dataIndex;
-            var totalRecordsResponse = this._callSearchResultTotalRecordsGet(model, reqId);
+            var resultSizeResponse = this._callSearchResultSizeGet(model, reqId);
 
-            totalRecordsResponse.then(function (totalRecordsPkg) {
-                if (!totalRecordsPkg) {
+            resultSizeResponse.then(function (resultSizePkg) {
+                if (!resultSizePkg) {
                     return {};
                 }
 
-                totalRecords = totalRecordsPkg.json[pathKeys.root][dataIndex][pathKeys.searchResults][reqId].totalRecords;
+                resultSize = resultSizePkg.json[pathKeys.root][dataIndex][pathKeys.searchResults][reqId].resultRecordSize;
 
                 var from = reqData.params.options && reqData.params.options.from !== undefined ? reqData.params.options.from : 0;
-                var to = reqData.params.options && reqData.params.options.to !== undefined ? reqData.params.options.to : totalRecords - 1;
+                var to = reqData.params.options && reqData.params.options.to !== undefined ? reqData.params.options.to : resultSize - 1;
 
                 if (from == -1) {
                     from = 0;
                 }
-                else if (from >= totalRecords) {
+                else if (from >= resultSize) {
                     from = -1;
                 }
 
                 if (to == -1) {
-                    to = totalRecords - 1; //todo: return all records..??? how to stop this??
+                    to = resultSize - 1; //todo: return all records..??? how to stop this??
                 }
 
-                var to1 = (to + 1) < totalRecords ? to : totalRecords - 1;
+                var to1 = (to + 1) < resultSize ? to : resultSize - 1;
 
                 if (from != -1) {
                     var searchResultPath = [pathKeys.root, dataIndex, pathKeys.searchResults, reqId, pathKeys.searchResultItems, [{ 'from': from, 'to': to1 }]];
@@ -410,16 +410,16 @@
                     var resSearchResultId = Object.keys(rawResponsePkg.json[pathKeys.root][dataIndex][pathKeys.searchResults])[0];
                     var initiateSearchResponse = self._formatInitiateSearchResponse(rawResponsePkg.json[pathKeys.root][dataIndex][pathKeys.searchResults][resSearchResultId]);
 
-                    if (initiateSearchResponse && initiateSearchResponse.totalRecords && initiateSearchResponse.totalRecords > 0) {
+                    if (initiateSearchResponse && initiateSearchResponse.resultRecordSize && initiateSearchResponse.resultRecordSize > 0) {
                         request.requestId = initiateSearchResponse.requestId;
                         return self._callSearchResultDetail(model, request);
                     }
                 }
             });
         },
-        _callSearchResultTotalRecordsGet: function (model, reqId, reqData) {
+        _callSearchResultSizeGet: function (model, reqId, reqData) {
             var pathKeys = this._pathKeys;
-            return model.get([pathKeys.root, this.dataIndex, pathKeys.searchResults, reqId, 'totalRecords']);
+            return model.get([pathKeys.root, this.dataIndex, pathKeys.searchResults, reqId, 'resultRecordSize']);
         },
         _callSearchResultDataObjectIdsGet: function (model, reqId, from, to) {
             var pathKeys = this._pathKeys;
@@ -601,13 +601,23 @@
                         dataObjectIds.push.apply(dataObjectIds, reqData.params.query.ids);
                     }
                 }
-                else if (reqData.params && reqData.params.query && reqData.params.query.name) {
+                else if (reqData.params && reqData.params.query && (reqData.params.query.name || reqData.params.query.names)) {
                     if (reqData.params.query.filters && reqData.params.query.filters.typesCriterion) {
                         var types = reqData.params.query.filters.typesCriterion;
-                        for (var i = 0; i < types.length; i++) {
-                            var type = types[i];
-                            var smartId = reqData.params.query.name + "_" + type;
-                            dataObjectIds.push(smartId);
+                        if(reqData.params.query.name) {
+                            for (var i = 0; i < types.length; i++) {
+                                var type = types[i];
+                                var smartId = reqData.params.query.name + "_" + type;
+                                dataObjectIds.push(smartId);
+                            }
+                        } else if(reqData.params.query.names) {
+                            for (var i = 0; i < types.length; i++) {
+                                for(var j=0; j<reqData.params.query.names.length; j++) {
+                                    var type = types[i];
+                                    var smartId = reqData.params.query.names[j] + "_" + type;
+                                    dataObjectIds.push(smartId);
+                                }
+                            }
                         }
                     }
                 }
