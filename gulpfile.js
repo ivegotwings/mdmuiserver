@@ -86,7 +86,7 @@ function source() {
     //    minifyCSS: true,
     //    uglifyJS: true
     //  })))
-    .pipe(gulpif('**/*.js', babel()))
+    //.pipe(gulpif('**/*.js', babel()))
     //.pipe(gulpif('**/*.js', uglify()))
     .pipe(project.rejoin()); // Call rejoin when you're finished
 }
@@ -94,7 +94,7 @@ function source() {
 // This source task will process dev build
 function devSource() {
   return project.splitSource()
-    .pipe(gulpif('**/*.js', babel()))
+    //.pipe(gulpif('**/*.js', babel()))
     .pipe(project.rejoin()); // Call rejoin when you're finished
 }
 
@@ -112,7 +112,7 @@ function dependencies() {
     //    minifyCSS: true,
     //    uglifyJS: true
     //  })))
-    .pipe(gulpif(['**/*.js', '!bower_components/web-component-tester/**/*'], babel()))
+    //.pipe(gulpif(['**/*.js', '!bower_components/web-component-tester/**/*'], babel()))
     //.pipe(gulpif('**/*.js', uglify()))
     .pipe(project.rejoin());
 }
@@ -126,7 +126,7 @@ function devDependencies() {
   //gulp.src('bower_components/**/*').pipe(gulp.dest(depsPath));
 
   return project.splitDependencies()
-    .pipe(gulpif(['**/*.js', '!bower_components/web-component-tester/**/*'], babel()))
+    //.pipe(gulpif(['**/*.js', '!bower_components/web-component-tester/**/*'], babel()))
     .pipe(project.rejoin());
 }
 
@@ -136,7 +136,7 @@ function devDependencies() {
 // out of the stream and run them through specific tasks.
 function compileChangedDevFiles(changedFiles) {
   return project.splitChangedSource(changedFiles)
-    .pipe(gulpif('**/*.js', babel()))
+    //.pipe(gulpif('**/*.js', babel()))
     .pipe(project.rejoin())
     .pipe(gulp.dest(project.devPath));
 }
