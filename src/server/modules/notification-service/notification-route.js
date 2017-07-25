@@ -46,17 +46,21 @@ function getAction(serviceName, status, operation, description) {
 
     if (!isEmpty(status) && !isEmpty(status)) {
         if (serviceName.toLowerCase() == "entitymanageservice") {
-            if (status.toLowerCase() == "success") {
-                if (description == "System Manage Complete") {
-                    action = enums.actions.SystemSaveComplete;
+            // Here operation is for specific govern operations which should not trigger in case of 'entityManageService'.
+            // So added condition to avoid it.
+            if (!operation) {
+                if (status.toLowerCase() == "success") {
+                    if (description == "System Manage Complete") {
+                        action = enums.actions.SystemSaveComplete;
+                    } else {
+                        action = enums.actions.SaveComplete;
+                    }
                 } else {
-                    action = enums.actions.SaveComplete;
-                }
-            } else {
-                if (description == "System Manage Complete") {
-                    action = enums.actions.SystemSaveFail;
-                } else {
-                    action = enums.actions.SaveFail;
+                    if (description == "System Manage Complete") {
+                        action = enums.actions.SystemSaveFail;
+                    } else {
+                        action = enums.actions.SaveFail;
+                    }
                 }
             }
         }
@@ -115,7 +119,7 @@ module.exports = function (app) {
 
             if (!isEmpty(notificationInfo)) {
 
-                if(notificationObject.properties) {
+                if (notificationObject.properties) {
                     notificationInfo.workAutomationId = notificationObject.properties.workAutomationId;
                 }
 

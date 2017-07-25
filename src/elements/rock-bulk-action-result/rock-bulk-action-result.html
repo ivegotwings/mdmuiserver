@@ -1,6 +1,8 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="../../../bower_components/polymer/lib/elements/custom-style.html">
 
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 <link rel="import" href="../bedrock-helpers/component-helper.html">
@@ -26,7 +28,7 @@
             #user-actions {
                 padding-top: 20px;
                 padding-bottom: 20px;
-            }            
+            }
         </style>
         <custom-style>
             <style>
@@ -125,6 +127,8 @@
                 <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" icon="pebble-md-icons:actions" button-text="[[action.text]]" data="[[action]]" on-tap="_onActionTap"></pebble-button>
             </template>
         </div>
+        <liquid-entity-data-get name="entityGetService" operation="getbyids" request-data="{{entityRequest}}"
+            on-response="_onEntityGetResponse" on-error="_onEntityGetError"></liquid-entity-data-get>
     </template>
     <script>
         (function() {
@@ -135,7 +139,7 @@
 
                 properties: {
           /**
-            * <b><i>Content development is under progress... </b></i> 
+            * <b><i>Content development is under progress... </b></i>
             */
                     businessFunctionData: {
                         type: Object,
@@ -160,51 +164,105 @@
                         type: Boolean,
                         value: false
                     }
-                },                
-                
+                },
+
                 behaviors: [
                     RUFBehaviors.UIBehavior,
                     RUFBehaviors.ComponentContextBehavior
                 ],
 
                 observers: [
-                    'onBusinessFunctionChange(businessFunctionData.messages)'
+                    'onBusinessFunctionChange(businessFunctionData)'
                 ],
 
                 _itemValue: function(item, column) {
                     return item[column.name];
                 },
           /**
-            * <b><i>Content development is under progress... </b></i> 
+            * <b><i>Content development is under progress... </b></i>
             */
                 onBusinessFunctionChange: function() {
                     if(!_.isEmpty(this.businessFunctionData)) {
-                        
-                        if(this.businessFunctionData.noGrid) {
-                            this._noGrid = this.businessFunctionData.noGrid;
-                        }
+                        var attributes = this.businessFunctionData.attributes;
+                        var contextData = this.businessFunctionData.contextData;
+                        var processedEntities = this.businessFunctionData.processedEntities;
+                        var messages = this.businessFunctionData.messages;
 
-                        if(!this._noGrid) {
-                            if(this.businessFunctionData.messages)
-                            {
-                                var gridColumns = [];
-                                var message = this.businessFunctionData.messages[0];
+                        if(!_.isEmpty(attributes) && !_.isEmpty(contextData) 
+                           && !_.isEmpty(processedEntities) && !_.isEmpty(messages)) {
+                            //Prepare request
+                            var entityIds = [...new Set(processedEntities.map((obj) => obj.id))];
+                            var entityTypes = [...new Set(processedEntities.map((obj) => obj.type))];
+                            var entityAttributes = [...new Set(attributes.map((obj) => obj.name))];
 
-                                for (var key in message) {
-                                    gridColumns.push(key);
-                                }
+                            contextData.ItemContexts = [{
+                                "attributeNames": entityAttributes
+                            }];
 
-                                //Set the columns and data
-                                this._gridColumns = gridColumns;                        
-                                this._gridData = this.businessFunctionData.messages;
+                            this.entityRequest = DataRequestHelper.createEntityGetRequest(contextData);
+                            this.entityRequest.params.query.ids = entityIds;
+                            this.entityRequest.params.query.filters.typesCriterion = entityTypes;
+                            delete this.entityRequest.params.options;
+                            var liquidDataGet = this.$$("[name=entityGetService]");
+                            if (liquidDataGet) {
+                                liquidDataGet.generateRequest();
                             }
+                        } else {
+                            this._setBulkResponse();
                         }
-                        else {
-                            if(this.businessFunctionData.message) {
-                                this.message = this.businessFunctionData.message;
+                    }
+                },
+
+                _onEntityGetResponse: function(e) {
+                    if(DataHelper.isValidObjectPath(e, "detail.response.content.entities") && 
+                       !_.isEmpty(e.detail.response.content.entities)) {
+                           var entites = e.detail.response.content.entities;
+                           var messages = this.businessFunctionData.messages;
+                           var key = this.businessFunctionData.messageKey;
+                           var attributes = this.businessFunctionData.attributes;
+
+                           for(var i = 0; i < messages.length; i++) {
+                               var entity = entites.find(obj => obj.id == messages[i][key]);
+                               if(entity) {
+                                   for(var j = 0; j < attributes.length; j++) {
+                                       messages[i][attributes[j].externalName] = AttributeHelper.getFirstAttributeValue(entity.data.attributes[attributes[j].name]);
+                                   }
+                               }
+                           }
+                    }
+
+                    this._setBulkResponse();
+                },
+
+                _onEntityGetError: function(e) {
+                    this.logError("Entity get failed");
+                    this._setBulkResponse();
+                },
+
+                _setBulkResponse: function() {
+                    if (this.businessFunctionData.noGrid) {
+                        this._noGrid = this.businessFunctionData.noGrid;
+                    }
+
+                    if (!this._noGrid) {
+                        if (this.businessFunctionData.messages) {
+                            var gridColumns = [];
+                            var message = this.businessFunctionData.messages[0];
+
+                            for (var key in message) {
+                                gridColumns.push(key);
                             }
+
+                            //Set the columns and data
+                            this._gridColumns = gridColumns;
+                            this._gridData = this.businessFunctionData.messages;
                         }
-                    }                    
+                    }
+                    else {
+                        if (this.businessFunctionData.message) {
+                            this.message = this.businessFunctionData.message;
+                        }
+                    }
                 },
 
                 _onActionTap: function(e) {
