@@ -225,7 +225,7 @@ Eventservice.prototype = {
                             }
                         }
 
-                        if (!processingStartedEvent && eventSubType == "PROCESSING_STARTED") {
+                        if (eventSubType == "PROCESSING_STARTED") {
                             processingStartedEvent = event;
                         }
                     }
@@ -263,7 +263,7 @@ Eventservice.prototype = {
                         var startTime = this._getAttributeValue(processingStartedEvent, "createdOn");
 
                         if (startTime) {
-                            response.startTime = this._formatDate(new Date(startTime));
+                            response.startTime = startTime
                         }
                     }
 
@@ -721,7 +721,7 @@ Eventservice.prototype = {
                 var endTime = lastCreatedReqObj.properties.createdDate;
 
                 if (endTime) {
-                    taskDetails.endTime = this._formatDate(new Date(endTime));
+                    taskDetails.endTime = endTime;
                 }
             }
         }
@@ -778,7 +778,7 @@ Eventservice.prototype = {
         if (event && event.properties) {
             var endTime = event.properties.createdDate;
             if (endTime) {
-                createdDate = this._formatDate(new Date(endTime));
+                createdDate = endTime;
             }
         }
 
@@ -828,19 +828,7 @@ Eventservice.prototype = {
     },
     _validateRequest: function (request) {
         return true;
-    },
-    _formatDate: function (date) {
-        var hours = date.getHours();
-        var minutes = date.getMinutes();
-        var seconds = date.getSeconds();
-        var ampm = hours >= 12 ? 'pm' : 'am';
-        hours = hours % 12;
-        hours = hours ? hours : 12; // the hour '0' should be '12'
-        minutes = minutes < 10 ? '0' + minutes : minutes;
-        var strTime = hours + ':' + minutes + ':' + seconds + ' ' + ampm;
-        return date.getMonth() + 1 + "/" + date.getDate() + "/" + date.getFullYear() + "  " +
-            strTime;
-    },
+    }
 };
 
 module.exports = Eventservice;
