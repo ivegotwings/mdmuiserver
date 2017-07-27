@@ -25,7 +25,7 @@ DataObjectFalcorUtil.getPathKeys = function () {
                 "name": "entityGovernData",
                 "collectionName": "entities",
                 "responseObjectName": "response",
-                "maxRecordsToReturn": 2000
+                "maxRecordsToReturn": 5000
             },
             "entityModel": {
                 "name": "entityModel",
