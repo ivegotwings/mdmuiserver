@@ -23,7 +23,8 @@ const eventTypesOrder = ["BATCH_COLLECT_ENTITY_IMPORT",
     "BATCH_TRANSFORM_ENTITY_EXPORT",
     "BATCH_PUBLISH_ENTITY_EXPORT"];
 
-const eventSubTypesOrder = ["QUEUED",
+const eventSubTypesOrder = ["NONE",
+    "QUEUED",
     "QUEUED_SUCCESS",
     "PROCESSING_STARTED",
     "SUBMITTED",
@@ -120,15 +121,17 @@ Eventservice.prototype = {
                         if (event && event.data && event.data.attributes && event.data.attributes.eventSubType && event.data.attributes.eventSubType.values) {
                             var eventSubType = this._getAttributeValue(event, "eventSubType");
                             var currentEventSubTypeIndex = eventSubTypesOrder.indexOf(eventSubType);
-                            if (currentEventSubTypeIndex >= currentEventRecordIdx) {
+                            if (currentEventSubTypeIndex > currentEventRecordIdx) {
                                 highOrderEvent = event;
                                 highOrderEvent.eventSubType = eventSubType;
 
+                                currentEventRecordIdx = currentEventSubTypeIndex;
+                            }
+
+                            if(highOrderEvent) {
                                 if (!this._getAttributeValue(highOrderEvent, "recordCount") && this._getAttributeValue(event, "recordCount")) {
                                     this._setAttributeValue(highOrderEvent, "recordCount", this._getAttributeValue(event, "recordCount"));
                                 }
-
-                                currentEventRecordIdx = currentEventSubTypeIndex;
                             }
                         }
                     }
@@ -188,7 +191,7 @@ Eventservice.prototype = {
             //console.log('Get details for ', taskId);
 
             //Get Batch Events to get basic information of reuested tasks...
-            var attributeNames = ["fileId", "fileName", "eventType", "eventSubType", "recordCount", "createdOn", "userId", "profileType", "taskType", "message", "integrationType"];
+            var attributeNames = ["fileId", "fileName", "fileType", "eventType", "eventSubType", "recordCount", "createdOn", "userId", "profileType", "taskName", "taskType", "message", "integrationType"];
             var eventTypeFilterString = "BATCH_COLLECT_ENTITY_IMPORT BATCH_TRANSFORM_ENTITY_IMPORT BATCH_EXTRACT BATCH_COLLECT_ENTITY_EXPORT BATCH_TRANSFORM_ENTITY_EXPORT BATCH_PUBLISH_ENTITY_EXPORT";
             var eventSubTypeFilterString = "";
             var eventsGetRequest = this._generateEventsGetReq(taskId, attributeNames, eventTypeFilterString, eventSubTypeFilterString, false);
@@ -201,19 +204,28 @@ Eventservice.prototype = {
 
             if (batchEventsGetRes && batchEventsGetRes.response && batchEventsGetRes.response.events && batchEventsGetRes.response.events.length > 0) {
                 var events = batchEventsGetRes.response.events;
-                var highOrderEvent = events[0];
-                var lowerOrderEvent = events[events.length-1];
+                var highOrderEvent = undefined;
                 var processingStartedEvent = undefined;
+                var currentEventRecordIdx = 0;
 
-                for (var i = 1; i < events.length; i++) {
+                for (var i = 0; i < events.length; i++) {
                     var event = events[i];
                     if (event && event.data && event.data.attributes) {
                         var eventSubType = this._getAttributeValue(event, "eventSubType");
-                        if (!this._getAttributeValue(highOrderEvent, "recordCount") && this._getAttributeValue(event, "recordCount")) {
-                            this._setAttributeValue(highOrderEvent, "recordCount", this._getAttributeValue(event, "recordCount"));
+                        var currentEventSubTypeIndex = eventSubTypesOrder.indexOf(eventSubType);
+                        if (currentEventSubTypeIndex > currentEventRecordIdx) {
+                            highOrderEvent = event;
+
+                            currentEventRecordIdx = currentEventSubTypeIndex;
                         }
 
-                        if (!processingStartedEvent && eventSubType == "PROCESSING_STARTED") {
+                        if(highOrderEvent) {
+                            if (!this._getAttributeValue(highOrderEvent, "recordCount") && this._getAttributeValue(event, "recordCount")) {
+                                this._setAttributeValue(highOrderEvent, "recordCount", this._getAttributeValue(event, "recordCount"));
+                            }
+                        }
+
+                        if (eventSubType == "PROCESSING_STARTED") {
                             processingStartedEvent = event;
                         }
                     }
@@ -225,16 +237,20 @@ Eventservice.prototype = {
                     var eventSubType = this._getAttributeValue(highOrderEvent, "eventSubType");
                     var taskType = this._getTaskTypeFromEvent(highOrderEvent);
 
+                    var taskName = this._getAttributeValue(highOrderEvent, "taskName");
                     var fileName = this._getAttributeValue(highOrderEvent, "fileName");
                     var fileId = this._getAttributeValue(highOrderEvent, "fileId");
+                    var fileType = this._getAttributeValue(highOrderEvent, "fileType");
                     var submittedBy = this._getAttributeValue(highOrderEvent, "userId");
                     var totalRecords = this._getAttributeValue(highOrderEvent, "recordCount");
                     var message = this._getAttributeValue(highOrderEvent, "message");
 
                     response.taskId = taskId;
+                    response.taskName = taskName ? taskName : "N/A";
                     response.taskType = taskType;
                     response.fileId = fileId ? fileId : "N/A";
                     response.fileName = fileName ? fileName : response.fileId;
+                    response.fileType = fileType ? fileType : "N/A";
                     response.submittedBy = submittedBy ? submittedBy.replace("_user", "") : "N/A";
                     response.totalRecords = totalRecords ? totalRecords : "N/A";
                     response.message = message ? message : "N/A";
@@ -247,7 +263,7 @@ Eventservice.prototype = {
                         var startTime = this._getAttributeValue(processingStartedEvent, "createdOn");
 
                         if (startTime) {
-                            response.startTime = this._formatDate(new Date(startTime));
+                            response.startTime = startTime
                         }
                     }
 
@@ -264,7 +280,13 @@ Eventservice.prototype = {
 
                     //Get in progress requests stats in RDF based on the status of highOrderEvent
                     if (eventSubType == "PROCESSING_COMPLETED") {
-                        if(eventType == "BATCH_PUBLISH_ENTITY_EXPORT") {
+                        if(eventType == "BATCH_COLLECT_ENTITY_IMPORT" || eventType == "BATCH_COLLECT_ENTITY_EXPORT") {
+                            taskStats.processing = "100%";
+                            taskStats.success = "0%";
+                            taskStats.error = "0%";
+                            response.taskStatus = "Processing";
+                        }
+                        else if(eventType == "BATCH_PUBLISH_ENTITY_EXPORT") {
                             taskStats.success = "100%";
                             taskStats.error = "0%";
                             taskStats.processing = "0%";
@@ -273,8 +295,7 @@ Eventservice.prototype = {
                             //End time is the time when event has been created...
                             response.endTime = this._getEventCreatedDate(highOrderEvent);
                         }
-                        else if ((eventType != "BATCH_COLLECT_ENTITY_EXPORT" && eventType != "BATCH_TRANSFORM_ENTITY_EXPORT" 
-                            && (response.totalRecords == "N/A" || response.totalRecords == "0"))) {
+                        else if ((eventType != "BATCH_TRANSFORM_ENTITY_EXPORT" && (response.totalRecords == "N/A" || response.totalRecords == "0"))) {
                             //console.log(' marking complete sooner ', JSON.stringify(response), JSON.stringify(highOrderEvent));
                             taskStats.success = "100%";
                             taskStats.error = "0%";
@@ -288,7 +309,7 @@ Eventservice.prototype = {
                             //Get errored record events within COP/RSConnect for a requested task 
                             var preProcessErroredRecordsCount = 0;
                             var lastErroredRecordEvent;
-                            var attributeNames = [];
+                            var attributeNames = ["createdOn"]; //This attribute is needed to get endTime
                             var eventTypeFilterString = "RECORD_TRANSFORM_ENTITY_IMPORT RECORD_PUBLISH_ENTITY_IMPORT RECORD_PUBLISH_ENTITY_EXPORT RECORD_LOAD";
                             var eventSubTypeFilterString = "PROCESSING_ERROR PROCESSING_COMPLETE_ERROR";
                             var eventsGetRequest = this._generateEventsGetReq(taskId, attributeNames, eventTypeFilterString, eventSubTypeFilterString, true);
@@ -488,6 +509,13 @@ Eventservice.prototype = {
                 }
             };
             attributesCriteria.push(entityActionCriterion);
+
+            var impactedEventCriterion = {
+                "impacted": {
+                    "exact": "false"
+                }
+            };
+            attributesCriteria.push(impactedEventCriterion);
         }
         
         req.params.query.filters.attributesCriterion = attributesCriteria;
@@ -693,7 +721,7 @@ Eventservice.prototype = {
                 var endTime = lastCreatedReqObj.properties.createdDate;
 
                 if (endTime) {
-                    taskDetails.endTime = this._formatDate(new Date(endTime));
+                    taskDetails.endTime = endTime;
                 }
             }
         }
@@ -746,12 +774,11 @@ Eventservice.prototype = {
         return val;
     },
     _getEventCreatedDate: function (event) {
-        var createdDate = undefined;
+        var createdDate = 'N/A';
         if (event && event.properties) {
             var endTime = event.properties.createdDate;
-
             if (endTime) {
-                createdDate = this._formatDate(new Date(endTime));
+                createdDate = endTime;
             }
         }
 
@@ -801,19 +828,7 @@ Eventservice.prototype = {
     },
     _validateRequest: function (request) {
         return true;
-    },
-    _formatDate: function (date) {
-        var hours = date.getHours();
-        var minutes = date.getMinutes();
-        var seconds = date.getSeconds();
-        var ampm = hours >= 12 ? 'pm' : 'am';
-        hours = hours % 12;
-        hours = hours ? hours : 12; // the hour '0' should be '12'
-        minutes = minutes < 10 ? '0' + minutes : minutes;
-        var strTime = hours + ':' + minutes + ':' + seconds + ' ' + ampm;
-        return date.getMonth() + 1 + "/" + date.getDate() + "/" + date.getFullYear() + "  " +
-            strTime;
-    },
+    }
 };
 
 module.exports = Eventservice;
