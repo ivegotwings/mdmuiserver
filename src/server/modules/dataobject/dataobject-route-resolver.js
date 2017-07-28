@@ -448,7 +448,7 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
             if(dataObjectAction == "create" || dataObjectAction == "update") {
                 _prependAuthorizationType(apiRequestObj);
             }
-            console.log('api request data for process dataObjects', JSON.stringify(apiRequestObj));
+            //console.log('api request data for process dataObjects', JSON.stringify(apiRequestObj));
             var dataOperationResult = {};            
 
             if (dataObjectAction == "create") {
