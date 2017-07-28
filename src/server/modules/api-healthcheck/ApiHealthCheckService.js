@@ -69,7 +69,14 @@ ApiHealthCheckService.prototype = {
         }
         else {
             request.url = dfUrl;
+
+            var getStartTick = process.hrtime();
+
             var apiResponse = await this.callRdfApi(request);
+
+            var getEndTick = process.hrtime(getStartTick);
+            var getTimeTaken = getEndTick[1]/1000000;
+
             if(apiResponse && apiResponse.response) {
                 if(apiResponse.response[collectionName] && apiResponse.response[collectionName].length > 0) {
                     response = {
@@ -77,7 +84,13 @@ ApiHealthCheckService.prototype = {
                         "msg": "All is well...! " + apiUrl + " call returned with data.",
                         "detail": {
                             "request": request.body,
-                            "response": apiResponse
+                            "response": apiResponse,
+                            "stats": {
+                                "timeTaken": getTimeTaken,
+                                "verificationTimeTaken": -1,
+                                "noOfVerificationProbs": -1,
+                                "verificationProbTotalWait": -1
+                            }
                         }
                     };
                 }
@@ -87,13 +100,32 @@ ApiHealthCheckService.prototype = {
                         "msg": apiUrl +  " call returned without any data. Please check the system.",
                         "detail": {
                             "request": request.body,
-                            "response": apiResponse
+                            "response": apiResponse,
+                            "stats": {
+                                "timeTaken": getTimeTaken,
+                                "verificationTimeTaken": -1,
+                                "noOfVerificationProbs": -1,
+                                "verificationProbTotalWait": -1
+                            }
                         }
                     };
                 }
             }
             else {
-                response = apiResponse;
+                response = {
+                        "status": "error",
+                        "msg": apiUrl +  " call failed to return expected data.",
+                        "detail": {
+                            "request": request.body,
+                            "response": apiResponse,
+                            "stats": {
+                                "timeTaken": getTimeTaken,
+                                "verificationTimeTaken": -1,
+                                "noOfVerificationProbs": -1,
+                                "verificationProbTotalWait": -1
+                            }
+                        }
+                    };
             }
         }
 
@@ -117,7 +149,7 @@ ApiHealthCheckService.prototype = {
         }
         else {
             var newVal = moment().format("YYYY-MM-DDTHH:mm:ss.SSS-0500"); // just set new value as current timestamp..
-            console.log('new val', newVal);
+            //console.log('new val', newVal);
             getRequest.url = dfUrl.replace(apiUrl, getApiUrl);
             
             var getApiResponse = await this.callRdfApi(getRequest);
@@ -139,53 +171,87 @@ ApiHealthCheckService.prototype = {
             this.setAttrVal(dataObject.data.attributes, attrName, newVal);
 
             updateRequest.url = dfUrl;
+
+            var updateStartTick = process.hrtime();
+
             var updateApiResponse = await this.callRdfApi(updateRequest);
+
+            var updateEndTick = process.hrtime(updateStartTick);
+            var updateTime = updateEndTick[1]/1000000;
 
             if(updateApiResponse && updateApiResponse.response) {
                 var status = updateApiResponse.response.status;
+
+                var verificationStartTick = process.hrtime();
+
                 if(status == "success") {
                     var i = 0;
-                    var delay = 0;
+                    var totalDelay = 0;
                     do {
                         var val = await this.getDataObjectAttrVal(getRequest, collectionName, attrName);
-                        console.log('val ', val);
+                        //console.log('val ', val);
                         if(val == newVal) {
+                            var verificationEndTick = process.hrtime(verificationStartTick);
+                            var verificationTime = verificationEndTick[1]/1000000;
+
                             response = {
                                 "status": "success",
                                 "msg": apiUrl +  " call returned with success status.",
                                 "detail": {
                                     "request": updateRequest.body,
                                     "response": updateApiResponse,
-                                    "verificationCount": i,
-                                    "delay": delay
+                                    "stats": {
+                                        "timeTaken": updateTime,
+                                        "verificationTimeTaken": verificationTime,
+                                        "noOfVerificationProbs": i + 1,
+                                        "verificationProbTotalWait": totalDelay
+                                    }
                                 }
                             };
                             break;
                         }
                         var interval = verificationDelayIntervals[i];
-                        delay += interval;
+                        totalDelay += interval;
+                        console.log('going to sleep for ', interval, i, verificationEndTick);
                         sleep(interval);
                         i++;
                     } while(i < verificationDelayIntervals.length);
 
                     if(!response) {
+                        var verificationEndTick = process.hrtime(verificationStartTick);
+                        var verificationTime = verificationEndTick[1]/1000000;
+
                         response = {
                             "status": "error",
                             "msg": apiUrl +  " call failed to update and get back the updated value",
                             "detail": {
                                 "request": updateRequest.body,
                                 "response": updateApiResponse,
-                                "verificationCount": i
+                                "stats": {
+                                    "timeTaken": updateTime,
+                                    "verificationTimeTaken": verificationTime,
+                                    "noOfVerificationProbs": i + 1,
+                                    "verificationProbTotalWait": totalDelay
+                                }
                             }
                         }; 
                     }
                 } else {
+                    var verificationEndTick = process.hrtime(verificationStartTick);
+                    var verificationTime = verificationEndTick[1]/1000000;
+
                     response = {
                         "status": "error",
                         "msg": apiUrl +  " call failed.",
                         "detail": {
                             "request": updateRequest.body,
-                            "response": updateApiResponse
+                            "response": updateApiResponse,
+                            "stats": {
+                                "timeTaken": updateTime,
+                                "verificationTimeTaken": verificationTime,
+                                "noOfVerificationProbs": -1,
+                                "verificationProbTotalWait": -1
+                            }
                         }
                     }; 
                 }
@@ -273,7 +339,13 @@ ApiHealthCheckService.prototype = {
                 "msg": "Failed to load healthcheck config for " + serviceName + " service.",
                 "detail": {
                     "request": {},
-                    "response": {}
+                    "response": {},
+                    "stats": {
+                                "timeTaken": -1,
+                                "verificationTimeTaken": -1,
+                                "noOfVerificationProbs": -1,
+                                "verificationProbTotalWait": -1
+                            }
                 }
             }
 
