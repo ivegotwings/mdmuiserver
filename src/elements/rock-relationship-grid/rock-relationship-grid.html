@@ -431,6 +431,12 @@ The following JSON object is a sample of data which binds the grid.
     </liquid-rest>
     <div id="messageCard">
     </div>
+    <pebble-dialog id="gridMsgDialog" show-ok show-cancel show-close-icon>
+			<p id="msgDialog">
+			</p>
+		</pebble-dialog>
+    <bedrock-pubsub target-id="gridMsgDialog" event-name="on-buttonok-clicked" handler="_onDialogOk"></bedrock-pubsub>
+		<bedrock-pubsub target-id="gridMsgDialog" event-name="on-buttoncancel-clicked" handler="_onDialogCancel"></bedrock-pubsub>
   </template>
   <script>
     (function () {
@@ -601,6 +607,9 @@ The following JSON object is a sample of data which binds the grid.
         _deleteItemRelationshipType: {
             type: String,
             value: null
+        },
+        toBeDeletedEntity: {
+          type: Object
         }
     },
 
@@ -1269,6 +1278,39 @@ The following JSON object is a sample of data which binds the grid.
           }
         },
         _onDialogOk: function (e) {
+
+          if(this.toBeDeletedEntity.type == "delete"){
+            var detail = this.toBeDeletedEntity.detail;
+          var updateRequest = DataRequestHelper.generateRelationshipProcessRequest(this.contextData);
+              if (!this._entityRelations || !this._entityRelations.length) {
+                  return;
+              }
+              var relDelItem;
+              var relations = this._entityRelations;
+              if (relations) {
+                  if (relations.length > 0) {
+                      for (var i = 0; i < relations.length; i++) {
+                          if (relations[i].relTo.id == detail.id) {
+                              relDelItem = relations[i];
+                              break;
+                          }
+                      }
+                  }
+              }
+              if (relDelItem && !_.isEmpty(relDelItem) && this.relationship) {
+                  relDelItem.action = "delete";
+                  updateRequest.data.relationships[this.relationship] = [relDelItem];
+                  this._saveRelationsRequest = {
+                      "entities": [updateRequest]
+                  };
+                  var entitySaveLiquid = this.$$("#entityRelationsSaveService");
+                  if (entitySaveLiquid) {
+                      entitySaveLiquid.operation = "update";
+                      entitySaveLiquid.generateRequest();
+                  }
+              }
+          }
+          
           if (this.relationship) {
             var relGrid = this.$$('rock-grid[id=' + this.relationship + ']');
             var relationshipLov = Polymer.dom(this).node.$$('rock-entity-lov[id=' + this._currentRelationshipItem + ']');
@@ -1422,35 +1464,15 @@ The following JSON object is a sample of data which binds the grid.
                   }
               }
           },
+          openGridMsgDialog: function (msg) {
+					  this.$$('p[id="msgDialog"]').innerText = msg;
+					  this.$.gridMsgDialog.open();
+				  },
           _onDeleteEntityRelationshipAction: function (e, detail) {
-              var updateRequest = DataRequestHelper.generateRelationshipProcessRequest(this.contextData);
-              if (!this._entityRelations || !this._entityRelations.length) {
-                  return;
-              }
-              var relDelItem;
-              var relations = this._entityRelations;
-              if (relations) {
-                  if (relations.length > 0) {
-                      for (var i = 0; i < relations.length; i++) {
-                          if (relations[i].relTo.id == detail.id) {
-                              relDelItem = relations[i];
-                              break;
-                          }
-                      }
-                  }
-              }
-              if (relDelItem && !_.isEmpty(relDelItem) && this.relationship) {
-                  relDelItem.action = "delete";
-                  updateRequest.data.relationships[this.relationship] = [relDelItem];
-                  this._saveRelationsRequest = {
-                      "entities": [updateRequest]
-                  };
-                  var entitySaveLiquid = this.$$("#entityRelationsSaveService");
-                  if (entitySaveLiquid) {
-                      entitySaveLiquid.operation = "update";
-                      entitySaveLiquid.generateRequest();
-                  }
-              }
+
+              this.toBeDeletedEntity = {event:e, detail:detail, type:"delete"};
+              this.openGridMsgDialog("Are you sure you want to delete?");
+              
           },
           _onRelationsSaveResponse: function (e, detail) {
               var relGrid = this.$$('rock-grid[id=' + this.relationship + ']');
