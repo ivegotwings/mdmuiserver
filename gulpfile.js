@@ -39,7 +39,8 @@ global.config = {
     rootDirectory: 'build',
     bundledDirectory: 'bundled/ui-platform',
     unbundledDirectory: 'unbundled/ui-platform',
-    devDirectory: 'dev/ui-platform',
+    // devDirectory: 'dev/ui-platform',
+    devDirectory: 'default',
     // Accepts either 'bundled', 'unbundled', or 'both'
     // A bundled version will be vulcanized and sharded. An unbundled version
     // will not have its files combined (this is for projects using HTTP/2
@@ -267,7 +268,7 @@ gulp.task('watch-element-changes', function () {
 });
 
 gulp.task('nodemodules', project.copyunbundledNodeModules);
-gulp.task('app', gulp.series(['dev',gulp.parallel(['app-nodemon', 'watch-element-changes'])]));
+gulp.task('app', gulp.series([gulp.parallel(['app-nodemon'])]));
 gulp.task('app-monitor', gulp.series([gulp.parallel(['app-nodemon', 'watch-element-changes'])]));
 gulp.task('app-prod', gulp.series(['app-nodemon']));
 
