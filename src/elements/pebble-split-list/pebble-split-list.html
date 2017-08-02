@@ -67,9 +67,9 @@
         <div class="container">
             <div class="row">
                 <div class="leftContainer">
-                    <pebble-data-table id="leftDataTable"   selection-enabled multi-selection="[[config.tabular.settings.isMultiSelect]]" data-source="[[dataSource]]" items="{{items}}">
+                    <pebble-data-table id="leftDataTable" deleted-items="{{deletedItems}}" page-size="[[pageSize]]"  size="{{size}}"  selection-enabled multi-selection="[[config.tabular.settings.isMultiSelect]]" data-source="[[dataSource]]" items="{{items}}">
                             <template is="dom-repeat" items="[[config.tabular.columns]]" as="col" index-as="colIndex">
-                                <data-table-column name="[[col.header]]" column-index="{{colIndex}}" filter-by$="[[_isFilterEnabled(col)]]" sort-by$="[[_isSortable(col)]]"
+                                <data-table-column  name="[[col.header]]" column-index="{{colIndex}}" filter-by$="[[_isFilterEnabled(col)]]" sort-by$="[[_isSortable(col)]]"
                                                    icon="pebble-md-icons:Edit" class="pebble-md-icons" column-object="[[col]]">
                                     <template>
                                                 <div class="cell">
@@ -79,12 +79,6 @@
                                 </data-table-column>
                             </template>
                     </pebble-data-table>
-                    <template is="dom-if" if="[[moveUpDownEnabled]]">
-                        <div class="moveButtons">
-                            <pebble-button class="iconButton btn btn-outline-primary m-r-5" icon="icons:arrow-upward" on-tap="_moveUpLeft"></pebble-button>
-                            <pebble-button class="iconButton btn btn-outline-primary m-r-5" icon="icons:arrow-downward" on-tap="_moveDownLeft"></pebble-button>
-                        </div>
-                    </template>
                 </div>
                 <div class="centerContainer">
                     <pebble-button class="iconButton centerButton btn btn-outline-primary m-r-5" icon="icons:last-page" on-tap="_moveRightAll"></pebble-button>
@@ -93,13 +87,13 @@
                     <pebble-button class="iconButton centerButton btn btn-outline-primary m-r-5" icon="icons:chevron-left" on-tap="_moveLeft"></pebble-button>
                 </div>
                 <div class="rightContainer">
-                    <pebble-data-table id="rightDataTable"  selection-enabled multi-selection="[[config.tabular.settings.isMultiSelect]]"  items="{{rightItems}}" >
+                    <pebble-data-table  id="rightDataTable"  selection-enabled multi-selection="[[config.tabular.settings.isMultiSelect]]"  items="{{rightItems}}" >
                         <template is="dom-repeat" items="[[config.tabular.columns]]" as="col" index-as="colIndex">
                             <data-table-column name="[[col.header]]" column-index="{{colIndex}}" filter-by$="[[_isFilterEnabled(col)]]" sort-by$="[[_isSortable(col)]]"
                                                icon="pebble-md-icons:Edit" class="pebble-md-icons" column-object="[[col]]">
                                 <template>
                                     <div class="cell">
-                                        [[_columnValue(item, column.columnIndex)]]
+                                         [[_columnValue(item, column.columnIndex)]]
                                     </div>
                                 </template>
                             </data-table-column>
@@ -145,6 +139,17 @@
                     moveUpDownEnabled:{
                         type:Boolean,
                         value:false
+                    },
+                    pageSize:{
+                        type:Number,
+                        value:50
+                    },
+                    deletedItems:{
+                        type:Array,
+                        value:function () {
+                            return [];
+                        },
+                        notify:true
                     }
                 },
                 behaviors:[
@@ -165,15 +170,12 @@
                     if(leftGrid){
                         var selectedItems=leftGrid.getSelectedItems();
                         for(var i=0;i<selectedItems.length;i++) {
-                            if(this.rightItems.indexOf(selectedItems[i])==-1) {
+                            if(this.rightItems.indexOf(selectedItems[i])===-1) {
                                 this.push("rightItems", selectedItems[i]);
                             }
                         }
                         if(!this.retainSelectedItems){
-                            for(var i=0;i<selectedItems.length;i++) {
-                                var index=this.items.indexOf(selectedItems[i]);
-                                this.splice("items",index,1 );
-                            }
+                            leftGrid.deleteItems(selectedItems);
                         }
                         this.fireBedrockEvent("moveToRight",selectedItems);
                     }
@@ -183,27 +185,25 @@
                     if(leftGrid){
                         var items=leftGrid.getData();
                         for(var i=0;i<items.length;i++) {
-                            if(this.rightItems.indexOf(items[i])==-1) {
+                            if(this.rightItems.indexOf(items[i])===-1) {
                                 this.push("rightItems", items[i]);
                             }
                         }
                         if(!this.retainSelectedItems){
-                            for(var i=0;i<items.length;i++) {
-                                var index=this.items.indexOf(items[i]);
-                                this.splice("items",index,1 );
-                            }
+                            leftGrid.deleteItems(items);
                         }
                         this.fireBedrockEvent("moveAllToRight",items);
                     }
                 },
                 _moveLeft:function () {
                     var rightGrid=this.$.rightDataTable;
+                    var leftGrid=this.$.leftDataTable;
                     if(rightGrid){
                         var selectedItems=rightGrid.getSelectedItems();
+                        if(!this.retainSelectedItems){
+                            this.restoreDeletedItems(leftGrid,selectedItems,this.dataSource);
+                        }
                         for(var i=0;i<selectedItems.length;i++) {
-                            if(this.items.indexOf(selectedItems[i])==-1) {
-                                this.push("items", selectedItems[i]);
-                            }
                             var index=this.rightItems.indexOf(selectedItems[i]);
                             this.splice("rightItems",index,1 );
                         }
@@ -212,13 +212,12 @@
                 },
                 _moveLeftAll:function () {
                     var rightGrid=this.$.rightDataTable;
+                    var leftGrid=this.$.leftDataTable;
                     var items=rightGrid.getData();
-                    for(var i=0;i<items.length;i++) {
-                        if(this.items.indexOf(items[i])==-1) {
-                            this.push("items", items[i]);
-                        }
+                    if(!this.retainSelectedItems){
+                        this.restoreDeletedItems(leftGrid,items,this.dataSource);
                     }
-                    for( i=0;i<items.length;i++){
+                    for(var i=0;i<items.length;i++){
                         var index=this.rightItems.indexOf(items[i]);
                         this.splice("rightItems",index,1 );
                     }
@@ -262,52 +261,25 @@
                     this.rightItems=[];
                     this.rightItems=items;
                 },
-                _moveUpLeft: function () {
-                    var leftGrid=this.$.leftDataTable;
-                    var selectedItems=leftGrid.getSelectedItems();
-                    var _this = this;
-                    var sortedSelectedItems=selectedItems.sort(function (item1,item2) {
-                             return _this.items.indexOf(item1)-_this.items.indexOf(item2);
-                    });
-                    for(var i=0;i<sortedSelectedItems.length;i++){
-                        var index=this.items.indexOf(sortedSelectedItems[i]);
-                        if(index>0){
-                            var temp=this.items[index-1];
-                            this.items[index-1]=this.items[index];
-                            this.items[index]=temp;
-                        }
-                    }
-                    var items=this.items;
-                    this.items=[];
-                    this.items=items;
-                },
-                _moveDownLeft: function () {
-                    var leftGrid=this.$.leftDataTable;
-                    var selectedItems=leftGrid.getSelectedItems();
-                    if(selectedItems.length) {
-                        var _this = this;
-                        var sortedSelectedItems = selectedItems.sort(function (item1, item2) {
-                            return _this.items.indexOf(item2) - _this.items.indexOf(item1);
-                        });
-                        for (var i = 0; i < sortedSelectedItems.length; i++) {
-                            var index = this.items.indexOf(sortedSelectedItems[i]);
-                            if (index < this.items.length - 1) {
-                                var temp = this.items[index];
-                                this.items[index] = this.items[index + 1];
-                                this.items[index + 1] = temp;
-                            }
-                        }
-                        var items = this.items;
-                        this.items = [];
-                        this.items = items;
-                    }
-                },
                 getSelectedItems:function () {
                     return this.rightItems;
                 },
                 getLeftItems:function () {
                     return this.items;
-                }
+                },
+                restoreDeletedItems:function (grid,items,dataSource) {
+                    for(var i=items.length-1;i>=0;i--) {
+                        if(typeof dataSource === 'function'){
+                           grid.clearCache();
+                        } else {
+                            if (this.items.indexOf(items[i]) === -1) {
+                                this.unshift("items", items[i]);
+                            }
+                        }
+                        var index=this.deletedItems.indexOf(items[i]);
+                        this.splice("deletedItems",index,1 );
+                    }
+                },
 
 
             });

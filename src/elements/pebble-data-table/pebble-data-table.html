@@ -95,7 +95,7 @@
       <iron-list id="list" as="item" items="[[_cachedItems]]" on-scroll="_onVerticalScroll">
         <template>
           <div class="item">
-            <data-table-row before-bind="[[beforeRowBind]]" even$="[[!_isEven(index)]]" expanded="[[_isExpanded(item, _expandedItems, _expandedItems.*)]]"
+            <data-table-row   before-bind="[[beforeRowBind]]" even$="[[!_isEven(index)]]" expanded="[[_isExpanded(item, _expandedItems, _expandedItems.*)]]"
               index="[[index]]" item="[[item]]" tabindex="-1" selected="[[_isSelected(item, selectedItems, selectedItems.*)]]">
               <data-table-checkbox hidden$="[[!multiSelection]]" tabindex="0" checked="[[_isSelected(item, selectedItems, selectedItems.*)]]"
                 on-tap="_onCheckBoxTap"></data-table-checkbox>
@@ -372,6 +372,13 @@
           type: Object,
           value: function () { return {} },
           notify: true
+        },
+        deletedItems:{
+            type:Array,
+            value:function () {
+                return [];
+            },
+            notify:true
         }
       },
 
@@ -579,13 +586,17 @@
         // both reset implicitly when a new _cachedItems is set to iron-list, but
         // that doesn't happen when size of the dataset changes only by a few items.
         this.clearSelection();
-
         this.clearCache();
-        this.$.list.scrollToIndex(0);
+          if(this.deletedItems && this.deletedItems.length){
+              this.deletedItems=[];
+              this._currentPage=0;
+          }
+          this.$.list.scrollToIndex(0);
+
       },
 
       _sortDirectionChanged: function (e) {
-        for (var i = 0; i < this.sortOrder.length; i++) {
+          for (var i = 0; i < this.sortOrder.length; i++) {
           if (this.sortOrder[i].path === e.detail.path) {
             if (e.detail.direction) {
               this.set('sortOrder.' + i + '.direction', e.detail.direction);
@@ -661,12 +672,23 @@
           }, 1000);
         }
       },
+      _deletedItemsChanged:function () {
+          if(this.deletedItems && this.deletedItems.length){
+              var currentElementIndex=this.$.list.scrollTop / this.$.list._physicalAverage;
+              this._currentPage = Math.max(0, Math.floor((currentElementIndex+ this.deletedItems.length) / this.pageSize));
+          }
+      },
 
       _onVerticalScroll: function (e) {
         // Toggle shadow when at the top
         this.toggleClass("scrolled", this.$.list.scrollTop >= 1, this.$.header);
 
-        this._currentPage = Math.max(0, Math.floor(this.$.list.scrollTop / this.$.list._physicalAverage / this.pageSize));
+        if(this.deletedItems && this.deletedItems.length){
+            var currentElementIndex=this.$.list.scrollTop / this.$.list._physicalAverage;
+            this._currentPage = Math.max(0, Math.floor((currentElementIndex+ this.deletedItems.length) / this.pageSize));
+        } else {
+            this._currentPage = Math.max(0, Math.floor(this.$.list.scrollTop / this.$.list._physicalAverage / this.pageSize));
+        }
       },
 
       /**
@@ -757,10 +779,9 @@
             if (size !== undefined) {
               this.size = size;
             }
+            var start = this.deletedItems?page * this.pageSize-this.deletedItems.length : page * this.pageSize;
 
-            var start = page * this.pageSize;
-
-            for (var i = 0; i < this.pageSize; i++) {
+            for (var i = 0; i < items.length; i++) {
               var index = start + i;
               var item = items[i];
 
@@ -777,7 +798,9 @@
                 this.$.list._collection.pmap[item] = index;
               }
             }
-
+            if(items.length<this.pageSize && this.deletedItems.length){
+                this._deletedItemsChanged();
+            }
             // resize required for variable row height items.
             // debouncing for optimizing when multiple requests are running at
             // the same time.
@@ -1051,6 +1074,20 @@
                 return items;
             }
         },
+        deleteItems:function (items) {
+            for(var i=0;i<items.length;i++) {
+                if(this.items.length) {
+                    var index = this.items.indexOf(items[i]);
+                    this.push("deletedItems", items[i]);
+                    this.splice("items", index, 1);
+                } else{
+                    var index = this._cachedItems.indexOf(items[i]);
+                    this.push("deletedItems", items[i]);
+                    this.splice("_cachedItems", index, 1);
+                }
+            }
+            this._deletedItemsChanged();
+        }
     });
   </script>
 </dom-module>
