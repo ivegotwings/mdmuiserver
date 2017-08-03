@@ -23,6 +23,14 @@ const devPath = path.join(global.config.build.rootDirectory, global.config.build
 const bundledPath = path.join(global.config.build.rootDirectory, global.config.build.bundledDirectory);
 const unbundledPath = path.join(global.config.build.rootDirectory, global.config.build.unbundledDirectory);
 
+const sourcesStreamSplitter = new polymer.HtmlSplitter();
+let sourcesStream = project.sources();
+
+const dependenciesStreamSplitter = new polymer.HtmlSplitter();
+let dependenciesStream = project.dependencies();
+
+const changedFileSplitter = new polymer.HtmlSplitter();
+
 // This is the heart of polymer-build, and exposes much of the
 // work that Polymer CLI usually does for you
 // There are tasks to split the source files and dependency files into
@@ -36,23 +44,30 @@ const unbundledPath = path.join(global.config.build.rootDirectory, global.config
 // Source files are those in src/** as well as anything
 // added to the sourceGlobs property of polymer.json
 function splitSource() {
-  return project.sources().pipe(project.splitHtml());
+  return project.sources().pipe(sourcesStreamSplitter.split());
 }
 
 // Returns a ReadableStream of all the dependency files
 // Dependency files are those in bower_components/**
 function splitDependencies() {
-  return project.dependencies().pipe(project.splitHtml());
+  return project.dependencies().pipe(dependenciesStreamSplitter.split());
 }
 
 // Returns a WriteableStream to rejoin all split files
-function rejoin() {
-  return project.rejoinHtml();
+function rejoin(_streamId){
+  if(_streamId == 'SOURCES'){
+    return sourcesStreamSplitter.rejoin();
+  }else if(_streamId == 'DEPENDENCIES'){
+    return dependenciesStreamSplitter.rejoin();
+  }
 }
 
 //
 function splitChangedSource(changedFiles) {
-  return gulp.src(changedFiles, {base:'.'}).pipe(project.splitHtml());
+  return gulp.src(changedFiles, {base:'.'})
+        .pipe(changedFileSplitter.split())
+        .pipe(changedFileSplitter.rejoin())
+        .pipe(gulp.dest(devPath));
 }
 
 // Returns a function which accepts refernces to functions that generate
@@ -87,11 +102,22 @@ function merge(source, dependencies) {
 // either bundled or unbundled. If this argument is omitted it will output both
 function devMerge(devSource, devDependencies) {
   return function output() {
-    const mergedFiles = mergeStream(devSource(), devDependencies())
-        .pipe(project.analyzer);
-    let outputs = [];
-    outputs.push(writeDevOutput(mergedFiles));
-    return Promise.all(outputs);
+    // let sourcesStream = project.sources()
+    //                     .pipe(sourcesStreamSplitter.split())
+    //                     .pipe(sourcesStreamSplitter.rejoin());
+
+    // let dependenciesStream = project.dependencies()
+    //                     .pipe(dependenciesStreamSplitter.split())
+    //                     .pipe(dependenciesStreamSplitter.rejoin());
+
+     return mergeStream(project.sources(), project.dependencies())
+            .pipe(debug("devMerge :"))
+            .pipe(gulp.dest(devPath));
+    // const mergedFiles = mergeStream(project.sources(), project.dependencies())
+    //     .pipe(project.bundler());
+    // let outputs = [];
+    // outputs.push(writeDevOutput(mergedFiles));
+    // return Promise.all(outputs);
   };
 }
 
