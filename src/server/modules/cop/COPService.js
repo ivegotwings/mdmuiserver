@@ -118,11 +118,7 @@ COPService.prototype = {
         //console.log('downloadModelRequest: ', JSON.stringify(request.body, null, 2));
         var modelResponse = await this.post(downloadModelURL, parsedRequest);
 
-        if (modelResponse && modelResponse.response && modelResponse.response.status.toLowerCase() == "success") {
-            this._downloadFileContent(modelResponse.response, fileName, request, response);
-        }
-
-        //return response;
+        this._handleDownloadResponse(modelResponse, fileName, response);
     },
     downloadDataExcel: async function (request, response) {
         var downloadDataURL = "copservice/downloadDataExcel";
@@ -133,11 +129,20 @@ COPService.prototype = {
         //console.log('downloadDataRequest: ', JSON.stringify(request.body, null, 2));
         var copResponse = await this.post(downloadDataURL, parsedRequest);
 
-        if (copResponse && copResponse.response && copResponse.response.status.toLowerCase() == "success") {
-            this._downloadFileContent(copResponse.response, fileName, request, response);
+        this._handleDownloadResponse(copResponse, fileName, response);
+    },
+    _handleDownloadResponse: function (copResponse, fileName, response) {
+        if (copResponse && copResponse.response) {
+            if (copResponse.response.status.toLowerCase() == "success") {
+                this._downloadFileContent(copResponse.response, fileName, response);
+            } else {
+                var message = 'Failed to get response from COP service.';
+                if (copResponse.response.statusDetail && copResponse.response.statusDetail.message) {
+                    message = copResponse.response.statusDetail.message;
+                }
+                response.status(500).send(message);
+            }
         }
-
-        //return response;
     },
     downloadDataJob: async function (request, response) {
         var downloadDataURL = "copservice/downloadDataJob";
@@ -297,7 +302,7 @@ COPService.prototype = {
         //console.log('binaryData ', binaryData);
         return new Buffer(binaryData).toString('base64');
     },
-    _downloadFileContent: function (copResponse, fileName, request, response) {
+    _downloadFileContent: function (copResponse, fileName, response) {
         //console.log(JSON.stringify(response));
         if (copResponse && copResponse.binaryObjects && copResponse.binaryObjects.length) {
             var binaryObject = copResponse.binaryObjects[0];
@@ -306,16 +311,16 @@ COPService.prototype = {
                 if (binaryObject.properties && binaryObject.properties.extension) {
                     fileExtension = binaryObject.properties.extension;
                 }
-                
+
                 var blob = binaryObject.data && binaryObject.data.blob ? binaryObject.data.blob : "";
-                response.cookie('fileDownload',true, { path: "/", httpOnly: false });
+                response.cookie('fileDownload', true, { path: "/", httpOnly: false });
                 response.writeHead(200, {
                     'Content-Type': 'application/vnd.ms-excel', //ToDo: need to use different mime types based on file extensions
                     'Content-disposition': 'attachment;filename=' + fileName + "." + fileExtension
                 });
-                              
+
                 response.end(new Buffer(blob, 'base64'));
-                
+
             }
         } else {
             response.status(500).send('binaryObjects not found in response of download service.!')
