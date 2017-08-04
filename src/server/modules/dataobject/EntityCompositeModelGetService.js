@@ -151,12 +151,12 @@ EntityCompositeModelGetService.prototype = {
     _mergeEntityManageModelsPermissions: function (readWriteModel, writeModel) {
         //Merge self attributes
         if(readWriteModel.attributes) {
-            this._verifyAndPopulateWritePermissions(readWriteModel.attributes, writeModel.attributes);
+            this._verifyAndPopulateWritePermissions(readWriteModel.attributes, writeModel.attributes, false);
         }
 
         //Merge self relationships
         if(readWriteModel.relationships) {
-            this._verifyAndPopulateWritePermissions(readWriteModel.relationships, writeModel.relationships);
+            this._verifyAndPopulateWritePermissions(readWriteModel.relationships, writeModel.relationships, true);
         }
 
         //Merge context data
@@ -178,18 +178,22 @@ EntityCompositeModelGetService.prototype = {
                 }
 
                 if(readWriteModelContextItem.attributes) {
-                    this._verifyAndPopulateWritePermissions(readWriteModelContextItem.attributes, (writeModelContextItem ? writeModelContextItem.attributes : undefined));
+                    this._verifyAndPopulateWritePermissions(readWriteModelContextItem.attributes, (writeModelContextItem ? writeModelContextItem.attributes : undefined), false);
                 }
 
                 if(readWriteModelContextItem.relationships) {
-                    this._verifyAndPopulateWritePermissions(readWriteModelContextItem.relationships, (writeModelContextItem ? writeModelContextItem.relationships : undefined));
+                    this._verifyAndPopulateWritePermissions(readWriteModelContextItem.relationships, (writeModelContextItem ? writeModelContextItem.relationships : undefined), true);
                 }
             }
         }
     },
-    _verifyAndPopulateWritePermissions: function (readWriteObjects, writeObjects) {
+    _verifyAndPopulateWritePermissions: function (readWriteObjects, writeObjects, isRelType) {
         for (var readWriteObjKey in readWriteObjects) {
             var readWriteObj = readWriteObjects[readWriteObjKey];
+
+            if(isRelType && readWriteObj.length > 0) {
+                readWriteObj = readWriteObj[0]
+            }
 
             if(!readWriteObj.properties) {
                 readWriteObj.properties = {};
