@@ -17,7 +17,6 @@ const eventSubTypeMap = {
 
 const eventTypesOrder = ["BATCH_COLLECT_ENTITY_IMPORT",
     "BATCH_TRANSFORM_ENTITY_IMPORT",
-    "PROCESSING_STARTED",
     "BATCH_EXTRACT",
     "BATCH_COLLECT_ENTITY_EXPORT",
     "BATCH_TRANSFORM_ENTITY_EXPORT",
@@ -206,26 +205,59 @@ Eventservice.prototype = {
                 var events = batchEventsGetRes.response.events;
                 var highOrderEvent = undefined;
                 var processingStartedEvent = undefined;
-                var currentEventRecordIdx = 0;
+                var highOrderEventTypeIndex = 0;
+
+                var me = this;
+                var eventGroups = _.groupBy(events, function (event) {
+                    var groupKey = me._getAttributeValue(event, "eventType");
+
+                    if (!groupKey) {
+                        groupKey = "Unknown";
+                    }
+
+                    return groupKey;
+                });
+
+                for (var groupKey in eventGroups) {
+                    var eventType = groupKey;
+                    var currentEventTypeIndex =  eventTypesOrder.indexOf(eventType);
+
+                    if(currentEventTypeIndex > highOrderEventTypeIndex) {
+                        var eventGroup = eventGroups[groupKey];
+                        var highOrderEventSubTypeIndex = 0;
+
+                        for (var i = 0; i < eventGroup.length; i++) {
+                            var event = eventGroup[i];
+                            if (event && event.data && event.data.attributes) {
+                                var eventSubType = this._getAttributeValue(event, "eventSubType");
+                                var currentEventSubTypeIndex = eventSubTypesOrder.indexOf(eventSubType);
+                                if (currentEventSubTypeIndex > highOrderEventSubTypeIndex) {
+                                    highOrderEvent = event;
+
+                                    highOrderEventSubTypeIndex = currentEventSubTypeIndex;
+                                }
+                            }
+                        }
+
+                        highOrderEventTypeIndex = currentEventTypeIndex;
+                    }
+                }
 
                 for (var i = 0; i < events.length; i++) {
                     var event = events[i];
                     if (event && event.data && event.data.attributes) {
                         var eventSubType = this._getAttributeValue(event, "eventSubType");
-                        var currentEventSubTypeIndex = eventSubTypesOrder.indexOf(eventSubType);
-                        if (currentEventSubTypeIndex > currentEventRecordIdx) {
-                            highOrderEvent = event;
-
-                            currentEventRecordIdx = currentEventSubTypeIndex;
-                        }
-
+                        
                         if(highOrderEvent) {
-                            if (!this._getAttributeValue(highOrderEvent, "recordCount") && this._getAttributeValue(event, "recordCount")) {
-                                this._setAttributeValue(highOrderEvent, "recordCount", this._getAttributeValue(event, "recordCount"));
+                            if (!this._getAttributeValue(highOrderEvent, "recordCount")) {
+                                var currentEventRecordCount = this._getAttributeValue(event, "recordCount");
+                                if(currentEventRecordCount) {
+                                    this._setAttributeValue(highOrderEvent, "recordCount", currentEventRecordCount);
+                                }
                             }
                         }
 
-                        if (!processingStartedEvent && eventSubType == "PROCESSING_STARTED") {
+                        if (eventSubType == "PROCESSING_STARTED") {
                             processingStartedEvent = event;
                         }
                     }
@@ -263,7 +295,7 @@ Eventservice.prototype = {
                         var startTime = this._getAttributeValue(processingStartedEvent, "createdOn");
 
                         if (startTime) {
-                            response.startTime = this._formatDate(new Date(startTime));
+                            response.startTime = startTime
                         }
                     }
 
@@ -721,7 +753,7 @@ Eventservice.prototype = {
                 var endTime = lastCreatedReqObj.properties.createdDate;
 
                 if (endTime) {
-                    taskDetails.endTime = this._formatDate(new Date(endTime));
+                    taskDetails.endTime = endTime;
                 }
             }
         }
@@ -778,7 +810,7 @@ Eventservice.prototype = {
         if (event && event.properties) {
             var endTime = event.properties.createdDate;
             if (endTime) {
-                createdDate = this._formatDate(new Date(endTime));
+                createdDate = endTime;
             }
         }
 
@@ -828,19 +860,7 @@ Eventservice.prototype = {
     },
     _validateRequest: function (request) {
         return true;
-    },
-    _formatDate: function (date) {
-        var hours = date.getHours();
-        var minutes = date.getMinutes();
-        var seconds = date.getSeconds();
-        var ampm = hours >= 12 ? 'pm' : 'am';
-        hours = hours % 12;
-        hours = hours ? hours : 12; // the hour '0' should be '12'
-        minutes = minutes < 10 ? '0' + minutes : minutes;
-        var strTime = hours + ':' + minutes + ':' + seconds + ' ' + ampm;
-        return date.getMonth() + 1 + "/" + date.getDate() + "/" + date.getFullYear() + "  " +
-            strTime;
-    },
+    }
 };
 
 module.exports = Eventservice;

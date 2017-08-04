@@ -445,8 +445,11 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
             var apiRequestObj = { 'dataIndex': dataIndex, 'clientState': clientState };
             apiRequestObj[dataIndexInfo.name] = dataObject;
             
+            if(dataObjectAction == "create" || dataObjectAction == "update") {
+                _prependAuthorizationType(apiRequestObj);
+            }
             //console.log('api request data for process dataObjects', JSON.stringify(apiRequestObj));
-            var dataOperationResult = {};
+            var dataOperationResult = {};            
 
             if (dataObjectAction == "create") {
                 dataOperationResult = await dataObjectManageService.create(apiRequestObj);
@@ -626,6 +629,16 @@ function _getOriginalRelIds(dataObject) {
     }
 
     return originalRelIds;
+}
+
+function _prependAuthorizationType(reqObject) {
+    if(reqObject.params) {
+        reqObject.params["authorizationType"] = "accommodate";
+    } else {
+        reqObject.params = {
+            "authorizationType": "accommodate"
+        };
+    }
 }
 
 module.exports = {

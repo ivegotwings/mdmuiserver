@@ -356,12 +356,12 @@ The following JSON object is a sample of data which binds the grid.
         <div id="relContainer_[[relationship]]"  >
           <pebble-accordion header-text="[[relationshipGridConfig.gridConfig.title]]" default-icon="expand-less" open-icon="expand-more">
             <div class="relation-name-container">
-              <pebble-button class="btn btn-primary m-r-5" button-text="Quick Manage" relationship="[[relationship]]" on-tap="_onTapQuickManage"></pebble-button>
-              <pebble-button icon="pebble-sm-icons:Add" id="button_[[relationship]]" relationship="[[relationship]]" class="btn btn-primary m-r-20" button-text="Add"
+              <pebble-button class="btn btn-primary m-r-20" button-text="Quick Manage" relationship="[[relationship]]" on-tap="_onTapQuickManage"></pebble-button>
+              <pebble-button icon="pebble-sm-icons:Add" id="button_[[relationship]]" relationship="[[relationship]]" class="btn btn-primary m-r-10" button-text="Add"
                 on-click="_onAddRelClick"></pebble-button>
               <pebble-popover for$="button_[[relationship]]" auto-fit-on-attach vertical-align="auto" horizontal-align="auto" no-overlap>
                 <rock-entity-lov id="lov_[[relationship]]" request-data="[[_requestForAddRelationshipList(relationship)]]" id-field="[[_getIdField()]]"
-                                 title-pattern="[[_getTitlePattern()]]" multi-select no-sub-title show-action-buttons></rock-entity-lov>
+                                 title-pattern="[[_getTitlePattern()]]" selected-items="[[_getSavedRelationshipItems( relationship, _savedRelationshipItemsToLov)]]" multi-select no-sub-title show-action-buttons></rock-entity-lov>
               </pebble-popover>
               <bedrock-pubsub event-name="entity-lov-confirm-button-tap" handler="_onLovConfirmButtonTapped" target-id="lov_[[relationship]]"></bedrock-pubsub>
               <bedrock-pubsub event-name="entity-lov-close-button-tap" handler="_onLovCloseButtonTapped" target-id="lov_[[relationship]]"></bedrock-pubsub>
@@ -431,6 +431,11 @@ The following JSON object is a sample of data which binds the grid.
     </liquid-rest>
     <div id="messageCard">
     </div>
+    <pebble-dialog id="gridMsgDialog" show-ok show-cancel show-close-icon>
+			<p id="msgDialog">
+			</p>
+		</pebble-dialog>
+    <bedrock-pubsub target-id="gridMsgDialog" event-name="on-buttonok-clicked" handler="_onDialogOk"></bedrock-pubsub>
   </template>
   <script>
     (function () {
@@ -539,6 +544,12 @@ The following JSON object is a sample of data which binds the grid.
             type: Boolean,
             value: true
           },
+          _savedRelationshipItemsToLov:{
+            type:Object,
+            value:function () {
+              return {};
+            }
+          },
           /*
            */
           _entityGetRequest: {
@@ -595,6 +606,9 @@ The following JSON object is a sample of data which binds the grid.
         _deleteItemRelationshipType: {
             type: String,
             value: null
+        },
+        _modifiedEntityRelationship: {
+          type: Object
         }
     },
 
@@ -787,10 +801,11 @@ The following JSON object is a sample of data which binds the grid.
                         this.dataObject[currentRel] = entity;
                       }
                     }
-
+                    var savedItemsToLov = [];
                     this._entityRelations.forEach(function (relItem) {
                       if (relItem) {
                         var record = {};
+                        var lovItem = {};
                         if (relItem.attributes) {
                           Object.keys(relItem.attributes).forEach(function (item) {
                             if (item && relItem.attributes[item]) {
@@ -803,7 +818,9 @@ The following JSON object is a sample of data which binds the grid.
                           record["Relationship Id"] = relItem.relTo.id;
                           record["Related Entity"] = record["id"] = relItem.relTo.id;
                           record["type"] = relItem.relTo.type;
-
+                          lovItem["id"] = relItem.relTo.id;
+                          lovItem["title"] = relItem.relTo.id;
+                          savedItemsToLov.push(lovItem);
                           if (relItem.relTo.data) {
                             //var relCtxList = relContexts[item];
                             var relatedAttributes = EntityHelper.getAllAttributes(relItem.relTo);
@@ -824,6 +841,16 @@ The following JSON object is a sample of data which binds the grid.
                         data.push(record);
                       }
                     }, this);
+                    var savedRelationships = this._savedRelationshipItemsToLov;
+                    if (savedRelationships[currentRel]) {
+                      savedRelationships[currentRel] = savedRelationships[currentRel].concat(savedItemsToLov);
+                    }
+                    else {
+                      savedRelationships[currentRel] = savedItemsToLov;
+                    }
+
+                    this._savedRelationshipItemsToLov = {};
+                    this._savedRelationshipItemsToLov = savedRelationships;
                   }
                 }
               }
@@ -1211,6 +1238,14 @@ The following JSON object is a sample of data which binds the grid.
           toastElement.show();
 
           var currentRelGrid = this.$$('rock-grid[id=' + this.relationship + ']');
+          var gridData = currentRelGrid.getData();
+          var savedRelationshipItemsToLov = gridData.map(function (item) {
+          if (item.id) {
+              return { 'id': item.id, 'title': item.id }
+            }
+          });
+          this._savedRelationshipItemsToLov[this._currentRelationshipItem] = DataHelper.cloneObject(savedRelationshipItemsToLov);
+
           if (this.functionalMode == "dataFunction") {
               var eventName = "onSave";
               var eventDetail = {
@@ -1242,12 +1277,49 @@ The following JSON object is a sample of data which binds the grid.
           }
         },
         _onDialogOk: function (e) {
+
+          if (this._modifiedEntityRelationship.action == "delete") {
+            var detail = this._modifiedEntityRelationship.detail;
+            var updateRequest = DataRequestHelper.generateRelationshipProcessRequest(this.contextData);
+            if (!this._entityRelations || !this._entityRelations.length) {
+              return;
+            }
+            var relDelItem;
+            var relations = this._entityRelations;
+            if (relations) {
+              if (relations.length > 0) {
+                for (var i = 0; i < relations.length; i++) {
+                  if (relations[i].relTo.id == detail.id) {
+                    relDelItem = relations[i];
+                    break;
+                  }
+                }
+              }
+            }
+            if (relDelItem && !_.isEmpty(relDelItem) && this.relationship) {
+              relDelItem.action = "delete";
+              updateRequest.data.relationships[this.relationship] = [relDelItem];
+              this._saveRelationsRequest = {
+                "entities": [updateRequest]
+              };
+              var entitySaveLiquid = this.$$("#entityRelationsSaveService");
+              if (entitySaveLiquid) {
+                entitySaveLiquid.operation = "update";
+                entitySaveLiquid.generateRequest();
+              }
+            }
+          }
+          
           if (this.relationship) {
             var relGrid = this.$$('rock-grid[id=' + this.relationship + ']');
-
+            var relationshipLov = Polymer.dom(this).node.$$('rock-entity-lov[id=' + this._currentRelationshipItem + ']');
             if (relGrid) {
               this._changeRelationshipToReadMode();
               relGrid.revertData();
+              if(relationshipLov){
+                 var clonedSavedRelationshipItemsToLov = DataHelper.cloneObject(this._savedRelationshipItemsToLov);
+                 relationshipLov.selectedItems = clonedSavedRelationshipItemsToLov[this._currentRelationshipItem] || [];
+               }
             }
           }
         },
@@ -1333,6 +1405,14 @@ The following JSON object is a sample of data which binds the grid.
           }
           return titlePattern;
         },
+        _getSavedRelationshipItems: function (relationship, savedRelationshipItemsToLov) {
+            var savedRelationshipItems = [];
+            var clonedSavedRelationshipItemsToLov = DataHelper.cloneObject(savedRelationshipItemsToLov);
+            if (clonedSavedRelationshipItemsToLov[relationship]) {
+              savedRelationshipItems = clonedSavedRelationshipItemsToLov[relationship];
+            }
+            return savedRelationshipItems;
+          },
         _onRefreshRelationshipGridEvent:function (e,detail) {
             this.fireBedrockEvent("refresh-entity-thumbnail",{},{"ignoreId":true});
             var rel=detail.relationshipType;
@@ -1383,35 +1463,15 @@ The following JSON object is a sample of data which binds the grid.
                   }
               }
           },
+          openGridMsgDialog: function (msg) {
+					    this.$$('p[id="msgDialog"]').innerText = msg;
+					    this.$.gridMsgDialog.open();
+				  },
           _onDeleteEntityRelationshipAction: function (e, detail) {
-              var updateRequest = DataRequestHelper.generateRelationshipProcessRequest(this.contextData);
-              if (!this._entityRelations || !this._entityRelations.length) {
-                  return;
-              }
-              var relDelItem;
-              var relations = this._entityRelations;
-              if (relations) {
-                  if (relations.length > 0) {
-                      for (var i = 0; i < relations.length; i++) {
-                          if (relations[i].relTo.id == detail.id) {
-                              relDelItem = relations[i];
-                              break;
-                          }
-                      }
-                  }
-              }
-              if (relDelItem && !_.isEmpty(relDelItem) && this.relationship) {
-                  relDelItem.action = "delete";
-                  updateRequest.data.relationships[this.relationship] = [relDelItem];
-                  this._saveRelationsRequest = {
-                      "entities": [updateRequest]
-                  };
-                  var entitySaveLiquid = this.$$("#entityRelationsSaveService");
-                  if (entitySaveLiquid) {
-                      entitySaveLiquid.operation = "update";
-                      entitySaveLiquid.generateRequest();
-                  }
-              }
+
+              this._modifiedEntityRelationship = {event:e, detail:detail, action:"delete"};
+              this.openGridMsgDialog("Are you sure you want to delete?");
+              
           },
           _onRelationsSaveResponse: function (e, detail) {
               var relGrid = this.$$('rock-grid[id=' + this.relationship + ']');

@@ -82,8 +82,11 @@ BinaryStreamObjectService.prototype = {
 
             var binaryStreamRequests = request.body;
             for (let binaryStreamRequest of binaryStreamRequests) {
-                var res = await this.post(prepareDownloadURL, binaryStreamRequest);
+                binaryStreamRequest.binaryStreamObject.properties = {"objectKey": binaryStreamRequest.binaryStreamObject.id};
 
+                //console.log('binary stream object for download ', JSON.stringify(binaryStreamRequest))
+                var res = await this.post(prepareDownloadURL, binaryStreamRequest);
+                
                 //Collect successfull responses...
                 if(res && res.response && res.response.status && res.response.status.toLowerCase() == "success") {
                     if(isEmpty(prepareDownloadResponse)) {
