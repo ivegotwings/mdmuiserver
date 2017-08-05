@@ -30,7 +30,8 @@ COPService.prototype = {
         var fileName = request.body.fileName;
         var originalFileName = request.body.originalFileName;
         var profileName = request.body.profileName;
-        var copRequest = this._prepareCOPRequestForTransform(fileName, originalFileName, profileName);
+        var files = request.files;
+        var copRequest = this._prepareCOPRequestForTransform(fileName, originalFileName, profileName, files);
         //console.log('copRequest: ', JSON.stringify(copRequest, null, 2));
         return await this.post(copURL, copRequest);
     },
@@ -196,7 +197,7 @@ COPService.prototype = {
         return true;
     },
 
-    _prepareCOPRequestForTransform: function (fileName, originalFileName, profileName) {
+    _prepareCOPRequestForTransform: function (fileName, originalFileName, profileName, files) {
         var copRequest = {
             "dataObject": {
                 "id": "",
@@ -221,7 +222,7 @@ COPService.prototype = {
         copRequest.dataObject.id = uuidV1();
         copRequest.dataObject.properties.filename = originalFileName;
         copRequest.dataObject.properties.profileName = profileName;
-        copRequest.dataObject.data.blob = this._getFileContent(fileName);
+        copRequest.dataObject.data.blob = this._getFileContent(fileName, files);
         return copRequest;
     },
 
@@ -283,18 +284,24 @@ COPService.prototype = {
         copRequest.binaryObject.data.blob = this._getFileContent(fileName);
         return copRequest;
     },
-    _getFileContent: function (fileName) {
+    _getFileContent: function (fileName, files) {
         var binaryData = "";
         try {
-            var dir = './upload';
 
-            if (config && !isEmpty(config.fileStoragePath)) {
-                if (fs.existsSync(config.fileStoragePath)) {
-                    dir = config.fileStoragePath + '/upload';
+            if (!files) {
+                var dir = './upload';
+
+                if (config && !isEmpty(config.fileStoragePath)) {
+                    if (fs.existsSync(config.fileStoragePath)) {
+                        dir = config.fileStoragePath + '/upload';
+                    }
                 }
-            }
 
-            binaryData = fs.readFileSync(dir + '/' + fileName);
+                binaryData = fs.readFileSync(dir + '/' + fileName);
+            } else {
+                console.log("file");
+                binaryData = files.file.data;
+            }
         } catch (ex) {
             console.log('error while reading file: ', ex);
         }
