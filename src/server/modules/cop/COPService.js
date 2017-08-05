@@ -54,7 +54,8 @@ COPService.prototype = {
         var fileName = request.body.fileName;
         var originalFileName = request.body.originalFileName;
         var profileName = request.body.profileName;
-        var processRequest = this._prepareCOPRequestForProcess(fileName, originalFileName, profileName);
+        var files = request.files;
+        var processRequest = this._prepareCOPRequestForProcess(fileName, originalFileName, profileName, files);
         //console.log('processRequest: ', JSON.stringify(processRequest.dataObject.properties, null, 2));
         var result = await this.post(processURL, processRequest);
 
@@ -106,7 +107,8 @@ COPService.prototype = {
         var fileName = request.body.fileName;
         var originalFileName = request.body.originalFileName;
         var profileName = request.body.profileName;
-        var generateFieldMapRequest = this._prepareCOPRequestForGenerateMap(fileName, originalFileName, profileName);
+        var files = request.files;
+        var generateFieldMapRequest = this._prepareCOPRequestForGenerateMap(fileName, originalFileName, profileName, files);
         //console.log('generateFieldMapRequest: ', JSON.stringify(generateFieldMapRequest, null, 2));
         return await this.post(generateFieldMapURL, generateFieldMapRequest);
     },
@@ -226,7 +228,7 @@ COPService.prototype = {
         return copRequest;
     },
 
-    _prepareCOPRequestForProcess: function (fileName, originalFileName, profileName) {
+    _prepareCOPRequestForProcess: function (fileName, originalFileName, profileName, files) {
         var copRequest = {
             "dataObject": {
                 "id": "",
@@ -252,10 +254,10 @@ COPService.prototype = {
         copRequest.dataObject.id = uuidV1();
         copRequest.dataObject.properties.filename = originalFileName;
         copRequest.dataObject.properties.profileName = profileName;
-        copRequest.dataObject.data.blob = this._getFileContent(fileName);
+        copRequest.dataObject.data.blob = this._getFileContent(fileName, files);
         return copRequest;
     },
-    _prepareCOPRequestForGenerateMap: function (fileName, originalFileName, profileName) {
+    _prepareCOPRequestForGenerateMap: function (fileName, originalFileName, profileName, files) {
         var copRequest = {
             "binaryObject": {
                 "id": "",
@@ -281,7 +283,7 @@ COPService.prototype = {
         copRequest.binaryObject.id = uuidV1();
         copRequest.binaryObject.properties.filename = originalFileName;
         copRequest.binaryObject.properties.profileName = profileName;
-        copRequest.binaryObject.data.blob = this._getFileContent(fileName);
+        copRequest.binaryObject.data.blob = this._getFileContent(fileName, files);
         return copRequest;
     },
     _getFileContent: function (fileName, files) {
