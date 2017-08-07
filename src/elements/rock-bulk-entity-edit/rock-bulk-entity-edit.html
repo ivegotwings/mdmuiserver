@@ -7,6 +7,7 @@
 
 <link rel="import" href="../rock-attribute-model-grid/rock-attribute-model-grid.html">
 <link rel="import" href="../rock-attribute-list/rock-attribute-list.html">
+<link rel="import" href="../rock-scope-selector/rock-scope-selector.html">
 
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
@@ -31,16 +32,42 @@
             .message {
                 text-align: center;
             }
+            #card{
+                height: 100%;
+                padding-bottom:20px;
+            }
+            pebble-card{
+                --pebble-card-widget-box:{
+                    height:100%;
+                    padding-bottom: 10px;
+                    margin:0 0 0 0;
+                    min-width:auto;
+                }
+            }
+            .card-content
+            {
+                height: 100%;
+                overflow: hidden;
+            }
         </style>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <div class="message">[[_message]]</div>
         <liquid-rest id="bulkEntityEdit" url="/data/pass-through/bulkentityservice/createtask" method="POST" request-data={{_bulkEntityEditRequest}}
             on-liquid-response="_onBulkEntityEditSuccess" on-liquid-error="_onBulkEntityEditFailure"></liquid-rest>
+        <pebble-card id="card" no-header>
+            <rock-scope-selector id="scopeSelector" selected-scope="[[_selectedItems]]" context-data="[[contextData]]" show-title allow-manage-scope show-settings>
+            </rock-scope-selector>
+            <bedrock-pubsub event-name="rock-scope-click" handler="_onScopeTagClicked"></bedrock-pubsub>
+        </pebble-card>
         <div id="container">
             <div id="left-container">
-                <rock-attribute-model-grid id="attributesGrid" context-data="[[contextData]]"></rock-attribute-model-grid>
+                <rock-attribute-model-grid id="attributesGrid" context-data="[[contextData]]" 
+                    selected-items="[[_selectedItems]]" config="[[_gridConfig]]" 
+                    request-data="[[_request]]"></rock-attribute-model-grid>
                 <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="attributeModelGrid"></bedrock-pubsub>
                 <bedrock-pubsub event-name="grid-deselecting-item" handler="_onDeSelectingGridItem" target-id="attributeModelGrid"></bedrock-pubsub>
+                <bedrock-pubsub event-name="grid-selecting-all-items" handler="_onSelectingAllItems" target-id="attributeModelGrid"></bedrock-pubsub>
+                <bedrock-pubsub event-name="grid-deselecting-all-items" handler="_onDeSelectingAllItems" target-id="attributeModelGrid"></bedrock-pubsub>
             </div>
             <div id="right-container">
                 <rock-attribute-list id="attributeList" context-data="[[contextData]]" no-of-columns="1" mode="edit" attribute-values="{{_attributeValues}}"
@@ -72,7 +99,7 @@
                             return [];
                         }
                     },
-                    _selectedAttibutes: {
+                    _selectedItems: {
                         type: Array,
                         value: function () { return[]; }
                     },
@@ -108,43 +135,52 @@
                         type: Boolean,
                         value: false
                     },
+                    _gridConfig: {
+                        type: Object,
+                        value: function () {
+                            return this.getParentAppConfig("rock-bulk-entity-edit", '', "gridConfig");
+                        }
+                    },
+                    _request: {
+                        type: Object,
+                        value: function () {
+                            return this.getParentAppConfig("rock-bulk-entity-edit", '', "requestData");
+                        }
+                    }
                 },
                 behaviors: [
                     RUFBehaviors.UIBehavior,
                     RUFBehaviors.ComponentContextBehavior
                 ],
                 _onSelectingGridItem: function(e, detail) {
-                    var selectedAttr = detail.item;
-                    var attributeModel = selectedAttr.model;
-                    if(!(this._selectedAttibutes.indexOf(selectedAttr) !== -1)) {
-                        this._selectedAttibutes.push(selectedAttr);
+                    var selectedItem = detail.item;
+                    if(!(this._selectedItems.find(obj => obj.name === selectedItem.name))) {
+                        this._selectedItems.push(selectedItem);
                     }
-                    attributeModel["externalName"] = attributeModel.properties.externalName;
-                    attributeModel["hasWritePermission"] = true;
-                    attributeModel["selfContext"] = 1;
-                    if(!this._attributeModels[attributeModel.name]) {
-                        this._attributeModels[attributeModel.name] = attributeModel;
+                    selectedItem["hasWritePermission"] = true;
+                    selectedItem["selfContext"] = 1;
+                    if(!this._attributeModels[selectedItem.name]) {
+                        this._attributeModels[selectedItem.name] = selectedItem;
+                        var values = DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array", true);
+                        var attrValues = DataHelper.cloneObject(this._attributeValues);
+                        var value = values.find(obj => obj.name === selectedItem.name);
+                        if(value) {
+                            attrValues.push(value);
+                        }
+                        this._attributeValues = attrValues;
                     }
-                    var values = DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array", true);
-                    var attrValues = DataHelper.cloneObject(this._attributeValues);
-                    var value = values.find(obj => obj.name === attributeModel.name);
-                    if(value) {
-                        attrValues.push(value);
-                    }
-                    this._attributeValues = attrValues;
                 },
                 _onDeSelectingGridItem: function(e, detail) {
-                    var deSelectedAttr = detail.item;
-                    var attributeModel = deSelectedAttr.model;
-                    if(this._selectedAttibutes.indexOf(deSelectedAttr) !== -1) {
-                        var index = this._selectedAttibutes.indexOf(deSelectedAttr);
-                        this._selectedAttibutes.splice(index, 1);
+                    var deSelectedItem = detail.item;
+                    if(this._selectedItems.find(obj => obj.name === deSelectedItem.name)) {
+                        var index = this._selectedItems.indexOf(deSelectedItem);
+                        this._selectedItems.splice(index, 1);
                     }
-                    if(this._attributeModels[attributeModel.name]) {
-                        delete this._attributeModels[attributeModel.name];
+                    if(this._attributeModels[deSelectedItem.name]) {
+                        delete this._attributeModels[deSelectedItem.name];
                     }
                     var attrValues = DataHelper.cloneObject(this._attributeValues);
-                    var attr = attrValues.find(obj => obj.name === attributeModel.name);
+                    var attr = attrValues.find(obj => obj.name === deSelectedItem.name);
                     if(attr) {
                         var index = attrValues.indexOf(attr);
                         if(index) {
@@ -152,6 +188,54 @@
                         }
                     }
                     this._attributeValues = attrValues;
+                },
+                _onScopeTagClicked: function (e, detail) {
+                    if(detail && detail.data ) {
+                        this.$$("#attributesGrid").clearSelection();
+                        this._selectedItems=[];
+                        var selectedItems = detail.data.scope;
+                        this.set("_selectedItems", selectedItems);
+                        this._attributeModels = {};
+                        var gridItems = this.$$("#attributesGrid").getData();
+                        for(var i=0; i<selectedItems.length; i++) {
+                            var selectedItem = selectedItems[i];
+                            selectedItem["hasWritePermission"] = true;
+                            selectedItem["selfContext"] = 1;
+                            if(!this._attributeModels[selectedItem.name]) {
+                                this._attributeModels[selectedItem.name] = selectedItem;
+                            }
+                        }
+                        var values = DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array", true);
+                        this._attributeValues = values;
+                    }
+                },
+                _onSelectingAllItems: function(e, detail) {
+                    var selectedItems = this.$$("#attributesGrid").getData();
+                    if(!_.isEmpty(selectedItems)) {
+                        this.set("_selectedItems", selectedItems);
+                        for(var i=0; i<selectedItems.length; i++) {
+                            var selectedItem = selectedItems[i];
+                            selectedItem["hasWritePermission"] = true;
+                            selectedItem["selfContext"] = 1;
+                            if(!this._attributeModels[selectedItem.name]) {
+                                this._attributeModels[selectedItem.name] = selectedItem;
+                            }
+                        }
+                        var values = DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array", true);
+                        var attrValues = DataHelper.cloneObject(this._attributeValues);
+                        for(var i=0; i<attrValues.length; i++) {
+                            var attrValue = attrValues[i];
+                            var value = values.find(obj => obj.name === attrValue.name);
+                            value.value = attrValue.value;
+                        }
+                        this._attributeValues = values;
+                    }
+                },
+                _onDeSelectingAllItems: function(e, detail) {
+                    this._selectedItems = [];
+                    this._attributeModels = {};
+                    var values = DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array", true);
+                    this._attributeValues = values;
                 },
                 _onCancelTap: function(e) {
                     var eventName = "onCancel";
