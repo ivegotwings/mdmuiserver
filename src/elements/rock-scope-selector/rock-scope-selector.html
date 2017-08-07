@@ -13,6 +13,7 @@
 <link rel="import" href="../pebble-horizontal-divider/pebble-horizontal-divider.html">
 <link rel="import" href="../pebble-popover/pebble-popover.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
 
 <link rel="import" href="../rock-tabs/rock-tabs.html">
 
@@ -117,16 +118,19 @@
                 on-tap="_onManageScopeTap"></pebble-button>
         </template>
     </div>
+    <pebble-spinner active="[[_loading]]"></pebble-spinner>
     <!--Tabs section-->
-    <template is="dom-if" if="[[!isManageScopes]]">
-        <rock-tabs id="rock-scope-tabs" config="[[tabConfig]]" selected-tab="{{_selectedTab}}"></rock-tabs>
-    </template>
+    <!--<template is="dom-if" if="[[!isManageScopes]]">-->
+    <rock-tabs id="rock-scope-tabs" config="[[tabConfig]]" selected-tab="{{_selectedTab}}"></rock-tabs>
+    <!--</template>-->
     <!--Create/Update section-->
-    <template is="dom-if" if="[[isManageScopes]]">
+    <!--<template is="dom-if" if="[[isManageScopes]]">-->
+    <pebble-popover id="scopePopover" for="manageScope" auto-fit-on-attach no-overlap horizontal-align="right">    
         <rock-scope-create-edit edit-mode="{{isManageScopes}}" scope-id="[[scopeId]]" scopes="[[scopes]]"></rock-scope-create-edit>
-        <bedrock-pubsub event-name="save-scope" handler="_onSaveScope"></bedrock-pubsub>
-        <bedrock-pubsub event-name="cancel-scope" handler="_onCancelScope"></bedrock-pubsub>
-    </template>
+    </pebble-popover>
+    <bedrock-pubsub event-name="save-scope" handler="_onSaveScope"></bedrock-pubsub>
+    <bedrock-pubsub event-name="cancel-scope" handler="_onCancelScope"></bedrock-pubsub>
+    <!--</template>-->
 </template>
 <script>
     (function () {
@@ -229,6 +233,11 @@
                     value: function () {
                         return {};
                     }
+                },
+
+                _loading: {
+                    type: Boolean,
+                    value: false
                 },
 
                 /**
@@ -386,6 +395,7 @@
 
             _onContextDataChange: function () {
                 if (this.contextData && !_.isEmpty(this.contextData)) {
+                    this._loading = true;
                     var clonedContextData = DataHelper.cloneObject(this.contextData);
                     var scopeCtxData = DataHelper.cloneObject(this._prepareContext(clonedContextData));
                     var mappingCtxData = DataHelper.cloneObject(this._prepareContext(clonedContextData, "scopemappings"));
@@ -446,12 +456,17 @@
                         if (this.$$('rock-tabs') && this.$$('rock-tabs').$$('rock-scope-tags')) {
                             this.$$('rock-tabs').reloadTabs();
                         }
+
+                        this._loading = false;
                     });
                 }
             },
 
             _onManageScopeTap: function (e) {
-                this.isManageScopes = true;
+                //this.isManageScopes = true;
+                
+                this.$$("#scopePopover").show();
+
                 this.async(function () {
                     //This is to execute the logic for all scenarios on create/edit link on-click
                     this.$$('rock-scope-create-edit').OnCreateEditButtonClick();
@@ -716,6 +731,7 @@
             _onTapScopeFavourite: function (e, detail, sender) {
                 var foundInFav = false;
                 var tag = detail.parentButton;
+                this._loading = true;
 
                 // If mappings available then update
                 if (this._originalScopeMappings && this._originalScopeMappings.length > 0) {
@@ -751,6 +767,7 @@
             },
 
             _onTapScopeDelete: function (e, detail, sender) {
+                this._loading = true;
                 var scopeDeleteObj = {
                     "id": detail.parentButton.scopeid,
                     "type": scopeTypeName
@@ -763,9 +780,14 @@
 
             _onTapScopeEdit: function(e, detail, sender) {
                 var eventName = "rock-scope-edit";
+                var actionsPopover = e.target.querySelector("#actionsPopover");
+                if(actionsPopover) {
+                    actionsPopover.hide();
+                }                
                 var eventDetail = {
                     data: detail.parentButton
                 }
+                this.scopeId = eventDetail.data.id;
                 this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
             },
 
@@ -798,7 +820,15 @@
             },
 
             _onSaveScope: function (e, detail, sender) {
+                this._loading = true;
+                this.scopeId = ""; //reset
+                this.$$("#scopePopover").hide();
                 this.triggerSaveProcess(detail);
+            },
+
+            _onCancelScope: function() {
+                this.$$("#scopePopover").hide();
+                this.scopeId = ""; //reset
             },
 
             /**
@@ -818,6 +848,7 @@
                             _currentUser.user != detail.selectedScope.createdby &&
                             _currentUser.role != "admin") //Todo: admin role may changed
                         {
+                            this._loading = false;
                             this.showErrorToast("You do not have permissions to update the scope, please contact administrator.");
                             return;
                         }
@@ -955,6 +986,7 @@
             },
 
             refresh: function () {
+                this._loading = true;
                 var request = DataHelper.cloneObject(this._scopeRequest);
                 this.generateRequest(request);
             }
