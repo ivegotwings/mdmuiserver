@@ -1,0 +1,334 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+
+<link rel="import" href="../liquid-rest/liquid-rest.html">
+
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+
+<link rel="import" href="../rock-attribute-model-grid/rock-attribute-model-grid.html">
+<link rel="import" href="../rock-attribute-list/rock-attribute-list.html">
+<link rel="import" href="../rock-scope-selector/rock-scope-selector.html">
+
+
+<dom-module id="rock-entity-bulk-edit">
+    <template>
+        <style include="pebble-styles-shared"></style>
+        <style is="custom-style">
+            #container {
+                @apply(--layout-horizontal);
+            }
+            #left-container, #right-container {
+                width: 48%;
+            }
+            #right-container {
+                box-shadow: 0 1px 7px 0 #c1cad4;
+                padding: 15px;
+                margin: 10px;
+                height: 420px;
+                overflow: scroll;
+            }
+            .message {
+                text-align: center;
+            }
+            #card{
+                height: 100%;
+                padding-bottom:20px;
+            }
+            pebble-card{
+                --pebble-card-widget-box:{
+                    height:100%;
+                    padding-bottom: 10px;
+                    margin:0 0 0 0;
+                    min-width:auto;
+                }
+            }
+            .card-content
+            {
+                height: 100%;
+                overflow: hidden;
+            }
+        </style>
+        <pebble-spinner active="[[_loading]]"></pebble-spinner>
+        <div class="message">[[_message]]</div>
+        <liquid-rest id="bulkEntityEdit" url="/data/pass-through/bulkentityservice/createtask" method="POST" request-data={{_bulkEntityEditRequest}}
+            on-liquid-response="_onBulkEntityEditSuccess" on-liquid-error="_onBulkEntityEditFailure"></liquid-rest>
+        <pebble-card id="card" no-header>
+            <rock-scope-selector id="scopeSelector" selected-scope="[[_selectedItems]]" context-data="[[contextData]]" show-title allow-manage-scope show-settings>
+            </rock-scope-selector>
+            <bedrock-pubsub event-name="rock-scope-click" handler="_onScopeTagClicked"></bedrock-pubsub>
+        </pebble-card>
+        <div id="container">
+            <div id="left-container">
+                <rock-attribute-model-grid id="attributesGrid" context-data="[[contextData]]" 
+                    selected-items="[[_selectedItems]]" config="[[_gridConfig]]" 
+                    request-data="[[_request]]"></rock-attribute-model-grid>
+                <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="attributeModelGrid"></bedrock-pubsub>
+                <bedrock-pubsub event-name="grid-deselecting-item" handler="_onDeSelectingGridItem" target-id="attributeModelGrid"></bedrock-pubsub>
+            </div>
+            <div id="right-container">
+                <rock-attribute-list id="attributeList" context-data="[[contextData]]" no-of-columns="1" mode="edit" attribute-values="{{_attributeValues}}"
+                attribute-models="[[_attributeModels]]"></rock-attribute-list>
+            </div>
+        </div>
+        <div id="buttonContainer" align="center">
+            <pebble-button id="cancel" class="btn btn-secondary m-r-10" button-text="Cancel" on-tap="_onCancelTap" elevation=1 raised></pebble-button>
+            <pebble-button id="save" class="focus btn btn-success" button-text="Save" on-tap="_onSaveTap" elevation=1 raised></pebble-button>
+        </div>
+    </template>
+    <script>
+        (function() {
+            'use strict';
+
+            Polymer({
+                is: "rock-entity-bulk-edit",
+
+                properties: {
+                    contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _attributeValues: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _selectedItems: {
+                        type: Array,
+                        value: function () { return[]; }
+                    },
+                    _attributeModels: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    selectedEntities: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    selectionMode: {
+                        type: String,
+                        value: "count"
+                    },
+                    selectionQuery: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _bulkEntityEditRequest: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _loading: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _gridConfig: {
+                        type: Object,
+                        value: function () {
+                            return this.getParentAppConfig("rock-entity-bulk-edit", '', "gridConfig");
+                        }
+                    },
+                    _request: {
+                        type: Object,
+                        value: function () {
+                            return this.getParentAppConfig("rock-entity-bulk-edit", '', "requestData");
+                        }
+                    }
+                },
+                behaviors: [
+                    RUFBehaviors.UIBehavior,
+                    RUFBehaviors.ComponentContextBehavior
+                ],
+                _onSelectingGridItem: function(e, detail) {
+                    var selectedItem = detail.item;
+                    if(!(this._selectedItems.find(obj => obj.name === selectedItem.name))) {
+                        this._selectedItems.push(selectedItem);
+                    }
+                    selectedItem["hasWritePermission"] = true;
+                    selectedItem["selfContext"] = 1;
+                    if(!this._attributeModels[selectedItem.name]) {
+                        this._attributeModels[selectedItem.name] = selectedItem;
+                        var values = DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array", true);
+                        var attrValues = DataHelper.cloneObject(this._getAttributeListValues());
+                        var value = values.find(obj => obj.name === selectedItem.name);
+                        if(value) {
+                            attrValues.push(value);
+                        }
+                        this._attributeValues = attrValues;
+                    }
+                },
+                _onDeSelectingGridItem: function(e, detail) {
+                    var deSelectedItem = detail.item;
+                    if(this._selectedItems.find(obj => obj.name === deSelectedItem.name)) {
+                        var index = this._selectedItems.indexOf(deSelectedItem);
+                        this._selectedItems.splice(index, 1);
+                    }
+                    if(this._attributeModels[deSelectedItem.name]) {
+                        delete this._attributeModels[deSelectedItem.name];
+                    }
+                    var attrValues = DataHelper.cloneObject(this._getAttributeListValues());
+                    var attr = attrValues.find(obj => obj.name === deSelectedItem.name);
+                    if(attr) {
+                        var index = attrValues.indexOf(attr);
+                        if(index) {
+                            attrValues.splice(index,1);
+                        }
+                    }
+                    this._attributeValues = attrValues;
+                },
+                _onScopeTagClicked: function (e, detail) {
+                    if(detail && detail.data ) {
+                        this.$$("#attributesGrid").clearSelection();
+                        this._selectedItems=[];
+                        var selectedItems = detail.data.scope;
+                        this.set("_selectedItems", selectedItems);
+                        this._attributeModels = {};
+                        var gridItems = this.$$("#attributesGrid").getData();
+                        for(var i=0; i<selectedItems.length; i++) {
+                            var selectedItem = selectedItems[i];
+                            selectedItem["hasWritePermission"] = true;
+                            selectedItem["selfContext"] = 1;
+                            if(!this._attributeModels[selectedItem.name]) {
+                                this._attributeModels[selectedItem.name] = selectedItem;
+                            }
+                        }
+                        var values = DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array", true);
+                        this._attributeValues = values;
+                    }
+                },
+                _onCancelTap: function(e) {
+                    var eventName = "onCancel";
+                    var eventDetail = {
+                        name: eventName
+                    }
+
+                    this.fireBedrockEvent(eventName, eventDetail, {
+                            ignoreId: true
+                    });
+                },
+                _onSaveTap: function(e) {
+                    if(!_.isEmpty(this.selectionQuery)) {
+                        this._loading = true;
+                        var attributeList = this.$$("#attributeList");
+                        var changedAttributeElements = attributeList.getChangedAttributeElements();
+                        if (changedAttributeElements == undefined || changedAttributeElements.length == 0) {
+                            this.showInformationToast("No changes to save.");
+                            return;
+                        }
+                        var attributesJSON = [];
+                        for (var i = 0; i < changedAttributeElements.length; i++) {
+                            var attributeElement = changedAttributeElements[i];
+                            var attributeJSON;
+                            if( attributeElement.attributeObject.action=="delete"){
+                                    attributeJSON = DataHelper.cloneObject(attributeElement.originalAttributeObject);
+                                    attributeJSON.action = "delete";
+                            } else{
+                                attributeJSON= attributeElement.attributeObject;
+                            }
+                            attributesJSON.push(attributeJSON);
+                        }
+                        var newEntity = DataTransformHelper.prepareEntityForAttributesSave({}, attributesJSON, this.contextData);
+                        var data = newEntity.data;
+                        var req = {
+                            "params": {
+                                "taskType": "process-query",
+                                "operationType": "inboundService",
+                                "query": this.selectionQuery,
+                                "data": data
+                            }
+                        };
+
+                        var bulkEditLiquid = this.$$("#bulkEntityEdit");
+                        if(bulkEditLiquid) {
+                            this.set("_bulkEntityEditRequest", req);
+                            bulkEditLiquid.generateRequest();
+                        }
+                    }
+                },
+                _onBulkEntityEditSuccess: function(e) {
+                    var response = e.detail.response && e.detail.response.response ? e.detail.response.response : e.detail.response;
+                    var request = e.detail.response ? e.detail.response.request : undefined;
+
+                    if((!response || _.isEmpty(response)) ||
+                       (DataHelper.isValidObjectPath(response, "dataObjectOperationResponse.status") && response.dataObjectOperationResponse.status.toLowerCase() == "error") ||
+                       (response.status && response.status.toLowerCase() == "error")) {
+                        this._message = "Bulk edit request failed";
+                        this._loading = false;
+                        return;
+                    } else {
+                        if(response.status && response.status.toLowerCase() == "success") {
+                            if(request && request.taskId) {
+                                this._taskId = request.taskId;
+                            }
+                        }
+
+                        this._message = "Bulk Edit request triggered successfully";
+                        this._triggerFinishStep();
+                    }
+                },
+                _onBulkEntityEditFailure: function (e) {
+                   this._loading = false;
+                   this._message = "Failed to perform the Bulk entity edit. Please contact administrator.";
+                   this.logError("bulkEntityProcessFailure","response",JSON.stringify(e.detail));
+                },
+                _triggerFinishStep: function() {
+                    var message = "Entity process is started, you can review the progress of the task "+ this._taskId +" in task details.";
+                    var messages = [
+                        {
+                            "message": message
+                        }
+                    ]
+                    var actions = [
+                        {
+                            "name": "goBack",
+                            "text": "Take me back to where I started",
+                            "isNotApp": true
+                        },
+                        {
+                            "name": "gotoJobDetails",
+                            "text": "Show me the task details",
+                            "isNotApp": true,
+                            "dataRoute": "task-detail",
+                            "queryParams": {
+                                "id": this._taskId
+                            }
+                        }
+                    ];
+
+                    var data = {
+                        "messages": messages,
+                        "noGrid": true,
+                        "actions": actions,
+                    };
+
+                    this.businessFunctionData = data;
+                    var eventName = "onComplete";
+                    var eventDetail = {
+                        name: eventName
+                    }
+
+                    this.fireBedrockEvent(eventName, eventDetail, {
+                            ignoreId: true
+                    });
+                },
+                _getAttributeListValues: function() {
+                    var attributeList = this.$$("#attributeList");
+                    var attributeValues = attributeList.getAttributeValues();
+                    return attributeValues;
+                }
+            })
+        })();
+    </script>
+</dom-module>
