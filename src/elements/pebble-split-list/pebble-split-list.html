@@ -1,0 +1,317 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-icons/pebble-icons.html">
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../pebble-checkbox/pebble-checkbox.html">
+<link rel="import" href="../pebble-data-table/pebble-data-table.html">
+
+
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+
+<!--
+`pebble-split-list`
+
+@demo demo/index.html 
+-->
+
+<dom-module id="pebble-split-list">
+    <template>
+        <style include="pebble-styles-shared">
+            .container{
+                padding-right: 15px;
+                padding-left: 15px;
+                margin-right: auto;
+                margin-left: auto;
+            }
+            .leftContainer{
+                width:45%;
+                float: left;
+            }
+            pebble-data-table{
+                border: solid 1px var(--default-border-color, #c1cad4);
+                border-radius: 3px;
+                box-shadow: 1px 2px 5px -1px var(--default-border-color, #c1cad4);
+            }
+            .centerContainer{
+                width: 10%;
+                float: left;
+                padding-top: auto;
+                vertical-align: middle;
+            }
+            .rightContainer{
+                width: 45%;
+                float: left;
+            }
+            .row{
+                margin-right: -15px;
+                margin-left: -15px;
+            }
+            .centerButton{
+                margin:10% 25% 10% 25%;
+                width: 50%;
+            }
+            #firstButton{
+               margin-top:40%;
+            }
+            .check-filter {
+                flex-basis: 25px!important;
+                flex-grow: 0!important;
+                overflow: visible!important;
+                position: relative;
+                padding: 0;
+            }
+            .moveButtons{
+                margin-top:5px;
+                text-align: center;
+            }
+            pebble-data-table{
+                height: var(--table-height,100%);
+            }
+
+        </style>
+
+        <div class="container">
+            <div class="row">
+                <div class="leftContainer">
+                    <pebble-data-table id="leftDataTable" deleted-items="{{deletedItems}}" page-size="[[pageSize]]"  size="{{size}}"  selection-enabled multi-selection="[[config.tabular.settings.isMultiSelect]]" data-source="[[dataSource]]" items="{{items}}">
+                            <template is="dom-repeat" items="[[config.tabular.columns]]" as="col" index-as="colIndex">
+                                <data-table-column  name="[[col.header]]" column-index="{{colIndex}}" filter-by$="[[_isFilterEnabled(col)]]" sort-by$="[[_isSortable(col)]]"
+                                                   icon="pebble-md-icons:Edit" class="pebble-md-icons" column-object="[[col]]">
+                                    <template>
+                                                <div class="cell">
+                                                    [[_columnValue(item, column.columnIndex)]]
+                                                </div>
+                                    </template>
+                                </data-table-column>
+                            </template>
+                    </pebble-data-table>
+                </div>
+                <div class="centerContainer">
+                    <pebble-button id="firstButton" class="iconButton centerButton btn btn-outline-primary m-r-5" icon="icons:last-page" on-tap="_moveRightAll"></pebble-button>
+                    <pebble-button class="iconButton centerButton btn btn-outline-primary m-r-5" icon="icons:chevron-right" on-tap="_moveRight"></pebble-button>
+                    <pebble-button class="iconButton centerButton btn btn-outline-primary m-r-5" icon="icons:chevron-left" on-tap="_moveLeft"></pebble-button>
+                    <pebble-button class="iconButton centerButton btn btn-outline-primary m-r-5" icon="icons:first-page" on-tap="_moveLeftAll"></pebble-button>
+                </div>
+                <div class="rightContainer">
+                    <pebble-data-table  id="rightDataTable"  selection-enabled multi-selection="[[config.tabular.settings.isMultiSelect]]"  items="{{selectedItems}}" >
+                        <template is="dom-repeat" items="[[config.tabular.columns]]" as="col" index-as="colIndex">
+                            <data-table-column name="[[col.header]]" column-index="{{colIndex}}" filter-by$="[[_isFilterEnabled(col)]]" sort-by$="[[_isSortable(col)]]"
+                                               icon="pebble-md-icons:Edit" class="pebble-md-icons" column-object="[[col]]">
+                                <template>
+                                    <div class="cell">
+                                         [[_columnValue(item, column.columnIndex)]]
+                                    </div>
+                                </template>
+                            </data-table-column>
+                        </template>
+                    </pebble-data-table>
+                    <template is="dom-if" if="[[moveUpDownEnabled]]">
+                        <div  class="moveButtons">
+                            <pebble-button class="iconButton btn btn-outline-primary m-r-5" icon="icons:arrow-upward" on-tap="_moveUpRight"></pebble-button>
+                            <pebble-button class="iconButton btn btn-outline-primary m-r-5" icon="icons:arrow-downward" on-tap="_moveDownRight"></pebble-button>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+    </template>
+
+    <script>
+        (function () {
+            'use strict';
+
+            Polymer({
+                is: 'pebble-split-list',
+                properties: {
+                    items:{
+                        type:Array,
+                        value:function () {
+                            return [];
+                        },
+                        notify:true
+                    },
+                    selectedItems:{
+                        type:Array,
+                        value:function () {
+                            return [];
+                        },
+                        notify:true
+                    },
+                    retainSelectedItems: {
+                        type:Boolean,
+                        value:false
+                    },
+                    moveUpDownEnabled:{
+                        type:Boolean,
+                        value:false
+                    },
+                    pageSize:{
+                        type:Number,
+                        value:50
+                    },
+                    deletedItems:{
+                        type:Array,
+                        value:function () {
+                            return [];
+                        },
+                        notify:true
+                    },
+                    dataSourceId:{
+                        type:String
+                    }
+                },
+                behaviors:[
+                    RUFBehaviors.UIBehavior
+                ],
+                _columnValue: function (gridData, index) {
+                    var columnName = this.config.tabular.columns[index].name;
+                    return gridData[columnName];
+                },
+                _isFilterEnabled: function (col) {
+                    return col.filterable ? col.name : undefined;
+                },
+                _isSortable: function (col) {
+                    return col.sortable ? col.name : undefined;
+                },
+                _moveRight:function () {
+                    var leftGrid=this.$.leftDataTable;
+                    if(leftGrid){
+                        var selectedItems=leftGrid.getSelectedItems();
+                        for(var i=0;i<selectedItems.length;i++) {
+                            if(this.selectedItems.indexOf(selectedItems[i])===-1) {
+                                this.push("selectedItems", selectedItems[i]);
+                            }
+                        }
+                        if(!this.retainSelectedItems){
+                            leftGrid.deleteItems(selectedItems);
+                        }
+                        this.fireBedrockEvent("moveToRight",selectedItems);
+                    }
+                },
+                _moveRightAll:function () {
+                    var leftGrid=this.$.leftDataTable;
+                    if(leftGrid){
+                        var items=leftGrid.getData();
+                        for(var i=0;i<items.length;i++) {
+                            if(this.selectedItems.indexOf(items[i])===-1) {
+                                this.push("selectedItems", items[i]);
+                            }
+                        }
+                        if(!this.retainSelectedItems){
+                            leftGrid.deleteItems(items);
+                        }
+                        this.fireBedrockEvent("moveAllToRight",items);
+                    }
+                },
+                _moveLeft:function () {
+                    var rightGrid=this.$.rightDataTable;
+                    var leftGrid=this.$.leftDataTable;
+                    if(rightGrid){
+                        var selectedItems=rightGrid.getSelectedItems();
+                        if(!this.retainSelectedItems){
+                            for(var i=items.length-1;i>=0;i--) {
+                                var index = this.deletedItems.indexOf(items[i]);
+                                this.splice("deletedItems", index, 1);
+                            }
+                            this.restoreDeletedItems(leftGrid,selectedItems,this.dataSource);
+                        }
+
+                        for(var i=0;i<selectedItems.length;i++) {
+                            var index=this.selectedItems.indexOf(selectedItems[i]);
+                            this.splice("selectedItems",index,1 );
+                        }
+                        this.fireBedrockEvent("moveToLeft",selectedItems);
+                    }
+                },
+                _moveLeftAll:function () {
+                    var rightGrid=this.$.rightDataTable;
+                    var leftGrid=this.$.leftDataTable;
+                    var items=rightGrid.getData();
+                    if(!this.retainSelectedItems){
+                        this.deletedItems=[];
+                        this.restoreDeletedItems(leftGrid,items,this.dataSource);
+                    }
+                    for(var i=0;i<items.length;i++){
+                        var index=this.selectedItems.indexOf(items[i]);
+                        this.splice("selectedItems",index,1 );
+                    }
+                    this.fireBedrockEvent("moveAllToLeft",items);
+                },
+                _moveUpRight: function () {
+                    var rightGrid=this.$.rightDataTable;
+                    var selectedItems=rightGrid.getSelectedItems();
+                    var _this = this;
+                    var sortedSelectedItems=selectedItems.sort(function (item1,item2) {
+                             return _this.selectedItems.indexOf(item1)-_this.selectedItems.indexOf(item2);
+                    })
+                    for(var i=0;i<sortedSelectedItems.length;i++){
+                        var index=this.selectedItems.indexOf(sortedSelectedItems[i]);
+                        if(index>0){
+                            var temp=this.selectedItems[index-1];
+                            this.selectedItems[index-1]=this.selectedItems[index];
+                            this.selectedItems[index]=temp;
+                        }
+                    }
+                    var items=this.selectedItems;
+                    this.selectedItems=[];
+                    this.selectedItems=items;
+                },
+                _moveDownRight: function () {
+                    var rightGrid=this.$.rightDataTable;
+                    var selectedItems=rightGrid.getSelectedItems();
+                    var _this = this;
+                    var sortedSelectedItems=selectedItems.sort(function (item1,item2) {
+                             return _this.selectedItems.indexOf(item2)-_this.selectedItems.indexOf(item1);
+                    });
+                    for(var i=0;i<sortedSelectedItems.length;i++){
+                        var index=this.selectedItems.indexOf(sortedSelectedItems[i]);
+                        if(index<this.selectedItems.length-1){
+                            var temp=this.selectedItems[index+1];
+                            this.selectedItems[index+1]=this.selectedItems[index];
+                            this.selectedItems[index]=temp;
+                        }
+                    }
+                    var items=this.selectedItems;
+                    this.selectedItems=[];
+                    this.selectedItems=items;
+                },
+                getSelectedItems:function () {
+                    return this.selectedItems;
+                },
+                getLeftItems:function () {
+                    var leftGrid=this.$.leftDataTable;
+                    return leftGrid.getData();
+                },
+                restoreDeletedItems:function (grid,items,dataSource) {
+                    if(typeof dataSource === 'function'){
+                       this.rerenderGrid();
+                    } else{
+                        for(var i=items.length-1;i>=0;i--) {
+                            if (this.items.indexOf(items[i]) === -1) {
+                                this.unshift("items", items[i]);
+                            }
+                        }
+                    }
+                },
+                rerenderGrid: function () {
+                    var grid=this.$.leftDataTable;
+                    if (this.dataSourceId) {
+                        var dataSourceElement =this.parentNode.$$('#' + this.dataSourceId);
+                        if (dataSourceElement) {
+                            dataSourceElement.resetDataSource();
+                        }
+                    }
+                    grid.clearCache();
+                    grid._currentPage=0;
+                },
+
+
+
+            });
+        })();
+    </script>
+
+</dom-module>
