@@ -67,13 +67,16 @@
             <rock-scope-selector id="scopeSelector" selected-scope="[[selectedItems]]" context-data="[[contextData]]" show-title allow-manage-scope show-settings>
             </rock-scope-selector>
             <bedrock-pubsub event-name="rock-scope-click" handler="_onScopeTagClicked"></bedrock-pubsub>
+            <bedrock-pubsub event-name="rock-scope-edit" handler="_onScopeEditClicked"></bedrock-pubsub>
         </pebble-card>
-        <pebble-accordion is-collapsed header-text="[[_getHeaderText(_selectedScope)]]" default-icon="expand-less" open-icon="expand-more" class="custom-style">
-                <rock-attribute-split-list id="splitList" retain-selected-items="[[retainSelectedItems]]" selected-items="{{selectedItems}}" config="[[splitListConfig]]"></rock-attribute-split-list>
-                <div id="buttonContainer" >
-                    <pebble-button id="save" class="focus btn btn-success" button-text="Download" on-tap="_save" elevation=1 raised></pebble-button>
-                    <pebble-button id="Download" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
-                </div>
+        <pebble-accordion id="accordion" is-collapsed="{{!_isOpened}}" header-text="[[_getHeaderText(_selectedScope)]]" default-icon="expand-less" open-icon="expand-more" class="custom-style">
+               <template is="dom-if" if="[[_isOpened]]">
+                    <rock-attribute-split-list select-all-fields="{{selectAllFields}}" id="splitList" retain-selected-items="[[retainSelectedItems]]" selected-items="{{selectedItems}}" config="[[splitListConfig]]"></rock-attribute-split-list>
+                    <div id="buttonContainer" >
+                        <pebble-button id="Download" class="focus btn btn-success" button-text="Download" on-tap="_download" elevation=1 raised></pebble-button>
+                        <pebble-button id="save" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
+                    </div>
+               </template>
         </pebble-accordion>
             <pebble-button id="cancelButton" class="btn btn-secondary m-r-10" button-text="Cancel" on-tap="_onCancelTap" elevation=1 raised></pebble-button>
     </template>
@@ -120,6 +123,14 @@
                     _selectedScope:{
                         type:String,
                         value:""
+                    },
+                    _isOpened:{
+                        type:Boolean,
+                        value:false
+                    },
+                    selectAllFields:{
+                        type:Boolean,
+                        value:false
                     }
                 },
 
@@ -137,14 +148,40 @@
                     if(detail && detail.data ) {
                         this.selectedItems=[];
                         this.selectedItems = detail.data.scope;
-                        var eventDetail = {
-                            name:"onNext"
-                        };
-                        this.fireBedrockEvent("onNext",eventDetail,{"ignoreId":true});
+                        this._download();
+                    }
+                },
+                _onScopeEditClicked: function (e,detail) {
+                    if(detail && detail.data){
+                        this.set("_selectedScope",detail.data);
+                        this.$.accordion.showContainer();
+                        this.selectedItems=[];
+                        this.selectedItems = detail.data.scope;
                     }
                 },
                 _save:function () {
-
+                    if( this._selectedScope) {
+                        var detail = {
+                            "name": this._selectedScope.name,
+                            "accesstype": this._selectedScope.accesstype,
+                            "selectedScope": this._selectedScope
+                        };
+                        this.$.scopeSelector.triggerSaveProcess(detail);
+                    } else {
+                        this.$.scopeSelector.isManageScopes=true;
+                    }
+                },
+                _download:function () {
+                    if(this.selectAllFields){
+                       this.selectedItems=[{"name":"_ALL"}];
+                    } else if(!this.selectedItems || !this.selectedItems.length ){
+                        this.showWarningToast("Please select at least 1 attribute for download");
+                        return;
+                    }
+                    var eventDetail = {
+                        name:"onNext"
+                    };
+                    this.fireBedrockEvent("onNext",eventDetail,{"ignoreId":true});
                 },
                 _onCancelTap:function () {
                     var eventDetail = {
@@ -153,7 +190,7 @@
                     this.fireBedrockEvent("onCancel",eventDetail,{"ignoreId":true});
                 },
                 _getHeaderText:function (_selectedScope) {
-                    return this._selectedScope? "Edit "+ this._selectedScope:"New Scope";
+                    return this._selectedScope? "Edit "+ this._selectedScope.name:"New Scope";
                 }
             });
         })();
