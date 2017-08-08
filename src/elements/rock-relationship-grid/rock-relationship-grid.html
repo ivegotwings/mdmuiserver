@@ -3,6 +3,7 @@
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 <link rel="import" href="../bedrock-helpers/component-helper.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/attribute-helper.html">
 <link rel="import" href="../bedrock-helpers/entity-helper.html">
 <link rel="import" href="../bedrock-helpers/message-helper.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
@@ -829,10 +830,20 @@ The following JSON object is a sample of data which binds the grid.
                           record["Relationship Id"] = relItem.relTo.id;
                           record["Related Entity"] = record["id"] = relItem.relTo.id;
                           record["type"] = relItem.relTo.type;
-                          record["Modified Date"] = relItem.relTo.properties.modifiedDate;
                           lovItem["id"] = relItem.relTo.id;
                           lovItem["title"] = relItem.relTo.id;
                           savedItemsToLov.push(lovItem);
+
+                          //It will required in case of default sorting.
+                          if (relItem.relTo.properties) {
+                            var properties = relItem.relTo.properties;
+                            Object.keys(properties).forEach(function (property) {
+                              if (property && properties[property]) {
+                                record[property.toLocaleLowerCase()] = properties[property];
+                              }
+                            }, this);
+                          }
+
                           if (relItem.relTo.data) {
                             //var relCtxList = relContexts[item];
                             var relatedAttributes = EntityHelper.getAllAttributes(relItem.relTo);
@@ -864,9 +875,14 @@ The following JSON object is a sample of data which binds the grid.
                     this._savedRelationshipItemsToLov = {};
                     this._savedRelationshipItemsToLov = savedRelationships;
 
-                    debugger;
-                    if (true) {
-                      data = this._sortRelationshipRecords(data);
+                    var gridConfig = relConfig.gridConfig ? relConfig.gridConfig[relConfig.gridConfig.viewMode.toLowerCase()] : undefined;
+
+                    if (gridConfig) {
+                      var defaultSort = gridConfig.settings && gridConfig.settings.sort ? gridConfig.settings.sort.default : undefined;
+
+                      if (!_.isEmpty(defaultSort)) {
+                        data = this._sortRelationshipRecords(data, defaultSort);
+                      }
                     }
                   }
                 }
@@ -875,39 +891,32 @@ The following JSON object is a sample of data which binds the grid.
           }
           return data;
         },
-        _sortRelationshipRecords: function (data) {
-          if (data) {
-            var sortedData = DataHelper.sortByDate(data, "Modified Date");
+        _sortRelationshipRecords: function (data, defaultSort) {
+          var resultData = data;
+          if (data && defaultSort && defaultSort.length) {
 
-            var filteredData = sortedData.filter(function (item) {
-              if (item.isprimary && item.isprimary == false) {
-                return item;
-              } else {
-                return item;
+            for (var i = defaultSort.length - 1; i >= 0; i--) {
+              if (defaultSort[i]) {
+                var dataType = this._getDataTypeByName(defaultSort[i].field);
+                resultData = DataHelper.sort(resultData, defaultSort[i].field, dataType, defaultSort[i].sortType);
               }
-            });
-
-            var primaryData = sortedData.filter(function (item) {
-              if (item.isprimary && item.isprimary == true) {
-                return item;
-              }
-            });
-
-            if(primaryData && primaryData.length) {
-              var resultData = [];
-
-              resultData.push(primaryData[0]);
-
-              filteredData.forEach(function(item){
-                resultData.push(item);
-              }, this); 
-
-              return resultData;
-            } else {
-              return filteredData;
             }
-
           }
+
+          return resultData;
+        },
+        _getDataTypeByName: function (attrName) {
+          var dataType = "string";
+          if (attrName) {
+            dataType = AttributeHelper.getPropertyTypeByName(attrName);
+            if (_.isEmpty(dataType)) {
+              var attrModels = this._getRelationshipAttributeModels();
+              if (attrModels && attrModels[attrName]) {
+                dataType = attrModels[attrName].properties.dataType;
+              }
+            }
+          }
+          return dataType;
         },
         _onAddRelClick: function (e) {
           if (this.addRelationshipMode == "lov") {
