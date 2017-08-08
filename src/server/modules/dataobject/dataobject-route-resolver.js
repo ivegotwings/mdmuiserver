@@ -92,6 +92,8 @@ async function initiateSearch(callPath, args) {
         // console.log('response raw str', JSON.stringify(res, null, 4));
         var totalRecords = 0;
 
+        var resultRecordSize = 0;
+
         var collectionName = dataIndexInfo.collectionName;
 
         var dataObjectResponse = res ? res[dataIndexInfo.responseObjectName] : undefined;
@@ -101,11 +103,9 @@ async function initiateSearch(callPath, args) {
             var dataObjects = dataObjectResponse[collectionName];
             var index = 0;
             if (dataObjects !== undefined) {
-                if(operation === "initiatesearchandgetcount") {
-                    totalRecords = dataObjectResponse.totalRecords;
-                }
-                else if(operation === "search") {
-                    totalRecords = dataObjects.length;
+                totalRecords = dataObjectResponse.totalRecords;
+                if(operation === "search") {
+                    resultRecordSize = dataObjects.length;                   
                     for (let dataObject of dataObjects) {
                         if (dataObject.id !== undefined) {
                             var dataObjectType = dataObject.type;
@@ -129,9 +129,9 @@ async function initiateSearch(callPath, args) {
                 }
             }
         }
-
         response.push(mergeAndCreatePath(basePath, ["maxRecords"], $atom(maxRecordsSupported)));
         response.push(mergeAndCreatePath(basePath, ["totalRecords"], $atom(totalRecords)));
+        response.push(mergeAndCreatePath(basePath, ["resultRecordSize"], $atom(resultRecordSize)));
         response.push(mergeAndCreatePath(basePath, ["requestId"], $atom(requestId)));
         //response.push(mergeAndCreatePath(basePath, ["request"], $atom(request)));
     }
@@ -206,8 +206,7 @@ function createGetRequest(reqData) {
     }
 
     var options = {
-        maxRecords: 2000,
-        includeRequest: false
+        maxRecords: 2000
     };
 
     var filters = {};
@@ -443,11 +442,14 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
 
             //console.log('dataObject data', JSON.stringify(dataObject, null, 4));
 
-            var apiRequestObj = { 'includeRequest': false, 'dataIndex': dataIndex, 'clientState': clientState };
+            var apiRequestObj = { 'dataIndex': dataIndex, 'clientState': clientState };
             apiRequestObj[dataIndexInfo.name] = dataObject;
             
+            if(dataObjectAction == "create" || dataObjectAction == "update") {
+                _prependAuthorizationType(apiRequestObj);
+            }
             //console.log('api request data for process dataObjects', JSON.stringify(apiRequestObj));
-            var dataOperationResult = {};
+            var dataOperationResult = {};            
 
             if (dataObjectAction == "create") {
                 dataOperationResult = await dataObjectManageService.create(apiRequestObj);
@@ -627,6 +629,16 @@ function _getOriginalRelIds(dataObject) {
     }
 
     return originalRelIds;
+}
+
+function _prependAuthorizationType(reqObject) {
+    if(reqObject.params) {
+        reqObject.params["authorizationType"] = "accommodate";
+    } else {
+        reqObject.params = {
+            "authorizationType": "accommodate"
+        };
+    }
 }
 
 module.exports = {

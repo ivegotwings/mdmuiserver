@@ -84,27 +84,38 @@
                         value: function () {
                             return {};
                         }
+                    },
+                    selectedAttributes:{
+                        type:Array
                     }
                 },
                 observers: [
-                    '_onDownload(selectionMode, selectedEntities)'
+                    '_onDownload(selectionMode, selectedEntities,selectedAttributes)'
                 ],
                 behaviors: [
                     RUFBehaviors.UIBehavior,
                     RUFBehaviors.ComponentContextBehavior
                 ],
-                _onDownload: function (selectionMode, selectedEntities) {
-
+                _onDownload: function (selectionMode, selectedEntities,selectedAttributes) {
                     if (!_.isEmpty(selectionMode) && !_.isEmpty(selectedEntities)) {
+                        var attributes=["_ALL"];
+                        if(selectedAttributes && selectedAttributes.length){
+                            attributes=selectedAttributes.map(function (item) {
+                                return item.name;
+                            });
+                        }
                         if (this.selectionMode == "query" || (this.selectionMode == "count" && this.selectedEntities.length > this.syncThreshold)) {
                             var req;
                             if (this.selectionMode == "query" && !_.isEmpty(this.selectionQuery)) {
                                 req = {
+                                    "clientState": {
+                                        "notificationInfo": {
+                                            "userId": DataHelper.getUserId()
+                                        }
+                                    },
                                     "params": {
                                         "fields": {
-                                            "attributes": [
-                                                "_ALL"
-                                            ],
+                                            "attributes": attributes,
                                             "relationships": [
                                                 "_ALL"
                                             ]
@@ -116,12 +127,13 @@
                                         }
                                     }
                                 };
+                                
                                 req.params.query = this.selectionQuery;
 
                             } else if (this.selectionMode == "count" && this.selectedEntities.length) {
                                 if (this.selectedEntities && this.selectedEntities.length && this.contextData) {
                                     this._loading = true;
-                                    req = this._prepareRequestObjectForSelectedEntities(this.selectedEntities);
+                                    req = this._prepareRequestObjectForSelectedEntities(this.selectedEntities,attributes);
                                 } else {
                                     var data = {
                                         "messages": [
@@ -147,6 +159,7 @@
                                 req.fileName = "EntityData";
                                 this._copDownloadRequest = req;
 
+                                //console.log('cop download job req', JSON.stringify(req, null, 2));
                                 var copDownloadLiquid = this.$$("#copDownloadService");
                                 if (copDownloadLiquid) {
                                     copDownloadLiquid.url = "/data/cop/downloadDataJob";
@@ -157,7 +170,7 @@
                         } else {
                             if (this.selectedEntities && this.selectedEntities.length && this.contextData) {
                                 this._loading = true;
-                                var req = this._prepareRequestObjectForSelectedEntities(this.selectedEntities);
+                                var req = this._prepareRequestObjectForSelectedEntities(this.selectedEntities,attributes);
                                 if (req) {
                                     req.fileName = "EntityData";
                                     var _this = this;
@@ -168,7 +181,7 @@
                                             this._onDownloadSuccess();
                                         }.bind(_this),
                                         failCallback: function (responseHtml, url, error) {
-                                            this._onDownloadFailure(error);
+                                            this._onDownloadFailure(responseHtml);
                                         }.bind(_this)
                                     });
                                 }
@@ -214,11 +227,12 @@
                 _onCOPDownloadSuccess: function (e) {
                     if (e.detail && e.detail.response && e.detail.response.dataObjectOperationResponse) {
                         var response = e.detail.response.dataObjectOperationResponse;
+                        var data = {};
 
                         if (response.status.toLowerCase() == "success") {
 
                             var taskId = response.dataObjects[0].properties.workAutomationId;
-                            var data = {
+                            data = {
                                 "messages": [
                                     {
                                         "message": "File download job started."
@@ -239,9 +253,25 @@
                                     }
                                 ]
                             };
-
-                            this._gotToNextStep(data);
+                        } else if (response.status.toLowerCase() == "error") {
+                            var error = response.statusDetail && response.statusDetail.message ? response.statusDetail.message : "";
+                            data = {
+                                "messages": [
+                                    {
+                                        "message": "Failed to start download entity data job. Please contact administrator: " + error
+                                    }
+                                ],
+                                "actions": [
+                                    {
+                                        "name": "closeFunction",
+                                        "text": "Take Me back to Where I started",
+                                        "action": { "name": "refresh-data" }
+                                    }
+                                ]
+                            };
                         }
+
+                        this._gotToNextStep(data);
                     }
                 },
                 _onCOPDownloadFailure: function (e) {
@@ -265,7 +295,7 @@
                         this._gotToNextStep(data);
                     }
                 },
-                _prepareRequestObjectForSelectedEntities: function (selectedEntities) {
+                _prepareRequestObjectForSelectedEntities: function (selectedEntities,attributes) {
                     var req;
 
                     if (selectedEntities && selectedEntities.length) {
@@ -284,7 +314,7 @@
                             }
                         }, this);
 
-                        itemContext.attributeNames = ["_ALL"];
+                        itemContext.attributeNames = attributes;
                         itemContext.relationships = ["_ALL"];
                         itemContext.relationshipAttributes = ["_ALL"];
                         clonedDataContext[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];

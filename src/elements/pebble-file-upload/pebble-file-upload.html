@@ -9,6 +9,7 @@
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="content-type-helper.html">
 
 
 <!--
@@ -102,9 +103,9 @@ It takes additional data through properties. It is available in small, medium, a
             
             
             .title{
-            font-size:var(--font-size-sm, 12px);
-            text-align: center;
-            color: var(--default-icon-color,#8994a0);
+                font-size:var(--font-size-sm, 12px);
+                text-align: center;
+                color: var(--default-icon-color,#8994a0);
             }
             .drag-drop {
                 font-size: var(--font-size-xl, 20px);
@@ -112,10 +113,12 @@ It takes additional data through properties. It is available in small, medium, a
                 color: var(--default-icon-color,#8994a0);
                 height:16px;
             }
-            pebble-icon::shadow iron-icon{
-                width:30px;
-                height:30px;
-                color: var(--default-icon-color,#8994a0);
+            pebble-icon{
+                --iron-icon: {
+                    width:30px;
+                    height:30px;
+                    color: var(--default-icon-color,#8994a0);
+                }                
             }
             .download-icon{
                 padding-bottom: 3px;
@@ -296,6 +299,11 @@ It takes additional data through properties. It is available in small, medium, a
                         type: Object,
                         value: {}
                     },
+                    allowedFileTypes: {
+                        type: Array,
+                        value: function() { return []; },
+                        observer: "_allowedFileTypesChanged"
+                    }
                 },
                 behaviors: [
                     RUFBehaviors.UIBehavior,
@@ -359,13 +367,8 @@ It takes additional data through properties. It is available in small, medium, a
                     var file = event.dataTransfer.files[0];
 
                     // Check if filetype is accepted
-                    var mimeType = ((file.type !== '') ? file.type.match(/^[^\/]*\//)[0] : null);
-                    var fileType = file.name.match(/\.[^\.]*$/)[0];
-                    if ((this.accept !== '' && !(this.accept.indexOf(mimeType) > -1) || this.accept.indexOf(fileType) > -1)) {
-                        if(file.size > this.sizeLimit){
-                            this.showErrorToast("The size of the file exceeded the maximum limit");
-                            return;
-                        }
+                    var isFileValid = this._validateFile(file);
+                    if(!isFileValid) {
                         return;
                     }
 
@@ -386,17 +389,59 @@ It takes additional data through properties. It is available in small, medium, a
                         this.set('file', undefined);
                     } else {
                         var file = input.files[0];
-                        if (file.size < this.sizeLimit) {
+                        var isFileValid = this._validateFile(file);
+                        if(isFileValid) {
                             this.progress = 0;
                             this.error = false;
                             this.complete = false;
                             this._uploadFile(file);
                             this.set('file', file);
-                        }
-                        else{
-                            this.showErrorToast("The size of the file exceeded the maximum limit");
+                        } else {
+                            return;
                         }
                     }
+                },
+
+                _validateFile: function(file) {
+                    var mimeType = ((file.type !== '') ? file.type.match(/^[^\/]*\//)[0] : null);
+                    var fileType = file.name.match(/\.[^\.]*$/)[0];
+                    var accept = this.accept ? this.accept : "";
+                    if (accept !== "" && !(accept.indexOf(mimeType) > -1) || accept.indexOf(fileType) > -1) {
+                        if(file.size > this.sizeLimit){
+                            this.showErrorToast("The size of the file exceeded the maximum limit");
+                            return false;
+                        }
+                        var type = mimeType ? mimeType : fileType;
+                        var message = this._buildMessage(type);
+                        this.showErrorToast(message);
+                        return false;
+                    }
+                    return true;
+                },
+
+                _buildMessage: function(type) {
+                    var message = "The file type " + type + " is not a valid extension.";
+                    var allowedExtensions = undefined;
+                    var allowedFileTypes = this.allowedFileTypes;
+                    if(_.isEmpty(allowedFileTypes)) {
+                        var accept = this.accept.replace(/ /g,'');
+                        var fileTypes = accept.split(",");
+                        allowedFileTypes = ContentTypeHelper.getExtensions(fileTypes);
+                    }
+                    if(!_.isEmpty(allowedFileTypes)) {
+                        for(var i=0; i<allowedFileTypes.length; i++) {
+                            var extension = allowedFileTypes[i];
+                            if(allowedExtensions) {
+                                allowedExtensions = allowedExtensions + "," + extension;
+                            } else {
+                                allowedExtensions = extension;
+                            }
+                        }
+                    }
+                    if(allowedExtensions) {
+                        message = message + " Valid extensions are " + allowedExtensions + ".";
+                    }
+                    return message;
                 },
 
                 /**
@@ -521,6 +566,11 @@ It takes additional data through properties. It is available in small, medium, a
                     this.set('error', false);
                     this.set('complete', false);
                     this.set('progress', 0);
+                },
+                _allowedFileTypesChanged: function(allowedFileTypes) {
+                    if(!_.isEmpty(allowedFileTypes)) {
+                        this.accept = ContentTypeHelper.getContentTypes(allowedFileTypes);
+                    }
                 }
             });
         })();

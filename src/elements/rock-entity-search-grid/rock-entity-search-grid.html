@@ -13,10 +13,12 @@
 <link rel="import" href="../liquid-entity-govern-data-get/liquid-entity-govern-data-get.html">
 
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-toggle-button/pebble-toggle-button.html">
 
 <link rel="import" href="../rock-grid/rock-grid.html">
 <link rel="import" href="../rock-grid-data-sources/entity-search-grid-datasource.html">
 <link rel="import" href="../rock-business-function-dialog/rock-business-function-dialog.html">
+<link rel="import" href="../rock-govern-data-grid/rock-govern-data-grid.html">
 
 <!--
 `rock-entity-search-grid` Represents a component that renders the entities in the grid.
@@ -27,23 +29,46 @@ It filters the data as per filter criteria.
 
 <dom-module id="rock-entity-search-grid">
     <style>
+        pebble-toggle-button {
+            --pebble-toggle-button-checked-bar-color: var(--success-color, #4caf50);
+            --pebble-toggle-button-checked-button-color: var(--success-color, #4caf50);
+            --pebble-toggle-button-checked-ink-color: var(--success-color, #4caf50);
+            --pebble-toggle-button-label-color: var(--secondary-button-text-color, #75808b);
+        }
 
+        .toggle-button {
+            float: right;
+            padding: 22px 20px 0px 0px;
+            font-size: var(--font-size-sm, 12px);
+        }
     </style>
     <template>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
         <liquid-entity-govern-data-get name="governDataGet" operation="initiatesearch" request-data="{{_governDataRequest}}" on-response="_onGovernDataResponse"></liquid-entity-govern-data-get>
         <template is="dom-if" if="[[_isWorkflowRequest(_loadGrid, _loadWithoutWorkflow)]]">
-            <entity-search-grid-datasource id="searchGrid" request="{{request}}" data-source="{{dataSource}}" data-formatter="{{dataFormatter}}"
-                current-record-size="{{size}}" total-records="{{totalRecords}}" total-count="{{totalCount}}" attribute-models="{{attributeModels}}"></entity-search-grid-datasource>
-            <rock-grid id="entityGrid" data-source="{{dataSource}}" data-source-id="searchGrid" record-size="{{totalRecords}}" config="{{gridConfig}}"
-                grid-data-size="{{size}}" attribute-models="{{attributeModels}}" page-size="[[pageSize]]" selected-item="{{selectedItem}}"
-                selected-items="{{selectedItems}}" total-count="{{totalCount}}" max-configured-count="[[maxConfiguredCount]]"></rock-grid>
+            <template is="dom-if" if="[[_showToggle()]]">
+                <pebble-toggle-button class="toggle-button" noink checked="{{_loadGovernData}}">Govern Data</pebble-toggle-button>
+            </template>
+            <template is="dom-if" if="[[!_loadGovernData]]">
+                <entity-search-grid-datasource id="searchGrid" request="{{request}}" data-source="{{dataSource}}" data-formatter="{{dataFormatter}}"
+                    buffer-record-size="{{size}}" current-record-size="{{currentRecordSize}}" result-record-size="{{resultRecordSize}}"
+                    total-count="{{totalCount}}" attribute-models="{{attributeModels}}"></entity-search-grid-datasource>
+                <rock-grid hidden$="[[_loadGovernData]]" id="entityGrid" data-source="{{dataSource}}" data-source-id="searchGrid" result-record-size="{{resultRecordSize}}"
+                    current-record-size="{{currentRecordSize}}" config="{{gridConfig}}" grid-data-size="{{size}}" attribute-models="{{attributeModels}}"
+                    page-size="[[pageSize]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" total-count="{{totalCount}}"
+                    max-configured-count="[[maxConfiguredCount]]"></rock-grid>
+            </template>
+            <template is="dom-if" if="[[_loadGovernData]]">
+                <rock-govern-data-grid id="governGrid" context-data="[[contextData]]" request="[[request]]" entity-name-attribute="[[governDataConfig.entityNameAttribute]]"></rock-govern-data-grid>
+            </template>
             <bedrock-pubsub event-name="grid-download-item" handler="_onDownload" target-id="entityGrid"></bedrock-pubsub>
             <bedrock-pubsub event-name="grid-upload-item" handler="_onUpload" target-id="entityGrid"></bedrock-pubsub>
+            <bedrock-pubsub event-name="grid-bulk-edit-items" handler="_onBulkEdit" target-id="entityGrid"></bedrock-pubsub>
         </template>
         <rock-business-function-dialog id="entityUploadDialog"></rock-business-function-dialog>
         <rock-business-function-dialog id="entityDownloadDialog"></rock-business-function-dialog>
+        <rock-business-function-dialog id="entityEditDialog"></rock-business-function-dialog>
     </template>
 
     <script>
@@ -172,7 +197,7 @@ It filters the data as per filter criteria.
                     /**
                      * Indicates the total record size of the current grid.				 
                      */
-                    totalRecords: {
+                    currentRecordSize: {
                         notify: true,
                         type: Number,
                         value: 0
@@ -222,6 +247,10 @@ It filters the data as per filter criteria.
                             return DataObjectFalcorUtil.getPathKeys().dataIndexInfo.entityData.maxRecordsToReturn;
                         }
                     },
+                    governDataConfig: {
+                        type: Object,
+                        value: function () { return {}; }
+                    },
 
                     _governDataRequest: {
                         type: Object,
@@ -241,7 +270,11 @@ It filters the data as per filter criteria.
                     _loading: {
                         type: Boolean,
                         value: false
-                    }
+                    },
+                    _loadGovernData: {
+                        type: Boolean,
+                        value: false
+                    },
                 },
 
                 behaviors: [
@@ -343,10 +376,20 @@ It filters the data as per filter criteria.
                             var businessConditionName = this.workflowCriterion.businessConditionName;
                             var contexts = [];
                             contexts.push({
-                                "workflow": this.workflowCriterion.workflowName
+                                "workflow": this.workflowCriterion.workflowShortName
                             });
 
-                            var req = DataRequestHelper.createGovernGetRequest(contexts, this.gridConfig.dataRequest.typesCriterion, userId, workflowActivityName, businessConditionName);
+                            var options = {
+                                "contexts": contexts,
+                                "typesCriterion": this.gridConfig.dataRequest.typesCriterion,
+                                "userId": userId,
+                                "workflowActivityName": workflowActivityName,
+                                "businessConditionName": businessConditionName,
+                                "attributes": "",
+                                "excludeNonContextual": true
+                            }
+
+                            var req = DataRequestHelper.createGovernGetRequest(options);
 
                             if (!_.isEmpty(req)) {
                                 this._governDataRequest = req;
@@ -448,12 +491,14 @@ It filters the data as per filter criteria.
                 },
 
                 _loadSearchResultsByFilters: function () {
-                    var grid = Polymer.dom(this).node.$$('rock-grid');
-                    var dataSource = Polymer.dom(this).node.$$('entity-search-grid-datasource');
+                    var grid = this._getEntityGrid();
+                    var dataSource = this._getEntityDataSource();
 
-                    if (dataSource && grid && this.searchFilters) {
+                    if (grid && this.searchFilters) {
                         this.request.params.query.filters.attributesCriterion = this._removeUnSupportedFilters(this.searchFilters);
-                        dataSource.resetDataSource();
+                        if (dataSource) {
+                            dataSource.resetDataSource();
+                        }
                         grid.reRenderGrid();
                     }
                 },
@@ -484,10 +529,10 @@ It filters the data as per filter criteria.
                 },
 
                 _loadSearchResultsByQuery: function () {
-                    var grid = Polymer.dom(this).node.$$('rock-grid');
-                    var dataSource = Polymer.dom(this).node.$$('entity-search-grid-datasource');
+                    var grid = this._getEntityGrid();
+                    var dataSource = this._getEntityDataSource();
 
-                    if (dataSource && grid) {
+                    if (grid) {
                         if (!this.request.params.query) {
                             this.request.params.query = {};
                         }
@@ -515,8 +560,9 @@ It filters the data as per filter criteria.
                         } else {
                             delete this.request.params.query.filters.keywordsCriterion;
                         }
-
-                        dataSource.resetDataSource();
+                        if (dataSource) {
+                            dataSource.resetDataSource();
+                        }
                         grid.reRenderGrid();
                     }
                 },
@@ -536,15 +582,16 @@ It filters the data as per filter criteria.
                     this._updateItemContexts();
                     this.request = DataRequestHelper.createEntityGetRequest(this.contextData);
 
+                    //TEMP": Vishal - REMOVED DEFAULT SORTING TILL RDF FIXES SORT PERF ISSUE
                     //modifying request to get entites sorted by entity createdDateTime in descending order
-                    this.request.params["sort"] = {
-                        "properties": [
-                            {
-                                "modifiedDate": "_DESC",
-                                "sortType": "_DATETIME"
-                            }
-                        ]
-                    };
+                    // this.request.params["sort"] = {
+                    //     "properties": [
+                    //         {
+                    //             "modifiedDate": "_DESC",
+                    //             "sortType": "_DATETIME"
+                    //         }
+                    //     ]
+                    // };
 
                     if (!_.isEmpty(ids)) {
                         this.request.params.query.ids = ids;
@@ -560,11 +607,13 @@ It filters the data as per filter criteria.
                             "operator": "and"
                         }
                     }
-                    var grid = Polymer.dom(this).node.$$('rock-grid');
-                    var dataSource = Polymer.dom(this).node.$$('entity-search-grid-datasource');
+                    var grid = this._getEntityGrid();;
+                    var dataSource = this._getEntityDataSource();
 
-                    if (dataSource && grid) {
-                        dataSource.resetDataSource();
+                    if (grid) {
+                        if (dataSource) {
+                            dataSource.resetDataSource();
+                        }
                         grid.reRenderGrid();
                     }
                     setTimeout(function () {
@@ -573,7 +622,18 @@ It filters the data as per filter criteria.
                 },
 
                 _getEntityGrid: function () {
-                    return ElementHelper.getElement(this, "#entityGrid");
+                    if (!this._loadGovernData) {
+                        return ElementHelper.getElement(this, "#entityGrid");
+                    } else {
+                        return ElementHelper.getElement(this, "#governGrid");
+                    }
+                },
+                _getEntityDataSource: function () {
+                    if (!this._loadGovernData) {
+                        return undefined;
+                    } else {
+                        return ElementHelper.getElement(this, "#searchGrid");
+                    }
                 },
 
                 _isWorkflowRequest: function (loadGrid, loadWithoutWorkflow) {
@@ -598,10 +658,10 @@ It filters the data as per filter criteria.
                                 rockGridHeight = rockGridHeight;
                             }
                         }
+                        var grid = this._getEntityGrid();
 
-                        var rockGrid = Polymer.dom(this).node.$$('rock-grid');
-                        if (rockGrid && rockGridHeight > 0) {
-                            rockGrid._getIronDataTable().style.height = rockGridHeight - 80 + 'px';
+                        if (grid && rockGridHeight > 0) {
+                            grid._getIronDataTable().style.height = rockGridHeight - 80 + 'px';
                         }
                     }
                 },
@@ -613,10 +673,12 @@ It filters the data as per filter criteria.
                     if (selectedItems && selectedItems.length && this.contextData) {
                         var entityDownloadDialog = this.$$("#entityDownloadDialog");
                         entityDownloadDialog.name = "rock-entity-download";
-                        entityDownloadDialog.sharedData = { "context-data": this.contextData,
-                                                            "selected-entities": selectedItems,
-                                                            "selection-query": selectionQuery,
-                                                            "selection-mode": selectionMode };
+                        entityDownloadDialog.sharedData = {
+                            "context-data": this.contextData,
+                            "selection-query": selectionQuery,
+                            "selection-mode": selectionMode,
+                            "selected-entities": selectedItems
+                        };
                         entityDownloadDialog.open();
                     } else {
                         this.showInformationToast("Please select at least one entity from grid to download.");
@@ -627,12 +689,37 @@ It filters the data as per filter criteria.
                     this.$$("#entityUploadDialog").sharedData = { "context-data": this.contextData };
                     this.$$("#entityUploadDialog").open();
                 },
+                _onBulkEdit: function(e, detail) {
+                    var selectedItems = this.getSelectedItems();
+                    var selectionMode = this.getSelectionMode();
+                    var selectionQuery = this.getSelectedItemsAsQuery();
+                    if(selectedItems && selectedItems.length && this.contextData) {
+                        var entityEditDialog = this.$$("#entityEditDialog");
+                        entityEditDialog.name = "rock-entity-bulk-edit";
+                        entityEditDialog.configName = "wizardConfig";
+                        entityEditDialog.sharedData = {
+                            "context-data": this.contextData,
+                            "selection-query": selectionQuery,
+                            "selection-mode": selectionMode,
+                            "selected-entities": selectedItems
+                        };
+                        entityEditDialog.open();
+                    } else {
+                        this.showInformationToast("Please select at least one entity from grid to edit.");
+                    }
+                },
                 /**
                   * <b><i>Content development is under progress... </b></i> 
                   */
                 getSelectedItems: function () {
-                    var rockGrid = Polymer.dom(this).node.$$('rock-grid');
-                    return rockGrid.getSelectedItems();
+                    var grid = this._getEntityGrid();
+                    return grid.getSelectedItems();
+                },
+                _showToggle: function () {
+                    if (this.governDataConfig && this.governDataConfig.showGovernDataToggle) {
+                        return true;
+                    }
+                    return false;
                 }
             });
         })();

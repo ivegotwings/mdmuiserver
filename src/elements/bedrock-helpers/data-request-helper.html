@@ -34,9 +34,6 @@
                         "name": typeName
                     },
                     "fields": {
-                        "ctxTypes": [
-                            "properties"
-                        ],
                         "attributes": attributeNames,
                         "relationships": relationships,
                         "relationshipAttributes": relationshipAttributes
@@ -102,7 +99,6 @@
             var relationshipAttributes = firstItemContext.relationshipAttributes;
             var domain = itemContexts && itemContexts.length > 0 && itemContexts[0].domain ? itemContexts[0].domain : undefined;
 
-
             var req = {
                 "params": {
                     "query": {
@@ -111,16 +107,12 @@
                         }
                     },
                     "fields": {
-                        "ctxTypes": [
-                            "properties"
-                        ],
                         "attributes": attributeNames,
                         "relationships": relationships,
                         "relationshipAttributes": relationshipAttributes
                     },
                     "options": {
-                        "maxRecords": ids.length || 200,
-                        "includeRequest": false
+                        "maxRecords": ids.length || 200
                     }
                 }
             };
@@ -149,12 +141,19 @@
             if (!_.isEmpty(contextData) && !_.isEmpty(profiles)) {
                 req = this.createEntityGetRequest(contextData);
 
+                var userContext = ContextHelper.getFirstUserContext(contextData);
+
                 if (req) {
                     if (req.params) {
                         req.params.rsconnect = {
                             "includeValidationData": true,
                             "profiles": profiles
-                        }
+                        };
+                        req.clientState = {
+                            "notificationInfo": {
+                                "userId": userContext.user
+                            }
+                        };
                     }
                 }
             }
@@ -175,7 +174,6 @@
             var req = {
                 "params": {
                     "query": {
-                        "name": entityType,
                         "filters": {
                             "typesCriterion": [typeName]
                         }
@@ -188,7 +186,11 @@
                     }
                 }
             };
-
+            if (entityType instanceof Array) {
+                req.params.query["names"] = entityType;
+            } else {
+                req.params.query["name"] = entityType;
+            }
             //console.log('workflow def mapping req get ', JSON.stringify(req, null, 2));
             return req;
         };
@@ -295,9 +297,6 @@
                         }
                     },
                     "fields": {
-                        "ctxTypes": [
-                            "properties"
-                        ],
                         "attributes": attributeNames
                     }
                 }
@@ -336,9 +335,6 @@
                         }
                     },
                     "fields": {
-                        "ctxTypes": [
-                            "properties"
-                        ],
                         "attributes": attributeNames
                     }
                 }
@@ -423,7 +419,7 @@
         };
 
 
-        DataRequestHelper.createSavedSearchInitialRequest = function (contextData) {
+        DataRequestHelper.createConfigInitialRequest = function (contextData) {
             var contextData = DataHelper.cloneObject(contextData);//to avoid live reference change
             var _context = ContextHelper.getFirstDataContext(contextData);
             var _typesCriterion = ContextHelper.getItemContexts(contextData);
@@ -448,20 +444,14 @@
             return req;
         };
 
-        DataRequestHelper.savedSearchCreateRequest = function (contextData, type, appName, contextSearchName) {
+        DataRequestHelper.getConfigCreateRequest = function (contextData, type, appName, contextSearchName) {
             var contextData = DataHelper.cloneObject(contextData);//to avoid live reference change
             var _context = ContextHelper.getFirstDataContext(contextData);
             var _details = {};
 
             _details["id"] = appName + "_" + type + "_" + ElementHelper.getRandomString();
             _details["name"] = contextSearchName ? contextSearchName : type + "_" + ElementHelper.getRandomString();
-
-            if (type == "savedsearch") {
-                _details["type"] = "savedSearch";
-            }
-            else {
-                _details["type"] = "savedSearchMappings";
-            }
+            _details["type"] = type;
 
             var req = {
                 "id": _details["id"],
@@ -625,89 +615,93 @@
             return request;
         }
 
-        DataRequestHelper.createGovernGetRequest = function (contexts, typesCriterion, userId, workflowActivityName, businessConditionName, attributes) {
-            var req = {
-                "params": {
-                    "query": {
-                        "contexts": contexts,
-                        "filters": {
-                            "attributesCriterion": [],
-                            "typesCriterion": typesCriterion
-                        }
-                    }
-                }
-            };
+        DataRequestHelper.createGovernGetRequest = function (options) {
 
-            if (!_.isEmpty(workflowActivityName)) {
-                req.params.query.filters.attributesCriterion.push({
-                    "activities": {
-                        "attributes": [
-                            {
-                                "activityName": {
-                                    "eq": workflowActivityName
-                                }
+            if (options) {
+                var req = {
+                    "params": {
+                        "query": {
+                            "contexts": options.contexts,
+                            "filters": {
+                                "attributesCriterion": [],
+                                "typesCriterion": options.typesCriterion,
+                                "excludeNonContextual": options.excludeNonContextual
                             }
-                        ]
-                    }
-                });
-            }
-
-            if (!_.isEmpty(userId)) {
-                if (req.params.query.filters.attributesCriterion.length) {
-                    req.params.query.filters.attributesCriterion[0]["activities"].attributes.push({
-                        "assignedUser": {
-                            "eq": userId
                         }
-                    });
-                } else {
+                    }
+                };
+
+                if (!_.isEmpty(options.workflowActivityName)) {
                     req.params.query.filters.attributesCriterion.push({
                         "activities": {
                             "attributes": [
                                 {
-                                    "assignedUser": {
-                                        "eq": userId
+                                    "activityName": {
+                                        "eq": options.workflowActivityName
                                     }
                                 }
                             ]
                         }
                     });
                 }
-            }
 
-            req.params.query.filters.attributesCriterion.push({
-                "status": {
-                    "eq": "Executing"
-                }
-            });
-
-            if (!_.isEmpty(businessConditionName)) {
-                req.params.query.filters.attributesCriterion.push({
-                    "businessConditions": {
-                        "attributes": [
-                            {
-                                "businessConditionName": {
-                                    "eq": businessConditionName
-                                }
-                            },
-                            {
-                                "businessConditionStatus": {
-                                    "eq": false
-                                }
+                if (!_.isEmpty(options.userId)) {
+                    if (req.params.query.filters.attributesCriterion.length) {
+                        req.params.query.filters.attributesCriterion[0]["activities"].attributes.push({
+                            "assignedUser": {
+                                "eq": options.userId
                             }
-                        ]
+                        });
+                    } else {
+                        req.params.query.filters.attributesCriterion.push({
+                            "activities": {
+                                "attributes": [
+                                    {
+                                        "assignedUser": {
+                                            "eq": options.userId
+                                        }
+                                    }
+                                ]
+                            }
+                        });
+                    }
+                }
+
+                req.params.query.filters.attributesCriterion.push({
+                    "status": {
+                        "eq": "Executing"
                     }
                 });
-            }
 
-            if (!_.isEmpty(attributes)) {
-                req.params.fields = {
-                    "attributes": attributes
+                if (!_.isEmpty(options.businessConditionName)) {
+                    req.params.query.filters.attributesCriterion.push({
+                        "businessConditions": {
+                            "attributes": [
+                                {
+                                    "businessConditionName": {
+                                        "eq": options.businessConditionName
+                                    }
+                                },
+                                {
+                                    "businessConditionStatus": {
+                                        "eq": false
+                                    }
+                                }
+                            ]
+                        }
+                    });
                 }
+
+                if (!_.isEmpty(options.attributes)) {
+                    req.params.fields = {
+                        "attributes": options.attributes
+                    }
+                }
+
+                req.params.options = { "from": 0, "to": 0 };
+
+                return req;
             }
-
-            req.params.options = { "from": 0, "to": 0 };
-
-            return req;
         };
 
         DataRequestHelper.createProfileGetRequest = function (profileIds) {
@@ -780,10 +774,10 @@
         };
 
         DataRequestHelper.generateRelationshipProcessRequest = function (contextData) {
-            var firstItemContext = ContextHelper.getFirstItemContext(contextData);            
+            var firstItemContext = ContextHelper.getFirstItemContext(contextData);
 
             var entityId = firstItemContext && firstItemContext.id ? firstItemContext.id : "";
-            var type = firstItemContext && firstItemContext.type ? firstItemContext.type : "";            
+            var type = firstItemContext && firstItemContext.type ? firstItemContext.type : "";
 
             var req = {
                 "id": entityId,
@@ -791,7 +785,7 @@
                 "data": {
                     "relationships": {
                     }
-                }  
+                }
             };
 
             return req;

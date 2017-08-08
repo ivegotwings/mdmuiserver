@@ -3,14 +3,18 @@
 var Enums = function () { };
 
 Enums.actions = {
-    SaveComplete:1,
-    SaveFail:2,
-    GovernComplete:3,
-    GovernFail:4,
-    WorkflowTransitionComplete:5,
-    WorkflowTransitionFail:6,
-    WorkflowAssignmentComplete:7,
-    WorkflowAssignmentFail:8
+    SystemSaveComplete:1,
+    SaveComplete:2,
+    SystemSaveFail:3,
+    SaveFail:4,
+    GovernComplete:5,
+    GovernFail:6,
+    WorkflowTransitionComplete:7,
+    WorkflowTransitionFail:8,
+    WorkflowAssignmentComplete:9,
+    WorkflowAssignmentFail:10,
+    RSConnectComplete:11,
+    RSConnectFail:12
 }
 
 Enums.operations = {
