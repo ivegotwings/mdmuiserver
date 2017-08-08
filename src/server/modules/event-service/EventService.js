@@ -850,6 +850,10 @@ Eventservice.prototype = {
                 case "changeassignment-query":
                     taskType = "Bulk Workflow Assignments";
                     break;
+                case "process":
+                case "process-query":
+                    taskType = "Bulk Edit";
+                    break;
             }
         }
         else {
