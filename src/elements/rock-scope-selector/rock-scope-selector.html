@@ -13,6 +13,7 @@
 <link rel="import" href="../pebble-horizontal-divider/pebble-horizontal-divider.html">
 <link rel="import" href="../pebble-popover/pebble-popover.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
 
 <link rel="import" href="../rock-tabs/rock-tabs.html">
 
@@ -82,6 +83,17 @@
                 @apply(--scope-tab-content);
             }
         }
+
+        #scopePopover {
+            width: 400px;
+            max-height: none!important;
+            --pebble-popover-max-width: 100%;
+            --pebble-popover-max-height: 360px;
+            overflow: auto;
+            padding: 10px;
+            @apply --popup-item;
+        }
+
     </style>
     <!--Liquid start-->
     <liquid-config-get id="liqInitiateScope" operation="initiatesearch" request-data="{{initiateScopeRequestData}}" last-response="{{initiateScopeResponse}}"
@@ -117,16 +129,15 @@
                 on-tap="_onManageScopeTap"></pebble-button>
         </template>
     </div>
+    <pebble-spinner active="[[_loading]]"></pebble-spinner>
     <!--Tabs section-->
-    <template is="dom-if" if="[[!isManageScopes]]">
-        <rock-tabs id="rock-scope-tabs" config="[[tabConfig]]" selected-tab="{{_selectedTab}}"></rock-tabs>
-    </template>
+    <rock-tabs id="rock-scope-tabs" config="[[tabConfig]]" selected-tab="{{_selectedTab}}"></rock-tabs>
     <!--Create/Update section-->
-    <template is="dom-if" if="[[isManageScopes]]">
-        <rock-scope-create-edit edit-mode="{{isManageScopes}}" scope-id="[[scopeId]]" scopes="[[scopes]]"></rock-scope-create-edit>
-        <bedrock-pubsub event-name="save-scope" handler="_onSaveScope"></bedrock-pubsub>
-        <bedrock-pubsub event-name="cancel-scope" handler="_onCancelScope"></bedrock-pubsub>
-    </template>
+    <pebble-popover id="scopePopover" for="manageScope" auto-fit-on-attach no-overlap horizontal-align="right">    
+        <rock-scope-create-edit scope-id="[[scopeId]]" scopes="[[scopes]]"></rock-scope-create-edit>
+    </pebble-popover>
+    <bedrock-pubsub event-name="save-scope" handler="_onSaveScope"></bedrock-pubsub>
+    <bedrock-pubsub event-name="cancel-scope" handler="_onCancelScope"></bedrock-pubsub>
 </template>
 <script>
     (function () {
@@ -231,6 +242,11 @@
                     }
                 },
 
+                _loading: {
+                    type: Boolean,
+                    value: false
+                },
+
                 /**
                  * Indicates the scope identification which the consumer selects.
                  */
@@ -277,14 +293,6 @@
                 * <b><i>Content development is under progress... </b></i>
                 */
                 showSettings: {
-                    type: Boolean,
-                    value: false
-                },
-
-                /**
-                * <b><i>Content development is under progress... </b></i>
-                */
-                isManageScopes: {
                     type: Boolean,
                     value: false
                 },
@@ -386,6 +394,7 @@
 
             _onContextDataChange: function () {
                 if (this.contextData && !_.isEmpty(this.contextData)) {
+                    this._setLoading(true);;
                     var clonedContextData = DataHelper.cloneObject(this.contextData);
                     var scopeCtxData = DataHelper.cloneObject(this._prepareContext(clonedContextData));
                     var mappingCtxData = DataHelper.cloneObject(this._prepareContext(clonedContextData, "scopemappings"));
@@ -446,12 +455,15 @@
                         if (this.$$('rock-tabs') && this.$$('rock-tabs').$$('rock-scope-tags')) {
                             this.$$('rock-tabs').reloadTabs();
                         }
+
+                        this._setLoading(false);
                     });
                 }
             },
 
-            _onManageScopeTap: function (e) {
-                this.isManageScopes = true;
+            _onManageScopeTap: function (e) {                
+                this.$$("#scopePopover").show();
+
                 this.async(function () {
                     //This is to execute the logic for all scenarios on create/edit link on-click
                     this.$$('rock-scope-create-edit').OnCreateEditButtonClick();
@@ -461,7 +473,7 @@
             // Fired when rock-tabs creates component
             _onComponentCreating: function (e, detail, sender) {
                 var component = detail.data;
-                if (this.scopes) {
+                if (!_.isEmpty(this.scopes)) {
                     component.properties["scopes"] = this.scopes;
                 }
             },
@@ -716,6 +728,11 @@
             _onTapScopeFavourite: function (e, detail, sender) {
                 var foundInFav = false;
                 var tag = detail.parentButton;
+                this._setLoading(true);;
+                var actionsPopover = e.target.querySelector("#actionsPopover");
+                if(actionsPopover) {
+                    actionsPopover.hide();
+                }
 
                 // If mappings available then update
                 if (this._originalScopeMappings && this._originalScopeMappings.length > 0) {
@@ -751,6 +768,9 @@
             },
 
             _onTapScopeDelete: function (e, detail, sender) {
+                this._setLoading(true);;
+                this._hideActionPopover(e);
+
                 var scopeDeleteObj = {
                     "id": detail.parentButton.scopeid,
                     "type": scopeTypeName
@@ -763,9 +783,12 @@
 
             _onTapScopeEdit: function(e, detail, sender) {
                 var eventName = "rock-scope-edit";
+                this._hideActionPopover(e);
+                
                 var eventDetail = {
                     data: detail.parentButton
                 }
+                this.scopeId = eventDetail.data.id;
                 this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
             },
 
@@ -798,13 +821,21 @@
             },
 
             _onSaveScope: function (e, detail, sender) {
-                this.triggerSaveProcess(detail);
+                this._setLoading(true);;
+                this.scopeId = ""; //reset
+                this.$$("#scopePopover").hide();
+                this._triggerSaveProcess(detail);
+            },
+
+            _onCancelScope: function() {
+                this.$$("#scopePopover").hide();
+                this.scopeId = ""; //reset
             },
 
             /**
              * Save process
              */
-            triggerSaveProcess: function(detail) {
+            _triggerSaveProcess: function(detail) {
                 if (detail) {
 
                     var _isUpdate = false;
@@ -818,6 +849,7 @@
                             _currentUser.user != detail.selectedScope.createdby &&
                             _currentUser.role != "admin") //Todo: admin role may changed
                         {
+                            this._setLoading(false);
                             this.showErrorToast("You do not have permissions to update the scope, please contact administrator.");
                             return;
                         }
@@ -955,8 +987,32 @@
             },
 
             refresh: function () {
+                this._setLoading(true);
                 var request = DataHelper.cloneObject(this._scopeRequest);
                 this.generateRequest(request);
+            },
+
+            _setLoading: function(flag) {
+                this._loading = flag;
+
+                this.async(function() {
+                    var scopeTabs = this.querySelector("#rock-scope-tabs");
+                    if(scopeTabs) {
+                        var tagComponentList = scopeTabs.querySelectorAll("rock-scope-tags");
+                        if(tagComponentList) {
+                            for(var i = 0; i < tagComponentList.length; i++) {
+                                tagComponentList[i].loading = flag;
+                            }
+                        }
+                    }
+                }, 150);             
+            },
+
+            _hideActionPopover: function(e) {
+                var actionsPopover = e.target.querySelector("#actionsPopover");
+                if(actionsPopover) {
+                    actionsPopover.hide();
+                }
             }
         });
     })();
