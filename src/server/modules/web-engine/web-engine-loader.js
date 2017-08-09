@@ -9,6 +9,7 @@ var cors = require('cors');
 var bodyParser = require('body-parser');
 var compression = require('compression');
 var cookieParser = require('cookie-parser');
+var fileUpload = require('express-fileupload');
 
 var webEngineConfig = require("../../config/web-engine-config.json");
 
@@ -48,6 +49,8 @@ logger.info('Web engine start - body parser middleware is loaded');
 app.use(cors());
 
 logger.info('Web engine start - cors middleware is loaded');
+
+app.use(fileUpload());
 
 //handling root path (specifically for SAML type of authentication)
 app.get('/', function (req, res) {
