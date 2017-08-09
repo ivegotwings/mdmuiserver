@@ -12,9 +12,8 @@
     <template>
         <style></style>
         <attribute-model-datasource id="attributeModelDataSource" context-data="[[contextData]]" request="[[requestData]]" data-source="{{dataSource}}"
-            data-formatter="{{_dataFormatter}}" keywords-criterion-builder="{{_keywordsCriterionBuilder}}"
-            buffer-record-size="{{size}}" current-record-size="{{currentRecordSize}}" result-record-size="{{resultRecordSize}}"
-            total-count="{{totalCount}}" attribute-models="{{attributeModels}}" mode="grid"  attributes-criterion-builder="{{_attributesCriterionBuilder}}"  sort-criterion-builder="{{_sortCriterionBuilder}}"></attribute-model-datasource>
+            data-formatter="{{_dataFormatter}}" buffer-record-size="{{size}}" current-record-size="{{currentRecordSize}}" result-record-size="{{resultRecordSize}}"
+            total-count="{{totalCount}}" attribute-models="{{attributeModels}}" mode="grid"  filter-criterion-builder="{{_filterCriterionBuilder}}"  sort-criterion-builder="{{_sortCriterionBuilder}}"></attribute-model-datasource>
         <rock-grid id="attributeModelGrid" no-header data-source="{{dataSource}}" data-source-id="attributeModelDataSource" result-record-size="[[resultRecordSize]]"
                     current-record-size="{{currentRecordSize}}" config="[[config]]" grid-data-size="{{size}}" attribute-models="{}"
                     page-size="50" total-count="{{totalCount}}" selected-items="[[selectedItems]]"></rock-grid>
@@ -45,16 +44,10 @@
                             return this._getAttributeFormattedData.bind(this);
                         }
                     },
-                    _keywordsCriterionBuilder: {
+                    _filterCriterionBuilder: {
                         type: Object,
                         value: function () {
-                            return this._prepareKeywordsCriteria.bind(this);
-                        }
-                    },
-                    _attributesCriterionBuilder: {
-                        type: Object,
-                        value: function () {
-                            return this._prepareAttributesCriteria.bind(this);
+                            return this._getFilterCriterion.bind(this);
                         }
                     },
                     _sortCriterionBuilder: {
@@ -81,35 +74,40 @@
                 _getAttributeModelGrid: function () {
                     return ElementHelper.getElement(this, "#attributeModelGrid");
                 },
-                _prepareKeywordsCriteria: function (searchText) {
-                    if (searchText) {
-                        var keywordsCriterion = {};
-
-                        keywordsCriterion.keywords = "*" + searchText + "*";
-                        keywordsCriterion.operator = "_OR";
-
-                        return keywordsCriterion;
-                    }
-                },
-                _prepareAttributesCriteria: function (filter) {
-                    var atrrcriterion=[];
-                    if (filter && filter.length) {
-                        for (var i = 0; i < filter.length; i++) {
-                            var path = filter[i].path;
-                            var filter = filter[i].filter;
-                            var cri = {};
-                            if (filter) {
-                                cri[path] = {eq: "*" + filter + "*"};
-                                atrrcriterion.push(cri);
+                _getFilterCriterion: function (filters) {
+                    var attributesCriterion=[];
+                    var propertiesCriterion=[];
+                    var gridColumns = this.config.tabular.columns;
+                    if (filters && filters.length) {
+                        for (var i = 0; i < filters.length; i++) {
+                            var path = filters[i].path;
+                            var column=gridColumns.find(function (col) {
+                                return col.name===path;
+                            });
+                            if(column) {
+                                var filter = filters[i].filter;
+                                var cri = {};
+                                if (filter) {
+                                    filter=filter.split(" ").join("* *");
+                                    cri[path] = {eq: "*" + filter + "*"};
+                                    if(column.readFrom === "attributes") {
+                                        attributesCriterion.push(cri);
+                                    } else{
+                                        propertiesCriterion.push(cri);
+                                    }
+                                }
                             }
                         }
                     }
-                    if(atrrcriterion.length) {
-                        return atrrcriterion;
+                    var filterCri={};
+                    if(attributesCriterion.length) {
+                        filterCri.attributesCriterion=attributesCriterion;
                     }
-                    return undefined;
+                    if(propertiesCriterion.length) {
+                        filterCri.propertiesCriterion=propertiesCriterion;
+                    }
+                    return filterCri;
                 },
-
 
                 _getAttributeFormattedData: function (data) {
                     if (data && data.content && !_.isEmpty(data.content.entityModels)) {
