@@ -1,0 +1,284 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/data-transform-helper.html">
+<link rel="import" href="../bedrock-helpers/element-helper.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+
+<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
+
+<link rel="import" href="../rock-grid/rock-grid.html">
+<link rel="import" href="../rock-self-attribute-model-lov/self-attribute-model-datasource.html">
+
+<dom-module id="rock-self-attribute-model-grid">
+    <template>
+        <pebble-spinner active="[[_loading]]"></pebble-spinner>
+        <self-attribute-model-datasource id="attributeModelDataSource" request="[[requestData]]" data-formatter="[[_dataFormatter]]" mode="grid">
+        </self-attribute-model-datasource>
+        <liquid-entity-model-get id="getAttributeModels" operation="getbyids" request-id="getAttributeModelsReq" request-data=[[request]]
+            on-response="_onAttributeModelsReceived" on-error="_onAttributeModelsGetFailed"></liquid-entity-model-get>
+        <rock-grid id="attributeModelGrid" no-header config="[[config]]" data="[[_gridData]]" page-size="10" selected-items="[[selectedItems]]"></rock-grid>
+    </template>
+    <script>
+        (function() {
+            'use strict';
+
+            Polymer({
+                is: "rock-self-attribute-model-grid",
+
+                prperties: {
+                    config: {
+                        type: Object,
+                        value: function () { 
+                            return {}; 
+                        }
+                    },
+                    requestData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _dataFormatter: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    selectedItems: {
+                        type: Array,
+                        value: function () { return[]; }
+                    },
+                    _gridData: {
+                        type: Array,
+                        value: function() {
+                            return [
+                                
+                            ];
+                        }
+                    },
+                    _attributeNames: {
+                        type: Array,
+                        value: function() { return []; }
+                    },
+                    _attributeModels: {
+                        type: Array,
+                        value: function() { return []; }
+                    },
+                    _compositeModels: {
+                        type: Object,
+                        value: function() { return {}; }
+                    },
+                     _loading: {
+                        type: Boolean,
+                        value: false
+                    },
+                },
+                behaviors: [
+                    RUFBehaviors.UIBehavior,
+                    RUFBehaviors.ComponentContextBehavior
+                ],
+                observers: [
+                    '_getAttributeModels(contextData)'
+                ],
+                ready: function () {
+                    this._dataFormatter = this._getAttributeFormattedData.bind(this);
+                    this.logInfo("AttributeModelReady","id",this.idField,"requestData",JSON.stringify(this.requestData));
+                },
+                _getAttributeModelGrid: function () {
+                    return ElementHelper.getElement(this, "#attributeModelGrid");
+                },
+                _getAttributeModels: function (contextData) {
+                    if (!_.isEmpty(this.contextData)) {
+                        this._loading = true;
+                        var contextData = DataHelper.cloneObject(this.contextData);
+                        if (this.contextData.ItemContexts) {
+
+                            var index = 0;
+                            for(var i=0; i < contextData.ItemContexts.length; i++){
+                                if(contextData.ItemContexts[i].type){
+                                    index++;
+                                }
+                            }
+                            this._currentIndex = index;
+                            this._currentItems = [];
+                            this._notFoundEntityTypes = [];
+                        }
+
+                        if (contextData && contextData.ItemContexts) {
+                            for (var i = 0; i < this.contextData.ItemContexts.length; i++) {
+
+                                contextData.ItemContexts = [this.contextData.ItemContexts[i]];
+                                var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(
+                                    contextData);
+                                if (compositeModelGetRequest && compositeModelGetRequest.params) {
+                                    compositeModelGetRequest.params.fields.attributes = ["_ALL"];
+                                }
+                                this.set('requestData', compositeModelGetRequest);
+                            }
+                        }
+                    }
+
+                },
+                _getAttributeFormattedData: function (data, requestData) {
+                    if (data && data.content && data.content.entityModels) {
+                        var attributeModels = DataTransformHelper.transformAttributeModels(data.content.entityModels[0], this.contextData);
+                        if (attributeModels) {
+                            if (this._currentIndex == 1) {
+                                this._currentItems = [];
+                            }
+                            this.push('_currentItems', attributeModels);
+
+                            if ((!attributeModels || _.isEmpty(attributeModels)) && requestData) {
+                                this._notFoundEntityTypes.push(requestData.params.query.name);
+                            }
+                        }
+
+                        if (this._currentItems.length == this._currentIndex) {
+                            var compositeModels = {};
+                            for(var i=0; i<this._currentItems.length; i++) {
+                                var currentItem = this._currentItems[i];
+                                var keys = Object.keys(currentItem);
+                                if(keys && keys.length > 0) {
+                                    for(var j=0; j<keys.length; j++) {
+                                        var key = keys[j];
+                                        if(!compositeModels[key]) {
+                                            compositeModels[key] = currentItem[key];
+                                        }
+                                    }
+                                }
+                            }
+                            var attributeNames = Object.keys(compositeModels);
+                            this.set("_compositeModels", compositeModels); 
+                            this.set("_attributeNames", attributeNames);
+
+                            if (this._notFoundEntityTypes && this._notFoundEntityTypes.length) {
+                                var messageContent = this._notFoundEntityTypes.join(", ");
+                                this.showErrorToast("Attribute models not found for entity type(s) " + messageContent + ". Please contact administrator.");
+                            }
+                            this._currentBatchNumber = 0;
+                            this._batchSize = 50;
+                            this._attributeModels = [];
+                            this._requestForAttrModels();
+                        }
+                    }
+                },
+                _requestForAttrModels: function() {
+                    var attributeNames = this._getNextBatch(this._attributeNames, this._currentBatchNumber, this._batchSize);
+                    if(attributeNames && attributeNames.length > 0) {
+                        this._triggerGetAttributeModelsRequest(attributeNames);
+                    } else {
+                        var items = this._transformAtributeModelsToGridSchema(this._attributeModels);
+                        this.set("_gridData", items);
+                        this._loading = false;
+                    }
+                },
+                _triggerGetAttributeModelsRequest: function(attributeNames) {                
+                    var req = {
+                        "params": {
+                            "query": {
+                                "filters": {
+                                    "typesCriterion": ["attributeModel"]
+                                },
+                                "names": attributeNames
+                            },
+                            "fields": {
+                                "ctxTypes": ["properties"],
+                                "attributes": ["_ALL"]
+                            }
+                        }
+                    };
+                    var getAttrModelsLiquid = this.$$("#getAttributeModels");
+                    if(getAttrModelsLiquid) {
+                        getAttrModelsLiquid.requestData = req;
+                        getAttrModelsLiquid.generateRequest();
+                    }
+                },
+
+                _onAttributeModelsReceived: function(e) {
+                    var response = e.detail.response;
+                    if(response && response.status === "success") {
+                        this._currentBatchNumber++;
+                        this._attributeModels = this._attributeModels.concat(response.content.entityModels);
+                        this._requestForAttrModels();
+                    }
+                },
+
+                _getNextBatch: function(attributeNames, currentBatchNumber, batchSize) {
+                    var start = currentBatchNumber * batchSize;
+                    var end = ((currentBatchNumber + 1) * batchSize) - 1;
+                    if (start > attributeNames.length) {
+                        return;
+                    }
+                    if (end > attributeNames.length) {
+                        end = attributeNames.length - 1;
+                    }
+                    return attributeNames.slice(start, end + 1);
+                },
+
+                _transformAtributeModelsToGridSchema: function(attributeModels) {
+                    var items = [];
+                    var gridColumns = this.config.tabular.columns;
+                    var valContext = ContextHelper.getFirstValueContext(this.contextData);
+                    for (var i = 0; i < attributeModels.length; i++) {
+                        var attributeModel = attributeModels[i];
+                        for(var key in attributeModel.properties){
+                            if(!attributeModel[key]) {
+                                attributeModel[key] = attributeModel.properties[key];
+                            }
+                        }
+                        var compositeModel = this._compositeModels[attributeModel.name];
+                        if(!_.isEmpty(compositeModel)) {
+                            for(var key in compositeModel) {
+                                attributeModel[key] = compositeModel[key];
+                            }
+                        }
+                        var attributes = attributeModel.data && attributeModel.data.attributes ? attributeModel.data.attributes : undefined;
+                        if(!_.isEmpty(attributes)) {
+                            for(var j=0; j < gridColumns.length; j++) {
+                                var column = gridColumns[j];
+                                if(column.readFrom === "attributes") {
+                                    var attribute = attributes[column.name];
+                                    if(attribute && attribute.values) {
+                                        attributeModel[column.name] = AttributeHelper.getAttributeValues(attribute.values, valContext);
+                                    }
+                                }
+                            }
+                        }
+                        items.push(attributeModel)
+                    }
+                    return items;
+                },
+                
+                getSelectedItems: function () {
+                    var grid = this._getAttributeModelGrid();
+                    return grid.getSelectedItems();
+                },
+
+                reRenderGrid: function() {
+                    var grid = this._getAttributeModelGrid();
+                    grid.reRenderGrid();
+                },
+                
+                clearSelection: function() {
+                    var grid = this._getAttributeModelGrid();
+                    grid.clearSelection();
+                },
+                getData: function() {
+                    var grid = this._getAttributeModelGrid();
+                    return grid.getData();
+                },
+            });
+        })();
+    </script>
+</dom-module>
