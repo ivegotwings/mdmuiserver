@@ -28,6 +28,8 @@ const polymerBuild = require('polymer-build');
 
 // Here we add tools that will be used to process our source files.
 // const imagemin = require('gulp-imagemin');
+const {generateCountingSharedBundleUrlMapper,
+       generateSharedDepsMergeStrategy} = require('polymer-bundler');
 
 // !!! IMPORTANT !!! //
 // Keep the global.config above any of the gulp-tasks that depend on it
@@ -38,6 +40,7 @@ global.config = {
     bundledDirectory: 'bundled/ui-platform',
     unbundledDirectory: 'unbundled/ui-platform',
     devDirectory: 'dev/ui-platform',
+    // devDirectory: 'default',
     // Accepts either 'bundled', 'unbundled', or 'both'
     // A bundled version will be vulcanized and sharded. An unbundled version
     // will not have its files combined (this is for projects using HTTP/2
@@ -73,9 +76,6 @@ const devPath = path.join(global.config.build.rootDirectory, global.config.build
 const bundledPath = path.join(global.config.build.rootDirectory, global.config.build.bundledDirectory);
 const unbundledPath = path.join(global.config.build.rootDirectory, global.config.build.unbundledDirectory);
 
-const {generateCountingSharedBundleUrlMapper,
-       generateSharedDepsMergeStrategy} = require('polymer-bundler');
-
 /**
  * Waits for the given ReadableStream
  */
@@ -101,7 +101,7 @@ function devBuild() {
         // Let's start by getting your source files. These are all the files
         // in your `src/` directory, or those that match your polymer.json
         // "sources"  property if you provided one.
-        let sourcesStream = polymerProject.sources();
+        let sourcesStream = polymerProject.sources()
 
           // If you want to optimize, minify, compile, or otherwise process
           // any of your source code for production, you can do so here before
@@ -112,7 +112,7 @@ function devBuild() {
           // pull any inline styles and scripts out of their HTML files and
           // into seperate CSS and JS files in the build stream. Just be sure
           // to rejoin those files with the `.rejoin()` method when you're done.
-          //.pipe(sourcesStreamSplitter.split());
+          .pipe(sourcesStreamSplitter.split())
           // Uncomment these lines to add a few more example optimizations to your
           // source files, but these are not included by default. For installation, see
           // the require statements at the beginning.
@@ -121,17 +121,17 @@ function devBuild() {
           // .pipe(gulpif(/\.html$/, htmlMinifier())) // Install gulp-html-minifier to use
           //.pipe(gulpif('**/*.js', babel()))
           // Remember, you need to rejoin any split inline code when you're done.
-          //.pipe(sourcesStreamSplitter.rejoin())
+          .pipe(sourcesStreamSplitter.rejoin());
           //.pipe(debug({title:"After join"}));
 
 
         // Similarly, you can get your dependencies seperately and perform
         // any dependency-only optimizations here as well.
-        let dependenciesStream = polymerProject.dependencies();
-          //.pipe(dependenciesStreamSplitter.split())
+        let dependenciesStream = polymerProject.dependencies()
+          .pipe(dependenciesStreamSplitter.split())
           //.pipe(gulpif(['**/*.js', '!bower_components/web-component-tester/**/*'], babel()))
           // Add any dependency optimizations here.
-          //.pipe(dependenciesStreamSplitter.rejoin());
+          .pipe(dependenciesStreamSplitter.rejoin());
 
 
         // Okay, now let's merge your sources & dependencies together into a single build stream.
@@ -149,17 +149,28 @@ function devBuild() {
         //     rewriteUrlsInTemplates:true,
         //     bundled: true,
         // }));//.pipe(debug({title:"buildStream:"}));
-        buildStream = buildStream.pipe(polymerProject.bundler({
-          excludes: ['bower_components/web-component-tester/**/*'],
-          sourcemaps: true,
-          stripComments: true,
-          rewriteUrlsInTemplates: true,
-          strategy: generateSharedDepsMergeStrategy(3),
-          urlMapper: generateCountingSharedBundleUrlMapper('shared/bundle_')
-        }));
+        
+        // buildStream = buildStream.pipe(polymerProject.bundler({
+        //   bundle: false,
+          // bundle: {
+          //   // excludes: ["src/shared/dataobject-falcor-util.js", "src/shared/enums-util.js"],
+          //   stripComments: true,
+          //   inlineCss: true,
+          // },
+          // js: {compile: false}
+        // }));//.pipe(debug({title:"bundler:"}));
+
+        // buildStream = buildStream.pipe(polymerProject.bundler({
+        //                 excludes: ['bower_components/web-component-tester'],
+        //                 sourcemaps: false,
+        //                 rewriteUrlsInTemplates: true,
+        //                 stripComments: true,
+        //                 // strategy: generateSharedDepsMergeStrategy(3),
+        //                 // urlMapper: generateCountingSharedBundleUrlMapper('shared/bundle_')
+        //               }));
 
         // Now let's generate the HTTP/2 Push Manifest
-        // buildStream = buildStream.pipe(polymerProject.addPushManifest());
+        buildStream = buildStream.pipe(polymerProject.addPushManifest());
 
         // Okay, time to pipe to the build directory
         buildStream = buildStream.pipe(gulp.dest(devPath));//.pipe(debug({title:"Copy:"}));;
@@ -225,8 +236,8 @@ gulp.task('app-nodemon', function (cb) {
                     var tasks = [];
                     if (!changedFiles || !lrEnabled) 
                       return tasks;
-                    compileChangedDevFiles(changedFiles);
-                    stackLiveReload(changedFiles);
+                    // compileChangedDevFiles(changedFiles);
+                    // stackLiveReload(changedFiles);
                     return tasks;
                   } 
               });
@@ -241,6 +252,13 @@ gulp.task('app-nodemon', function (cb) {
   return stream;
 });
 
+gulp.task('watch-element-changes', function () {  
+  gulp.watch(global.config.build.clientFilePaths).on('change', function (fpath) {
+    console.log('file changed...', JSON.stringify(fpath));
+    return gulp.src(fpath, {base:'.'})
+          .pipe(gulp.dest(devPath));
+  });
+});
 
-gulp.task('dev', gulp.series(devBuild, 'app-nodemon'));
+gulp.task('dev', gulp.series(devBuild, 'app-nodemon', 'watch-element-changes'));
 
