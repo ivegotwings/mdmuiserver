@@ -50,8 +50,6 @@ app.use(cors());
 
 logger.info('Web engine start - cors middleware is loaded');
 
-app.use(fileUpload());
-
 //handling root path (specifically for SAML type of authentication)
 app.get('/', function (req, res) {
     if (!renderAuthenticatedPage(req, res)) {
@@ -87,16 +85,6 @@ eventServiceRoute(app);
 
 logger.info('Web engine start - event service routes are loaded');
 
-var copRoute = require('../cop/cop-route');
-copRoute(app);
-
-logger.info('Web engine start - cop service routes are loaded');
-
-var fileUploadRoute = require('../file-upload/file-upload-route');
-fileUploadRoute(app);
-
-logger.info('Web engine start - fileupload routes are loaded');
-
 var fileDownloadRoute = require('../file-download/file-download-route');
 fileDownloadRoute(app);
 
@@ -127,6 +115,23 @@ var binaryObjectRoute = require('../binaryobject/binaryobject-route');
 binaryObjectRoute(app);
 
 logger.info('Web engine start - binary object service routes are loaded');
+
+app.use(fileUpload());
+
+var contextMgrMiddleware = require('../common/context-manager/middleware');
+contextMgrMiddleware(app);
+
+logger.info('Web engine start - context manager middleware is loaded');
+
+var copRoute = require('../cop/cop-route');
+copRoute(app);
+
+logger.info('Web engine start - cop service routes are loaded');
+
+var fileUploadRoute = require('../file-upload/file-upload-route');
+fileUploadRoute(app);
+
+logger.info('Web engine start - fileupload routes are loaded');
 
 //register static file root ...index.html..
 app.get('*', function (req, res) {
