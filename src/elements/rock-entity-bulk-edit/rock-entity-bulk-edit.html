@@ -6,6 +6,7 @@
 <link rel="import" href="../liquid-rest/liquid-rest.html">
 
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-accordion/pebble-accordion.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 
 <!--<link rel="import" href="../rock-attribute-model-grid/rock-attribute-model-grid.html">-->
@@ -71,13 +72,17 @@
             </div>
             <div id="right-container">
                 <pebble-card id="attributes-card" no-header>
-                    <rock-attribute-list id="attributeList" context-data="[[contextData]]" no-of-columns="1" mode="edit" attribute-values="{{_attributeValues}}"
-                        attribute-models="[[_attributeModels]]"></rock-attribute-list>
+                    <pebble-accordion header-text="[[groupName]]" default-icon="expand-less" open-icon="expand-more">
+                        <rock-attribute-list id="attributeList" group-name="" context-data="[[contextData]]" no-of-columns="1" mode="edit" attribute-values="{{_attributeValues}}"
+                        attribute-models="[[_attributeModels]]" show-delete-icon></rock-attribute-list>
+                    </pebble-accordion>
                 </pebble-card>
+                <bedrock-pubsub event-name="attribute-control-delete" handler="_onAttributeControlDelete" target-id=""></bedrock-pubsub>
             </div>
         </div>
         <div id="buttonContainer" align="center">
             <pebble-button id="cancel" class="btn btn-secondary m-r-10" button-text="Cancel" on-tap="_onCancelTap" elevation=1 raised></pebble-button>
+            <pebble-button id="reset" class="btn btn-primary m-r-5" button-text="Reset" on-tap="_onResetTap" elevation=1 raised></pebble-button>
             <pebble-button id="save" class="focus btn btn-success" button-text="Save" on-tap="_onSaveTap" elevation=1 raised></pebble-button>
         </div>
     </template>
@@ -148,7 +153,11 @@
                         value: function () {
                             return this.getParentAppConfig("rock-entity-bulk-edit", '', "requestData");
                         }
-                    }
+                    },
+                    groupName: {
+                        type: String,
+                        value: "Selected Attributes"
+                    },
                 },
                 behaviors: [
                     RUFBehaviors.UIBehavior,
@@ -188,10 +197,11 @@
                 },
                 _onScopeTagClicked: function (e, detail) {
                     if(detail && detail.data ) {
-                        this.$$("#attributesGrid").clearSelection();
+                        var attributesGrid = this.$$("#attributesGrid");
+                        attributesGrid.clearSelection();
                         this._selectedItems=[];
                         var scopeItems = detail.data.scope;
-                        var gridItems = this.$$("#attributesGrid").getData();
+                        var gridItems = attributesGrid.getData();
                         //scope may have contextual attributes as well. 
                         //Need to filter inorder to get only self context attributes for edit.
                         for(var i=0; i<scopeItems.length; i++) {
@@ -201,6 +211,7 @@
                                 this.push("_selectedItems", gridItem);
                             }
                         }
+                        attributesGrid.selectItems(this._selectedItems);
                         this._attributeModels = {};
                         for(var i=0; i<this._selectedItems.length; i++) {
                             var selectedItem = this._selectedItems[i];
@@ -210,6 +221,7 @@
                             }
                         }
                         var values = DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array", true);
+                        this._resetListGroupName(detail.data.name);
                         this._attributeValues = values;
                     }
                 },
@@ -328,6 +340,33 @@
                     this.fireBedrockEvent(eventName, eventDetail, {
                             ignoreId: true
                     });
+                },
+                _resetListGroupName: function(groupName) {
+                    if(groupName) {
+                        this.set("groupName", groupName);
+                    } else {
+                        this.set("groupName", "Selected Attributes");
+                    }
+                },
+                _onResetTap: function(e) {
+                    this._selectedItems = [];
+                    this._attributeModels = {};
+                    this.$$("#attributesGrid").clearSelection();
+                    this._resetListGroupName();
+                    this._attributeValues = [];
+                },
+                _onAttributeControlDelete: function(e, detail) {
+                    var attribute = detail.data;
+                    var grid = this.$$("#attributesGrid");
+                    var selectedItems = grid.getSelectedItems();
+                    var item = selectedItems.find(obj => obj.name === attribute.name);
+                    delete this._attributeModels[item.name];
+                    var selectedItem = this._selectedItems.find(obj => obj.name === item.name);
+                    if(selectedItem) {
+                        var index = this._selectedItems.indexOf(selectedItem);
+                        this._selectedItems.splice(index, 1);
+                    }
+                    grid.deselectItem(item);
                 }
             })
         })();
