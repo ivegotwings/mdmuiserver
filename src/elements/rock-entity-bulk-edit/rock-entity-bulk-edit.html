@@ -95,6 +95,12 @@
                             return {};
                         }
                     },
+                    workflowCriterion: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
                     _attributeValues: {
                         type: Array,
                         value: function () {
@@ -220,6 +226,7 @@
                 _onSaveTap: function(e) {
                     if(!_.isEmpty(this.selectionQuery)) {
                         this._loading = true;
+
                         var attributeList = this.$$("#attributeList");
                         var changedAttributeElements = attributeList.getChangedAttributeElements();
                         if (changedAttributeElements == undefined || changedAttributeElements.length == 0) {
@@ -227,28 +234,64 @@
                             this._loading = false;
                             return;
                         }
+
                         var attributesJSON = [];
                         for (var i = 0; i < changedAttributeElements.length; i++) {
                             var attributeElement = changedAttributeElements[i];
                             var attributeJSON;
-                            if( attributeElement.attributeObject.action=="delete"){
+                            if(attributeElement.attributeObject.action=="delete"){
                                     attributeJSON = DataHelper.cloneObject(attributeElement.originalAttributeObject);
                                     attributeJSON.action = "delete";
-                            } else{
+                            } else {
                                 attributeJSON= attributeElement.attributeObject;
                             }
                             attributesJSON.push(attributeJSON);
                         }
+
                         var newEntity = DataTransformHelper.prepareEntityForAttributesSave({}, attributesJSON, this.contextData);
                         var data = newEntity.data;
                         var req = {
                             "params": {
-                                "taskType": "process-query",
                                 "operationType": "inboundService",
-                                "query": this.selectionQuery,
                                 "data": data
                             }
                         };
+
+                        if(!_.isEmpty(this.workflowCriterion)) {
+                            req.params.taskType = "process-query";
+                            req.params.query = this.selectionQuery;
+                        } else {
+                            this.$$("#bulkEntityEdit").url = "/data/pass-through-combined-query/bulkentityservice/createtask";
+                            req.params.taskType = "process-multi-query";
+
+                            // Remove Attribute Names
+                            var itemContext = ContextHelper.getFirstItemContext(this.contextData);
+                            delete itemContext.attributeNames;
+                            this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+
+                            // Prepare EntityData Request
+                            this._entityDataGetReq = DataRequestHelper.createEntityGetRequest(this.contextData)
+
+                            // Add entityDataGet and entityGovernGet request objects
+                            if(this.selectionQuery.filters) {
+                                this._entityDataGetReq.params.query.filters = this.selectionQuery.filters;
+                            }
+
+
+                            // Prepare GovernData Request
+                            var contexts = [];
+                            contexts.push({
+                                "workflow": this.workflowCriterion.workflowShortName
+                            });
+
+                            var options = {
+                                "contexts": contexts,
+                                "typesCriterion": this.selectionQuery.filters.typesCriterion,
+                                "workflowActivityName": this.workflowCriterion.workflowActivityName,
+                            }
+                            this._governDataGetReq = DataRequestHelper.createGovernGetRequest(options);
+                            req.entities = DataRequestHelper.createCombinedGetRequestForTasks(this._entityDataGetReq, this._governDataGetReq);
+                        }
 
                         var bulkEditLiquid = this.$$("#bulkEntityEdit");
                         if(bulkEditLiquid) {
