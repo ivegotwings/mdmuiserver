@@ -45,7 +45,6 @@ const entityCompositeModelGetService = new EntityCompositeModelGetService(option
 const eventService = new EventService(options);
 
 async function initiateSearch(callPath, args) {
-
     var response = [];
     var isCombinedQuerySearch = false;
 

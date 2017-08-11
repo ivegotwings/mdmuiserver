@@ -25,7 +25,7 @@
         <liquid-rest id="entityWfAssignment" url="/pass-through-bulk/entitygovernservice/workflowChangeAssignment" method="POST" request-data={{_assignmentRequest}}
             on-liquid-response="_onAssignmentSuccess" on-liquid-error="_onAssignmentFailure"></liquid-rest>
 
-        <liquid-rest id="asyncEntityWfAssignment" url="/data/pass-through/bulkentityservice/createtask" method="POST" request-data={{_asyncAssignmentRequest}}
+        <liquid-rest id="asyncEntityWfAssignment" url="/data/pass-through-combined-query/bulkentityservice/createtask" method="POST" request-data={{_asyncAssignmentRequest}}
             on-liquid-response="_onAsyncAssignmentSuccess" on-liquid-error="_onAsyncAssignmentFailure"></liquid-rest>
     </template>
     <script>
@@ -192,21 +192,7 @@
                     };
 
                     //Prepare request without entity
-                    var req = DataRequestHelper.createWfChangeAssignmentRequest(null, workflowDetails, this.contextData, this.assignmentAction);
-
-                    //Add entities to the request
-                    var entities = [];
-                    var entityTypes = [];
-                    for (var i = 0; i < this.selectedEntities.length; i++) {
-                        entities.push({
-                            "id": this.selectedEntities[i].id,
-                            "type": this.selectedEntities[i].type
-                        });
-
-                        if(entityTypes.indexOf(this.selectedEntities[i].type) == -1) {
-                           entityTypes.push(this.selectedEntities[i].type);
-                        }
-                    }
+                    var workflowAssignmentRequest = DataRequestHelper.createWfChangeAssignmentRequest(null, workflowDetails, this.contextData, this.assignmentAction);
 
                     if(this.selectionMode == "query" || (this.selectionMode == "count" && this.selectedEntities.length > this.syncThreshold)) {
 
@@ -216,12 +202,31 @@
                             return;
                         }
 
-                        req.params.query = this.selectionQuery;
+                        // workflowAssignmentRequest.params.query = this.selectionQuery;
 
                         //Async process
                         var asyncLiquidWfAssign = this.$$("#asyncEntityWfAssignment");
-                        req.params.taskType = "changeAssignment-query";
-                        req.params.operationType = "inboundService";
+                        workflowAssignmentRequest.params.taskType = "changeAssignment-multi-query";
+                        workflowAssignmentRequest.params.operationType = "inboundService";
+
+                        this._entityDataGetReq = DataRequestHelper.createEntityGetRequest(this.contextData)
+
+                        // Add entityDataGet and entityGovernGet request objects
+                        if(this.selectionQuery.filters) {
+                            this._entityDataGetReq.params.query.filters = this.selectionQuery.filters;
+                        }
+
+                        var contexts = [];
+                        contexts.push({
+                            "workflow": this.workflowName
+                        });
+                        var options = {
+                            "contexts": contexts,
+                            "typesCriterion": this.selectionQuery.filters.typesCriterion,
+                            "workflowActivityName": this.workflowActivityName,
+                        }
+                        this._governDataGetReq = DataRequestHelper.createGovernGetRequest(options);
+                        workflowAssignmentRequest.entities = DataRequestHelper.createCombinedGetRequestForTasks(this._entityDataGetReq, this._governDataGetReq);
 
                         //Add clientAttributes
                         var valueContext = ContextHelper.getFirstValueContext(this.contextData);
@@ -233,7 +238,7 @@
                             clientMessage = "Workflow '"+ this.workflowExternalName +"' step '" + this.workflowActivityExternalName +"' assignment release";
                         }
 
-                        req.clientAttributes = {
+                        workflowAssignmentRequest.clientAttributes = {
                             "taskName": {
                                 "values": [{
                                     "source": valueContext.source,
@@ -243,15 +248,29 @@
                             }
                         };
 
-                        this.set("_asyncAssignmentRequest", req);
+                        this.set("_asyncAssignmentRequest", workflowAssignmentRequest);
                         if (asyncLiquidWfAssign) {
                             asyncLiquidWfAssign.generateRequest();
                         }
                     }
                     else { // Sync process
-                        req["entities"] = entities;
+                        //Add entities to the request
+                        var entities = [];
+                        var entityTypes = [];
+                        for (var i = 0; i < this.selectedEntities.length; i++) {
+                            entities.push({
+                                "id": this.selectedEntities[i].id,
+                                "type": this.selectedEntities[i].type
+                            });
+
+                            if(entityTypes.indexOf(this.selectedEntities[i].type) == -1) {
+                                entityTypes.push(this.selectedEntities[i].type);
+                            }
+                        }
+
+                        workflowAssignmentRequest["entities"] = entities;
                         var liquidWfAssign = this.$$("#entityWfAssignment");
-                        this.set("_assignmentRequest", req);
+                        this.set("_assignmentRequest", workflowAssignmentRequest);
                         if (liquidWfAssign) {
                             liquidWfAssign.generateRequest();
                         }
