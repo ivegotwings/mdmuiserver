@@ -844,14 +844,17 @@ Eventservice.prototype = {
                     break;
                 case "transitionworkflow":
                 case "transitionworkflow-query":
+                case "transitionworkflow-multi-query":
                     taskType = "Bulk Workflow Transitions";
                     break;
                 case "changeassignment":
                 case "changeassignment-query":
+                case "changeassignment-multi-query":
                     taskType = "Bulk Workflow Assignments";
                     break;
                 case "process":
                 case "process-query":
+                case "process-multi-query":
                     taskType = "Bulk Edit";
                     break;
             }

@@ -55,6 +55,35 @@ PassThroughService.prototype = {
 
         //console.log('Bulk Operation Response - ', bulkOperationResponse);
         return bulkOperationResponse;
+    },
+    createTaskForCombinedQuery: async function (request) {
+        //console.log('PassThroughService.call ', request.url);
+        var createTaskRequest = request.body;
+
+        if(createTaskRequest) {
+            var passThroughUrl = request.url.replace('/data/pass-through-combined-query/', '');
+
+            if(createTaskRequest.params && createTaskRequest.params.options) {
+                delete createTaskRequest.params.options;
+                createTaskRequest.params.pageSize = 500;
+            }
+
+            if(createTaskRequest.entities && createTaskRequest.entities.data && createTaskRequest.entities.data.jsonData) {
+                var searchQueries = createTaskRequest.entities.data.jsonData.searchQueries;
+            }
+
+            if(searchQueries) {
+                for (var i = 0; i < searchQueries.length; i++) {
+                    var searchQuery = searchQueries[i];
+
+                    if (searchQuery.searchQuery && searchQuery.searchQuery.options) {
+                        delete searchQuery.searchQuery.options;
+                    }
+                }
+            }
+
+            return await this.post(passThroughUrl, createTaskRequest);
+        }
     }
 };
 

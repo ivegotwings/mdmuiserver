@@ -23,6 +23,10 @@ SERVICE_CONFIG = {
             "url": "/entityappservice/delete",
             "mode": "online"
         },
+        "entityappservice/getcombined": {
+            "url": "/entityappservice/getcombined",
+            "mode": "online"
+        },
         "entitymodelservice/get": {
             "url": "/entityappmodelservice/get",
             "mode": "online",
