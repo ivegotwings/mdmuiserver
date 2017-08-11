@@ -19,37 +19,43 @@ DataObjectFalcorUtil.getPathKeys = function () {
                 "name": "entity",
                 "collectionName": "entities",
                 "responseObjectName": "response",
-                "maxRecordsToReturn": 200
+                "maxRecordsToReturn": 200,
+                "combinedQueryPageSize": 500
             },
             "entityGovernData": {
                 "name": "entityGovernData",
                 "collectionName": "entities",
                 "responseObjectName": "response",
-                "maxRecordsToReturn": 5000
+                "maxRecordsToReturn": 5000,
+                "combinedQueryPageSize": 500
             },
             "entityModel": {
                 "name": "entityModel",
                 "collectionName": "entityModels",
                 "responseObjectName": "response",
-                "maxRecordsToReturn": 2000
+                "maxRecordsToReturn": 2000,
+                "combinedQueryPageSize": 500
             },
             "config": {
                 "name": "configObject",
                 "collectionName": "configObjects",
                 "responseObjectName": "response",
-                "maxRecordsToReturn": 100
+                "maxRecordsToReturn": 100,
+                "combinedQueryPageSize": 500
             },
             "eventData": {
                 "name": "event",
                 "collectionName": "events",
                 "responseObjectName": "response",
-                "maxRecordsToReturn": 500
+                "maxRecordsToReturn": 500,
+                "combinedQueryPageSize": 500
             },
             "requestTracking": {
                 "name": "requestobject",
                 "collectionName": "requestObjects",
                 "responseObjectName": "response",
-                "maxRecordsToReturn": 25000
+                "maxRecordsToReturn": 25000,
+                "combinedQueryPageSize": 500
             }
         }
     };

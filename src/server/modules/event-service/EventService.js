@@ -854,6 +854,7 @@ Eventservice.prototype = {
                     break;
                 case "process":
                 case "process-query":
+                case "process-multi-query":
                     taskType = "Bulk Edit";
                     break;
             }

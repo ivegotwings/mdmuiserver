@@ -67,9 +67,14 @@ async function initiateSearch(callPath, args) {
         if (request.params) {
             if(request.params.isCombinedQuerySearch) {
                 isCombinedQuerySearch = true;
-                request.params.pageSize = dataIndexInfo.combinedQueryPageSize || 500;
                 delete request.params.isCombinedQuerySearch;
 
+                if(request.params.options) {
+                    delete request.params.options;
+                }
+
+                request.params.pageSize = dataIndexInfo.combinedQueryPageSize || 500;
+                
                 //Identify the last executable query...
                 if(request.entity && request.entity.data && request.entity.data.jsonData) {
                     var searchQueries =request.entity.data.jsonData.searchQueries;
@@ -79,6 +84,10 @@ async function initiateSearch(callPath, args) {
                         var highestSeqSearchQuery = undefined;
                         for (var i = 0; i < searchQueries.length; i++) {
                             var searchQuery = searchQueries[i];
+
+                            if (searchQuery.searchQuery && searchQuery.searchQuery.options) {
+                                delete searchQuery.searchQuery.options;
+                            }
 
                             if(searchQuery.searchSequence >= currentSearchQuerysequence) {
                                 highestSeqSearchQuery = searchQuery;
