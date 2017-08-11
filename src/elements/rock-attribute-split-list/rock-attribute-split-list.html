@@ -1,0 +1,242 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../pebble-split-list/pebble-split-list.html">
+
+
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-helpers/attribute-helper.html">
+<link rel="import" href="../bedrock-helpers/context-helper.html">
+
+<link rel="import" href="../rock-grid-data-sources/attribute-model-datasource.html">
+
+<!--
+`rock-attribute-split-list`
+
+@demo demo/index.html 
+-->
+
+<dom-module id="rock-attribute-split-list">
+    <template>
+        <attribute-model-datasource id="attributeModelDataSource" request="[[requestData]]" data-source="{{dataSource}}"  total-count="{{totalCount}}"
+                              buffer-record-size="{{size}}" current-record-size="{{currentRecordSize}}"  result-record-size="{{resultRecordSize}}"
+                              data-formatter="{{_dataFormatter}}" mode="grid"  filter-criterion-builder="{{_filterCriterionBuilder}}" sort-criterion-builder="{{_sortCriterionBuilder}}">
+        </attribute-model-datasource>
+        <pebble-split-list data-source-id="attributeModelDataSource" items="{{items}}" deleted-items="{{deletedItems}}" page-size="[[pageSize]]" size="{{size}}" selected-items="{{selectedItems}}" retain-selected-items="{{retainSelectedItems}}"
+            move-up-down-enabled="{{moveUpDownEnabled}}" config="{{config}}" data-source="{{dataSource}}"
+        ></pebble-split-list>
+
+
+    </template>
+
+    <script>
+        (function () {
+            'use strict';
+
+            Polymer({
+                is: 'rock-attribute-split-list',
+                properties: {
+                    contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    items:{
+                        type:Array,
+                        value:function () {
+                            return [];
+                        },
+                        notify:true
+                    },
+                    selectedItems:{
+                        type:Array,
+                        value:function () {
+                            return [];
+                        },
+                        notify:true
+                    },
+                    retainSelectedItems: {
+                        type:Boolean,
+                        value:false
+                    },
+                    moveUpDownEnabled:{
+                        type:Boolean,
+                        value:false
+                    },
+                    requestData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    pageSize:{
+                        type:Number,
+                        value:50
+                    },
+                    deletedItems:{
+                        type:Array,
+                        value:function () {
+                            return [];
+                        }
+                    },
+                    config:{
+                        type:Object
+                    }
+
+                },
+                behaviors:[
+                    RUFBehaviors.UIBehavior
+                ],
+                ready: function () {
+                    this._dataFormatter = this._getAttributeFormattedData.bind(this);
+                    this._filterCriterionBuilder = this._getFilterCriterion.bind(this);
+                    this._sortCriterionBuilder = this._getSortCriterion.bind(this);
+                    var modelGetRequest = {
+                        "params": {
+                            "query": {
+                                "filters": {
+                                    "typesCriterion": [
+                                        "attributeModel"
+                                    ]
+                                }
+                            },
+                            "fields": {
+                                "ctxTypes": [
+                                    "properties"
+                                ],
+                                "attributes":[""]
+                            }
+                        }
+                    };
+                    this.requestData = modelGetRequest;
+                },
+                _getSortCriterion: function (sortOrders) {
+                    if (sortOrders && sortOrders.length) {
+                        var sortOrder = sortOrders[sortOrders.length - 1];
+                        var gridColumns = this.config.tabular.columns;
+                        var attributes = [];
+                        var property = {};
+                        var direction = "_ASC";
+                        if (sortOrder.direction ) {
+                            if (sortOrder.direction == "asc") {
+                                direction = "_ASC";
+                            } else if (sortOrder.direction == "desc") {
+                                direction = "_DESC";
+                            }
+                            property[sortOrder.path] = direction;
+                            if(this.attributeModels){
+                                var attributeModel = this.attributeModels[sortOrder.path];
+                                property["sortType"] = ConstantHelper.getDataTypeConstant(attributeModel.dataType);
+                            }
+                            if(!property["sortType"]){
+                                property["sortType"] = ConstantHelper.DATATYPE_STRING;
+                            }
+                            attributes.push(property);
+                            for(var i=0;i<gridColumns.length;i++){
+                                var col=gridColumns[i];
+                                if(col.name==sortOrder.path){
+                                    if(col.readFrom === "attributes") {
+                                        return { "attributes": attributes };
+                                    } else{
+                                        return { "properties": attributes };
+                                    }
+                                }
+                            }
+                            return { "properties": attributes };
+                        }
+                    }
+                    return undefined;
+                },
+                _getFilterCriterion: function (filters) {
+                    var attributesCriterion=[];
+                    var propertiesCriterion=[];
+                    var gridColumns = this.config.tabular.columns;
+                    if (filters && filters.length) {
+                        for (var i = 0; i < filters.length; i++) {
+                            var path = filters[i].path;
+                            var column=gridColumns.find(function (col) {
+                                return col.name===path;
+                            });
+                            if(column) {
+                                var filter = filters[i].filter;
+                                var cri = {};
+                                if (filter) {
+                                    filter=filter.split(" ").join("* *");
+                                    cri[path] = {eq: "*" + filter + "*"};
+                                    if(column.readFrom === "attributes") {
+                                        attributesCriterion.push(cri);
+                                    } else{
+                                        propertiesCriterion.push(cri);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    var filterCri={};
+                    if(attributesCriterion.length) {
+                        filterCri.attributesCriterion=attributesCriterion;
+                    }
+                    if(propertiesCriterion.length) {
+                        filterCri.propertiesCriterion=propertiesCriterion;
+                    }
+                    return filterCri;
+                },
+                _getAttributeFormattedData: function (data) {
+                    var idField=this.config.tabular.settings.idField;
+                    var formattedData=[];
+                    var deletedCount=0;
+                    var gridColumns = this.config.tabular.columns;
+                    var valContext = ContextHelper.getFirstValueContext(this.contextData);
+                    if (data && data.content && !_.isEmpty(data.content.entityModels)) {
+                        var attributeModels = data.content.entityModels;
+
+                        for (var i = 0; i < attributeModels.length; i++) {
+                            var attributeModel = attributeModels[i];
+                            for(var key in attributeModel.properties){
+                                if(!attributeModel[key]) {
+                                    attributeModel[key] = attributeModel.properties[key];
+                                }
+                            }
+                            var attributes = attributeModel.data && attributeModel.data.attributes ? attributeModel.data.attributes : undefined;
+                            if(!_.isEmpty(attributes)) {
+                                for(var j=0; j < gridColumns.length; j++) {
+                                    var column = gridColumns[j];
+                                    if(column.readFrom === "attributes") {
+                                        var attribute = attributes[column.name];
+                                        if(attribute && attribute.values) {
+                                            attributeModel[column.name] = AttributeHelper.getAttributeValues(attribute.values, valContext);
+                                        }
+                                    }
+                                }
+                            }
+                            var _this=this;
+                            var match;
+                            if(this.selectedItems && this.selectedItems.length) {
+                                match = this.selectedItems.find(function (item) {
+                                    if (item && item[idField] === attributeModel[idField]) {
+                                        if (_this.deletedItems.indexOf(item) === -1) {
+                                            _this.push("deletedItems", item);
+                                        }
+                                        deletedCount++;
+                                        return true;
+                                    }
+                                    return false;
+                                });
+                            }
+                            if(!match){
+                                formattedData.push(attributeModel);
+                            }
+                        }
+                        formattedData.deletedCount=deletedCount;
+                        return formattedData;
+                    }
+                },
+                rerenderGrid:function () {
+                    this.$$("pebble-split-list").rerenderGrid();
+                }
+            });
+        })();
+    </script>
+
+</dom-module>

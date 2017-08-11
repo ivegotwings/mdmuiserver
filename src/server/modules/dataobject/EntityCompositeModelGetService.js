@@ -204,6 +204,22 @@ EntityCompositeModelGetService.prototype = {
             } else {
                 readWriteObj.properties['hasWritePermission'] = false;
             }
+
+            if(isRelType) {
+                //Verify and populate write permissions for rel attributes...
+                if(readWriteObj.attributes) {
+                    var writeObjectRelAttributes = {};
+                    if(writeObjects) {
+                        var writeObj = writeObjects[readWriteObjKey];
+
+                        if(writeObj && writeObj.length > 0) {
+                            writeObjectRelAttributes = writeObj[0].attributes;
+                        }
+                    }
+
+                    this._verifyAndPopulateWritePermissions(readWriteObj.attributes, writeObjectRelAttributes, false);
+                }
+            }
         }
     },
     _cloneAndPrepareRequestObject: function (request, types) {
