@@ -233,7 +233,8 @@ The following JSON object is a config sample which configures the grid in all ab
 
 			pebble-data-table {
 				--pebble-data-table-header: {
-					height: 45px;
+					min-height: 45px;
+					padding: 10px 0;
 				}
 				--pebble-data-table-row-odd: {
 					background-color: var(--secondary-button-color, #ffffff);
@@ -387,13 +388,17 @@ The following JSON object is a config sample which configures the grid in all ab
 				width: 100%;
 			}
 
+			data-table-cell span {
+				display: block;
+				width: 100%;
+    		overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
 			data-table-cell[header] {
 				font-size: var(--font-size-sm, 12px);
 				color: var(--palette-cerulean, #036bc3);
-			}
-
-			data-table-cell[header]:hover {
-				color: var(--palette-steel-grey, #75808b);
 			}
 
 			data-table-cell:not([header]) {
@@ -740,19 +745,19 @@ The following JSON object is a config sample which configures the grid in all ab
 			</template>
 			<div id="pebbleGridContainer" class="m-l-20 m-r-20 m-b-10">
 				<template is="dom-if" if="{{_isTabularMode(config.viewMode)}}">
-					<pebble-data-table id="pebbleDataTable" advance-selection-options="[[config.advanceSelectionOptions]]" advance-selection-enabled="[[config.advanceSelectionEnabled]]"
+					<pebble-data-table id="pebbleDataTable"  min-filter-length="[[minFilterLength]]" advance-selection-options="[[config.advanceSelectionOptions]]" advance-selection-enabled="[[config.advanceSelectionEnabled]]"
 					 selection-info="{{selectionInfo}}" id="[[id]]" page-size="[[pageSize]]" size="[[gridDataSize]]" selection-enabled="[[selectionEnabled]]"
 					 multi-selection="[[config.tabular.settings.isMultiSelect]]" data-source="[[dataSource]]" items="{{data}}" selected-item="{{selectedItem}}"
-					 selected-items="{{selectedItems}}" sort-order="{{sortOrder}}">
+					 selected-items="{{selectedItems}}" sort-order="{{sortOrder}}" disable-select-all="[[config.tabular.settings.disableSelectAll]]">
 
 						<data-table-column name="Actions" hidden$="[[!_hasActions()]]">
-							<template>
-								<template is="dom-repeat" items="[[_actions()]]" as="col" index-as="colIndex">
-									<pebble-button class="actionButton" icon="[[_actionValue(colIndex)]]" on-tap="_fireActionEvent" item="[[item]]" index="[[index]]"
-									 action-index="[[colIndex]]"></pebble-button>
+								<template>
+									<template is="dom-repeat" items="[[_actions()]]" as="col" index-as="colIndex">
+										<pebble-button class="actionButton" icon="[[_actionValue(colIndex)]]" on-tap="_fireActionEvent" item="[[item]]" index="[[index]]"
+										 action-index="[[colIndex]]"></pebble-button>
+									</template>
 								</template>
-								<span id="error-circle[[index]]" class="error-circle" hidden item="[[item]]" index="[[index]]" on-tap="_openPopover" on-mouseenter="_openPopover"> </span>
-							</template>
+								<span id="error-circle[[index]]" class="error-circle" hidden item="[[item]]" index="[[index]]" on-tap="_openPopover" on-mouseenter="_openPopover"> </span>	
 						</data-table-column>
 						<data-table-column name="Status" hidden$="[[!config.statusEnabled]]">
 							<template>
@@ -762,7 +767,7 @@ The following JSON object is a config sample which configures the grid in all ab
 						<template is="dom-if" if="[[config.readOnly]]">
 							<template is="dom-repeat" items="[[config.tabular.columns]]" as="col" index-as="colIndex">
 								<data-table-column name="[[col.header]]" column-index="{{colIndex}}" filter-by$="[[_isFilterEnabled(col)]]" sort-by$="[[_isSortable(col)]]"
-								 icon="pebble-md-icons:Edit" class="pebble-md-icons" column-object="[[col]]">
+								 icon="pebble-md-icons:Edit" class="pebble-md-icons" column-object="[[col]]" width="[[_getColWidth(col)]]">
 									<template>
 										<template is="dom-if" if="[[_hasLinkTemplate(column.columnObject, item)]]">
 											<a href$="[[_getLink(column.columnObject, item)]]">
@@ -783,7 +788,7 @@ The following JSON object is a config sample which configures the grid in all ab
 						<template is="dom-if" if="[[!config.readOnly]]">
 							<template is="dom-repeat" items="[[config.tabular.columns]]" as="col" index-as="colIndex">
 								<data-table-column name="[[col.header]]" column-index="{{colIndex}}" filter-by$="[[_isFilterEnabled(col)]]" sort-by$="[[_isSortable(col)]]"
-								 icon="pebble-md-icons:Edit" class="pebble-md-icons" column-object="[[col]]" model-object="{{_getAttributeModelObject(col)}}">
+								 icon="pebble-md-icons:Edit" class="pebble-md-icons" column-object="[[col]]" model-object="{{_getAttributeModelObject(col)}}" width="[[_getColWidth(col)]]">
 									<template>
 										<template is="dom-if" if="[[_hasLinkTemplate(column.columnObject, item)]]">
 											<a href$="[[_getLink(column.columnObject, item)]]">
@@ -1068,7 +1073,14 @@ The following JSON object is a config sample which configures the grid in all ab
 					},
 					selectionTitle: {
 						type: String
-					}
+					},
+					_dataTableWidth: {
+						type: Number
+					},
+                    minFilterLength:{
+                        type:Number,
+                        value:2
+                    }
 				},
 				behaviors: [
 					RUFBehaviors.UIBehavior
@@ -1114,6 +1126,9 @@ The following JSON object is a config sample which configures the grid in all ab
 							break;
 						case "edit":
 							this.changeToEditMode(e, detail);
+							break;
+						case "bulkedit":
+							this._onBulkEdit(e, detail);
 							break;
 						case "addrow":
 							this._addNewRow(e, detail);
@@ -1721,6 +1736,9 @@ The following JSON object is a config sample which configures the grid in all ab
 				_onRefresh: function (e, detail) {
 					this.reRenderGrid();
 				},
+				_onBulkEdit: function (e) {
+					this.fireBedrockEvent("grid-bulk-edit-items");
+				},
 				_onDownload: function (e) {
 					this.fireBedrockEvent("grid-download-item");
 				},
@@ -2168,6 +2186,25 @@ The following JSON object is a config sample which configures the grid in all ab
 						}
 					}
 					return queryObject;
+				},
+				_getColWidth: function(col) {
+					if(col.width) {
+						if(!this._dataTableWidth) {
+							var dataTable = this._getIronDataTable();
+							this._dataTableWidth = dataTable && dataTable.clientWidth ? dataTable.clientWidth : undefined
+						}
+						if(this._dataTableWidth && this._dataTableWidth > 100) {
+							return (this._dataTableWidth * col.width) / 100 + "px";
+						}
+					}
+				},
+				_checkForGridObjectWritePermission: function(permission){
+					if(permission == undefined || permission == null){
+						return true;
+					}
+					else{
+						return permission;
+					}
 				}
 			});
 		})();
