@@ -3,6 +3,7 @@
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-horizontal-divider/pebble-horizontal-divider.html">
@@ -78,24 +79,24 @@ It renders the list of attributes based on the specified parameters.
                 border-top: 1px dotted var(--default-border-color);
             }
         </style>
-        <template id="attributeRepeat" is="dom-repeat" items="[[attributeValues]]" as="attribute" notify-dom-change>
+        <template id="attributeRepeat" is="dom-repeat" items="[[attributeValues]]" initial-count="20" as="attribute" notify-dom-change>
 
             <template is="dom-if" if="[[_checkRenderGroupBar(attribute, 0)]]">
                 <pebble-accordion header-text="[[groupName]]" default-icon="expand-less" open-icon="expand-more">
                     <div class="attribute-wrapper">
             </template>
 
-            <div class$="[[_getAttributeClass(noOfColumns)]]" name$="[[attribute.name]]">
+            <div class$="[[_getAttributeClass(noOfColumns, attribute)]]" name$="[[attribute.name]]">
                 <rock-attribute context-data="[[contextData]]" mode="{{mode}}" errors="{{attribute.errors}}" server-errors="[[_getAttributeMessage(attribute,attributeMessages)]]"
                     attribute-model-object="[[_getAttributeModel(attributeModels, attribute)]]" attribute-object="{{attribute}}"
-                    original-attribute-object="[[_cloneObject(attribute)]]" tabindex="[[_getTabIndex(attribute)]]" on-attribute-value-changed="resetErrors"></rock-attribute>
+                    original-attribute-object="[[_cloneObject(attribute)]]" tabindex="[[_getTabIndex(attribute)]]" on-attribute-value-changed="resetErrors" show-delete-icon="[[showDeleteIcon]]"></rock-attribute>
             </div>
 
             <template is="dom-if" if="[[_checkRenderGroupBar(attribute, 1)]]">
                 </div>
                 </pebble-accordion>
             </template>
-
+            <bedrock-pubsub event-name="attribute-delete" handler="_ondeletingAttribute" target-id=""></bedrock-pubsub>
         </template>
     </template>
     <script>
@@ -162,7 +163,7 @@ It renders the list of attributes based on the specified parameters.
                         type: Array,
                         value: function () {
                             return [];
-                        }                        
+                        }                       
                     },
                     /**
                      * Indicates the attribute value objects which renders the attributes.
@@ -210,17 +211,29 @@ It renders the list of attributes based on the specified parameters.
                     _runningTabIndex: {
                         type: Number,
                         value: 1
-                    } 
+                    },
+                    _previousViewName: {
+                        type: String,
+                        value: ""
+                    },
+                    showDeleteIcon: {
+                        type: Boolean,
+                        value: false
+                    }
                 },
                 behaviors: [
                     RUFBehaviors.UIBehavior,
                     RUFBehaviors.ComponentContextBehavior
                 ],
                 observers: [
-                    '_calculateErrorLength(attributeValues)',
                     '_modeChanged(mode)'
                 ],
-                _getAttributeClass: function (n) {
+                _getAttributeClass: function (n, attribute) {
+                    var model = this._getAttributeModel(this.attributeModels, attribute);
+                    var displayType = model && model.displayType ? model.displayType.toLowerCase() : "";
+                    if(displayType === "textarea" || displayType === "richtexteditor") {
+                        n = 1;
+                    }
                     return "attribute-box attribute-box-" + n;
                 },                
                 _getAttributeModel: function (attributeModels, attribute) {
@@ -414,6 +427,18 @@ It renders the list of attributes based on the specified parameters.
                 },
                 _getTabIndex: function(attribute) {
                     return this._runningTabIndex++;
+                },
+                getAttributeValues: function() {
+                    return this.attributeValues;
+                },
+                _ondeletingAttribute: function(e, detail) {
+                    var attributeModelObject = detail.data;
+                    var attribute = this.attributeValues.find(obj => obj.name === attributeModelObject.name);
+                    if(attribute) {
+                        var index = this.attributeValues.indexOf(attribute);
+                        this.splice("attributeValues", index, 1);
+                        this.fireBedrockEvent("attribute-control-delete", { data: attribute }, { ignoreId: true });
+                    }
                 }
             });
         })();

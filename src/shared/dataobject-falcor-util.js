@@ -19,37 +19,43 @@ DataObjectFalcorUtil.getPathKeys = function () {
                 "name": "entity",
                 "collectionName": "entities",
                 "responseObjectName": "response",
-                "maxRecordsToReturn": 200
+                "maxRecordsToReturn": 200,
+                "combinedQueryPageSize": 500
             },
             "entityGovernData": {
                 "name": "entityGovernData",
                 "collectionName": "entities",
                 "responseObjectName": "response",
-                "maxRecordsToReturn": 2000
+                "maxRecordsToReturn": 5000,
+                "combinedQueryPageSize": 500
             },
             "entityModel": {
                 "name": "entityModel",
                 "collectionName": "entityModels",
                 "responseObjectName": "response",
-                "maxRecordsToReturn": 2000
+                "maxRecordsToReturn": 2000,
+                "combinedQueryPageSize": 500
             },
             "config": {
                 "name": "configObject",
                 "collectionName": "configObjects",
                 "responseObjectName": "response",
-                "maxRecordsToReturn": 100
+                "maxRecordsToReturn": 100,
+                "combinedQueryPageSize": 500
             },
             "eventData": {
                 "name": "event",
                 "collectionName": "events",
                 "responseObjectName": "response",
-                "maxRecordsToReturn": 50
+                "maxRecordsToReturn": 500,
+                "combinedQueryPageSize": 500
             },
             "requestTracking": {
                 "name": "requestobject",
                 "collectionName": "requestObjects",
                 "responseObjectName": "response",
-                "maxRecordsToReturn": 2000
+                "maxRecordsToReturn": 25000,
+                "combinedQueryPageSize": 500
             }
         }
     };
@@ -62,6 +68,10 @@ DataObjectFalcorUtil.getSelfCtx = function () {
 };
 
 const selfCtx = DataObjectFalcorUtil.getSelfCtx();
+
+DataObjectFalcorUtil.createSelfCtxKey = function () {
+    return DataObjectFalcorUtil.createCtxKey(DataObjectFalcorUtil.getSelfCtx());
+};
 
 DataObjectFalcorUtil.boxDataObject = function (dataObject, boxOp) {
     var modDataObject = {};
@@ -713,15 +723,21 @@ DataObjectFalcorUtil.test = function () {
     console.log('test success');
 };
 
-DataObjectFalcorUtil.createRelUniqueId = function (relType, rel, index) {
+DataObjectFalcorUtil.createRelUniqueId = function (relType, rel) {
     if (rel) {
         var relDataObjectId = rel.relTo && rel.relTo.id && rel.relTo.id !== "" ? rel.relTo.id : "-1";
-        var idx = index ? index : 0;
-        return relType.concat("_", relDataObjectId, "_", idx);
+        return relType.concat("_", relDataObjectId);
     }
 
     return "";
-}
+};
+
+DataObjectFalcorUtil.mergePathSets = function () {
+    var mergedPathSets = [];
+    var args = Array.prototype.splice.call(arguments, 0);
+    var mergedPathSets = Array.prototype.concat.apply([], args);
+    return mergedPathSets;
+};
 
 function isEmpty(obj) {
     //if (obj === undefined) { return true };

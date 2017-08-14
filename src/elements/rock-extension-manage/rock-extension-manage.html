@@ -74,7 +74,8 @@ It manages the current extensions and creates the new extensions.
                                       multi-select="[[multiSelect]]"
                                       selected-classifications="{{_selectedItems}}" 
                                       taxonomy="[[taxonomy]]" 
-                                      context-data="[[contextData]]">
+                                      context-data="[[contextData]]"
+                                      leaf-node-only="[[leafNodeOnly]]">
             </rock-classification-tree>
         </div>
         <div id="buttonContainer" align="center">
@@ -82,7 +83,7 @@ It manages the current extensions and creates the new extensions.
             <pebble-button id="save" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
         </div>
         <liquid-entity-data-save id="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" on-response="_onSaveResponse"></liquid-entity-data-save>
-        <liquid-rest id="contextLiquid" url="/pass-through/entityservice/getcontext"
+        <liquid-rest id="contextLiquid" url="/data/pass-through/entityservice/getcontext"
                      method="POST" request-data="{{requestData}}"
                      on-liquid-response="_onResponseReceived"  exclude-in-progress>
         </liquid-rest>
@@ -143,6 +144,13 @@ It manages the current extensions and creates the new extensions.
                         value: function () {
                             return {};
                         }
+                    },
+                    /**
+                    * Specifies whether or not only leaf-node selection is enabled.
+                    */
+                    leafNodeOnly:{
+                        type:Boolean,
+                        value:false
                     }
                 },
 
@@ -192,13 +200,13 @@ It manages the current extensions and creates the new extensions.
                                 var entity = res.entities[0];
                                 if (entity && entity.data) {
                                     var contexts = entity.data.contexts;
-                                    for (var i in contexts) {
+                                    for (var i=0; i<contexts.length; i++) {
                                         var context = contexts[i].context;
                                         var item = context["classification"];
                                         if (item) {
                                             if (context["taxonomy"] == this.taxonomy) {
                                                 this._entityCurrrentClassifications.push(item);
-                                                var arr = item.split("/");
+                                                var arr = item.split(">>");
                                                 items.push(arr);
                                             }
                                         }
@@ -224,7 +232,19 @@ It manages the current extensions and creates the new extensions.
                     var selectedItems = [];
 
                     if (this._selectedItems && this._selectedItems.length > 0) {                        
-                        selectedItems = this._selectedItems;
+                        var selectedClassifications = [];
+                        for(var i=0; i<this._selectedItems.length; i++){
+                            if(this._selectedItems[i].valuePath){
+                                selectedClassifications.push(this._selectedItems[i].valuePath.replace(/#@#/g, ">>"));
+                            }
+                        }
+                        if(DataHelper.areEqualArrays(selectedClassifications,this._entityCurrrentClassifications)){
+                            this.showInformationToast("No changes to save");
+                            return;
+                        }
+                        else{
+                            selectedItems = this._selectedItems;
+                        }
                     }
                     else {
                         this.showErrorToast("No context data selected to save.");
@@ -255,13 +275,14 @@ It manages the current extensions and creates the new extensions.
 
                 _prepareContexts: function(selectedItems) {
                     var contexts = [];
+                    var categoryPathSeperator = this.appSetting('categoryPathSeparator');
                     
                     // Update - For selected items
                     for (var i in selectedItems) {
                         var context = {};
                         var valuePath = selectedItems[i].valuePath;
                         if (valuePath) {
-                            valuePath = valuePath.replace(/#@#/g, "\/");
+                            valuePath = valuePath.replace(/#@#/g, categoryPathSeperator);
                         }
                         context.classification = valuePath;
                         if (this.taxonomy) {
@@ -281,7 +302,7 @@ It manages the current extensions and creates the new extensions.
                         for (var j in selectedItems) {
                             var valuePath = selectedItems[j].valuePath;
                             if (valuePath) {
-                                valuePath = valuePath.replace(/#@#/g, "\/");
+                                valuePath = valuePath.replace(/#@#/g, categoryPathSeperator);
                             }
 
                             if(valuePath == this._entityCurrrentClassifications[i]) {
@@ -322,8 +343,11 @@ It manages the current extensions and creates the new extensions.
                     this.showSuccessToast("Context data saved successfully.");                    
                     var eventName = "onSave";
                     var eventDetail = {
-                        name: eventName
-                    }
+                        name: eventName,
+                        "action":{
+                            "name":"refresh-classification"
+                        }
+                    };
                     this.fireBedrockEvent(eventName, eventDetail, {
                         ignoreId: true
                     });

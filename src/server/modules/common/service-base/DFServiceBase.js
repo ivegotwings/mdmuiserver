@@ -107,7 +107,7 @@ var DFServiceBase = function (options) {
     };
 
     this._getTenantId = function () {
-        var tenantId = "jcpenney";
+        var tenantId = "";
         var securityContext = executionContext.getSecurityContext();
 
         if (securityContext && securityContext.tenantId) {
@@ -143,7 +143,6 @@ var DFServiceBase = function (options) {
         }
 
         headers["x-rdp-authtoken"] = cryptoJS.HmacSHA256(url.split('?')[1], securityContext.clientAuthKey).toString(cryptoJS.enc.Base64);
-
         return headers;
     }
 

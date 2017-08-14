@@ -9,6 +9,7 @@ var cors = require('cors');
 var bodyParser = require('body-parser');
 var compression = require('compression');
 var cookieParser = require('cookie-parser');
+var fileUpload = require('express-fileupload');
 
 var webEngineConfig = require("../../config/web-engine-config.json");
 
@@ -79,15 +80,10 @@ passThroughRoute(app);
 
 logger.info('Web engine start - passthrough service routes are loaded');
 
-var copRoute = require('../cop/cop-route');
-copRoute(app);
+var eventServiceRoute = require('../event-service/event-service-route');
+eventServiceRoute(app);
 
-logger.info('Web engine start - cop service routes are loaded');
-
-var fileUploadRoute = require('../file-upload/file-upload-route');
-fileUploadRoute(app);
-
-logger.info('Web engine start - fileupload routes are loaded');
+logger.info('Web engine start - event service routes are loaded');
 
 var fileDownloadRoute = require('../file-download/file-download-route');
 fileDownloadRoute(app);
@@ -96,6 +92,11 @@ logger.info('Web engine start - filedownload routes are loaded');
 
 var clientLoggingRoute = require('../ruf-utilities/client-logging-route');
 clientLoggingRoute(app);
+
+logger.info('Web engine start - client logger routes are loaded');
+
+var healthCheckRoute = require('../api-healthcheck/api-health-check-route');
+healthCheckRoute(app);
 
 logger.info('Web engine start - client logger routes are loaded');
 
@@ -109,6 +110,28 @@ var binaryStreamObjectRoute = require('../binarystreamobject/binarystreamobject-
 binaryStreamObjectRoute(app);
 
 logger.info('Web engine start - binary stream object service routes are loaded');
+
+var binaryObjectRoute = require('../binaryobject/binaryobject-route');
+binaryObjectRoute(app);
+
+logger.info('Web engine start - binary object service routes are loaded');
+
+app.use(fileUpload());
+
+var contextMgrMiddleware = require('../common/context-manager/middleware');
+contextMgrMiddleware(app);
+
+logger.info('Web engine start - context manager middleware is loaded');
+
+var copRoute = require('../cop/cop-route');
+copRoute(app);
+
+logger.info('Web engine start - cop service routes are loaded');
+
+var fileUploadRoute = require('../file-upload/file-upload-route');
+fileUploadRoute(app);
+
+logger.info('Web engine start - fileupload routes are loaded');
 
 //register static file root ...index.html..
 app.get('*', function (req, res) {
@@ -136,6 +159,7 @@ function renderAuthenticatedPage(req, res) {
     var lastName = req.header("x-rdp-lastname");
     var userEmail = req.header("x-rdp-useremail");
     var userName = req.header("x-rdp-username");
+    var ownershipData = req.header("x-rdp-ownershipdata");
 
     if (tenantId && userId) {
         var fullName = "";
@@ -148,7 +172,7 @@ function renderAuthenticatedPage(req, res) {
         if (fullName == "") {
             fullName = userId;
         }
-        res.render('index', { isAuthenticated: true, tenantId: tenantId, userId: userId, roleId: userRoles, fullName: fullName, userName: userName });
+        res.render('index', { isAuthenticated: true, tenantId: tenantId, userId: userId, roleId: userRoles, fullName: fullName, userName: userName, ownershipData: ownershipData, noPreload: false });
         return true;
     } else {
         return false;

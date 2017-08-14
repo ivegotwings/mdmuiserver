@@ -19,6 +19,7 @@ const CONST_ALL = falcorUtil.CONST_ALL,
 
 const DataObjectManageService = require('./DataObjectManageService');
 const EntityCompositeModelGetService = require('./EntityCompositeModelGetService');
+const EventService = require('../event-service/EventService');
 
 //falcor utilty functions' references
 const responseBuilder = require('./dataobject-falcor-response-builder');
@@ -26,6 +27,7 @@ const responseBuilder = require('./dataobject-falcor-response-builder');
 const createPath = responseBuilder.createPath,
     buildResponse = responseBuilder.buildResponse,
     buildErrorResponse = responseBuilder.buildErrorResponse,
+    buildRefResponse = responseBuilder.buildRefResponse,
     formatDataObjectForSave = responseBuilder.formatDataObjectForSave,
     mergeAndCreatePath = responseBuilder.mergeAndCreatePath,
     mergePathSets = responseBuilder.mergePathSets,
@@ -40,10 +42,11 @@ if (runOffline) {
 
 const dataObjectManageService = new DataObjectManageService(options);
 const entityCompositeModelGetService = new EntityCompositeModelGetService(options);
+const eventService = new EventService(options);
 
 async function initiateSearch(callPath, args) {
-
     var response = [];
+    var isCombinedQuerySearch = false;
 
     try{
 
@@ -62,21 +65,77 @@ async function initiateSearch(callPath, args) {
         var maxRecordsSupported = dataIndexInfo.maxRecordsToReturn || 2000;
 
         if (request.params) {
-            var options = falcorUtil.getOrCreate(request.params, 'options', {});
-            options.maxRecords = maxRecordsSupported;
+            if(request.params.isCombinedQuerySearch) {
+                isCombinedQuerySearch = true;
+                delete request.params.isCombinedQuerySearch;
+
+                if(request.params.options) {
+                    delete request.params.options;
+                }
+
+                request.params.pageSize = dataIndexInfo.combinedQueryPageSize || 500;
+                
+                //Identify the last executable query...
+                if(request.entity && request.entity.data && request.entity.data.jsonData) {
+                    var searchQueries =request.entity.data.jsonData.searchQueries;
+
+                    if(searchQueries) {
+                        var currentSearchQuerysequence = 0;
+                        var highestSeqSearchQuery = undefined;
+                        for (var i = 0; i < searchQueries.length; i++) {
+                            var searchQuery = searchQueries[i];
+
+                            if (searchQuery.searchQuery && searchQuery.searchQuery.options) {
+                                delete searchQuery.searchQuery.options;
+                            }
+
+                            if(searchQuery.searchSequence >= currentSearchQuerysequence) {
+                                highestSeqSearchQuery = searchQuery;
+                                currentSearchQuerysequence = searchQuery.searchSequence;
+                            }
+                        }
+
+                        if(highestSeqSearchQuery) {
+                            var options = falcorUtil.getOrCreate(highestSeqSearchQuery.searchQuery, 'options', {});
+                            options.maxRecords = maxRecordsSupported;
+                        }
+                    }
+                }
+            } else {
+                var options = falcorUtil.getOrCreate(request.params, 'options', {});
+                options.maxRecords = maxRecordsSupported;
+            }
         }
 
         if(operation === "initiatesearchandgetcount") {
             options.maxRecords = 1; // Do not load entity ids and types if only count is requested..
         }
 
-        //console.log('request str', JSON.stringify(request, null, 4));
-        delete request.params.fields; // while initiating search, we dont want any of the fields to be returned..all we want is resulted ids..
+        var dataObjectType = undefined;
+        
+        if(request.params.query && request.params.query.filters && 
+                request.params.query.filters.typesCriterion && request.params.query.filters.typesCriterion.length) {
+            dataObjectType = request.params.query.filters.typesCriterion[0]; // pick first object type..
+        }
 
-        var res = await dataObjectManageService.get(request);
+        var service = _getService(dataObjectType);
+
+        if(service != eventService) {
+             //console.log('request str', JSON.stringify(request, null, 4));
+            delete request.params.fields; // while initiating search, we dont want any of the fields to be returned..all we want is resulted ids..
+        }
+
+        var res = undefined;
+        if(isCombinedQuerySearch) {
+            res = await service.getCombined(request);
+        } else {
+            res = await service.get(request);
+        }
 
         // console.log('response raw str', JSON.stringify(res, null, 4));
         var totalRecords = 0;
+
+        var resultRecordSize = 0;
 
         var collectionName = dataIndexInfo.collectionName;
 
@@ -87,11 +146,9 @@ async function initiateSearch(callPath, args) {
             var dataObjects = dataObjectResponse[collectionName];
             var index = 0;
             if (dataObjects !== undefined) {
-                if(operation === "initiatesearchandgetcount") {
-                    totalRecords = dataObjectResponse.totalRecords;
-                }
-                else if(operation === "search") {
-                    totalRecords = dataObjects.length;
+                totalRecords = dataObjectResponse.totalRecords;
+                if(operation === "search") {
+                    resultRecordSize = dataObjects.length;                   
                     for (let dataObject of dataObjects) {
                         if (dataObject.id !== undefined) {
                             var dataObjectType = dataObject.type;
@@ -115,9 +172,9 @@ async function initiateSearch(callPath, args) {
                 }
             }
         }
-
         response.push(mergeAndCreatePath(basePath, ["maxRecords"], $atom(maxRecordsSupported)));
         response.push(mergeAndCreatePath(basePath, ["totalRecords"], $atom(totalRecords)));
+        response.push(mergeAndCreatePath(basePath, ["resultRecordSize"], $atom(resultRecordSize)));
         response.push(mergeAndCreatePath(basePath, ["requestId"], $atom(requestId)));
         //response.push(mergeAndCreatePath(basePath, ["request"], $atom(request)));
     }
@@ -151,9 +208,7 @@ function createGetRequest(reqData) {
     var contexts = falcorUtil.createCtxItems(reqData.ctxKeys);
     var valContexts = falcorUtil.createCtxItems(reqData.valCtxKeys);
 
-    var fields = {
-        'ctxTypes': ["properties"]
-    };
+    var fields = {};
 
     if (reqData.operation == "getMappings" && arrayContains(reqData.mapKeys, "attributeMap")) {
         fields.attributes = ['_ALL'];
@@ -194,8 +249,7 @@ function createGetRequest(reqData) {
     }
 
     var options = {
-        maxRecords: 2000,
-        includeRequest: false
+        maxRecords: 2000
     };
 
     var filters = {};
@@ -216,6 +270,7 @@ function createGetRequest(reqData) {
 
     if (reqData.dataIndex == "config" && contexts && contexts.length > 0) {
         filters.excludeNonContextual = true;
+        fields.attributes = ['_ALL'];
     }
 
     if (!isEmpty(filters)) {
@@ -240,6 +295,9 @@ function _getService(dataObjectType) {
     if (dataObjectType == 'entityCompositeModel') {
         return entityCompositeModelGetService;
     }
+    else if(dataObjectType == "externalevent") {
+        return eventService;
+    }
     else {
         return dataObjectManageService;
     }
@@ -250,22 +308,14 @@ async function get(dataObjectIds, reqData) {
     var operation = reqData.operation;
     
     try{
-        var request = createGetRequest(reqData);
-
-        //update dataObject id in request query for current id
-        if(dataObjectIds.length > 1) {
-            request.params.query.ids = dataObjectIds;
-        }
-        else {
-            request.params.query.id = dataObjectIds[0];
-        }
-
-        //console.log('req to api ', JSON.stringify(request));
         var res = undefined;
         var isCoalesceGet = false;
+        var isNearestGet = false;
 
         var service = _getService(reqData.dataObjectType);
 
+        var request = createGetRequest(reqData);
+        
         if (request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel') {
             if (!isEmpty(request.params.query.contexts)) {
                 var contexts = request.params.query.contexts;
@@ -273,21 +323,51 @@ async function get(dataObjectIds, reqData) {
                     var firstContext = contexts[0];
                     //TODO: We need a fix to remove this classification context check when RDF fixes
                     if (firstContext && firstContext.classification) {
-                        res = await service.getCoalesce(request);
                         isCoalesceGet = true;
                     }
                 }
             }
         }
+        else if (request.dataIndex == "config" && reqData.dataObjectType == 'uiConfig') {
+            if(!isEmpty(request.params.query.contexts)) {
+                var contexts = request.params.query.contexts;
+                if (contexts && contexts.length > 0) {
+                    isNearestGet = true;
+                }
+            }
+        }
+        
+        //TURNING OFF THIS FEATURE TILL RDF FINISHES ITS WORK
+        isNearestGet = false;
 
-        if (!isCoalesceGet) {
+        //Populate dataObject id in request query...
+        //Nearest get is based on context and not Ids. Hence skipping Id population for request get
+        if(!isNearestGet) {
+            if(dataObjectIds.length > 1) {
+                for(var idx in dataObjectIds) {
+                    dataObjectIds[idx] = dataObjectIds[idx].toString();
+                }
+
+                request.params.query.ids = dataObjectIds;
+            }
+            else {
+                request.params.query.id = dataObjectIds[0].toString();
+            }
+        }
+
+        //console.log('req to api ', JSON.stringify(request));
+
+        if (isCoalesceGet) {
+            res = await service.getCoalesce(request);
+        }
+        else if(isNearestGet) {
+            res = await service.getNearest(request);
+        }
+        else {
             res = await service.get(request);
         }
 
         //console.log('get res from api ', JSON.stringify(res, null, 4));
-
-        var dataObject;
-        //console.log(JSON.stringify(pathKeys, null, 4));
 
         var dataIndexInfo = pathKeys.dataIndexInfo[request.dataIndex];
         var collectionName = dataIndexInfo.collectionName;
@@ -307,6 +387,20 @@ async function get(dataObjectIds, reqData) {
                     var dataObjectResponseJson = buildResponse(dataObject, reqData);
 
                     byIdsJson[dataObject.id] = dataObjectResponseJson;
+                }
+
+                if(isNearestGet) {
+                    //In case of nearest get, comapare requested Id with nearest object Id resulted from response...
+                    //If ids are not same then the response is for nearest context and hence populate as $ref in response Json
+
+                    //Nearest get should always return first nearest object hence considering first requested Id and first dataObject in response...
+                    var requestedId = dataObjectIds[0];
+                    var dataObject = dataObjects[0];
+
+                    if(!isEmpty(dataObject) && requestedId != dataObject.id) {
+                        //populate as ref...
+                        byIdsJson[requestedId] = buildRefResponse(dataObject, reqData);
+                    }
                 }
             }
         }
@@ -385,13 +479,20 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
         for (var dataObjectId in dataObjects) {
             var dataObject = dataObjects[dataObjectId];
             formatDataObjectForSave(dataObject);
+
+            //Extract original rel ids from request dataobject if relationships are requested for process.
+            var originalRelIds = _getOriginalRelIds(dataObject);
+
             //console.log('dataObject data', JSON.stringify(dataObject, null, 4));
 
-            var apiRequestObj = { 'includeRequest': false, 'dataIndex': dataIndex, 'clientState': clientState };
+            var apiRequestObj = { 'dataIndex': dataIndex, 'clientState': clientState };
             apiRequestObj[dataIndexInfo.name] = dataObject;
             
+            if(dataObjectAction == "create" || dataObjectAction == "update") {
+                _prependAuthorizationType(apiRequestObj);
+            }
             //console.log('api request data for process dataObjects', JSON.stringify(apiRequestObj));
-            var dataOperationResult = {};
+            var dataOperationResult = {};            
 
             if (dataObjectAction == "create") {
                 dataOperationResult = await dataObjectManageService.create(apiRequestObj);
@@ -421,6 +522,7 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
                             'attrNames': [CONST_ALL],
                             'relTypes': [CONST_ALL],
                             'relAttrNames': [CONST_ALL],
+                            'originalRelIds': originalRelIds,
                             'relFields': [CONST_ALL],
                             'valFields': [CONST_ALL],
                             'mapKeys': [CONST_ALL],
@@ -542,7 +644,8 @@ async function deleteDataObjects(callPath, args, operation) {
     try{
         var jsonEnvelope = args[0];
         var dataIndex = callPath.dataIndexes[0];
-        var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][pathKeys.byIds];
+        var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
+        var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
         var clientState = jsonEnvelope.json.clientState;
 
         response = processData(dataIndex, dataObjects, "delete", operation, clientState);
@@ -554,6 +657,31 @@ async function deleteDataObjects(callPath, args, operation) {
     }
 
     return response;
+}
+
+function _getOriginalRelIds(dataObject) {
+    var originalRelIds;
+
+    if(dataObject.data && dataObject.data.relationships) {
+        var rels = dataObject.data.relationships;
+
+        if(rels.originalRelIds) {
+            originalRelIds = rels.originalRelIds;
+            delete rels.originalRelIds;
+        }
+    }
+
+    return originalRelIds;
+}
+
+function _prependAuthorizationType(reqObject) {
+    if(reqObject.params) {
+        reqObject.params["authorizationType"] = "accommodate";
+    } else {
+        reqObject.params = {
+            "authorizationType": "accommodate"
+        };
+    }
 }
 
 module.exports = {

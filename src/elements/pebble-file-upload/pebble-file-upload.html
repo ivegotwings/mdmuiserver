@@ -8,6 +8,8 @@
 <link rel="import" href="../pebble-image-viewer/pebble-image-viewer.html">
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="content-type-helper.html">
 
 
 <!--
@@ -23,13 +25,14 @@ It takes additional data through properties. It is available in small, medium, a
 <dom-module id="pebble-file-upload">
     <template>
         <style include="pebble-styles-shared">
-            :host {
+             :host {
                 display: block;
                 margin: 0 24px;
                 @apply(--pebble-file-upload);
             }
 
-            .drop-zone, .progress-zone {
+            .drop-zone,
+            .progress-zone {
                 padding: 40px 0px;
                 border: 2px dotted var(--pebble-file-upload-zone-border-color, #D3DAE1);
                 @apply(--layout-vertical);
@@ -44,7 +47,7 @@ It takes additional data through properties. It is available in small, medium, a
 
             #main {
                 height: 100%;
-                background-color:var(--table-row-odd-bg-color, #F9FBFD);
+                background-color: var(--table-row-odd-bg-color, #F9FBFD);
                 color: var(--palette-dark, #1a2028);
             }
 
@@ -60,7 +63,7 @@ It takes additional data through properties. It is available in small, medium, a
                 opacity: 1;
             }
 
-            .cancel-icon > iron-icon {
+            .cancel-icon>iron-icon {
                 font-size: 11px;
             }
 
@@ -92,31 +95,36 @@ It takes additional data through properties. It is available in small, medium, a
             }
 
             a:link {
-                color:#0a82cc;
+                color: #0a82cc;
             }
 
             a:visited {
-                color:#660099;
+                color: #660099;
             }
-            
-            
-            .title{
-            font-size:var(--font-size-sm, 12px);
-            text-align: center;
-            color: var(--default-icon-color,#8994a0);
+
+
+            .title {
+                font-size: var(--font-size-sm, 12px);
+                text-align: center;
+                color: var(--default-icon-color, #8994a0);
             }
+
             .drag-drop {
                 font-size: var(--font-size-xl, 20px);
                 font-weight: 500;
-                color: var(--default-icon-color,#8994a0);
-                height:16px;
+                color: var(--default-icon-color, #8994a0);
+                height: 16px;
             }
-            pebble-icon::shadow iron-icon{
-                width:30px;
-                height:30px;
-                color: var(--default-icon-color,#8994a0);
+
+            pebble-icon {
+                --iron-icon: {
+                    width: 30px;
+                    height: 30px;
+                    color: var(--default-icon-color, #8994a0);
+                }
             }
-            .download-icon{
+
+            .download-icon {
                 padding-bottom: 3px;
             }
         </style>
@@ -130,8 +138,7 @@ It takes additional data through properties. It is available in small, medium, a
             </section>
             <section id="progressSection" class="progress-zone" hidden$=[[!hasFile]]>
                 <div class="progress-div">
-                    <pebble-image-viewer alt="Product image." id="image-container" sizing="contain"
-                                         src="/src/images/Microsoft Excel 50, 100, 500 px/Microsoft Excel_100.svg"></pebble-image-viewer>
+                    <pebble-image-viewer alt="Product image." id="image-container" sizing="contain" src="/src/images/Microsoft Excel 50, 100, 500 px/Microsoft Excel_100.svg"></pebble-image-viewer>
                     <div id="progress-container">
                         {{file.name}}
 
@@ -254,11 +261,11 @@ It takes additional data through properties. It is available in small, medium, a
 
 
                     /**
-                     *  Indicates the max size of file that can be uploaded. It must be in bytes. The default limit is 1 MB.
+                     *  Indicates the max size of file that can be uploaded. It must be in bytes. The default limit is set 100 MB.
                      **/
                     sizeLimit: {
                         type: Number,
-                        value: 5242880
+                        value: 100000000
                     },
 
                     /**
@@ -295,8 +302,15 @@ It takes additional data through properties. It is available in small, medium, a
                         type: Object,
                         value: {}
                     },
+                    allowedFileTypes: {
+                        type: Array,
+                        value: function () { return []; },
+                        observer: "_allowedFileTypesChanged"
+                    }
                 },
-
+                behaviors: [
+                    RUFBehaviors.UIBehavior,
+                ],
                 /**
                  * Can be used as a handler to set dragging.
                  */
@@ -356,9 +370,8 @@ It takes additional data through properties. It is available in small, medium, a
                     var file = event.dataTransfer.files[0];
 
                     // Check if filetype is accepted
-                    var mimeType = ((file.type !== '') ? file.type.match(/^[^\/]*\//)[0] : null);
-                    var fileType = file.name.match(/\.[^\.]*$/)[0];
-                    if ((this.accept !== '' && !(this.accept.indexOf(mimeType) > -1) || this.accept.indexOf(fileType) > -1) || file.size > this.sizeLimit) {
+                    var isFileValid = this._validateFile(file);
+                    if (!isFileValid) {
                         return;
                     }
 
@@ -379,14 +392,59 @@ It takes additional data through properties. It is available in small, medium, a
                         this.set('file', undefined);
                     } else {
                         var file = input.files[0];
-                        if (file.size < this.sizeLimit) {
+                        var isFileValid = this._validateFile(file);
+                        if (isFileValid) {
                             this.progress = 0;
                             this.error = false;
                             this.complete = false;
                             this._uploadFile(file);
                             this.set('file', file);
+                        } else {
+                            return;
                         }
                     }
+                },
+
+                _validateFile: function (file) {
+                    var mimeType = ((file.type !== '') ? file.type.match(/^[^\/]*\//)[0] : null);
+                    var fileType = file.name.match(/\.[^\.]*$/)[0];
+                    var accept = this.accept ? this.accept : "";
+                    if (accept !== "" && !(accept.indexOf(mimeType) > -1) || accept.indexOf(fileType) > -1) {
+                        if (file.size > this.sizeLimit) {
+                            this.showErrorToast("The size of the file exceeded the maximum limit");
+                            return false;
+                        }
+                        var type = mimeType ? mimeType : fileType;
+                        var message = this._buildMessage(type);
+                        this.showErrorToast(message);
+                        return false;
+                    }
+                    return true;
+                },
+
+                _buildMessage: function (type) {
+                    var message = "The file type " + type + " is not a valid extension.";
+                    var allowedExtensions = undefined;
+                    var allowedFileTypes = this.allowedFileTypes;
+                    if (_.isEmpty(allowedFileTypes)) {
+                        var accept = this.accept.replace(/ /g, '');
+                        var fileTypes = accept.split(",");
+                        allowedFileTypes = ContentTypeHelper.getExtensions(fileTypes);
+                    }
+                    if (!_.isEmpty(allowedFileTypes)) {
+                        for (var i = 0; i < allowedFileTypes.length; i++) {
+                            var extension = allowedFileTypes[i];
+                            if (allowedExtensions) {
+                                allowedExtensions = allowedExtensions + "," + extension;
+                            } else {
+                                allowedExtensions = extension;
+                            }
+                        }
+                    }
+                    if (allowedExtensions) {
+                        message = message + " Valid extensions are " + allowedExtensions + ".";
+                    }
+                    return message;
                 },
 
                 /**
@@ -400,66 +458,81 @@ It takes additional data through properties. It is available in small, medium, a
                     }
                     var self = this;
 
-                    var formData = new FormData();
+                    if (!_.isEmpty(this.target)) {
+                        var formData = new FormData();
 
-                    // Add additional data to send with the POST variable
-                    var addData = this.additional;
-                    for (var key in addData) {
-                        if (addData.hasOwnProperty(key)) {
-                            formData.append(key, addData[key]);
-                        }
-                    }
-
-                    // Add the file data last to support POSTing to Amazon Web Services S3.
-                    formData.append(this.fileDataName, file, file.name);
-                    var xhr = file.xhr = new XMLHttpRequest();
-                    xhr.withCredentials = this.withCredentials;
-                    xhr.upload.onprogress = function (e) {
-                        var done = e.loaded, total = e.total;
-                        self.set('progress', Math.floor((done / total) * 1000) / 10);
-                    };
-
-                    var url = this.target.replace('<name>', file.name);
-                    xhr.open('POST', url, true);
-                    for (key in this.headers) {
-                        if (this.headers.hasOwnProperty(key)) {
-                            xhr.setRequestHeader(key, this.headers[key]);
-                        }
-                    }
-                    xhr.responseType = 'json';
-                    xhr.onload = function (e) {
-                        if (xhr.status >= 200 && xhr.status < 300) {
-                            var actualFileName = file.name;
-                            if(xhr.response && xhr.response.fileName) {
-                                actualFileName = xhr.response.fileName;
+                        // Add additional data to send with the POST variable
+                        var addData = this.additional;
+                        for (var key in addData) {
+                            if (addData.hasOwnProperty(key)) {
+                                formData.append(key, addData[key]);
                             }
-                            var eventData = {
-                                name : "pebble-file-upload-success",
-                                data : {
-                                    "originalFileName": file.name,
-                                    "fileName": actualFileName
-                                }
-                            };
-                            self.fire('bedrock-event',eventData);
-//                            self.fire('success', {xhr: xhr});
-                            self.set('complete', true);
-                            self.set('progress', 100);
-                        } else {
-                            var eventData = {
-                                name : "pebble-file-upload-error",
-                                data : {
-                                    "error": xhr.response
-                                }
-                            };
-                            self.fire('bedrock-event',eventData);
-                            self.set('error', true);
-                            self.set('complete', true);
-                            self.set('progress', 100);
-                            // self.updateStyles();
-//                            self.fire('error', {xhr: xhr});
                         }
-                    };
-                    xhr.send(formData);
+
+                        // Add the file data last to support POSTing to Amazon Web Services S3.
+                        formData.append(this.fileDataName, file, file.name);
+                        var xhr = file.xhr = new XMLHttpRequest();
+                        xhr.withCredentials = this.withCredentials;
+                        xhr.upload.onprogress = function (e) {
+                            var done = e.loaded, total = e.total;
+                            self.set('progress', Math.floor((done / total) * 1000) / 10);
+                        };
+
+                        var url = this.target.replace('<name>', file.name);
+                        xhr.open('POST', url, true);
+                        for (key in this.headers) {
+                            if (this.headers.hasOwnProperty(key)) {
+                                xhr.setRequestHeader(key, this.headers[key]);
+                            }
+                        }
+                        xhr.responseType = 'json';
+                        xhr.onload = function (e) {
+                            if (xhr.status >= 200 && xhr.status < 300) {
+                                var actualFileName = file.name;
+                                if (xhr.response && xhr.response.fileName) {
+                                    actualFileName = xhr.response.fileName;
+                                }
+                                var eventData = {
+                                    name: "pebble-file-upload-success",
+                                    data: {
+                                        "originalFileName": file.name,
+                                        "fileName": actualFileName
+                                    }
+                                };
+                                self.fire('bedrock-event', eventData);
+                                //                            self.fire('success', {xhr: xhr});
+                                self.set('complete', true);
+                                self.set('progress', 100);
+                            } else {
+                                var eventData = {
+                                    name: "pebble-file-upload-error",
+                                    data: {
+                                        "error": xhr.response
+                                    }
+                                };
+                                self.fire('bedrock-event', eventData);
+                                self.set('error', true);
+                                self.set('complete', true);
+                                self.set('progress', 100);
+                                // self.updateStyles();
+                                //                            self.fire('error', {xhr: xhr});
+                            }
+                        };
+                        xhr.send(formData);
+                    } else {
+                        var eventData = {
+                            name: "pebble-file-upload-success",
+                            data: {
+                                "originalFileName": file.name,
+                                "fileName": file.name,
+                                "file": file
+                            }
+                        };
+                        self.fire('bedrock-event', eventData);
+                        //                            self.fire('success', {xhr: xhr});
+                        self.set('complete', true);
+                        self.set('progress', 100);
+                    }
 
                 },
 
@@ -470,7 +543,7 @@ It takes additional data through properties. It is available in small, medium, a
                  */
                 _cancelUpload: function (e) {
                     e.preventDefault();
-                    console.log("called cancel button tap");
+                    this.logInfo("UploadCancel");
                     if (this.file.xhr) {
                         this.file.xhr.abort();
                     }
@@ -511,6 +584,11 @@ It takes additional data through properties. It is available in small, medium, a
                     this.set('error', false);
                     this.set('complete', false);
                     this.set('progress', 0);
+                },
+                _allowedFileTypesChanged: function (allowedFileTypes) {
+                    if (!_.isEmpty(allowedFileTypes)) {
+                        this.accept = ContentTypeHelper.getContentTypes(allowedFileTypes);
+                    }
                 }
             });
         })();

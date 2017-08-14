@@ -8,7 +8,7 @@ var PassThroughService = function (options) {
 PassThroughService.prototype = {
     call: async function (request) {
         //console.log('PassThroughService.call ', request.url);
-        var passThroughUrl = request.url.replace('/pass-through/', '');
+        var passThroughUrl = request.url.replace('/data/pass-through/', '');
 
         return await this.post(passThroughUrl, request.body);
     },
@@ -55,6 +55,36 @@ PassThroughService.prototype = {
 
         //console.log('Bulk Operation Response - ', bulkOperationResponse);
         return bulkOperationResponse;
+    },
+    createTaskForCombinedQuery: async function (request) {
+        //console.log('PassThroughService.call ', request.url);
+        var createTaskRequest = request.body;
+
+        if(createTaskRequest) {
+            var passThroughUrl = request.url.replace('/data/pass-through-combined-query/', '');
+
+            if(createTaskRequest.params) {
+                delete createTaskRequest.params.options;
+                createTaskRequest.params.pageSize = 500;
+            }
+
+            if(createTaskRequest.entities && createTaskRequest.entities.length > 0) {
+                if(createTaskRequest.entities[0].data && createTaskRequest.entities[0].data.jsonData) {
+                    var searchQueries = createTaskRequest.entities[0].data.jsonData.searchQueries;
+                    if(searchQueries) {
+                        for (var i = 0; i < searchQueries.length; i++) {
+                            var searchQuery = searchQueries[i];
+
+                            if (searchQuery.searchQuery && searchQuery.searchQuery.options) {
+                                delete searchQuery.searchQuery.options;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return await this.post(passThroughUrl, createTaskRequest);
+        }
     }
 };
 

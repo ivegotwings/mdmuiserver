@@ -3,6 +3,7 @@
 
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../liquid-config-get/liquid-config-get.html">
 <link rel="import" href="../liquid-config-save/liquid-config-save.html">
 
@@ -26,20 +27,6 @@
     <template>
         <style include="pebble-styles-shared"></style>
         <style is="custom-style" include="iron-flex">
-            /*#savedSearchButton {
-                --pebble-button: {
-                    height: 32px;
-                    padding: 1em 0em 1em 0.3em;
-                    color: #2068BD;
-                    border: 1px solid #2068BD;
-                    font-size: small;
-                    margin: 0;
-                }
-                --pebble-button-dropdown-icon: {
-                    height: 20px !important;
-                    width: 20px !important;
-                }
-            }*/
             
             #newSavedSearch {
                 font-weight: var(--font-bold, bold);
@@ -51,8 +38,10 @@
                 float: right;   
                 margin-right: 10px;
                 --pebble-button: {
-                    font-size: var(--default-font-size, 14px)!important;
+                    font-size: var(--font-size-sm, 12px)!important;
                     color: #036BC3;
+                    font-weight: 500;
+                    padding: 0;
                 };
                 --pebble-button-iron-icon: {
                     height: 16px !important;
@@ -72,35 +61,26 @@
                 display: inline-block;
             }
             
-            rock-tabs::shadow pebble-tab-group {
-                margin-bottom: 15px;
-                width: 100%;
+            rock-tabs {
+                --pebble-tab-group:{
+                    margin-bottom: 15px;
+                    width: 100%;
+                }
+                    --pebble-tab:{
+                    margin-left: 0;
+                }
             }
 
-            rock-tabs::shadow pebble-tab-group pebble-tab {
-                margin-left: 0;
-            }
-            
-            pebble-button::shadow iron-icon[icon="icons:add"] {
-                color: #036bc3!important;
-                margin-top: 1px;
-            }
-            .pebble-md-icons::shadow paper-button{
-                color:var(--primary-icon-color, #75808b);
-            }
-            #savedSearchButton::shadow paper-button {
-                font-size: var(--default-font-size, 14px);
-            }
-            
-            #createEditSavedSearch::shadow paper-button {
-                font-size: 12px !important;                             
-                font-weight: 400;
-                padding: 0;
+            .pebble-md-icons{
+                --paper-button:{
+                    color:var(--primary-icon-color, #75808b);
+                }
             }
 
-            #createEditSavedSearch::shadow paper-button iron-icon {
-                width: 16px;
-                height: 16px;
+            #savedSearchButton {
+                --paper-button:{
+                    font-size: var(--default-font-size, 14px);
+                }
             }
 
             rock-tabs {
@@ -134,7 +114,7 @@
                 <div class="savedSearchLabel">Saved Searches</div>
             </template>
             <template is="dom-if" if="[[showSettings]]">
-            <pebble-button icon="pebble-md-icons:Settings" data-tooltip="Settings" class="pebble-md-icons pull-right tooltip-bottom"></pebble-button>
+            <pebble-button id="refreshButton" icon="pebble-md-icons:ToolbarRefresh" data-tooltip="Refresh" class="pebble-md-icons pull-right tooltip-bottom"on-tap="refresh"></pebble-button>
             </template>
             <template is="dom-if" if="[[allowCreateEditSearch]]">
                 <pebble-button id="createEditSavedSearch" icon="pebble-sm-icons:Add" button-text="Create or Edit Saved Search" noink class="createEditSavedSearch icon"
@@ -381,8 +361,8 @@
                         var searchCtxData = DataHelper.cloneObject(this._prepareContext(clonedContextData));
                         var mappingCtxData = DataHelper.cloneObject(this._prepareContext(clonedContextData, "searchmapping"));
 
-                        this._searchRequest = DataRequestHelper.createSavedSearchInitialRequest(searchCtxData);
-                        this._mappingRequest = DataRequestHelper.createSavedSearchInitialRequest(mappingCtxData);
+                        this._searchRequest = DataRequestHelper.createConfigInitialRequest(searchCtxData);
+                        this._mappingRequest = DataRequestHelper.createConfigInitialRequest(mappingCtxData);
 
                         //Initial search for shared
                         var request = DataHelper.cloneObject(this._searchRequest);                        
@@ -430,7 +410,7 @@
                 _triggerSearchTransform: function() {
                     if(this._originalSearches && this._originalSearchMappings) {
                         var userContext = ContextHelper.getFirstUserContext(this.contextData);
-                        this.savedSearches = DataTransformHelper.transformSavedSearches(this._originalSearches, this._originalSearchMappings, userContext);
+                        this.savedSearches = DataTransformHelper.transformScopes(this._originalSearches, this._originalSearchMappings, userContext, "favoriteSavedSearches");
 
                         this.async(function() {
                             //Reload tabs to get updated tags
@@ -453,9 +433,8 @@
                 // Fired when rock-tabs creates component
                 _onComponentCreating: function (e, detail, sender) {                    
                     var component = detail.data;
-
                     if (this.savedSearches) {
-                       component.properties["saved-searches"] = this.savedSearches;
+                       component.properties["saved-searches"] = this.savedSearches;                       
                     }
                 },
 
@@ -606,7 +585,7 @@
                         var clonedContextData = DataHelper.cloneObject(this.contextData);
                         var savedSearchContextName = this._getSavedSearchContextName(searchInfo["saved-search-info"].name);
 
-                        var _createRequestData = DataRequestHelper.savedSearchCreateRequest(this._prepareCreateContext(clonedContextData, searchInfo), "savedsearch", this.appName, savedSearchContextName);
+                        var _createRequestData = DataRequestHelper.getConfigCreateRequest(this._prepareCreateContext(clonedContextData, searchInfo), "savedSearch", this.appName, savedSearchContextName);
                         
                         var reqData = { "configObjects" : [_createRequestData] }
                         this.generateSaveRequest(reqData, "create");
@@ -765,16 +744,23 @@
                     else // When no mapping, then create request and submit
                     {
                         var clonedContextData = DataHelper.cloneObject(this.contextData);
-                        var createMappingRequestData = DataRequestHelper.savedSearchCreateRequest(this._prepareCreateMappingContext(clonedContextData, tag), "savedsearchmapping", this.appName);
+                        var createMappingRequestData = DataRequestHelper.getConfigCreateRequest(this._prepareCreateMappingContext(clonedContextData, tag), "savedSearchMappings", this.appName);
                         
                         var reqData = { "configObjects" : [createMappingRequestData] }
                         this.generateSaveRequest(reqData, "create");
                         this._toastMessage = tag.name + " is added to favourites";
                     }
                 },
-
-                _onTapSavedSearchDelete: function (e, detail, sender) {
-                    console.log('Delete: ', detail);
+                
+                _onTapSavedSearchDelete: function (e, detail, sender) {                   
+                    var savedSearchDeleteObj = {
+                        "id": detail.parentButton.searchid,
+                        "type": "savedSearch"
+                    }
+                    var reqData = { "configObjects" :  [savedSearchDeleteObj] } 
+                    this.generateSaveRequest(reqData, "delete");    
+                    
+                    this._toastMessage = detail.parentButton.name + " has been deleted";                   
                 },
 
                 // Can be used to generate the save requests.
@@ -848,6 +834,7 @@
                                 "icon": "pebble-icons:SavedSearch",
                                 "createdby": userContext.user,
                                 "createdbyrole": userContext.role,
+                                "ownershipData": userContext.ownershipData,
                                 "dimensions": searchInfo["dimensions"],
                                 "searchQuery": searchInfo["search-query"],
                                 "searchTags": searchInfo["search-tags"],
@@ -932,6 +919,11 @@
                     clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [contextsObject];
                     
                     return clonedContextData;
+                },
+
+                refresh: function() {
+                    var request = DataHelper.cloneObject(this._searchRequest);
+                    this.generateRequest(request);
                 }
             });
         })();
