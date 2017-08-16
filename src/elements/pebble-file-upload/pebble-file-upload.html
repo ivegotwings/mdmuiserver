@@ -1,0 +1,596 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/iron-flex-layout/iron-flex-layout-classes.html">
+<link rel="import" href="../../../bower_components/paper-styles/paper-styles.html">
+<link rel="import" href="../../../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../../../bower_components/paper-progress/paper-progress.html">
+<link rel="import" href="../../../bower_components/iron-icon/iron-icon.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../pebble-image-viewer/pebble-image-viewer.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="content-type-helper.html">
+
+
+<!--
+`pebble-file-upload` Represents an element with drag and drop feature. It can upload any file. 
+It takes additional data through properties. It is available in small, medium, and large sizes.
+
+### Example
+    <pebble-file-upload></pebble-file-upload>
+
+@demo demo/index.html
+-->
+
+<dom-module id="pebble-file-upload">
+    <template>
+        <style include="pebble-styles-shared">
+             :host {
+                display: block;
+                margin: 0 24px;
+                @apply(--pebble-file-upload);
+            }
+
+            .drop-zone,
+            .progress-zone {
+                padding: 40px 0px;
+                border: 2px dotted var(--pebble-file-upload-zone-border-color, #D3DAE1);
+                @apply(--layout-vertical);
+                @apply(--layout-center-center);
+                @apply(--pebble-file-upload-zone);
+                height: 292px;
+            }
+
+            .drop-zone.active {
+                border-color: var(--pebble-file-upload-zone-border-color-active, red);
+            }
+
+            #main {
+                height: 100%;
+                background-color: var(--table-row-odd-bg-color, #F9FBFD);
+                color: var(--palette-dark, #1a2028);
+            }
+
+            #file {
+                display: none;
+            }
+
+            .with-file {
+                opacity: 0;
+            }
+
+            .without-file {
+                opacity: 1;
+            }
+
+            .cancel-icon>iron-icon {
+                font-size: 11px;
+            }
+
+            .iconButton {
+                --iron-icon-height: 12px;
+                --iron-icon-width: 12px;
+                --iron-icon-fill-color: #EF345D;
+                font-size: 11px;
+                height: 5px;
+                width: 2px;
+                float: right;
+            }
+
+            #image-container {
+                width: 60px;
+                height: 50px;
+            }
+
+            #progress-container {
+                width: 80%;
+                height: 50px;
+                margin-top: 3%;
+                margin-bottom: 3%;
+            }
+
+            .progress-div {
+                display: inline-flex;
+                display: -webkit-inline-flex;
+            }
+
+            a:link {
+                color: #0a82cc;
+            }
+
+            a:visited {
+                color: #660099;
+            }
+
+
+            .title {
+                font-size: var(--font-size-sm, 12px);
+                text-align: center;
+                color: var(--default-icon-color, #8994a0);
+            }
+
+            .drag-drop {
+                font-size: var(--font-size-xl, 20px);
+                font-weight: 500;
+                color: var(--default-icon-color, #8994a0);
+                height: 16px;
+            }
+
+            pebble-icon {
+                --iron-icon: {
+                    width: 30px;
+                    height: 30px;
+                    color: var(--default-icon-color, #8994a0);
+                }
+            }
+
+            .download-icon {
+                padding-bottom: 3px;
+            }
+        </style>
+
+        <div id="main" class="layout vertical">
+            <section id="dropSection" hidden$=[[hasFile]] class$="[[_dropSectionClass]]">
+                <pebble-icon icon="pebble-xl-icons:Download" class="download-icon"></pebble-icon>
+                <h3 class="drag-drop m-0">Drag &amp; Drop</h3>
+                <span class="title">Your files to assets, or <a href="#" class="btn-link" on-tap="_selectFile">browse</a></span>
+                <input type="file" id="file" on-change="_manualSelected" multiple$="[[multiple]]" accept$="[[accept]]">
+            </section>
+            <section id="progressSection" class="progress-zone" hidden$=[[!hasFile]]>
+                <div class="progress-div">
+                    <pebble-image-viewer alt="Product image." id="image-container" sizing="contain" src="/src/images/Microsoft Excel 50, 100, 500 px/Microsoft Excel_100.svg"></pebble-image-viewer>
+                    <div id="progress-container">
+                        {{file.name}}
+
+                        <paper-progress value$="{{progress}}" error$="{{error}}"></paper-progress>
+                        <template is="dom-if" if$="[[!complete]]">
+                            <span>Uploading</span>
+                        </template>
+                        <template is="dom-if" if$="[[complete]]">
+                            <template is="dom-if" if$="[[error]]">
+                                <span>Error occured</span>
+                            </template>
+                            <template is="dom-if" if$="[[!error]]">
+                                <span>uploaded</span>
+                            </template>
+                        </template>
+
+                    </div>
+                    <div>
+                        <pebble-button class="iconButton" icon="icons:cancel" on-tap="_cancelUpload"></pebble-button>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </template>
+    <script>
+        (function () {
+            'use strict';
+
+            Polymer({
+                is: 'pebble-file-upload',
+                listeners: {
+                    'dragenter': '_onDragEnter',
+                    'dragleave': '_onDragLeave',
+                    'dragover': '_onDragOver',
+                    'drop': '_onDrop'
+                },
+
+
+                /**
+                 * Fired when the file is uploaded and is successful.
+                 *
+                 * @event bedrock-event with name pebble-file-upload-success and data has the name of the file that has been uploaded.
+                 *
+                 */
+
+                /**
+                 * Fired when the file is uploaded and is unsuccessful.
+                 *
+                 * @event bedrock-event with name pebble-file-upload-error and data has the error response returned from server.
+                 *
+                 */
+
+                properties: {
+                    /**
+                     * Indicates the target url to upload the files to.
+                     * When the name is added in the URL, it is replaced with the file name.
+                     */
+                    target: {
+                        type: String,
+                        value: ''
+                    },
+
+                    /**
+                     * Specifies whther or not the file is draggable. Set it to <b>true</b> make the file draggable.
+                     */
+                    dragging: {
+                        type: Boolean,
+                        value: false,
+                        readOnly: true,
+                        notify: true
+                    },
+
+                    /**
+                     * Indicates the computed css class name for drop section.
+                     */
+                    _dropSectionClass: {
+                        type: String,
+                        computed: '_computeDropSectionClassName(dragging)'
+                    },
+
+                    /**
+                     * Indicates the set of comma-separated strings each of which is a valid MIME type
+                     * with no parameters.
+                     */
+                    accept: {
+                        type: String
+                    },
+
+                    /**
+                     * Indicates the name for the file data in the `formData` object.
+                     */
+                    fileDataName: {
+                        type: String,
+                        value: 'file'
+                    },
+
+                    /**
+                     *  Indicates the progress of file upload to the server.
+                     */
+                    progress: {
+                        type: Number
+                    },
+
+                    /**
+                     *  Specifies whether or not there is an error during during file upload. Set it to <b>true</b>
+                     *  to indicate error during file-upload.
+                     */
+                    error: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    /**
+                     *  Specifies whether or not the file upload is complete. Set it to <b>true</b> to indicate file upload is completed.
+                     */
+                    complete: {
+                        type: Boolean,
+                        value: false
+                    },
+
+
+                    /**
+                     *  Indicates the max size of file that can be uploaded. It must be in bytes. The default limit is set 100 MB.
+                     **/
+                    sizeLimit: {
+                        type: Number,
+                        value: 100000000
+                    },
+
+                    /**
+                     * Specifies whether or not to use xhr's `withCredentials` on upload.
+                     */
+                    withCredentials: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    /**
+                     * Indicates the file objects that are dropped into an element.
+                     **/
+                    file: {
+                        type: Object,
+                        value: null,
+                        notify: true
+                    },
+
+                    /**
+                     * Specifies whether or not an element received the files. Set it to <b>true</b> to indicate
+                     * that file is recieved.
+                     **/
+                    hasFile: {
+                        type: Boolean,
+                        value: false,
+                        computed: '_computeHasFile(file)'
+                    },
+
+                    /**
+                     * Indicates a key value map of header names and values.
+                     */
+                    headers: {
+                        type: Object,
+                        value: {}
+                    },
+                    allowedFileTypes: {
+                        type: Array,
+                        value: function () { return []; },
+                        observer: "_allowedFileTypesChanged"
+                    }
+                },
+                behaviors: [
+                    RUFBehaviors.UIBehavior,
+                ],
+                /**
+                 * Can be used as a handler to set dragging.
+                 */
+                _setDragging: function (dragging) {
+                    this.dragging = dragging;
+                },
+
+                /**
+                 *  Can be used as a handler for opening a file selector.
+                 */
+                _selectFile: function (e) {
+                    e.preventDefault();
+                    this.$.file.click();
+                },
+
+                /**
+                 *  Can be used as a handler for drag-enter event.
+                 */
+                _onDragEnter: function (e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    this._setDragging(true);
+                },
+
+                /**
+                 *  Can be used as a handler for drag-leave event.
+                 */
+                _onDragLeave: function (e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    this._setDragging(false);
+                },
+
+                /**
+                 *  Can be used as a handler for drag-over event.
+                 */
+                _onDragOver: function (e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    this._setDragging(true);
+                },
+
+                /**
+                 *  Can be used as a handler for drop event.
+                 */
+                _onDrop: function (event) {
+                    this._setDragging(false);
+                    event.stopPropagation();
+                    event.preventDefault();
+
+
+                    // Check if multiple upload is allowed
+                    if (this.file) {
+                        return;
+                    }
+
+                    var file = event.dataTransfer.files[0];
+
+                    // Check if filetype is accepted
+                    var isFileValid = this._validateFile(file);
+                    if (!isFileValid) {
+                        return;
+                    }
+
+                    this.set('error', false);
+                    this.set('complete', false);
+                    this.set('progress', 0);
+                    this.set('file', file);
+                    this._uploadFile(file);
+                },
+
+                /**
+                 * Fired when the user manually selects the file instead of drag and drop.
+                 */
+                _manualSelected: function () {
+                    var input = this.$.file;
+
+                    if (!input.files.length) {
+                        this.set('file', undefined);
+                    } else {
+                        var file = input.files[0];
+                        var isFileValid = this._validateFile(file);
+                        if (isFileValid) {
+                            this.progress = 0;
+                            this.error = false;
+                            this.complete = false;
+                            this._uploadFile(file);
+                            this.set('file', file);
+                        } else {
+                            return;
+                        }
+                    }
+                },
+
+                _validateFile: function (file) {
+                    var mimeType = ((file.type !== '') ? file.type.match(/^[^\/]*\//)[0] : null);
+                    var fileType = file.name.match(/\.[^\.]*$/)[0];
+                    var accept = this.accept ? this.accept : "";
+                    if (accept !== "" && !(accept.indexOf(mimeType) > -1) || accept.indexOf(fileType) > -1) {
+                        if (file.size > this.sizeLimit) {
+                            this.showErrorToast("The size of the file exceeded the maximum limit");
+                            return false;
+                        }
+                        var type = mimeType ? mimeType : fileType;
+                        var message = this._buildMessage(type);
+                        this.showErrorToast(message);
+                        return false;
+                    }
+                    return true;
+                },
+
+                _buildMessage: function (type) {
+                    var message = "The file type " + type + " is not a valid extension.";
+                    var allowedExtensions = undefined;
+                    var allowedFileTypes = this.allowedFileTypes;
+                    if (_.isEmpty(allowedFileTypes)) {
+                        var accept = this.accept.replace(/ /g, '');
+                        var fileTypes = accept.split(",");
+                        allowedFileTypes = ContentTypeHelper.getExtensions(fileTypes);
+                    }
+                    if (!_.isEmpty(allowedFileTypes)) {
+                        for (var i = 0; i < allowedFileTypes.length; i++) {
+                            var extension = allowedFileTypes[i];
+                            if (allowedExtensions) {
+                                allowedExtensions = allowedExtensions + "," + extension;
+                            } else {
+                                allowedExtensions = extension;
+                            }
+                        }
+                    }
+                    if (allowedExtensions) {
+                        message = message + " Valid extensions are " + allowedExtensions + ".";
+                    }
+                    return message;
+                },
+
+                /**
+                 *  Can be used to upload the file to the server.
+                 * @param file
+                 * @private
+                 */
+                _uploadFile: function (file) {
+                    if (!file) {
+                        return;
+                    }
+                    var self = this;
+
+                    if (!_.isEmpty(this.target)) {
+                        var formData = new FormData();
+
+                        // Add additional data to send with the POST variable
+                        var addData = this.additional;
+                        for (var key in addData) {
+                            if (addData.hasOwnProperty(key)) {
+                                formData.append(key, addData[key]);
+                            }
+                        }
+
+                        // Add the file data last to support POSTing to Amazon Web Services S3.
+                        formData.append(this.fileDataName, file, file.name);
+                        var xhr = file.xhr = new XMLHttpRequest();
+                        xhr.withCredentials = this.withCredentials;
+                        xhr.upload.onprogress = function (e) {
+                            var done = e.loaded, total = e.total;
+                            self.set('progress', Math.floor((done / total) * 1000) / 10);
+                        };
+
+                        var url = this.target.replace('<name>', file.name);
+                        xhr.open('POST', url, true);
+                        for (key in this.headers) {
+                            if (this.headers.hasOwnProperty(key)) {
+                                xhr.setRequestHeader(key, this.headers[key]);
+                            }
+                        }
+                        xhr.responseType = 'json';
+                        xhr.onload = function (e) {
+                            if (xhr.status >= 200 && xhr.status < 300) {
+                                var actualFileName = file.name;
+                                if (xhr.response && xhr.response.fileName) {
+                                    actualFileName = xhr.response.fileName;
+                                }
+                                var eventData = {
+                                    name: "pebble-file-upload-success",
+                                    data: {
+                                        "originalFileName": file.name,
+                                        "fileName": actualFileName
+                                    }
+                                };
+                                self.fire('bedrock-event', eventData);
+                                //                            self.fire('success', {xhr: xhr});
+                                self.set('complete', true);
+                                self.set('progress', 100);
+                            } else {
+                                var eventData = {
+                                    name: "pebble-file-upload-error",
+                                    data: {
+                                        "error": xhr.response
+                                    }
+                                };
+                                self.fire('bedrock-event', eventData);
+                                self.set('error', true);
+                                self.set('complete', true);
+                                self.set('progress', 100);
+                                // self.updateStyles();
+                                //                            self.fire('error', {xhr: xhr});
+                            }
+                        };
+                        xhr.send(formData);
+                    } else {
+                        var eventData = {
+                            name: "pebble-file-upload-success",
+                            data: {
+                                "originalFileName": file.name,
+                                "fileName": file.name,
+                                "file": file
+                            }
+                        };
+                        self.fire('bedrock-event', eventData);
+                        //                            self.fire('success', {xhr: xhr});
+                        self.set('complete', true);
+                        self.set('progress', 100);
+                    }
+
+                },
+
+                /**
+                 *  Can be used to cancel an uploaded file.
+                 * @param e
+                 * @private
+                 */
+                _cancelUpload: function (e) {
+                    e.preventDefault();
+                    this.logInfo("UploadCancel");
+                    if (this.file.xhr) {
+                        this.file.xhr.abort();
+                    }
+                    this.file = undefined;
+                    this.$.file.value = null;
+                    this.set('error', false);
+                    this.set('complete', false);
+                    this.set('progress', 0);
+                },
+
+                /**
+                 * Can be used to compute the class name for dragging section.
+                 */
+                _computeDropSectionClassName: function (dragging) {
+                    var cls = 'drop-zone';
+                    if (dragging) {
+                        cls += ' active';
+                    }
+                    return cls;
+                },
+
+                /**
+                 *  Can be used to compute if an element received the file.
+                 */
+                _computeHasFile: function (file) {
+                    return !!file;
+                },
+
+                /**
+                 * Can be used to reset the state of the element to the default view.
+                 */
+                reset: function () {
+                    if (this.file.xhr) {
+                        this.file.xhr.abort();
+                    }
+                    this.file = null;
+                    this.$.file.value = null;
+                    this.set('error', false);
+                    this.set('complete', false);
+                    this.set('progress', 0);
+                },
+                _allowedFileTypesChanged: function (allowedFileTypes) {
+                    if (!_.isEmpty(allowedFileTypes)) {
+                        this.accept = ContentTypeHelper.getContentTypes(allowedFileTypes);
+                    }
+                }
+            });
+        })();
+    </script>
+</dom-module>
