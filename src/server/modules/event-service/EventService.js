@@ -8,6 +8,9 @@ var Eventservice = function (options) {
     DFRestService.call(this, options);
 };
 
+const falcorUtil = require('../../../shared/dataobject-falcor-util');
+const pathKeys = falcorUtil.getPathKeys();
+
 const eventSubTypeMap = {
     'QUEUED': ['QUEUED', 'QUEUED_SUCCESS', 'PROCESSING_STARTED'],
     'PROCESSING': ['SUBMITTED', 'PROCESSING_COMPLETED', "PROCESSING_COMPLETE_WITH_WARNING"],
@@ -558,6 +561,11 @@ Eventservice.prototype = {
                 "sortType": "_DATETIME"
             }]
         };
+
+        var dataIndexInfo = pathKeys.dataIndexInfo["requestTracking"];
+        req.params.options = {
+            "maxRecords": dataIndexInfo.maxRecordsToReturn
+        }
 
         return req;
     },
