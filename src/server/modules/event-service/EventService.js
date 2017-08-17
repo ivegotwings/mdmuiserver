@@ -8,6 +8,9 @@ var Eventservice = function (options) {
     DFRestService.call(this, options);
 };
 
+const falcorUtil = require('../../../shared/dataobject-falcor-util');
+const pathKeys = falcorUtil.getPathKeys();
+
 const eventSubTypeMap = {
     'QUEUED': ['QUEUED', 'QUEUED_SUCCESS', 'PROCESSING_STARTED'],
     'PROCESSING': ['SUBMITTED', 'PROCESSING_COMPLETED', "PROCESSING_COMPLETE_WITH_WARNING"],
@@ -17,7 +20,6 @@ const eventSubTypeMap = {
 
 const eventTypesOrder = ["BATCH_COLLECT_ENTITY_IMPORT",
     "BATCH_TRANSFORM_ENTITY_IMPORT",
-    "PROCESSING_STARTED",
     "BATCH_EXTRACT",
     "BATCH_COLLECT_ENTITY_EXPORT",
     "BATCH_TRANSFORM_ENTITY_EXPORT",
@@ -206,22 +208,55 @@ Eventservice.prototype = {
                 var events = batchEventsGetRes.response.events;
                 var highOrderEvent = undefined;
                 var processingStartedEvent = undefined;
-                var currentEventRecordIdx = 0;
+                var highOrderEventTypeIndex = 0;
+
+                var me = this;
+                var eventGroups = _.groupBy(events, function (event) {
+                    var groupKey = me._getAttributeValue(event, "eventType");
+
+                    if (!groupKey) {
+                        groupKey = "Unknown";
+                    }
+
+                    return groupKey;
+                });
+
+                for (var groupKey in eventGroups) {
+                    var eventType = groupKey;
+                    var currentEventTypeIndex =  eventTypesOrder.indexOf(eventType);
+
+                    if(currentEventTypeIndex > highOrderEventTypeIndex) {
+                        var eventGroup = eventGroups[groupKey];
+                        var highOrderEventSubTypeIndex = 0;
+
+                        for (var i = 0; i < eventGroup.length; i++) {
+                            var event = eventGroup[i];
+                            if (event && event.data && event.data.attributes) {
+                                var eventSubType = this._getAttributeValue(event, "eventSubType");
+                                var currentEventSubTypeIndex = eventSubTypesOrder.indexOf(eventSubType);
+                                if (currentEventSubTypeIndex > highOrderEventSubTypeIndex) {
+                                    highOrderEvent = event;
+
+                                    highOrderEventSubTypeIndex = currentEventSubTypeIndex;
+                                }
+                            }
+                        }
+
+                        highOrderEventTypeIndex = currentEventTypeIndex;
+                    }
+                }
 
                 for (var i = 0; i < events.length; i++) {
                     var event = events[i];
                     if (event && event.data && event.data.attributes) {
                         var eventSubType = this._getAttributeValue(event, "eventSubType");
-                        var currentEventSubTypeIndex = eventSubTypesOrder.indexOf(eventSubType);
-                        if (currentEventSubTypeIndex > currentEventRecordIdx) {
-                            highOrderEvent = event;
-
-                            currentEventRecordIdx = currentEventSubTypeIndex;
-                        }
-
+                        
                         if(highOrderEvent) {
-                            if (!this._getAttributeValue(highOrderEvent, "recordCount") && this._getAttributeValue(event, "recordCount")) {
-                                this._setAttributeValue(highOrderEvent, "recordCount", this._getAttributeValue(event, "recordCount"));
+                            if (!this._getAttributeValue(highOrderEvent, "recordCount")) {
+                                var currentEventRecordCount = this._getAttributeValue(event, "recordCount");
+                                if(currentEventRecordCount) {
+                                    this._setAttributeValue(highOrderEvent, "recordCount", currentEventRecordCount);
+                                }
                             }
                         }
 
@@ -527,6 +562,11 @@ Eventservice.prototype = {
             }]
         };
 
+        var dataIndexInfo = pathKeys.dataIndexInfo["requestTracking"];
+        req.params.options = {
+            "maxRecords": dataIndexInfo.maxRecordsToReturn
+        }
+
         return req;
     },
     _getRequestJson: function (types) {
@@ -812,11 +852,18 @@ Eventservice.prototype = {
                     break;
                 case "transitionworkflow":
                 case "transitionworkflow-query":
+                case "transitionworkflow-multi-query":
                     taskType = "Bulk Workflow Transitions";
                     break;
                 case "changeassignment":
                 case "changeassignment-query":
+                case "changeassignment-multi-query":
                     taskType = "Bulk Workflow Assignments";
+                    break;
+                case "process":
+                case "process-query":
+                case "process-multi-query":
+                    taskType = "Bulk Edit";
                     break;
             }
         }
