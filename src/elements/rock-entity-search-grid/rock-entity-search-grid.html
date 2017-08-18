@@ -277,6 +277,13 @@ It filters the data as per filter criteria.
                         }
                     },
 
+                    governAttributesCriterion: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
                     _governDataGetReq: {
                         type: Object,
                         value: function () {
@@ -505,7 +512,10 @@ It filters the data as per filter criteria.
                     var dataSource = this._getEntityDataSource();
 
                     if (grid && this.searchFilters) {
-                        this._entityDataGetReq.params.query.filters.attributesCriterion = this._removeUnSupportedFilters(this.searchFilters);
+                        var attrsCriterion = this._removeUnSupportedFilters(this.searchFilters);
+                        this._entityDataGetReq.params.query.filters.attributesCriterion = attrsCriterion;
+                        this._governDataGetReq.params.query.filters.attributesCriterion = this._getDefaultGovernAttributesCriterion();
+                        this._updateGovernRequestAttributesCriterion(attrsCriterion);
 
                         if (this._isCombinedGetReq) {
                             this.request = DataRequestHelper.createCombinedGetRequest(this._governDataGetReq, this._entityDataGetReq);
@@ -608,6 +618,7 @@ It filters the data as per filter criteria.
 
                     if (this.searchFilters && !_.isEmpty(this.searchFilters)) {
                         this._entityDataGetReq.params.query.filters.attributesCriterion = this.searchFilters;
+                        this._updateGovernRequestAttributesCriterion(this.searchFilters);
                     }
 
                     if (this.searchQuery && this.searchQuery != "") {
@@ -741,6 +752,56 @@ It filters the data as per filter criteria.
                         return true;
                     }
                     return false;
+                },
+
+                _getDefaultGovernAttributesCriterion: function () {
+                    var defaultCriterion = [];
+                    var currentCriterion = this._governDataGetReq.params.query.filters.attributesCriterion;
+
+                    if (currentCriterion) {
+                        currentCriterion.forEach(function (criterion) {
+                            if (criterion && Object.keys(criterion).length == 1) {
+                                switch (Object.keys(criterion)[0]) {
+                                    case "activities":
+                                    case "status":
+                                    case "businessConditions":
+                                        defaultCriterion.push(criterion);
+                                        break;
+                                }
+                            }
+                        }, this);
+                    }
+                    return defaultCriterion;
+                },
+
+                _updateGovernRequestAttributesCriterion: function (attributesCriterion) {
+
+                    if (this.governAttributesCriterion) {
+                        if (this.governAttributesCriterion.include && this.governAttributesCriterion.include.length) {
+
+                            if (this.governAttributesCriterion.include.length == 1 && this.governAttributesCriterion.include[0] == "_ALL") {
+                                attributesCriterion.forEach(function (attrCritrn) {
+                                    attrCritrn[Object.keys(attrCritrn)[0]].nonContextual = true;
+                                    this._governDataGetReq.params.query.filters.attributesCriterion.push(attrCritrn)
+                                }, this);
+                            } else {
+                                var attributes = this.governAttributesCriterion.include;
+
+                                if (attributes && attributes.length) {
+                                    attributes.forEach(function (attr) {
+                                        for (var i = 0; i < attributesCriterion.length; i++) {
+                                            if (attributesCriterion[i][attr]) {
+                                                var attrCriterion = attributesCriterion[i];
+                                                attrCriterion[attr].nonContextual = true;
+                                                this._governDataGetReq.params.query.filters.attributesCriterion.push(attrCriterion);
+                                                break;
+                                            }
+                                        }
+                                    }, this);
+                                }
+                            }
+                        }
+                    }
                 }
             });
         })();
