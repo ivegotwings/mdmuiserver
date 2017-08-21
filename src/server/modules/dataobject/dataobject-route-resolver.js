@@ -45,8 +45,8 @@ const entityCompositeModelGetService = new EntityCompositeModelGetService(option
 const eventService = new EventService(options);
 
 async function initiateSearch(callPath, args) {
-
     var response = [];
+    var isCombinedQuerySearch = false;
 
     try{
 
@@ -65,8 +65,46 @@ async function initiateSearch(callPath, args) {
         var maxRecordsSupported = dataIndexInfo.maxRecordsToReturn || 2000;
 
         if (request.params) {
-            var options = falcorUtil.getOrCreate(request.params, 'options', {});
-            options.maxRecords = maxRecordsSupported;
+            if(request.params.isCombinedQuerySearch) {
+                isCombinedQuerySearch = true;
+                delete request.params.isCombinedQuerySearch;
+
+                if(request.params.options) {
+                    delete request.params.options;
+                }
+
+                request.params.pageSize = dataIndexInfo.combinedQueryPageSize || 500;
+                
+                //Identify the last executable query...
+                if(request.entity && request.entity.data && request.entity.data.jsonData) {
+                    var searchQueries =request.entity.data.jsonData.searchQueries;
+
+                    if(searchQueries) {
+                        var currentSearchQuerysequence = 0;
+                        var highestSeqSearchQuery = undefined;
+                        for (var i = 0; i < searchQueries.length; i++) {
+                            var searchQuery = searchQueries[i];
+
+                            if (searchQuery.searchQuery && searchQuery.searchQuery.options) {
+                                delete searchQuery.searchQuery.options;
+                            }
+
+                            if(searchQuery.searchSequence >= currentSearchQuerysequence) {
+                                highestSeqSearchQuery = searchQuery;
+                                currentSearchQuerysequence = searchQuery.searchSequence;
+                            }
+                        }
+
+                        if(highestSeqSearchQuery) {
+                            var options = falcorUtil.getOrCreate(highestSeqSearchQuery.searchQuery, 'options', {});
+                            options.maxRecords = maxRecordsSupported;
+                        }
+                    }
+                }
+            } else {
+                var options = falcorUtil.getOrCreate(request.params, 'options', {});
+                options.maxRecords = maxRecordsSupported;
+            }
         }
 
         if(operation === "initiatesearchandgetcount") {
@@ -87,7 +125,12 @@ async function initiateSearch(callPath, args) {
             delete request.params.fields; // while initiating search, we dont want any of the fields to be returned..all we want is resulted ids..
         }
 
-        var res = await service.get(request);
+        var res = undefined;
+        if(isCombinedQuerySearch) {
+            res = await service.getCombined(request);
+        } else {
+            res = await service.get(request);
+        }
 
         // console.log('response raw str', JSON.stringify(res, null, 4));
         var totalRecords = 0;
@@ -445,8 +488,11 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
             var apiRequestObj = { 'dataIndex': dataIndex, 'clientState': clientState };
             apiRequestObj[dataIndexInfo.name] = dataObject;
             
+            if(dataObjectAction == "create" || dataObjectAction == "update") {
+                _prependAuthorizationType(apiRequestObj);
+            }
             //console.log('api request data for process dataObjects', JSON.stringify(apiRequestObj));
-            var dataOperationResult = {};
+            var dataOperationResult = {};            
 
             if (dataObjectAction == "create") {
                 dataOperationResult = await dataObjectManageService.create(apiRequestObj);
@@ -626,6 +672,16 @@ function _getOriginalRelIds(dataObject) {
     }
 
     return originalRelIds;
+}
+
+function _prependAuthorizationType(reqObject) {
+    if(reqObject.params) {
+        reqObject.params["authorizationType"] = "accommodate";
+    } else {
+        reqObject.params = {
+            "authorizationType": "accommodate"
+        };
+    }
 }
 
 module.exports = {

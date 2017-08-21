@@ -231,8 +231,7 @@
             * <b><i>Content development is under progress... </b></i> 
             */
                 thumbnailId:{
-                    type:String,
-                    observer:'_generateGetThumbnailRequest'
+                    type:String
                 },
                 noThumbnailImagePath:{
                     type:String,
@@ -241,26 +240,71 @@
                 loadingThumbnailPath: {
                     type: String,
                     value: "/src/images/loading-thumbnail.svg"
+                },
+                active:{
+                    type:Boolean,
+                    value:false
+                }
+            },
+            observers:[
+                "_generateGetThumbnailRequest(thumbnailId,active)"
+            ],
+            attached:function () {
+                this._initLazyLoad();
+            },
+            _initLazyLoad:function () {
+                if (!('IntersectionObserver' in window)) {
+                    var script = document.getElementById('polyfill-IntersectionObserver');
+                    if (!script) {
+                        script = document.createElement('script');
+                        script.id = 'polyfill-IntersectionObserver';
+                        script.async = true;
+                        script.src = '/src/scripts/intersection-observer.js';
+                        script.onload = onload;
+                        document.head.appendChild(script);
+                    }
+                    var _this=this;
+                    script.addEventListener("load",function () {
+                        _this._initLazyLoad(true);
+                    });
+                } else {
+                    if (!window.imageIntersectionObserver) {
+                        window.imageIntersectionObserver = new IntersectionObserver(function (entries, observer) {
+                            for (let i = 0; i < entries.length; i++) {
+                                entries[i].target._lazyLoadCallback(entries[i]);
+                            }
+                        }, {});
+                    }
+                    // observe this element
+                    window.imageIntersectionObserver.observe(this);
+                }
+            },
+            _lazyLoadCallback(e) {
+                if (!this.active && (e.isIntersecting || e.intersectionRatio>0)) {
+                    this.active = true;
+                    window.imageIntersectionObserver.unobserve(this);
                 }
             },
             _generateGetThumbnailRequest:function () {
                 if(this.thumbnailId) {
                     this.set("src",this.loadingThumbnailPath);
-                    var req = {
-                        "params": {
-                            "query": {
-                                "id": this.thumbnailId,
-                                "filters": {}
-                            },
-                            "fields": {}
+                    if(this.active) {
+                        var req = {
+                            "params": {
+                                "query": {
+                                    "id": this.thumbnailId,
+                                    "filters": {}
+                                },
+                                "fields": {}
+                            }
+                        };
+                        req.params.query.filters.typesCriterion = ["imagerendition"];
+                        req.params.fields.attributes = ["blob"];
+                        var getThumbnailLiquid = this.$$("#getThumbnail");
+                        if (getThumbnailLiquid) {
+                            getThumbnailLiquid.requestData = req;
+                            getThumbnailLiquid.generateRequest();
                         }
-                    };
-                    req.params.query.filters.typesCriterion = ["imagerendition"];
-                    req.params.fields.attributes = ["blob"];
-                    var getThumbnailLiquid = this.shadowRoot.querySelector("#getThumbnail");
-                    if (getThumbnailLiquid) {
-                        getThumbnailLiquid.requestData = req;
-                        getThumbnailLiquid.generateRequest();
                     }
                 } else {
                     this.set("src",this.noThumbnailImagePath);
@@ -279,7 +323,6 @@
                             }
                         }
                     }
-
                     if(thumbnail) {
                         // decode the base64 and find the mime type. This is needed to display image/svg+xml images
                         var c = Base64.decode(thumbnail);
