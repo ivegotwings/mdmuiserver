@@ -1,7 +1,7 @@
 var clientIO = require("socket.io-client");
-var config = require("../config");
+var config = require('config');
 
-var path = config.clientConfig.url;
+var path = config.get('modules.notificationEngine.url');
 
 var clientSocket = clientIO.connect(path);
 

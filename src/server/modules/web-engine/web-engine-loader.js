@@ -11,10 +11,11 @@ var compression = require('compression');
 var cookieParser = require('cookie-parser');
 var fileUpload = require('express-fileupload');
 
-var webEngineConfig = require("../../config/web-engine-config.json");
+var config = require('config');
 
 var logger = require('../common/logger/logger-service');
-logger.configure(webEngineConfig.loggerConfig);
+var loggerConfig = config.get('modules.common.logger');
+logger.configure(loggerConfig);
 
 var buildPath = process.cwd();
 var relativePath = process.env.PROJECT_PATH;
@@ -196,4 +197,4 @@ var server = app.listen(5005, function () {
     console.log('Web engine is running now at http://%s:%s/', host, port);
 });
 
-server.timeout = webEngineConfig.connectionTimeout;
+server.timeout = config.get('modules.webEngine').connectionTimeout;
