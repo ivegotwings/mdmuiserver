@@ -14,12 +14,16 @@ Enums.actions = {
     WorkflowAssignmentComplete:9,
     WorkflowAssignmentFail:10,
     RSConnectComplete:11,
-    RSConnectFail:12
+    RSConnectFail:12,
+    BusinessConditionSaveComplete:13,
+    BusinessConditionSaveFail:14
+
 }
 
 Enums.operations = {
     WorkflowTransition: 1,
-    WorkflowAssignment: 2
+    WorkflowAssignment: 2,
+    BusinessCondition:3
 }
 
 var SharedEnumsUtil = SharedEnumsUtil || {};
