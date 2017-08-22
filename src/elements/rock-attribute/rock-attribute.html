@@ -296,10 +296,11 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                             <rock-entity-combo-box id="multi-select-combo-box-readonly" id-field="[[_getMappedColumn('id', attributeModelObject)]]" 
                                                 title-pattern="[[_getMappedColumn('title', attributeModelObject)]]"
                                                 sub-title-pattern="[[_getMappedColumn('subtitle', attributeModelObject)]]"
-                                                label="[[_getLabel(attributeModelObject.externalName)]]" 
-                                                multi-select is-readonly="[[!_isComponentEditable(mode, attributeModelObject)]]"
-                                                request-data='[[_prepareRequestObjectForLov(attributeModelObject)]]'
-                                                selected-ids="{{attributeObject.value}}" 
+                                                value-field="[[_getMappedColumn('value', attributeModelObject)]]" 
+                                                multi-select label="[[_getLabel(attributeModelObject.externalName)]]" 
+                                                is-readonly="[[!_isComponentEditable(mode, attributeModelObject)]]"
+                                                request-data="[[_prepareRequestObjectForLov(attributeModelObject, dependentAttributeObject)]]"
+                                                selected-ids="{{attributeObject.referenceDataId}}" selected-values="{{attributeObject.value}}"
                                                 tabindex="[[tabindex]]" context-data="[[contextData]]">
                             </rock-entity-combo-box>
                         </template>
@@ -307,10 +308,11 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                             <rock-entity-combo-box id="combo-box-readonly" id-field="[[_getMappedColumn('id', attributeModelObject)]]" 
                                                 title-pattern="[[_getMappedColumn('title', attributeModelObject)]]"
                                                 sub-title-pattern="[[_getMappedColumn('subtitle', attributeModelObject)]]"
+                                                value-field="[[_getMappedColumn('value', attributeModelObject)]]" 
                                                 label="[[_getLabel(attributeModelObject.externalName)]]" 
                                                 is-readonly="[[!_isComponentEditable(mode, attributeModelObject)]]"
-                                                request-data='[[_prepareRequestObjectForLov(attributeModelObject)]]' 
-                                                selected-id="{{attributeObject.value}}"
+                                                request-data="[[_prepareRequestObjectForLov(attributeModelObject, dependentAttributeObjects)]]"
+                                                selected-id="{{attributeObject.referenceDataId}}" selected-value="{{attributeObject.value}}"
                                                 tabindex="[[tabindex]]" context-data="[[contextData]]">
                             </rock-entity-combo-box>
                         </template>
@@ -414,9 +416,9 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                         }
                     },
                     dependentAttributeObjects: {
-                        type: Object,
+                        type: Array,
                         value: function() {
-                            return {};
+                            return [];
                         }
                     },
                     dependentAttributeModelObjects: {
@@ -508,7 +510,7 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                     showDeleteIcon: {
                         type: Boolean,
                         value: false
-                    }                  
+                    }
                 },
                 observers: [
                     '_attributeObjectChanged(attributeObject.*)'
@@ -686,7 +688,7 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                     return functionalMode == "grid";
                 },
                 //TODO: this did not work for entityTypes, need to check why
-                _prepareRequestObjectForLov: function(attributeModel) {
+                _prepareRequestObjectForLov: function(attributeModel, dependentAttributeObjects) {
                     var refEntityTypes = [];
 
                     //find from manage model, looks like this:
@@ -707,24 +709,16 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
 
 
                     var relationshipsCriterion = [];
-                    var dependencyInfo = attributeModel.dependencyInfo;
-                    if(dependencyInfo) {
+                    var dependencyInfo = attributeModel.dependencyInfo; 
+                    if(!DataHelper.isEmptyObject(dependencyInfo) && !DataHelper.isEmptyObject(this.dependentAttributeObjects) && !DataHelper.isEmptyObject(this.dependentAttributeModelObjects)) {
                         for(let i = 0; i < dependencyInfo.length; i++) {
                             var dependentAttrInfo = dependencyInfo[i];
                             var dependentAttributeModelObject = this.dependentAttributeModelObjects.find(attrModel => attrModel.name === dependentAttrInfo.dependentOn)
                             var dependentAttributeObject = this.dependentAttributeObjects.find(attr => attr.name === dependentAttrInfo.dependentOn)
-                            var dependentAttributeValue = dependentAttributeObject.value;
 
-                            if(dependentAttributeValue) {
-                                if(dependentAttributeValue instanceof Array) {
-                                    for(let j = 0; j < dependentAttributeValue.length; j++) {
-                                        var relCriteria = this._prepareRelationshipCriterion(dependentAttrInfo.dependencyRelationship, dependentAttributeValue[j].value, dependentAttributeModelObject.referenceEntityTypes[0]);
-                                        relationshipsCriterion.push(relCriteria);
-                                    }
-                                } else {
-                                    var relCriteria = this._prepareRelationshipCriterion(dependentAttrInfo.dependencyRelationship, dependentAttributeValue, dependentAttributeModelObject.referenceEntityTypes[0]);
-                                    relationshipsCriterion.push(relCriteria);
-                                }
+                            if(dependentAttributeObject) {
+                                var relCriteria = this._prepareRelationshipCriterion(dependentAttrInfo.dependencyRelationship, dependentAttributeObject.referenceDataId, dependentAttributeModelObject.referenceEntityTypes[0]);
+                                relationshipsCriterion.push(relCriteria);
                             }
                         }
                     }
@@ -740,12 +734,12 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
 
                     return DataRequestHelper.createEntityGetRequest(clonedContextData);
                 },
-                _prepareRelationshipCriterion: function(relName, relToName, relToType) {
+                _prepareRelationshipCriterion: function(relName, relToId, relToType) {
                     var relCriteria = {};
                     relCriteria[relName] = {
                         "relTo": {}
                     };
-                    relCriteria[relName].relTo.name = relToName;
+                    relCriteria[relName].relTo.id = relToId;
                     relCriteria[relName].relTo.type = relToType;
                     return relCriteria
                 },
@@ -762,10 +756,10 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
 
                                     if(columName == "id") {
                                         // Id is mandatory for Lov.
-                                        // Hence if pattern for Id not available then set entity.name
+                                        // Hence if pattern for Id not available then set entity.id
                                         columNameToReturn = refEntityInfo.id;
                                         if(DataHelper.isEmptyObject(columNameToReturn)) {
-                                            columNameToReturn = "entity.name";
+                                            columNameToReturn = "entity.id";
                                         }
                                     }
 
@@ -785,17 +779,17 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                                         columNameToReturn = refEntityInfo.image;
                                     }
 
-                                     if(columName == "color") {
+                                    if(columName == "color") {
                                         columNameToReturn = refEntityInfo.color;
                                     }
 
-                                    // To Remove above code?
-                                    // var columNameToReturn = refEntityInfo[columName.toLowerCase()];
-                                    // if(DataHelper.isEmptyObject(columNameToReturn) && columName == "id") {
-                                    //     // Id is mandatory for Lov.
-                                    //     // Hence if pattern for Id not available then set entity.name
-                                    //     columNameToReturn = "entity.name";
-                                    // }
+                                    if(columName == "value") {
+                                        columNameToReturn = refEntityInfo.value;
+                                        if(DataHelper.isEmptyObject(columNameToReturn)) {
+                                            columNameToReturn = "entity.name";
+                                        }
+                                    }
+
                                     return columNameToReturn;
                                 }
                             }
