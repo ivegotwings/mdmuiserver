@@ -2,17 +2,27 @@
 
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-helpers/attribute-helper.html">
+<link rel="import" href="../bedrock-helpers/context-helper.html">
+<link rel="import" href="../bedrock-helpers/data-transform-helper.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
 
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
 
 <link rel="import" href="../rock-grid/rock-grid.html">
 
 <dom-module id="rock-attribute-grid">
     <template>
         <style is="custom-style" include="pebble-styles-shared">
-        
+            
         </style>
-        <rock-grid id="attributesGrid" config="[[_gridConfig]]" data="[[_gridData]]" no-header page-size="5"></rock-grid>
+        <template is="dom-if" if="[[_isEditMode(mode)]]">
+            <pebble-button icon="pebble-sm-icons:Add" id="button_add" class="btn btn-primary m-r-10" button-text="Add"
+                on-click="_onAddRowClick"></pebble-button>
+        </template>
+        <rock-grid id="attributesGrid" config="{{_gridConfig}}" data="{{_gridData}}" attribute-models = "[[_attributeModels]]" no-header page-size="5" is-dirty="{{_isGridDirty}}"></rock-grid>
+        <bedrock-pubsub event-name="delete-item" handler="_onRowDelete" target-id="attributesGrid"></bedrock-pubsub>
     </template>
     <script>
         (function() {
@@ -26,6 +36,32 @@
                         type: Object,
                         value: function() {
                             return {};
+                        }
+                    },
+                    _gridConfig: {
+                        type: Object,
+                        value: function () {
+                            return {
+                                "viewMode": "Tabular",
+                                "mode": "read",
+                                "schemaType": "colModel",
+                                "statusEnabled": true,
+                                "tabular": {
+                                    "settings": {
+                                        "isMultiSelect": false,
+                                        "disableSelectAll": true,
+                                        "rowIdentifier": "groupidentifier",
+                                        "actions": [
+                                            {
+                                                "name": "delete",
+                                                "icon": "pebble-icons:Delete",
+                                                "eventName": "delete-item"
+                                            }
+                                        ]
+                                    },
+                                    "columns": []
+                                }
+                            };
                         }
                     },
                     /**
@@ -88,28 +124,10 @@
                         notify: true,
                         reflectToAttribute: true
                     },
-                    _gridConfig: {
+                    _originalGridConfig: {
                         type: Object,
                         value: function () {
-                            return {
-                                "viewMode": "Tabular",
-                                "readOnly": true,
-                                "tabular": {
-                                    "settings": {
-                                        "isMultiSelect": false
-                                    },
-                                    "columns": [
-                                        {
-                                            "header": "Attribute Name",
-                                            "name": "attributeName"
-                                        },
-                                        {
-                                            "header": "Value",
-                                            "name": "attributeValue"
-                                        }
-                                    ]
-                                }
-                            };
+                            return {};
                         }
                     },
                     _gridData: {
@@ -118,34 +136,161 @@
                             return [];
                         }
                     },
+                    _attributeModels: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _isGridDirty: {
+                        type: Boolean,
+                        value: false
+                    }
                 },
                 behaviors: [
                     RUFBehaviors.UIBehavior,
                     RUFBehaviors.ComponentContextBehavior
                 ],
                 observers: [
-                    '_attributeModelObjectChanged(attributeModelObject)'
+                    '_attributeModelObjectChanged(attributeModelObject)',
+                    '_attributeObjectChanged(attributeObject)',
+                    '_modeChanged(mode)',
+                    '_gridDataChanged(_isGridDirty)'
                 ],
-                _attributeModelObjectChanged: function() {
-                    this._prepareGridData(this.attributeModelObject);
+                _attributeModelObjectChanged: function(attributeModelObject) {
+                    if(!_.isEmpty(attributeModelObject)) {
+                        this._prepareGridConfig(attributeModelObject);
+                    }
                 },
-                _prepareGridData: function(attributeModelObject) {
-                    this._gridData = [];
-                    var attributesGrid = this.$$("#attributesGrid");
-                    attributesGrid.attributeModels = {};
-                    if(attributeModelObject && attributeModelObject.data && attributeModelObject.data.attributes) {
-                        var keys = Object.keys(attributeModelObject.data.attributes);
-                        if(keys && keys.length > 0) {
+                _attributeObjectChanged: function(attributeObject) {
+                    if(!_.isEmpty(attributeObject) && (!this._isGridReady || DataHelper.areEqualArrays(attributeObject.group, this.originalAttributeObject.group))) {
+                        this._prepareGridData(attributeObject);
+                    }
+                },
+                _prepareGridConfig: function(attributeModelObject) {
+                    if(attributeModelObject && attributeModelObject.group && attributeModelObject.group.length > 0) {
+                        var attributeModels = attributeModelObject.group[0];
+                        this.set("_attributeModels", attributeModels);
+                        var keys = Object.keys(attributeModels);
+                        if(keys && keys.length>0) {
                             for(var i=0; i<keys.length; i++) {
-                                var attributeName = keys[i];
-                                var attributeValue = attributeModelObject.data.attributes[attributeName].value;
-                                var colData = {
-                                    "attributeName": attributeName,
-                                    "attributeValue": attributeValue
+                                var attributeModel = attributeModels[keys[i]];
+                                var column = {
+                                    "header": attributeModel.externalName,
+                                    "name": attributeModel.name,
+                                    "sortable": true
                                 };
-                                this._gridData.push(colData);
+                                this._gridConfig.tabular.columns.push(column);
                             }
                         }
+                    }
+                },
+                _prepareGridData: function(attributeObject) {
+                    this._gridData = [];
+                    if(!this._isGridReady) {
+                        this.originalAttributeObject = DataHelper.cloneObject(attributeObject);
+                    }
+                    if(attributeObject && attributeObject.group && attributeObject.group.length > 0) {
+                        for(var  i=0; i<attributeObject.group.length; i++) {
+                            var group = attributeObject.group[i];
+                            var keys = Object.keys(group);
+                            if(keys && keys.length > 0) {
+                                var rowData = {};
+                                rowData["identifier"] = group[this._gridConfig.tabular.settings.rowIdentifier];
+                                for(var j=0; j<keys.length; j++) {
+                                    var key = keys[j];
+                                    rowData[key] = group[key];
+                                }
+                                this._gridData.push(rowData);
+                            }
+                        }
+                    }
+                    this._isGridReady = true;
+                    this._originalGridData = this._gridData;
+                },
+                _modeChanged: function(mode) {
+                    var grid = this.$$("#attributesGrid");
+                    if(mode === "edit") {
+                        grid.changeToEditMode();
+                    } else if(mode === "view") {
+                        grid.changeToReadMode();
+                    }
+                },
+                _gridDataChanged: function(_isGridDirty) {
+                    if(_isGridDirty === true) {
+                        this.changed = true;
+                    } else if(_isGridDirty === false) {
+                        this.changed = false;
+                    } else {
+                        this.changed = undefined;
+                    }
+                    this._setAttributeObject();
+                },
+                _setAttributeObject: function() {
+                    if(this.changed) {
+                        var grid = this.$$("#attributesGrid");
+                        var data = grid.data;
+                        if(data && data.length > 0) {
+                            var valCtx = ContextHelper.getFirstValueContext(this.contextData);
+                            var groups = [];
+                            var originalAttributes = Object.keys(this._attributeModels);
+                            for(var i=0; i<data.length; i++) {
+                                var rowData = data[i];
+                                if(rowData.action !== "delete") {
+                                    var keys = Object.keys(rowData);
+                                    if(keys && keys.length > 0) {
+                                        var group = {};
+                                        for(var j=0; j<keys.length; j++) {
+                                            var key = keys[j];
+                                            if(originalAttributes.indexOf(key) !== -1) {
+                                                group[key] = rowData[key];
+                                            }
+                                        }
+                                        groups.push(group);
+                                    }
+                                }
+                            }
+                            this.attributeObject.group =  groups;
+                        }
+                    } else if(this.changed === false) {
+                        this.attributeObject = this.originalAttributeObject;
+                    }
+                },
+                _onRowDelete: function(e, detail) {
+                    var childAttrObj = this.attributeObject.group.find(obj => obj[this._gridConfig.tabular.settings.rowIdentifier] === detail["identifier"]);
+                    if(childAttrObj) {
+                        this._notifyDirty();
+                    }
+                },
+                _isEditMode: function(mode) {
+                    return mode === "edit";
+                },
+                _onAddRowClick: function(e) {
+                    var length = this._gridData.length;
+                    var newRowItem = {};
+                    var attributeNames = Object.keys(this._attributeModels);
+                    for(var i=0; i<attributeNames.length; i++) {
+                        newRowItem[attributeNames[i]] = "";
+                    }
+                    var grid = this.$$("#attributesGrid");
+                    newRowItem._rowStatus = {
+                        "status": "new",
+                        "statusIcon": "pebble-sm-icons:Add"
+                    };
+                    grid.data.splice(length, 0, newRowItem);
+                    grid.clearCache();
+                    setTimeout(function () {
+                        grid.editInline(length);
+                    }.bind(this), 500);
+                    this._notifyDirty();
+                },
+                _notifyDirty: function() {
+                    if(!DataHelper.areEqualArrays(this._gridData, this._originalGridData)) {
+                        this._isGridDirty = undefined;
+                        this._isGridDirty = true;
+                    } else {
+                        this._isGridDirty = undefined;
+                        this._isGridDirty = false;
                     }
                 }
             });
