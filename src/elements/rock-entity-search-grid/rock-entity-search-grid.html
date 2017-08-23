@@ -40,6 +40,21 @@ It filters the data as per filter criteria.
             padding: 22px 20px 0px 0px;
             font-size: var(--font-size-sm, 12px);
         }
+        /* Firefox specific fix for toggle button */
+
+        @media all and (min--moz-device-pixel-ratio:0) and (min-resolution: 3e1dpcm) {
+            .toggle-button {
+                padding: 0;
+            }
+        }
+        /* IE11 specific fix for toggle button */
+
+        @media screen and (-ms-high-contrast: active),
+        (-ms-high-contrast: none) {
+            .toggle-button {
+                padding: 0;
+            }
+        }
     </style>
     <template>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
@@ -55,7 +70,7 @@ It filters the data as per filter criteria.
                 <rock-grid hidden$="[[_loadGovernData]]" id="entityGrid" data-source="{{dataSource}}" data-source-id="searchGrid" result-record-size="{{resultRecordSize}}"
                     current-record-size="{{currentRecordSize}}" config="{{gridConfig}}" grid-data-size="{{size}}" attribute-models="{{attributeModels}}"
                     page-size="[[pageSize]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" total-count="{{totalCount}}"
-                    max-configured-count="[[maxConfiguredCount]]" has-combined-get-results="[[_isCombinedGetReq]]"></rock-grid>
+                    max-configured-count="[[maxConfiguredCount]]"></rock-grid>
             </template>
             <template is="dom-if" if="[[_loadGovernData]]">
                 <rock-govern-data-grid id="governGrid" context-data="[[contextData]]" request="[[request]]" entity-name-attribute="[[governDataConfig.entityNameAttribute]]"></rock-govern-data-grid>
@@ -262,6 +277,13 @@ It filters the data as per filter criteria.
                         }
                     },
 
+                    governAttributesCriterion: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
                     _governDataGetReq: {
                         type: Object,
                         value: function () {
@@ -385,6 +407,8 @@ It filters the data as per filter criteria.
                         var workflowActivityName = this.workflowCriterion.workflowActivityName;
                         var userId = this.workflowCriterion.userId;
                         var businessConditionName = this.workflowCriterion.businessConditionName;
+                        var businessConditionNames = this.workflowCriterion.businessConditionNames;
+                        var passedBusinessConditions = this.workflowCriterion.status=="passed";
                         var contexts = [];
                         contexts.push({
                             "workflow": this.workflowCriterion.workflowShortName
@@ -396,8 +420,10 @@ It filters the data as per filter criteria.
                             "userId": userId,
                             "workflowActivityName": workflowActivityName,
                             "businessConditionName": businessConditionName,
+                            "businessConditionNames": businessConditionNames,
                             "attributes": "",
-                            "excludeNonContextual": true
+                            "excludeNonContextual": true,
+                            "passedBusinessConditions":passedBusinessConditions
                         }
 
                         var req = DataRequestHelper.createGovernGetRequest(options);
@@ -490,7 +516,12 @@ It filters the data as per filter criteria.
                     var dataSource = this._getEntityDataSource();
 
                     if (grid && this.searchFilters) {
-                        this._entityDataGetReq.params.query.filters.attributesCriterion = this._removeUnSupportedFilters(this.searchFilters);
+                        var attrsCriterion = this._removeUnSupportedFilters(this.searchFilters);
+                        this._entityDataGetReq.params.query.filters.attributesCriterion = attrsCriterion;
+                        if(!_.isEmpty(this._governDataGetReq)) {
+                            this._governDataGetReq.params.query.filters.attributesCriterion = this._getDefaultGovernAttributesCriterion();
+                        }
+                        this._updateGovernRequestAttributesCriterion(attrsCriterion);
 
                         if (this._isCombinedGetReq) {
                             this.request = DataRequestHelper.createCombinedGetRequest(this._governDataGetReq, this._entityDataGetReq);
@@ -593,6 +624,7 @@ It filters the data as per filter criteria.
 
                     if (this.searchFilters && !_.isEmpty(this.searchFilters)) {
                         this._entityDataGetReq.params.query.filters.attributesCriterion = this.searchFilters;
+                        this._updateGovernRequestAttributesCriterion(this.searchFilters);
                     }
 
                     if (this.searchQuery && this.searchQuery != "") {
@@ -648,7 +680,7 @@ It filters the data as per filter criteria.
 
                 _setGridHeight: function () {
                     if (this.parentElement && this.parentElement.parentNode) {
-                        var layout = this.parentElement.parentNode.parentNode.root.querySelector('#rockLayoutContainer')
+                        var layout = this.domHost.parentNode.parentNode.parentNode.root.querySelector('#rockLayoutContainer');
                         var rockGridHeight = 0;
 
                         if (layout) {
@@ -726,6 +758,56 @@ It filters the data as per filter criteria.
                         return true;
                     }
                     return false;
+                },
+
+                _getDefaultGovernAttributesCriterion: function () {
+                    var defaultCriterion = [];
+                    var currentCriterion = this._governDataGetReq.params.query.filters.attributesCriterion;
+
+                    if (currentCriterion) {
+                        currentCriterion.forEach(function (criterion) {
+                            if (criterion && Object.keys(criterion).length == 1) {
+                                switch (Object.keys(criterion)[0]) {
+                                    case "activities":
+                                    case "status":
+                                    case "businessConditions":
+                                        defaultCriterion.push(criterion);
+                                        break;
+                                }
+                            }
+                        }, this);
+                    }
+                    return defaultCriterion;
+                },
+
+                _updateGovernRequestAttributesCriterion: function (attributesCriterion) {
+
+                    if (this.governAttributesCriterion) {
+                        if (this.governAttributesCriterion.include && this.governAttributesCriterion.include.length) {
+
+                            if (this.governAttributesCriterion.include.length == 1 && this.governAttributesCriterion.include[0] == "_ALL") {
+                                attributesCriterion.forEach(function (attrCritrn) {
+                                    attrCritrn[Object.keys(attrCritrn)[0]].nonContextual = true;
+                                    this._governDataGetReq.params.query.filters.attributesCriterion.push(attrCritrn)
+                                }, this);
+                            } else {
+                                var attributes = this.governAttributesCriterion.include;
+
+                                if (attributes && attributes.length) {
+                                    attributes.forEach(function (attr) {
+                                        for (var i = 0; i < attributesCriterion.length; i++) {
+                                            if (attributesCriterion[i][attr]) {
+                                                var attrCriterion = attributesCriterion[i];
+                                                attrCriterion[attr].nonContextual = true;
+                                                this._governDataGetReq.params.query.filters.attributesCriterion.push(attrCriterion);
+                                                break;
+                                            }
+                                        }
+                                    }, this);
+                                }
+                            }
+                        }
+                    }
                 }
             });
         })();

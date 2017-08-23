@@ -751,7 +751,7 @@ The following JSON object is a config sample which configures the grid in all ab
 					 data-source="[[dataSource]]" items="{{data}}" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" sort-order="{{sortOrder}}"
 					 disable-select-all="[[config.tabular.settings.disableSelectAll]]">
 
-						<data-table-column name="Actions" hidden$="[[!_hasActions()]]">
+						<data-table-column name="Actions" hidden$="[[!_hasActions(config.mode)]]">
 							<template>
 								<template is="dom-repeat" items="[[_actions()]]" as="col" index-as="colIndex">
 									<pebble-button class="actionButton" icon="[[_actionValue(colIndex)]]" on-tap="_fireActionEvent" item="[[item]]" index="[[index]]"
@@ -832,13 +832,15 @@ The following JSON object is a config sample which configures the grid in all ab
 					<grid-tile-view show-select-all="[[config.list.settings.isMultiSelect]]" result-record-size="{{resultRecordSize}}" id="gridTileView"
 					 advance-selection-options="[[config.advanceSelectionOptions]]" advance-selection-enabled="[[config.advanceSelectionEnabled]]"
 					 items="{{data}}" data-source="{{dataSource}}" page-size="[[pageSize]]" multi-selection="{{config.tile.settings.isMultiSelect}}"
-					 selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" tile-items="{{config.tile.tileItems}}" actions="{{config.tile.settings.actions}}"></grid-tile-view>
+					 selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" tile-items="{{config.tile.tileItems}}" actions="{{config.tile.settings.actions}}"
+					 selection-info="{{selectionInfo}}"></grid-tile-view>
 				</template>
 				<template is="dom-if" if="{{_isListMode(config.viewMode)}}">
 					<grid-list-view id="gridListView" advance-selection-options="[[config.advanceSelectionOptions]]" advance-selection-enabled="[[config.advanceSelectionEnabled]]"
 					 items="{{data}}" data-source="{{dataSource}}" page-size="[[pageSize]]" multi-selection="{{config.list.settings.isMultiSelect}}"
 					 selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" schema-type="{{config.schemaType}}" list-items="{{config.list.listItems}}"
-					 actions="{{config.list.settings.actions}}"></grid-list-view>
+					 actions="{{config.list.settings.actions}}"
+					 selection-info="{{selectionInfo}}"></grid-list-view>
 				</template>
 			</div>
 		</template>
@@ -1060,6 +1062,12 @@ The following JSON object is a config sample which configures the grid in all ab
 						type: Number,
 						value: 0
 					},
+					isDirty: {
+						type: Boolean,
+						value: false,
+						notify: true,
+						reflectToAttribute: true
+					},
 					_pageRange: {
 						value: ""
 					},
@@ -1075,10 +1083,6 @@ The following JSON object is a config sample which configures the grid in all ab
 					},
 					selectionTitle: {
 						type: String
-					},
-					hasCombinedGetResults: {
-						type: Boolean,
-						value: false
 					},
 					_dataTableWidth: {
 						type: Number
@@ -1171,7 +1175,8 @@ The following JSON object is a config sample which configures the grid in all ab
 					for (var i = 0; i < noOfRows; i++) {
 						var newItem = {};
 						newItem.status = 'new';
-						this.data.unshift(newItem);
+						var data = this.getData();
+						data.unshift(newItem);
 					}
 					this.data = data;
 					var ironDataTable = this._getIronDataTable();
@@ -1852,7 +1857,13 @@ The following JSON object is a config sample which configures the grid in all ab
 					var index = e.currentTarget.index;
 					this.async(function () {
 						this._updateError(item, index);
-					})
+					});
+					this.notifyPath("isDirty", undefined);
+					if(status === "update") {
+						this.isDirty = true;
+					} else {
+						this.isDirty = false;
+					}
 
 				},
 				_fireActionEvent: function (e) {
@@ -1872,10 +1883,26 @@ The following JSON object is a config sample which configures the grid in all ab
 						e.currentTarget.item.index = e.currentTarget.index;
 						this._dataChanged();
 					}
+					if(action.name == "delete") {
+						var row = this._getParentRow(e.currentTarget);
+						this._markRowAsDelete(row);
+						this.changeRowToViewMode(e.currentTarget.index);
+					}
 					this.fireBedrockEvent(eventName, e.currentTarget.item);
 				},
-				_hasActions: function () {
-					if (this.config.tabular.settings && this.config.tabular.settings.actions && this.config.tabular.settings.actions.length > 0) {
+				_markRowAsDelete: function(row) {
+					if(row) {
+						var rowStatusIcon = row.querySelector('pebble-icon[id="rowStatus"]');
+						rowStatusIcon.icon = "pebble-md-icons:Delete";
+						var item = row.item;
+						if(item && item._rowStatus) {
+							item._rowStatus.statusIcon = "pebble-md-icons:Delete";
+							item.action = "delete";
+						}						
+					}
+				},
+				_hasActions: function (mode) {
+					if (this.config.tabular.settings && this.config.tabular.settings.actions && this.config.tabular.settings.actions.length > 0 && mode==="edit") {
 						return true;
 					}
 					return false;
@@ -2175,16 +2202,6 @@ The following JSON object is a config sample which configures the grid in all ab
 					if (selectedItems.length > 0) {
 						if (selectionMode == 'query') {
 							var totalCount = this.totalCount.toString();
-
-							if (this.hasCombinedGetResults) {
-								if (this.resultRecordSize < this.maxConfiguredCount) {
-									this.totalCount = this.resultRecordSize;
-									totalCount = this.resultRecordSize;
-								} else {
-									this.totalCount = this.maxConfiguredCount;
-									totalCount = this.maxConfiguredCount + "+";
-								}
-							}
 
 							if (this.totalCount > 0) {
 								this.selectionTitle = startStatusMsg + ' ' + totalCount + ' ' + endStatusMsg;

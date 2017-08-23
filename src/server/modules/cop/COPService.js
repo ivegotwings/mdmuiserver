@@ -149,7 +149,9 @@ COPService.prototype = {
     },
     downloadDataJob: async function (request, response) {
         var downloadDataURL = "copservice/downloadDataJob";
-        if (!request.body) {
+        var downloadDataJobRequest = request.body;
+
+        if (!downloadDataJobRequest) {
             return {
                 "dataOperationResponse": {
                     "status": "Error",
@@ -162,8 +164,29 @@ COPService.prototype = {
             };
         }
 
+        if (downloadDataJobRequest.params && downloadDataJobRequest.params.isCombinedQuerySearch) {
+            //delete options if exists
+            delete downloadDataJobRequest.params.options;
+            //set pagesize
+            downloadDataJobRequest.params.pageSize = 30000;
+
+            //delete options at each search query level.
+            if(downloadDataJobRequest.entity && downloadDataJobRequest.entity.data && downloadDataJobRequest.entity.data.jsonData) {
+                var searchQueries = downloadDataJobRequest.entity.data.jsonData.searchQueries;
+                if(searchQueries) {
+                    for (var i = 0; i < searchQueries.length; i++) {
+                        var searchQuery = searchQueries[i];
+
+                        if (searchQuery.searchQuery && searchQuery.searchQuery.options) {
+                            delete searchQuery.searchQuery.options;
+                        }
+                    }
+                }
+            }
+        }
+
         //console.log('downloadDataRequest: ', JSON.stringify(request.body, null, 2));
-        return await this.post(downloadDataURL, request.body);
+        return await this.post(downloadDataURL, downloadDataJobRequest);
     },
     publish: async function (request) {
         //console.log('COPService.publish url ', request.url);
