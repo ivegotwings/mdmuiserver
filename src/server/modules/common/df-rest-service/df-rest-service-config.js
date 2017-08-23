@@ -25,7 +25,8 @@ SERVICE_CONFIG = {
         },
         "entityappservice/getcombined": {
             "url": "/entityappservice/getcombined",
-            "mode": "online"
+            "mode": "online",
+            "timeout": 360000
         },
         "entitymodelservice/get": {
             "url": "/entityappmodelservice/get",

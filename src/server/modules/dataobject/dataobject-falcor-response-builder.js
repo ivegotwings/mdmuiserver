@@ -136,18 +136,20 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
         if (attr.group) {
             //console.log('attr group', JSON.stringify(attr.group));
             //var valCtxItem = { 'source': CONST_ANY, 'locale': CONST_ANY }; //TODO: How to find out val contexts keys from the flat list of values object..??
-            var valCtxItem = {};
-            var valCtxKey = falcorUtil.createCtxKey(valCtxItem);
-            var valContextJson = valContextsJson[valCtxKey];
 
-            if (!valContextJson) {
-                valContextJson = falcorUtil.getOrCreate(valContextsJson, valCtxKey, {});
-            }
-            valContextJson['group'] = $atom(attr.group);
+            if (reqData.valCtxKeys) {
+                for (let valCtxKey of reqData.valCtxKeys) {
+                    var valContextJson = valContextsJson[valCtxKey];
+                    if (!valContextJson) {
+                        valContextJson = falcorUtil.getOrCreate(valContextsJson, valCtxKey, {});
+                    }
+                    valContextJson['group'] = prepareValueJson($atom(attr.group));
 
-            //build paths if requested
-            if (reqData.buildPaths) {
-                paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', valCtxKey, 'group']));
+                    //build paths if requested
+                    if (reqData.buildPaths) {
+                        paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', valCtxKey, 'group']));
+                    }
+                }
             }
         }
 
