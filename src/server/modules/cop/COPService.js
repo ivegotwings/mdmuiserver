@@ -1,7 +1,7 @@
 var DFRestService = require('../common/df-rest-service/DFRestService'),
     uuidV1 = require('uuid/v1'),
     fs = require('fs'),
-    config = require('../../config/rdf-connection-config.json'),
+    config = require('config'),
     isEmpty = require('../common/utils/isEmpty');
 
 var COPService = function (options) {
@@ -315,10 +315,11 @@ COPService.prototype = {
 
             if (!files) {
                 var dir = './upload';
-
-                if (config && !isEmpty(config.fileStoragePath)) {
-                    if (fs.existsSync(config.fileStoragePath)) {
-                        dir = config.fileStoragePath + '/upload';
+            
+                var fileStoragePath = config.get('modules.fileDownload.fileStoragePath');
+                if (!isEmpty(fileStoragePath)) {
+                    if (fs.existsSync(fileStoragePath)) {
+                        dir = fileStoragePath + '/download';
                     }
                 }
 

@@ -1,7 +1,7 @@
 'use strict';
 
 var request = require('request-promise-native');
-var rdfConnectionConfig = require("../../../config/rdf-connection-config.json");
+var rdfConnectionConfig = require('config').get('modules.dfService');
 
 var DFConnection = function (options) {
 };
