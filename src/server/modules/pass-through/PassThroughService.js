@@ -65,7 +65,7 @@ PassThroughService.prototype = {
 
             if(createTaskRequest.params) {
                 delete createTaskRequest.params.options;
-                createTaskRequest.params.pageSize = 500;
+                createTaskRequest.params.pageSize = 30000;
             }
 
             if(createTaskRequest.entities && createTaskRequest.entities.length > 0) {
