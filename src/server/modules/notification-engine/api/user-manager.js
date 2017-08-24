@@ -29,21 +29,12 @@ async function addUserConnectionIds(userId, connectionId) {
     if (userId && connectionId) {
         var connections = await getData(userId);
 
-        // if(isEmpty(connections)) {
-        //     connections = [];
-        // }
-
-        // connections.push(connectionId);
-
         if (isEmpty(connections)) {
-            connections = connectionId;
-        }
-        else {
-            connections = connections + "#@#" + connectionId;
+            connections = [];
         }
 
-        console.log("addUserConnectionIds connections", JSON.stringify(connections, null, 2));
-        
+        connections.push(connectionId);
+
         if (connections) {
             setData(userId, connections);
         }
@@ -55,9 +46,10 @@ async function removeConnectionIdByUser(userId, connectionId) {
     if (userId && connectionId) {
 
         var connections = await getData(userId);
-
+        //console.log("Remove connection id by user ---->", userId);
         if (connections) {
-            //arrayRemove(connections, connectionId);
+            //console.log("Remove connection id by user: connections ---->", JSON.stringify(connections));            
+            arrayRemove(connections, connectionId);
             setData(userId, connections);
         }
     }
@@ -66,23 +58,18 @@ async function removeConnectionIdByUser(userId, connectionId) {
 async function removeUserConnectionIds(userId) {
     if (userId) {
         var connections = await client.get(cacheKey);
+        //console.log("Remove user from list ---->", userId);
         if (connections) {
+            //console.log("Remove user from list: connections ---->", JSON.stringify(connections));
             deleteData(userId);
         }
     }
 }
 
 async function getConnectionIdsOfUser(userId) {
-    var connectionIds = [];
     if (userId) {
-        var result = await getData(userId);
-        console.log("result -------->", result);
-        if (result && !isEmpty(result)) {
-            connectionIds = result.split("#@#");
-        }
+        return await getData(userId);
     }
-
-    return await connectionIds;
 }
 
 function arrayRemove(arr, val) {
@@ -95,23 +82,30 @@ function arrayRemove(arr, val) {
 }
 
 async function getData(userId) {
+    var data = [];
+
     if (isStateServerEnabled && client) {
         var cacheKey = "socket_conn_usr_" + userId;
-        return await client.get(cacheKey);
+        var promise = client.get(cacheKey).then(function (dataString) {
+            if(!isEmpty(dataString)) {
+                data = dataString.split("#@#");
+            }
+        });
+
+        await Promise.resolve(promise);
     }
     else if (localStorage[cacheKey]) {
-        return await localStorage[cacheKey];
+        data = await localStorage[cacheKey];
     }
-    else {
-        return await undefined;
-    }
+
+    return data;
 }
 
 async function setData(userId, connections) {
     if (isStateServerEnabled && client) {
         var cacheKey = "socket_conn_usr_" + userId;
-        console.log("State Server set for cacheKey: ", cacheKey);
-        return await client.set(cacheKey, connections);
+        var connectionIds = connections.join("#@#");
+        return await client.set(cacheKey, connectionIds);
     }
     else {
         localStorage[userId] = connections;

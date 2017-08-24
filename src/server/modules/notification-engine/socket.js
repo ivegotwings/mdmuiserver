@@ -1,66 +1,68 @@
-var socketIo = require('socket.io');
-var api = require('./api/notification-manager');
 var userManager = require('./api/user-manager');
-var executionManager = require('../common/context-manager/execution-context');
 var config = require('config');
 
 var defaultUserId = "unassigned";
 
-function initSockets(server) {
-    var io = socketIo.listen(server, { origins: '*:*', transports: ['websocket', 'polling'] });
+function initSockets(http) {
+    var io = require('socket.io')(http, { origins: '*:*', transports: ['websocket', 'polling'] });
     
     var isStateServerEnabled = config.get('modules.stateServer.enabled');
-    if(isStateServerEnabled) {
+    
+    if (isStateServerEnabled) {
         var redis = require('socket.io-redis');
         io.adapter(redis(config.get('modules.stateServer.connection')));
     }
 
     console.log('notification engine running . . .');
 
-    io.sockets.on('connect', function (socket) {
-        userManager.addUserConnectionIds(defaultUserId, socket.id);
+    io.on('connection', function (socket) {
+        console.log('socket connected ', socket.server.path);
+        //userManager.addUserConnectionIds(defaultUserId, socket.id);
+
+        //New user
+        socket.on('Connect new user', function (userId) {
+            console.log('new user connected ', userId);
+            socket.userName = userId;
+            userManager.addUserConnectionIds(userId, socket.id);
+            //userManager.removeConnectionIdByUser(defaultUserId, socket.id);
+        });
 
         //Disconnect
         socket.on('disconnect', function (data) {
+            console.log('user disconnected ', socket.userName);
+
             if (socket.userName) {
                 userManager.removeConnectionIdByUser(socket.userName, socket.id);
             } else {
-                userManager.removeConnectionIdByUser(defaultUserId, socket.id);
+                //userManager.removeConnectionIdByUser(defaultUserId, socket.id);
             }
         });
 
         //Send Message
-        socket.on('send message', function (data, userId) {
-
+        socket.on('xxx', function (data, userId) {
+            console.log('socket.js send message called with user id ', userId);
             var currentUserSocketIds = [];
 
             if (userId) {
-                currentUserSocketIds = userManager.getConnectionIdsOfUser(userId);
-                //console.log('------------------ socket: current user socket id ---------------------');
-                //console.log(JSON.stringify(currentUserSocketIds));
-                //console.log('-------------------------------------------------------------------\n\n');
-                
-                if (currentUserSocketIds) {
-                    currentUserSocketIds.forEach(function (id) {
-                        //console.log('------------------ socket: send message to browser ---------------------');
-                        //console.log('socket connection id ', id, ' data ', JSON.stringify(data));
-                        //console.log('-------------------------------------------------------------------\n\n');
-                        io.to(id).emit('new message', data);
-                    }, this);
-                }
+                userManager.getConnectionIdsOfUser(userId).then(function (currentUserSocketIds) {
+                    console.log('------------------ socket: current user socket id ---------------------');
+                    console.log(JSON.stringify(currentUserSocketIds));
+                    console.log('-------------------------------------------------------------------\n\n');
+
+                    if (currentUserSocketIds) {
+                        currentUserSocketIds.forEach(function (id) {
+                            console.log('------------------ socket: send message to browser ---------------------');
+                            console.log('socket connection id ', id, ' data ', JSON.stringify(data));
+                            console.log('-------------------------------------------------------------------\n\n');
+                            io.to(id).emit('new message', data);
+                        }, this);
+                    }
+                });
             }
             else {
-                io.sockets.emit('new message', data);
+                io.emit('new message', data);
             }
         });
-
-        //New user
-        socket.on('Connect new user', function (userId) {
-            socket.userName = userId;
-            userManager.addUserConnectionIds(userId, socket.id);
-            userManager.removeConnectionIdByUser(defaultUserId, socket.id);
-        });
-
     });
 };
 

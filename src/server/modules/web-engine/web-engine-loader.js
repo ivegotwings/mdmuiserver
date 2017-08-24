@@ -27,6 +27,7 @@ if (relativePath) {
 logger.info('Web engine start - build path identified', {"buildPath": buildPath});
 
 var app = express();
+var http = require('http').Server(app);
 
 app.use(cookieParser());
 
@@ -186,15 +187,16 @@ logger.info('Web engine start - starting web engine...');
 var server = app.listen(5005, function () {
     var host = server.address().address === '::' ? 'localhost' : server.address().address;
     var port = server.address().port;
-
-    logger.info('Web engine start - starting notification engine...');
-
-    notificationEngine.initSockets(this);
-
-    logger.info('Web engine start - notification engine is started');
-
+    
     logger.info('Web engine start - web engine is started', {"host": host, "port": port});
     console.log('Web engine is running now at http://%s:%s/', host, port);
 });
+
+logger.info('Web engine start - starting notification engine...');
+
+notificationEngine.initSockets(http);
+
+logger.info('Web engine start - notification engine is started');
+
 
 server.timeout = config.get('modules.webEngine').connectionTimeout;
