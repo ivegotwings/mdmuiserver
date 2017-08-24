@@ -2,11 +2,12 @@
 
 const DFServiceBase = require('../service-base/DFServiceBase'),
     OfflineRestService = require('./OfflineRestService'),
-    config = require('./df-rest-service-config.json'),
     executionContext = require('../../common/context-manager/execution-context'),
     notificationUtil = require('../../../../shared/dataobject-notification-util'),
     rdfConfig = require('../../../config/rdf-connection-config.json'),
     moment = require('moment');
+
+require('./df-rest-service-config.js');
 
 var offlineRestService = null;
 var notifyUtil = notificationUtil.DataObjectNotificationUtil;
@@ -20,11 +21,16 @@ var DFRestService = function (options) {
         //console.log('DFRestService url', url);
         //console.log('DFRestService request', JSON.stringify(request));
 
-        var serviceConfig = config.services[url];
+        var serviceConfig = SERVICE_CONFIG.services[url];
         //console.log('DFRestService serviceConfig', JSON.stringify(serviceConfig));
 
         var actualUrl = serviceConfig.url,
             configMode = serviceConfig.mode;
+            
+        // set timeout option if found in service config
+        if(serviceConfig.timeout) {
+            request.timeout = serviceConfig.timeout;
+        }
 
         if (configMode === "disabled") {
             throw "Requested service url " + url + " is disabled / not available.";

@@ -10,8 +10,8 @@
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 
 <!--
-`rock-wizard` Represents an element that displays the steps in an order
-based on the configuration that user has provided.
+`rock-wizard` Represents an element that displays the steps in a sequence
+based on the given configuration.
 
 @demo demo/index.html
 -->
@@ -21,16 +21,19 @@ based on the configuration that user has provided.
         <style is="custom-style">
             #wizard-container {
                 @apply(--layout-vertical);
+                @apply(--wizard-container);
             }
             #step-container {
                 padding: 14px;
                 border-radius: 5px;
                 margin-top: 20px;
+                
             }
             #stepper {
-                align-self: center;
                 -webkit-align-self: center; /* Safari 7.0+ */
-                padding: 4px;
+                -ms-align-self: center;
+                 align-self: center;
+                 padding: 4px;
             }
             .stepper-style {
                 --pebble-connected-badge-width: 40px;
@@ -44,8 +47,8 @@ based on the configuration that user has provided.
             <div id="stepper">
                 <!-- place stepper here -->
                 <pebble-stepper id="pebbleStepper" horizontal stepper-config="[[_stepperConfig]]">
-                    <template is="dom-repeat" id="steps-template" items="{{_stepperConfig}}" as="item">
-                        <pebble-step class="stepper-style" data="{{item}}">
+                    <template is="dom-repeat" id="steps-template" items="[[_stepperConfig.items]]" as="item">
+                        <pebble-step class="stepper-style" data="[[item]]">
                             <div class="step-badge-content">
                                 <span>[[item.index]]</span>
                             </div>
@@ -72,7 +75,7 @@ based on the configuration that user has provided.
             is: 'rock-wizard',
             properties: {
                 /*
-                 * Indicates the configuration information that user has provided.
+                 * Indicates the configuration information that the user provided.
                  */
                 config: {
                     type: Object,
@@ -95,7 +98,7 @@ based on the configuration that user has provided.
                     }
                 },
                 /*
-                 * Indicates the data that can be shared between all the steps of the wizard.
+                 * Indicates the data that is shared between all the steps of the wizard.
                  */
                 sharedData: {
                     type: Object,
@@ -117,8 +120,8 @@ based on the configuration that user has provided.
             goToNext: function () {
                 if(this._currentStepIndex < this.config.steps.length-1) {
                     this.goToStep(this._currentStepIndex + 1);
-                } else{
-                    this.fire('last-step-completed');
+                } else {
+                    this.fire("cancel-event");
                 }
             },
             /**
@@ -155,13 +158,17 @@ based on the configuration that user has provided.
             },
             _configChanged: function(config) {
                 if(config && config.steps && config.steps.length > 0) {
-                    var stepperConfig = [];
+                    var stepper = this.$$('#pebbleStepper');
+                    stepper.selected = null;
+                    var stepperConfig = {};
+                    stepperConfig.items = []
                     for(var i=0; i<config.steps.length; i++) {
                         var step = {
                             "index": i+1,
-                            "label": ""
+                            "label": "",
+                            "status": "pending"
                         };
-                        stepperConfig.push(step);
+                        stepperConfig.items.push(step);
                     }
                     this.set("_stepperConfig", stepperConfig);
                     this.$$("#steps-template").render();
@@ -190,7 +197,18 @@ based on the configuration that user has provided.
                     this._updateStepperSelectedStep(this._currentStepIndex + 1);
                     this._currentStepIndex++;
                 }
-                this.goToNext();
+                if(this._currentStepIndex == this.config.steps.length-1) {
+                    if(!detail){
+                        detail={};
+                    }
+                    detail.closeBusinessFunction=true;
+                    this.fire('next-step',detail);
+                } else{
+                    if(detail) {
+                        this.fire('next-step', detail);
+                    }
+                    this.goToNext();
+                }
             },
             _onBack: function(e, detail, sender) {
                 if(this._currentStepIndex && this._currentStepIndex != 0) {
@@ -204,7 +222,7 @@ based on the configuration that user has provided.
                 this.goToNext();
             },
             _onCancel: function(e, detail, sender) {
-                ComponentHelper.closeCurrentApp();
+                this.fire("cancel-event");
             },
             _onComponentCreating: function(e, detail, sender) {
                 
@@ -253,9 +271,6 @@ based on the configuration that user has provided.
             * Can be used to get if the current component loaded in the wizard is dirty or not.
             */
             getIsDirty: function() {
-                if(this._currentStepIndex && this._currentStepIndex > 0) {
-                    return true;
-                }
                 var content = this.$$('#step-container');
                 if(content && content.firstElementChild && content.firstElementChild.getIsDirty) {
                     return content.firstElementChild.getIsDirty();

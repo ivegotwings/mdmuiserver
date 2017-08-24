@@ -1,12 +1,29 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="element-helper.html">
 
 <script>
     ComponentHelper = {};
 
-
     (function () {
         ComponentHelper.fireBedrockEvent = function (name, data, settings, element) {
+            var returnVal;
+            if (element) {
+                returnVal = ComponentHelper._fireBedrocEvent(name, data, settings, element);
+            } else {
+                _pubsubListenerRegistry.forEach(function (item) {
+                    var eventName = name;
+                    if (item) {
+                        var element = item.element;
+                    }
+                    if (item.eventName && item.eventName.indexOf(eventName) >= 0) {
+                        returnVal = ComponentHelper._fireBedrocEvent(eventName, data, settings, element);
+                    }
+                });                                
+            };
+            return returnVal;
+        };
+        ComponentHelper._fireBedrocEvent = function (name, data, settings, element) {
             if ((!settings || !settings.ignoreId) && element.id) {
                 name = name + "-" + element.id;
             }
@@ -15,11 +32,15 @@
                 cancelable = true;
             }
 
-            if (settings && settings.isMainApp) {
-                name = name + "-" + element.appId;
+            if (settings && settings.appId) {
+                name = name + "-" + settings.appId;
             } else {
-                if (element.appId) {
-                    name = name + "-" + element.getAppId();
+                if (settings && settings.isMainApp) {
+                    name = name + "-" + element.appId;
+                } else {
+                    if (element.appId) {
+                        name = name + "-" + element.getAppId();
+                    }
                 }
             }
 
@@ -40,8 +61,7 @@
                     if (component.properties.hasOwnProperty(property)) {
                         var val = component.properties[property];
                         if (typeof val == "object") {
-                            dynamicEl.setAttribute(property, JSON.stringify(
-                                val));
+                            dynamicEl.setAttribute(property, JSON.stringify(val));
                         } else {
                             //Polymer takes default as true, so do not set attribute for boolean false
                             if (typeof val != "boolean" || (typeof val == "boolean" && val)) {
@@ -135,6 +155,19 @@
             return app;
         };
 
+        ComponentHelper.getAppByViewName = function (viewName) {
+            var mainApp = document.querySelector("main-app");
+            var app;
+            if (mainApp) {
+                var contentView = mainApp.$$("rock-content-view-manager").$$('rock-content-view[name="' + viewName + '"]');
+
+                if (contentView) {
+                    app = contentView.$.content.firstElementChild;
+                }
+            }
+            return app;
+        };
+
         ComponentHelper.getAppContainerById = function (appId) {
             var contentView = undefined;
             if (appId) {
@@ -196,7 +229,7 @@
             }
         };
 
-        ComponentHelper.closeCurrentApp = function () {
+        ComponentHelper.closeCurrentApp = function (action) {
             var activeApp = ComponentHelper.getCurrentActiveApp();
             var contentView = ComponentHelper.getComponentContainer(activeApp);
             var manager;
@@ -204,7 +237,7 @@
                 manager = contentView.manager;
             }
             if (manager) {
-                manager.closeView(contentView.name);
+                manager.closeView(contentView.name, {}, action);
             }
         };
 
@@ -213,11 +246,37 @@
 
             if (mainApp) {
                 if (!_.isEmpty(queryParams)) {
-                    document.querySelector("main-app").set('pageRoute.__queryParams', queryParams);
+                    ComponentHelper.setQueryParamsWithoutEncode(queryParams);
                 }
                 document.querySelector("main-app").changePageRoutePath(appName);
             }
         };
+
+        ComponentHelper.setQueryParams = function (queryParams) {
+            for (var key in queryParams) {
+                if (queryParams.hasOwnProperty(key)) {
+                    var element = queryParams[key];
+                    queryParams[key] = encodeURIComponent(element);
+                }
+            }
+            document.querySelector("main-app").set('pageRoute.__queryParams', queryParams);
+        };
+
+        ComponentHelper.setQueryParamsWithoutEncode = function (queryParams) {
+            document.querySelector("main-app").set('pageRoute.__queryParams', queryParams);
+        };
+
+        ComponentHelper.closeBusinessFunction = function (action) {
+            var bfDialog = document.querySelector("#businessFunctionDialog");
+            if (bfDialog) {
+                bfDialog.close();
+                if (action && action.name) {
+                    ComponentHelper.getCurrentActiveApp().fire(action.name, action);
+                }
+            } else {
+                ComponentHelper.closeCurrentApp(action);
+            }
+        }
     })();
 
 </script>

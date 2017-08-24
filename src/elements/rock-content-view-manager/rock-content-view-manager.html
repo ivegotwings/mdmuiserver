@@ -18,7 +18,7 @@
     <style include="pebble-styles-shared">
       #contentViewManager {
         height: 100%;
-        background-color: white;
+        background-color:var(--white, #fff);
       }
       
       [hidden] {
@@ -78,13 +78,13 @@
 
         /**
         * Can be used to open a view with the given name and configuration.
-        * If a view with the same name was already opened, then same view is opened again.
+        * If a view with the same name is already opened, then same view is opened again.
         * @param {string} viewName The name of the view to be opened.
         * @param {string} config The configuration JSON for the new view. 
         * Sample config JSON: 
         * {
         *     "name": "entity-discovery",
-        *     "title": "Entity Search & Discovery",
+        *     "title": "Entity Search & Refine",
         *     "data_route": "entity-discovery",
         *     "icon": "pebble-icons:search",
         *     "href": "/entity-discovery",
@@ -98,7 +98,7 @@
         *     }
         *}
         */
-        openView: function (viewName, config, queryParams) {
+        openView: function (viewName, config,queryParams,action) {
           var path = viewName;
           var contentView;
           viewName = ComponentHelper.getViewNameWithQueryParams(queryParams, viewName);
@@ -120,8 +120,7 @@
                 contentView = this.$.contentViewManager.querySelector('rock-content-view[name="' + viewName + '"]');
                 if (contentView) {
                   this._showView(viewName);
-                 
-                  //manage viewstack
+                    //manage viewstack
                   if (this._activeStack[this._activeStack.length - 1] != viewName) {
                     this._takeOutFromStack(this._minimizeStack, viewName);
                     this._takeOutFromStack(this._activeStack, viewName);
@@ -137,10 +136,16 @@
                 contentView.name = viewName;
                 contentView.setAttribute("name", viewName);
                 contentView.component = config.component;
+                if (!contentView.component.properties) {
+		              contentView.component.properties={};
+                }
+                contentView.component.properties["app-config"] = DataHelper.cloneObject(config);
                 contentView.viewTitle = config.title;
                 contentView.icon = config.icon;
                 contentView.nonClosable = config.nonClosable;
                 contentView.nonMinimizable = config.nonMinimizable;
+                contentView.noShare = config.nonSharable;
+					      contentView.noSettings = config.noSettings;
                 contentView.manager = this;
                 contentView.queryParams = queryParams;
                 contentView.path = path;
@@ -158,6 +163,11 @@
 
                 openSuccessful = true;
               }
+              var content=contentView.getContent();
+              if(content && content.isRufComponent && action && action.name){
+                  content.fire(action.name,action.data);
+              }
+              action={};
               //hide current view
               if (openSuccessful) {
                 this.currentViewName = viewName;
@@ -175,7 +185,7 @@
         * Can be used to close a view with the given name.
         * @param {string} viewName The name of the view to be opened.
         */
-        closeView: function (viewName, queryParams) {
+        closeView: function (viewName, queryParams,action) {
           if (viewName) {
             viewName = ComponentHelper.getViewNameWithQueryParams(queryParams, viewName);
             var contentView = this.$.contentViewManager.querySelector('rock-content-view[name="' + viewName + '"]');
@@ -199,7 +209,7 @@
               if (this.currentViewName == viewName) {
                 this.currentViewName = "";
                 if (this._activeStack.length > 0) {
-                  this._navigateToLastOpenedContentView();
+                  this._navigateToLastOpenedContentView(action);
                 }
                 else {
                   this._changeRoute("/");
@@ -277,12 +287,12 @@
         _showView: function (viewName) {
           if (viewName) {
             var contentView = this.$.contentViewManager.querySelector('rock-content-view[name="' + viewName + '"]');
-            if (contentView) {
+              if (contentView) {
               contentView.removeAttribute("hidden");
             }
           }
         },
-        _changeRoute: function (path, queryParams) {
+        _changeRoute: function (path, queryParams,action) {
           if (!queryParams) {
             queryParams = {};
           }
@@ -290,19 +300,19 @@
           var mainApp = document.querySelector("main-app");
 
           if (mainApp) {
-            mainApp.set("pageRoute.__queryParams", queryParams);
+            ComponentHelper.setQueryParamsWithoutEncode(queryParams);
 
             if (path != mainApp.pageRoute.path) {
-              mainApp.changePageRoutePath(path);
+              mainApp.changePageRoutePath(path,action);
             }
           }
         },
-        _navigateToLastOpenedContentView: function () {
+        _navigateToLastOpenedContentView: function (action) {
           var lastOpenedContentView = this.$.contentViewManager.querySelector('rock-content-view[name="' + this._activeStack[this._activeStack.length - 1] + '"]');
-          this._changeRoute(lastOpenedContentView.path, lastOpenedContentView.queryParams);
+          this._changeRoute(lastOpenedContentView.path, lastOpenedContentView.queryParams,action);
         },
         /** 
-        * Can be used to get if the current content view is dirty.
+        * Can be used to get the elements if the current content view is dirty.
         */
         getIsDirty: function () {
           if (this.currentViewName) {

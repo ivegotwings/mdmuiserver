@@ -1,18 +1,29 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 
 <link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+<!--
+<b><i>Content development is under progress... </b></i>
 
+@demo demo/index.html
+-->
 <dom-module id="relationships-tab-menu-provider">
     <template>
         <liquid-entity-model-get id="liquidModeleGet" operation="getbyids" request-data={{_request}} on-response="_onModelReceived"
+            on-error="_onModelGetFailed"></liquid-entity-model-get>
+        <liquid-entity-model-get id="getRelDomains" operation="getbyids"  on-response="_onRelModelsReceived"
             on-error="_onModelGetFailed"></liquid-entity-model-get>
     </template>
     <script>
         Polymer({
             is: 'relationships-tab-menu-provider',
             properties: {
+          /**
+            * <b><i>Content development is under progress... </b></i> 
+            */
                 selectedMenuTitle: {
                     type: String,
                     value: ""
@@ -31,13 +42,22 @@
                     value: function () {
                         return {};
                     }
+                },
+                /**
+                 *  Indicates the domain of the relationship types.
+                 */
+                domain:{
+                    type:String,
+                    value:"generic"
                 }
             },
             behaviors: [
                 RUFBehaviors.UIBehavior,
                 RUFBehaviors.ComponentContextBehavior
             ],
-
+          /**
+            * <b><i>Content development is under progress... </b></i> 
+            */
             getMenu: function (tabItem, callback) {
                 this._callback = callback;
                 this._tabItem = tabItem;
@@ -51,31 +71,66 @@
             _onModelReceived: function (e) {
                 var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response)
                 if (responseContent) {
-                    var relationshipEntityTypeMappings = this._getRelationshipEntityTypeMappings(responseContent.entityModels);
-                    var menuItems = this._buildMenuItems(relationshipEntityTypeMappings);
+                    this._relationshipEntityTypeMappings = this._getRelationshipEntityTypeMappings(responseContent.entityModels);
+                    var relationshipTypeNames=this._relationshipEntityTypeMappings.map(function (rel) {
+                        return rel.relationshipTypeName+"_relationshipModel";
+                    });
+                    this._generateCheckDomainRequest(relationshipTypeNames);
+
+                }
+            },
+            _generateCheckDomainRequest:function (relationshipTypeNames) {
+                var req=DataHelper.cloneObject(this._request);
+                delete req.params.query.id;
+                req.params.query.ids=relationshipTypeNames;
+                req.params.query.domain=this.domain;
+                req.params.query.filters= {
+                    "typesCriterion": ["relationshipModel"]
+                };
+                req.params.fields= {};
+                var checkDomainLiquid=this.$$("#getRelDomains");
+                if(checkDomainLiquid){
+                    checkDomainLiquid.requestData=req;
+                    checkDomainLiquid.generateRequest();
+                }
+            },
+            _onRelModelsReceived: function (e) {
+                var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response)
+                if (responseContent) {
+                    var models=responseContent.entityModels;
+                    var relationshipTypeNames=[];
+                    for(var i=0;i<models.length;i++){
+                        if(models[i].domain==this.domain) {
+                            relationshipTypeNames.push(models[i].name);
+                        }
+                    }
+                    this._relationshipEntityTypeMappings= this._relationshipEntityTypeMappings.filter(function(rel){
+                        return relationshipTypeNames.indexOf(rel.relationshipTypeName)>-1;
+                    });
+                    var menuItems = this._buildMenuItems(this._relationshipEntityTypeMappings);
                     this._callback(menuItems);
                 }
             },
 
             _onModelGetFailed: function (e) {
-                console.log('Model get call failed for relationship tab menu provider: ', JSON.stringify(e));
+                this.logError("TabMenuError",e);
             },
 
             _getRelationshipEntityTypeMappings: function (entityModels) {
                 var relationshipEntityTypeMappings = [];
-
                 if (entityModels && entityModels.length > 0) {
-                    var relationshipModels = entityModels[0].data.relationships;
+                    if (entityModels[0].data && entityModels[0].data.relationships) {
+                        var relationshipModels = entityModels[0].data.relationships;
 
-                    Object.keys(relationshipModels).map(function (relationshipTypeName) {
-                        var relationshipModel = {};
-                        relationshipModel.relationshipTypeName = relationshipTypeName;
-                        relationshipModel.relatedEntityTypes = relationshipModels[
-                            relationshipTypeName];
-                        relationshipEntityTypeMappings.push(relationshipModel);
-                    });
+                        Object.keys(relationshipModels).map(function (relationshipTypeName) {
+                            var relationshipModel = {};
+                            relationshipModel.relationshipTypeName = relationshipTypeName;
+                            relationshipModel.relatedEntityTypes = relationshipModels[
+                                relationshipTypeName];
+                            relationshipEntityTypeMappings.push(relationshipModel);
+                        });
+                    }
                 }
-
                 return relationshipEntityTypeMappings;
             },
 
@@ -97,7 +152,10 @@
                                     menuItem.selected = this.selectedMenuTitle === menuItem.title ? true : false;
                                     menuItem.component = DataHelper.cloneObject(this._tabItem.component);
 
-                                    var configContext = {};
+                                    var configContext = menuItem.component.properties["config-context"];
+                                    if(!configContext){
+                                        configContext={};
+                                    }
                                     configContext.relationshipTitle = relatedEntityTypeProps.externalName;
                                     configContext.relationshipTypeName = relationshipTypeName;
                                     if (!menuItem.properties) {

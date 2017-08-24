@@ -19,12 +19,18 @@ function prepareNotificationObject(data) {
                 if (!isEmpty(notificationInfo)) {
                     var requestStatus = attributes['requestStatus'];
                     var serviceName = attributes['serviceName'];
-                    var requestGroupId = attributes['requestGroupId'];
+                    var requestId = attributes['requestId'];
+                    var description = attributes["description"];
 
-                    if (!isEmpty(serviceName) && !isEmpty(requestStatus) && !isEmpty(requestGroupId)) {
-                        notificationInfo.requestId = requestGroupId.values[0].value;
+                    var desc = "";
+                    if (description && description.values && description.values.length) {
+                        desc = description.values[0].value;
+                    }
+
+                    if (!isEmpty(serviceName) && !isEmpty(requestStatus) && !isEmpty(requestId)) {
+                        notificationInfo.requestId = requestId.values[0].value;
                         notificationInfo.status = requestStatus.values[0].value;
-                        notificationInfo.action = getAction(serviceName.values[0].value, notificationInfo.status, notificationInfo.operation);
+                        notificationInfo.action = getAction(serviceName.values[0].value, notificationInfo.status, notificationInfo.operation, desc);
                         notificationInfo.description = "";
                     }
                 }
@@ -35,15 +41,27 @@ function prepareNotificationObject(data) {
     return notificationInfo;
 };
 
-function getAction(serviceName, status, operation) {
+function getAction(serviceName, status, operation, description) {
     var action = "";
 
     if (!isEmpty(status) && !isEmpty(status)) {
         if (serviceName.toLowerCase() == "entitymanageservice") {
-            if (status.toLowerCase() == "success") {
-                action = enums.actions.SaveComplete;
-            } else {
-                action = enums.actions.SaveFail;
+            // Here operation is for specific govern operations which should not trigger in case of 'entityManageService'.
+            // So added condition to avoid it.
+            if (!operation) {
+                if (status.toLowerCase() == "success") {
+                    if (description == "System Manage Complete") {
+                        action = enums.actions.SystemSaveComplete;
+                    } else {
+                        action = enums.actions.SaveComplete;
+                    }
+                } else {
+                    if (description == "System Manage Complete") {
+                        action = enums.actions.SystemSaveFail;
+                    } else {
+                        action = enums.actions.SaveFail;
+                    }
+                }
             }
         }
 
@@ -61,6 +79,12 @@ function getAction(serviceName, status, operation) {
                     } else {
                         action = enums.actions.WorkflowAssignmentFail;
                     }
+                }else if(operation == enums.operations.BusinessCondition){
+                    if (status.toLowerCase() == "success") {
+                        action = enums.actions.BusinessConditionSaveComplete;
+                    } else {
+                        action = enums.actions.BusinessConditionSaveFail;
+                    }
                 }
             } else {
                 if (status.toLowerCase() == "success") {
@@ -68,6 +92,14 @@ function getAction(serviceName, status, operation) {
                 } else {
                     action = enums.actions.GovernFail;
                 }
+            }
+        }
+
+        if (serviceName.toLowerCase() == "rsconnectservice") {
+            if (status.toLowerCase() == "success") {
+                action = enums.actions.RSConnectComplete;
+            } else {
+                action = enums.actions.RSConnectFail;
             }
         }
     }
@@ -92,6 +124,11 @@ module.exports = function (app) {
             // console.log('-------------------------------------------------------------------\n\n');
 
             if (!isEmpty(notificationInfo)) {
+
+                if (notificationObject.properties) {
+                    notificationInfo.workAutomationId = notificationObject.properties.workAutomationId;
+                }
+
                 notificationInfo.tenantId = req.body.tenantId;
                 if (notificationInfo.userId) {
                     // console.log('------------------ notification message to browser ---------------------');

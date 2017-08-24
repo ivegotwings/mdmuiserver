@@ -20,8 +20,8 @@
 <link rel="import" href="../rock-classification-tree/rock-classification-tree.html">
 <!--<link rel="import" href="classification-get-data.html">-->
 <!--
-`rock-extension-manage` represents a component that renders all the extensions of the entity.
-Can manage current extensions, create new extensions etc.
+`rock-extension-manage` Represents a component that renders all the extensions of an entity.
+It manages the current extensions and creates the new extensions.
 
 @element rock-extension-manage
 @group rock-elements
@@ -30,14 +30,15 @@ Can manage current extensions, create new extensions etc.
 <dom-module id="rock-extension-manage">
     <template>
         <style include="pebble-styles-shared">
-
-            .extensions-container{
+            .extensions-container {
                 /*margin: inherit;*/
             }
+
             .tree-heading {
                 font-weight: bold;
                 font-size: var(--default-font-size, 14px);
             }
+
             .button {
                 --pebble-button: {
                     height: 30px;
@@ -67,15 +68,25 @@ Can manage current extensions, create new extensions etc.
                 z-index: 9999;
             }
         </style>
-            <div class="extensions-container" align="center">
-                    <div class="tree-heading">Classification selection</div>
-                    <rock-classification-tree id="contextTree" multi-select="[[multiSelect]]" taxonomy="[[taxonomy]]" context-data="{{contextData}}" selected-item="{{_selectedItem}}" selected-items="{{_selectedItems}}"></rock-classification-tree>
-            </div>
+        <div class="extensions-container" align="center">
+            <div class="tree-heading">Classification selection</div>
+            <rock-classification-tree id="contextTree" 
+                                      multi-select="[[multiSelect]]"
+                                      selected-classifications="{{_selectedItems}}" 
+                                      taxonomy="[[taxonomy]]" 
+                                      context-data="[[contextData]]"
+                                      leaf-node-only="[[leafNodeOnly]]">
+            </rock-classification-tree>
+        </div>
         <div id="buttonContainer" align="center">
             <pebble-button id="cancel" class="btn btn-secondary m-r-10" button-text="Skip" on-tap="_skipSelection" elevation=1 raised></pebble-button>
             <pebble-button id="save" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
         </div>
         <liquid-entity-data-save id="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" on-response="_onSaveResponse"></liquid-entity-data-save>
+        <liquid-rest id="contextLiquid" url="/data/pass-through/entityservice/getcontext"
+                     method="POST" request-data="{{requestData}}"
+                     on-liquid-response="_onResponseReceived"  exclude-in-progress>
+        </liquid-rest>
     </template>
     <script>
         (function () {
@@ -84,110 +95,270 @@ Can manage current extensions, create new extensions etc.
             Polymer({
                 is: "rock-extension-manage",
                 properties: {
-                    contextData:{
-                        type:Object,
+          /**
+            * <b><i>Content development is under progress... </b></i> 
+            */
+                    contextData: {
+                        type: Object,
                         value: function () {
                             return {};
                         }
                     },
                     _selectedItems: {
                         type: Array,
-                        value: function() {return [];}
+                        value: function () {
+                            return [];
+                        }
                     },
-                    _selectedItem: {
-                        type: Object,
-                        value: function() {return {};}
+          /**
+            * <b><i>Content development is under progress... </b></i> 
+            */                    
+                    taxonomy: {
+                        type: String,
+                        value: ""
                     },
-                    taxonomy:{
-                        type:String ,
-                        value:""
-                    },
+          /**
+            * <b><i>Content development is under progress... </b></i> 
+            */
                     businessFunctionData: {
                         type: Object,
-                        value: function() { return {}; }
+                        value: function () {
+                            return {};
+                        }
                     },
-                    multiSelect:{
+          /**
+            * <b><i>Content development is under progress... </b></i> 
+            */
+                    multiSelect: {
+                        type: Boolean,
+                        value: false
+                    },
+                    _entityCurrrentClassifications: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },                    
+                    _liquidSaveElement: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    /**
+                    * Specifies whether or not only leaf-node selection is enabled.
+                    */
+                    leafNodeOnly:{
                         type:Boolean,
                         value:false
                     }
-
                 },
+
+                observers:[
+                    '_onContextOrTaxonomyChange(contextData, taxonomy)'                    
+                ],                            
+
                 behaviors: [
                     RUFBehaviors.UIBehavior,
                     RUFBehaviors.ComponentContextBehavior
                 ],
-                _save:function () {
-                    var selectedItems=[];
-                    if(this.multiSelect){
-                        if(this._selectedItems && this._selectedItems.length) {
+          /**
+            * <b><i>Content development is under progress... </b></i> 
+            */
+                ready: function() {
+                    this._liquidSaveElement = this.$$("#attributeSaveDataService");
+                },
+
+                _onContextOrTaxonomyChange:function () {
+                    if(this.taxonomy && !_.isEmpty(this.contextData)) {
+                        this._prepareGetContextRequest();
+                    }
+                },
+
+                _prepareGetContextRequest:function () {
+                    var contextData=DataHelper.cloneObject(this.contextData);
+                    var firstItemContext=ContextHelper.getFirstItemContext(contextData);
+                    if(firstItemContext && firstItemContext.type && firstItemContext.id){
+                        firstItemContext.attributes=[];
+                        contextData[ContextHelper.CONTEXT_TYPE_VALUE]=[];
+                        contextData[ContextHelper.CONTEXT_TYPE_DATA]=[];
+                        var req= DataRequestHelper.createEntityGetRequest(contextData);
+                        req.params.fields.attributes=[];
+                        delete req.params.options;
+                        this.set('requestData',req);
+                        this.$$("#contextLiquid").generateRequest();
+                    }
+                },
+
+                _onResponseReceived:function (e) {
+                        var items = [];
+                        this._entityCurrrentClassifications = [];
+
+                        if (e.detail && e.detail.response) {
+                            var res = e.detail.response.response;
+                            if (res && res.entities && res.entities.length) {
+                                var entity = res.entities[0];
+                                if (entity && entity.data) {
+                                    var contexts = entity.data.contexts;
+                                    for (var i=0; i<contexts.length; i++) {
+                                        var context = contexts[i].context;
+                                        var item = context["classification"];
+                                        if (item) {
+                                            if (context["taxonomy"] == this.taxonomy) {
+                                                this._entityCurrrentClassifications.push(item);
+                                                var arr = item.split(">>");
+                                                items.push(arr);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Input - selected items as path arrays
+                        this._selectedItems = items;
+
+                        if(!this.multiSelect && this._selectedItems.length > 1){                            
+                            this.showErrorToast("UI is configured for single context but there are "+ this._selectedItems.length + " selected contexts for the entity");
+                        }
+
+                        if(this.$$("#contextTree"))
+                        {
+                            this.$$("#contextTree").generateRequest();
+                        }                        
+                },                
+
+                _save: function () {                    
+                    var selectedItems = [];
+
+                    if (this._selectedItems && this._selectedItems.length > 0) {                        
+                        var selectedClassifications = [];
+                        for(var i=0; i<this._selectedItems.length; i++){
+                            if(this._selectedItems[i].valuePath){
+                                selectedClassifications.push(this._selectedItems[i].valuePath.replace(/#@#/g, ">>"));
+                            }
+                        }
+                        if(DataHelper.areEqualArrays(selectedClassifications,this._entityCurrrentClassifications)){
+                            this.showInformationToast("No changes to save");
+                            return;
+                        }
+                        else{
                             selectedItems = this._selectedItems;
                         }
-                    } else {
-                        if(this._selectedItem && !_.isEmpty(this._selectedItem)){
-                            selectedItems=[this._selectedItem];
-                        }
                     }
-                    if(selectedItems.length==0) {
+                    else {
                         this.showErrorToast("No context data selected to save.");
                         return;
                     }
-                    var updatedDataContexts=[];
-
-                    for(var i in selectedItems){
-                        var context={};
-                        var valuePath=selectedItems[i].valuePath;
-                        if(valuePath){
-                            valuePath=valuePath.replace(/#@#/g, "\/");
-                        }
-                        context.classification=valuePath;
-                        if(this.taxonomy){
-                            context["taxonomy"]=this.taxonomy;
-                        }
-                        updatedDataContexts.push({"context":context});
-                    }
-                    var data={};
-                    data.contexts=updatedDataContexts;
-                    var firstItemContext=this.getFirstItemContext();
-                    var entity={
-                        "id":firstItemContext.id,
-                        "type":firstItemContext.type,
-                        "data":data
+                    
+                    var data = {};
+                    data.contexts = this._prepareContexts(selectedItems);;
+                    var firstItemContext = this.getFirstItemContext();
+                    var entity = {
+                        "id": firstItemContext.id,
+                        "type": firstItemContext.type,
+                        "data": data
                     };
 
                     //TODO:: This will be temporary fix needs to come up with good solution.
-                    if(this._isNotificationDisabled()) {
+                    if (this._isNotificationDisabled()) {
                         var clientState = {};
                         clientState.notificationInfo = {};
                         clientState.notificationInfo.showNotificationToUser = false;
                         this.set("_saveRequest",{"clientState": clientState, "entities":[entity]});
                     } else {
-                        this.set("_saveRequest",{"entities":[entity]});                        
+                        this.set("_saveRequest",{"entities":[entity]});
+                    }
+                    
+                    this._liquidSaveElement.generateRequest();
+                },
+
+                _prepareContexts: function(selectedItems) {
+                    var contexts = [];
+                    var categoryPathSeperator = this.appSetting('categoryPathSeparator');
+                    
+                    // Update - For selected items
+                    for (var i in selectedItems) {
+                        var context = {};
+                        var valuePath = selectedItems[i].valuePath;
+                        if (valuePath) {
+                            valuePath = valuePath.replace(/#@#/g, categoryPathSeperator);
+                        }
+                        context.classification = valuePath;
+                        if (this.taxonomy) {
+                            context["taxonomy"] = this.taxonomy;
+                        }                        
+
+                        contexts.push({
+                            "context": context
+                        });
                     }
 
-                    var liquidSave=this.$$("#attributeSaveDataService");
-                    if(liquidSave){
-                        liquidSave.generateRequest();
+                    // Delete - For existing items 
+                    for (var i in this._entityCurrrentClassifications) {
+                        var context = {};
+                        var isSelected = false;
+
+                        for (var j in selectedItems) {
+                            var valuePath = selectedItems[j].valuePath;
+                            if (valuePath) {
+                                valuePath = valuePath.replace(/#@#/g, categoryPathSeperator);
+                            }
+
+                            if(valuePath == this._entityCurrrentClassifications[i]) {
+                                isSelected = true;
+                                break;
+                            }
+                        }
+
+                        // Not in current selected list, then action to delete
+                        if(!isSelected) {
+                            context["classification"] = this._entityCurrrentClassifications[i];
+                            if (this.taxonomy) {
+                                context["taxonomy"] = this.taxonomy;
+                            }
+
+                            contexts.push({
+                                "context": context,
+                                "action": "delete"
+                            });
+                        }                        
                     }
+
+                    return contexts;
                 },
-                _skipSelection:function () {
-                    this._selectedItems=[];
+                
+                _skipSelection: function () {
+                    this._selectedItems = [];
                     var eventName = "onSkip";
                     var eventDetail = {
                         name: eventName
                     }
-                    this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                    this.fireBedrockEvent(eventName, eventDetail, {
+                        ignoreId: true
+                    });
                 },
-                _onSaveResponse:function () {
-                    this.showSuccessToast("Context data saved successfully.");
+
+                _onSaveResponse: function () {
+                    this.showSuccessToast("Context data saved successfully.");                    
                     var eventName = "onSave";
                     var eventDetail = {
-                        name: eventName
-                    }
-                    this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                        name: eventName,
+                        "action":{
+                            "name":"refresh-classification"
+                        }
+                    };
+                    if (eventName && this.functionalMode == "dataFunction") {
+                        eventName.action = "business-condition-save-request";
+                    };
+                    this.fireBedrockEvent(eventName, eventDetail, {
+                        ignoreId: true
+                    });
                 },
-                _isNotificationDisabled: function() {
+                
+                _isNotificationDisabled: function () {
                     var app = ComponentHelper.getCurrentActiveApp();
-                    if(app.is == "app-business-function") {
+                    if (app.is == "app-business-function") {
                         return true;
                     }
                     return false;

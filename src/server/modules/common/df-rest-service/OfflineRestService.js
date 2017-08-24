@@ -3,9 +3,10 @@
 const OfflineServiceBase = require('../service-base/OfflineServiceBase'),
     isEmpty = require('../utils/isEmpty'),
     fs = require('fs'),
-    config = require('./df-rest-service-config.json'),
     requireDir = require('require-dir'),
     executionContext = require('../context-manager/execution-context');
+
+require('./df-rest-service-config.js');
 
 var OfflineRestService = function (options) {
     OfflineServiceBase.call(this, options);
@@ -15,7 +16,7 @@ OfflineRestService.prototype = {
     post: async function (url, request) {
         //console.log('url', url, 'request ', JSON.stringify(request));
 
-        var serviceConfig = config.services[url];
+        var serviceConfig = SERVICE_CONFIG.services[url];
         var offlineSettings = serviceConfig["offlineSettings"];
 
         if (!offlineSettings) {
@@ -61,7 +62,7 @@ OfflineRestService.prototype = {
 
             if (isEmpty(filePrefixes)) {
                 //work around to support offline configuration
-                if (offlineSettings.ignoreFilePrefixes) {
+                if (offlineSettings.ignoreFilePrefixes && filterVal) {
                     var newFilterVal = filterVal.split('_')[0];
                     for (let fileId in files) {
                         if (fileId.indexOf(newFilterVal) >= 0) {

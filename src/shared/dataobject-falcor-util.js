@@ -19,37 +19,43 @@ DataObjectFalcorUtil.getPathKeys = function () {
                 "name": "entity",
                 "collectionName": "entities",
                 "responseObjectName": "response",
-                "totalRecordsToReturn": 200
+                "maxRecordsToReturn": 200,
+                "combinedQueryPageSize": 30000
             },
             "entityGovernData": {
                 "name": "entityGovernData",
                 "collectionName": "entities",
                 "responseObjectName": "response",
-                "totalRecordsToReturn": 2000
+                "maxRecordsToReturn": 5000,
+                "combinedQueryPageSize": 30000
             },
             "entityModel": {
                 "name": "entityModel",
                 "collectionName": "entityModels",
                 "responseObjectName": "response",
-                "totalRecordsToReturn": 2000
+                "maxRecordsToReturn": 2000,
+                "combinedQueryPageSize": 30000
             },
             "config": {
                 "name": "configObject",
                 "collectionName": "configObjects",
                 "responseObjectName": "response",
-                "totalRecordsToReturn": 100
+                "maxRecordsToReturn": 100,
+                "combinedQueryPageSize": 30000
             },
             "eventData": {
                 "name": "event",
                 "collectionName": "events",
                 "responseObjectName": "response",
-                "totalRecordsToReturn": 50
+                "maxRecordsToReturn": 500,
+                "combinedQueryPageSize": 30000
             },
-             "requestTracking": {
+            "requestTracking": {
                 "name": "requestobject",
                 "collectionName": "requestObjects",
                 "responseObjectName": "response",
-                "totalRecordsToReturn": 50
+                "maxRecordsToReturn": 25000,
+                "combinedQueryPageSize": 30000
             }
         }
     };
@@ -63,24 +69,28 @@ DataObjectFalcorUtil.getSelfCtx = function () {
 
 const selfCtx = DataObjectFalcorUtil.getSelfCtx();
 
+DataObjectFalcorUtil.createSelfCtxKey = function () {
+    return DataObjectFalcorUtil.createCtxKey(DataObjectFalcorUtil.getSelfCtx());
+};
+
 DataObjectFalcorUtil.boxDataObject = function (dataObject, boxOp) {
     var modDataObject = {};
 
     for (var dataObjectFieldKey in dataObject) {
         if (dataObjectFieldKey === "data") {
-            if(dataObject && dataObject.data) {
+            if (dataObject && dataObject.data) {
                 var data = dataObejct.data;
                 var modData = {};
 
-                if(data.attributes) {
+                if (data.attributes) {
                     modData.attributes = DataObjectFalcorUtil.boxAttributesData(data.attributes, boxOp);
                 }
 
-                if(data.relationships) {
+                if (data.relationships) {
                     modData.relationships = DataObjectFalcorUtil.boxRelationshipsData(data.relationships, boxOp);
                 }
 
-                if(data.properties) {
+                if (data.properties) {
                     modData.properties = boxOp(data.properties);
                 }
 
@@ -131,8 +141,8 @@ DataObjectFalcorUtil.boxAttributesData = function (attrs, boxOp) {
         }
 
         modAttr.values = boxOp(modAttr.values);
-        
-        if(modAttr.properties) {
+
+        if (modAttr.properties) {
             modAttr.properties = boxOp(modAttr.properties);
         }
 
@@ -185,7 +195,7 @@ DataObjectFalcorUtil.unboxJsonObject = function (obj) {
 
 DataObjectFalcorUtil.transformToExternal = function (dataObject) {
 
-    //console.log('transform dataObject input:', JSON.stringify(dataObject));
+    //console.log('transform dataObject input:', JSON.stringify(dataObject, null, 4));
 
     var transDataObject = {};
 
@@ -223,16 +233,19 @@ DataObjectFalcorUtil.transformToExternal = function (dataObject) {
                 if (enContextData.relationships) {
                     transContextsItem.relationships = DataObjectFalcorUtil.transformRelationshipsToExternal(enContextData.relationships);
                 }
-            
+
                 if (enContextData.jsonData) {
                     transContextsItem.jsonData = enContextData.jsonData;
                 }
 
                 //read dataobject' metadata fields from the attributes.metadataFields, if available
                 if (transContextsItem.attributes && transContextsItem.attributes[DataObjectFalcorUtil.CONST_DATAOBJECT_METADATA_FIELDS]) {
-                    var metadataFields = DataObjectFalcorUtil.transformPropertiesToExternal(transContextsItem.attributes[DataObjectFalcorUtil.CONST_DATAOBJECT_METADATA_FIELDS]);
-                    for (var dataObjectField in metadataFields) {
-                        transDataObject[dataObjectField] = metadataFields[dataObjectField];
+
+                    if (transContext.selfContext) {
+                        var metadataFields = DataObjectFalcorUtil.transformPropertiesToExternal(transContextsItem.attributes[DataObjectFalcorUtil.CONST_DATAOBJECT_METADATA_FIELDS]);
+                        for (var dataObjectField in metadataFields) {
+                            transDataObject[dataObjectField] = metadataFields[dataObjectField];
+                        }
                     }
 
                     delete transContextsItem.attributes[DataObjectFalcorUtil.CONST_DATAOBJECT_METADATA_FIELDS];
@@ -332,10 +345,23 @@ DataObjectFalcorUtil.transformRelationshipsToExternal = function (relationships)
                 rel.attributes = DataObjectFalcorUtil.transformAttributesToExternal(rel.attributes);
             }
 
-            if (!isEmpty(rel.relTo)) {
-                rel.relTo = DataObjectFalcorUtil.transformToExternal(rel.relTo);
-            }
+            if (rel.relToObject) {
+                var relToObject = rel.relToObject;
+                
+                if (relToObject.data) {
+                    relToObject = DataObjectFalcorUtil.transformToExternal(relToObject);
+                }
+                
+                if(rel.relTo && relToObject.data) {
+                    rel.relTo.data = relToObject.data;
+                    rel.relTo.name = relToObject.name;
+                    rel.relTo.version = relToObject.version;
+                    rel.relTo.properties = relToObject.properties
+                }
 
+                delete rel.relToObject;
+            }
+            
             relsArray.push(rel);
         }
 
@@ -599,8 +625,8 @@ DataObjectFalcorUtil.getRelationshipsByCtx = function (dataObject, context) {
     return {};
 };
 
-DataObjectFalcorUtil.getConfigByCtx = function(dataObject, context) {
-    if(dataObject && dataObject.configObjects && dataObject.configObjects.length > 0 && dataObject.configObjects[0].data && dataObject.configObjects[0].data.contexts && dataObject.configObjects[0].data.contexts.length > 0) {
+DataObjectFalcorUtil.getConfigByCtx = function (dataObject, context) {
+    if (dataObject && dataObject.configObjects && dataObject.configObjects.length > 0 && dataObject.configObjects[0].data && dataObject.configObjects[0].data.contexts && dataObject.configObjects[0].data.contexts.length > 0) {
         var ctxItem = DataObjectFalcorUtil.getCtxItem(dataObject.configObjects[0].data.contexts, context);
         if (ctxItem) {
             return ctxItem.jsonData;
@@ -695,6 +721,22 @@ DataObjectFalcorUtil.deepAssign = function (...objs) {
 
 DataObjectFalcorUtil.test = function () {
     console.log('test success');
+};
+
+DataObjectFalcorUtil.createRelUniqueId = function (relType, rel) {
+    if (rel) {
+        var relDataObjectId = rel.relTo && rel.relTo.id && rel.relTo.id !== "" ? rel.relTo.id : "-1";
+        return relType.concat("_", relDataObjectId);
+    }
+
+    return "";
+};
+
+DataObjectFalcorUtil.mergePathSets = function () {
+    var mergedPathSets = [];
+    var args = Array.prototype.splice.call(arguments, 0);
+    var mergedPathSets = Array.prototype.concat.apply([], args);
+    return mergedPathSets;
 };
 
 function isEmpty(obj) {

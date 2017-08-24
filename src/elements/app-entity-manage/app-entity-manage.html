@@ -12,6 +12,7 @@
 <link rel="import" href="../pebble-stepper/pebble-stepper.html">
 <link rel="import" href="../pebble-vertical-divider/pebble-vertical-divider.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
 
 <link rel="import" href="../rock-dimension-selector/rock-dimension-selector.html">
 <link rel="import" href="../rock-layout/rock-layout.html">
@@ -31,12 +32,13 @@
                 border-bottom: 1px solid var(--default-border-color, #c1cad4);
                 padding: 10px 20px;
             }
-            
-            rock-titlebar::shadow #mainTitle {
+
+            rock-titlebar {
+                --rock-main-title:{
                 color: var(--pagetitle-text-color, #034c89);
                 font-weight: var(--font-bold, bold);
             }
-            
+        }
             .stepper-style {
                 --connected-badge-width: 50px;
                 --connected-badge-height: 50px;
@@ -47,7 +49,7 @@
                 --connectorLine-width: 3px;
                 --divider-color: #212121;
             }
-            
+
             .sidebar-title {
                 font-weight: var(--font-medium, 500);
                 font-family: var(--default-font-family);
@@ -62,56 +64,74 @@
                 width: 161px;
                 height: 19px;
             }
-            
+
             rock-dimension-selector {
+                vertical-align: middle;
                 --dimesion-selector-container-popover: {
                     width: 70px;
                 }
-                ;
+                
                 --dimesion-selector-source-popover: {
                     width: 55px;
                 }
-                ;
+                
                 --dimesion-selector-date-dropdown: {
                     width: 60px;
                 }
-                ;
+                
                 --dimesion-selector-locale-popover: {
                     width: 65px;
                 }
-                ;
+                
             }
-            
+
             #dimensionContainer {
                 align-self: center;
                 -webkit-align-self: center;
             }
-            
+
             pebble-vertical-divider {
                 --pebble-vertical-divider-color: var(--divider-color, #212121);
                 min-width: 1px;
                 margin: 10px 5px;
                 min-height: 18px;
             }
-            
+
             .content {
-                height: 100%;
+                height: calc(100% - 6px);
             }
-            
+
+            .tab-wrap {
+                position: relative;
+                height: calc(100% - 6px);
+            }
+
             #dimensionGridContent {
                 height: 80%;
             }
-            
-            rock-tabs::shadow .tab-content {
-                overflow-y: auto;
-                height: calc(var(--rock-tab-content-height) - 54px);
+
+            rock-tabs {
+                --rock-tab-content: {
+                    overflow-y: auto;
+                    font-size: var(--default-font-size, 14px);
+                }
+                ;
+                --tab-error-circle: {
+                    margin-bottom: 8px;
+                }
             }
+            rock-layout {
+                --scroller: {
+                    overflow: hidden;
+                } 
+            }            
         </style>
 
         <rock-layout hide-footer>
+            <pebble-spinner active="[[_loading]]"></pebble-spinner>
             <liquid-config-aggregate-get id="getManageAppConfig" verbose operation="getbyids" request-id="req1" app-name="app-entity-manage"
                 context-data="[[contextData]]" on-config-get-response="_onApplicationConfigReceived"></liquid-config-aggregate-get>
-            <rock-titlebar icon="dashboard" main-title="" sub-title="" config="{{getConfig('rock-titlebar')}}" closable minimizable>
+            <rock-titlebar icon="dashboard" main-title="" sub-title="" config="{{getConfig('rock-titlebar')}}" non-minimizable="[[appConfig.nonMinimizable]]" non-closable="[[appConfig.nonClosable]]">
                 <div id="dimensionContainer" align="right">
                     <rock-dimension-selector id="dimensionSelector" config-data="{{getConfig('rock-dimension-selector')}}" entity-id="[[_entityId]]"
                         entity-type="[[_entityType]]"></rock-dimension-selector>
@@ -122,9 +142,11 @@
                     <bedrock-pubsub event-name="toolbar-button-event" handler="_onToolbarEvent" target-id="entityManageHeader"></bedrock-pubsub>
                     <!--<bedrock-pubsub on-bedrock-event-route-changed="onRouteChange"></bedrock-pubsub>-->
                     <rock-entity-header id="entityManageHeader" context-data="[[contextData]]" header-config="{{getConfig('rock-entity-header','','headerConfig')}}"
-                        buttons="{{getConfig('rock-entity-header','','toolbarConfig')}}" to-fix-data="{{getConfig('rock-entity-header','','summaryToFix')}}" assignment-actions-config="{{getConfig('rock-entity-header','','assignmentActionsConfig')}}"></rock-entity-header>
+                        buttons="{{getConfig('rock-entity-header','','toolbarConfig')}}" to-fix-data="{{getConfig('rock-entity-header','','summaryToFix')}}"
+                        assignment-actions-config="{{getConfig('rock-entity-header','','assignmentActionsConfig')}}" thumbnail-config="{{getConfig('rock-entity-header','','thumbnailConfig')}}"></rock-entity-header>
                 </div>
             </rock-header>
+            <bedrock-pubsub event-name="refresh-entity-thumbnail" handler="_refreshEntityThumbnail"></bedrock-pubsub>
             <rock-sidebar id="rockSideBar" position="right">
                 <div class="p-10">
                     <rock-workflow-panel context-data="[[contextData]]"></rock-workflow-panel>
@@ -132,8 +154,9 @@
             </rock-sidebar>
             <div class="content">
                 <template is="dom-if" if="true" id="tabsTemplate">
-                    <rock-tabs id="rockTabs" config="{{getConfig('rock-tabs')}}">
-                    </rock-tabs>
+                    <div class="tab-wrap">
+                        <rock-tabs id="rockTabs" config="{{getConfig('rock-tabs')}}"></rock-tabs>
+                    </div>
                     <bedrock-pubsub event-name="component-creating" handler="_onComponentCreating"></bedrock-pubsub>
                     <bedrock-pubsub on-bedrock-event-todotap="summaryTodoTap"></bedrock-pubsub>
                     <bedrock-pubsub on-bedrock-event-tofixtap="summaryTofixTap"></bedrock-pubsub>
@@ -147,8 +170,12 @@
         <bedrock-pubsub event-name="app-context-changed" handler="_onAppContextChanged"></bedrock-pubsub>
         <bedrock-pubsub event-name="workflow-transition-complete" handler="_onWorkflowTransitionComplete"></bedrock-pubsub>
         <bedrock-pubsub event-name="workflow-assignment-complete" handler="_onWorkflowAssignmentComplete"></bedrock-pubsub>
-        <bedrock-pubsub event-name="on-attribute-save" handler="_refreshRockEntityHeader"></bedrock-pubsub>
+        <bedrock-pubsub event-name="on-attribute-save" handler="_refreshHeaderAndNavBars"></bedrock-pubsub>
         <rock-business-function-dialog id="contextDialog"></rock-business-function-dialog>
+        <rock-business-function-dialog id="entityUploadDialog"></rock-business-function-dialog>
+        <rock-business-function-dialog id="entityDownloadDialog"></rock-business-function-dialog>
+        <rock-business-function-dialog id="rePublishDialog"></rock-business-function-dialog>
+        <bedrock-pubsub event-name="refresh-classification" handler="_refreshDimensionSelector" target-id="contextDialog"></bedrock-pubsub>
         <liquid-entity-data-get name="attributeGetDataServiceForTitleBar" operation="getbyids" request-data="{{titleAttributeRequest}}"
             on-response="_onTitleAttributesGetResponse"></liquid-entity-data-get>
     </template>
@@ -159,15 +186,11 @@
             Polymer({
                 is: 'app-entity-manage',
                 created: function () {
-                    if (this.verbose) {
-                        console.log('app entity manage created');
-                    }
                     this.contentHeightVariable = "--rock-tab-content-height";
                 },
                 attached: function () {
-                    if (this.verbose) {
-                        console.log('app entity manage attached');
-                    }
+
+                    this.logInfo("EntityManageAttached");
 
                     var userContext = {
                         "role": this.roleId,
@@ -177,8 +200,8 @@
                     this.contextData[this.CONTEXT_TYPE_USER] = [userContext];
                 },
                 ready: function () {
-                    if (this.verbose)
-                        console.log('app entity manage ready');
+
+                    this.logInfo("EntityManageReady");
 
                     this._entityId = DataHelper.getParamValue('id');
                     this._entityType = DataHelper.getParamValue('type');
@@ -242,7 +265,17 @@
                     verbose: {
                         type: Boolean,
                         value: false
-                    }
+                    },
+                    _loading: {
+                        type: Boolean,
+                        value: false
+                    },
+                    appConfig:{
+                        type: Object,
+                        value: function(){
+                            return {};
+                        }
+                     }
                 },
                 behaviors: [
                     RUFBehaviors.AppBehavior
@@ -263,24 +296,24 @@
                         this._reRenderOnDimensionChange();
                     }
                 },
-                getAppCurrentStatus: function() {
+                getAppCurrentStatus: function () {
                     var title = this._entityType + ": ";
                     var titlebar = this.$$('rock-titlebar');
-                    if(titlebar && titlebar.mainTitle != ""){
+                    if (titlebar && titlebar.mainTitle != "") {
                         title += titlebar.mainTitle;
                     } else {
                         title += this._entityId;
                     }
-                    
-                    return {	
+
+                    return {
                         title: title,
-                        subTitle: this.getIsDirty() ? "Draft" : this._lastSavedTime && this._lastSavedTime != ""? "Last Saved" : "Opened",
+                        subTitle: this.getIsDirty() ? "Draft" : this._lastSavedTime && this._lastSavedTime != "" ? "Last Saved" : "Opened",
                         subTitleValue: this._lastSavedTime && this._lastSavedTime != "" ? this._lastSavedTime : new Date().toLocaleString(),
                         tooltipParams: []
                     };
                 },
                 _onApplicationConfigReceived: function (e) {
-                    //console.log('Received configs ', JSON.stringify(e, null, 2));
+                    // this.logInfo("ConfigReceived","response",JSON.stringify(e, null, 2));
                     this.set('applicationConfig', e.detail);
                 },
                 _openContextManagement: function (taxonomy) {
@@ -318,15 +351,22 @@
                         case "cut":
                             this._cutEvent(e, detail);
                             break;
+                        case "upload":
+                            this._openEntityUploadBF(e, detail);
+                            break;
+                        case "download":
+                            this._downloadEvent(e, detail);
+                            break;
+                        case "republish":
+                            this._rePublishEvent(e, detail);
+                            break;
                         default:
                             this.fireBedrockEvent("grid-custom-toolbar-event", detail);
                             break;
                     }
                 },
                 _onAppContextChanged: function (e) {
-                    if (this.verbose) {
-                        console.log("AppContext:- " + JSON.stringify(e.detail.contextData));
-                    }
+                    this.logInfo("AppContextChanged", "contextData", JSON.stringify(e.detail.contextData));
 
                     this.contextData = e.detail.contextData;
 
@@ -337,14 +377,16 @@
 
                     if (component.properties) {
                         //set context-data for all components no matter what
+                        if(!component.properties['context-data'] || _.isEmpty(component.properties['context-data'])) {
                             component.properties['context-data'] = this.contextData;
+                        }
                         //TODO: summary should load its config by itself
                         if (component.name == 'rock-entity-summary') {
                             component.properties.config = this.summaryConfig;
                         }
                     }
                 },
-                _searchEvent: function (e, detail, sender) { 
+                _searchEvent: function (e, detail, sender) {
                 },
                 _refreshEvent: function (e, detail, sender) {
                     var isDirty = false;
@@ -380,6 +422,40 @@
                 },
                 _cutEvent: function (e, detail, sender) {
                     alert("event triggered: " + detail.name);
+                },
+                _downloadEvent: function (e, detail) {
+                    var clonedDataContext = DataHelper.cloneObject(this.contextData);
+                    var itemContexts = DataHelper.cloneObject(this.getItemContexts());
+
+                    if (itemContexts && itemContexts.length) {
+                        var selectedEntities = [];
+                        var selctedEntity = {
+                            "id": itemContexts[0].id,
+                            "type": itemContexts[0].type
+                        };
+                        selectedEntities.push(selctedEntity);
+
+                        var entityDownloadDialog = this.$$("#entityDownloadDialog");
+                        entityDownloadDialog.name = "rock-entity-download";
+                        entityDownloadDialog.sharedData = {
+                            "context-data": clonedDataContext,
+                            "selected-entities": selectedEntities
+                        };
+                        entityDownloadDialog.open();
+                    } else {
+                        this.showErrorToast("item context not found.");
+                    }
+                },
+                _rePublishEvent: function (e, detail) {
+                    var itemContexts = DataHelper.cloneObject(this.getItemContexts());
+                    var rePublishDialog = this.$$("#rePublishDialog");
+                    rePublishDialog.name = detail.componentName;
+                    rePublishDialog.sharedData = { "context-data": this.contextData, "selected-entities": itemContexts };
+                    rePublishDialog.open();
+                },
+                _onCOPDownloadFailure: function (e) {
+                    this.showErrorToast("Failed to download entity data. Please contact administrator.");
+                    this._loading = false;
                 },
                 _toggleStepper: function (contexts) {
                     if (contexts && contexts.length > 1) {
@@ -442,6 +518,10 @@
                     this._refreshWorkflowPanel();
                     this.$$('rock-tabs').reloadCurrentTab();
                 },
+                _refreshHeaderAndNavBars: function () {
+                    this._refreshRockEntityHeader();
+                    this._refreshActiveMenuItems();
+                },
                 getIsDirty: function () {
                     var tabs = this.$$("rock-tabs");
                     if (tabs && tabs.getIsDirty) {
@@ -451,9 +531,7 @@
                 _onTitleAttributesGetResponse: function (e) {
 
                     var titleAttributeResponse = e.detail.response;
-                    if (this.verbose) {
-                        console.log('on entity title response event ', JSON.stringify(titleAttributeResponse, null, 2));
-                    }
+                    this.logInfo("EntityTitleAttributeResponse", "response", JSON.stringify(titleAttributeResponse, null, 2));
 
                     var attributesData = [];
                     if (DataHelper.validateGetEntitiesResponse(titleAttributeResponse)) {
@@ -461,7 +539,7 @@
                         var entity = titleAttributeResponse.content.entities[0];
 
                         if (entity) {
-                            var attributesWithoutModel = DataTransformHelper.transformAttributes(entity, undefined, this.contextData, "array");
+                            var attributesWithoutModel = DataTransformHelper.transformAttributes(entity, undefined, this.contextData, "array", false);
                             this.setTitleBar(entity, attributesWithoutModel);
                         }
                     }
@@ -488,10 +566,10 @@
                         }
                     }
 
-                    if(!titlebar.mainTitle || titlebar.mainTitle == ""){
+                    if (!titlebar.mainTitle || titlebar.mainTitle == "") {
                         titlebar.mainTitle = "No Title";
                     }
-                    if(!titlebar.subTitle || titlebar.subTitle == ""){
+                    if (!titlebar.subTitle || titlebar.subTitle == "") {
                         titlebar.subTitle = "No Sub-Title";
                     }
                 },
@@ -536,12 +614,12 @@
                     }, 30);
                 },
                 _onWorkflowTransitionComplete: function (e) {
+                    this._refreshRockEntityHeader();
                     this._refreshWorkflowPanel();
 
                 },
                 _onWorkflowAssignmentComplete: function (e) {
                     this._refreshWorkflowPanel();
-
                 },
                 _refreshRockEntityHeader: function (e) {
                     this._refreshTitleBar();
@@ -549,9 +627,10 @@
                     if (entityHeaderEle && entityHeaderEle.refresh) {
                         entityHeaderEle.refresh();
                     }
-                    if(e){
+                    if (e) {
                         this._lastSavedTime = new Date().toLocaleString();
                     }
+                    this._refreshEntityThumbnail();
                 },
                 _refreshWorkflowPanel: function () {
                     var entityWorklflowPanelEl = Polymer.dom(this).node.$$('rock-workflow-panel');
@@ -559,14 +638,37 @@
                         entityWorklflowPanelEl.refresh();
                     }
                 },
-                _clearDimensionGridDialog: function() {
+                _clearDimensionGridDialog: function () {
                     var dialog = Polymer.dom(this).node.$.dimensionGridDialog;
-                    if (dialog) { 
+                    if (dialog) {
                         var childContent = dialog.firstElementChild;
-                        if(childContent) {
+                        if (childContent) {
                             dialog.removeChild(childContent);
                         }
                     }
+                },
+                _openEntityUploadBF: function (e, detail) {
+                    this.$$("#entityUploadDialog").name = "rock-entity-upload";
+                    this.$$("#entityUploadDialog").sharedData = { "context-data": this.contextData };
+                    this.$$("#entityUploadDialog").open();
+                },
+                _refreshEntityThumbnail: function () {
+                    var header = this.$$("#entityManageHeader");
+                    if (header) {
+                        var thumbnailConfig = this.getConfig('rock-entity-header', '', 'thumbnailConfig');
+                        header.thumbnailConfig = undefined;
+                        header.thumbnailConfig = thumbnailConfig;
+                    }
+                },
+                _refreshActiveMenuItems: function () {
+                    this._lastSavedTime = new Date().toLocaleString();
+                    var contentView = document.querySelector("main-app").$$("rock-content-view-manager").$$("rock-content-view:not([hidden])");
+                    this.fireBedrockEvent('app-status-changed', { "viewName": contentView.name, "contentView": contentView, "config": undefined }, { appId: "main-app", ignoreId: true });
+                },
+                _refreshDimensionSelector: function () {
+                    this.async(function () {
+                        this.$$('rock-dimension-selector').refreshDimensionData();
+                    })
                 }
             });
         })();

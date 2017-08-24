@@ -8,7 +8,11 @@
 
 <link rel="import" href="../pebble-file-upload/pebble-file-upload.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<!--
+<b><i>Content development is under progress... </b></i>
 
+@demo demo/index.html
+-->
 <dom-module id="rock-model-import">
     <template>
         <style include="pebble-styles-shared">
@@ -19,70 +23,102 @@
                 box-shadow: 0 0 10px 0 var(--cloudy-blue-color, #c1cad4);
                 position: relative;
             }
+
             .title {
-                font-size: var(--default-font-size, 14px);		                  
+                font-size: var(--default-font-size, 14px);
                 text-align: center;
-                color:var(--palette-steel-grey, #75808b);
+                color: var(--palette-steel-grey, #75808b);
             }
         </style>
         <p class="title"><strong>Profile Name:</strong> [[importProfileName]]</p>
         <div class="placeHolder p-10">
-            <p class="title"><a href="#" class="btn-link" on-tap="_selectFile">Download</a> a system template or just upload an existing data file</p>
+            <p class="title"><a href="#" class="btn-link" on-tap="_selectFile">Download</a> a system template or just upload an existing data
+                file
+            </p>
             <!-- screen for import -->
-            <pebble-file-upload accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" target="/file-upload"></pebble-file-upload>
+            <pebble-file-upload allowed-file-types="[[allowedFileTypes]]"></pebble-file-upload>
             <bedrock-pubsub on-bedrock-event-pebble-file-upload-success="_onFileUploadSuccess"></bedrock-pubsub>
         </div>
-        <liquid-rest id="copProcessModel" url="/cop/processmodel" 
-            method="POST" request-data={{_copProcessModelRequest}} on-liquid-response="_onProcessModelSuccess" on-liquid-error="_onProcessModelFailure"></liquid-rest>
     </template>
     <script>
-        (function(){
+        (function () {
             'use strict';
 
             Polymer({
                 is: "rock-model-import",
 
                 properties: {
-                    importProfileName:{
+                    /**
+                      * <b><i>Content development is under progress... </b></i> 
+                      */
+                    importProfileName: {
                         type: String
                     },
                     _copProcessModelRequest: {
                         type: Object,
-                        value: function() { return {}; }
+                        value: function () { return {}; }
                     },
                     _fileName: {
                         type: String
                     },
+                    /**
+                      * <b><i>Content development is under progress... </b></i> 
+                      */
                     businessFunctionData: {
                         type: Object,
-                        value: function() { return {}; }
+                        value: function () { return {}; }
+                    },
+                    allowedFileTypes: {
+                        type: Array,
+                        value: function () { return []; }
                     }
                 },
                 behaviors: [
                     RUFBehaviors.UIBehavior,
                     RUFBehaviors.ComponentContextBehavior
                 ],
-                _onFileUploadSuccess: function(e, detail, sender) {
-                    if(this.importProfileName == undefined || this.importProfileName.length == 0) {
+                _onFileUploadSuccess: function (e, detail, sender) {
+                    if (this.importProfileName == undefined || this.importProfileName.length == 0) {
                         this.showErrorToast("Import profile name not found. Please check the config.");
                         return;
                     }
 
                     var fileName = detail.fileName;
                     this.set("_fileName", detail.originalFileName);
-                    var copRequest = {
-                        "fileName": fileName,
-                        "profileName": this.importProfileName
-                    };
-                    this.set("_copProcessModelRequest", copRequest);
+
+                    var formData = new FormData();
+                    formData.append("file", detail.file);
+                    formData.append("fileName", fileName);
+                    formData.append("profileName", this.importProfileName);
+
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('POST', '/data/cop/processmodel', true);
+                    xhr.responseType = 'json';
+                    xhr.onload = function (e) {
+                        if (e.currentTarget && e.currentTarget.response) {
+                            var response = e.currentTarget.response;
+                            e.detail = {
+                                "response": response
+                            }
+                            if ((response.response && response.response.status == "success") ||
+                                (response.dataObjectOperationResponse && response.dataObjectOperationResponse.status == "success")) {
+                                this._onProcessModelSuccess(e);
+                            } else {
+                                this._onProcessModelFailure(e);
+                            }
+
+                        }
+                    }.bind(this);
+                    xhr.send(formData);
+
                     var liqTransform = this.$$("#copProcessModel");
-                    if(liqTransform) {
+                    if (liqTransform) {
                         liqTransform.generateRequest();
                     }
                 },
-                _onProcessModelSuccess: function(e) {
+                _onProcessModelSuccess: function (e) {
                     var response = e.detail.response;
-                    if(response && response.dataObjectOperationResponse &&response.dataObjectOperationResponse.status.toLowerCase() == "success") {
+                    if (response && response.dataObjectOperationResponse && response.dataObjectOperationResponse.status.toLowerCase() == "success") {
                         // go to next step in wizard
                         var data = {
                             "messages": [
@@ -110,18 +146,18 @@
                         var eventDetail = {
                             name: eventName
                         };
-                        this.async(function() {
+                        this.async(function () {
                             this.fireBedrockEvent(eventName, eventDetail, {
                                 ignoreId: true
                             });
                         }, 5000);
                     } else {
-                        console.warn("Unexpected COP response:" + e.detail.response);
+                        this.logWarning("UnexpectedCOP", "response", JSON.stringify(e.detail.response));
                         this.showErrorToast("Unable to process the data model. Please check the service or contact your administrator.");
                     }
                 },
-                _onProcessModelFailure: function(e) {
-                    console.warn("Unexpected COP response:" + e.detail.response);
+                _onProcessModelFailure: function (e) {
+                    this.logWarning("UnexpectedCOP", "response", JSON.stringify(e.detail.response));
                     this.showErrorToast("Unable to process the data model. Please check the service or contact your administrator.");
                 }
             });
