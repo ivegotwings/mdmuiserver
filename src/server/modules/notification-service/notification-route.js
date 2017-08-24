@@ -79,6 +79,12 @@ function getAction(serviceName, status, operation, description) {
                     } else {
                         action = enums.actions.WorkflowAssignmentFail;
                     }
+                }else if(operation == enums.operations.BusinessCondition){
+                    if (status.toLowerCase() == "success") {
+                        action = enums.actions.BusinessConditionSaveComplete;
+                    } else {
+                        action = enums.actions.BusinessConditionSaveFail;
+                    }
                 }
             } else {
                 if (status.toLowerCase() == "success") {
