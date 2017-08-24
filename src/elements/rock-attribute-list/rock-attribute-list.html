@@ -89,7 +89,8 @@ It renders the list of attributes based on the specified parameters.
             <div class$="[[_getAttributeClass(noOfColumns, attribute)]]" name$="[[attribute.name]]">
                 <rock-attribute context-data="[[contextData]]" mode="{{mode}}" errors="{{attribute.errors}}" server-errors="[[_getAttributeMessage(attribute,attributeMessages)]]"
                     attribute-model-object="[[_getAttributeModel(attributeModels, attribute)]]" attribute-object="{{attribute}}"
-                    original-attribute-object="[[_cloneObject(attribute)]]" tabindex="[[_getTabIndex(attribute)]]" on-attribute-value-changed="resetErrors" show-delete-icon="[[showDeleteIcon]]"></rock-attribute>
+                    original-attribute-object="[[_cloneObject(attribute)]]" tabindex="[[_getTabIndex(attribute)]]" on-attribute-value-changed="resetErrors" show-delete-icon="[[showDeleteIcon]]"
+                    dependent-attribute-objects="[[_getDependentAttributes(attribute)]]" dependent-attribute-model-objects="[[_getDependentAttributeModels(attribute)]]"></rock-attribute>
             </div>
 
             <template is="dom-if" if="[[_checkRenderGroupBar(attribute, 1)]]">
@@ -231,7 +232,7 @@ It renders the list of attributes based on the specified parameters.
                 _getAttributeClass: function (n, attribute) {
                     var model = this._getAttributeModel(this.attributeModels, attribute);
                     var displayType = model && model.displayType ? model.displayType.toLowerCase() : "";
-                    if(displayType === "textarea" || displayType === "richtexteditor") {
+                    if(displayType === "textarea" || displayType === "richtexteditor" || displayType === "nestedgrid") {
                         n = 1;
                     }
                     return "attribute-box attribute-box-" + n;
@@ -306,6 +307,39 @@ It renders the list of attributes based on the specified parameters.
                     return changedAttributeElements;
                 },
                 /**
+                * Can be used to get all the attribute objects that are changed in the attribute-list.
+                */
+                getDependentAttributeElements: function(currentAttribute) {
+                    var dependentAttributesToReturn = [];
+
+                    var node = Polymer.dom(this).node;
+                    var allAttributeElements = Polymer.dom(this).node.querySelectorAll('rock-attribute');
+                    if(allAttributeElements == undefined || allAttributeElements.length == 0) {
+                        allAttributeElements = Polymer.dom(this).node.root.querySelectorAll('rock-attribute');
+                    }
+
+                    for(let i = 0; i < allAttributeElements.length; i++) {
+                        var isDependentOnCurrentAttribute = false;
+                        
+                        var dependentAttrModels = allAttributeElements[i].dependentAttributeModelObjects;
+                        if(dependentAttrModels && dependentAttrModels instanceof Array && dependentAttrModels.length > 0) {
+                            for(let j = 0; j < dependentAttrModels.length; j++) {
+                                if(DataHelper.compareObjects(dependentAttrModels[j], currentAttribute.attributeModelObject)) {
+                                    isDependentOnCurrentAttribute = true
+                                    break;
+                                }
+                            }
+                        }
+
+                        if(isDependentOnCurrentAttribute) {
+                            dependentAttributesToReturn.push(allAttributeElements[i]);
+                        }
+                    }
+
+                    return dependentAttributesToReturn;
+                },
+
+                /**
                  * Can be used to reset all the changed attribute objects to their original object values.
                  */
                 resetChanged: function () {
@@ -334,8 +368,25 @@ It renders the list of attributes based on the specified parameters.
           /**
             * <b><i>Content development is under progress... </b></i> 
             */
-                resetErrors: function () {
+                resetErrors: function (e) {
                     this._calculateErrorLength(this.attributeValues);
+
+                    if(e) {
+                        var attribute = e.currentTarget || e.sourceElement;
+
+                        var dependentAttributeElements = this.getDependentAttributeElements(attribute);
+                        for (var i = 0; i < dependentAttributeElements.length; i++) {
+                            var dependentAttributeObjects = dependentAttributeElements[i].dependentAttributeObjects;
+                            dependentAttributeElements[i].dependentAttributeObjects = [];
+                            dependentAttributeElements[i].dependentAttributeObjects = dependentAttributeObjects;
+
+                            if(dependentAttributeElements[i].attributeObject.value.length > 0) {
+                                dependentAttributeElements[i].invalid = true;
+                                var errorMessage = "These value(s) may be invalid now, as the value of " + dependentAttributeElements[i].attributeModelObject.externalName + " is changed. Please select a new value.";
+                                dependentAttributeElements[i].addValidationErrors(errorMessage);
+                            }
+                        }
+                    }
                 },
 
                 _calculateErrorLength: function (attributeValues) {
@@ -424,7 +475,7 @@ It renders the list of attributes based on the specified parameters.
                         } 
                     } 
                     return false;
-                },
+                },  
                 _getTabIndex: function(attribute) {
                     return this._runningTabIndex++;
                 },
@@ -438,6 +489,58 @@ It renders the list of attributes based on the specified parameters.
                         var index = this.attributeValues.indexOf(attribute);
                         this.splice("attributeValues", index, 1);
                         this.fireBedrockEvent("attribute-control-delete", { data: attribute }, { ignoreId: true });
+                    }
+                },
+                _getDependentAttributes: function(currentAttribute) {
+                    var dependentAttributeModels = this._getDependentAttributeModels(currentAttribute);
+                    var dependentAttributeValues = [];
+
+                    if(this.attributeValues) {
+                        for(var i = 0; i < dependentAttributeModels.length; i++) {
+
+                            var dependentAttributeModel = dependentAttributeModels[i]
+                            for(var j = 0; j < this.attributeValues.length; j++) {
+                                if(dependentAttributeModel.name === this.attributeValues[j].name) {
+                                    dependentAttributeValues.push(this.attributeValues[j]);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    return dependentAttributeValues
+                },
+                _getDependentAttributeModels: function(currentAttribute) {
+                    if(this.attributeModels) {
+                        var self = this;
+                        var dependentAttributesNames = [];
+                        var dependentAttributesToReturn = [];
+
+                        Object.keys(this.attributeModels).map(function(attributeModel) {
+                            if(attributeModel === currentAttribute.name) {
+                                if(self.attributeModels[attributeModel]) {
+                                    var attributeModelProperties = self.attributeModels[attributeModel];
+                                    if(attributeModelProperties) {
+                                        var dependencyInfo = attributeModelProperties.dependencyInfo;
+                                        if(dependencyInfo) {
+                                            for(var i = 0; i < dependencyInfo.length; i++) {
+                                                dependentAttributesNames.push(dependencyInfo[i].dependentOn);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+
+                        for(var i = 0; i < dependentAttributesNames.length; i++) {
+                            Object.keys(self.attributeModels).map(function(attributeModel) {
+                                if(attributeModel === dependentAttributesNames[i]) {
+                                    dependentAttributesToReturn.push(self.attributeModels[attributeModel]);
+                                }
+                            });
+                        }
+
+                        return dependentAttributesToReturn;
                     }
                 }
             });
