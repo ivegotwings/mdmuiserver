@@ -10,6 +10,7 @@
 <link rel="import" href="../bedrock-helpers/data-request-helper.html">
 <link rel="import" href="../bedrock-helpers/data-merge-helper.html">
 <link rel="import" href="../bedrock-externalref-underscore/bedrock-externalref-underscore.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 
 <link rel="import" href="../pebble-icon/pebble-icon.html">
 <link rel="import" href="../pebble-icons/pebble-icons.html">
@@ -133,6 +134,12 @@ Custom property | Description | Default
         <liquid-entity-model-get id="unknownBusinessConditionsGet" operation="getbyids" request-id="unknownBusinessConditionsGet"
             on-response="_onUnkownBusinessConditionsGetResponse" on-error="_onUnkownBusinessConditionsGetError"></liquid-entity-model-get>
         <rock-business-function-dialog id="businessConditionDialog"></rock-business-function-dialog>
+        <!--<bedrock-pubsub event-name="business-save-complete" handler="_onBusinessSaveComplete"></bedrock-pubsub>-->
+
+        <bedrock-pubsub event-name="business-condition-save-response" handler="_onBusinessConditionSaveResponse"></bedrock-pubsub>
+
+        <bedrock-pubsub event-name="business-condition-save-request" handler="_onBusinessConditionSaveRequest" target-id="businessConditionDialog"></bedrock-pubsub>
+
         <div class="tofix-data-container">
             <pebble-spinner active="[[!_isToFixDataExists]]"></pebble-spinner>
             <template is="dom-if" if="[[_isToFixDataExists]]">
@@ -268,6 +275,12 @@ Custom property | Description | Default
                     type: String,
                     value: "Nothing to fix!"
                 },
+                businessCondition: {
+                    type: Object,
+                    value: function () {
+                        return {}
+                    }
+                },
 
                 _isEntityGovernReponseReceived: {
                     type: Boolean,
@@ -320,7 +333,10 @@ Custom property | Description | Default
             attached: function () {
                 this._initiateWorkflowMappingGet();
             },
-
+            ready: function () {
+                this.businessCondition.saved = false;
+                this.businessCondition.longTimeToSave = false;
+            },
             _initiateWorkflowMappingGet: function () {
                 // Use ES6 and Underscore methods whever applicable
                 if (!_.isEmpty(this.contextData)) {
@@ -923,6 +939,31 @@ Custom property | Description | Default
                 this._isToFixDataExists = false;
                 this._initiateWorkflowMappingGet();
             },
+            _onBusinessConditionSaveResponse: function () {
+                this.businessCondition.saved = true;
+                if (this.businessCondition.longTimeToSave == true) {
+                    this.showSuccessToast("Business condiitons have been calculated, you can now refresh to see fresh statuses", 2000);
+                }
+            },
+            _onBusinessConditionSaveRequest: function () {
+                this._isToFixDataExists = false;
+                this.businessCondition.saved=false;
+                this.businessCondition.longTimeToSave = false;
+                var count = 0;
+                var timer = setInterval(function () {
+                    count++
+                    if (this.businessCondition && this.businessCondition.saved == true) {
+                        this._isToFixDataExists = true;
+                        this.refresh();
+                        clearInterval(timer);
+                    } else if (count >= 5) {
+                        this.showSuccessToast("It's taking longer than expected, we will let you know when done", 2000);
+                        this.businessCondition.longTimeToSave = true;
+                        this._isToFixDataExists = true;
+                        clearInterval(timer);
+                    }
+                }.bind(this), 1000);
+            }
         });
     </script>
 </dom-module>
