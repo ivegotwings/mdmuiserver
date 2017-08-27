@@ -1,5 +1,5 @@
 var clientConfig = {
-    "url": "https://vcarve-lt-011",
+    "url": "http://localhost:5005",
     "enableLogs": false
 }
 
