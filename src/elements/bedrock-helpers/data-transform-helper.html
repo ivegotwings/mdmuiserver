@@ -97,7 +97,7 @@
             else {
                 transformedAttributes = this._transformAttributesWithoutModels(mergedAttributes, firstValueContext);
             }
-            
+
             var outputData = undefined;
 
             if (outputSchema == "array") {
@@ -124,10 +124,10 @@
 
             //convert back to object
             var sortedAttributeModels = {};
-            modelArray.forEach(function(model) { 
+            modelArray.forEach(function(model) {
                 sortedAttributeModels[model.name] = model;
             });
-            
+
             return sortedAttributeModels;
         };
 
@@ -185,7 +185,7 @@
         };
 
         //Sort related functions - End
-        
+
         DataTransformHelper.transformEntitiesToGridFormat = function (entities, attributeModels, contextData, columns) {
             var transformedEntities = [];
             var metaDataColumns;
@@ -259,17 +259,19 @@
             for (var i = 0; i < attributesJSON.length; i++) {
                 var attributeJSON = attributesJSON[i];
                 var attr;
-                if(attributeJSON.group && attributeJSON.group.length > 0) {
+                if(attributeJSON.group instanceof Array) {
                     attr = {"group": []};
                     for(var i=0; i<attributeJSON.group.length; i++) {
                         var group = attributeJSON.group[i];
                         var childAttributes = {};
                         for(var attributeName in group) {
+                            if(attributeName !== "id") {
                             var attrJson = {
-                                "value": group[attributeName]
+                                    "value": group[attributeName].value
                             };
                             var childAttr = this.createAttributeInstance(attrJson, firstValueContext);
                             childAttributes[attributeName] = childAttr;
+                        }
                         }
                         attr.group.push(childAttributes);
                     }
@@ -442,23 +444,21 @@
                                 }
                             }
                         }
-                        
+
                         attributeJSON.referenceDataId = attributeRefIds;
 
                         if (attributeJSON != undefined && attributeJSON.invalidValue) {
                             attributeJSON["value"] = attributeJSON.invalidValue;
                         }
-                    } else if(attributeModel.dataType === "nested") {
-                        var childrenAttributeModels = attributeModel.group[0];
+                    } else if(attributeModel.dataType === "nested" && attributeModel.group && attributeModel.group.length > 0) {
+                        var childAttributeModels = attributeModel.group[0];
                         var group = [];
                         if(attribute && attribute.group && attribute.group.length > 0) {
                             for(var i=0; i<attribute.group.length; i++) {
                                 var childAttributes = attribute.group[i];
-                                var childAttributeJson = {};
-                                for(var attributeName in childAttributes) {
-                                    childAttributeJson[attributeName] = AttributeHelper.getFirstAttributeValue(childAttributes[attributeName]); 
-                                }
-                                group.push(childAttributeJson);
+                                delete childAttributes.id;
+                                var transformedChildAttributes = this._transformAttributes(childAttributes, childAttributeModels, valueContext);
+                                group.push(transformedChildAttributes);
                             }
                         }
                         attributeJSON["group"] = group;
@@ -492,6 +492,11 @@
                 var model = attributeModelObjects[attributeName];
                 for (var prop in model.properties) {
                     model[prop] = model.properties[prop];
+                }
+                if(model.dataType === "nested" && model.group && model.group.length > 0) {
+                    var childAttributeModels = model.group[0];
+                    delete childAttributeModels.id;
+                    this._fillModels(childAttributeModels);
                 }
                 // //temp code, to be removed before merging to master
                 // if(attributeName == 'disclaimercopy') {
@@ -575,7 +580,7 @@
                                 } else if(key == "taxonomy") {
                                     entityCtx["taxonomy"] = rowData[key];
                                 }
-                            } 
+                            }
                         }
                     }
                     var entityContexts = [];
@@ -654,7 +659,7 @@
                 return;
             }
             var _favorites = [];
-            //Favourites list, getting the mappings based on user and role, so fetching the first obj for the process 
+            //Favourites list, getting the mappings based on user and role, so fetching the first obj for the process
             if (mappings && mappings.length > 0) {
                 if (mappings[0].data && mappings[0].data.contexts && mappings[0].data.contexts.length) {
                     _favorites = mappings[0].data.contexts[0].jsonData.config[favListName];
@@ -711,7 +716,7 @@
 
                                 if (_searchData.accesstype.toUpperCase() == "_ROLE") {
                                     if (_searchData.ownershipData == undefined || _searchData.ownershipData == userContext.ownershipData) {
-                                        //Note::Undefined check is needed to support already defined saved searches which are not having ownershipData... 
+                                        //Note::Undefined check is needed to support already defined saved searches which are not having ownershipData...
                                         //This check needs to be removed in later releases.
                                         isSharedSearch = true;
                                     }
@@ -758,7 +763,7 @@
 
                                 if (_scopeData.accesstype.toUpperCase() == "_ROLE") {
                                     if (_scopeData.ownershipData == undefined || _scopeData.ownershipData == userContext.ownershipData) {
-                                        //Note::Undefined check is needed to support already defined scopes which are not having ownershipData... 
+                                        //Note::Undefined check is needed to support already defined scopes which are not having ownershipData...
                                         //This check needs to be removed in later releases.
                                         isSharedScope = true;
                                     }
@@ -779,75 +784,77 @@
             return _scopes;
         },
 
-        DataTransformHelper.transformEntitySchemaToLovSchema = function (entities, lovColumnNameValueCollection) {
-            // Note: We will go by the assumption that id or value field is going to be unique
-            //       if id or name is provided do not put it into attributes fields
+            DataTransformHelper.transformEntitySchemaToLovSchema = function (entities, lovColumnNameValueCollection) {
+                // Note: We will go by the assumption that id or value field is going to be unique
+                //       if id or name is provided do not put it into attributes fields
 
-            var formattedEntities = [];
+                var formattedEntities = [];
 
-            if (entities && entities.length) {
-                var entitiesToBeRemoved = [];
+                if (entities && entities.length) {
+                    var entitiesToBeRemoved = [];
 
-                for (var i = 0; i < entities.length; i++) {
-                    if (typeof (entities[i]) == "object") {
-                        var formattedEntity = {};
+                    for (var i = 0; i < entities.length; i++) {
+                        if (typeof (entities[i]) == "object") {
+                            var formattedEntity = {};
 
-                        Object.keys(lovColumnNameValueCollection).map(function (columnName) {
-                            var attributeValue;
+                            Object.keys(lovColumnNameValueCollection).map(function (columnName) {
+                                var attributeValue;
 
-                            if (lovColumnNameValueCollection[columnName] == "id") {
-                                formattedEntity[columnName] = entities[i].id;
-                            } else if (lovColumnNameValueCollection[columnName] == "name") {
-                                formattedEntity[columnName] = entities[i].name;
-                            } else if (columnName == "type") {
-                                var entityTypes = lovColumnNameValueCollection[columnName];
+                                if (lovColumnNameValueCollection[columnName] == "id") {
+                                    formattedEntity[columnName] = entities[i].id;
+                                } else if (lovColumnNameValueCollection[columnName] == "name") {
+                                    formattedEntity[columnName] = entities[i].name;
+                                } else if (columnName == "type") {
+                                    var entityTypes = lovColumnNameValueCollection[columnName];
 
-                                if (typeof (entityTypes !== "undefined" && entityTypes instanceof Array)) {
-                                    for (j = 0; j < entityTypes.length; j++) {
-                                        if (entityTypes[j] === entities[i].type) {
-                                            formattedEntity[columnName] = entityTypes[j];
+                                    if (typeof (entityTypes !== "undefined" && entityTypes instanceof Array)) {
+                                        for (j = 0; j < entityTypes.length; j++) {
+                                            if (entityTypes[j] === entities[i].type) {
+                                                formattedEntity[columnName] = entityTypes[j];
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    if (entities[i].data) {
+                                    var fieldPattern = lovColumnNameValueCollection[columnName];
+                                    if (typeof (fieldPattern) === "string" && !DataHelper.isEmptyObject(fieldPattern)) {
+                                        attributeValue = DataTransformHelper.getLovFieldPatternValue(entities[i], fieldPattern, columnName);
+                                            }
+                                    if(attributeValue){
+                                        formattedEntity[columnName] = attributeValue;
                                         }
                                     }
                                 }
-                            } else {
-                                if (entities[i].data) {
-                                    var attrName = DataHelper.getWordsBetweenCurlies(DataHelper.readAttributeFromPath(lovColumnNameValueCollection[columnName]));
-                                    attributeValue = DataTransformHelper._transformEntityAttributesForLovSchema(entities[i].data.attributes, attrName);
-                                    if(attributeValue && attributeValue.value){
-                                        formattedEntity[columnName] = attributeValue.value;
-                                    }
+
+                                if(columnName == "title" && lovColumnNameValueCollection[columnName] != "" && !formattedEntity[columnName])
+                                {
+                                    formattedEntity[columnName] = entities[i].id + " - Title not found";
                                 }
-                            }
+                            });
 
-                            if(columnName == "title" && lovColumnNameValueCollection[columnName] != "" && !formattedEntity[columnName])
-                            {
-                                formattedEntity[columnName] = entities[i].id + " - Title not found";
+                            if (!_.isEmpty(formattedEntity)) {
+                                formattedEntities.push(formattedEntity);
                             }
-                        });
-
-                        if (!_.isEmpty(formattedEntity)) {
-                            formattedEntities.push(formattedEntity);
+                        } else {
+                            //if the array has a bad item (non-entity, or entity with no data) then mark it for delete
+                            entitiesToBeRemoved.push(i);
                         }
-                    } else {
-                        //if the array has a bad item (non-entity, or entity with no data) then mark it for delete
-                        entitiesToBeRemoved.push(i);
                     }
+
+                    // Make it Private
+                    entitiesToBeRemoved.forEach(function (entityToBeRemoved) {
+                        for (var i = 0; i < entities.length; i++) {
+                            if (entities[i].id === entityToBeRemoved) {
+                                var currentEntity = entities[i];
+                                entities.splice(currentEntity, 1);
+                            }
+                        }
+                    });
                 }
 
-                // Make it Private
-                entitiesToBeRemoved.forEach(function (entityToBeRemoved) {
-                    for (var i = 0; i < entities.length; i++) {
-                        if (entities[i].id === entityToBeRemoved) {
-                            var currentEntity = entities[i];
-                            entities.splice(currentEntity, 1);
-                        }
-                    }
-                });
-            }
+                return formattedEntities;
+            };
 
-            return formattedEntities;
-        };
-        
         DataTransformHelper.transformEntityModelSchemaToLovSchema = function (entityModels, lovColumnNameValueCollection) {
             var formattedEntityModels = [];
 
@@ -1012,7 +1019,7 @@
             //       if id or name is provided do not put it into attributesWithPattern fields
 
             var formattedEntities = [];
-            var ignoreColumnList = ["id", "image", "color", "type", "value"];
+            var ignoreColumnList = ["id", "image", "color", "type", "value","imageId"];
 
             if (entities && entities.length) {
                 var entitiesToBeRemoved = [];
@@ -1024,7 +1031,7 @@
                             var fieldPattern = lovColumnMap[lovColumnName];
 
                             if (typeof (fieldPattern) === "string" && !DataHelper.isEmptyObject(fieldPattern) && ignoreColumnList.indexOf(lovColumnName) == -1) {
-                               formattedEntity[lovColumnName] = DataTransformHelper.getLovFieldPatternValue(entities[i], fieldPattern, lovColumnName, contextData);
+                                formattedEntity[lovColumnName] = DataTransformHelper.getLovFieldPatternValue(entities[i], fieldPattern, lovColumnName, contextData);
                             } else {
                                 var attributeValue = "";
 
@@ -1072,19 +1079,26 @@
                         var attributeName = DataHelper.readAttributeFromPath(attributesWithPattern[j]);
                         if(attributeName) {
                             // Replace Field Pattern with Values
-                            attributeValue = DataTransformHelper._getLovAttributeValue(entity, attributeName, lovColumnName, contextData);    
+                            attributeValue = DataTransformHelper._getLovAttributeValue(entity, attributeName, lovColumnName, contextData);
                         }
-
+                        if(!attributeValue){
+                            attributeValue="";
+                        }
                         fieldPattern = fieldPattern.replace(attributesWithPattern[j], attributeValue);
                     }
 
                     // Remove Curly Braces
                     patternedValue = fieldPattern.replace(/[{}]/g, '');
+                } else {
+                    var attributeName = DataHelper.readAttributeFromPath(fieldPattern);
+                    if(attributeName) {
+                        return DataTransformHelper._getLovAttributeValue(entity, attributeName, lovColumnName, contextData);
+                    }
                 }
             } else {
                 patternedValue = entity.name;
             }
-                  
+
             return patternedValue;
         };
 
@@ -1097,25 +1111,26 @@
             } else {
                 // Attribute
                 var attribute = EntityHelper.getAttribute(entity, attributeName);
-                
+
                 if(attribute && attribute.values) {
+                    if(contextData) {
                     var firstValueContext = ContextHelper.getFirstValueContext(contextData);
-                    
+
                     if(firstValueContext) {
                         var contextualValues = AttributeHelper.getAttributeValues(attribute.values, firstValueContext);
-                        
+
                         if (contextualValues && contextualValues instanceof Array && contextualValues.length > 0) {
                             attributeValue = contextualValues[0].value;
                         }
                     }
-
+                    }
                     if(!attributeValue) {
                         attributeValue =  AttributeHelper.getFirstAttributeValue(attribute);
                     }
                 }
             }
 
-            if(!attributeValue) {
+            if(!attributeValue && !_.isEmpty(entity.name)) {
                 attributeValue = entity.name;
             }
 
