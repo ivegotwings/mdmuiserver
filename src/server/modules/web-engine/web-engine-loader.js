@@ -172,7 +172,7 @@ function renderAuthenticatedPage(req, res) {
         if (fullName == "") {
             fullName = userId;
         }
-        res.render('index', { isAuthenticated: true, tenantId: tenantId, userId: userId, roleId: userRoles, fullName: fullName, userName: userName, ownershipData: ownershipData, noPreload: true });
+        res.render('index', { isAuthenticated: true, tenantId: tenantId, userId: userId, roleId: userRoles, fullName: fullName, userName: userName, ownershipData: ownershipData, noPreload: false });
         return true;
     } else {
         return false;
