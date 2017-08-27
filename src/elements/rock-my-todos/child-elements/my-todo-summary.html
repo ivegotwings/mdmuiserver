@@ -106,7 +106,7 @@
                 margin: 0px 7px 10px 0px;
                 --pebble-button: {
                     height: 30px !important;
-                    color: var(--palette-cerulean);
+                    color: var(--error-button-color);
                     font-size: var(--default-font-size, 14px);
                 }
                 --pebble-button-iron-icon: {
@@ -136,6 +136,16 @@
                     background: #FFFFFF;
                     color: var(--palette-cerulean);
                     padding: 0px 8px;
+                }
+            }
+            pebble-button.bcButtons{
+                --pebble-button: {
+                    color: var(--error-button-color);
+                }
+            }
+            pebble-button#passedBCButton{
+                --pebble-button: {
+                    color: var(--success-button-color);
                 }
             }
 
@@ -173,11 +183,15 @@
                 <div class="clearfix"></div>
                 <div id="moreDetails" hidden="true">
                     <template is="dom-repeat" items="[[_businessConditionMappings]]" as="businessCondition">
-                        <pebble-button id="[[businessCondition.data.bcId]]" icon-url="../../../../src/images/loading.svg" class="action" noink raised
+                        <pebble-button id="[[businessCondition.data.bcId]]" icon-url="../../../../src/images/loading.svg" class="action bcButtons" noink raised
                             elevation="0" horizontal-align="right" vertical-align="top" button-text="[[businessCondition.businessConditionName]]"
                             data="[[businessCondition.data]]" on-tap="_onBusinessConditionTap">
                         </pebble-button>
                     </template>
+                    <pebble-button id="passedBCButton" icon-url="../../../../src/images/loading.svg" class="action" noink raised
+                                   elevation="0" horizontal-align="right" vertical-align="top" button-text="[[_passedBC.text]]"
+                                   data="[[_passedBC.data]]"    on-tap="_onBusinessConditionTap">
+                    </pebble-button>
                 </div>
             </div>
         </div>
@@ -272,6 +286,9 @@
                     value: function () {
                         return [];
                     }
+                },
+                _passedBC:{
+                    type:Object
                 }
             },
 
@@ -288,9 +305,9 @@
                 if (governDataLiquid) {
 
                     if (this._allowedEntityTypes && this._allowedEntityTypes.length) {
-                        
+
                         var userId = "";
-                        if (!_.isEmpty(this.myTodo.workflowData.user)) {   
+                        if (!_.isEmpty(this.myTodo.workflowData.user)) {
                             var user = this.myTodo.workflowData.user;
 
                             if (user.toLowerCase() == "all") {
@@ -302,13 +319,18 @@
                             }
                         }
 
-                        var contexts = this._getContextFromTypeCriterion(this._allowedEntityTypes);
+                        var contexts = [
+                            {
+                                "workflow": this.myTodo.workflowName
+                            }
+                        ];
+
                         var options = {
                             "contexts": contexts,
                             "typesCriterion": this._allowedEntityTypes,
                             "userId": userId,
                             "workflowActivityName": this.myTodo.workflowData.wfActivityName,
-                            "excludeNonContextual": false
+                            "excludeNonContextual": true
                         }
                         var req = DataRequestHelper.createGovernGetRequest(options);
                         this._governDataRequest = req;
@@ -432,6 +454,27 @@
 
                 businessConditionsMappingGet.generateRequest();
             },
+            _isBusinessConditionAllowedForRole: function (businessCondition) {
+                var allowedRoles;
+                if (DataHelper.isValidObjectPath(businessCondition, "data.attributes")) {
+                    allowedRoles = businessCondition.data.attributes.impactedRoles;
+                }
+                if (allowedRoles && this.roleId) {
+                    for (var i = 0; i < allowedRoles.values.length; i++) {
+                        //Check for _ALL or user role
+                        if (allowedRoles.values[i].value == "_ALL" ||
+                            allowedRoles.values[i].value.toLowerCase() == this.roleId.toLowerCase()) {
+                            return true;
+                        }
+                    }
+
+                    //Not have "_ALL" / user role
+                    return false;
+                }
+
+                //No allowedRoles OR No user role, then BC is applicable to any role
+                return true;
+            },
 
             _onBusinessConditionsMappingGetResponse: function (e) {
                 var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response);
@@ -446,6 +489,7 @@
 
                             if (contextBaseMappings && contextBaseMappings.length) {
                                 var businessConditions = [];
+                                var bcIds=[];
                                 contextBaseMappings.forEach(function (ctxMapping) {
                                     if (ctxMapping && ctxMapping.relationships) {
                                         var hasBusinessConditions = ctxMapping.relationships['hasBusinessConditions'];
@@ -453,34 +497,50 @@
                                         if (hasBusinessConditions && hasBusinessConditions.length) {
                                             hasBusinessConditions.forEach(function (businessCondition) {
                                                 if (businessCondition && businessCondition.attributes && businessCondition.relTo) {
-                                                    var stepNameAttr = businessCondition.attributes['stepName'];
-                                                    var businessConditionName = this._getBusinessConditionName(businessCondition.relTo.id);
-                                                    if (!this._isBusinessConditionExist(businessConditionName, businessConditions)) {
-                                                        if (stepNameAttr) {
-                                                            var value = AttributeHelper.getFirstAttributeValue(stepNameAttr);
+                                                    if (this._isBusinessConditionAllowedForRole(businessCondition.relTo)) {
+                                                        var stepNameAttr = businessCondition.attributes['stepName'];
+                                                        var businessConditionName = this._getBusinessConditionName(businessCondition.relTo.id);
+                                                        if (!this._isBusinessConditionExist(businessConditionName, businessConditions)) {
+                                                            if (stepNameAttr) {
+                                                                var value = AttributeHelper.getFirstAttributeValue(stepNameAttr);
 
-                                                            if (value && value == this.myTodo.workflowData.wfActivityName) {
-                                                                var businessConditionItem = {
-                                                                    "businessConditionName": businessConditionName,
-                                                                    "data": {
-                                                                        "wfName": this.myTodo.workflowName,
-                                                                        "wfActivityName": this.myTodo.workflowData.wfActivityName,
-                                                                        "wfActivityExternalName": this.myTodo.workflowData.wfActivityExternalName,
-                                                                        "bcId": businessCondition.relTo.id,
-                                                                        "user": this.myTodo.workflowData.user
-                                                                    }
-                                                                };
+                                                                if (value && value == this.myTodo.workflowData.wfActivityName) {
+                                                                    bcIds.push(businessCondition.relTo.id);
+                                                                    var businessConditionItem = {
+                                                                        "businessConditionName": businessConditionName,
+                                                                        "data": {
+                                                                            "wfName": this.myTodo.workflow,
+                                                                            "wfShortName": this.myTodo.workflowName,
+                                                                            "wfActivityName": this.myTodo.workflowData.wfActivityName,
+                                                                            "wfActivityExternalName": this.myTodo.workflowData.wfActivityExternalName,
+                                                                            "bcId": businessCondition.relTo.id,
+                                                                            "user": this.myTodo.workflowData.user
+                                                                        }
+                                                                    };
 
-                                                                businessConditions.push(businessConditionItem);
+                                                                    businessConditions.push(businessConditionItem);
+                                                                }
                                                             }
                                                         }
-
                                                     }
                                                 }
                                             }, this);
                                         }
                                     }
                                 }, this);
+                                var bcId=bcIds.join("#@#");
+                                this._passedBC={
+                                    "text":"Ready for transition",
+                                    "data": {
+                                        "wfName": this.myTodo.workflow,
+                                        "wfShortName": this.myTodo.workflowName,
+                                        "wfActivityName": this.myTodo.workflowData.wfActivityName,
+                                        "wfActivityExternalName": this.myTodo.workflowData.wfActivityExternalName,
+                                        "user": this.myTodo.workflowData.user,
+                                        "bcId": bcId,
+                                        "status":"passed"
+                                    }
+                                };
                                 this._prepareBusinessConditions(businessConditions);
                             }
                         }
@@ -536,7 +596,8 @@
                                 ],
                                 "relationshipAttributes": [
                                     "stepName"
-                                ]
+                                ],
+                                "relatedEntityAttributes":["impactedRoles"]
                             }
                         }
                     };
@@ -566,8 +627,8 @@
                         } else if (user.toLowerCase() == "unassigned") {
                             userId = "_UNASSIGNED";
                         }
-
                         var attributes = ["businessConditions", "status", "activities"];
+                        var passedBCOptions={};
                         this._businessConditionMappings.forEach(function (businessCondition) {
                             if (businessCondition && businessCondition.data) {
                                 var options = {
@@ -578,7 +639,8 @@
                                     "businessConditionName": businessCondition.data.bcId,
                                     "attributes": attributes,
                                     "excludeNonContextual": false
-                                }
+                                };
+                                passedBCOptions=options;
                                 var req = DataRequestHelper.createGovernGetRequest(options);
                                 if (!_.isEmpty(req)) {
                                     var governGetLiquid = document.createElement('liquid-entity-govern-data-get');
@@ -592,8 +654,50 @@
                                 }
                             }
                         }, this);
+                        delete  passedBCOptions.businessConditionName;
+                        this._getPassedBusinessConditionsCount(passedBCOptions,this._businessConditionMappings);
                     } else {
                         this.logError("TypesCriterionEmptyError");
+                    }
+                }
+            },
+            _getPassedBusinessConditionsCount:function (options,businessConditionMappings) {
+                var bcIds=businessConditionMappings.map(function (businessCondition) {
+                   return businessCondition.data.bcId
+                });
+                options.businessConditionNames=bcIds;
+                options.passedBusinessConditions=true;
+                var req = DataRequestHelper.createGovernGetRequest(options);
+                if (!_.isEmpty(req)) {
+                    var governGetLiquid = document.createElement('liquid-entity-govern-data-get');
+                    governGetLiquid.id = "passedBCGovernLiquid";
+                    governGetLiquid.operation = 'initiatesearchandgetcount';
+                    governGetLiquid.requestData = req;
+                    governGetLiquid.excludeInProgress = true;
+                    governGetLiquid.addEventListener('response', this._onGetPassedBusinessConditionsCountResponse.bind(this));
+                    governGetLiquid.addEventListener('error', this._getBusinessConditionCountFailed);
+                    governGetLiquid.generateRequest();
+                }
+            },
+            _addCountToBCButton:function (response,businessConditionButton) {
+                var bcCount = 0;
+                var totalRecords = response.content.totalRecords || 0;
+                var maxRecords = response.content.maxRecords || 0;
+
+                if (totalRecords > maxRecords) {
+                    bcCount = maxRecords + "+";
+                } else {
+                    bcCount = totalRecords;
+                }
+                businessConditionButton.iconUrl = '';
+                businessConditionButton.buttonText = bcCount + "  " + businessConditionButton.buttonText;
+            },
+            _onGetPassedBusinessConditionsCountResponse:function (e) {
+                if (e && e.currentTarget && e.detail) {
+                    var businessConditionButton = this.$$('pebble-button[id=passedBCButton]');
+                    var response = e.detail.response;
+                    if (response && response.content && businessConditionButton) {
+                       this._addCountToBCButton(response,businessConditionButton);
                     }
                 }
             },
@@ -602,20 +706,8 @@
                 if (e && e.currentTarget && e.detail) {
                     var businessConditionButton = this.$$('pebble-button[id=' + e.currentTarget.id + ']');
                     var response = e.detail.response;
-
                     if (response && response.content && businessConditionButton) {
-                        var bcCount = 0;
-                        var totalRecords = response.content.totalRecords || 0;
-                        var maxRecords = response.content.maxRecords || 0;
-
-                        if (totalRecords > maxRecords) {
-                            bcCount = maxRecords + "+";
-                        } else {
-                            bcCount = totalRecords;
-                        }
-
-                        businessConditionButton.iconUrl = '';
-                        businessConditionButton.buttonText = bcCount + "  " + businessConditionButton.buttonText;
+                        this._addCountToBCButton(response,businessConditionButton);
                     }
                 }
             },
