@@ -16,7 +16,7 @@ function initSockets(http) {
     console.log('notification engine running . . .');
 
     io.on('connection', function (socket) {
-        console.log('socket connected ', socket.server.path);
+        console.log('socket connected ', socket.server.path());
         //userManager.addUserConnectionIds(defaultUserId, socket.id);
 
         //New user
@@ -39,7 +39,7 @@ function initSockets(http) {
         });
 
         //Send Message
-        socket.on('xxx', function (data, userId) {
+        socket.on('send message', function (data, userId) {
             console.log('socket.js send message called with user id ', userId);
             var currentUserSocketIds = [];
 

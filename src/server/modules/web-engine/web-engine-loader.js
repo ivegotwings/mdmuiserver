@@ -24,7 +24,7 @@ if (relativePath) {
     buildPath = buildPath + '/' + relativePath;
 }
 
-logger.info('Web engine start - build path identified', {"buildPath": buildPath});
+logger.info('Web engine start - build path identified', { "buildPath": buildPath });
 
 var app = express();
 var http = require('http').Server(app);
@@ -42,8 +42,8 @@ app.set('view engine', 'hjs');
 logger.info('Web engine start - views are loaded');
 
 // parse application/x-www-form-urlencoded
-app.use(bodyParser.urlencoded({limit: '10mb', extended: false}));
-app.use(bodyParser.json({limit: '10mb'}));
+app.use(bodyParser.urlencoded({ limit: '10mb', extended: false }));
+app.use(bodyParser.json({ limit: '10mb' }));
 
 logger.info('Web engine start - body parser middleware is loaded');
 
@@ -187,14 +187,15 @@ logger.info('Web engine start - starting web engine...');
 var server = app.listen(5005, function () {
     var host = server.address().address === '::' ? 'localhost' : server.address().address;
     var port = server.address().port;
-    
-    logger.info('Web engine start - web engine is started', {"host": host, "port": port});
+
+
+    logger.info('Web engine start - web engine is started', { "host": host, "port": port });
     console.log('Web engine is running now at http://%s:%s/', host, port);
 });
 
 logger.info('Web engine start - starting notification engine...');
 
-notificationEngine.initSockets(http);
+notificationEngine.initSockets(server);
 
 logger.info('Web engine start - notification engine is started');
 
