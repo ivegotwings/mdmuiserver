@@ -12,24 +12,37 @@
 
 <link rel="import" href="../rock-grid/rock-grid.html">
 
-<dom-module id="rock-attribute-grid">
+<dom-module id="rock-nested-attribute-grid">
     <template>
         <style is="custom-style" include="pebble-styles-shared">
-            
+            .attribute-view-label {
+                font-size: var(--font-size-sm, 12px);
+                font-weight: normal;
+                font-style: normal;
+                font-stretch: normal;
+                line-height: 1.42;
+                text-transform: uppercase;
+                color: var(--label-text-color);
+            }
         </style>
+        <label class="attribute-view-label" hidden$="[[!label]]" aria-hidden="true">[[label]]</label>
         <template is="dom-if" if="[[_isEditMode(mode)]]">
-            <pebble-button icon="pebble-sm-icons:Add" id="button_add" class="btn btn-primary m-r-10" button-text="Add"
-                on-click="_onAddRowClick"></pebble-button>
+            <div class="button">
+                <pebble-button icon="pebble-sm-icons:Add" id="button_add" class="btn btn-primary m-r-10" button-text="Add"
+                    on-click="_onAddRowClick"></pebble-button>
+            </div>
         </template>
-        <rock-grid id="attributesGrid" config="{{_gridConfig}}" data="{{_gridData}}" attribute-models = "[[_attributeModels]]" no-header page-size="5" is-dirty="{{_isGridDirty}}"></rock-grid>
-        <bedrock-pubsub event-name="delete-item" handler="_onRowDelete" target-id="attributesGrid"></bedrock-pubsub>
+        <div class="grid">
+            <rock-grid id="attributesGrid" config="{{_gridConfig}}" data="{{_gridData}}" attribute-models = "[[_attributeModels]]" no-header page-size="5" is-dirty="{{_isGridDirty}}"></rock-grid>
+            <bedrock-pubsub event-name="delete-item" handler="_onRowDelete" target-id="attributesGrid"></bedrock-pubsub>
+        </div>
     </template>
     <script>
         (function() {
             'use strict';
 
             Polymer({
-                is: "rock-attribute-grid",
+                is: "rock-nested-attribute-grid",
 
                 properties: {
                     contextData: {
@@ -38,13 +51,21 @@
                             return {};
                         }
                     },
+                    /**
+                    * Indicates the label for the nested attribute grid.
+                    * It allows to add descriptive text for the nested attribute to inform the user about the type of data 
+                    * expected in the nested attribute. 
+                    */
+                    label: {
+                        type: String
+                    },
                     _gridConfig: {
                         type: Object,
                         value: function () {
                             return {
                                 "viewMode": "Tabular",
                                 "mode": "read",
-                                "schemaType": "colModel",
+                                "schemaType": "attribute",
                                 "statusEnabled": true,
                                 "tabular": {
                                     "settings": {
@@ -124,12 +145,6 @@
                         notify: true,
                         reflectToAttribute: true
                     },
-                    _originalGridConfig: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
                     _gridData: {
                         type: Array,
                         value: function () {
@@ -163,13 +178,17 @@
                     }
                 },
                 _attributeObjectChanged: function(attributeObject) {
-                    if(!_.isEmpty(attributeObject) && (!this._isGridReady || DataHelper.areEqualArrays(attributeObject.group, this.originalAttributeObject.group))) {
+                    if(!_.isEmpty(attributeObject) && attributeObject.group && (!this._isGridReady || (this.originalAttributeObject && this.originalAttributeObject.group && DataHelper.areEqualArrays(attributeObject.group, this.originalAttributeObject.group)))) {
                         this._prepareGridData(attributeObject);
+                        this._modeChanged(this.mode);
                     }
                 },
                 _prepareGridConfig: function(attributeModelObject) {
                     if(attributeModelObject && attributeModelObject.group && attributeModelObject.group.length > 0) {
                         var attributeModels = attributeModelObject.group[0];
+                        for(var model in attributeModels) {
+                            attributeModels[model].hasWritePermission = true;
+                        }
                         this.set("_attributeModels", attributeModels);
                         var keys = Object.keys(attributeModels);
                         if(keys && keys.length>0) {
@@ -177,8 +196,7 @@
                                 var attributeModel = attributeModels[keys[i]];
                                 var column = {
                                     "header": attributeModel.externalName,
-                                    "name": attributeModel.name,
-                                    "sortable": true
+                                    "name": attributeModel.name
                                 };
                                 this._gridConfig.tabular.columns.push(column);
                             }
@@ -193,20 +211,13 @@
                     if(attributeObject && attributeObject.group && attributeObject.group.length > 0) {
                         for(var  i=0; i<attributeObject.group.length; i++) {
                             var group = attributeObject.group[i];
-                            var keys = Object.keys(group);
-                            if(keys && keys.length > 0) {
-                                var rowData = {};
-                                rowData["identifier"] = group[this._gridConfig.tabular.settings.rowIdentifier];
-                                for(var j=0; j<keys.length; j++) {
-                                    var key = keys[j];
-                                    rowData[key] = group[key];
-                                }
-                                this._gridData.push(rowData);
-                            }
+                            var rowData = {};
+                            rowData["attributes"] = group;
+                            this._gridData.push(rowData);
                         }
                     }
                     this._isGridReady = true;
-                    this._originalGridData = this._gridData;
+                    this._originalGridData = DataHelper.cloneObject(this._gridData);
                 },
                 _modeChanged: function(mode) {
                     var grid = this.$$("#attributesGrid");
@@ -233,45 +244,44 @@
                         if(data && data.length > 0) {
                             var valCtx = ContextHelper.getFirstValueContext(this.contextData);
                             var groups = [];
-                            var originalAttributes = Object.keys(this._attributeModels);
                             for(var i=0; i<data.length; i++) {
                                 var rowData = data[i];
-                                if(rowData.action !== "delete") {
-                                    var keys = Object.keys(rowData);
-                                    if(keys && keys.length > 0) {
-                                        var group = {};
-                                        for(var j=0; j<keys.length; j++) {
-                                            var key = keys[j];
-                                            if(originalAttributes.indexOf(key) !== -1) {
-                                                group[key] = rowData[key];
-                                            }
-                                        }
-                                        groups.push(group);
-                                    }
+                                if(rowData.action !== "delete" && !this._isRowEmpty(rowData)) {
+                                    var group = rowData["attributes"];
+                                    groups.push(group);
                                 }
                             }
                             this.attributeObject.group =  groups;
+                            this.notifyPath('attributeObject.group', groups);
                         }
                     } else if(this.changed === false) {
                         this.attributeObject = this.originalAttributeObject;
                     }
                 },
-                _onRowDelete: function(e, detail) {
-                    var childAttrObj = this.attributeObject.group.find(obj => obj[this._gridConfig.tabular.settings.rowIdentifier] === detail["identifier"]);
-                    if(childAttrObj) {
-                        this._notifyDirty();
+                _isRowEmpty: function(rowData) {
+                    var attributes = rowData["attributes"];
+                    if(attributes) {
+                        var keys = Object.keys(attributes);
+                        if(keys && keys.length > 0) {
+                            var keysWithValue = keys.filter(key => !_.isEmpty(attributes[key].value));
+                            if(keysWithValue && keysWithValue.length > 0) {
+                                return false;
+                            }
+                        }
                     }
+                    return true;
+                },
+                _onRowDelete: function(e, detail) {
+                   this._notifyDirty();
                 },
                 _isEditMode: function(mode) {
                     return mode === "edit";
                 },
                 _onAddRowClick: function(e) {
                     var length = this._gridData.length;
-                    var newRowItem = {};
-                    var attributeNames = Object.keys(this._attributeModels);
-                    for(var i=0; i<attributeNames.length; i++) {
-                        newRowItem[attributeNames[i]] = "";
-                    }
+                    var newRowItem = {
+                        "attributes": DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData)
+                    };
                     var grid = this.$$("#attributesGrid");
                     newRowItem._rowStatus = {
                         "status": "new",

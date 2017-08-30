@@ -188,10 +188,12 @@
                             data="[[businessCondition.data]]" on-tap="_onBusinessConditionTap">
                         </pebble-button>
                     </template>
-                    <pebble-button id="passedBCButton" icon-url="../../../../src/images/loading.svg" class="action" noink raised
-                                   elevation="0" horizontal-align="right" vertical-align="top" button-text="[[_passedBC.text]]"
-                                   data="[[_passedBC.data]]"    on-tap="_onBusinessConditionTap">
-                    </pebble-button>
+                    <template is="dom-if" if="[[_bCsExist]]">
+                        <pebble-button id="passedBCButton" icon-url="../../../../src/images/loading.svg" class="action" noink raised
+                                       elevation="0" horizontal-align="right" vertical-align="top" button-text="[[_passedBC.text]]"
+                                       data="[[_passedBC.data]]"    on-tap="_onBusinessConditionTap">
+                        </pebble-button>
+                    </template>
                 </div>
             </div>
         </div>
@@ -289,6 +291,10 @@
                 },
                 _passedBC:{
                     type:Object
+                },
+                _bCsExist:{
+                    type:Boolean,
+                    value:false
                 }
             },
 
@@ -454,6 +460,27 @@
 
                 businessConditionsMappingGet.generateRequest();
             },
+            _isBusinessConditionAllowedForRole: function (businessCondition) {
+                var allowedRoles;
+                if (DataHelper.isValidObjectPath(businessCondition, "data.attributes")) {
+                    allowedRoles = businessCondition.data.attributes.impactedRoles;
+                }
+                if (allowedRoles && this.roleId) {
+                    for (var i = 0; i < allowedRoles.values.length; i++) {
+                        //Check for _ALL or user role
+                        if (allowedRoles.values[i].value == "_ALL" ||
+                            allowedRoles.values[i].value.toLowerCase() == this.roleId.toLowerCase()) {
+                            return true;
+                        }
+                    }
+
+                    //Not have "_ALL" / user role
+                    return false;
+                }
+
+                //No allowedRoles OR No user role, then BC is applicable to any role
+                return true;
+            },
 
             _onBusinessConditionsMappingGetResponse: function (e) {
                 var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response);
@@ -476,47 +503,56 @@
                                         if (hasBusinessConditions && hasBusinessConditions.length) {
                                             hasBusinessConditions.forEach(function (businessCondition) {
                                                 if (businessCondition && businessCondition.attributes && businessCondition.relTo) {
-                                                    var stepNameAttr = businessCondition.attributes['stepName'];
-                                                    var businessConditionName = this._getBusinessConditionName(businessCondition.relTo.id);
-                                                    if (!this._isBusinessConditionExist(businessConditionName, businessConditions)) {
-                                                        if (stepNameAttr) {
-                                                            var value = AttributeHelper.getFirstAttributeValue(stepNameAttr);
+                                                    if (this._isBusinessConditionAllowedForRole(businessCondition.relTo)) {
+                                                        var stepNameAttr = businessCondition.attributes['stepName'];
+                                                        var businessConditionName = this._getBusinessConditionName(businessCondition.relTo.id);
+                                                        if (!this._isBusinessConditionExist(businessConditionName, businessConditions)) {
+                                                            if (stepNameAttr) {
+                                                                var value = AttributeHelper.getFirstAttributeValue(stepNameAttr);
 
-                                                            if (value && value == this.myTodo.workflowData.wfActivityName) {
-                                                                bcIds.push(businessCondition.relTo.id);
-                                                                var businessConditionItem = {
-                                                                    "businessConditionName": businessConditionName,
-                                                                    "data": {
-                                                                        "wfName": this.myTodo.workflow,
-                                                                        "wfActivityName": this.myTodo.workflowData.wfActivityName,
-                                                                        "wfActivityExternalName": this.myTodo.workflowData.wfActivityExternalName,
-                                                                        "bcId": businessCondition.relTo.id,
-                                                                        "user": this.myTodo.workflowData.user
-                                                                    }
-                                                                };
+                                                                if (value && value == this.myTodo.workflowData.wfActivityName) {
+                                                                    bcIds.push(businessCondition.relTo.id);
+                                                                    var businessConditionItem = {
+                                                                        "businessConditionName": businessConditionName,
+                                                                        "data": {
+                                                                            "wfName": this.myTodo.workflow,
+                                                                            "wfShortName": this.myTodo.workflowName,
+                                                                            "wfActivityName": this.myTodo.workflowData.wfActivityName,
+                                                                            "wfActivityExternalName": this.myTodo.workflowData.wfActivityExternalName,
+                                                                            "bcId": businessCondition.relTo.id,
+                                                                            "user": this.myTodo.workflowData.user,
+                                                                            "bcExternalName":businessConditionName,
+                                                                            "status":"failed"
+                                                                        }
+                                                                    };
 
-                                                                businessConditions.push(businessConditionItem);
+                                                                    businessConditions.push(businessConditionItem);
+                                                                }
                                                             }
                                                         }
-
                                                     }
                                                 }
                                             }, this);
                                         }
                                     }
                                 }, this);
-                                var bcId=bcIds.join("#@#");
-                                this._passedBC={
-                                    "text":"Ready for transition",
-                                    "data": {
-                                        "wfName": this.myTodo.workflow,
-                                        "wfActivityName": this.myTodo.workflowData.wfActivityName,
-                                        "wfActivityExternalName": this.myTodo.workflowData.wfActivityExternalName,
-                                        "user": this.myTodo.workflowData.user,
-                                        "bcId": bcId,
-                                        "status":"passed"
-                                    }
-                                };
+                                if(bcIds && bcIds.length){
+                                    this._bCsExist=true;
+                                    var bcId=bcIds.join("#@#");
+                                    this._passedBC={
+                                        "text":"Ready for transition",
+                                        "data": {
+                                            "wfName": this.myTodo.workflow,
+                                            "wfShortName": this.myTodo.workflowName,
+                                            "wfActivityName": this.myTodo.workflowData.wfActivityName,
+                                            "wfActivityExternalName": this.myTodo.workflowData.wfActivityExternalName,
+                                            "user": this.myTodo.workflowData.user,
+                                            "bcId": bcId,
+                                            "status":"passed",
+                                            "bcExternalName":"Ready for transition"
+                                        }
+                                    };
+                                }
                                 this._prepareBusinessConditions(businessConditions);
                             }
                         }
@@ -572,7 +608,8 @@
                                 ],
                                 "relationshipAttributes": [
                                     "stepName"
-                                ]
+                                ],
+                                "relatedEntityAttributes":["impactedRoles"]
                             }
                         }
                     };
