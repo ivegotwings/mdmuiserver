@@ -15,15 +15,15 @@ function initSockets(http) {
         io.adapter(redis(config.get('modules.stateServer.connection')));
     }
 
-    console.log('notification engine running . . .');
+    //console.log('notification engine running . . .');
 
     io.on('connection', function (socket) {
-        console.log('socket connected ', socket.server.path());
+        //console.log('socket connected ', socket.server.path());
         //userManager.addUserConnectionIds(defaultUserId, socket.id);
 
         //New user
         socket.on('Connect new user', function (userId) {
-            console.log('new user connected ', userId);
+            //console.log('new user connected ', userId);
             socket.userName = userId;
             userManager.addUserConnectionIds(userId, socket.id);
             io.emit('send message', {}, userId);
@@ -44,7 +44,7 @@ function initSockets(http) {
 };
 
 function sendMessage(data, userId) {
-    console.log('socket.js send message called with user id ', userId);
+    //console.log('socket.js send message called with user id ', userId);
 
     if(!io) {
         throw "Socket.io service is not initialized or is unavailable right now";
@@ -54,15 +54,15 @@ function sendMessage(data, userId) {
 
     if (userId) {
         userManager.getConnectionIdsOfUser(userId).then(function (currentUserSocketIds) {
-            console.log('------------------ socket: current user socket id ---------------------');
-            console.log(JSON.stringify(currentUserSocketIds));
-            console.log('-------------------------------------------------------------------\n\n');
+            // console.log('------------------ socket: current user socket id ---------------------');
+            // console.log(JSON.stringify(currentUserSocketIds));
+            // console.log('-------------------------------------------------------------------\n\n');
 
             if (currentUserSocketIds) {
                 currentUserSocketIds.forEach(function (id) {
-                    console.log('------------------ socket: send message to browser ---------------------');
-                    console.log('socket connection id ', id, ' data ', JSON.stringify(data));
-                    console.log('-------------------------------------------------------------------\n\n');
+                    // console.log('------------------ socket: send message to browser ---------------------');
+                    // console.log('socket connection id ', id, ' data ', JSON.stringify(data));
+                    // console.log('-------------------------------------------------------------------\n\n');
                     io.to(id).emit('new message', data);
                 }, this);
             }
