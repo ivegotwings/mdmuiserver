@@ -128,7 +128,7 @@
                         </pebble-popover>
                         <bedrock-pubsub event-name="saved-search-save" handler="_onCreateEditSavedSearch" target-id=""></bedrock-pubsub>
                         <bedrock-pubsub event-name="saved-search-cancel" handler="_onCancelSavedSearch" target-id=""></bedrock-pubsub>
-                        <bedrock-pubsub event-name="actions-parent-button-tap" handler="_loadSavedSearch" target-id=""></bedrock-pubsub>
+                        <bedrock-pubsub event-name="rock-saved-search-click" handler="_loadSavedSearch" target-id=""></bedrock-pubsub>
                     </template>
                 </div>
                 <div class="layout horizontal p-t-10">
@@ -138,7 +138,7 @@
                                 class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" on-tap="_openEntityTypeFilterLov"></pebble-button>
                             <pebble-popover id="entityTypeFilterPopover" for="entityTypeFilterButton" no-overlap auto-fit-on-attach vertical-align="auto"
                                 horizontal-align="auto">
-                                <rock-entity-type-model-lov id="entityTypeModelLov" allowed-entity-types="[[entityTypeList]]" selected-items="{{_selectedEntityTypes}}"
+                                <rock-entity-type-model-lov id="entityTypeModelLov" allowed-entity-types="[[allowedEntityTypes]]" selected-items="{{_selectedEntityTypes}}"
                                     show-action-buttons>
                                 </rock-entity-type-model-lov>
                             </pebble-popover>
@@ -273,7 +273,13 @@
                             return [];
                         }
                     },
-                    entityTypeList: {
+                    allowedEntityTypes: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    requestedEntityTypes: {
                         type: Array,
                         value: function () {
                             return [];
@@ -371,7 +377,7 @@
                             if (this.user.toLowerCase() == "all") {
                                 userId = "";
                             } else if (this.user.toLowerCase() == "currentuser") {
-                                userId = DataHelper.getUserId();
+                                userId = DataHelper.getUserName();
                             } else if (this.user.toLowerCase() == "unassigned") {
                                 userId = "_UNASSIGNED";
                             }
@@ -381,7 +387,8 @@
                                 "workflowActivityName": this.workflowActivityName,
                                 "workflowActivityExternalName": this.workflowActivityExternalName,
                                 "userId": userId,
-                                "status": this.status
+                                "status": this.status,
+                                "businessConditionExternalName":this.businessConditionExternalName
                             };
                             //WF short name should be added only when it is available
                             if(this.workflowShortName) {
@@ -402,8 +409,7 @@
                             }
                         }
 
-                        this._gridConfig = this.getParentAppConfig("rock-entity-search-grid", "",
-                            "gridConfig");
+                        this._gridConfig = this.getParentAppConfig("rock-entity-search-grid", "", "gridConfig");
                     }
                 },
 
@@ -450,7 +456,12 @@
 
                 _onGridConfigChange: function () {
                     if (this._gridConfig && !DataHelper.isEmptyObject(this._gridConfig)) {
-                        this._typesCriterion = this._gridConfig.dataRequest.typesCriterion;
+
+                        if(this.requestedEntityTypes && this.requestedEntityTypes.length > 0) {
+                            this._typesCriterion = this.requestedEntityTypes;
+                        } else {
+                            this._typesCriterion = this._gridConfig.dataRequest.typesCriterion;
+                        }
 
                         if (this._typesCriterion && this._typesCriterion.length > 0) {
                             var itemContexts = [];
@@ -515,7 +526,8 @@
                         tags = rockSearchFilter.tags;
                     }
 
-                    if (!DataHelper.isEmptyObject(this._searchBarElement.query) || tags.length > 0) {
+                    //Preventing the reset search button from disappearing when there is a saved search selected/ search bar query/ refine more tag
+                    if (!DataHelper.isEmptyObject(this._searchBarElement.query) || tags.length > 0 || this.savedSearchId !="") {
                         this._resetSearchEnabled = true;
                     } else {
                         this._resetSearchEnabled = false;
@@ -529,6 +541,7 @@
 
                     // Clear SavedSearch
                     this._savedSearchButton.buttonText = "Saved Search";
+                    this.savedSearchId = "";
 
                     // Clear SearchFilter
                     this.tags = []; // Todo
@@ -542,7 +555,7 @@
                 // Saved Search
                 _onSavedSearchTap: function (e) {
                     this._savedSearchElement.contextData = this.contextData;
-                    this._savedSearchPopoverElement.show();
+                    this._savedSearchPopoverElement.show();                    
                 },
 
                 _onCreateEditSavedSearch: function (e, detail, sender) {
@@ -608,8 +621,8 @@
                     this._savedSearchElement.shadowRoot.querySelector('rock-tabs').shadowRoot.querySelector('pebble-tab-group').notifyResize(); //To load tabs properly
                 },
 
-                _loadSavedSearch: function (e, detail, sender) {
-                    if (detail) {
+                _loadSavedSearch: function (e, detail, sender) {                   
+                    if (detail) {                        
                         this.savedSearchId = detail.id;
                         ComponentHelper.setQueryParams({
                             "_savedSearchId": detail.id
@@ -650,6 +663,9 @@
 
                 _populateHeaderControls: function (savedSearch) {
                     if (savedSearch) {
+                        //Show the Reset Button
+                        this._showResetSearch();
+
                         // search input info
                         this._searchBarElement.query = savedSearch.searchQuery;
 
@@ -662,6 +678,7 @@
                                 var attr = {};
                                 attr[this._entitySearchFilterElement.tags[i].name] = this._entitySearchFilterElement
                                     .tags[i].value;
+                                attr[this._entitySearchFilterElement.tags[i].name]["noPopoverOnAttach"] = true;
                                 this.push('_selectedSearchFilters', attr);
                             }
                         }
@@ -821,8 +838,7 @@
                     if (selectedEntitiesObj && selectedEntitiesObj.length) {
                         var selectedEntities = [];
                         for (var i = 0; i < selectedEntitiesObj.length; i++) {
-                            if (typeof selectedEntitiesObj[i].id == "string" || typeof selectedEntitiesObj[
-                                    i].id == "number") {
+                            if (typeof selectedEntitiesObj[i].id == "string" || typeof selectedEntitiesObj[i].id == "number") {
                                 selectedEntities.push(selectedEntitiesObj[i].id);
                             }
                         }
