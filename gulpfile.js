@@ -260,5 +260,12 @@ gulp.task('watch-element-changes', function () {
   });
 });
 
+gulp.task('copy-node-modules', function () { 
+  const bundleType = global.config.build.bundleType;
+  const nodeModulesPath = '/node_modules/**/*.*';
+  return gulp.src(nodeModulesPath, {base: '.'}).pipe(gulp.dest(unbundledPath));
+});
+
 gulp.task('dev', gulp.series(devBuild, 'app-nodemon', 'watch-element-changes'));
 
+gulp.task('default', gulp.series('copy-node-modules'));
