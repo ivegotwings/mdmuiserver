@@ -487,7 +487,14 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
 
             var apiRequestObj = { 'dataIndex': dataIndex, 'clientState': clientState };
             apiRequestObj[dataIndexInfo.name] = dataObject;
-            
+
+            //Added hotline to api request only when it is true
+            if(clientState.hotline) {
+                apiRequestObj["hotline"] = clientState.hotline;
+            }
+            //Hotline set to api request, so delete from clientState
+            delete clientState.hotline;
+
             if(dataObjectAction == "create" || dataObjectAction == "update") {
                 _prependAuthorizationType(apiRequestObj);
             }

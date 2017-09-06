@@ -9,7 +9,6 @@ PassThroughService.prototype = {
     call: async function (request) {
         //console.log('PassThroughService.call ', request.url);
         var passThroughUrl = request.url.replace('/data/pass-through/', '');
-
         return await this.post(passThroughUrl, request.body);
     },
 
@@ -21,6 +20,7 @@ PassThroughService.prototype = {
         var params = request.body.params;
         var clientState = request.body.clientState;
         var requestedEntities = request.body.entities;
+        var hotline = request.body.hotline;
 
         //Construct single entity request...
         if(params){
@@ -30,7 +30,11 @@ PassThroughService.prototype = {
         if(clientState){
             singleEntityRequest["clientState"] = clientState;
         }
-        
+
+        if(hotline){
+            singleEntityRequest["hotline"] = hotline;
+        }
+
         if(requestedEntities && !isEmpty(requestedEntities)){
             //Iterate through each entity and make RDF call and collect response...
             for (let entity of requestedEntities) {
