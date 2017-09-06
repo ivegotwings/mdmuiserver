@@ -8,13 +8,8 @@ module.exports = {
     {
       name: 'ui-platform',
       script: 'app.js',
-      instances : -2,
+      instance: 1,
       watching: true,
-      env: {
-        'NODE_ENV': 'development',
-        'RUN_OFFLINE': false,
-        'NODE_CONFIG_DIR': './src/server/config'
-      },
       env_production: {
         NODE_ENV: 'production',
         'RUN_OFFLINE': false,
