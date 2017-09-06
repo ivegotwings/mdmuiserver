@@ -89,7 +89,7 @@ It renders the list of attributes based on the specified parameters.
             <div class$="[[_getAttributeClass(noOfColumns, attribute)]]" name$="[[attribute.name]]">
                 <rock-attribute context-data="[[contextData]]" mode="{{mode}}" errors="{{attribute.errors}}" server-errors="[[_getAttributeMessage(attribute,attributeMessages)]]"
                     attribute-model-object="[[_getAttributeModel(attributeModels, attribute)]]" attribute-object="{{attribute}}"
-                    original-attribute-object="[[_cloneObject(attribute)]]" tabindex="[[_getTabIndex(attribute)]]" on-attribute-value-changed="resetErrors" show-delete-icon="[[showDeleteIcon]]"
+                    original-attribute-object="[[_cloneObject(attribute)]]" tabindex="[[_getTabIndex(attribute)]]" on-attribute-value-changed="updateDependentAttributesAndResetErrors" show-delete-icon="[[showDeleteIcon]]"
                     dependent-attribute-objects="[[_getDependentAttributes(attribute)]]" dependent-attribute-model-objects="[[_getDependentAttributeModels(attribute)]]"></rock-attribute>
             </div>
 
@@ -322,9 +322,15 @@ It renders the list of attributes based on the specified parameters.
                         var isDependentOnCurrentAttribute = false;
                         
                         var dependentAttrModels = allAttributeElements[i].dependentAttributeModelObjects;
+                        var dependentAttrObjects = allAttributeElements[i].dependentAttributeObjects;
                         if(dependentAttrModels && dependentAttrModels instanceof Array && dependentAttrModels.length > 0) {
                             for(let j = 0; j < dependentAttrModels.length; j++) {
                                 if(DataHelper.compareObjects(dependentAttrModels[j], currentAttribute.attributeModelObject)) {
+                                    dependentAttrObjects.forEach(function(element, index) {
+                                        if(element.name === currentAttribute.attributeModelObject.name) {
+                                            dependentAttrObjects[index] = currentAttribute.attributeObject;
+                                        }
+                                    });
                                     isDependentOnCurrentAttribute = true
                                     break;
                                 }
@@ -358,6 +364,7 @@ It renders the list of attributes based on the specified parameters.
                     for (var i = 0; i < changedAttributeElements.length; i++) {
                         var attributeElement = changedAttributeElements[i];
                         attributeElement.attributeObject = this._cloneObject(attributeElement.originalAttributeObject);
+                        this._updateDependentAttributes(attributeElement, true);
                         attributeElement.changed = false;
                     }
                     this.mode = "view";
@@ -365,25 +372,42 @@ It renders the list of attributes based on the specified parameters.
                 _cloneObject: function (o) {
                     return DataHelper.cloneObject(o);
                 },
-          /**
-            * <b><i>Content development is under progress... </b></i> 
-            */
-                resetErrors: function (e) {
-                    this._calculateErrorLength(this.attributeValues);
-
+                /**
+                 * <b><i>Content development is under progress... </b></i> 
+                 */
+                updateDependentAttributesAndResetErrors: function (e) {
                     if(e) {
                         var attribute = e.currentTarget || e.sourceElement;
+                        var isRevertClicked = e.detail.revertClicked;
+                        this._updateDependentAttributes(attribute, isRevertClicked);
+                    }
 
-                        var dependentAttributeElements = this.getDependentAttributeElements(attribute);
-                        for (var i = 0; i < dependentAttributeElements.length; i++) {
-                            var dependentAttributeObjects = dependentAttributeElements[i].dependentAttributeObjects;
-                            dependentAttributeElements[i].dependentAttributeObjects = [];
-                            dependentAttributeElements[i].dependentAttributeObjects = dependentAttributeObjects;
+                    this._calculateErrorLength(this.attributeValues);
+                },
 
-                            if(dependentAttributeElements[i].attributeObject.value.length > 0) {
-                                dependentAttributeElements[i].invalid = true;
-                                var errorMessage = "These value(s) may be invalid now, as the value of " + attribute.attributeModelObject.externalName + " is changed. Please select a new value.";
-                                dependentAttributeElements[i].addValidationErrors(errorMessage);
+                _updateDependentAttributes: function(currentAttribute, isRevertButtonClicked) {
+                    var dependentAttributeElements = this.getDependentAttributeElements(currentAttribute);
+                    for (var i = 0; i < dependentAttributeElements.length; i++) {
+                        var dependentAttributeObjects = dependentAttributeElements[i].dependentAttributeObjects;
+                        dependentAttributeElements[i].dependentAttributeObjects = [];
+                        dependentAttributeElements[i].dependentAttributeObjects = dependentAttributeObjects;
+
+                        if(dependentAttributeElements[i].attributeObject.value.length > 0) {
+                            dependentAttributeElements[i].invalid = true;
+                            var errorMessage = "These value(s) may be invalid now, as the value of " + currentAttribute.attributeModelObject.externalName + " is changed. Please select a new value.";
+                            dependentAttributeElements[i].addValidationErrors(errorMessage);
+                        }
+                        
+                        if(isRevertButtonClicked && dependentAttributeElements[i].validationErrors && dependentAttributeElements[i].validationErrors.length > 0) {
+                            let indexToRemove = -1;
+                            dependentAttributeElements[i].validationErrors.forEach(function(currentError, index) {
+                                if(currentError.includes(currentAttribute.attributeModelObject.externalName)) {
+                                    indexToRemove = index;
+                                    return;
+                                }
+                            });
+                            if(indexToRemove >= 0){
+                                dependentAttributeElements[i].removeValidationErrorsAt(indexToRemove);
                             }
                         }
                     }
