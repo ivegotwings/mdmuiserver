@@ -9,7 +9,6 @@ PassThroughService.prototype = {
     call: async function (request) {
         //console.log('PassThroughService.call ', request.url);
         var passThroughUrl = request.url.replace('/data/pass-through/', '');
-        this._updateRequestForHotline(request.body);
         return await this.post(passThroughUrl, request.body);
     },
 
@@ -21,6 +20,7 @@ PassThroughService.prototype = {
         var params = request.body.params;
         var clientState = request.body.clientState;
         var requestedEntities = request.body.entities;
+        var hotline = request.body.hotline;
 
         //Construct single entity request...
         if(params){
@@ -31,7 +31,9 @@ PassThroughService.prototype = {
             singleEntityRequest["clientState"] = clientState;
         }
 
-        this._updateRequestForHotline(singleEntityRequest);
+        if(hotline){
+            singleEntityRequest["hotline"] = hotline;
+        }
 
         if(requestedEntities && !isEmpty(requestedEntities)){
             //Iterate through each entity and make RDF call and collect response...
@@ -70,8 +72,6 @@ PassThroughService.prototype = {
                 createTaskRequest.params.pageSize = 30000;
             }
 
-            this._updateRequestForHotline(createTaskRequest);
-
             if(createTaskRequest.entities && createTaskRequest.entities.length > 0) {
                 if(createTaskRequest.entities[0].data && createTaskRequest.entities[0].data.jsonData) {
                     var searchQueries = createTaskRequest.entities[0].data.jsonData.searchQueries;
@@ -88,14 +88,6 @@ PassThroughService.prototype = {
             }
 
             return await this.post(passThroughUrl, createTaskRequest);
-        }
-    },
-    _updateRequestForHotline: function(request) {
-        if(request.clientState) {
-            if(request.clientState.hotline) {
-                request["hotline"] = request.clientState.hotline;
-            }
-            delete request.clientState.hotline;
         }
     }
 };
