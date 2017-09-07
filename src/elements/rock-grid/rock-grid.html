@@ -782,7 +782,7 @@ The following JSON object is a config sample which configures the grid in all ab
 										<template is="dom-if" if="[[_hasLinkTemplate(column.columnObject, item)]]">
 											<a href$="[[_getLink(column.columnObject, item)]]">
 												<template is="dom-if" if="[[!column.columnObject.readOnly]]">
-													<rock-attribute index="[[index]]" functional-mode="grid" id="row[[index]]col[[column.columnIndex]]"
+													<rock-attribute index="[[index]]" row-index$="[[index]]" column-index$="[[column.columnIndex]]" functional-mode="grid" id="row[[index]]col[[column.columnIndex]]"
 													 class="attribute" mode="[[config.mode]]" attribute-model-object="[[column.modelObject]]" attribute-object="{{_getAttributeObject(item, column.modelObject, column.columnIndex, index)}}"
 													 dependent-attribute-model-objects="[[_getDependentAttributeModels(column.modelObject)]]" dependent-attribute-objects="[[_getDependentAttributes(item, column.modelObject, index)]]"
 													 on-attribute-value-changed="_updateValue"></rock-attribute>
@@ -796,7 +796,7 @@ The following JSON object is a config sample which configures the grid in all ab
 										</template>
 										<template is="dom-if" if="[[!_hasLinkTemplate(column.columnObject, item)]]">
 											<template is="dom-if" if="[[!column.columnObject.readOnly]]">
-												<rock-attribute index="[[index]]" functional-mode="grid" id="row[[index]]col[[column.columnIndex]]"
+												<rock-attribute index="[[index]]" row-index$="[[index]]" column-index$="[[column.columnIndex]]" functional-mode="grid" id="row[[index]]col[[column.columnIndex]]"
 												 class="attribute" mode="[[config.mode]]" attribute-model-object="[[column.modelObject]]" attribute-object="{{_getAttributeObject(item, column.modelObject, column.columnIndex, index)}}"
 												 dependent-attribute-model-objects="[[_getDependentAttributeModels(column.modelObject)]]" dependent-attribute-objects="[[_getDependentAttributes(item, column.modelObject, index)]]"
 												 on-attribute-value-changed="_updateValue"></rock-attribute>
@@ -1784,8 +1784,7 @@ The following JSON object is a config sample which configures the grid in all ab
 					return icon;
 				},
 				_updateValue: function (e) {
-					var columnIndex = typeof e.target.column === 'undefined' ? e.srcElement.dataHost.column.columnIndex : e.target
-						.column.columnIndex;
+					var columnIndex = typeof e.target.column === 'undefined' ? e.srcElement.dataHost.column.columnIndex : e.target.column.columnIndex;
 					var item = e.model.item;
 					var value = e.detail.value;
 					var columnName = this.config.tabular.columns[columnIndex].name;
@@ -1793,8 +1792,7 @@ The following JSON object is a config sample which configures the grid in all ab
 					var status = "";
 					var referenceDataId = e.detail.referenceDataId ? e.detail.referenceDataId : undefined;
 
-					if (this.config.schemaType == undefined || this.config.schemaType == "simple" || this.config.schemaType ==
-						"colModel") {
+					if (this.config.schemaType == undefined || this.config.schemaType == "simple" || this.config.schemaType == "colModel") {
 						var columnOriginalValue = columnName + "_originalValue";
 
 						if (item[columnOriginalValue] || item[columnOriginalValue] == "") {
@@ -1853,6 +1851,73 @@ The following JSON object is a config sample which configures the grid in all ab
 					this.notifyPath("isDirty", undefined);
 					this.isDirty = this.getIsDirty();
 
+					var attribute = e.currentTarget || e.sourceElement;
+					var dependentAttributeElements = this._updateDependentAttributes(attribute, row);
+				},
+
+				_updateDependentAttributes: function(currentAttribute, currentRow, isRevertButtonClicked) {
+                    var dependentAttributeElements = this.getDependentAttributeElements(currentAttribute, currentRow);
+                    for (var i = 0; i < dependentAttributeElements.length; i++) {
+                        var dependentAttributeElement = dependentAttributeElements[i];
+                        var dependentAttributeObjects = dependentAttributeElement.dependentAttributeObjects;
+                        dependentAttributeElement.dependentAttributeObjects = [];
+                        dependentAttributeElement.dependentAttributeObjects = dependentAttributeObjects;
+
+                        if(dependentAttributeElement.attributeObject.value.length > 0) {
+                            dependentAttributeElement.invalid = true;
+                            var errorMessage = "These value(s) may be invalid now, as the value of " + currentAttribute.attributeModelObject.externalName + " is changed. Please select a new value.";
+                            dependentAttributeElement.addValidationErrors(errorMessage);
+                        }
+                        
+                        if(isRevertButtonClicked && dependentAttributeElement.validationErrors && dependentAttributeElement.validationErrors.length > 0) {
+                            let indexToRemove = -1;
+                            dependentAttributeElement.validationErrors.forEach(function(currentError, index) {
+                                if(currentError.includes(currentAttribute.attributeModelObject.externalName)) {
+                                    indexToRemove = index;
+                                    return;
+                                }
+                            });
+                            if(indexToRemove >= 0){
+                                dependentAttributeElement.removeValidationErrorsAt(indexToRemove);
+                            }
+                        }
+                    }
+                },
+
+				getDependentAttributeElements: function(currentAttribute, currentRow) {
+					var dependentAttributesToReturn = [];
+
+					var node = Polymer.dom(this).node;
+                    var allAttributeElements = Polymer.dom(this).node.querySelectorAll('rock-attribute[row-index="' + currentRow.index + '"]');
+                    if(allAttributeElements == undefined || allAttributeElements.length == 0) {
+                        allAttributeElements = Polymer.dom(this).node.root.querySelectorAll('rock-attribute[row-index="' + currentRow.index + '"]');
+					}
+
+					for(let i = 0; i < allAttributeElements.length; i++) {
+                        var isDependentOnCurrentAttribute = false;
+                        
+                        var dependentAttrModels = allAttributeElements[i].dependentAttributeModelObjects;
+                        var dependentAttrObjects = allAttributeElements[i].dependentAttributeObjects;
+                        if(dependentAttrModels && dependentAttrModels instanceof Array && dependentAttrModels.length > 0) {
+                            for(let j = 0; j < dependentAttrModels.length; j++) {
+                                if(DataHelper.compareObjects(dependentAttrModels[j], currentAttribute.attributeModelObject)) {
+                                    dependentAttrObjects.forEach(function(element, index) {
+                                        if(element.name === currentAttribute.attributeModelObject.name) {
+                                            dependentAttrObjects[index] = currentAttribute.attributeObject;
+                                        }
+                                    });
+                                    isDependentOnCurrentAttribute = true
+                                    break;
+                                }
+                            }
+                        }
+
+                        if(isDependentOnCurrentAttribute) {
+                            dependentAttributesToReturn.push(allAttributeElements[i]);
+                        }
+                    }
+
+                    return dependentAttributesToReturn;
 				},
 				_fireActionEvent: function (e) {
 					var action = this.config.tabular.settings.actions[e.currentTarget.actionIndex];
