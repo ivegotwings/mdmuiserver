@@ -783,7 +783,8 @@ The following JSON object is a config sample which configures the grid in all ab
 											<a href$="[[_getLink(column.columnObject, item)]]">
 												<template is="dom-if" if="[[!column.columnObject.readOnly]]">
 													<rock-attribute index="[[index]]" functional-mode="grid" id="row[[index]]col[[column.columnIndex]]"
-													 class="attribute" mode="[[config.mode]]" attribute-model-object="[[column.modelObject]]" attribute-object="{{_getAttributeObject(item, column.columnIndex,index)}}"
+													 class="attribute" mode="[[config.mode]]" attribute-model-object="[[column.modelObject]]" attribute-object="{{_getAttributeObject(item, column.modelObject, column.columnIndex, index)}}"
+													 dependent-attribute-model-objects="[[_getDependentAttributeModels(column.modelObject)]]" dependent-attribute-objects="[[_getDependentAttributes(item, column.modelObject, index)]]"
 													 on-attribute-value-changed="_updateValue"></rock-attribute>
 												</template>
 												<template is="dom-if" if="[[column.columnObject.readOnly]]">
@@ -796,7 +797,8 @@ The following JSON object is a config sample which configures the grid in all ab
 										<template is="dom-if" if="[[!_hasLinkTemplate(column.columnObject, item)]]">
 											<template is="dom-if" if="[[!column.columnObject.readOnly]]">
 												<rock-attribute index="[[index]]" functional-mode="grid" id="row[[index]]col[[column.columnIndex]]"
-												 class="attribute" mode="[[config.mode]]" attribute-model-object="[[column.modelObject]]" attribute-object="{{_getAttributeObject(item, column.columnIndex,index)}}"
+												 class="attribute" mode="[[config.mode]]" attribute-model-object="[[column.modelObject]]" attribute-object="{{_getAttributeObject(item, column.modelObject, column.columnIndex, index)}}"
+												 dependent-attribute-model-objects="[[_getDependentAttributeModels(column.modelObject)]]" dependent-attribute-objects="[[_getDependentAttributes(item, column.modelObject, index)]]"
 												 on-attribute-value-changed="_updateValue"></rock-attribute>
 											</template>
 											<template is="dom-if" if="[[column.columnObject.readOnly]]">
@@ -1695,8 +1697,9 @@ The following JSON object is a config sample which configures the grid in all ab
 						}
 					}
 				},
-				_getAttributeObject: function (item, columnIndex, index) {
+				_getAttributeObject: function (item, currentAttributeModelObject, columnIndex, index) {
 					var attributeObject = {
+						"name": currentAttributeModelObject.name,
 						"value": this._columnValue(item, columnIndex)
 					};
 					var columnName = this.config.tabular.columns[columnIndex].name;
@@ -2219,7 +2222,67 @@ The following JSON object is a config sample which configures the grid in all ab
 							return (this._dataTableWidth * col.width) / 100 + "px";
 						}
 					}
-				}
+				},
+				_getDependentAttributeModels: function(currentAttributeModel) {
+					if(this.attributeModels) {
+                        var self = this;
+                        var dependentAttributesNames = [];
+                        var dependentAttributesToReturn = [];
+
+                        Object.keys(this.attributeModels).map(function(attributeModel) {
+                            if(attributeModel === currentAttributeModel.name) {
+                                if(self.attributeModels[attributeModel]) {
+                                    var attributeModelProperties = self.attributeModels[attributeModel];
+                                    if(attributeModelProperties) {
+										var dependencyInfo = attributeModelProperties.dependencyInfo;
+										if(currentAttributeModel.name === "state") {
+											dependencyInfo = [{
+												"dependentOn": "country",
+												"dependencyRelationship": "belongstocountry"
+											}];
+											self.attributeModels[attributeModel].dependencyInfo = dependencyInfo;
+										}
+                                        if(dependencyInfo) {
+                                            for(var i = 0; i < dependencyInfo.length; i++) {
+                                                dependentAttributesNames.push(dependencyInfo[i].dependentOn);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+
+                        for(var i = 0; i < dependentAttributesNames.length; i++) {
+                            Object.keys(self.attributeModels).map(function(attributeModel) {
+                                if(attributeModel === dependentAttributesNames[i]) {
+                                    dependentAttributesToReturn.push(self.attributeModels[attributeModel]);
+                                }
+                            });
+                        }
+
+						return dependentAttributesToReturn;
+                    }
+				},
+				_getDependentAttributes: function(item, currentAttributeModel, index) {
+                    var dependentAttributeModels = this._getDependentAttributeModels(currentAttributeModel);
+					var dependentAttributeValues = [];
+
+					var gridColumns = this.config.tabular.columns;
+                    if(gridColumns && gridColumns.length && dependentAttributeModels && dependentAttributeModels.length) {
+                        for(let i = 0; i < dependentAttributeModels.length; i++) {
+
+                            var dependentAttributeModel = dependentAttributeModels[i]
+                            for(let colIndex = 0; colIndex < gridColumns.length; colIndex++) {
+                                if(dependentAttributeModel.name === gridColumns[colIndex].name) {
+									dependentAttributeValues.push(this._getAttributeObject(item, dependentAttributeModel, colIndex, index));
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    return dependentAttributeValues
+                }
 			});
 		})();
 	</script>
