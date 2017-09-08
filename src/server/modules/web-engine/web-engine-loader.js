@@ -20,6 +20,8 @@ logger.configure(loggerConfig);
 var buildPath = process.cwd();
 var relativePath = process.env.PROJECT_PATH;
 
+//console.log('Node env', process.env);
+
 if (relativePath) {
     buildPath = buildPath + '/' + relativePath;
 }

@@ -237,7 +237,8 @@ gulp.task('app-nodemon', function (cb) {
                   env: { 
                     'RUN_OFFLINE': runOffline, 
                     'PROJECT_PATH': projectPath,
-                    'NODE_CONFIG_DIR': './src/server/config'
+                    'NODE_CONFIG_DIR': './src/server/config',
+                    'NODE_ENV': 'development'
                    }, // set env variables
                   //nodeArgs:['--debug'], // set node args
                   watch: global.config.build.serverFilePaths, // watch ES2015 code

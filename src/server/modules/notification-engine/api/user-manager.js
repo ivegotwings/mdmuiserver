@@ -94,8 +94,8 @@ async function getData(userId) {
 
         await Promise.resolve(promise);
     }
-    else if (localStorage[cacheKey]) {
-        data = await localStorage[cacheKey];
+    else if (localStorage[userId]) {
+        data = await localStorage[userId];
     }
 
     return data;
