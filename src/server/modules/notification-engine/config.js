@@ -1,5 +1,5 @@
 var clientConfig = {
-    "url": "https://rst-shafilch.riversand.com",
+    "url": "http://localhost:5005",
     "enableLogs": false
 }
 
