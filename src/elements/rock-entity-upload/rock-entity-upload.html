@@ -355,6 +355,9 @@
                     _profileName: {
                         type: String,
                     },
+                    _workAutomationId: {
+                        type: String
+                    },
                     _customizeMappings: {
                         type: Boolean,
                         value: false
@@ -516,7 +519,7 @@
                     this._isDirty = true;
                     this._loading = true;
                     this.set("_fileName", detail.originalFileName);
-                    
+
                     var fileDetails = {
                         "file": detail.file,
                         "fileName": detail.fileName,
@@ -549,11 +552,25 @@
                     formData.append("fileName", fileDetails.fileName);
                     formData.append("originalFileName", fileDetails.originalFileName);
                     formData.append("profileName", this._profileName);
+                    // Prepare workAutomationId for process
+                    if(this._currentCOPService == "process") {
+                        this._workAutomationId = DataHelper.generateUUID();
+                        formData.append("workAutomationId", this._workAutomationId);
+                    }
+                    // Send hotline details in formData for COP request
+                    if(DataHelper.isHotlineModeEnabled()) {
+                        formData.append("hotline", true);
+                    }
 
                     var xhr = new XMLHttpRequest();
                     xhr.open('POST', url, true);
                     xhr.responseType = 'json';
                     xhr.onload = function (e) {
+                        //Process triggred in async manner, so track the details through workAutomationId
+                        if(this._currentCOPService == "process") {
+                            return;
+                        }
+
                         if (e.currentTarget && e.currentTarget.response) {
                             var response = e.currentTarget.response;
                             e.detail = {
@@ -569,6 +586,10 @@
                         }
                     }.bind(this);
                     xhr.send(formData);
+                    //After sending the form data show workAutomationId to user
+                    if(this._currentCOPService == "process") {
+                        this._onCOPProcessComplete();
+                    }
                 },
                 _onCOPSuccess: function (e) {
                     var response = e.detail.response;
@@ -635,38 +656,7 @@
                                 this._isDirty = false;
                             }
                         } else if (this._currentCOPService == "process") {
-                            var data = {
-                                "messages": [
-                                    {
-                                        "message": "Entities will be created/updated using the uploaded file."
-                                    },
-                                    {
-                                        "message": "You can view the status of the processing in the File Upload Status Dashboard"
-                                    }
-                                ],
-                                "actions": [
-                                    {
-                                        "name": "closeFunction",
-                                        "text": "Take Me back to Where I started",
-                                        "action": { "name": "refresh-data" }
-                                    },
-                                    {
-                                        "name": "nextAction",
-                                        "text": "Take me to File Upload Status",
-                                        "dataRoute": "dashboard",
-                                        "action": { "name": "refresh-data" }
-                                    }
-                                ]
-                            };
-                            this.businessFunctionData = data;
-                            ComponentHelper.getParentElement(this).businessFunctionData = data;
-                            var eventName = "onSave";
-                            var eventDetail = {
-                                name: eventName,
-                                data: { "skipNext": this.skipNext }
-                            };
-                            this._loading = false;
-                            this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                            this._onCOPProcessComplete();
                         }
                     } else {
                         this.logWarning("UnexpectedCOP", "response", JSON.stringify(e.detail.response));
@@ -680,6 +670,42 @@
                     this.showErrorToast("Unable to transform excel to json. Please check the service or contact your administrator.");
                     this._loading = false;
                     this._isDirty = false;
+                },
+                _onCOPProcessComplete: function() {
+                    var data = {
+                        "messages": [
+                            {
+                                "message": "Entities will be created/updated using the uploaded file."
+                            },
+                            {
+                                "message": "You can view the status of the task " + this._workAutomationId + " in the Task Details"
+                            }
+                        ],
+                        "actions": [
+                            {
+                                "name": "closeFunction",
+                                "text": "Take Me back to Where I started",
+                                "action": { "name": "refresh-data" }
+                            },
+                            {
+                                "name": "gotoTaskDetails",
+                                "text": "Show me the task details",
+                                "dataRoute": "task-detail",
+                                "queryParams": {
+                                    "id": this._workAutomationId
+                                }
+                            }
+                        ]
+                    };
+                    this.businessFunctionData = data;
+                    ComponentHelper.getParentElement(this).businessFunctionData = data;
+                    var eventName = "onSave";
+                    var eventDetail = {
+                        name: eventName,
+                        data: { "skipNext": this.skipNext }
+                    };
+                    this._loading = false;
+                    this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
                 },
                 _attributeNamesChanged: function (attributeNames, contexts) {
                     if (!_.isEmpty(attributeNames) && contexts != undefined) {
@@ -854,6 +880,11 @@
                             "clientState": clientState,
                             "entities": batchEntities
                         };
+
+                        if(DataHelper.isHotlineModeEnabled()) {
+                            this._saveRequest.hotline = true;
+                        }
+
                         var liquidSave = this.shadowRoot.querySelector("[name=entitiesSaveDataService]");
                         if (liquidSave) {
                             liquidSave.operation = this._currentAction;
@@ -876,6 +907,11 @@
                             "clientState": clientState,
                             "entities": batchEntities
                         };
+
+                        if(DataHelper.isHotlineModeEnabled()) {
+                            this._saveRequest.hotline = true;
+                        }
+
                         var liquidSave = this.shadowRoot.querySelector("[name=entitiesSaveDataService]");
                         if (liquidSave) {
                             liquidSave.operation = this._currentAction;
