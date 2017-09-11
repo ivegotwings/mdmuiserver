@@ -8,7 +8,7 @@ module.exports = {
     {
       name: 'ui-platform',
       script: 'app.js',
-      instance: 1,
+      instance: 2,
       watching: true,
       env_production: {
         NODE_ENV: 'production',
