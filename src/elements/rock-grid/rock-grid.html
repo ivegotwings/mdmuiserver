@@ -386,7 +386,7 @@ The following JSON object is a config sample which configures the grid in all ab
 
 			data-table-cell span {
 				display: block;
-				width: 100%;
+				width: 200px;
 				overflow: hidden;
 				text-overflow: ellipsis;
 				white-space: nowrap;
@@ -782,25 +782,27 @@ The following JSON object is a config sample which configures the grid in all ab
 										<template is="dom-if" if="[[_hasLinkTemplate(column.columnObject, item)]]">
 											<a href$="[[_getLink(column.columnObject, item)]]">
 												<template is="dom-if" if="[[!column.columnObject.readOnly]]">
-													<rock-attribute index="[[index]]" functional-mode="grid" id="row[[index]]col[[column.columnIndex]]"
-													 class="attribute" mode="[[config.mode]]" attribute-model-object="[[column.modelObject]]" attribute-object="{{_getAttributeObject(item, column.columnIndex,index)}}"
+													<rock-attribute index="[[index]]" row-index$="[[index]]" column-index$="[[column.columnIndex]]" functional-mode="grid" id="row[[index]]col[[column.columnIndex]]"
+													 class="attribute" mode="[[config.mode]]" attribute-model-object="[[column.modelObject]]" attribute-object="{{_getAttributeObject(item, column.modelObject, column.columnIndex, index)}}"
+													 dependent-attribute-model-objects="[[_getDependentAttributeModels(column.modelObject)]]" dependent-attribute-objects="[[_getDependentAttributes(item, column.modelObject, index)]]"
 													 on-attribute-value-changed="_updateValue"></rock-attribute>
 												</template>
 												<template is="dom-if" if="[[column.columnObject.readOnly]]">
-													<span>
-														[[_columnValue(item, column.columnIndex)]]													
+													<span title="[[_columnValue(item, column.columnIndex)]]">
+														[[_columnValue(item, column.columnIndex)]]
 													</span>
 												</template>
 											</a>
 										</template>
 										<template is="dom-if" if="[[!_hasLinkTemplate(column.columnObject, item)]]">
 											<template is="dom-if" if="[[!column.columnObject.readOnly]]">
-												<rock-attribute index="[[index]]" functional-mode="grid" id="row[[index]]col[[column.columnIndex]]"
-												 class="attribute" mode="[[config.mode]]" attribute-model-object="[[column.modelObject]]" attribute-object="{{_getAttributeObject(item, column.columnIndex,index)}}"
+												<rock-attribute index="[[index]]" row-index$="[[index]]" column-index$="[[column.columnIndex]]" functional-mode="grid" id="row[[index]]col[[column.columnIndex]]"
+												 class="attribute" mode="[[config.mode]]" attribute-model-object="[[column.modelObject]]" attribute-object="{{_getAttributeObject(item, column.modelObject, column.columnIndex, index)}}"
+												 dependent-attribute-model-objects="[[_getDependentAttributeModels(column.modelObject)]]" dependent-attribute-objects="[[_getDependentAttributes(item, column.modelObject, index)]]"
 												 on-attribute-value-changed="_updateValue"></rock-attribute>
 											</template>
 											<template is="dom-if" if="[[column.columnObject.readOnly]]">
-												<span>
+												<span title="[[_columnValue(item, column.columnIndex)]]">
 													[[_columnValue(item, column.columnIndex)]]
 												</span>
 											</template>
@@ -1695,8 +1697,9 @@ The following JSON object is a config sample which configures the grid in all ab
 						}
 					}
 				},
-				_getAttributeObject: function (item, columnIndex, index) {
+				_getAttributeObject: function (item, currentAttributeModelObject, columnIndex, index) {
 					var attributeObject = {
+						"name": currentAttributeModelObject.name,
 						"value": this._columnValue(item, columnIndex)
 					};
 					var columnName = this.config.tabular.columns[columnIndex].name;
@@ -1781,8 +1784,7 @@ The following JSON object is a config sample which configures the grid in all ab
 					return icon;
 				},
 				_updateValue: function (e) {
-					var columnIndex = typeof e.target.column === 'undefined' ? e.srcElement.dataHost.column.columnIndex : e.target
-						.column.columnIndex;
+					var columnIndex = typeof e.target.column === 'undefined' ? e.srcElement.dataHost.column.columnIndex : e.target.column.columnIndex;
 					var item = e.model.item;
 					var value = e.detail.value;
 					var columnName = this.config.tabular.columns[columnIndex].name;
@@ -1790,8 +1792,7 @@ The following JSON object is a config sample which configures the grid in all ab
 					var status = "";
 					var referenceDataId = e.detail.referenceDataId ? e.detail.referenceDataId : undefined;
 
-					if (this.config.schemaType == undefined || this.config.schemaType == "simple" || this.config.schemaType ==
-						"colModel") {
+					if (this.config.schemaType == undefined || this.config.schemaType == "simple" || this.config.schemaType == "colModel") {
 						var columnOriginalValue = columnName + "_originalValue";
 
 						if (item[columnOriginalValue] || item[columnOriginalValue] == "") {
@@ -1850,6 +1851,24 @@ The following JSON object is a config sample which configures the grid in all ab
 					this.notifyPath("isDirty", undefined);
 					this.isDirty = this.getIsDirty();
 
+					var attribute = e.currentTarget || e.sourceElement;
+					var isRevertClicked = e.detail.revertClicked;
+					this._updateDependentAttributes(attribute, row.index, isRevertClicked);
+				},
+
+				_updateDependentAttributes: function(currentAttribute, rowIndex, isRevertButtonClicked) {
+                    var dependentAttributeElements = this.getDependentAttributeElementsInRow(currentAttribute, rowIndex);
+					DataHelper.updateDependentAttributeElements(dependentAttributeElements, currentAttribute, isRevertButtonClicked);
+                },
+
+				getDependentAttributeElementsInRow: function(currentAttribute, rowIndex) {
+					var node = Polymer.dom(this).node;
+                    var allAttributeElements = Polymer.dom(this).node.querySelectorAll('rock-attribute[row-index="' + rowIndex + '"]');
+                    if(allAttributeElements == undefined || allAttributeElements.length == 0) {
+                        allAttributeElements = Polymer.dom(this).node.root.querySelectorAll('rock-attribute[row-index="' + rowIndex + '"]');
+					}
+
+                    return DataHelper.getDependentAttributesOfAttribute(allAttributeElements, currentAttribute);
 				},
 				_fireActionEvent: function (e) {
 					var action = this.config.tabular.settings.actions[e.currentTarget.actionIndex];
@@ -2219,7 +2238,30 @@ The following JSON object is a config sample which configures the grid in all ab
 							return (this._dataTableWidth * col.width) / 100 + "px";
 						}
 					}
-				}
+				},
+				_getDependentAttributeModels: function(currentAttributeModel) {
+					return DataHelper.getDependentAttributeModels(this.attributeModels, currentAttributeModel);
+				},
+				_getDependentAttributes: function(item, currentAttributeModel, index) {
+                    var dependentAttributeModels = DataHelper.getDependentAttributeModels(this.attributeModels, currentAttributeModel);
+					var dependentAttributeValues = [];
+
+					var gridColumns = this.config.tabular.columns;
+                    if(gridColumns && gridColumns.length && dependentAttributeModels && dependentAttributeModels.length) {
+                        for(let i = 0; i < dependentAttributeModels.length; i++) {
+
+                            var dependentAttributeModel = dependentAttributeModels[i]
+                            for(let colIndex = 0; colIndex < gridColumns.length; colIndex++) {
+                                if(dependentAttributeModel.name === gridColumns[colIndex].name) {
+									dependentAttributeValues.push(this._getAttributeObject(item, dependentAttributeModel, colIndex, index));
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    return dependentAttributeValues
+                }
 			});
 		})();
 	</script>
