@@ -8,19 +8,16 @@ module.exports = {
     {
       name: 'ui-platform',
       script: 'app.js',
-      instance: 2,
+      instances: 2,
       watching: true,
       env_production: {
-        NODE_ENV: 'production',
-        'RUN_OFFLINE': false,
-        'NODE_CONFIG_DIR': './src/server/config'
+        RUN_OFFLINE: false,
+        NODE_CONFIG_DIR: './src/server/config'
       }
-    }
-  ],
+    }],
   /**
    * Deployment section
    * http://pm2.keymetrics.io/docs/usage/deployment/
    */
-  deploy: {
-  }
+  deploy: {}
 };

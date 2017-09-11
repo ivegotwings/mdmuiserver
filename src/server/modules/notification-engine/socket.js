@@ -12,7 +12,9 @@ function initSockets(http) {
 
     if (isStateServerEnabled) {
         var redis = require('socket.io-redis');
-        io.adapter(redis(config.get('modules.stateServer.connection')));
+        var connectionConfig = config.get('modules.stateServer.connection');
+        var redisUrl = "redis://" + connectionConfig.host + ":" + connectionConfig.port;
+        io.adapter(redis(redisUrl));
     }
 
     //console.log('notification engine running . . .');
