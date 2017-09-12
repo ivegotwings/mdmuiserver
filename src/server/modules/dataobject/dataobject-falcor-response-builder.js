@@ -1,6 +1,7 @@
 'use strict';
 
 const arrayContains = require('../common/utils/array-contains'),
+    arrayRemove = require('../common/utils/array-remove'),
     isEmpty = require('../common/utils/isEmpty'),
     isObject = require('../common/utils/isObject');
 
@@ -135,18 +136,20 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
         if (attr.group) {
             //console.log('attr group', JSON.stringify(attr.group));
             //var valCtxItem = { 'source': CONST_ANY, 'locale': CONST_ANY }; //TODO: How to find out val contexts keys from the flat list of values object..??
-            var valCtxItem = {};
-            var valCtxKey = falcorUtil.createCtxKey(valCtxItem);
-            var valContextJson = valContextsJson[valCtxKey];
 
-            if (!valContextJson) {
-                valContextJson = falcorUtil.getOrCreate(valContextsJson, valCtxKey, {});
-            }
-            valContextJson['group'] = $atom(attr.group);
+            if (reqData.valCtxKeys) {
+                for (let valCtxKey of reqData.valCtxKeys) {
+                    var valContextJson = valContextsJson[valCtxKey];
+                    if (!valContextJson) {
+                        valContextJson = falcorUtil.getOrCreate(valContextsJson, valCtxKey, {});
+                    }
+                    valContextJson['group'] = prepareValueJson($atom(attr.group));
 
-            //build paths if requested
-            if (reqData.buildPaths) {
-                paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', valCtxKey, 'group']));
+                    //build paths if requested
+                    if (reqData.buildPaths) {
+                        paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', valCtxKey, 'group']));
+                    }
+                }
             }
         }
 
@@ -202,6 +205,7 @@ function _buildRelationshipsResponse(rels, reqData, currentDataContextJson, path
 
     //console.log('rels', JSON.stringify(rels)); 
     var relTypeKeys = _getKeyNames(rels, reqData.relTypes);
+    var originalRelIds = reqData.originalRelIds;
 
     for (let relTypeKey of relTypeKeys) {
         var relTypeData = rels[relTypeKey];
@@ -211,18 +215,30 @@ function _buildRelationshipsResponse(rels, reqData, currentDataContextJson, path
             var relsJson = {};
             var relIds = [];
 
-            var relIdIndex = 0;
+            if(originalRelIds && originalRelIds[relTypeKey]) {
+                relIds = originalRelIds[relTypeKey];
+            }
+
             for (var relKey in relTypeData) {
                 var rel = relTypeData[relKey];
-                rel.id = falcorUtil.createRelUniqueId(relTypeKey, rel, relIdIndex++);
+                if(!rel.id) {
+                    rel.id = falcorUtil.createRelUniqueId(relTypeKey, rel);
+                }
 
                 if (reqRelIds && reqRelIds.length > 0 && !arrayContains(reqRelIds, rel.id)) {
                     continue;
                 }
 
-                relIds.push(rel.id);
+                if(arrayContains(relIds, rel.id)) {
+                    if(rel.action == "delete") {
+                        arrayRemove(relIds, rel.id);
+                    }
+                }
+                else {
+                    relIds.push(rel.id);
+                }
 
-                if (operation.toLowerCase() !== "getrelidonly") {
+                if (operation.toLowerCase() !== "getrelidonly" && rel.action !== "delete") {
                     _buildRelationshipDetailsResponse(rel, reqData, relTypeKey, relsJson, paths, basePath);
                 }
             }
@@ -529,6 +545,48 @@ function buildErrorResponse(errorObject, primaryMessageToBePrefixedIfAny) {
     return errorResponse;
 }
 
+function buildRefResponse(dataObject, reqData) {
+    var dataObjectResponseJson = {};
+
+    if (!isEmpty(reqData.dataObjectFields)) {
+        _buildFieldsResponse(dataObject, reqData, dataObjectResponseJson);
+    }
+
+    var dataJson = dataObjectResponseJson['data'] = {};
+    var dataContextsJson = dataJson['contexts'] = {};
+    var pathToContexts = [pathKeys.root, reqData.dataIndex, reqData.dataObjectType, pathKeys.byIds, dataObject.id, 'data', 'contexts'];
+
+    var data = dataObject.data;
+    if (data && data.contexts) {
+        var selfCtxKey = falcorUtil.createSelfCtxKey();
+
+        for (let contextItem of data.contexts) {
+            var currContext = contextItem.context;
+            var currentCtxKey = falcorUtil.createCtxKey(currContext);
+
+            var pathToContextItem = mergePathSets(pathToContexts, [currentCtxKey])
+
+            if(currContext.selfContext) {
+                //Add selfcontext response as $ref...
+                dataContextsJson[selfCtxKey] = prepareValueJson($ref(pathToContextItem));
+            }
+            else {
+                //Add requested context response as $ref...
+                for (var i = 0; i < reqData.ctxKeys.length; i++) {
+                    var ctxKey = reqData.ctxKeys[i];
+                    if(ctxKey != selfCtxKey) {
+                        //Assumption: We cannot compare requested context key with the resulted context... Hence considering first key always... 
+                        dataContextsJson[ctxKey] = prepareValueJson($ref(pathToContextItem));
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    return dataObjectResponseJson;
+}
+
 module.exports = {
     buildResponse: buildResponse,
     buildErrorResponse: buildErrorResponse,
@@ -537,5 +595,6 @@ module.exports = {
     mergeAndCreatePath: mergeAndCreatePath,
     mergePathSets: mergePathSets,
     prepareValueJson: prepareValueJson,
+    buildRefResponse: buildRefResponse,
     pathKeys: pathKeys
 };

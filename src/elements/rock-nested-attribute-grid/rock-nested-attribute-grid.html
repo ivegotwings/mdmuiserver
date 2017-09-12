@@ -1,0 +1,333 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-helpers/attribute-helper.html">
+<link rel="import" href="../bedrock-helpers/context-helper.html">
+<link rel="import" href="../bedrock-helpers/data-transform-helper.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+
+<link rel="import" href="../rock-grid/rock-grid.html">
+
+<dom-module id="rock-nested-attribute-grid">
+    <template>
+        <style is="custom-style" include="pebble-styles-shared">
+            .attribute-view-label {
+                font-size: var(--font-size-sm, 12px);
+                font-weight: normal;
+                font-style: normal;
+                font-stretch: normal;
+                line-height: 1.42;
+                text-transform: uppercase;
+                color: var(--label-text-color);
+            }
+            #attributesGrid {
+                --rock-grid-height: 200px;
+            }
+        </style>
+        <label class="attribute-view-label" hidden$="[[!label]]" aria-hidden="true">[[label]]</label>
+        <template is="dom-if" if="[[_isEditMode(mode)]]">
+            <div class="button">
+                <pebble-button icon="pebble-sm-icons:Add" id="button_add" class="btn btn-primary m-r-10" button-text="Add"
+                    on-click="_onAddRowClick"></pebble-button>
+            </div>
+        </template>
+        <div class="grid">
+            <rock-grid id="attributesGrid" config="{{_gridConfig}}" data="{{_gridData}}" attribute-models = "[[_attributeModels]]" no-header page-size="20" is-dirty="{{_isGridDirty}}"></rock-grid>
+            <bedrock-pubsub event-name="delete-item" handler="_onRowDelete" target-id="attributesGrid"></bedrock-pubsub>
+        </div>
+    </template>
+    <script>
+        (function() {
+            'use strict';
+
+            Polymer({
+                is: "rock-nested-attribute-grid",
+
+                properties: {
+                    contextData: {
+                        type: Object,
+                        value: function() {
+                            return {};
+                        }
+                    },
+                    /**
+                    * Indicates the label for the nested attribute grid.
+                    * It allows to add descriptive text for the nested attribute to inform the user about the type of data 
+                    * expected in the nested attribute. 
+                    */
+                    label: {
+                        type: String
+                    },
+                    _gridConfig: {
+                        type: Object,
+                        value: function () {
+                            return {
+                                "viewMode": "Tabular",
+                                "mode": "read",
+                                "schemaType": "colModel",
+                                "statusEnabled": true,
+                                "tabular": {
+                                    "settings": {
+                                        "isMultiSelect": false,
+                                        "disableSelectAll": true,
+                                        "rowIdentifier": "groupidentifier",
+                                        "actions": [
+                                            {
+                                                "name": "delete",
+                                                "icon": "pebble-icons:Delete",
+                                                "eventName": "delete-item"
+                                            }
+                                        ]
+                                    },
+                                    "columns": []
+                                }
+                            };
+                        }
+                    },
+                    /**
+                     * Indicates whether the attribute is rendered in edit mode or view mode.
+                     * The two possible values are <b>view</b> and <b>edit</b>.
+                     */
+                    mode: {
+                        type: String,
+                        value: "view",
+                        notify: true
+                    },
+                    /**
+                    * Indicates the JSON for the attribute value object. This object records all the user changes to the value.
+                    * Sample: {
+                                "value":"Nivea Creme 400 Ml"
+                              }
+                    */
+                    attributeObject: {
+                        type: Object,
+                        value: function() {
+                            return {};
+                        },
+                        notify: true
+                    },
+                    /**
+                    * Indicates the JSON for the original attribute value object. This object does not record all the user changes to the value.
+                    * Sample: {
+                                "value":"Nivea Creme 400 Ml"
+                              }
+                    */
+                    originalAttributeObject: {
+                        type: Object,
+                        value: function() {
+                            return {};
+                        }
+                    },
+                    /**
+                    * Indicates the JSON for the attribute model object.
+                    * It renders appropriate UI element to edit the attribute, to configure the validation, and other behaviors.
+                    * Sample: {
+                                "name": "name",
+                                "externalName": "Name",
+                                "displayType": "textbox",
+                                "minLength": 5,
+                                "maxLength": 10
+                              }
+                    */
+                    attributeModelObject: {
+                        type: Object,
+                        value: function() {
+                            return {};
+                        }
+                    },
+                    /**
+                     * Indicates whether or not an attribute object value is changed.
+                     */
+                    changed: {
+                        type: Boolean,
+                        value: false,
+                        notify: true,
+                        reflectToAttribute: true
+                    },
+                    _gridData: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _attributeModels: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _isGridDirty: {
+                        type: Boolean,
+                        value: false
+                    }
+                },
+                behaviors: [
+                    RUFBehaviors.UIBehavior,
+                    RUFBehaviors.ComponentContextBehavior
+                ],
+                observers: [
+                    '_attributeModelObjectChanged(attributeModelObject)',
+                    '_attributeObjectChanged(attributeObject)',
+                    '_modeChanged(mode)',
+                    '_gridDataChanged(_isGridDirty)'
+                ],
+                _attributeModelObjectChanged: function(attributeModelObject) {
+                    if(!_.isEmpty(attributeModelObject)) {
+                        this._prepareGridConfig(attributeModelObject);
+                    }
+                },
+                _attributeObjectChanged: function(attributeObject) {
+                    if(!_.isEmpty(attributeObject) && attributeObject.value && (!this._isGridReady || (this.mode === "edit" && this.originalAttributeObject && this.originalAttributeObject.value && DataHelper.areEqualArrays(attributeObject.value, this.originalAttributeObject.value)))) {
+                        this._prepareGridData(attributeObject);
+                        this._modeChanged(this.mode);
+                    }
+                },
+                _prepareGridConfig: function(attributeModelObject) {
+                    if(attributeModelObject && attributeModelObject.group && attributeModelObject.group.length > 0) {
+                        var attributeModels = attributeModelObject.group[0];
+                        for(var model in attributeModels) {
+                            attributeModels[model].hasWritePermission = true;
+                        }
+                        this.set("_attributeModels", attributeModels);
+                        var keys = Object.keys(attributeModels);
+                        if(keys && keys.length>0) {
+                            for(var i=0; i<keys.length; i++) {
+                                var attributeModel = attributeModels[keys[i]];
+                                var column = {
+                                    "header": attributeModel.externalName,
+                                    "name": attributeModel.name,
+                                    "filterable": true,
+                                    "sortable": true
+                                };
+                                this._gridConfig.tabular.columns.push(column);
+                            }
+                        }
+                    }
+                },
+                _prepareGridData: function(attributeObject) {
+                    this._gridData = [];
+                    if(!this._isGridReady) {
+                        this.originalAttributeObject = DataHelper.cloneObject(attributeObject);
+                    }
+                    this.async(function() {
+                        if(attributeObject && attributeObject.value && attributeObject.value.length > 0) {
+                            for(var  i=0; i<attributeObject.value.length; i++) {
+                                var value = attributeObject.value[i];
+                                var rowData = {};
+                                for(var attrName in value) {
+                                    rowData[attrName] = value[attrName].value;
+                                    if(value[attrName].referenceDataId) {
+                                        rowData[attrName + "_referenceDataId"] = value[attrName].referenceDataId;
+                                    }
+                                }
+                                this._gridData.push(rowData);
+                            }
+                        }
+                        this._originalGridData = DataHelper.cloneObject(this._gridData);
+                    });
+                    this._isGridReady = true;
+                },
+                _modeChanged: function(mode) {
+                    var grid = this.$$("#attributesGrid");
+                    if(mode === "edit") {
+                        grid.changeToEditMode();
+                    } else if(mode === "view") {
+                        grid.changeToReadMode();
+                    }
+                },
+                _gridDataChanged: function(_isGridDirty) {
+                    if(_isGridDirty === true) {
+                        this.changed = true;
+                    } else if(_isGridDirty === false) {
+                        this.changed = false;
+                    } else {
+                        this.changed = undefined;
+                    }
+                    this._setAttributeObject();
+                },
+                _setAttributeObject: function() {
+                    if(this.changed) {
+                        var grid = this.$$("#attributesGrid");
+                        var modifiedData = grid.getModifiedData();
+                        if(modifiedData && modifiedData.length > 0) {
+                            var values = [];
+                            for(var i=0; i<modifiedData.length; i++) {
+                                var rowData = modifiedData[i];
+                                var _status = rowData["_rowStatus"]["status"];
+                                var value = this.attributeObject.value.find(obj => obj.valueIdentifier.value === rowData.valueIdentifier);
+                                if(!value) {
+                                    var values = DataTransformHelper.transformNestedAttributes({}, this._attributeModels);
+                                    var value = values[0];
+                                    value["valueIdentifier"].value = rowData.valueIdentifier;
+                                    this.attributeObject.value.push(value);
+                                }
+                                if(_status !== "delete" && !this._isRowEmpty(rowData)) {
+                                    for(var attrName in rowData) {
+                                        if(this._attributeModels[attrName]) {
+                                            value[attrName] = value[attrName] ? value[attrName]: {};
+                                            value[attrName]["value"] = rowData[attrName];
+                                        }
+                                        if(attrName.indexOf("referenceDataId") !== -1) {
+                                            var name = attrName.substring(0, attrName.indexOf("_"));
+                                            value[name]["referenceDataId"] = rowData[attrName];
+                                        }
+                                    }
+                                } else {
+                                    var index = this.attributeObject.value.indexOf(value);
+                                    if(index !== -1) {
+                                        this.attributeObject.value.splice(index, 1);
+                                    }
+                                }
+                            }
+                        }
+                    } else if(this.changed === false) {
+                        this.attributeObject = this.originalAttributeObject;
+                    }
+                },
+                _isRowEmpty: function(rowData) {
+                    var attributes = Object.keys(rowData);
+                    if(attributes && attributes.length) {
+                        var keysWithValue = attributes.filter(key => this._attributeModels[key] && !_.isEmpty(rowData[key]));
+                        if(keysWithValue && keysWithValue.length > 0) {
+                            return false;
+                        }
+                    }
+                    return true;
+                },
+                _onRowDelete: function(e, detail) {
+                   this._notifyDirty();
+                },
+                _isEditMode: function(mode) {
+                    return mode === "edit";
+                },
+                _onAddRowClick: function(e) {
+                    var length = this._gridData.length;
+                    var values = DataTransformHelper.transformNestedAttributes({}, this._attributeModels);
+                    var value = values[0];
+                    value["valueIdentifier"].value = length;
+                    var newRowItem = {};
+                    for(var attrName in value) {
+                        newRowItem[attrName] = value[attrName].value;
+                    }
+                    var grid = this.$$("#attributesGrid");
+                    grid.addNewRecords([newRowItem]);
+                },
+                _notifyDirty: function() {
+                    var grid = this.$$("#attributesGrid");
+                    var modifiedData = grid.getModifiedData();
+                    if(!_.isEmpty(modifiedData)) {
+                        this._isGridDirty = undefined;
+                        this._isGridDirty = true;
+                    } else {
+                        this._isGridDirty = undefined;
+                        this._isGridDirty = false;
+                    }
+                }
+            });
+        })();
+    </script>
+</dom-module>

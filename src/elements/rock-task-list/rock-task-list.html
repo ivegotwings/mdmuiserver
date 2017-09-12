@@ -1,0 +1,696 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/paper-tooltip/paper-tooltip.html">
+
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-helpers/format-helper.html">
+
+<link rel="import" href="../pebble-icon/pebble-icon.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-popover/pebble-popover.html">
+<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../pebble-toggle-button/pebble-toggle-button.html">
+
+<link rel="import" href="../rock-search-bar/rock-search-bar.html">
+<link rel="import" href="../rock-grid/rock-grid.html">
+<link rel="import" href="event-list-datasource.html">
+
+<!--
+`<rock-task-list>`
+<b><i>Content development is under progress... </b></i>
+
+@group rock Elements
+@element rock-task-list
+@demo demo/index.html
+-->
+
+<dom-module id="rock-task-list">
+    <template>
+        <style is="custom-style" include="pebble-styles-shared">
+            #stateButton {
+                margin-left: 10px;
+            }
+
+            rock-grid {
+                --rock-grid-container:{
+                margin: 0;
+            }
+        }
+            pebble-toggle-button {
+                --pebble-toggle-button-checked-bar-color: var(--success-color, #4caf50);
+                --pebble-toggle-button-checked-button-color: var(--success-color, #4caf50);
+                --pebble-toggle-button-checked-ink-color: var(--success-color, #4caf50);
+            }
+
+            .alignRight {
+                margin-left: auto;
+            }
+
+            #refreshButton {
+                color: var(--icon-color, #757575);
+            }
+
+            rock-grid {
+                --rock-grid-height: 260px;
+            }
+
+            .search-container {
+                width: 100%
+            }
+        </style>
+
+        <div class="search-container">
+            <rock-search-bar id="searchBar" placeholder="Enter Search text"></rock-search-bar>
+            <div class="resetsearch" hidden$="[[!_resetSearchEnabled]]">
+                <pebble-button icon="pebble-sm-icons:Resetsearch" class="btn-link" on-tap="_resetSearch" button-text="Reset Search"></pebble-button>
+            </div>
+            <bedrock-pubsub event-name="rock-search" handler="_onSearch" target-id="searchBar"></bedrock-pubsub>
+            <bedrock-pubsub event-name="rock-search-update" handler="_showResetSearch" target-id="searchBar"></bedrock-pubsub>
+        </div>
+
+        <div class="row-wrap align-items-center">
+            <div class="col-4">
+                <pebble-dropdown class="dropdown" label="Type" items="[[eventTypes]]" selected-value="{{selectedEventType}}"></pebble-dropdown>
+            </div>
+            <div class="col-3">
+                <pebble-dropdown class="dropdown" label="Status" items="[[eventSubTypes]]" selected-value="{{selectedEventSubType}}"></pebble-dropdown>
+            </div>
+            <div class="col text-right">
+                <pebble-button id="refreshButton" icon="pebble-md-icons:ToolbarRefresh" class="pebble-md-icons iconButton tooltip-bottom m-r-10"
+                    data-tooltip="Refresh" on-tap="_refreshList"></pebble-button>
+                <template is="dom-if" if="[[userToggleAllowed]]">
+                    <pebble-toggle-button checked="{{!getAllUsersEvents}}">Show Only My Jobs</pebble-toggle-button>
+                </template>
+            </div>
+        </div>
+        <event-list-datasource id="eventDataSource" request="[[request]]" data-source="{{dataSource}}" data-formatter="{{_dataFormatter}}">
+        </event-list-datasource>
+        <rock-grid id="importlistGrid" no-header config="{{config}}" page-size="50" data-source="{{dataSource}}" data-source-id="eventDataSource"></rock-grid>
+    </template>
+
+    <script>
+        (function () {
+            'use strict';
+
+            Polymer({
+                is: 'rock-task-list',
+
+                properties: {
+                    /**
+                     * <b><i>Content development is under progress... </b></i> 
+                     */
+                    eventSubTypes: {
+                        type: Array,
+                        value: [{
+                                "value": "ALL",
+                                "title": "All"
+                            },
+                            {
+                                "value": "QUEUED",
+                                "title": "Queued"
+                            },
+                            {
+                                "value": "PROCESSING",
+                                "title": "Processing"
+                            },
+                            {
+                                "value": "COMPLETED",
+                                "title": "Completed"
+                            },
+                            {
+                                "value": "ERRORED",
+                                "title": "Errored"
+                            }
+                        ]
+                    },
+                    /**
+                     * <b><i>Content development is under progress... </b></i> 
+                     */
+                    eventTypes: {
+                        type: Array,
+                        value: [{
+                                "value": "ASSET_IMPORT_RECORD",
+                                "title": "Asset uploads"
+                            },
+                            {
+                                "value": "BULK_EDIT",
+                                "title": "Bulk Edit"
+                            },
+                            {
+                                "value": "WORKFLOW_TRANSITION",
+                                "title": "Bulk Workflow Transitions"
+                            },
+                            {
+                                "value": "WORKFLOW_ASSIGNMENT",
+                                "title": "Bulk Workflow Assignments"
+                            },
+                            {
+                                "value": "USER_ENTITY_IMPORT",
+                                "title": "Entity data imports"
+                            },
+                            {
+                                "value": "USER_ENTITY_EXPORT",
+                                "title": "Entity data exports"
+                            },
+                            {
+                                "value": "SYSTEM_ENTITY_IMPORT",
+                                "title": "System integrations - entity data imports"
+                            },
+                            {
+                                "value": "SYSTEM_ENTITY_EXPORT",
+                                "title": "System integrations - entity data exports"
+                            }
+                        ]
+                    },
+                    eventSubTypeMap: {
+                        type: Object,
+                        value: {
+                            'QUEUED': ['QUEUED', 'QUEUED_SUCCESS', 'PROCESSING_STARTED'],
+                            'PROCESSING': ['SUBMITTED', 'PROCESSING_COMPLETED',
+                                "PROCESSING_COMPLETE_WITH_WARNING"
+                            ],
+                            'ERRORED': ['PROCESSING_ERROR', 'ABORTED', 'SUBMISSION_ERROR', 'QUEUED_ERROR',
+                                "PROCESSING_START_ERROR",
+                                "PROCESSING_COMPLETE_ERROR", "PROCESSING_SUBMISSION_ERROR", "FAILED"
+                            ]
+                        }
+                    },
+                    /**
+                     * <b><i>Content development is under progress... </b></i> 
+                     */
+                    descending: {
+                        type: Boolean,
+                        value: false
+                    },
+                    /**
+                     * <b><i>Content development is under progress... </b></i> 
+                     */
+                    sortCondition: {
+                        type: String,
+                        observer: '_sortConditionChanged'
+                    },
+                    /**
+                     * <b><i>Content development is under progress... </b></i> 
+                     */
+                    sortingAttributes: {
+                        type: String,
+                        value: "Name,File Type,Status,Last Modified Date,Success Count, Failure Count "
+                    },
+                    /**
+                     * <b><i>Content development is under progress... </b></i> 
+                     */
+                    getAllUsersEvents: {
+                        type: Boolean,
+                        value: false,
+                        observer: '_userStateChanged'
+                    },
+                    /**
+                     * <b><i>Content development is under progress... </b></i> 
+                     */
+                    config: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    /**
+                     * <b><i>Content development is under progress... </b></i> 
+                     */
+                    request: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    /**
+                     * <b><i>Content development is under progress... </b></i> 
+                     */
+                    contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        },
+                        observer: '_contextDataChanged'
+                    },
+                    /**
+                     * <b><i>Content development is under progress... </b></i> 
+                     */
+                    selectedEventType: {
+                        type: String,
+                        value: "USER_ENTITY_IMPORT",
+                        observer: "_onEventTypeFilterChanged"
+                    },
+                    /**
+                     * <b><i>Content development is under progress... </b></i> 
+                     */
+                    selectedEventSubType: {
+                        type: String,
+                        value: "ALL",
+                        observer: "_onEventSubTypeFilterChanged"
+                    },
+                    /**
+                     * <b><i>Content development is under progress... </b></i> 
+                     */
+                    userToggleAllowed: {
+                        type: Boolean,
+                        computed: '_setUserToggleAllowed(config)'
+                    },
+                    _resetSearchEnabled: {
+                        type: Boolean,
+                        value: false
+                    }
+                },
+                behaviors: [
+                    RUFBehaviors.UIBehavior
+                ],
+                /**
+                 * <b><i>Content development is under progress... </b></i> 
+                 */
+                ready: function () {
+                    this._dataFormatter = this._getEventFormattedData.bind(this);
+                    this.config = this.getParentAppConfig('rock-task-list')
+                },
+
+                observers: ['_contextDataChanged(contextData,config)'],
+
+                _contextDataChanged: function (contextData, config) {
+                    if (!_.isEmpty(contextData) && !_.isEmpty(config)) {
+                        this._setEventRequest();
+                    }
+                },
+                _setUserToggleAllowed: function (config) {
+                    return !!config.userToggleAllowed;
+                },
+                _setUserDefaultJobStatus(config) {
+                    return config.defaultJobStatus;
+                },
+                _setEventRequest: function () {
+                    var contextData = DataHelper.cloneObject(this.contextData);
+                    var itemContext = {
+                        "type": "externalevent"
+                    };
+                    contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+                    var req = DataRequestHelper.createEntityGetRequest(contextData);
+                    req.params.query.valueContexts = [{
+                        "source": "internal",
+                        "locale": "en-US"
+                    }];
+
+                    var attributesCriteria = [];
+
+                    this._addEventTypeCriterion(attributesCriteria);
+                    this._addEventSubTypeCriterion(attributesCriteria);
+                    this._addTaskTypeCriterion(attributesCriteria);
+                    this._addIntegrationTypeCriterion(attributesCriteria);
+
+                    req.params.query.filters.attributesCriterion = attributesCriteria;
+
+                    if (this.config.dataRequest && this.config.dataRequest.attributes) {
+                        req.params.fields.attributes = this.config.dataRequest.attributes;
+                    } else {
+                        req.params.fields.attributes = ["_ALL"];
+                    }
+
+                    if (!this.getAllUsersEvents) {
+                        req.params.query.filters.attributesCriterion.push({
+                            "userId": {
+                                "eq": this.userId
+                            }
+                        });
+                    }
+                    req.params.sort = {
+                        "attributes": [{
+                            "createdOn": "_DESC",
+                            "sortType": "_DATETIME"
+                        }]
+                    };
+
+                    req.params.isTaskListGetRequest = true;
+
+                    //Task summarization processor temp changes...
+                    if(this.selectedEventType == "USER_ENTITY_IMPORT") {
+                        req.params.fields.attributes.push("isSummaryFromTaskProcessor");
+                    }
+
+                    this.set("request", req);
+
+                    this.$$("#importlistGrid").reloadListData();
+                },
+                _addEventTypeCriterion: function (attributesCriterion) {
+                    if (this.selectedEventType) {
+                        var eventTypeCriterion;
+                        switch (this.selectedEventType) {
+                            case "USER_ENTITY_IMPORT":
+                            case "SYSTEM_ENTITY_IMPORT":
+                                eventTypeCriterion = {
+                                    "eventType": {
+                                        "contains": "BATCH_COLLECT_ENTITY_IMPORT BATCH_TRANSFORM_ENTITY_IMPORT"
+                                    }
+                                }
+                                break;
+                            case "USER_ENTITY_EXPORT":
+                            case "SYSTEM_ENTITY_EXPORT":
+                                eventTypeCriterion = {
+                                    "eventType": {
+                                        "contains": "BATCH_COLLECT_ENTITY_EXPORT BATCH_TRANSFORM_ENTITY_EXPORT"
+                                    }
+                                }
+                                break;
+                            case "BULK_EDIT":
+                            case "WORKFLOW_TRANSITION":
+                            case "WORKFLOW_ASSIGNMENT":
+                                eventTypeCriterion = {
+                                    "eventType": {
+                                        "contains": "BATCH_INBOUND BATCH_EXTRACT"
+                                    }
+                                }
+                                break;
+                            default:
+                                eventTypeCriterion = {
+                                    "eventType": {
+                                        "eq": this.selectedEventType
+                                    }
+                                }
+                        }
+
+                        attributesCriterion.push(eventTypeCriterion);
+                    }
+                },
+                _addEventSubTypeCriterion: function (attributesCriterion) {
+                    if (this.selectedEventSubType && this.selectedEventSubType != "ALL") {
+                        var eventSubTypeCriterion = {
+                            "eventSubType": {
+                                "eq": this.selectedEventSubType
+                            }
+                        };
+
+                        attributesCriterion.push(eventSubTypeCriterion);
+                    }
+                },
+                _addTaskTypeCriterion: function (attributesCriterion) {
+                    if (this.selectedEventType) {
+                        var taskTypeCriterion;
+                        if (this.selectedEventType == "BULK_EDIT") {
+                            taskTypeCriterion = {
+                                "taskType": {
+                                    "contains": "process*"
+                                }
+                            };
+                        } else if (this.selectedEventType == "WORKFLOW_TRANSITION") {
+                            taskTypeCriterion = {
+                                "taskType": {
+                                    "contains": "transitionWorkflow*"
+                                }
+                            };
+                        } else if (this.selectedEventType == "WORKFLOW_ASSIGNMENT") {
+                            taskTypeCriterion = {
+                                "taskType": {
+                                    "contains": "changeAssignment*"
+                                }
+                            };
+                        }
+
+                        if (taskTypeCriterion) {
+                            attributesCriterion.push(taskTypeCriterion);
+                        }
+                    }
+                },
+                _addIntegrationTypeCriterion: function (attributesCriterion) {
+                    if (this.selectedEventType) {
+                        var integrationTypeCriterion;
+                        if (this.selectedEventType == "USER_ENTITY_IMPORT" || this.selectedEventType ==
+                            "USER_ENTITY_EXPORT") {
+                            integrationTypeCriterion = {
+                                "integrationType": {
+                                    "eq": "User"
+                                }
+                            };
+                        } else if (this.selectedEventType == "SYSTEM_ENTITY_IMPORT" || this.selectedEventType ==
+                            "SYSTEM_ENTITY_EXPORT") {
+                            integrationTypeCriterion = {
+                                "integrationType": {
+                                    "eq": "System"
+                                }
+                            };
+                        }
+
+                        if (integrationTypeCriterion) {
+                            attributesCriterion.push(integrationTypeCriterion);
+                        }
+                    }
+                },
+                _getEventFormattedData: function (data) {
+                    var attributeNames = this._getAttributeNamesFromListConfig(this.config);
+
+                    if (data && data.content) {
+                        var events = data.content.events;
+                        if (events) {
+                            events = DataTransformHelper.transformEntitiesToSimpleSchema(events,
+                                attributeNames, this.contextData);
+                        }
+                    }
+
+                    for (var i in events) {
+                        var event = events[i];
+                        event.eventSubType = this._getExternalEventSubType(event.eventSubType.toUpperCase());
+                        var eventTypeCode = event.eventType;
+                        var eventSubTypeCode = event.eventSubType;
+
+                        if (this.selectedEventType == "WORKFLOW_TRANSITION" || this.selectedEventType == "WORKFLOW_ASSIGNMENT" ||
+                        this.selectedEventType == "BULK_EDIT") {
+                            event.fileName = event.taskName ? event.taskName : event.taskId; //Title of the task in list view
+                            delete event.taskName;
+                        }
+
+                        event.fileTypeImage = this._getIconPath(event.formatter);
+                        event.createdOn = FormatHelper.convertFromISODateTimeToClientFormat(event.createdOn, 'datetime');
+
+                        if (event.userId) {
+                            event.userId = event.userId.replace("_user", "");
+                        } else {
+                            event.userId = "Unknown user";
+                        }
+
+                        if (!(eventTypeCode == "ASSET_IMPORT_RECORD" || eventSubTypeCode == "QUEUED")) {
+                            if (event.recordCount && event.recordCount > 0) {
+                                event.recordCount = "Total " + event.recordCount +
+                                    " record(s) submitted"
+                            } else {
+                                event.recordCount = "Record count is unavailable";
+                            }
+
+                            event.viewDetails = "View Details"
+                        } else if (eventTypeCode == "ASSET_IMPORT_RECORD") {
+                            event.recordCount = "Total 1 record(s) submitted"
+                        } else {
+                            event.recordCount = "Record count is unavailable";
+                        }
+                    }
+
+                    return events;
+                },
+                _getAttributeNamesFromListConfig: function (config) {
+                    var listItems = config.list.listItems;
+                    var attributeNames = [];
+                    attributeNames.push(listItems.image);
+                    attributeNames.push(listItems.title);
+                    attributeNames.push(listItems.subtitle);
+                    attributeNames.push(listItems.id);
+                    for (var i in listItems.fields) {
+                        var field = listItems.fields[i];
+                        attributeNames.push(field.name);
+                    }
+
+                    if (attributeNames.indexOf("eventType") < 0) {
+                        attributeNames.push("eventType");
+                    }
+
+                    return attributeNames;
+                },
+                _getIconPath: function (formatter) {
+                    if (!formatter) {
+                        return "/src/images/image.svg";
+                    }
+
+                    switch (formatter.toLowerCase()) {
+                        case "excel":
+                            return "/src/images/Microsoft Excel 50, 100, 500 px/Microsoft Excel_100.svg";
+                        case "rsjson":
+                            return "/src/images/json.svg";
+                        default:
+                            return "/src/images/Microsoft Excel 50, 100, 500 px/Microsoft Excel_100.svg";
+                    }
+                },
+                _onEventTypeFilterChanged: function (selectedEventType) {
+                    if (this.request && !_.isEmpty(this.request) && selectedEventType) {
+                        var req = this.request;
+
+                        var attributesCriteria = req.params.query.filters.attributesCriterion;
+
+                        for (var i in attributesCriteria) {
+                            if (attributesCriteria[i].eventType) {
+                                attributesCriteria.splice(i, 1);
+                                break;
+                            }
+                        }
+
+                        for (var i in attributesCriteria) {
+                            if (attributesCriteria[i].taskType) {
+                                attributesCriteria.splice(i, 1);
+                                break;
+                            }
+                        }
+
+                        for (var i in attributesCriteria) {
+                            if (attributesCriteria[i].integrationType) {
+                                attributesCriteria.splice(i, 1);
+                                break;
+                            }
+                        }
+
+                        this._addEventTypeCriterion(attributesCriteria);
+                        this._addTaskTypeCriterion(attributesCriteria);
+                        this._addIntegrationTypeCriterion(attributesCriteria);
+
+                        //Task summarization processor temp changes...
+                        var attributes = req.params.fields.attributes;
+                        if(this.selectedEventType == "USER_ENTITY_IMPORT") {
+                            attributes.push("isSummaryFromTaskProcessor");
+                        } else {
+                            var index = attributes.indexOf("isSummaryFromTaskProcessor");
+                            if(index >= 0){
+                                attributes.splice(index, 1);
+                            }
+                        }
+
+                        this.$$("#importlistGrid").reloadListData();
+                    }
+                },
+                _onEventSubTypeFilterChanged: function (selectedEventSubType) {
+                    if (this.request && !_.isEmpty(this.request) && selectedEventSubType) {
+
+                        var req = this.request;
+                        var attributesCriteria = req.params.query.filters.attributesCriterion;
+
+                        for (var i in attributesCriteria) {
+                            if (attributesCriteria[i].eventSubType) {
+                                attributesCriteria.splice(i, 1);
+                                break;
+                            }
+                        }
+
+                        this._addEventSubTypeCriterion(attributesCriteria);
+
+                        this.$$("#importlistGrid").reloadListData();
+                    }
+                },
+                _onSearch: function (e, detail) {
+                    if (this.request && !_.isEmpty(this.request)) {
+                        if (detail) {
+                            var req = this.request;
+                            req.params.query.filters.keywordsCriterion = {
+                                "keywords": "*" + detail + "*",
+                                "operator": "_OR"
+                            };
+                        } else {
+                            var req = this.request;
+                            delete req.params.query.filters.keywordsCriterion;
+                        }
+
+                        this.$$("#importlistGrid").reloadListData();
+                    }
+                },
+                _userStateChanged: function (getAllUsersEvents) {
+                    if (this.request && !_.isEmpty(this.request)) {
+                        if (!getAllUsersEvents) {
+                            var req = this.request;
+                            req.params.query.filters.attributesCriterion.push({
+                                "userId": {
+                                    "eq": this.userId
+                                }
+                            });
+                        } else {
+                            var req = this.request;
+                            var attributesCriteria = req.params.query.filters.attributesCriterion;
+                            for (var i in attributesCriteria) {
+                                if (attributesCriteria[i].userId) {
+                                    attributesCriteria.splice(i, 1);
+                                    break;
+                                }
+                            }
+                        }
+                        this.$$("#importlistGrid").reloadListData();
+                    }
+                },
+                _sortByDesecnding: function () {
+                    this.descending = true;
+                },
+                _sortByAsecnding: function () {
+                    this.descending = false;
+                },
+                _sortConditionChanged: function (sortCondition) {
+                    if (this.request) {
+
+                        if (sortCondition) {
+                            var req = this.request;
+                            if (this.descending) {
+                                alert(sortCondition)
+                            } else {
+                                alert(sortCondition)
+                            }
+                        }
+
+                        this.$$("#importlistGrid").reloadListData();
+                    }
+                },
+                _refreshList: function () {
+                    this.$$("#eventDataSource").resetDataSource();
+                    this.$$("#importlistGrid").reloadListData();
+                },
+                _getExternalEventSubType: function (internalEventSubType) {
+                    var eventSubFilterMap = this.eventSubTypeMap;
+
+                    for (var key in eventSubFilterMap) {
+                        var eventSubTypeFilters = eventSubFilterMap[key];
+
+                        if (eventSubTypeFilters.indexOf(internalEventSubType) > -1) {
+                            return key;
+                        }
+                    }
+
+                    return internalEventSubType;
+                },
+                _resetSearch: function () {
+                    if (this.request && !_.isEmpty(this.request)) {
+
+                        var rockSearchBar = this.$$('#searchBar');
+                        if (rockSearchBar) {
+                            rockSearchBar.query = "";
+                        }
+
+                        var req = this.request;
+                        delete req.params.query.filters.keywordsCriterion;
+                        this.$$("#importlistGrid").reloadListData();
+
+                        this._resetSearchEnabled = false;
+                    }
+                },
+                _showResetSearch: function (e) {
+                    var rockSearchBar = this.$$('#searchBar');
+                    var query = '';
+
+                    if (rockSearchBar) {
+                        query = rockSearchBar.query;
+                    }
+
+                    if (!_.isEmpty(query)) {
+                        this._resetSearchEnabled = true;
+                    } else {
+                        this._resetSearchEnabled = false;
+                    }
+                }
+            });
+        })();
+    </script>
+
+</dom-module>

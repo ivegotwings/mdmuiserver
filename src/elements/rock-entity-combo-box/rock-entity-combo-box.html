@@ -8,8 +8,8 @@
 
 <link rel="import" href="../pebble-combo-box/pebble-combo-box.html">
 
-<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../rock-entity-lov/entity-lov-datasource.html">
+<link rel="import" href="../rock-image-source-provider/rock-image-source-provider.html">
 
 <!--
 `rock-entity-combo-box` Represents a component that renders the entities in a combo-box control.
@@ -19,31 +19,33 @@
 
 <dom-module id="rock-entity-combo-box">
     <template>
-        <liquid-entity-data-get id="liquidLovSelectedValueGet" operation="getbyids" on-response="_onLovSelectedValueGetResponse"></liquid-entity-data-get>
         <entity-lov-datasource id="entityLovDataSource" request="[[requestData]]" data-source="{{dataSource}}" data-formatter="{{_dataFormatter}}"
-             attributes-criterion-builder="{{_attributesCriterionBuilder}}" keywords-criterion-builder="{{_keywordsCriterionBuilder}}" is-attribute-filter="{{_isAttributeFilter}}">
+            attributes-criterion-builder="{{_attributesCriterionBuilder}}" keywords-criterion-builder="{{_keywordsCriterionBuilder}}"
+            is-attribute-filter="{{_isAttributeFilter}}">
         </entity-lov-datasource>
-        <pebble-combo-box id="comboBox" label=[[label]] page-size="[[pageSize]]" multi-select="[[multiSelect]]" show-image="[[showImage]]"
+        <rock-image-source-provider image-source="{{imageSource}}"></rock-image-source-provider>
+        <pebble-combo-box id="comboBox" label=[[label]] page-size="[[pageSize]]" multi-select="[[multiSelect]]" show-image="[[_showImage(imageField,imageIdField)]]"
             show-color="[[showColor]]" no-sub-title="[[noSubTitle]]" show-action-buttons="[[showActionButtons]]" is-readonly=[[isReadonly]]
-            data-source="{{dataSource}}" selected-items="{{selectedItems}}" selected-item="{{selectedItem}}" on-selection-changed="_onSelectionChanged">
+            data-source="{{dataSource}}" image-source="{{imageSource}}" selected-ids="{{selectedIds}}" selected-id="{{selectedId}}" selected-values="{{selectedValues}}"
+            selected-value="{{selectedValue}}">
         </pebble-combo-box>
     </template>
     <script>
         Polymer({
             is: 'rock-entity-combo-box',
             properties: {
-          /**
-            * <b><i>Content development is under progress... </b></i> 
-            */
+                /**
+                 * <b><i>Content development is under progress... </b></i> 
+                 */
                 requestData: {
                     type: Object,
                     value: function () {
                         return {};
                     }
                 },
-          /**
-            * <b><i>Content development is under progress... </b></i> 
-            */
+                /**
+                 * <b><i>Content development is under progress... </b></i> 
+                 */
                 contextData: {
                     type: Object,
                     value: function () {
@@ -61,6 +63,10 @@
                  * Indicates an identifier for the item.
                  */
                 idField: {
+                    type: String,
+                    value: ""
+                },
+                imageIdField: {
                     type: String,
                     value: ""
                 },
@@ -106,6 +112,21 @@
                     type: Array,
                     value: []
                 },
+
+                selectedValues: {
+                    type: Array,
+                    value: function () {
+                        return [];
+                    },
+                    notify: true
+                },
+
+                selectedValue: {
+                    type: String,
+                    value: "",
+                    notify: true
+                },
+
                 /**
                  * Specifies whether or not the control is "read-only".
                  */
@@ -149,20 +170,19 @@
                         return {};
                     }
                 },
-                _isSelectionChanged: {
-                    type: Boolean,
-                    value: false
-                },
                 /*
-                * Indicates the attribute of an entity which will be used for sorting the items
-                */
+                 * Indicates the attribute of an entity which will be used for sorting the items
+                 */
                 _sortField: {
                     type: String,
                     value: ""
                 },
                 _isAttributeFilter: {
-                    type:  Boolean,
+                    type: Boolean,
                     value: false
+                },
+                imageSource:{
+                    type:Object
                 }
             },
 
@@ -172,27 +192,18 @@
             ],
 
             observers: [
-                '_prepareAttributes(idField, titlePattern, subTitlePattern, imageField, colorField, valueField, typeField, selectedId, selectedIds,requestData)',
+                '_prepareAttributes(idField,imageIdField, titlePattern, subTitlePattern, imageField, colorField, valueField, typeField, requestData)',
             ],
-          /**
-            * <b><i>Content development is under progress... </b></i> 
-            */
+            /**
+             * <b><i>Content development is under progress... </b></i> 
+             */
             ready: function () {
                 this._keywordsCriterionBuilder = this._prepareKeywordsCriteria.bind(this);
                 this._attributesCriterionBuilder = this._prepareAttributesCriteria.bind(this);
                 this._dataFormatter = this._getAttributeFormattedData.bind(this);
             },
 
-            _prepareAttributes: function (idField, titlePattern, subTitlePattern, imageField, colorField, valueField, selectedId, selectedIds,requestData) {                
-                if(this._isSelectionChanged) {
-                    this._isSelectionChanged = false;
-                    return;
-                }
-
-                if (!this._lovColumnMap) {
-                    this._lovColumnMap = {};
-                }
-
+            _prepareAttributes: function (idField,imageIdField, titlePattern, subTitlePattern, imageField, colorField, valueField, requestData) {
                 var defaultAttributes = this._attributes;
                 this._attributes = [];
                 var attributes = []; // Attributes which will be part of Request Object
@@ -201,6 +212,13 @@
                     var idField = DataHelper.readAttributeFromPath(this.idField);
                     attributes.push(idField);
                     this._lovColumnMap.id = this.idField;
+                }
+                if (typeof (this.imageIdField) !== 'undefined' && this.imageIdField !== "") {
+                    if (!attributes.includes(this.imageIdField)) {
+                        var imageIdField = DataHelper.readAttributeFromPath(this.imageIdField);
+                        attributes.push(imageIdField);
+                        this._lovColumnMap.imageId = imageIdField;
+                    }
                 }
 
                 if (typeof (this.titlePattern) !== 'undefined' && this.titlePattern !== "") {
@@ -221,7 +239,7 @@
                         if (subtitleFields && subtitleFields instanceof Array) {
                             attributes.push(...subtitleFields);
                             this._lovColumnMap.subtitle = this.subTitlePattern;
-                            this._isAttributeFilter = true;                            
+                            this._isAttributeFilter = true;
                         }
                     }
                 }
@@ -230,7 +248,7 @@
                     if (!attributes.includes(this.imageField)) {
                         var imageField = DataHelper.readAttributeFromPath(this.imageField);
                         attributes.push(imageField);
-                        this._lovColumnMap.imageField = this.imageField;
+                        this._lovColumnMap.image = this.imageField;
                     }
                 }
 
@@ -238,15 +256,15 @@
                     if (!attributes.includes(this.colorField)) {
                         var colorField = DataHelper.readAttributeFromPath(this.colorField);
                         attributes.push(colorField);
-                        this._lovColumnMap.colorField = this.colorField;
+                        this._lovColumnMap.color = this.colorField;
                     }
                 }
 
-                if (typeof (this.valueField) == 'undefined' && this.valueField !== "") {
+                if (typeof (this.valueField) !== 'undefined' && this.valueField !== "") {
                     if (!attributes.includes(this.valueField)) {
                         var valueField = DataHelper.readAttributeFromPath(this.valueField);
                         attributes.push(valueField);
-                        this._lovColumnMap.valueField = this.valueField;
+                        this._lovColumnMap.value = this.valueField;
                     }
                 }
 
@@ -264,22 +282,6 @@
                     this.set('requestData.params.fields.attributes', attributes);
                 }
 
-                if (this.multiSelect) {
-                    var _selectedItems = [];
-                    for (var i = 0; i < this.selectedIds.length; i++) {
-                        var selId = this.selectedIds[i];
-                        _selectedItems.push({ 'id': selId, 'title': selId });
-                    }
-                    this.set('selectedItems', _selectedItems);
-                }
-                else {
-                    if (this.selectedId) {
-                        this.set('selectedItem', { 'id': this.selectedId, 'title': this.selectedId });
-                    }
-                }
-
-                this._initiateSelectedIdGetRequest();
-
                 if (!DataHelper.isEmptyObject(this._sortField) && this._sortField !== "name") {
                     var sortAttributes = [];
 
@@ -293,107 +295,8 @@
                     }
                     this.set('requestData.params.sort.attributes', sortAttributes);
                 }
+
             },
-
-            _onSelectionChanged: function (e) {
-                var items = e.detail.items;
-                var selectedIds = [];
-                if (items) {
-                    this._isSelectionChanged = true;
-
-                    for (var i = 0; i < items.length; i++) {
-                        selectedIds.push(items[i].id);
-                    }
-
-                    if (selectedIds && selectedIds.length) {
-                        if (this.multiSelect) {
-                            this.set('selectedIds', selectedIds);
-                        }
-                        else {
-                            this.set('selectedId', selectedIds[0]);
-                        }
-                    } else {
-                        this.set('selectedId', '');
-                        this.set('selectedIds', []);
-                    }
-                }
-            },
-            _initiateSelectedIdGetRequest: function () {
-                var selIds = this.selectedIds || [];
-                if (this.selectedId) {
-                    selIds.push(this.selectedId);
-                }
-
-                //console.log('selected ids', selIds);
-
-                if (!_.isEmpty(this.requestData)) {
-                    var req = DataHelper.cloneObject(this.requestData);
-                    //console.log(req);
-                    var refEntityIds = [];
-                    var refType = req.params.query.filters.typesCriterion[0];
-
-                    for (var i = 0; i < selIds.length; i++) {
-                        var selIdentifierName = selIds[i];
-                        refEntityIds.push(selIdentifierName + "_" + refType);
-                    }
-
-                    if (refEntityIds && refEntityIds.length) {
-                        req.params.query.ids = refEntityIds;
-                        var liquidLovSelectedValueGet = this.$$('#liquidLovSelectedValueGet');
-                        if (liquidLovSelectedValueGet) {
-                            liquidLovSelectedValueGet.requestData = req;
-                            liquidLovSelectedValueGet.generateRequest();
-                        }
-                    }
-                }
-            },
-
-            _onLovSelectedValueGetResponse: function (e) {
-                //console.log('sel value get response ', e.detail.response);
-                var res = e.detail.response;
-
-                if (res) {
-                    var entities = res.content.entities;
-
-                    if (entities && entities.length > 0) {
-
-                        if (this.multiSelect && this.selectedItems && this.selectedItems.length) {
-                            var selItems = [];
-
-                            for (var j = 0; j < this.selectedItems.length; j++) {
-                                var found = false;
-                                for (var i = 0; i < entities.length; i++) {
-                                    var entity = entities[i];
-                                    if (entity.name == this.selectedItems[j].id) {
-                                        var patternedValue = DataTransformHelper.getLovFieldPatternValue(entity, this._lovColumnMap["title"], undefined, this.contextData);
-                                        var selItem = { 'id': entity.name, 'title': patternedValue };
-                                        selItems.push(selItem);
-                                        found = true;
-                                        break;
-                                    }
-                                }
-
-                                if (!found) {
-                                    selItems.push(this.selectedItems[j]);
-                                }
-                            }
-
-                            this.set('selectedItems', selItems);
-                        }
-                        else {
-                            if (this.selectedItem) {
-                                var entity = entities[0];
-                                if (entity.name == this.selectedItem.id) {
-                                    var patternedValue = DataTransformHelper.getLovFieldPatternValue(entity, this._lovColumnMap["title"], undefined, this.contextData);
-                                    var selItem = { 'id': this.selectedId, 'title': patternedValue };
-                                    this.set('selectedItem', selItem);
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-
             _getAttributeFormattedData: function (data) {
                 var entities = [];
                 if (data && data.content) {
@@ -451,11 +354,17 @@
                     return keywordsCriterion;
                 }
             },
-          /**
-            * <b><i>Content development is under progress... </b></i> 
-            */
+            /**
+             * <b><i>Content development is under progress... </b></i> 
+             */
             refreshData: function () {
                 this.$$('pebble-combo-box').refreshData();
+            },
+            clear: function () {
+                this.$$('pebble-combo-box').clear();
+            },
+            _showImage:function () {
+                return (this.imageField || this.imageIdField);
             }
         });
     </script>

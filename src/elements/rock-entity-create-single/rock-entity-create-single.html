@@ -33,12 +33,14 @@ attributes during the single entity creation.
             #content-actions {
                 padding-top: 30px;
             }
-            pebble-dialog::shadow #dialog { 
+            pebble-dialog {
+                --dialog-component:{ 
                 width: 400px;
                 top: 20% !important;
             }
+        }
             #errorsDialog {
-                --popup-header-color: red;
+                --popup-header-color: var(--palette-pinkish-red, #ee204c);
             }
             pebble-dialog::shadow ::content > ul {
                 padding-left: 50px !important;
@@ -46,23 +48,41 @@ attributes during the single entity creation.
             pebble-dialog > ul > li {
                 list-style-type: disc;
             }
+            pebble-button#skip {
+                --pebble-button-paper-style:{
+                    color: var(--secondary-button-text-color, #75808b);
+                    background-color: var(--secondary-button-color, #ffffff);
+                    border: 1px solid var(--secondary-button-border-color, #c1cad4);
+                    font-weight:var(--font-bold, bold);
+                    height: 30px;
+                }
+			}
+            pebble-button#ok {
+                --pebble-button-paper-style:{
+                    color: var(--button-text-color, #ffffff);
+                    background-color: var(--success-button-color, #09c021);
+                    border-color: var(--success-button-color, #09c021);
+                    font-weight:var(--font-bold, bold);
+                    height: 30px;
+                }
+			}
         </style>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <liquid-rest id="entityMatchService" 
-                     url="/pass-through/matchservice/search" 
+                     url="/data/pass-through/matchservice/search" 
                      method="POST" 
                      request-data={{_entityMatchRequest}}
                      on-liquid-response="_onMatchSuccess" 
                      on-liquid-error="_onMatchFailure">
         </liquid-rest>
         <liquid-rest id="entityGovernService" 
-                     url="/pass-through/entitygovernservice/validate" 
+                     url="/data/pass-through/entitygovernservice/validate" 
                      method="POST" 
                      request-data={{_entityGovernRequest}}
                      on-liquid-response="_onEntityGovernResponse" 
                      on-liquid-error="_onEntityGovernFailed">
         </liquid-rest>  
-        <pebble-dialog id="updateConfirmDialog" dialog-title="Found Match">             
+        <pebble-dialog id="updateConfirmDialog" modal small vertical-offset = 150 horizontal-align="auto" vertical-align="auto" no-cancel-on-outside-click no-cancel-on-esc-key dialog-title="Found Match">             
               <p>Found the below matching entity in system: </p>
               <ul>
                   <li>Entity Id: [[_matchedEntity.id]]</li>
@@ -70,11 +90,11 @@ attributes during the single entity creation.
               </ul>
               <p>Do you want to update the entity?</p>
               <div class="buttons">
-                <paper-button dialog-confirm class="btn btn-success" on-tap="_updateEntity">Update</paper-button>
-                <paper-button dialog-confirm class="btn btn-secondary" on-tap="_cancelProcess">Cancel</paper-button>
+                <pebble-button id="ok" button-text="Update" on-tap="_updateEntity"></pebble-button>
+                <pebble-button id="skip" button-text="Cancel" on-tap="_cancelProcess"></pebble-button>
               </div>
         </pebble-dialog>
-        <pebble-dialog id="errorsDialog" dialog-title="Errors on page">
+        <pebble-dialog id="errorsDialog" modal small vertical-offset = 150 horizontal-align="auto" vertical-align="auto" no-cancel-on-outside-click no-cancel-on-esc-key dialog-title="Errors on page">
             <p>Found below errors in entity details: </p>
             <ul>
                 <template is="dom-repeat" items="[[_syncValidationErrors]]">
@@ -83,8 +103,8 @@ attributes during the single entity creation.
             </ul>             
             <p>Do you want to fix the errors or continue?</p>  
             <div class="buttons">
-                <paper-button dialog-confirm class="btn btn-secondary" on-tap="_skipServerErrors" >Skip & Continue</paper-button>
-                <paper-button dialog-confirm class="btn btn-success" on-tap="_fixServerErrors" >Fix</paper-button>
+                <pebble-button id="skip" button-text="Skip & Continue" on-tap="_skipServerErrors" ></pebble-button>
+                <pebble-button id="ok" button-text="Fix" on-tap="_fixServerErrors" ></pebble-button>
               </div>
         </pebble-dialog>
         <rock-attribute-list attribute-values="[[_attributeValues]]" attribute-models="[[_attributeModels]]" context-data="[[contextData]]" 
@@ -259,16 +279,17 @@ attributes during the single entity creation.
                         var entityType = itemCtx.type;
                         var entityId = "e" + ElementHelper.getRandomString();
                         itemCtx.id = entityId;                 
-                        var newEntity = DataTransformHelper.prepareEntityForCreate(entityId, entityType, attributesJSON, this.contextData, "John");
+                        var newEntity = DataTransformHelper.prepareEntityForCreate(entityId, entityType, attributesJSON, this.contextData, DataHelper.getUserName());
                         ComponentHelper.getParentElement(this).contextData=this.contextData;
-                         //TODO:: this must come from some model config
-                        this._populateEntityIdFromAttrVal(newEntity, newEntity.data.attributes, "cpimProductName");
-                        this._populateEntityIdFromAttrVal(newEntity, newEntity.data.attributes, "shortDescription");
-                        this._populateEntityIdFromAttrVal(newEntity, newEntity.data.attributes, "skuid");
 
                         this._saveRequest = {
                             "entities": [newEntity]
                         };
+
+                        //Add hotline flag if hotline is enabled
+                        if(DataHelper.isHotlineModeEnabled()) {
+                            this._saveRequest["hotline"] = true;
+                        }
 
                         //Set match request
                         this.set('_entityMatchRequest', {
@@ -288,7 +309,7 @@ attributes during the single entity creation.
                                 response.dataObjectOperationResponse.status.toLowerCase() == "error") || 
                                 (response.status && response.status.toLowerCase() == "error"))
                             {
-                                console.warn("Failed to request match service with error: ", detail);
+                                this.logWarning("MatchServiceRequestFail","response",JSON.stringify(detail));
                                 this.showErrorToast("There is a problem in match service. Please contact administrator.");
                                 return;
                             }
@@ -321,11 +342,19 @@ attributes during the single entity creation.
                     },
 
                     _onMatchFailure: function(e, detail) {
-                        console.warn("Failed to request match service, errors: ", detail);
+                        this.logWarning("MatchServiceRequestFail","response",JSON.stringify(detail));
                         this.showErrorToast("There is a problem in match service. Please contact administrator.");
                     },
 
-                    _updateEntity: function() {                        
+                    _updateEntity: function() {
+                        var updateConfirmDialog = this.$.updateConfirmDialog;
+                        if(updateConfirmDialog) {
+                            updateConfirmDialog.close();
+                        }     
+                        var clientState = {};
+                        clientState.notificationInfo = {};
+                        clientState.notificationInfo.showNotificationToUser = false;
+                        this._saveRequest["clientState"] = clientState;
                         this._saveRequest.entities[0].id = this._matchedEntity.id;
                         var itemCtx = this.getFirstItemContext();
                         itemCtx.id = this._matchedEntity.id;
@@ -342,17 +371,10 @@ attributes during the single entity creation.
                         }
                     },                    
                     _cancelProcess: function() {
-                        //Stay at same page
-                    },
-                    _populateEntityIdFromAttrVal: function(entity, changedAttributes, attrName) {
-                        if (changedAttributes) {
-                            if (attrName in changedAttributes) {
-                                var attr = changedAttributes[attrName]; 
-                                if (attr.values && attr.values.length> 0) { 
-                                    entity.id = attr.values[0].value; 
-                                }
-                            }
-                        }                     
+                        var updateConfirmDialog = this.$.updateConfirmDialog;
+                        if(updateConfirmDialog) {
+                            updateConfirmDialog.close();
+                        }
                     },
                     _onSaveResponse: function(e) {
                         var eventName = "onSave";
@@ -436,7 +458,7 @@ attributes during the single entity creation.
                             var attrMessages = {};
                             if (entity && entity.data && entity.data.attributes) {
                                 var attributes = entity.data.attributes;
-                                attrMessages = MessageHelper.getAttributeMessages(attributes, this._attributeModels, this.messageCodeMapping);
+                                attrMessages = MessageHelper.getAttributeMessages(attributes, this._attributeModels, this.messageCodeMapping, this.localize);
                             }
                             if(!_.isEmpty(attrMessages)) {
                                 var errorMessages = MessageHelper.getErrorsFromAttrMessages(attrMessages, this._attributeModels);
@@ -450,21 +472,29 @@ attributes during the single entity creation.
                                 }    
                             }
                         } else {
-                            console.warn("Failed in validation service with errors: ", JSON.stringify(e.detail.response));
+                            this.logWarning("EntityCreateValidationFail","response",JSON.stringify(e.detail.response));
                             this.showErrorToast("There is a problem in validation service. Please contact administrator.");
                         }                        
                     },
                     _onEntityGovernFailed: function (e) {
-                        console.warn('Failed in validation service with errors ', JSON.stringify(e));
+                        this.logWarning("EntityCreateValidationFail","response",JSON.stringify(e));
                         this.showErrorToast("There is a problem in validation service. Please contact administrator.");
                     },
                     _skipServerErrors: function() {
+                        var errorDialog = this.$.errorsDialog;
+                        if(errorDialog) {
+                            errorDialog.close();
+                        }
                         var liquidSave = this.$$("[name=entitySaveService]");
                         if (liquidSave) {
                             liquidSave.generateRequest();
                         }
                     },
                     _fixServerErrors: function() {
+                        var errorDialog = this.$.errorsDialog;
+                        if(errorDialog) {
+                            errorDialog.close();
+                        }
                         if(this._syncValidationErrors) {
                             var newAttributeMessages = {};
                             for(var i=0;i<this._syncValidationErrors.length;i++) {

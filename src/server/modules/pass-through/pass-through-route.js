@@ -10,7 +10,7 @@ if(runOffline) {
 const passThroughService = new PassThroughService(options);
 
 var PassThroughRouter = function (app) {
-    app.post('/pass-through/*', async function (req, res) {
+    app.post('/data/pass-through/*', async function (req, res) {
         
         // var responseContent = "";
         // Object.keys(req).forEach(function(key){
@@ -36,6 +36,10 @@ var PassThroughRouter = function (app) {
     });
     app.post('/pass-through-bulk/entitygovernservice/transitionWorkflow', async function (req, res) {
         var response = await passThroughService.bulkCall(req);
+        res.status(200).send(response);
+    });
+    app.post('/data/pass-through-combined-query/bulkentityservice/createtask', async function (req, res) {
+        var response = await passThroughService.createTaskForCombinedQuery(req);
         res.status(200).send(response);
     });
 };

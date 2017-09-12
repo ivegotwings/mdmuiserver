@@ -19,44 +19,28 @@ EntityCompositeModelGetService.prototype = {
         return this._getCoalesce(request, 'getcoalesce');
     },
     _get: async function (request, serviceOperation) {
-        var serviceName = "entitymodelservice";
 
         if (!this._validate(request)) {
             return;
         }
 
-        var internalRequest = falcorUtil.cloneObject(request);
-        var objectName = '';
-        if (internalRequest.params && internalRequest.params.query) {
-            var query = internalRequest.params.query;
-            var types = ['entityManageModel', 'entityValidationModel', 'entityDefaultValueModel', 'entityDisplayModel'];
+        var responses = [];
+        var serviceName = "entitymodelservice";
+        var serviceUrl = serviceName + "/" + serviceOperation;
 
-            if (query.valueContexts) {
-                delete query.valueContexts;
-            }
+        //Get entity manage model with permissions...
+        var entityManageGetRes = await this._getEntityManageModelWithPermissions(request, serviceUrl);
+        responses.push(entityManageGetRes);
 
-            if (!query.filters) {
-                query.filters = {};
-            }
+        //Get other models...
+        var types = ['entityValidationModel', 'entityDefaultValueModel', 'entityDisplayModel'];
+        var internalRequest = this._cloneAndPrepareRequestObject(request, types);
+        var res = await this.post(serviceUrl, internalRequest);
+        responses.push(res);
 
-            objectName = query.id.replace('_entityCompositeModel', '');
-            
-            var ids = [];
-
-            for (let type of types) {
-                ids.push(objectName + '_' + type);
-            }
-
-            delete query.id;
-
-            query.ids = ids;
-            query.filters.typesCriterion = types;
-        }
-
-        var res = await this.post(serviceName + "/" + serviceOperation, internalRequest);
-        //console.log('composite model get RDF ', JSON.stringify(res));
+        //console.log('composite model get RDF ', JSON.stringify(responses));
         
-        var mergedModel = this._mergeModels(request, objectName, res, serviceOperation);
+        var mergedModel = this._mergeModels(request, responses, serviceOperation);
 
         var response = {
             'response': {
@@ -68,55 +52,30 @@ EntityCompositeModelGetService.prototype = {
         return response;
     },
     _getCoalesce: async function (request, serviceOperation) {
-        var serviceName = "entitymodelservice";
-
         if (!this._validate(request)) {
             return;
         }
 
-        var internalRequests = [];
+        var responses = [];
+        var serviceName = "entitymodelservice";
+        var serviceUrl = serviceName + "/" + serviceOperation;
         var reqTypes = ['entityManageModel', 'entityValidationModel', 'entityDefaultValueModel', 'entityDisplayModel'];
 
         for(var type of reqTypes) {
-
-            var internalRequest = falcorUtil.cloneObject(request);
-            
-            var objectName = '';
-            
-            if (internalRequest.params && internalRequest.params.query) {
-                var query = internalRequest.params.query;
-
-                if (query.valueContexts) {
-                    delete query.valueContexts;
-                }
-
-                if (!query.filters) {
-                    query.filters = {};
-                }
-
-                objectName = query.id.replace('_entityCompositeModel', '');
-                
-                delete query.ids;
-
-                query.id = objectName + "_" + type;
-                query.filters.typesCriterion = [type];
+            var modelGetResponse = undefined;
+            if(type == "entityManageModel") {
+                modelGetResponse = await this._getEntityManageModelWithPermissions(request, serviceUrl);
+            } else {
+                var internalRequest = this._cloneAndPrepareRequestObject(request, [type]);
+                modelGetResponse = await this.post(serviceUrl, internalRequest);
             }
 
-            internalRequests.push(internalRequest);
+            responses.push(modelGetResponse);
         }
+        
+        //console.log('composite model get RDF ', JSON.stringify(responses));
 
-        var serviceUrl = serviceName + "/" + serviceOperation;
-
-        var res = [];
-
-        for (var req of internalRequests) {
-            var oneRes = await this.post(serviceUrl, req);
-            res.push(oneRes);
-            
-        }
-        //console.log('composite model get RDF ', JSON.stringify(res));
-
-        var mergedModel = this._mergeModels(request, objectName, res, serviceOperation);
+        var mergedModel = this._mergeModels(request, responses, serviceOperation);
 
         var response = {
             'response': {
@@ -133,20 +92,181 @@ EntityCompositeModelGetService.prototype = {
     _validate: function (reqData) {
         return true;
     },
-    _mergeModels: function (request, objectName, response, serviceOperation) {
+    _getEntityManageModelWithPermissions: async function (request, serviceUrl) {
+        var entityManageModelGetRes = undefined;
 
-        var allModels = [];
+        var internalRequest = this._cloneAndPrepareRequestObject(request, ['entityManageModel']);
 
-        if (serviceOperation == 'getcoalesce') {
-            for (var res of response) {
-                if (res.response) {
-                    allModels.push.apply(allModels, res.response.entityModels);
+        if(!internalRequest.params) {
+            internalRequest['params'] = {};
+        }
+
+        //Get entityManageModel with 'read' permission...
+        internalRequest.params['intent'] = 'read';
+        var readWriteModelRes = await this.post(serviceUrl, internalRequest);
+
+        if(readWriteModelRes && readWriteModelRes.response) {
+            var readWriteModels = readWriteModelRes.response.entityModels;
+            if(readWriteModels && readWriteModels.length > 0) {
+                //Get entityManageModel with 'write' permission...
+                internalRequest.params['intent'] = 'write';
+                var writeModelRes = await this.post(serviceUrl, internalRequest);
+
+                if(writeModelRes && writeModelRes.response) {
+                    var writeModels = writeModelRes.response.entityModels;
+                    if(writeModels && writeModels.length > 0) {
+                        for (var i = 0; i < readWriteModels.length; i++) {
+                            var readWriteModel = readWriteModels[i];
+                            var writeModel = writeModels[i];
+
+                            if(readWriteModel && readWriteModel.data) {
+                                var writeModelData = {};
+                                if(writeModel && writeModel.data) {
+                                    writeModelData = writeModel.data;
+                                }
+
+                                this._mergeEntityManageModelsPermissions(readWriteModel.data, writeModelData);
+                            }
+                        }
+                    } else {
+                        //write model is not available...
+                        //set all data objects as readonly in readWriteModels
+                        for (var i = 0; i < readWriteModels.length; i++) {
+                            var readWriteModel = readWriteModels[i];
+
+                            if(readWriteModel && readWriteModel.data) {
+                                var writeModelData = {};
+                                this._mergeEntityManageModelsPermissions(readWriteModel.data, writeModelData);
+                            }
+                        }
+                    }
+                }
+            }
+
+            entityManageModelGetRes = readWriteModelRes;
+        }
+
+        return entityManageModelGetRes
+    },
+    _mergeEntityManageModelsPermissions: function (readWriteModel, writeModel) {
+        //Merge self attributes
+        if(readWriteModel.attributes) {
+            this._verifyAndPopulateWritePermissions(readWriteModel.attributes, writeModel.attributes, false);
+        }
+
+        //Merge self relationships
+        if(readWriteModel.relationships) {
+            this._verifyAndPopulateWritePermissions(readWriteModel.relationships, writeModel.relationships, true);
+        }
+
+        //Merge context data
+        if(readWriteModel.contexts) {
+            for (let readWriteModelContextItem of readWriteModel.contexts) {
+                var writeModelContextItem = undefined;
+                if(writeModel.contexts) {
+                    var readWriteModelContext = readWriteModelContextItem.context;
+                    var readWriteModelCtxKey = falcorUtil.createCtxKey(readWriteModelContext);
+
+                    for (let contextItem of writeModel.contexts) {
+                        var writeModelContext = contextItem.context;
+                        var writeModelCtxKey = falcorUtil.createCtxKey(writeModelContext);
+
+                        if(readWriteModelCtxKey == writeModelCtxKey) {
+                            writeModelContextItem = contextItem;
+                        }
+                    }   
+                }
+
+                if(readWriteModelContextItem.attributes) {
+                    this._verifyAndPopulateWritePermissions(readWriteModelContextItem.attributes, (writeModelContextItem ? writeModelContextItem.attributes : undefined), false);
+                }
+
+                if(readWriteModelContextItem.relationships) {
+                    this._verifyAndPopulateWritePermissions(readWriteModelContextItem.relationships, (writeModelContextItem ? writeModelContextItem.relationships : undefined), true);
                 }
             }
         }
-        else {
-            if(response.response) {
-                allModels = response.response.entityModels;
+    },
+    _verifyAndPopulateWritePermissions: function (readWriteObjects, writeObjects, isRelType) {
+        for (var readWriteObjKey in readWriteObjects) {
+            var readWriteObj = readWriteObjects[readWriteObjKey];
+
+            if(isRelType && readWriteObj.length > 0) {
+                readWriteObj = readWriteObj[0]
+            }
+
+            if(!readWriteObj.properties) {
+                readWriteObj.properties = {};
+            }
+            
+            if(writeObjects && writeObjects[readWriteObjKey]) {
+                readWriteObj.properties['hasWritePermission'] = true;
+            } else {
+                readWriteObj.properties['hasWritePermission'] = false;
+            }
+
+            if(isRelType) {
+                //Verify and populate write permissions for rel attributes...
+                if(readWriteObj.attributes) {
+                    var writeObjectRelAttributes = {};
+                    if(writeObjects) {
+                        var writeObj = writeObjects[readWriteObjKey];
+
+                        if(writeObj && writeObj.length > 0) {
+                            writeObjectRelAttributes = writeObj[0].attributes;
+                        }
+                    }
+
+                    this._verifyAndPopulateWritePermissions(readWriteObj.attributes, writeObjectRelAttributes, false);
+                }
+            }
+        }
+    },
+    _cloneAndPrepareRequestObject: function (request, types) {
+        var objectName = '';
+        var internalRequest = falcorUtil.cloneObject(request);
+        
+        if (internalRequest.params && internalRequest.params.query) {
+            var query = internalRequest.params.query;
+
+            if (query.valueContexts) {
+                delete query.valueContexts;
+            }
+
+            if (!query.filters) {
+                query.filters = {};
+            }
+
+            objectName = query.id.replace('_entityCompositeModel', '');
+                
+            if(types.length > 1) {
+                var ids = [];
+
+                for (let type of types) {
+                    ids.push(objectName + '_' + type);
+                }
+
+                delete query.id;
+                query.ids = ids;
+            } else if (types.length == 1) {
+                delete query.ids;
+                query.id = objectName + "_" + types[0];
+            } else {
+                //This does not happen...
+            }
+
+            query.filters.typesCriterion = types;
+        }
+
+        return internalRequest;
+    },
+    _mergeModels: function (request, response, serviceOperation) {
+        var objectName = '';
+        var allModels = [];
+
+        for (var res of response) {
+            if (res.response) {
+                allModels.push.apply(allModels, res.response.entityModels);
             }
         }
 
@@ -155,8 +275,14 @@ EntityCompositeModelGetService.prototype = {
         var mergedModel = {};
         var localeContext = undefined;
 
-        if(request.params && request.params.query && request.params.query.contexts && request.params.query.contexts.length > 0) {
-            localeContext = request.params.query.contexts[0];
+        if(request.params && request.params.query) {
+            var query = request.params.query;
+
+            objectName = query.id.replace('_entityCompositeModel', '');
+
+            if(query.contexts && query.contexts.length > 0) {
+                localeContext = query.contexts[0];
+            }
         }
         
         var mergedLocaleCtxItem = {};

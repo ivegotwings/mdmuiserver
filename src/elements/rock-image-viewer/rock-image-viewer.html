@@ -6,6 +6,7 @@
 <link rel="import" href="../pebble-image-viewer/pebble-image-viewer.html">
 
 <link rel="import" href="../liquid-rest/liquid-rest.html">
+<script src="../../scripts/Base64.js"></script>
 
 <!--
 `rock-image-viewer` Represents an element that displays an image.
@@ -37,7 +38,7 @@
                              preload="[[preload]]" prevent-load="[[preventLoad]]" sizing="[[sizing]]" src="[[src]]"
                              width="[[width]]">
         </pebble-image-viewer>
-        <liquid-rest id="getThumbnail" url="/pass-through/binaryobjectservice/get" method="POST"  on-liquid-response="_onGetThumbnailResponse">
+        <liquid-rest id="getThumbnail" url="/data/pass-through/binaryobjectservice/get" method="POST"  on-liquid-response="_onGetThumbnailResponse">
         </liquid-rest>
 
     </template>
@@ -54,8 +55,7 @@
                  */
                 src: {
                     type: String,
-                    value: "",
-                    observer:'_generateGetThumbnailRequest'
+                    value: ""
                 },
 
                 /**
@@ -231,29 +231,83 @@
             * <b><i>Content development is under progress... </b></i> 
             */
                 thumbnailId:{
+                    type:String
+                },
+                noThumbnailImagePath:{
                     type:String,
-                    value:"",
-                    observer:'_generateGetThumbnailRequest'
+                    value:"/src/images/no-thumbnail.svg"
+                },
+                loadingThumbnailPath: {
+                    type: String,
+                    value: "/src/images/loading-thumbnail.svg"
+                },
+                active:{
+                    type:Boolean,
+                    value:false
+                }
+            },
+            observers:[
+                "_generateGetThumbnailRequest(thumbnailId,active)"
+            ],
+            attached:function () {
+                this._initLazyLoad();
+            },
+            _initLazyLoad:function () {
+                if (!('IntersectionObserver' in window)) {
+                    var script = document.getElementById('polyfill-IntersectionObserver');
+                    if (!script) {
+                        script = document.createElement('script');
+                        script.id = 'polyfill-IntersectionObserver';
+                        script.async = true;
+                        script.src = '/src/scripts/intersection-observer.js';
+                        script.onload = onload;
+                        document.head.appendChild(script);
+                    }
+                    var _this=this;
+                    script.addEventListener("load",function () {
+                        _this._initLazyLoad(true);
+                    });
+                } else {
+                    if (!window.imageIntersectionObserver) {
+                        window.imageIntersectionObserver = new IntersectionObserver(function (entries, observer) {
+                            for (let i = 0; i < entries.length; i++) {
+                                entries[i].target._lazyLoadCallback(entries[i]);
+                            }
+                        }, {});
+                    }
+                    // observe this element
+                    window.imageIntersectionObserver.observe(this);
+                }
+            },
+            _lazyLoadCallback(e) {
+                if (!this.active && (e.isIntersecting || e.intersectionRatio>0)) {
+                    this.active = true;
+                    window.imageIntersectionObserver.unobserve(this);
                 }
             },
             _generateGetThumbnailRequest:function () {
                 if(this.thumbnailId) {
-                    var req = {
-                        "params": {
-                            "query": {
-                                "id": this.thumbnailId,
-                                "filters": {}
-                            },
-                            "fields": {}
+                    this.set("src",this.loadingThumbnailPath);
+                    if(this.active) {
+                        var req = {
+                            "params": {
+                                "query": {
+                                    "id": this.thumbnailId,
+                                    "filters": {}
+                                },
+                                "fields": {}
+                            }
+                        };
+                        req.params.query.filters.typesCriterion = ["imagerendition"];
+                        req.params.fields.attributes = ["blob"];
+                        var getThumbnailLiquid = this.$$("#getThumbnail");
+                        if (getThumbnailLiquid) {
+                            getThumbnailLiquid.requestData = req;
+                            getThumbnailLiquid.generateRequest();
                         }
-                    };
-                    req.params.query.filters.typesCriterion = ["imagerendition"];
-                    req.params.fields.attributes = ["blob"];
-                    var getThumbnailLiquid = this.$$("#getThumbnail");
-                    if (getThumbnailLiquid) {
-                        getThumbnailLiquid.requestData = req;
-                        getThumbnailLiquid.generateRequest();
                     }
+                } else {
+                    this.set("src",this.noThumbnailImagePath);
                 }
             },
             _onGetThumbnailResponse:function (e) {
@@ -270,11 +324,37 @@
                         }
                     }
                     if(thumbnail) {
-                        this.set("src", "data:image;base64," + thumbnail);
+                        // decode the base64 and find the mime type. This is needed to display image/svg+xml images
+                        var c = Base64.decode(thumbnail);
+
+                        if (63039 == c.charCodeAt(0)) {
+                            e = "image/jpeg"; 
+                        }
+                        else if (37902 == c.charCodeAt(0)) {
+                            e = "image/png";
+                        }
+                        else if (0 == c.indexOf("GIF")) {
+                            e = "image/gif"; 
+                        }
+                        else if (0 == c.indexOf("BM")) {
+                            e = "image/bmp", a = ".bmp"; 
+                        }
+                        else if (0 < c.indexOf("\x3csvg")) {
+                            e = "image/svg+xml";
+                        }
+                        else {
+                            e = "image";
+                        }
+
+                        var imgSrc = "data:" + e + ";base64," + thumbnail;
+                        
+                        this.set("src", imgSrc);
+                    } else {
+                        //console.log('no thumbnail path ', this.noThumbnailImagePath);
+                        this.set("src",this.noThumbnailImagePath);
                     }
                 }
-            },
-
+            }
         });
     </script>
 </dom-module>

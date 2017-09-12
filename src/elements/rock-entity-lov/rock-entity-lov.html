@@ -5,8 +5,10 @@
 <link rel="import" href="../bedrock-helpers/data-transform-helper.html">
 <link rel="import" href="../bedrock-helpers/element-helper.html">
 <link rel="import" href="../bedrock-lov-behavior/bedrock-lov-behavior.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 
 <link rel="import" href="../pebble-lov/pebble-lov.html">
+<link rel="import" href="../rock-image-source-provider/rock-image-source-provider.html">
 
 <link rel="import" href="entity-lov-datasource.html">
 
@@ -18,13 +20,19 @@ It filters the data as per the filter criteria.
 -->
 
 <dom-module id="rock-entity-lov">
+    <style include="pebble-styles-shared">
+        pebble-lov{
+            @apply(--pebble-lov);
+        }
+    </style>
     <template>
         <entity-lov-datasource id="entityLovDataSource" request="[[requestData]]" data-source="{{dataSource}}" data-formatter="{{_dataFormatter}}"
             keywords-criterion-builder="{{_keywordsCriterionBuilder}}">
         </entity-lov-datasource>
-        <pebble-lov id="entityLov" page-size="[[pageSize]]" multi-select="[[multiSelect]]" show-image="[[showImage]]" show-color="[[showColor]]"
+        <rock-image-source-provider image-source="{{imageSource}}"></rock-image-source-provider>
+        <pebble-lov id="entityLov" image-source="{{imageSource}}" page-size="[[pageSize]]" multi-select="[[multiSelect]]" show-image="[[_showImage(imageField,imageIdField)]]" show-color="[[showColor]]"
             no-sub-title="[[noSubTitle]]" show-action-buttons="[[showActionButtons]]" data-source="{{dataSource}}" items="[[items]]"
-            selected-item="{{selectedItem}}" selected-items="{{selectedItems}}">
+            selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" allow-search-query-format >
         </pebble-lov>
     </template>
     <script>
@@ -45,13 +53,6 @@ It filters the data as per the filter criteria.
                     value: function () {
                         return {};
                     }
-                },
-                /**
-                 * Specifies whether or not to generate the console logs.
-                 */
-                verbose: {
-                    type: Boolean,
-                    value: false
                 },
                 /*
                  * Indicates an identifier for the item.
@@ -78,6 +79,10 @@ It filters the data as per the filter criteria.
                  * Indicates an image for the item.
                  */
                 imageField: {
+                    type: String,
+                    value: ""
+                },
+                imageIdField: {
                     type: String,
                     value: ""
                 },
@@ -119,6 +124,9 @@ It filters the data as per the filter criteria.
                     value: function () {
                         return {};
                     }
+                },
+                imageSource:{
+                    type:Object
                 }
             },
 
@@ -134,23 +142,21 @@ It filters the data as per the filter criteria.
             },
 
             observers: [
-                '_prepareAttributes(idField, titlePattern, subTitlePattern, imageField, colorField, valueField, typeField, requestData)'
+                '_prepareAttributes(idField, titlePattern, subTitlePattern, imageField,imageIdField, colorField, valueField, typeField, requestData)'
             ],
           /**
             * <b><i>Content development is under progress... </b></i> 
             */
             ready: function () {
                 this._attributesCriterionBuilder = this._prepareAttributesCriteria.bind(this);
-                this._keywordsCriterionBuilder = this._prepareKeywordsCriteria.bind(this);
+                this._keywordsCriterionBuilder = DataHelper.getSearchCriteria.bind(this);
                 this._dataFormatter = this._getAttributeFormattedData.bind(this);
 
-                if (this.verbose) {
-                    // Todo..  Id may not be available every time
-                    console.log("Request Object for the Element: " + this.id + "is" + JSON.stringify(this.requestData));
-                }
+                // Todo..  Id may not be available every time
+                this.logInfo("AttributeModelReady","id",this.idField,"requestData",JSON.stringify(this.requestData));
             },
 
-            _prepareAttributes: function (idField, titlePattern, subTitlePattern, imageField, colorField,
+            _prepareAttributes: function (idField, titlePattern, subTitlePattern, imageField,imageIdField, colorField,
                 valueField, requestData) {
                 var defaultAttributes = this._attributes;
                 this._attributes = [];
@@ -165,6 +171,7 @@ It filters the data as per the filter criteria.
                         var titleFields = DataHelper.getAttributesBetweenCurlies(this.titlePattern);
                         if (titleFields && titleFields instanceof Array) {
                             attributes.push(...titleFields);
+                            this._sortField = titleFields.length > 0 ? titleFields[0] : "";
                         }
                     }
                 }
@@ -181,6 +188,11 @@ It filters the data as per the filter criteria.
                 if (typeof (this.imageField) !== 'undefined' && this.imageField !== "") {
                     if (!attributes.includes(this.imageField)) {
                         attributes.push(this.imageField);
+                    }
+                }
+                if (typeof (this.imageIdField) !== 'undefined' && this.imageIdField !== "") {
+                    if (!attributes.includes(this.imageIdField)) {
+                        attributes.push(this.imageIdField);
                     }
                 }
 
@@ -203,17 +215,34 @@ It filters the data as per the filter criteria.
                     this._attributes = defaultAttributes;
                 } else {
                     // Todo.. This will not work in a scenario where request object is not initialized
-                    if (!_.isEmpty(this.requestData) && typeof (this.requestData.params.fields) === "undefined") {
+                    if (!DataHelper.isEmptyObject(this.requestData) && typeof (this.requestData.params.fields) === "undefined") {
                         this.set('requestData.params.fields', {});
                     }
                     //this.set('requestData.params.fields.attributes', attributes);
                     this._attributes = attributes;
                 }
 
-                if(this.requestData && !_.isEmpty(this.requestData) && this.requestData.params.fields)
-                {                    
+                if (!DataHelper.isEmptyObject(this._sortField) && this._sortField !== "name") {
+                    var sortAttributes = [];
+
+                    var sortAttribute = {};
+                    sortAttribute[this._sortField] = "_ASCE";
+                    sortAttribute["sortType"] = "_STRING"; // How to determine this?
+                    sortAttributes.push(sortAttribute);
+
+                    if (!DataHelper.isEmptyObject(this.requestData) && DataHelper.isEmptyObject(this.requestData.params.sort)) {
+                        this.set('requestData.params.sort', {});
+                    }
+                    this.set('requestData.params.sort.attributes', sortAttributes);
+                }
+
+
+                if(this.requestData && !DataHelper.isEmptyObject(this.requestData) && this.requestData.params.fields) {
                     this.requestData.params.fields.attributes = this._attributes;
                 }
+
+
+
 
                 this._prepareAttributeMaps();
             },
@@ -247,6 +276,7 @@ It filters the data as per the filter criteria.
                 this._lovColumnNameValueCollection.title = this.titlePattern;
                 this._lovColumnNameValueCollection.subtitle = this.subTitlePattern;
                 this._lovColumnNameValueCollection.image = this.imageField;
+                this._lovColumnNameValueCollection.imageId = this.imageIdField;
                 this._lovColumnNameValueCollection.color = this.colorField;
                 this._lovColumnNameValueCollection.value = this.valueField;
                 this._lovColumnNameValueCollection.type = this.typeField;                
@@ -260,6 +290,7 @@ It filters the data as per the filter criteria.
                         entities = DataTransformHelper.transformEntitySchemaToLovSchema(entities, this._lovColumnNameValueCollection);
                     }
                 }
+
                 return entities;
             },
 
@@ -274,17 +305,6 @@ It filters the data as per the filter criteria.
                     searchKey[this.titlePattern] = searchValue;
                     attributesCriterion.push(searchKey);
                     return attributesCriterion;
-                }
-            },
-
-            _prepareKeywordsCriteria: function (searchText) {
-                if (searchText) {
-                    var keywordsCriterion = {};
-
-                    keywordsCriterion.keywords = "*"+searchText+"*";
-                    keywordsCriterion.operator = "and";
-
-                    return keywordsCriterion;
                 }
             },
 
@@ -323,6 +343,9 @@ It filters the data as per the filter criteria.
             refershTemplate: function () {
                 this.$$("#entityLov").refereshTemplate();
             },
+            _showImage:function () {
+                return (this.imageField || this.imageIdField);
+            }
         });
     </script>
 </dom-module>

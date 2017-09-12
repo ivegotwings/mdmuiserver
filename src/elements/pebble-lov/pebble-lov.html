@@ -13,6 +13,8 @@
 <link rel="import" href="../pebble-icon/pebble-icon.html">
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../pebble-position-tracker/pebble-position-tracker.html">
+
 
 <!--
 `<pebble-lov>` Represents a control which contains a list of items with the material design styling. 
@@ -30,13 +32,14 @@ can select multiple values.
 -->
 <dom-module id="pebble-lov">
     <style is="custom-style" include="pebble-styles-shared">
-         :host {
+        :host {
             background: var(--palette-white, #fff);
             overflow: hidden;
             display: block;
             max-height: var(--pebble-lov-height, 250px);
             position: relative;
             border-radius: 3px;
+            @apply(--pebble-lov);
         }
 
         pebble-spinner {
@@ -111,7 +114,7 @@ can select multiple values.
             border: 1px solid var(--textbox-border, #d2d8de);
             border-radius: 4px;
             box-sizing: border-box;
-            height: 27px;
+            height: 30px;
             font-size: var(--font-size-sm, 12px);
             vertical-align: middle;
         }
@@ -120,8 +123,9 @@ can select multiple values.
             width: var(--pebble-thumb-image-size, 24px);
             height: var(--pebble-thumb-image-size, 24px);
             display: inline-block;
-            vertical-align: middle;
             margin-right: 5px;
+            vertical-align: middle;
+            padding: 2px 0;
         }
 
         .thumb-image {
@@ -130,15 +134,15 @@ can select multiple values.
         }
 
         .item-wrapper {
-            float: left;
-            width: calc(100% - 30px);
-            padding: 5px 0;
+            max-width: calc(100% - 30px);
+            display: inline-block;
+            padding:5px 0;
         }
 
         .checkbox-wrapper {
             margin-right: 10px;
             float: left;
-            margin-top: 4px;
+            margin-top: 5px;
         }
 
         #items {
@@ -147,9 +151,8 @@ can select multiple values.
         }
 
         .sub-title {
-            font-size: var(--default-font-size, 14px);
+            font-size: var(--font-size-sm, 12px);
             color: var(--color-steal-grey, #75808b);
-            width: 190px;
             text-overflow: ellipsis;
             overflow: hidden;
             white-space: nowrap;
@@ -165,10 +168,18 @@ can select multiple values.
             background-color: var(--bgColor-hover, #e8f4f9);
         }
 
-        .title {
-            font-size: var(--font-size-sm, 12px);
-            line-height: 14px;
-            word-break: break-word;
+        .title, .item-list {            
+            font-size: var(--default-font-size, 14px); 
+            line-height: 17px;
+            word-break: break-word;              
+            color: var(--text-primary-color, #1a2028);
+            text-transform: capitalize;
+            transition: all 0.3s;
+        }
+
+
+        .item-list:hover, .item[selected] .item-list{
+            color: var(--focused-line, #026bc3);
         }
 
         .buttons {
@@ -194,16 +205,16 @@ can select multiple values.
             }
         }
 
-        pebble-button::shadow paper-button iron-icon {
-            height: 16px !important;
-            width: 16px !important;
-            color: var(--palette-cerulean, #036BC3) !important;
+        pebble-button {
+            --paper-button:{
+                min-width: 66px!important;
+            };
+            --iron-icon: {
+                height: 16px !important;
+                width: 16px !important;
+                color: var(--palette-cerulean, #036BC3) !important;
+            };
         }
-
-        pebble-button::shadow paper-button {
-            min-width: 66px!important;
-        }
-
         .paper-icon-button-margin {
             padding-right: 15%;
         }
@@ -211,16 +222,27 @@ can select multiple values.
         #actionButtons {
             padding: 10px 0 0 0;
         }
+
+        #selectall {
+            margin-left: 20px;
+        }
     </style>
     <template>
 
+        
+        <template is="dom-if" if="[[_isSelectAllEnabled(selectAll,multiSelect)]]">
+            <div id="selectall" class="checkbox-wrapper">
+                <pebble-checkbox checked$="[[_isAllItemsSelected(selectedItems)]]" indeterminate="[[_isSelectAllIndeterminate(selectedItems.length, items.length)]]" on-tap="_selectAllItems"></pebble-checkbox>
+            </div>
+        </template>
         <div id="searchbox" class="popup-item-padding">
             <div class="item">
                 <pebble-icon icon="pebble-md-icons:ToolbarSearch" class="iconstyle pebble-md-icons"></pebble-icon>
                 <input is="iron-input" id="input" type="text" autocomplete="off" autocapitalize="none" bind-value="{{_inputElementSearchValue}}"
-                    placeholder$="[[_placeholder]]" on-input="_inputValueChanged" on-change="_stopPropagation" key-event-target>
+                    placeholder$="[[_placeholder]]" on-input="_inputValueChanged" on-change="_stopPropagation" key-event-target on-paste='_onPaste'>
             </div>
         </div>
+        
         <div>
             <pebble-spinner active="[[_loading]]"></pebble-spinner>
             <div id="scroller" scroller="[[_getScroller()]]" on-tap="_stopPropagation">
@@ -236,7 +258,8 @@ can select multiple values.
                             </template>
                             <template is="dom-if" if="[[showImage]]">
                                 <div class="image-wrapper">
-                                    <pebble-image-viewer src="[[_getItemImage(item)]]" alt="text" sizing="contain" class="thumb-image"></pebble-image-viewer>
+                                    <pebble-image-viewer id="image[[index]]"  image-id="[[item.imageId]]" src="[[_getItemImage(item)]]" alt="text" sizing="contain" class="thumb-image"></pebble-image-viewer>
+                                    <pebble-position-tracker target="image[[index]]" callback="{{_positionCallback}}"></pebble-position-tracker>
                                 </div>
                             </template>
                             <template is="dom-if" if="[[showColor]]">
@@ -245,14 +268,17 @@ can select multiple values.
                                 [[_applyColor(item)]]
                             </template>
                             <div class="item-wrapper">
-                                <div class="title">
-                                    [[_getItemTitle(item)]]
-                                </div>
+                                <template is="dom-if" if="[[noSubTitle]]">                                    
+                                    <div class="item-list">[[_getItemTitle(item)]]</div>   
+                                </template> 
                                 <template is="dom-if" if="[[!noSubTitle]]">
                                     <div class="sub-title">
                                         [[_getItemSubTitle(item)]]
                                     </div>
-                                </template>
+                                    <div class="title">
+                                        [[_getItemTitle(item)]]
+                                    </div>   
+                                </template>                                                         
                             </div>
                         </div>
                     </template>
@@ -332,6 +358,10 @@ can select multiple values.
                     type: Boolean,
                     value: false
                 },
+                selectAll: {
+                    type: Boolean,
+                    value: false
+                },
                 /**
                  * Indicates that pushing of items in control is in progress
                  */
@@ -407,7 +437,7 @@ can select multiple values.
                 },
                 _imageUrl: {
                     type: String,
-                    value: "/src/images/polymer.svg" // Some Default Image
+                    value: ""
                 },
                 _closeOnBlurIsPrevented: {
                     type: Boolean
@@ -418,6 +448,23 @@ can select multiple values.
                 _page: {
                     type: Number,
                     value: 0
+                },
+                minFilterLength:{
+                    type:Number,
+                    value:2
+                },
+                _positionCallback:{
+                    type:Object,
+                    value:function(){
+                        return this._getImageSrc.bind(this);
+                    }
+                },
+                imageSource:{
+                    type:Object
+                },
+                allowSearchQueryFormat: {
+                    type: Boolean,
+                    value: false
                 }
             },
             behaviors: [
@@ -492,6 +539,46 @@ can select multiple values.
                     }
                 }
             },
+            /*
+            *  Check if selectAll checkbox is enabled or not
+            *  selectAll option provided for multi select only 
+            */ 
+            _isSelectAllEnabled: function(selectAll,multiSelect){
+                if(selectAll && multiSelect) {
+                     return true;
+                } else {
+                    return false;
+                }
+            },
+            /*
+            *  Check if all the items in the lov are selected or not
+            */ 
+            _isAllItemsSelected: function (selectedItems) {
+                if (this.selectedItems.length > 0 && this.selectedItems.length == this.items.length) {
+                    return true;
+                } else {
+                    return false;
+                }
+            },
+            /*
+            *  Check if selectall is inderterminate
+            */ 
+            _isSelectAllIndeterminate: function (length, size) {
+                return size > 0 && length > 0 && length < size;
+            },
+            /*
+            *  Select/Unselect all items when selectAll checkbox is clicked
+            */
+            _selectAllItems: function (e){
+                var clonedItems = DataHelper.cloneObject(this.items);
+                if(e.target.checked){
+                    this._selectCheckbox(clonedItems);
+                    this.selectedItems = clonedItems;
+                } else {
+                    this._deSelectCheckBox(clonedItems);
+                    this.selectedItems = [];
+                }
+            },
             _getAriaSelected: function (focusedIndex, itemIndex) {
                 return this._isItemFocused(focusedIndex, itemIndex).toString();
                 var path = ElementHelper.getElementPath(e);
@@ -528,6 +615,10 @@ can select multiple values.
             },
             /* Functional Methods */
             _onLowerThreshold: function () {
+                 //load more data only when - items are more than current page can hold
+                if(this.items && (this.items.length < this._page*this.pageSize)){
+                    return;
+                }
                 this._page++;
             },
             _pageChanged: function (dataSource, currentPage) {
@@ -590,6 +681,10 @@ can select multiple values.
                 }
             },
             _inputValueChanged: function (e) {
+                var length=this._inputElementSearchValue.replace(/\s/g, '').length;
+                if(length>0 && length< this.minFilterLength){
+                    return;
+                }
                 if (this.dataSource && this.dataSource instanceof Function) {
                     this.debounce("lov-filter-changed", function () {
                         if (this.items) {
@@ -851,7 +946,7 @@ can select multiple values.
             },
             _functiontofindIndexByKeyValue: function (arraytosearch, key, valuetosearch) {
                 for (var i = 0; i < arraytosearch.length; i++) {
-                    if (arraytosearch[i][key] == valuetosearch) {
+                    if (arraytosearch[i] && arraytosearch[i][key] == valuetosearch) {
                         return i;
                     }
                 }
@@ -1085,7 +1180,7 @@ can select multiple values.
                     this._selectedItemIds = [];
                 } else {
                     this.set('_selectedItemIds', this._getItemsIds(selectedItems));
-                }
+                }                
             },
             _onConfirm: function (event) {
                 if (this.multiSelect) {
@@ -1152,6 +1247,43 @@ can select multiple values.
             reset: function () {
                 this._inputElementSearchValue = '';
                 this.refreshData();
+            },
+            _getImageSrc:function (detail) {
+                if (detail && detail.target) {
+                    var target = detail.target;
+                    detail.imageId = target.imageId;
+                    if (typeof (this.imageSource) == 'function') {
+                        this.imageSource(detail);
+                    }
+                }
+            },
+            _onPaste: function (e) {
+                //If LOV consumer do not want to format then return without any format
+                if(!this.allowSearchQueryFormat) {
+                    this._inputValueChanged();
+                    return;
+                }
+
+                var pastedQuery = "";
+                var formattedQuery = "";
+
+                e.preventDefault();
+
+                if (e.clipboardData) {
+                    pastedQuery = e.clipboardData.getData('text/plain');
+                } else if (window.clipboardData) { //IE
+                    pastedQuery = window.clipboardData.getData("text");
+                }
+
+                formattedQuery = DataHelper.getFormatedSearchQuery(pastedQuery);
+                if (DataHelper.isTextSelected(this.$.input)) {
+                    // What if user select spaces and there are multiple spaces?
+                    this._inputElementSearchValue = this._inputElementSearchValue.replace(DataHelper.getSelectedText(this.$.input), formattedQuery);
+                } else {
+                    this._inputElementSearchValue = DataHelper.replaceAt(this._inputElementSearchValue, this.$.input.selectionStart, formattedQuery);
+                }
+
+                this._inputValueChanged();
             }
         });
     </script>
