@@ -266,16 +266,26 @@ can select multiple values.
                 margin-left:0;
             };
         }
-        </style>
-    </custom-style>
 
+        #selectall {
+            margin-left: 20px;
+        }
+    </style>
+
+        
+        <template is="dom-if" if="[[_isSelectAllEnabled(selectAll,multiSelect)]]">
+            <div id="selectall" class="checkbox-wrapper">
+                <pebble-checkbox checked$="[[_isAllItemsSelected(selectedItems)]]" indeterminate="[[_isSelectAllIndeterminate(selectedItems.length, items.length)]]" on-tap="_selectAllItems"></pebble-checkbox>
+            </div>
+        </template>
         <div id="searchbox" class="popup-item-padding">
             <div class="item">
                 <pebble-icon icon="pebble-md-icons:ToolbarSearch" class="iconstyle pebble-md-icons"></pebble-icon>
                 <input is="iron-input" id="input" type="text" autocomplete="off" autocapitalize="none" value="{{_inputElementSearchValue::input}}"
-                    placeholder$="[[_placeholder]]" on-keyup="_inputValueChanged" on-change="_stopPropagation" key-event-target>
+                    placeholder$="[[_placeholder]]" on-keyup="_inputValueChanged" on-change="_stopPropagation" key-event-target on-paste='_onPaste'>
             </div>
         </div>
+        
         <div>
             <pebble-spinner active="[[_loading]]"></pebble-spinner>
             <div id="scroller" scroller="[[_getScroller()]]" on-tap="_stopPropagation">
@@ -384,6 +394,10 @@ can select multiple values.
                  * Specifies whether or not to generate the console logs.
                  */
                 verbose: {
+                    type: Boolean,
+                    value: false
+                },
+                selectAll: {
                     type: Boolean,
                     value: false
                 },
@@ -500,6 +514,10 @@ can select multiple values.
                 },
                 imageSource:{
                     type:Object
+                },
+                allowSearchQueryFormat: {
+                    type: Boolean,
+                    value: false
                 }
             },
             behaviors: [
@@ -572,6 +590,46 @@ can select multiple values.
                             return false;
                         }
                     }
+                }
+            },
+            /*
+            *  Check if selectAll checkbox is enabled or not
+            *  selectAll option provided for multi select only 
+            */ 
+            _isSelectAllEnabled: function(selectAll,multiSelect){
+                if(selectAll && multiSelect) {
+                     return true;
+                } else {
+                    return false;
+                }
+            },
+            /*
+            *  Check if all the items in the lov are selected or not
+            */ 
+            _isAllItemsSelected: function (selectedItems) {
+                if (this.selectedItems.length > 0 && this.selectedItems.length == this.items.length) {
+                    return true;
+                } else {
+                    return false;
+                }
+            },
+            /*
+            *  Check if selectall is inderterminate
+            */ 
+            _isSelectAllIndeterminate: function (length, size) {
+                return size > 0 && length > 0 && length < size;
+            },
+            /*
+            *  Select/Unselect all items when selectAll checkbox is clicked
+            */
+            _selectAllItems: function (e){
+                var clonedItems = DataHelper.cloneObject(this.items);
+                if(e.target.checked){
+                    this._selectCheckbox(clonedItems);
+                    this.selectedItems = clonedItems;
+                } else {
+                    this._deSelectCheckBox(clonedItems);
+                    this.selectedItems = [];
                 }
             },
             _getAriaSelected: function (focusedIndex, itemIndex) {
@@ -1264,6 +1322,34 @@ can select multiple values.
                         this.imageSource(detail);
                     }
                 }
+            },
+            _onPaste: function (e) {
+                //If LOV consumer do not want to format then return without any format
+                if(!this.allowSearchQueryFormat) {
+                    this._inputValueChanged();
+                    return;
+                }
+
+                var pastedQuery = "";
+                var formattedQuery = "";
+
+                e.preventDefault();
+
+                if (e.clipboardData) {
+                    pastedQuery = e.clipboardData.getData('text/plain');
+                } else if (window.clipboardData) { //IE
+                    pastedQuery = window.clipboardData.getData("text");
+                }
+
+                formattedQuery = DataHelper.getFormatedSearchQuery(pastedQuery);
+                if (DataHelper.isTextSelected(this.$.input)) {
+                    // What if user select spaces and there are multiple spaces?
+                    this._inputElementSearchValue = this._inputElementSearchValue.replace(DataHelper.getSelectedText(this.$.input), formattedQuery);
+                } else {
+                    this._inputElementSearchValue = DataHelper.replaceAt(this._inputElementSearchValue, this.$.input.selectionStart, formattedQuery);
+                }
+
+                this._inputValueChanged();
             }
         });
     </script>
