@@ -15,8 +15,10 @@ var isStateServerEnabled = config.get('modules.stateServer.enabled');
 var isEmpty = require('../../common/utils/isEmpty');
 
 if (isStateServerEnabled) {
-    var redisConnection = config.get('modules.stateServer.connection');
-    client = redis.createClient(redisConnection.port, redisConnection.host);
+    var connectionConfig = config.get('modules.stateServer.connection');
+    var redisUrl = "redis://" + connectionConfig.host + ":" + connectionConfig.port;
+
+    client = redis.createClient(redisUrl);
 
     client.on("error", function (err) {
         console.log("Redis error " + err);
@@ -39,7 +41,7 @@ async function addUserConnectionIds(userId, connectionId) {
             setData(userId, connections);
         }
     }
-    console.log('User connections ', userId, ' --- ' , JSON.stringify(connections));
+    //console.log('User connections ', userId, ' --- ' , JSON.stringify(connections));
 }
 
 async function removeConnectionIdByUser(userId, connectionId) {

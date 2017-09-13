@@ -120,9 +120,9 @@ module.exports = function (app) {
 
         if (notificationObject) {
             var notificationInfo = prepareNotificationObject(notificationObject.data);
-            console.log('------------------ notification object ---------------------');
-            console.log(JSON.stringify(notificationInfo));
-            console.log('-------------------------------------------------------------------\n\n');
+            // console.log('------------------ notification object ---------------------');
+            // console.log(JSON.stringify(notificationInfo));
+            // console.log('-------------------------------------------------------------------\n\n');
 
             if (!isEmpty(notificationInfo)) {
 
@@ -132,9 +132,9 @@ module.exports = function (app) {
 
                 notificationInfo.tenantId = req.body.tenantId;
                 if (notificationInfo.userId) {
-                    console.log('------------------ notification message to browser ---------------------');
-                    console.log(JSON.stringify(notificationInfo));
-                    console.log('-------------------------------------------------------------------\n\n');
+                    // console.log('------------------ notification message to browser ---------------------');
+                    // console.log(JSON.stringify(notificationInfo));
+                    // console.log('-------------------------------------------------------------------\n\n');
                     notificationManager.sendMessageToSpecificUser(notificationInfo, notificationInfo.userId);
                 }
             }
