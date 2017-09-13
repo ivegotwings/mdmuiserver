@@ -5,6 +5,7 @@
 <link rel="import" href="../bedrock-helpers/data-request-helper.html">
 <link rel="import" href="../bedrock-helpers/data-transform-helper.html">
 <link rel="import" href="../bedrock-helpers/message-helper.html">
+<link rel="import" href="../bedrock-helpers/data-merge-helper.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 
@@ -13,6 +14,7 @@
 <link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 <link rel="import" href="../liquid-rest/liquid-rest.html">
+<link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
 
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
@@ -61,6 +63,7 @@ It is responsible to "get" and "save" the attributes.
                 display: none;
                 text-align: center;
                 z-index: 99;
+                @apply --default-button-container;
             }
 
             .dataFunctionButton {
@@ -468,12 +471,8 @@ It is responsible to "get" and "save" the attributes.
                         entityId = itemContext.id;
                     }
                     var entity = DataHelper.findEntityById(res.content.entities, entityId);
-                    if (!entity || !entity.data || !entity.data.attributes) {
-                        this._attributeMessages = {};
-                        return;
-                    }
-                    var attributes = entity.data.attributes;
-                    var attrMessages = MessageHelper.getAttributeMessages(attributes, this._attributeModels, this.messageCodeMapping, this.localize);
+                    
+                    var attrMessages = this._getAttributeMessages(entity);
                     this.set('_attributeMessages', attrMessages);
                 },
                 _onEntityGetFailed: function (e) {
@@ -707,11 +706,9 @@ It is responsible to "get" and "save" the attributes.
                             entityId = itemContext.id;
                         }
                         var entity = DataHelper.findEntityById(res.entities, entityId);
-                        var attrMessages = {};
-                        if (entity && entity.data && entity.data.attributes) {
-                            var attributes = entity.data.attributes;
-                            attrMessages = MessageHelper.getAttributeMessages(attributes, this._attributeModels, this.messageCodeMapping, this.localize);
-                        }
+                        
+                        var attrMessages = this._getAttributeMessages(entity);
+
                         if (!_.isEmpty(attrMessages)) {
                             var errorMessages = MessageHelper.getErrorsFromAttrMessages(attrMessages, this._attributeModels);
                             this.set("_syncValidationErrors", errorMessages);
@@ -833,6 +830,27 @@ It is responsible to "get" and "save" the attributes.
                     }
 
                     return name;
+                },
+                _getAttributeMessages: function(entity) {
+                    var attrMessages = {};
+                    var firstDataContext = ContextHelper.getFirstDataContext(this.contextData);
+
+                    var mergedAttributes = {};
+
+                    if (entity && entity.data && entity.data.attributes) {
+                        mergedAttributes = DataMergeHelper.mergeAttributes(mergedAttributes, entity.data.attributes, true);
+                    }
+
+                    if (firstDataContext) {
+                        var ctxAttributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, firstDataContext);
+                        if (!_.isEmpty(ctxAttributes)) {
+                            mergedAttributes = DataMergeHelper.mergeAttributes(mergedAttributes, ctxAttributes, true);
+                        }
+                    }
+
+                    attrMessages = MessageHelper.getAttributeMessages(mergedAttributes, this._attributeModels, this.messageCodeMapping, this.localize);
+
+                    return attrMessages;
                 }
             });
         })();

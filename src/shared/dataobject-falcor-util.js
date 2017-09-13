@@ -54,7 +54,7 @@ DataObjectFalcorUtil.getPathKeys = function () {
                 "name": "requestobject",
                 "collectionName": "requestObjects",
                 "responseObjectName": "response",
-                "maxRecordsToReturn": 25000,
+                "maxRecordsToReturn": 200,
                 "combinedQueryPageSize": 30000
             }
         }
