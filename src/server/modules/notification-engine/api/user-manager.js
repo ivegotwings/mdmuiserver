@@ -39,7 +39,7 @@ async function addUserConnectionIds(userId, connectionId) {
             setData(userId, connections);
         }
     }
-    //console.log('User connections ', JSON.stringify(connections));
+    console.log('User connections ', userId, ' --- ' , JSON.stringify(connections));
 }
 
 async function removeConnectionIdByUser(userId, connectionId) {
