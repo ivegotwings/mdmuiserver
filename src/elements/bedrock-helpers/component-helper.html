@@ -1,9 +1,7 @@
-<link rel="import" href="../../../bower_components/polymer/polymer.html">
-<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="element-helper.html">
 
 <script>
-    ComponentHelper = {};
+    window.ComponentHelper = window.ComponentHelper || {};
 
     (function () {
         ComponentHelper.fireBedrockEvent = function (name, data, settings, element) {
@@ -53,10 +51,9 @@
                 component.properties = {};
             }
 
-            element.importHref(component.path, function (e) {
-                //import successfull
+            var createComponent=function (cElement) {
+                var dynamicEl = new cElement();//document.createElement(component.name);
                 ComponentHelper._componentCreating(component, element);
-                var dynamicEl = document.createElement(component.name);
                 for (var property in component.properties) {
                     if (component.properties.hasOwnProperty(property)) {
                         var val = component.properties[property];
@@ -78,22 +75,33 @@
                     "class") + " view-component");
 
                 //remove any existing child elements
-                var contentElementPolymerDom = Polymer.dom(contentElement);
-                if (contentElementPolymerDom && contentElementPolymerDom.childNodes.length) {
-                    while (contentElementPolymerDom.childNodes.length) {
-                        Polymer.dom(contentElement).removeChild(Polymer.dom(contentElement).firstChild);
+                if (contentElement && contentElement.childNodes.length) {
+                    while (contentElement.childNodes.length) {
+                        contentElement.removeChild(contentElement.firstChild);
                     }
                 }
-                contentElementPolymerDom.appendChild(dynamicEl);
+                contentElement.appendChild(dynamicEl);
                 Polymer.dom.flush();
                 ComponentHelper._componentCreated(component, element);
                 if (callback) {
                     callback(dynamicEl);
                 }
-            }, function (e) {
-                //import failed
-                console.log(e);
-            });
+            };
+
+            var cElement = customElements.get(component.name);
+            if(cElement) {
+                createComponent(cElement);
+            } else {
+                Polymer.importHref(element.resolveUrl(component.path), function(e){
+                        var cElement = customElements.get(component.name);
+                        createComponent(cElement);
+                     }, function () {
+                        console.log(e);  //import failed
+                        },
+                     true
+                 );
+            }
+
         };
 
         ComponentHelper._componentCreating = function (component, element) {
@@ -119,13 +127,13 @@
 
         ComponentHelper.getCurrentActiveApp = function () {
             var mainApp = document.querySelector("main-app");
-            if (mainApp) {
-                var contentViewMgr = mainApp.$$("rock-content-view-manager");
+            if (mainApp && mainApp.shadowRoot) {
+                var contentViewMgr = mainApp.shadowRoot.querySelector("rock-content-view-manager");
                 if (contentViewMgr) {
                     var activeContentView = contentViewMgr.$.contentViewManager.querySelector(
                         "rock-content-view:not([hidden])");
                     if (activeContentView) {
-                        var viewComponent = activeContentView.$$("#content-view-container").querySelector(".view-component");
+                        var viewComponent = activeContentView.shadowRoot.querySelector("#content-view-container").querySelector(".view-component");
                         return viewComponent;
                     } else {
                         return mainApp;
@@ -139,12 +147,12 @@
             var mainApp = document.querySelector("main-app");
             var app;
             if (mainApp) {
-                var contentViewMgr = mainApp.$$("rock-content-view-manager");
+                var contentViewMgr = mainApp.shadowRoot.querySelector("rock-content-view-manager");
                 if (contentViewMgr) {
                     var openedContentViews = contentViewMgr.$.contentViewManager.querySelectorAll("rock-content-view");
                     if (openedContentViews) {
                         openedContentViews.forEach(function (element) {
-                            var viewComponent = element.$$("#content-view-container").querySelector(".view-component");
+                            var viewComponent = element.shadowRoot.querySelector("#content-view-container").querySelector(".view-component");
                             if (viewComponent && viewComponent.id == appId) {
                                 app = viewComponent;
                             }
@@ -159,7 +167,7 @@
             var mainApp = document.querySelector("main-app");
             var app;
             if (mainApp) {
-                var contentView = mainApp.$$("rock-content-view-manager").$$('rock-content-view[name="' + viewName + '"]');
+                var contentView = mainApp.shadowRoot.querySelector("rock-content-view-manager").shadowRoot.querySelector('rock-content-view[name="' + viewName + '"]');
 
                 if (contentView) {
                     app = contentView.$.content.firstElementChild;
@@ -189,7 +197,7 @@
                     return parentNode.host;
                 }
                 else {
-                    return this.getComponentContainer(Polymer.dom(parentNode));
+                    return this.getComponentContainer(parentNode);
                 }
             }
             return parentNode;
@@ -198,7 +206,7 @@
         ComponentHelper.getProgressBar = function () {
             var mainApp = document.querySelector("main-app");
             if (mainApp) {
-                return mainApp.$$("paper-progress");
+                return mainApp.shadowRoot.querySelector("paper-progress");
             }
             return undefined;
         };
@@ -223,7 +231,7 @@
                         return parentNode.host;
                     }
                     else {
-                        return ComponentHelper.getParentElement(Polymer.dom(parentNode));
+                        return ComponentHelper.getParentElement(parentNode);
                     }
                 }
             }
@@ -276,6 +284,18 @@
             } else {
                 ComponentHelper.closeCurrentApp(action);
             }
+        };
+
+        ComponentHelper.getComputedStyleValue = function (element, styleClass) {
+            var value;
+
+            if (window.ShadyCSS) {
+                value = ShadyCSS.getComputedStyleValue(element, styleClass);
+            } else {
+                value = getComputedStyle(element).getPropertyValue(styleClass);
+            }
+
+            return value;
         }
     })();
 
