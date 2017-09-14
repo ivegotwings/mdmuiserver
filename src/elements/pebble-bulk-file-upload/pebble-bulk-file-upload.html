@@ -1,7 +1,9 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/shadycss/apply-shim.html">
 <link rel="import" href="../../../bower_components/iron-flex-layout/iron-flex-layout.html">
 <link rel="import" href="../../../bower_components/paper-styles/typography.html">
 <link rel="import" href="../../../bower_components/paper-ripple/paper-ripple.html">
+<link rel="import" href="../../../bower_components/polymer/lib/utils/async.html">
 
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 
@@ -552,7 +554,7 @@
     _onDragleave: function(event) {
       // Dragleave sometimes fired on children, skipping them. Fixes flickeing
       // when quickly dragging over.
-      if (Polymer.dom(event).rootTarget === this) {
+      if (event.composedPath()[0] === this) {
         event.preventDefault();
         if (this._dragover && !this.nodrop) {
           this._dragRippleAction('up', event);
@@ -655,7 +657,7 @@
         }
 
         this._notifyFileChanges(file);
-        this.fire('upload-progress', {file: file, xhr: xhr});
+        this.dispatchEvent(new CustomEvent('upload-progress', {detail:{file: file, xhr: xhr}, bubbles:true, composed:true}));
       }.bind(this);
 
       // More reliable than xhr.onload
@@ -671,7 +673,7 @@
           file.status = '';
           // Custom listener can modify the default behavior either
           // preventing default, changing the xhr, or setting the file error
-          var evt = this.fire('upload-response', {file: file, xhr: xhr}, {cancelable: true});
+          var evt = this.dispatchEvent(new CustomEvent('upload-response', {detail:{file: file, xhr: xhr}, cancelable: true, bubbles:true, composed:true}));
           if (evt.defaultPrevented) {
             return;
           }
@@ -684,7 +686,7 @@
           }
 
           file.complete = !file.error;
-          this.fire('upload-' + (file.error ? 'error' : 'success'), {file: file, xhr: xhr});
+          this.dispatchEvent(new CustomEvent('upload-' + (file.error ? 'error' : 'success'), {detail:{file: file, xhr: xhr}, bubbles:true, composed:true}));
           this._notifyFileChanges(file);
 
           if(file.complete) {
@@ -711,7 +713,7 @@
                   data : this.succeededFiles
               }
 
-              this.fire('bedrock-event',eventData);
+              this.dispatchEvent(new CustomEvent('bedrock-event',{detail:eventData, bubbles:true, composed:true}));
               this.set('complete', true);
               this.set('progress', 100);
           }
@@ -725,7 +727,7 @@
       }
 
       file.formDataName = this.formDataName;
-      var evt = this.fire('upload-before', {file: file, xhr: xhr}, {cancelable: true});
+      var evt = this.dispatchEvent(new CustomEvent('upload-before', {detail:{file: file, xhr: xhr}, cancelable: true, bubbles:true,composed:true}));
       if (evt.defaultPrevented) {
         return;
       }
@@ -741,13 +743,13 @@
       file.complete = file.abort = file.error = false;
 
       xhr.upload.onloadstart = function() {
-        this.fire('upload-start', {file: file, xhr: xhr});
+        this.dispatchEvent(new CustomEvent('upload-start', {detail:{file: file, xhr: xhr}, bubbles:true, composed:true}));
         this._notifyFileChanges(file);
       }.bind(this);
 
       // Custom listener could modify the xhr just before sending it
       // preventing default
-      evt = this.fire('upload-request', {file: file, xhr: xhr, formData: formData}, {cancelable: true});
+      evt = this.dispatchEvent(new CustomEvent('upload-request', {detail:{file: file, xhr: xhr, formData: formData}, cancelable: true, bubbles:true, composed:true}));
       if (!evt.defaultPrevented) {
         //Uploaded file in S3 is getting corrupted when sent through form-data...
         //S3 is expeting without form-data.
@@ -763,14 +765,16 @@
     },
 
     _retryFileUpload: function(file) {
-      var evt = this.fire('upload-retry', {file: file, xhr: file.xhr}, {cancelable: true});
+      var evt = this.dispatchEvent(new CustomEvent('upload-retry', {detail:{file: file, xhr: file.xhr}, cancelable: true, bubbles:true, composed:true}));
       if (!evt.defaultPrevented) {
-        this.async(this._uploadFile.bind(this, file));
+        Polymer.Async.microTask.run(() => { 
+          this._uploadFile(file)
+          });
       }
     },
 
     _abortFileUpload: function(file) {
-      var evt = this.fire('upload-abort', {file: file, xhr: file.xhr}, {cancelable: true});
+      var evt = this.dispatchEvent(new CustomEvent('upload-abort', {detail:{file: file, xhr: file.xhr}, cancelable: true, bubbles:true, composed:true}));
       if (!evt.defaultPrevented) {
         file.abort = true;
         if (file.xhr) {
@@ -797,7 +801,7 @@
           data : "Failed to upload. Max files allowed is 350."
         }
 
-        this.fire('bedrock-event',eventData);
+        this.dispatchEvent(new CustomEvent('bedrock-event',{detail:eventData, bubbles:true, composed:true}));
         this.set('complete', true);
         this.set('progress', 100);
         return;
@@ -811,7 +815,7 @@
           data : files
         }
 
-        this.fire('bedrock-event',eventData);
+        this.dispatchEvent(new CustomEvent('bedrock-event',{detail:eventData, bubbles:true, composed:true}));
         this.set('complete', true);
         this.set('progress', 100);
       }
@@ -826,7 +830,7 @@
       var fileExt = file.name.match(/\.[^\.]*$|$/)[0];
       var re = new RegExp('^(' + this.accept.replace(/[, ]+/g, '|').replace(/\/\*/g, '/.*') + ')$', 'i');
       if (this.accept && !(re.test(file.type) || re.test(fileExt))) {
-        this.fire('file-reject', {file: file, error: this.i18n.error.incorrectFileType});
+        this.dispatchEvent(new CustomEvent('file-reject', {detail:{file: file, error: this.i18n.error.incorrectFileType}, bubbles:true, composed:true}));
         return;
       }
       
