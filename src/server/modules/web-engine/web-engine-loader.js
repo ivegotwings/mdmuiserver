@@ -11,21 +11,25 @@ var compression = require('compression');
 var cookieParser = require('cookie-parser');
 var fileUpload = require('express-fileupload');
 
-var webEngineConfig = require("../../config/web-engine-config.json");
+var config = require('config');
 
 var logger = require('../common/logger/logger-service');
-logger.configure(webEngineConfig.loggerConfig);
+var loggerConfig = config.get('modules.common.logger');
+logger.configure(loggerConfig);
 
 var buildPath = process.cwd();
 var relativePath = process.env.PROJECT_PATH;
+
+//console.log('Node env', process.env);
 
 if (relativePath) {
     buildPath = buildPath + '/' + relativePath;
 }
 
-logger.info('Web engine start - build path identified', {"buildPath": buildPath});
+logger.info('Web engine start - build path identified', { "buildPath": buildPath });
 
 var app = express();
+var http = require('http').Server(app);
 
 app.use(cookieParser());
 
@@ -40,8 +44,8 @@ app.set('view engine', 'hjs');
 logger.info('Web engine start - views are loaded');
 
 // parse application/x-www-form-urlencoded
-app.use(bodyParser.urlencoded({limit: '10mb', extended: false}));
-app.use(bodyParser.json({limit: '10mb'}));
+app.use(bodyParser.urlencoded({ limit: '10mb', extended: false }));
+app.use(bodyParser.json({ limit: '10mb' }));
 
 logger.info('Web engine start - body parser middleware is loaded');
 
@@ -186,14 +190,16 @@ var server = app.listen(5005, function () {
     var host = server.address().address === '::' ? 'localhost' : server.address().address;
     var port = server.address().port;
 
-    logger.info('Web engine start - starting notification engine...');
 
-    notificationEngine.initSockets(this);
-
-    logger.info('Web engine start - notification engine is started');
-
-    logger.info('Web engine start - web engine is started', {"host": host, "port": port});
+    logger.info('Web engine start - web engine is started', { "host": host, "port": port });
     console.log('Web engine is running now at http://%s:%s/', host, port);
 });
 
-server.timeout = webEngineConfig.connectionTimeout;
+logger.info('Web engine start - starting notification engine...');
+
+notificationEngine.initSockets(server);
+
+logger.info('Web engine start - notification engine is started');
+
+
+server.timeout = config.get('modules.webEngine').connectionTimeout;

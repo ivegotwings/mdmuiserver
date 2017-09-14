@@ -228,7 +228,12 @@ gulp.task('app-nodemon', function (cb) {
 
   var stream = nodemon({
                   script: appPath, // run ES5 code
-                  env: { 'RUN_OFFLINE': runOffline, 'PROJECT_PATH': projectPath }, // set env variables
+                  env: { 
+                    'RUN_OFFLINE': runOffline, 
+                    'PROJECT_PATH': projectPath,
+                    'NODE_CONFIG_DIR': './src/server/config',
+                    'NODE_ENV': 'development'
+                   }, // set env variables
                   //nodeArgs:['--debug'], // set node args
                   watch: global.config.build.serverFilePaths, // watch ES2015 code
                   ext: 'js html css json jpg jpeg png gif',

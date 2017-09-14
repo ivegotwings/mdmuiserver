@@ -1,16 +1,22 @@
-var clientIO = require("socket.io-client");
-var config = require("../config");
-
-var path = config.clientConfig.url;
-
-var clientSocket = clientIO.connect(path);
+var config = require('config');
+var socketManager = require('../socket.js');
 
 function sendMessageToAllUser(data) {
-        clientSocket.emit('send message', data, '');
+        if(socketManager.sendMessage) {  
+                socketManager.sendMessage(data);
+        }
+        else {
+                console.log('server socket is not available');
+        }
 }
 
 function sendMessageToSpecificUser(data, userId) {
-        clientSocket.emit('send message', data, userId);
+        if(socketManager.sendMessage) {  
+                socketManager.sendMessage(data, userId);
+        }
+        else {
+                console.log('server socket is not available');
+        }
 }
 
 module.exports = {

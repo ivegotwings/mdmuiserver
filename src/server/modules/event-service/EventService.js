@@ -1,8 +1,10 @@
 var DFRestService = require('../common/df-rest-service/DFRestService'),
     isEmpty = require('../common/utils/isEmpty'),
     uuidV1 = require('uuid/v1'),
-    webEngineConfig = require("../../config/web-engine-config.json"),
     arrayContains = require('../common/utils/array-contains');
+
+var config = require('config');
+var taskSummarizationProcessorEnabled = config.get('modules.webEngine.taskSummarizationProcessorEnabled');
 
 var _ = require('underscore');
 
@@ -46,7 +48,7 @@ Eventservice.prototype = {
         var getBasedOnTaskSummarizationProcessor = false;
         
         //Task summarization processor temp changes...
-        if(webEngineConfig.taskSummarizationProcessorEnabled) {
+        if(taskSummarizationProcessorEnabled) {
             if(request.params.fields) {
                 var attributeList = request.params.fields.attributes;
 
@@ -211,7 +213,7 @@ Eventservice.prototype = {
             //console.log('Get details for ', taskId);
 
             //Task summarization processor temp changes...
-            if(webEngineConfig.taskSummarizationProcessorEnabled) {
+            if(taskSummarizationProcessorEnabled) {
                 response = await this._getTaskDetailsFromSummarizationProcessor(taskId);
 
                 if(response && !isEmpty(response)) {
