@@ -23,13 +23,18 @@ var replace = require('gulp-replace');
 const babel = require("gulp-babel");
 var argv = require('yargs').argv;
 
+const HtmlSplitter = require('polymer-build').HtmlSplitter,
+  sourcesHtmlSplitter = new HtmlSplitter(),
+  babelPresetES2015 = require('babel-preset-es2015'),
+  babelPresetES2015NoModules = babelPresetES2015.buildPreset({}, { modules: false });
+
 const mergeStream = require('merge-stream');
 const polymerBuild = require('polymer-build');
 
 // Here we add tools that will be used to process our source files.
 // const imagemin = require('gulp-imagemin');
-const {generateCountingSharedBundleUrlMapper,
-       generateSharedDepsMergeStrategy} = require('polymer-bundler');
+const { generateCountingSharedBundleUrlMapper,
+  generateSharedDepsMergeStrategy } = require('polymer-bundler');
 
 // !!! IMPORTANT !!! //
 // Keep the global.config above any of the gulp-tasks that depend on it
@@ -58,7 +63,7 @@ global.config = {
   swPrecacheConfig: {
     navigateFallback: '/',
   },
-  
+
   elementsSourcePath: './src/elements/**/*',
 };
 // Additional plugins can be used to optimize your source files after splitting.
@@ -93,6 +98,35 @@ function devBuild() {
     let sourcesStreamSplitter = new polymerBuild.HtmlSplitter();
     let dependenciesStreamSplitter = new polymerBuild.HtmlSplitter();
 
+
+    gulp.src([
+      './bower_components/polymer/**/*.html'
+    ]).pipe(sourcesHtmlSplitter.split())
+      .pipe(gulpif(/\.js$/, babel({ "presets": [babelPresetES2015NoModules] })))
+      .pipe(sourcesHtmlSplitter.rejoin())
+      .pipe(gulp.dest('./bower_components/polymer'));
+
+    // gulp.src([
+    //   './src/elements/**/*.html'
+    // ]).pipe(sourcesHtmlSplitter.split())
+    //   .pipe(gulpif(/\.js$/, babel({ "presets": [babelPresetES2015NoModules] })))
+    //   .pipe(sourcesHtmlSplitter.rejoin())
+    //   .pipe(gulp.dest('./src/elements'));
+
+    // gulp.src([
+    //   './bower_components/**/*.html',
+    // ]).pipe(sourcesHtmlSplitter.split())
+    //   .pipe(gulpif(/\.js$/, babel({ "presets": [babelPresetES2015NoModules] })))
+    //   .pipe(sourcesHtmlSplitter.rejoin())
+    //   .pipe(gulp.dest('./bower_components'));
+
+    gulp.src([
+      './bower_components/webcomponentsjs/**/*.html',
+    ]).pipe(sourcesHtmlSplitter.split())
+      .pipe(gulpif(/\.js$/, babel({ "presets": [babelPresetES2015NoModules] })))
+      .pipe(sourcesHtmlSplitter.rejoin())
+      .pipe(gulp.dest('./bower_components/webcomponentsjs'));
+
     // Okay, so first thing we do is clear the build directory
     console.log(`Deleting ${devPath} directory...`);
     del([devPath])
@@ -106,7 +140,7 @@ function devBuild() {
           // If you want to optimize, minify, compile, or otherwise process
           // any of your source code for production, you can do so here before
           // merging your sources and dependencies together.
-        //   .pipe(gulpif(/\.(png|gif|jpg|svg)$/, imagemin()))
+          //   .pipe(gulpif(/\.(png|gif|jpg|svg)$/, imagemin()))
 
           // The `sourcesStreamSplitter` created above can be added here to
           // pull any inline styles and scripts out of their HTML files and
@@ -122,7 +156,7 @@ function devBuild() {
           //.pipe(gulpif('**/*.js', babel()))
           // Remember, you need to rejoin any split inline code when you're done.
           .pipe(sourcesStreamSplitter.rejoin());
-          //.pipe(debug({title:"After join"}));
+        //.pipe(debug({title:"After join"}));
 
 
         // Similarly, you can get your dependencies seperately and perform
@@ -149,15 +183,15 @@ function devBuild() {
         //     rewriteUrlsInTemplates:true,
         //     bundled: true,
         // }));//.pipe(debug({title:"buildStream:"}));
-        
+
         // buildStream = buildStream.pipe(polymerProject.bundler({
         //   bundle: false,
-          // bundle: {
-          //   // excludes: ["src/shared/dataobject-falcor-util.js", "src/shared/enums-util.js"],
-          //   stripComments: true,
-          //   inlineCss: true,
-          // },
-          // js: {compile: false}
+        // bundle: {
+        //   // excludes: ["src/shared/dataobject-falcor-util.js", "src/shared/enums-util.js"],
+        //   stripComments: true,
+        //   inlineCss: true,
+        // },
+        // js: {compile: false}
         // }));//.pipe(debug({title:"bundler:"}));
 
         // buildStream = buildStream.pipe(polymerProject.bundler({
@@ -207,12 +241,12 @@ gulp.task('app-nodemon', function (cb) {
   var runOffline = (argv.runOffline !== undefined) ? argv.runOffline : 'false';
   var lrEnabled = true;
 
-  if(appPath === "build/bundled") {
+  if (appPath === "build/bundled") {
     projectPath = bundledPath;
     appPath = bundledPath + "/app.js";
     lrEnabled = false;
   }
-  else if(appPath === "build/unbundled") {
+  else if (appPath === "build/unbundled") {
     projectPath = unbundledPath;
     appPath = unbundledPath + "/app.js";
     lrEnabled = false;
@@ -221,54 +255,54 @@ gulp.task('app-nodemon', function (cb) {
   console.log('appPath ', appPath);
   console.log('projectPath ', projectPath);
 
-  if(lrEnabled) {
+  if (lrEnabled) {
     lr = tinylr();
     lr.listen(global.config.build.liveReloadPort);
   }
 
   var stream = nodemon({
-                  script: appPath, // run ES5 code
-                  env: { 
-                    'RUN_OFFLINE': runOffline, 
-                    'PROJECT_PATH': projectPath,
-                    'NODE_CONFIG_DIR': './src/server/config',
-                    'NODE_ENV': 'development'
-                   }, // set env variables
-                  //nodeArgs:['--debug'], // set node args
-                  watch: global.config.build.serverFilePaths, // watch ES2015 code
-                  ext: 'js html css json jpg jpeg png gif',
-                  tasks: function (changedFiles) { // compile synchronously onChange
-                    var tasks = [];
-                    if (!changedFiles || !lrEnabled) 
-                      return tasks;
-                    // compileChangedDevFiles(changedFiles);
-                    // stackLiveReload(changedFiles);
-                    return tasks;
-                  } 
-              });
-              
-    stream.on('start', function(){    
-      if(!started) {
-        cb();
-        started = true;  
-      }
-    });
+    script: appPath, // run ES5 code
+    env: {
+      'RUN_OFFLINE': runOffline,
+      'PROJECT_PATH': projectPath,
+      'NODE_CONFIG_DIR': './src/server/config',
+      'NODE_ENV': 'development'
+    }, // set env variables
+    //nodeArgs:['--debug'], // set node args
+    watch: global.config.build.serverFilePaths, // watch ES2015 code
+    ext: 'js html css json jpg jpeg png gif',
+    tasks: function (changedFiles) { // compile synchronously onChange
+      var tasks = [];
+      if (!changedFiles || !lrEnabled)
+        return tasks;
+      // compileChangedDevFiles(changedFiles);
+      // stackLiveReload(changedFiles);
+      return tasks;
+    }
+  });
+
+  stream.on('start', function () {
+    if (!started) {
+      cb();
+      started = true;
+    }
+  });
 
   return stream;
 });
 
-gulp.task('watch-element-changes', function () {  
+gulp.task('watch-element-changes', function () {
   gulp.watch(global.config.build.clientFilePaths).on('change', function (fpath) {
     console.log('file changed...', JSON.stringify(fpath));
-    return gulp.src(fpath, {base:'.'})
-          .pipe(gulp.dest(devPath));
+    return gulp.src(fpath, { base: '.' })
+      .pipe(gulp.dest(devPath));
   });
 });
 
-gulp.task('copy-node-modules', function () { 
+gulp.task('copy-node-modules', function () {
   const bundleType = global.config.build.bundleType;
   const nodeModulesPath = '/node_modules/**/*.*';
-  return gulp.src(nodeModulesPath, {base: '.'}).pipe(gulp.dest(unbundledPath));
+  return gulp.src(nodeModulesPath, { base: '.' }).pipe(gulp.dest(unbundledPath));
 });
 
 gulp.task('dev', gulp.series(devBuild, 'app-nodemon', 'watch-element-changes'));
@@ -293,7 +327,7 @@ function unbundledBuild() {
           // If you want to optimize, minify, compile, or otherwise process
           // any of your source code for production, you can do so here before
           // merging your sources and dependencies together.
-        //   .pipe(gulpif(/\.(png|gif|jpg|svg)$/, imagemin()))
+          //   .pipe(gulpif(/\.(png|gif|jpg|svg)$/, imagemin()))
 
           // The `sourcesStreamSplitter` created above can be added here to
           // pull any inline styles and scripts out of their HTML files and
@@ -309,7 +343,7 @@ function unbundledBuild() {
           //.pipe(gulpif('**/*.js', babel()))
           // Remember, you need to rejoin any split inline code when you're done.
           .pipe(sourcesStreamSplitter.rejoin());
-          //.pipe(debug({title:"After join"}));
+        //.pipe(debug({title:"After join"}));
 
 
         // Similarly, you can get your dependencies seperately and perform
