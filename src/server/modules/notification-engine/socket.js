@@ -25,7 +25,7 @@ function initSockets(http) {
 
         //New user
         socket.on('Connect new user', function (userId) {
-            console.log('new user connected ', userId);
+            //console.log('new user connected ', userId);
             socket.userName = userId;
             userManager.addUserConnectionIds(userId, socket.id);
             io.emit('send message', {}, userId);
@@ -34,7 +34,7 @@ function initSockets(http) {
 
         //Disconnect
         socket.on('disconnect', function (data) {
-            console.log('user disconnected ', socket.userName);
+            //console.log('user disconnected ', socket.userName);
 
             if (socket.userName) {
                 userManager.removeConnectionIdByUser(socket.userName, socket.id);
