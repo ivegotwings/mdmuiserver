@@ -38,6 +38,10 @@ var PassThroughRouter = function (app) {
         var response = await passThroughService.bulkCall(req);
         res.status(200).send(response);
     });
+    app.post('/pass-through-bulk/entitygovernservice/validate', async function (req, res) {
+        var response = await passThroughService.bulkCall(req);
+        res.status(200).send(response);
+    });
     app.post('/data/pass-through-combined-query/bulkentityservice/createtask', async function (req, res) {
         var response = await passThroughService.createTaskForCombinedQuery(req);
         res.status(200).send(response);
