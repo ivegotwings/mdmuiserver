@@ -306,11 +306,10 @@ function unbundledBuild() {
           // .pipe(gulpif(/\.js$/, uglify())) // Install gulp-uglify to use
           // .pipe(gulpif(/\.css$/, cssSlam())) // Install css-slam to use
           // .pipe(gulpif(/\.html$/, htmlMinifier())) // Install gulp-html-minifier to use
-          //.pipe(gulpif('**/*.js', babel()))
+          .pipe(gulpif('**/*.js', babel()))
           // Remember, you need to rejoin any split inline code when you're done.
           .pipe(sourcesStreamSplitter.rejoin());
           //.pipe(debug({title:"After join"}));
-
 
         // Similarly, you can get your dependencies seperately and perform
         // any dependency-only optimizations here as well.
@@ -318,7 +317,6 @@ function unbundledBuild() {
           .pipe(dependenciesStreamSplitter.split())
           // Add any dependency optimizations here.
           .pipe(dependenciesStreamSplitter.rejoin());
-
 
         // Okay, now let's merge your sources & dependencies together into a single build stream.
         let buildStream = mergeStream(sourcesStream, dependenciesStream)
@@ -336,10 +334,21 @@ function unbundledBuild() {
         return waitFor(buildStream);
       })
       .then(() => {
+        // Okay, now let's generate the Service Worker
+        console.log('Generating the Service Worker...');
+        return polymerBuild.addServiceWorker({
+          project: polymerProject,
+          buildRoot: unbundledPath,
+          bundled: false,
+          swPrecacheConfig: swPrecacheConfig
+        });
+      })
+      .then(() => {
         // You did it!
         console.log('Build complete!');
         resolve();
       });
   });
 }
+
 gulp.task('default', gulp.series(unbundledBuild, 'copy-node-modules'));
