@@ -14,7 +14,7 @@
 
 <dom-module id="rock-nested-attribute-grid">
     <template>
-        <style is="custom-style" include="pebble-styles-shared">
+        <style  include="pebble-styles-shared">
             .attribute-view-label {
                 font-size: var(--font-size-sm, 12px);
                 font-weight: normal;
@@ -25,7 +25,7 @@
                 color: var(--label-text-color);
             }
             #attributesGrid {
-                --rock-grid-height: 200px;
+                --rock-grid-height: 60px;
             }
         </style>
         <label class="attribute-view-label" hidden$="[[!label]]" aria-hidden="true">[[label]]</label>
@@ -67,7 +67,6 @@
                         value: function () {
                             return {
                                 "viewMode": "Tabular",
-                                "mode": "read",
                                 "schemaType": "colModel",
                                 "statusEnabled": true,
                                 "tabular": {
@@ -183,7 +182,6 @@
                 _attributeObjectChanged: function(attributeObject) {
                     if(!_.isEmpty(attributeObject) && attributeObject.value && (!this._isGridReady || (this.mode === "edit" && this.originalAttributeObject && this.originalAttributeObject.value && DataHelper.areEqualArrays(attributeObject.value, this.originalAttributeObject.value)))) {
                         this._prepareGridData(attributeObject);
-                        this._modeChanged(this.mode);
                     }
                 },
                 _prepareGridConfig: function(attributeModelObject) {
@@ -192,6 +190,7 @@
                         for(var model in attributeModels) {
                             attributeModels[model].hasWritePermission = true;
                         }
+                        this._gridConfig.mode = this.mode === "edit" ? "edit" : "read";
                         this.set("_attributeModels", attributeModels);
                         var keys = Object.keys(attributeModels);
                         if(keys && keys.length>0) {
@@ -217,22 +216,30 @@
                         if(attributeObject && attributeObject.value && attributeObject.value.length > 0) {
                             for(var  i=0; i<attributeObject.value.length; i++) {
                                 var value = attributeObject.value[i];
-                                var rowData = {};
-                                for(var attrName in value) {
-                                    rowData[attrName] = value[attrName].value;
-                                    if(value[attrName].referenceDataId) {
-                                        rowData[attrName + "_referenceDataId"] = value[attrName].referenceDataId;
+                                if(!this._gridData.find(obj => obj.valueIdentifier === value["valueIdentifier"].value)) {
+                                    var rowData = {};
+                                    for(var attrName in value) {
+                                        rowData[attrName] = value[attrName].value;
+                                        if(value[attrName].referenceDataId) {
+                                            rowData[attrName + "_referenceDataId"] = value[attrName].referenceDataId;
+                                        }
                                     }
+                                    this._gridData.push(rowData);
                                 }
-                                this._gridData.push(rowData);
                             }
                         }
                         this._originalGridData = DataHelper.cloneObject(this._gridData);
+                        if(this.mode === "edit") {
+                            setTimeout(function () {
+                                this._modeChanged(this.mode);
+                            }.bind(this), 500);
+                        }
+                        this._setGridHeight(this._gridData.length);
                     });
                     this._isGridReady = true;
                 },
                 _modeChanged: function(mode) {
-                    var grid = this.$$("#attributesGrid");
+                    var grid = this.shadowRoot.querySelector("#attributesGrid");
                     if(mode === "edit") {
                         grid.changeToEditMode();
                     } else if(mode === "view") {
@@ -251,7 +258,7 @@
                 },
                 _setAttributeObject: function() {
                     if(this.changed) {
-                        var grid = this.$$("#attributesGrid");
+                        var grid = this.shadowRoot.querySelector("#attributesGrid");
                         var modifiedData = grid.getModifiedData();
                         if(modifiedData && modifiedData.length > 0) {
                             var values = [];
@@ -290,8 +297,13 @@
                 },
                 _isRowEmpty: function(rowData) {
                     var attributes = Object.keys(rowData);
+                    var self = this;
                     if(attributes && attributes.length) {
-                        var keysWithValue = attributes.filter(key => this._attributeModels[key] && !_.isEmpty(rowData[key]));
+                        var keysWithValue = attributes.filter(function(key) {
+                            if(self._attributeModels[key] && (!_.isEmpty(rowData[key]) || _.isNumber(rowData[key]))) {
+                                return key;
+                            }
+                        });
                         if(keysWithValue && keysWithValue.length > 0) {
                             return false;
                         }
@@ -313,11 +325,12 @@
                     for(var attrName in value) {
                         newRowItem[attrName] = value[attrName].value;
                     }
-                    var grid = this.$$("#attributesGrid");
+                    var grid = this.shadowRoot.querySelector("#attributesGrid");
                     grid.addNewRecords([newRowItem]);
+                    this._setGridHeight(length + 1);
                 },
                 _notifyDirty: function() {
-                    var grid = this.$$("#attributesGrid");
+                    var grid = this.shadowRoot.querySelector("#attributesGrid");
                     var modifiedData = grid.getModifiedData();
                     if(!_.isEmpty(modifiedData)) {
                         this._isGridDirty = undefined;
@@ -326,6 +339,16 @@
                         this._isGridDirty = undefined;
                         this._isGridDirty = false;
                     }
+                },
+                _setGridHeight: function(length) {
+                    var grid = this.shadowRoot.querySelector("#attributesGrid");
+                    var gridHeight = 60;
+                    if(length < 4) {
+                        gridHeight = 60 + 40 * length;
+                    } else {
+                        gridHeight = 200;
+                    }
+                    grid.updateStyles({"--rock-grid-height": gridHeight + 'px'});
                 }
             });
         })();

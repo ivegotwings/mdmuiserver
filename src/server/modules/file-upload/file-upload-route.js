@@ -1,5 +1,5 @@
 'use strict';
-var config = require('../../config/rdf-connection-config.json');
+var config = require('config');
 var isEmpty = require('../common/utils/isEmpty');
 
 var fileUpload = require('express-fileupload'),
@@ -10,9 +10,11 @@ module.exports = function(app) {
     app.use(fileUpload());
     var dir = './upload';
 
-    if(config && !isEmpty(config.fileStoragePath)) {
-        if (fs.existsSync(config.fileStoragePath)) {
-            dir = config.fileStoragePath + '/upload';
+    var fileStoragePath = config.get('modules.fileDownload.fileStoragePath');
+
+    if (isEmpty(fileStoragePath)) {
+        if (fs.existsSync(fileStoragePath)) {
+            dir = fileStoragePath + '/upload';
         }
     }
 

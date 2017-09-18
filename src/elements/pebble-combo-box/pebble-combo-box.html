@@ -1,5 +1,7 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="../../../bower_components/paper-input/paper-input.html">
+<link rel="import" href="../../../bower_components/polymer/lib/utils/async.html">
+<link rel="import" href="../../../bower_components/shadycss/apply-shim.html">
 
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
@@ -48,23 +50,23 @@ Custom property | Description | Default
         <style include="pebble-styles-shared"></style>
         <style>
             pebble-collection-container {
-                @apply(--line-with-icon);
-                @apply(--line-with-icon-readonly);
-                @apply(--text-collection-container);
-                @apply(--text-collection-label);
-                @apply(--tags-container);
-                @apply(--tag-content);
-                @apply(--tag-close);
-                @apply(--text-collection-popover);
-                @apply(--dropdown-icon);
-                --tag-value : {
-                    cursor: default;
-                    @apply(--combo-box-tag-value);
-                }
+                @apply --line-with-icon;
+                @apply --line-with-icon-readonly;
+                @apply --text-collection-container;
+                @apply --text-collection-label;
+                @apply --tags-container;
+                @apply --tag-content;
+                @apply --tag-close;
+                @apply --text-collection-popover;
+                @apply --dropdown-icon;
+                --tag-value :{
+                   cursor: default;
+                   @apply --combo-box-tag-value;
+                };
             }
 
             pebble-lov {
-                @apply(--pebble-combobox-lov);
+                @apply --pebble-combobox-lov;
             }
 
             pebble-collection-container {
@@ -73,7 +75,7 @@ Custom property | Description | Default
                     text-overflow: ellipsis;
                     white-space: nowrap;
                     vertical-align: middle;
-                }
+                };
             }
         </style>
 
@@ -82,7 +84,7 @@ Custom property | Description | Default
         <pebble-collection-container id="collectionContainer" label="[[label]]" values="{{values}}" is-readonly="[[isReadonly]]"
             display-limit="[[displayLimit]]" on-tap="_onCollectionContainerTap">
             <template is="dom-if" if="[[isPopoverOpened]]">
-                <pebble-lov id="lov" data-source="{{dataSource}}" image-source="{{imageSource}}" items="{{items}}" multi-select="[[multiSelect]]" no-sub-title="[[noSubTitle]]"
+                <pebble-lov id="lov" r-data-source="{{rDataSource}}" image-source="{{imageSource}}" items="{{items}}" multi-select="[[multiSelect]]" no-sub-title="[[noSubTitle]]"
                     show-action-buttons="[[showActionButtons]]" show-image="[[showImage]]" show-color="[[showColor]]" selected-items="{{_lovSelectedItems}}"
                     selected-item="{{_lovSelectedItem}}" on-selection-changed="_lovSelectionChanged">
                 </pebble-lov>
@@ -110,7 +112,9 @@ Custom property | Description | Default
                         },
                         notify: true
                     },
-
+                    rDataSource: {
+                        type: Function
+                    },
                      /**
                      * Indicates the selected values.
                      */
@@ -208,7 +212,6 @@ Custom property | Description | Default
                             return [];
                         }
                     },
-
                     /**
                      * Indicates an array of the selected Ids.
                      *
@@ -317,12 +320,12 @@ Custom property | Description | Default
 
                 _onCollectionContainerTap: function (e) {
                     //Async used because this functionality should execute after closing the existing popover
-                    this.async(function () {
-                        if (this.isReadonly || this.isRemoveTriggered || this.isShowMoreTriggered ||
-                            Polymer.dom(e).path.indexOf(this.$$("pebble-lov")) !== -1) {
-                            this.isRemoveTriggered = false;
-                            this.isShowMoreTriggered = false;
-                            return;
+                    Polymer.Async.microTask.run(() => {                      
+                        if(this.isReadonly || this.isRemoveTriggered || this.isShowMoreTriggered ||
+                        e.path.indexOf(this.shadowRoot.querySelector("pebble-lov")) !== -1) {
+                        this.isRemoveTriggered = false;
+                        this.isShowMoreTriggered = false;
+                        return;
                         }
 
                         var collectionContainer = this._getCollectionContainer();
@@ -344,43 +347,53 @@ Custom property | Description | Default
 
                         this._getCollectionContainer().closePopover();
                     } else {
-                        var item = e.detail.item;
-                        if (this._lovSelectedItems.indexOf(item) == -1) {
-                            var indexToRemove = -1;
-                            this.values.forEach(function(currentElement, index) {
-                                if(currentElement.options.referenceDataId === item.id) {
-                                    indexToRemove = index;
-                                    return;
-                                }
-                            });
-                            this.splice('values', indexToRemove, 1);
-
-                            indexToRemove = -1;
-                            indexToRemove = this.selectedValues.indexOf(item.value);
-                            this.splice('selectedValues', indexToRemove, 1);
-
-                            indexToRemove = -1;
-                            indexToRemove = this.selectedIds.indexOf(item.id);
-                            this.splice('selectedIds', indexToRemove, 1);
+                        var itemList = []; 
+                        if(e.detail.item.length >= 1){
+                            itemList = e.detail.item;
                         } else {
-                            this.add({
-                                "name": item.value,
-                                "color": "#d2d7dd",
-                                "options": {
-                                    "referenceDataId": item.id
+                            itemList.push(e.detail.item);
+                        }
+                        for(var i=0; i<itemList.length;i++)
+                        {
+                            var item = itemList[i]; 
+                            if (this._lovSelectedItems.indexOf(item) == -1) {
+                                var indexToRemove = -1;
+                                this.values.forEach(function(currentElement, index) {
+                                    if(currentElement.options.referenceDataId === item.id) {
+                                        indexToRemove = index;
+                                        return;
+                                    }
+                                });
+                                this.splice('values', indexToRemove, 1);
+
+                                indexToRemove = -1;
+                                indexToRemove = this.selectedValues.indexOf(item.value);
+                                this.splice('selectedValues', indexToRemove, 1);
+
+                                indexToRemove = -1;
+                                indexToRemove = this.selectedIds.indexOf(item.id);
+                                this.splice('selectedIds', indexToRemove, 1);
+                            } else {
+                                this.add({
+                                    "name": item.value,
+                                    "longName": item.value,
+                                    "color": "#d2d7dd",
+                                    "options": {
+                                        "referenceDataId": item.id
+                                    }
+                                });
+
+                                if(this.selectedValues && this.selectedValues.indexOf(item.value) == -1) {
+                                    this.push("selectedValues", item.value);
                                 }
-                            });
 
-                            if(this.selectedValues && this.selectedValues.indexOf(item.value) == -1) {
-                                this.push("selectedValues", item.value);
-                            }
-
-                            if(this.selectedIds && this.selectedIds.indexOf(item.id) == -1) {
-                                this.push("selectedIds", item.id);
+                                if(this.selectedIds && this.selectedIds.indexOf(item.id) == -1) {
+                                    this.push("selectedIds", item.id);
+                                }
                             }
                         }
                     };
-                    this.fire('selection-changed');
+                    this.dispatchEvent(new CustomEvent('selection-changed',{bubbles:true,composed:true}));
                 },
 
                 _tagItemRemoved: function (e, detail) {
@@ -486,7 +499,7 @@ Custom property | Description | Default
                  * <b><i>Content development is under progress... </b></i> 
                  */
                 refreshData: function () {
-                    this.$$('pebble-lov').refreshData();
+                    this.shadowRoot.querySelector('pebble-lov').refreshData();
                 },
 
                 clear: function () {
@@ -495,7 +508,7 @@ Custom property | Description | Default
 
                 _onCollectionContainerOpen: function () {
                     this.isPopoverOpened = true;
-                    var pebbleLov = this.$$("pebble-lov");
+                    var pebbleLov = this.shadowRoot.querySelector("pebble-lov");
                     if (pebbleLov) {
                         if (pebbleLov.items.length == 0) {
                             pebbleLov.refreshData();
@@ -505,7 +518,7 @@ Custom property | Description | Default
                 },
 
                 _onCollectionContainerClose: function () {
-                    var pebbleLov = this.$$("pebble-lov");
+                    var pebbleLov = this.shadowRoot.querySelector("pebble-lov");
                     pebbleLov.items = [];
                     this.isPopoverOpened = false;
                 },

@@ -1,16 +1,16 @@
 'use strict';
-var config = require('../../config/rdf-connection-config.json');
+var config = require('config');
 var isEmpty = require('../common/utils/isEmpty');
-
 
 var fs = require('fs');
 
 module.exports = function (app) {
     var dir = './download';
 
-    if (config && !isEmpty(config.fileStoragePath)) {
-        if (fs.existsSync(config.fileStoragePath)) {
-            dir = config.fileStoragePath + '/download';
+    var fileStoragePath = config.get('modules.fileDownload.fileStoragePath');
+    if (!isEmpty(fileStoragePath)) {
+        if (fs.existsSync(fileStoragePath)) {
+            dir = fileStoragePath + '/download';
         }
     }
 

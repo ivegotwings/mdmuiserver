@@ -54,7 +54,7 @@ DataObjectFalcorUtil.getPathKeys = function () {
                 "name": "requestobject",
                 "collectionName": "requestObjects",
                 "responseObjectName": "response",
-                "maxRecordsToReturn": 25000,
+                "maxRecordsToReturn": 200,
                 "combinedQueryPageSize": 30000
             }
         }
@@ -733,7 +733,6 @@ DataObjectFalcorUtil.createRelUniqueId = function (relType, rel) {
 };
 
 DataObjectFalcorUtil.mergePathSets = function () {
-    var mergedPathSets = [];
     var args = Array.prototype.splice.call(arguments, 0);
     var mergedPathSets = Array.prototype.concat.apply([], args);
     return mergedPathSets;
