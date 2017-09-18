@@ -691,7 +691,7 @@ Eventservice.prototype = {
             //Add task status criterion...
             var taskStatusCriterion = {
                 "status": {
-                    "eq": this._convertExternalStatusToInternalStatus(status)
+                    "contains": status.toLowerCase()
                 }
             };
             attributesCriteria.push(taskStatusCriterion);
@@ -747,14 +747,7 @@ Eventservice.prototype = {
                             eventAttributes["taskId"] = attributes["taskId"];
                             eventAttributes["fileName"] = attributes["fileName"];
                             eventAttributes["fileType"] = attributes["fileType"];
-                            eventAttributes["formatter"] = {"values": [
-                                {
-                                    "locale": "en-US",
-                                    "source": "internal",
-                                    "id": uuidV1(),
-                                    "value": "EXCEL"
-                                }
-                            ]};//attributes["formatter"];
+                            eventAttributes["formatter"] = attributes["fileType"];
                             eventAttributes["eventSubType"] = attributes["status"];
                             eventAttributes["recordCount"] = attributes["totalRecords"];
                             eventAttributes["createdOn"] = {"values": [
@@ -819,7 +812,7 @@ Eventservice.prototype = {
             response.fileName = fileName ? fileName : response.fileId;
             response.fileType = fileType ? fileType : "N/A";
             response.submittedBy = submittedBy ? submittedBy.replace("_user", "") : "N/A";
-            response.totalRecords = totalRecords ? totalRecords : "N/A";
+            response.totalRecords = (totalRecords && totalRecords > -1) ? totalRecords : "N/A";
             response.message = message ? message : "N/A";
             response.startTime = startTime ? startTime : "N/A";
             response.endTime = "N/A";
@@ -888,61 +881,65 @@ Eventservice.prototype = {
                 taskDetails.preProcessFailure = true;
             }
         } else {
-            if (totalRecordCount > 0 && (totalRecordCount == successCount + errorCount)) {
-                taskDetails.taskStatus = "Completed With Errors";
-            } 
-            else {
-                taskDetails.taskStatus = "Processing"
+            // if (totalRecordCount > 0 && (totalRecordCount == successCount + errorCount)) {
+            //     taskDetails.taskStatus = "Completed With Errors";
+            // } 
+            // else {
+            //     taskDetails.taskStatus = "Processing"
+            // }
+
+            if(totalRecordCount > 0) {
+                var inProgressCount = totalRecordCount - (successCount + errorCount);
+
+                var successPercentage = (successCount * 100) / totalRecordCount;
+                var errorPercentage = ((errorCount) * 100) / totalRecordCount;
+                var inProgressPercentage = (inProgressCount * 100) / totalRecordCount;
+
+                if(successPercentage > 100) {
+                    successPercentage = 100;
+                }
+
+                if(errorPercentage > 100) {
+                    errorPercentage = 100;
+                }
+
+                if(inProgressPercentage > 100) {
+                    inProgressPercentage = 100;
+                }
+
+                taskDetails.taskStats.success = this._convertToPositiveInteger(successPercentage) + "%";
+                taskDetails.taskStats.error = this._convertToPositiveInteger(errorPercentage) + "%";
+                taskDetails.taskStats.processing = this._convertToPositiveInteger(inProgressPercentage) + "%";
+            }
+        }
+
+        if(totalRecordCount > 0) {
+            var createPercentage = (createCount * 100) / totalRecordCount;
+            var updatePercentage = (updateCount * 100) / totalRecordCount;
+            var deletePercentage = (deleteCount * 100) / totalRecordCount;
+            var noChangePercentage = ((totalRecordCount - successCount) * 100) / totalRecordCount;
+
+            if(createPercentage > 100) {
+                createPercentage = 100;
             }
 
-            var inProgressCount = totalRecordCount - (successCount + errorCount);
-
-            var successPercentage = (successCount * 100) / totalRecordCount;
-            var errorPercentage = ((errorCount) * 100) / totalRecordCount;
-            var inProgressPercentage = (inProgressCount * 100) / totalRecordCount;
-
-            if(successPercentage > 100) {
-                successPercentage = 100;
+            if(updatePercentage > 100) {
+                updatePercentage = 100;
             }
 
-            if(errorPercentage > 100) {
-                errorPercentage = 100;
+            if(deletePercentage > 100) {
+                deletePercentage = 100;
             }
 
-            if(inProgressPercentage > 100) {
-                inProgressPercentage = 100;
+            if(noChangePercentage > 100) {
+                noChangePercentage = 100;
             }
 
-            taskDetails.taskStats.success = this._convertToPositiveInteger(successPercentage) + "%";
-            taskDetails.taskStats.error = this._convertToPositiveInteger(errorPercentage) + "%";
-            taskDetails.taskStats.processing = this._convertToPositiveInteger(inProgressPercentage) + "%";
+            taskDetails.taskStats.createRecords = this._convertToPositiveInteger(createPercentage) + "%";
+            taskDetails.taskStats.updateRecords = this._convertToPositiveInteger(updatePercentage) + "%";
+            taskDetails.taskStats.deleteRecords = this._convertToPositiveInteger(deletePercentage) + "%";
+            taskDetails.taskStats.noChangeRecords = this._convertToPositiveInteger(noChangePercentage) + "%";
         }
-
-        var createPercentage = (createCount * 100) / totalRecordCount;
-        var updatePercentage = (updateCount * 100) / totalRecordCount;
-        var deletePercentage = (deleteCount * 100) / totalRecordCount;
-        var noChangePercentage = ((totalRecordCount - successCount) * 100) / totalRecordCount;
-
-        if(createPercentage > 100) {
-            createPercentage = 100;
-        }
-
-        if(updatePercentage > 100) {
-            updatePercentage = 100;
-        }
-
-        if(deletePercentage > 100) {
-            deletePercentage = 100;
-        }
-
-        if(noChangePercentage > 100) {
-            noChangePercentage = 100;
-        }
-
-        taskDetails.taskStats.createRecords = this._convertToPositiveInteger(createPercentage) + "%";
-        taskDetails.taskStats.updateRecords = this._convertToPositiveInteger(updatePercentage) + "%";
-        taskDetails.taskStats.deleteRecords = this._convertToPositiveInteger(deletePercentage) + "%";
-        taskDetails.taskStats.noChangeRecords = this._convertToPositiveInteger(noChangePercentage) + "%";
 
         if(taskStatus != "processing" && taskStatus != "queued") {
             taskDetails.endTime = requestObject.properties.modifiedDate;
@@ -1064,24 +1061,6 @@ Eventservice.prototype = {
         }
 
         return integer;
-    },
-    _convertExternalStatusToInternalStatus: function(internalStatus) {
-        var externalStatus;
-        switch(internalStatus) {
-            case "QUEUED":
-                externalStatus = "queued";
-                break;
-            case "PROCESSING":
-                externalStatus = "processing";
-                break;
-            case "ERRORED":
-                externalStatus = "failed";
-                break;
-            case "COMPLETED":
-                externalStatus = "completed";
-                break;
-        }
-        return externalStatus;
     },
     _getRequestJson: function (types) {
         var req = {
