@@ -306,7 +306,7 @@ function unbundledBuild() {
           // .pipe(gulpif(/\.js$/, uglify())) // Install gulp-uglify to use
           // .pipe(gulpif(/\.css$/, cssSlam())) // Install css-slam to use
           // .pipe(gulpif(/\.html$/, htmlMinifier())) // Install gulp-html-minifier to use
-          .pipe(gulpif('**/*.js', babel()))
+          // .pipe(gulpif('**/*.js', babel()))
           // Remember, you need to rejoin any split inline code when you're done.
           .pipe(sourcesStreamSplitter.rejoin());
           //.pipe(debug({title:"After join"}));
