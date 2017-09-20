@@ -1,4 +1,8 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html" />
+<link rel="import" href="../../../bower_components/shadycss/apply-shim.html">
+<link rel="import" href="../../../bower_components/polymer/lib/elements/custom-style.html">
+<link rel="import" href="../../../bower_components/polymer/lib/utils/async.html">
+
 
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html" />
 <link rel="import" href="../bedrock-app-behavior/bedrock-app-behavior.html" />
@@ -24,39 +28,44 @@
     <template>
         <style include="pebble-styles-shared"></style>
         <style include="iron-flex"></style>
-        <style is="custom-style">
-            .summary-container {
-                padding: 20px;
-            }
+            <style>
+                .summary-container {
+                    padding: 20px;
+                }
 
-            pebble-horizontal-divider {
-                background-color: var(--palette-pale-grey-three, #e7ebf0);
-            }
+                pebble-horizontal-divider {
+                    background-color: var(--palette-pale-grey-three, #e7ebf0);
+                }
 
-            .message-box {
-                font-family: 'Roboto', Helvetica, Arial, sans-serif;
-                font-size: 14px;
-                font-weight: normal;
-                font-style: normal;
-                font-stretch: normal;
-                color: #1a2028;
-                opacity: 0.7;
-            }
-        </style>
+                .message-box {
+                    font-family: 'Roboto', Helvetica, Arial, sans-serif;
+                    font-size: 14px;
+                    font-weight: normal;
+                    font-style: normal;
+                    font-stretch: normal;
+                    color: #1a2028;
+                    opacity: 0.7;
+                }
+                rock-layout{
+                    --rock-layout-height:{
+                        height :100vh;
+                    }
+                }
+            </style>
         <rock-layout>
             <liquid-config-aggregate-get id="getEntityDiscoveryAppConfig" operation="getbyids" request-id="req1" app-name="app-task-detail"
-                context-data="[[contextData]]" on-config-get-response="_onApplicationConfigReceived"></liquid-config-aggregate-get>
+                                         context-data="[[contextData]]" on-config-get-response="_onApplicationConfigReceived"></liquid-config-aggregate-get>
             <liquid-rest id="taskDetailsGet" url="/data/eventservice/getTaskDetails" method="POST" request-data={{_taskDetailsGetRequest}}
                 on-liquid-response="_onTaskDetailsGetResponse" on-liquid-error="_onTaskDetailsGetError"></liquid-rest>
             <pebble-spinner active="[[_loading]]"></pebble-spinner>
             <rock-titlebar icon="pebble-lg-icons:InegrationDb" main-title="App Task Details" closable minimizable>
                 <div id="dimensionContainer" align="right">
-                    <rock-dimension-selector id="dimensionSelector" all-multi-select></rock-dimension-selector>
+                    <rock-dimension-selector id="dimensionSelector" all-multi-select config-data="[[getConfig('rock-dimension-selector')]]"></rock-dimension-selector>
                 </div>
             </rock-titlebar>
             <div class="flex">
                 <div class="summary-container">
-                    <template is="dom-if" if="[[_isTaskDetailsLoading)]]">
+                    <template is="dom-if" if="[[_isTaskDetailsLoading]]">
                         <pebble-accordion header-text="Summary & Filters" default-icon="chevron-right" open-icon="expand-more">
                             <rock-task-summary id="rockTaskSummary" task-details="[[_taskDetails]]"></rock-task-summary>
                         </pebble-accordion>
@@ -92,6 +101,7 @@
         <bedrock-pubsub event-name="show-completed" handler="_onCompletedClick" target-id="rockTaskSummary"></bedrock-pubsub>
         <bedrock-pubsub event-name="show-errors" handler="_onErrorsClick" target-id="rockTaskSummary"></bedrock-pubsub>
         <bedrock-pubsub event-name="refresh-task-details" handler="_onRefreshClick" target-id="rockTaskSummary"></bedrock-pubsub>
+       
     </template>
     <script>
         (function () {
@@ -145,7 +155,18 @@
 
                     _defaultMessage: {
                         type: String,
-                        value: "No details available for the current task"
+                        value: "No details available currently"
+                    },
+                    entityIdList:{
+                        type:Array,
+                        value:function () {
+                            return [];
+                        }
+                    },entityTypeList:{
+                        type:Array,
+                        value:function () {
+                            return [];
+                        }
                     }
                 },
 
@@ -157,20 +178,21 @@
                     this.taskId = DataHelper.getParamValue("id");
                     this._taskDetailsGetRequest = {
                         "taskId": this.taskId
-                    }
+                    };
 
                     this._message = this._defaultMessage;
                 },
-
-                attached: function () {
+                created: function(){
                     var userContext = {
                         "role": this.roleId,
                         "user": this.userId,
                         "ownershipData": this.ownershipData
                     };
-
                     this.contextData[this.CONTEXT_TYPE_USER] = [userContext];
 
+                },
+
+                attached: function () {
                     this._initiateTaskDetailsGetRequest();
                 },
 
@@ -182,6 +204,7 @@
                     if (!DataHelper.isEmptyObject(this.applicationConfig) && this._showCompletedTasks) {
                         return true;
                     }
+                    return false;
                 },
 
                 _loadErrorTasks: function () {
@@ -195,7 +218,7 @@
                 },
 
                 _initiateTaskDetailsGetRequest: function () {
-                    var taskDetailsGet = this.$$("#taskDetailsGet");
+                    var taskDetailsGet = this.shadowRoot.querySelector("#taskDetailsGet");
                     if (taskDetailsGet) {
                         taskDetailsGet.generateRequest();
                     }
@@ -203,29 +226,33 @@
 
                 _onTaskDetailsGetResponse: function (e, detail) {
                     this._loading = false;
+                    var taskDetails = detail.response;
 
-                    //Convert task startTime and endTime
-                    detail.response.startTime = FormatHelper.convertFromISODateTimeToClientFormat(
-                        detail.response.startTime, 'datetime');
-                    detail.response.endTime = FormatHelper.convertFromISODateTimeToClientFormat(detail.response
-                        .endTime, 'datetime');
+                    if (taskDetails && !_.isEmpty(taskDetails)) {
 
-                    this._taskDetails = detail.response;
+                        //Convert task startTime and endTime
+                        taskDetails.startTime = FormatHelper.convertFromISODateTimeToClientFormat(
+                            taskDetails.startTime, 'datetime');
+                        taskDetails.endTime = FormatHelper.convertFromISODateTimeToClientFormat(
+                            taskDetails.endTime, 'datetime');
 
-                    if (this._taskDetails && !_.isEmpty(this._taskDetails)) {
-                        if (this._taskDetails.successEntities && this._taskDetails.successEntities.ids &&
-                            this._taskDetails.successEntities.ids.length > 0) {
-                            this.entityIdList = this._taskDetails.successEntities.ids;
-                            this.entityTypeList = this._taskDetails.successEntities.types;
+                        if (taskDetails.successEntities && taskDetails.successEntities.ids &&
+                            taskDetails.successEntities.ids.length > 0) {
+                            this.entityIdList = taskDetails.successEntities.ids;
+                            this.entityTypeList = taskDetails.successEntities.types;
 
                             if (!this._showCompletedTasks) {
                                 this._showCompletedTasks = true;
+                                setTimeout(() =>{
+                                    this._reloadRockDiscovery();
+                                }, 100);
+
                             } else {
                                 this._reloadRockDiscovery();
                             }
-                        } else if (this._taskDetails.taskStatus.toLowerCase() == "errored") {
-                            if (this._taskDetails.preProcessFailure) {
-                                this._message = this._taskDetails.message;
+                        } else if (taskDetails.taskStatus.toLowerCase() == "errored") {
+                            if (taskDetails.preProcessFailure) {
+                                this._message = taskDetails.message;
                                 this._showMessage = true;
                             } else {
                                 this._showErroredTasks = true;
@@ -233,12 +260,31 @@
                         } else {
                             this._showMessage = true;
                         }
+                    } else {
+                        //Task details are not available... 
+                        //It could be still task is waiting to be queued... set default values
+                        taskDetails.taskId = detail.request.requestData.taskId;
+                        taskDetails.taskStatus = "Waiting To Be Queued";
+                        taskDetails.fileName = "N/A";
+                        taskDetails.fileId = "N/A";
+                        taskDetails.taskType = "N/A";
+                        taskDetails.startTime = "N/A";
+                        taskDetails.endTime = "N/A";
+                        taskDetails.submittedBy = "N/A";
+                        taskDetails.totalRecords = "N/A";
+                        taskDetails.taskStats = {"error":"0%","processing":"100%","success":"0%","createRecords":"0%",
+                            "updateRecords":"0%","deleteRecords":"0%","noChangeRecords":"100%"};
+                        
+                        this._message = this._defaultMessage;
+                        this._showMessage = true;
                     }
 
-                    var dimensionSelector = this.$$("#dimensionSelector");
+                    this._taskDetails = taskDetails;
+
+                    var dimensionSelector = this.shadowRoot.querySelector("#dimensionSelector");
                     var dimensionSelectorConfig = this.getConfig('rock-dimension-selector');
                     if(!dimensionSelectorConfig) {
-                        this.async(function()  {
+                        setTimout(() => {
                             if(dimensionSelector) {
                                 dimensionSelector.configData = this.getConfig('rock-dimension-selector');
                             }
@@ -310,8 +356,8 @@
                 },
 
                 _reloadRockDiscovery: function () {
-                    if (this.$$("#entitySearchDiscoveryGrid")) {
-                        this.$$("#entitySearchDiscoveryGrid").refresh();
+                    if (this.shadowRoot.querySelector("#entitySearchDiscoveryGrid")) {
+                        this.shadowRoot.querySelector("#entitySearchDiscoveryGrid").refresh();
                     }
                 }
             });

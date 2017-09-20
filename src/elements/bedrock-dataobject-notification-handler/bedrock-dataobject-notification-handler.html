@@ -1,4 +1,6 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/polymer/lib/utils/async.html">
+<link rel="import" href="../../../bower_components/polymer/lib/utils/debounce.html">
 
 <link rel="import" href="../bedrock-enums-util/bedrock-enums-util.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
@@ -84,12 +86,22 @@
                                 self._updateCache(data);
                                 var dataId = data.context && data.context.id ? data.context.id : -1;
                                 if (data.showNotificationToUser) {
-                                    this.debounce(dataId, function () {
+                                    this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(2000), () => {
                                         self._onGovernComplete(data);
-                                    }, 2000);
+                                    });
                                 }
                                 break;
                             case actions.WorkflowTransitionComplete:
+                                self._updateCache(data);
+                                // There can be any number of notifications in case of transition based on govern rules, WF model.
+                                // debounce of 1 second to ensure that UI doesn't get refreshed multiple times if there are many notifiations in 1 second.
+                                var dataId = data.context && data.context.id ? data.context.id : -1;
+                                if (data.showNotificationToUser) {
+                                    this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(2000), () => {
+                                        self._onWorkflowTransitionComplete(data);
+                                    });
+                                }
+                                break;
                             case actions.WorkflowAssignmentComplete:
                                 self._updateCache(data);
                                 if (data.showNotificationToUser) {
@@ -202,7 +214,7 @@
                                 description = 'Some changes that you made have been verified by the system. Do you want to refresh the page to see the changes?';
                                 actions = '<div id="toast-button"><a href="#" onclick="RUFEventHandlers.reloadClick()" appId="' + data.context.appInstanceId + '">Reload</a></div>';
                                 data.description = description + actions;
-                                this._sendToast(data);
+                                this._fireNotificationEvent("govern-complete", data);
                             } else if (isMinimizedApp) {
                                 description = 'Some changes that you made have been verified by the system for a/an ' + data.context.type + ' with ID ' + data.context.id + '.';
                                 data.description = description;
@@ -212,8 +224,6 @@
                         }
                     }
 
-                    //incase needs to do some other stuff. right now not in use.
-                    this._fireNotificationEvent("govern-complete", data);
                 },  
 
                 // update notification badge and notification list.
@@ -263,7 +273,7 @@
                         }
                     }
 
-                    //incase needs to do some other stuff. right now not in use.
+                    //incase needs to do some other stuff.
                     this._fireNotificationEvent("rsConnnect-complete", data);
                 },
 
@@ -289,7 +299,7 @@
                         }
                     }
 
-                    //incase needs to do some other stuff. right now not in use.
+                    //incase needs to do some other stuff
                     this._fireNotificationEvent("rsConnnect-fail", data);
                 },
 
@@ -316,11 +326,11 @@
                     var notificationElement, notificationLabelElement;
 
                     if (!isSystem) {
-                        notificationElement = mainApp.$$('#userNotificationsList');
-                        notificationLabelElement = mainApp.$$('#mdmUserNotifications');
+                        notificationElement = mainApp.shadowRoot.querySelector('#userNotificationsList');
+                        notificationLabelElement = mainApp.shadowRoot.querySelector('#mdmUserNotifications');
                     } else {
-                        notificationElement = mainApp.$$('#systemNotificationsList');
-                        notificationLabelElement = mainApp.$$('#mdmSystemNotifications');
+                        notificationElement = mainApp.shadowRoot.querySelector('#systemNotificationsList');
+                        notificationLabelElement = mainApp.shadowRoot.querySelector('#mdmSystemNotifications');
                     }
 
                     if (!notificationElement) {
@@ -361,11 +371,17 @@
                     return active;
                 },
 
+                showToast: function (data) {
+                    if(data){
+                        this._sendToast(data);
+                    }
+                },
+
                 _sendToast: function (data) {
                     if (data) {
                         var mainApp = document.querySelector('main-app');
                         if (mainApp) {
-                            var pebbleToastElement = mainApp.$$('#dataobject-notification-toast');
+                            var pebbleToastElement = mainApp.shadowRoot.querySelector('#dataobject-notification-toast');
 
                             if (!pebbleToastElement) {
                                 pebbleToastElement = document.createElement("pebble-toast");
@@ -429,8 +445,8 @@
                         return;
                     }
 
-                    var userNotificationElementPopover = mainApp.$$('#popoverUserNotifications');
-                    var systemNotificationElementPopover = mainApp.$$('#popoverSystemNotifications');
+                    var userNotificationElementPopover = mainApp.shadowRoot.querySelector('#popoverUserNotifications');
+                    var systemNotificationElementPopover = mainApp.shadowRoot.querySelector('#popoverSystemNotifications');
 
                     if (userNotificationElementPopover) {
                         userNotificationElementPopover.hide();

@@ -4,7 +4,6 @@ const DFServiceBase = require('../service-base/DFServiceBase'),
     OfflineRestService = require('./OfflineRestService'),
     executionContext = require('../../common/context-manager/execution-context'),
     notificationUtil = require('../../../../shared/dataobject-notification-util'),
-    rdfConfig = require('../../../config/rdf-connection-config.json'),
     moment = require('moment');
 
 require('./df-rest-service-config.js');
@@ -58,7 +57,6 @@ var _updateRequestObject = function (request) {
     var timeStamp = moment().toISOString();
     var securityContext = executionContext.getSecurityContext();
     var callerContext = executionContext.getCallerContext();
-    var mode = rdfConfig.mode;
     var clientUrl = "";
 
     if (callerContext) {
@@ -66,7 +64,7 @@ var _updateRequestObject = function (request) {
     }
 
     if (notifyUtil) {
-        notifyUtil.updateRequestObjectForNotification(request, securityContext.headers.userId, timeStamp, clientUrl, mode);
+        notifyUtil.updateRequestObjectForNotification(request, securityContext.headers.userId, timeStamp, clientUrl);
     }
 }
 

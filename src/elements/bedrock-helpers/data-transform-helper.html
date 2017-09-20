@@ -1,4 +1,4 @@
-<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<!--<link rel="import" href="../../../bower_components/polymer/polymer.html">-->
 <link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-helpers/attribute-helper.html">
@@ -7,7 +7,7 @@
 <link rel="import" href="../bedrock-helpers/entity-helper.html">
 
 <script>
-    DataTransformHelper = {};
+    window.DataTransformHelper = window.DataTransformHelper || {};
 
     (function () {
 
@@ -246,7 +246,7 @@
             return transformedEntities;
         };
 
-        DataTransformHelper.prepareEntityForAttributesSave = function (entity, attributesJSON, contextData) {
+        DataTransformHelper.prepareEntityForAttributesSave = function (entity, attributesJSON, contextData, attributeModels) {
             var firstDataContext = ContextHelper.getFirstDataContext(contextData);
             var firstValueContext = ContextHelper.getFirstValueContext(contextData);
 
@@ -256,24 +256,34 @@
 
             var outputData = [];
 
-            for (var i = 0; i < attributesJSON.length; i++) {
+            for (let i = 0; i < attributesJSON.length; i++) {
                 var attributeJSON = attributesJSON[i];
                 var attr;
-                if(attributeJSON.group instanceof Array) {
-                    attr = {"group": []};
-                    for(var i=0; i<attributeJSON.group.length; i++) {
-                        var group = attributeJSON.group[i];
-                        var childAttributes = {};
-                        for(var attributeName in group) {
-                            if(attributeName !== "id") {
-                                var attrJson = {
-                                        "value": group[attributeName].value
-                                };
-                                var childAttr = this.createAttributeInstance(attrJson, firstValueContext);
-                                childAttributes[attributeName] = childAttr;
+                var model = attributeModels && attributeModels[attributeJSON.name] ? attributeModels[attributeJSON.name] : undefined;
+                if(model && model.dataType === "nested") {
+                    if(attributeJSON.value) {
+                        attr = {"group": []};
+                        for(let j = 0; j < attributeJSON.value.length; j++) {
+                            var group = attributeJSON.value[j];
+                            var childAttributes = {};
+                            var childAttrModels = model.group[0];
+                            for(var attributeName in group) {
+                                if(childAttrModels[attributeName]) {
+                                    var attrJson = {
+                                            "value": group[attributeName].value
+                                    };
+                                    var referenceDataId = group[attributeName]["referenceDataId"] ? group[attributeName]["referenceDataId"] : undefined;
+                                    var referenceEntityType = group[attributeName]["referenceEntityType"] ? group[attributeName]["referenceEntityType"] : undefined;
+                                    if(referenceDataId && referenceEntityType) {
+                                        attrJson["referenceDataId"] = referenceDataId;
+                                        attrJson["referenceEntityType"] = referenceEntityType;
+                                    }
+                                    var childAttr = this.createAttributeInstance(attrJson, firstValueContext);
+                                    childAttributes[attributeName] = childAttr;
+                                }
                             }
+                            attr.group.push(childAttributes);
                         }
-                        attr.group.push(childAttributes);
                     }
                 } else {
                     attr = this.createAttributeInstance(attributeJSON, firstValueContext);
@@ -372,7 +382,7 @@
                             attributeValue.action="delete";
                         }
 
-                        if(attributeJSON.referenceEntityType) {
+                        if(attributeJSON.referenceEntityType && attributeJSON.referenceDataId[j]) {
                             attributeValue.properties = {};
                             attributeValue.properties.referenceData = attributeJSON.referenceEntityType + "/" + attributeJSON.referenceDataId[j];
                             attributeValue.properties.referenceDataIdentifier = "";
@@ -389,7 +399,7 @@
                     attributeValue.action="delete";
                 }
 
-                if(attributeJSON.referenceEntityType) {
+                if(attributeJSON.referenceEntityType && attributeJSON.referenceDataId) {
                     attributeValue.properties = {};
                     attributeValue.properties.referenceData = attributeJSON.referenceEntityType + "/" + attributeJSON.referenceDataId   ;
                     attributeValue.properties.referenceDataIdentifier = "";
@@ -459,26 +469,19 @@
                             }
                         }
 
-                        attributeJSON.referenceDataId = attributeRefIds;
+                        if (attributeJSON) {
+                            attributeJSON.referenceDataId = attributeRefIds;
+                        }
 
                         if (attributeJSON != undefined && attributeJSON.invalidValue) {
                             attributeJSON["value"] = attributeJSON.invalidValue;
                         }
                     } else if(attributeModel.dataType === "nested" && attributeModel.group && attributeModel.group.length > 0) {
                         var childAttributeModels = attributeModel.group[0];
-                        var group = [];
-                        if(attribute && attribute.group && attribute.group.length > 0) {
-                            for(var i=0; i<attribute.group.length; i++) {
-                                var childAttributes = attribute.group[i];
-                                delete childAttributes.id;
-                                var transformedChildAttributes = this._transformAttributes(childAttributes, childAttributeModels, valueContext);
-                                group.push(transformedChildAttributes);
-                            }
-                        }
-                        attributeJSON["group"] = group;
+                        attributeJSON["value"] = DataTransformHelper.transformNestedAttributes(attribute, childAttributeModels);
                     }
 
-                    if(!DataHelper.isEmptyObject(attributeJSON.properties)) {
+                    if(attributeJSON && !DataHelper.isEmptyObject(attributeJSON.properties)) {
                         if(attributeJSON.properties.referenceData) {
                             var refEntityType = attributeModel.referenceEntityTypes && attributeModel.referenceEntityTypes.length > 0 ? attributeModel.referenceEntityTypes[0] : "";
                             var referenceData = attributeJSON.properties.referenceData;
@@ -500,6 +503,73 @@
 
             return transformedAttributes;
         };
+
+        DataTransformHelper.transformNestedAttributes = function(attribute, childAttributeModels) {
+            if(!_.isEmpty(childAttributeModels)) {
+                var value = [];
+
+                if(attribute && attribute.group && attribute.group.length > 0) {
+                    for(var i=0; i<attribute.group.length; i++) {
+                        var childAttributes = attribute.group[i];
+                        delete childAttributes.id;
+                        var childAttributeJson = {};
+
+                        for(var attributeName in childAttributeModels) {
+                            var childAttrModel = childAttributeModels[attributeName];
+                            var childAttr = childAttributes[attributeName];
+                            childAttributeJson[attributeName] = {};
+
+                            if(childAttr) {
+                                var attrVal = AttributeHelper.getFirstAttributeValue(childAttr);
+                                childAttributeJson[attributeName]["value"] = attrVal;
+                                if(childAttrModel.displayType === "referencelist") {
+                                    var refEntityType = childAttrModel.referenceEntityTypes && childAttrModel.referenceEntityTypes.length > 0 ? childAttrModel.referenceEntityTypes[0] : "";
+                                    childAttributeJson[attributeName]["referenceEntityType"] = refEntityType;
+                                    if(!DataHelper.isEmptyObject(childAttr.values[0].properties) && childAttr.values[0].properties.referenceData) {
+                                        var referenceData = childAttr.values[0].properties.referenceData;
+                                        var referenceDataId = referenceData.replace(refEntityType + "/", "");
+                                        childAttributeJson[attributeName]["referenceDataId"] = referenceDataId;
+                                    } else {
+                                        childAttributeJson[attributeName]["referenceDataId"] = "";
+                                    }
+                                }
+                            } else {
+                                childAttributeJson[attributeName]["value"] = "";
+                                if(childAttrModel.displayType === "referencelist") {
+                                    var refEntityType = childAttrModel.referenceEntityTypes && childAttrModel.referenceEntityTypes.length > 0 ? childAttrModel.referenceEntityTypes[0] : "";
+                                    childAttributeJson[attributeName]["referenceEntityType"] = refEntityType;
+                                    childAttributeJson[attributeName]["referenceDataId"] = "";
+                                }
+                            }
+                        }
+                        childAttributeJson["valueIdentifier"] = {};
+                        childAttributeJson["valueIdentifier"]["value"] = i;
+
+                        value.push(childAttributeJson);
+                    }
+                } else {
+                    var childAttributeJson = {};
+
+                    for(var attributeName in childAttributeModels) {
+                        var childAttrModel = childAttributeModels[attributeName];
+                        childAttributeJson[attributeName] = {};
+                        childAttributeJson[attributeName]["value"] = "";
+
+                        if(childAttrModel.displayType === "referencelist") {
+                            var refEntityType = childAttrModel.referenceEntityTypes && childAttrModel.referenceEntityTypes.length > 0 ? childAttrModel.referenceEntityTypes[0] : "";
+                            childAttributeJson[attributeName]["referenceEntityType"] = refEntityType;
+                            childAttributeJson[attributeName]["referenceDataId"] = "";
+                        }
+                    }
+                    childAttributeJson["valueIdentifier"] = {};
+                    childAttributeJson["valueIdentifier"]["value"] = 0;
+
+                    value.push(childAttributeJson);
+                }
+
+                return value;
+            }
+        }
 
         DataTransformHelper._fillModels = function (attributeModelObjects) {
             for (var attributeName in attributeModelObjects) {
@@ -713,11 +783,13 @@
                     if (!_.isEmpty(_searchData)) {
                         var _favFlag = false;
                         // Check is the current search in favourites, if yes directly push to favourites section
-                        for (var j = 0; j < _favorites.length; j++) {
-                            if (_favorites[j] == _searchData.searchname) {
-                                _scopes.favourites.push(_searchData);
-                                _favFlag = true;
-                                break;
+                        if(!_.isEmpty(_favorites)) {
+                            for (var j = 0; j < _favorites.length; j++) {
+                                if (_favorites[j] == _searchData.searchname) {
+                                    _scopes.favourites.push(_searchData);
+                                    _favFlag = true;
+                                    break;
+                                }
                             }
                         }
                         // If not favourites, then check for user, if user is current user, then push to my searches section

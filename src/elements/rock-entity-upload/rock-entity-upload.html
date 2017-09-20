@@ -1,4 +1,5 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/polymer/lib/utils/async.html">
 
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
@@ -109,7 +110,7 @@
                     font-weight: var(--font-bold, bold);
                     height: 30px;
                     width: 100px;
-                }
+                };
             }
 
             pebble-button#download {
@@ -120,7 +121,7 @@
                     font-weight: var(--font-bold, bold);
                     height: 30px;
                     width: 100px;
-                }
+                };
             }
 			
             .preview-message-container {
@@ -164,14 +165,14 @@
                             <rock-classification-tree id="contextTree" multi-select="true" taxonomy="[[taxonomy]]" context-data="[[contextData]]" selected-classifications="{{_selectedCategories}}"></rock-classification-tree>
                         </div>
                         <div id="exportActions" class="p-b-10" align="center">
-                            <pebble-button id="cancel" button-text="Cancel" raised on-tap="_onCancelDownloadSelection"></pebble-button>
-                            <pebble-button id="download" button-text="Download" raised on-tap="_exportSelectedCategory"></pebble-button>
+                            <pebble-button id="cancel" class="close btn btn-secondary m-r-5" button-text="Cancel" raised on-tap="_onCancelDownloadSelection"></pebble-button>
+                            <pebble-button id="download" class="apply btn btn-success" button-text="Download" raised on-tap="_exportSelectedCategory"></pebble-button>
                         </div>
                     </div>
                 </pebble-dialog>
                 <!-- screen for import -->
-                <pebble-file-upload allowed-file-types="[[allowedFileTypes]]"></pebble-file-upload>
-                <bedrock-pubsub on-bedrock-event-pebble-file-upload-success="_onFileUploadSuccess"></bedrock-pubsub>
+                <pebble-file-upload id="fileUpload" allowed-file-types="[[allowedFileTypes]]"></pebble-file-upload>
+                <bedrock-pubsub event-name="pebble-file-upload-success" handler="_onFileUploadSuccess" target-id="fileUpload" ></bedrock-pubsub>
             </div>
             <div class="preview-message-container">
                 <span class="preview-message-info">* Previewing data can take some time.</span>
@@ -354,6 +355,9 @@
                     _profileName: {
                         type: String,
                     },
+                    _workAutomationId: {
+                        type: String
+                    },
                     _customizeMappings: {
                         type: Boolean,
                         value: false
@@ -446,7 +450,7 @@
                         var req = DataRequestHelper.createProfileGetRequest(profileIds);
                         if (req) {
                             this.set("_profileRequest", req);
-                            this.$$("#getUserProfile").generateRequest();
+                            this.shadowRoot.querySelector("#getUserProfile").generateRequest();
                         }
                     }
                 },
@@ -471,7 +475,7 @@
                                 }
                                 if (!_.isEmpty(req.configObjects)) {
                                     this.set("_profileSaveRequest", req);
-                                    this.$$("#profileSaveService").generateRequest();
+                                    this.shadowRoot.querySelector("#profileSaveService").generateRequest();
                                 } else {
                                     this._profileName = this.processProfileId;
                                     this._showView("entity-import");
@@ -495,7 +499,7 @@
                 },
                 _showView: function (viewName) {
                     if (viewName) {
-                        var contentView = this.$$("#content-" + viewName);
+                        var contentView = this.shadowRoot.querySelector("#content-" + viewName);
                         if (contentView) {
                             contentView.removeAttribute("hidden");
                         }
@@ -504,7 +508,7 @@
 
                 _hideView: function (viewName) {
                     if (viewName) {
-                        var contentView = this.$$("#content-" + viewName);
+                        var contentView = this.shadowRoot.querySelector("#content-" + viewName);
                         if (contentView) {
                             contentView.setAttribute("hidden", "");
                         }
@@ -515,7 +519,7 @@
                     this._isDirty = true;
                     this._loading = true;
                     this.set("_fileName", detail.originalFileName);
-                    
+
                     var fileDetails = {
                         "file": detail.file,
                         "fileName": detail.fileName,
@@ -548,11 +552,25 @@
                     formData.append("fileName", fileDetails.fileName);
                     formData.append("originalFileName", fileDetails.originalFileName);
                     formData.append("profileName", this._profileName);
+                    // Prepare workAutomationId for process
+                    if(this._currentCOPService == "process") {
+                        this._workAutomationId = DataHelper.generateUUID();
+                        formData.append("workAutomationId", this._workAutomationId);
+                    }
+                    // Send hotline details in formData for COP request
+                    if(DataHelper.isHotlineModeEnabled()) {
+                        formData.append("hotline", true);
+                    }
 
                     var xhr = new XMLHttpRequest();
                     xhr.open('POST', url, true);
                     xhr.responseType = 'json';
                     xhr.onload = function (e) {
+                        //Process triggred in async manner, so track the details through workAutomationId
+                        if(this._currentCOPService == "process") {
+                            return;
+                        }
+
                         if (e.currentTarget && e.currentTarget.response) {
                             var response = e.currentTarget.response;
                             e.detail = {
@@ -568,6 +586,10 @@
                         }
                     }.bind(this);
                     xhr.send(formData);
+                    //After sending the form data show workAutomationId to user
+                    if(this._currentCOPService == "process") {
+                        this._onCOPProcessComplete();
+                    }
                 },
                 _onCOPSuccess: function (e) {
                     var response = e.detail.response;
@@ -634,38 +656,7 @@
                                 this._isDirty = false;
                             }
                         } else if (this._currentCOPService == "process") {
-                            var data = {
-                                "messages": [
-                                    {
-                                        "message": "Entities will be created/updated using the uploaded file."
-                                    },
-                                    {
-                                        "message": "You can view the status of the processing in the File Upload Status Dashboard"
-                                    }
-                                ],
-                                "actions": [
-                                    {
-                                        "name": "closeFunction",
-                                        "text": "Take Me back to Where I started",
-                                        "action": { "name": "refresh-data" }
-                                    },
-                                    {
-                                        "name": "nextAction",
-                                        "text": "Take me to File Upload Status",
-                                        "dataRoute": "dashboard",
-                                        "action": { "name": "refresh-data" }
-                                    }
-                                ]
-                            };
-                            this.businessFunctionData = data;
-                            ComponentHelper.getParentElement(this).businessFunctionData = data;
-                            var eventName = "onSave";
-                            var eventDetail = {
-                                name: eventName,
-                                data: { "skipNext": this.skipNext }
-                            };
-                            this._loading = false;
-                            this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                            this._onCOPProcessComplete();
                         }
                     } else {
                         this.logWarning("UnexpectedCOP", "response", JSON.stringify(e.detail.response));
@@ -680,8 +671,44 @@
                     this._loading = false;
                     this._isDirty = false;
                 },
+                _onCOPProcessComplete: function() {
+                    var data = {
+                        "messages": [
+                            {
+                                "message": "Entities will be created/updated using the uploaded file."
+                            },
+                            {
+                                "message": "You can view the status of the task " + this._workAutomationId + " in the Task Details"
+                            }
+                        ],
+                        "actions": [
+                            {
+                                "name": "closeFunction",
+                                "text": "Take Me back to Where I started",
+                                "action": { "name": "refresh-data" }
+                            },
+                            {
+                                "name": "gotoTaskDetails",
+                                "text": "Show me the task details",
+                                "dataRoute": "task-detail",
+                                "queryParams": {
+                                    "id": this._workAutomationId
+                                }
+                            }
+                        ]
+                    };
+                    this.businessFunctionData = data;
+                    ComponentHelper.getParentElement(this).businessFunctionData = data;
+                    var eventName = "onSave";
+                    var eventDetail = {
+                        name: eventName,
+                        data: { "skipNext": this.skipNext }
+                    };
+                    this._loading = false;
+                    this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                },
                 _attributeNamesChanged: function (attributeNames, contexts) {
-                    if (!_.isEmpty(attributeNames)) {
+                    if (!_.isEmpty(attributeNames) && contexts != undefined) {
                         this.contextData[ContextHelper.CONTEXT_TYPE_DATA] = contexts;
                         var itemContext = this.getFirstItemContext();
 
@@ -691,7 +718,7 @@
 
                         this.set("attributeModelRequest", t);
 
-                        var liquidModelGet = this.$$("[name=compositeAttributeModelGet]");
+                        var liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
                         if (liquidModelGet) {
                             liquidModelGet.generateRequest();
                         }
@@ -715,7 +742,7 @@
                     }
                 },
                 _populateEntityGrid: function () {
-                    var entitiesGrid = this.$$('#entitiesGrid');
+                    var entitiesGrid = this.shadowRoot.querySelector('#entitiesGrid');
                     if (entitiesGrid) {
                         entitiesGrid.config = {};
                         entitiesGrid.data = [];
@@ -783,7 +810,7 @@
                     this._disableActions();
                     this._loading = true;
                     //get all entities from grid and process save
-                    var gridData = this.$$("#entitiesGrid").data;
+                    var gridData = this.shadowRoot.querySelector("#entitiesGrid").data;
                     var contextData = DataHelper.cloneObject(this.contextData);
                     this._entities = DataTransformHelper.prepareEntitiesForCreate(gridData, contextData, this._attributeModels);
                     this._currentBatchNumber = 0;
@@ -795,8 +822,8 @@
                         this.set('_entityMatchRequest', {
                             "entities": batchEntities
                         });
-                        if (this.$$("#entityMatchService")) {
-                            this.$$("#entityMatchService").generateRequest();
+                        if (this.shadowRoot.querySelector("#entityMatchService")) {
+                            this.shadowRoot.querySelector("#entityMatchService").generateRequest();
                         }
                     } else {
                         this._currentBatchNumber = 0;
@@ -853,7 +880,12 @@
                             "clientState": clientState,
                             "entities": batchEntities
                         };
-                        var liquidSave = this.$$("[name=entitiesSaveDataService]");
+
+                        if(DataHelper.isHotlineModeEnabled()) {
+                            this._saveRequest.hotline = true;
+                        }
+
+                        var liquidSave = this.shadowRoot.querySelector("[name=entitiesSaveDataService]");
                         if (liquidSave) {
                             liquidSave.operation = this._currentAction;
                             liquidSave.generateRequest();
@@ -875,7 +907,12 @@
                             "clientState": clientState,
                             "entities": batchEntities
                         };
-                        var liquidSave = this.$$("[name=entitiesSaveDataService]");
+
+                        if(DataHelper.isHotlineModeEnabled()) {
+                            this._saveRequest.hotline = true;
+                        }
+
+                        var liquidSave = this.shadowRoot.querySelector("[name=entitiesSaveDataService]");
                         if (liquidSave) {
                             liquidSave.operation = this._currentAction;
                             liquidSave.generateRequest();
@@ -953,8 +990,8 @@
                     return entities.slice(start, end + 1);
                 },
                 _disableActions: function () {
-                    var saveButton = this.$$("#next");
-                    var cancelButton = this.$$("#skip")
+                    var saveButton = this.shadowRoot.querySelector("#next");
+                    var cancelButton = this.shadowRoot.querySelector("#skip")
                     saveButton.setAttribute("disabled", true);
                     cancelButton.setAttribute("disabled", true);
                 },
@@ -984,7 +1021,7 @@
                     return this._isDirty;
                 },
                 _exportDialogOpen: function () {
-                    var exportDialog = this.$$("#exportDialog");
+                    var exportDialog = this.shadowRoot.querySelector("#exportDialog");
 
                     if (exportDialog) {
                         exportDialog.dialogTitle = "Download Smart Excel Template";
@@ -1078,7 +1115,7 @@
                             "taxonomy": this.taxonomy
                         }
                     };
-                    var contentEl = this.$$("#content-mappings");
+                    var contentEl = this.shadowRoot.querySelector("#content-mappings");
                     ComponentHelper.loadContent(contentEl, component, this);
                 },
                 _onFieldMappingsSave: function (e, detail) {

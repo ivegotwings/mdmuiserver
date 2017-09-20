@@ -1,6 +1,10 @@
 var DFRestService = require('../common/df-rest-service/DFRestService'),
     isEmpty = require('../common/utils/isEmpty'),
-    uuidV1 = require('uuid/v1');
+    uuidV1 = require('uuid/v1'),
+    arrayContains = require('../common/utils/array-contains');
+
+var config = require('config');
+var taskSummarizationProcessorEnabled = config.get('modules.webEngine.taskSummarizationProcessorEnabled');
 
 var _ = require('underscore');
 
@@ -41,14 +45,30 @@ const eventSubTypesOrder = ["NONE",
 Eventservice.prototype = {
     get: async function (request) {
         var response = {};
+        var getBasedOnTaskSummarizationProcessor = false;
+        
+        //Task summarization processor temp changes...
+        if(taskSummarizationProcessorEnabled) {
+            if(request.params.fields) {
+                var attributeList = request.params.fields.attributes;
 
-        if (request.params.isTaskListGetRequest) {
-            delete request.params.isTaskListGetRequest;
-            response = await this.getTaskList(request);
+                if(attributeList && arrayContains(attributeList, "isSummaryFromTaskProcessor")) {
+                    getBasedOnTaskSummarizationProcessor = true;
+                }
+            }
         }
-        else {
-            var eventServiceGetUrl = 'eventservice/get';
-            response = await this.post(eventServiceGetUrl, request);
+
+        if(getBasedOnTaskSummarizationProcessor) {
+            response = await this.getImportTaskList(request);
+        } else { 
+            if (request.params.isTaskListGetRequest) {
+                delete request.params.isTaskListGetRequest;
+                response = await this.getTaskList(request);
+            }
+            else {
+                var eventServiceGetUrl = 'eventservice/get';
+                response = await this.post(eventServiceGetUrl, request);
+            }
         }
 
         return response;
@@ -191,6 +211,15 @@ Eventservice.prototype = {
 
             var taskId = request.body.taskId;
             //console.log('Get details for ', taskId);
+
+            //Task summarization processor temp changes...
+            if(taskSummarizationProcessorEnabled) {
+                response = await this._getTaskDetailsFromSummarizationProcessor(taskId);
+
+                if(response && !isEmpty(response)) {
+                    return response;
+                }
+            }
 
             //Get Batch Events to get basic information of reuested tasks...
             var attributeNames = ["fileId", "fileName", "fileType", "eventType", "eventSubType", "recordCount", "createdOn", "userId", "profileType", "taskName", "taskType", "message", "integrationType"];
@@ -382,7 +411,7 @@ Eventservice.prototype = {
                                     isBulkWorkflowTask = true;
                                 }
 
-                                var requestTrackingGetRequest = this._generateRequestTrackingGetReqForTaskDetails(taskId, isBulkWorkflowTask);
+                                var requestTrackingGetRequest = this._generateRequestTrackingGetReqForTaskDetails(taskId, isBulkWorkflowTask, totalRecords);
 
                                 //console.log('Request tracking get request to RDF', JSON.stringify(requestTrackingGetRequest));
                                 var requestTrackingGetUrl = 'requesttrackingservice/get';
@@ -450,6 +479,41 @@ Eventservice.prototype = {
 
         return response;
     },
+    //Task summarization processor temp changes...
+    getImportTaskList: async function (request) {
+        var response = {};
+        
+        try {
+
+            var importTaskListGetRequest = this._generateImportTaskListGetRequest(request);
+            
+            //console.log('Request tracking get request to RDF', JSON.stringify(importTaskListGetRequest));
+            var importTaskListGetUrl = 'requesttrackingservice/get';
+            response = await this.post(importTaskListGetUrl, importTaskListGetRequest);
+
+            if(response) {
+                this._convertTaskSummaryObjectInToEvents(response);
+            }
+        }
+        catch (err) {
+            console.log('Failed to get task list.\nError:', err.message, '\nStackTrace:', err.stack);
+        
+            response = {
+                "response": {
+                    "status": "Error",
+                    "statusDetail": {
+                        "code": "RSUI0001",
+                        "message": err.message,
+                        "messageType": "Error"
+                    }
+                }
+            };
+        }
+        finally {
+        }
+        
+        return response;
+    },
     _generateEventsGetReq: function (taskId, attributeNames, eventTypesFilterString, eventSubTypesFilterString, isRecordCountGet) {
         var types = ["externalevent"];
         var req = this._getRequestJson(types);
@@ -503,7 +567,7 @@ Eventservice.prototype = {
 
         return req;
     },
-    _generateRequestTrackingGetReqForTaskDetails: function (taskId, isBulkWorkflowTask) {
+    _generateRequestTrackingGetReqForTaskDetails: function (taskId, isBulkWorkflowTask, totalRecords) {
         var types = ["requestObject"];
         var req = this._getRequestJson(types);
 
@@ -562,12 +626,441 @@ Eventservice.prototype = {
             }]
         };
 
+        req.params.options = {
+            "maxRecords": totalRecords
+        }
+
+        return req;
+    },
+    //Task summarization processor temp changes...
+    _generateImportTaskListGetRequest: function (inputRequest) {
+        var types = ["tasksummaryobject"];
+        var req = this._getRequestJson(types);
+
+        if(!inputRequest.params.isTaskListGetRequest) {
+            var attributeNames = ["_ALL"];
+            req.params.fields.attributes = attributeNames;
+        }
+        // req.params.query.valueContexts = [{
+        //     "source": "rdp",
+        //     "locale": "en-US"
+        // }];
+
+        if(inputRequest.params.query.ids) {
+            req.params.query.ids = inputRequest.params.query.ids;
+        } else if (inputRequest.params.query.id) {
+            req.params.query.id = inputRequest.params.query.id;
+        }
+
+        var requestedAttributeCriteria = inputRequest.params.query.filters.attributesCriterion;
+        var status = undefined;
+        var taskType = "entity_import";
+        var userId = undefined;
+        if(requestedAttributeCriteria) {
+            for (var i in requestedAttributeCriteria) {
+                if(requestedAttributeCriteria[i].eventSubType) {
+                    status = requestedAttributeCriteria[i].eventSubType.eq;
+                }
+
+                if(requestedAttributeCriteria[i].integrationType) {
+                    integrationType = requestedAttributeCriteria[i].integrationType.eq;
+
+                    if(integrationType == "System") {
+                        taskType = "system_integrations_entity_import";
+                    }
+                }
+
+                if(requestedAttributeCriteria[i].userId) {
+                    userId = requestedAttributeCriteria[i].userId.eq;
+                }
+            }
+        }
+
+        var attributesCriteria = [];
+
+        //Add task type criterion...
+        var taskTypeCriterion = {
+            "taskType": {
+                "eq": taskType
+            }
+        };
+        attributesCriteria.push(taskTypeCriterion);
+
+        if(status) {
+
+            //Add task status criterion...
+            var taskStatusCriterion = {
+                "status": {
+                    "contains": status.toLowerCase()
+                }
+            };
+            attributesCriteria.push(taskStatusCriterion);
+        }
+
+        if(userId){
+            //Add user id criterion...
+            var userIdCriterion = {
+                "submittedBy": {
+                    "eq": userId
+                }
+            };
+            attributesCriteria.push(userIdCriterion);
+        }
+        
+        req.params.query.filters.attributesCriterion = attributesCriteria;
+
+        req.params.sort = {
+            "properties": [{
+                "createdDate": "_DESC",
+                "sortType": "_DATETIME"
+            }]
+        };
+
         var dataIndexInfo = pathKeys.dataIndexInfo["requestTracking"];
         req.params.options = {
             "maxRecords": dataIndexInfo.maxRecordsToReturn
         }
 
         return req;
+    },
+    //Task summarization processor temp changes...
+    _convertTaskSummaryObjectInToEvents: function(taskSummaryObjectsResponse) {
+        var response = taskSummaryObjectsResponse.response;
+
+        if(response) {
+            var taskSummaryObjects = response.requestObjects;
+            if(taskSummaryObjects){
+                response.events = [];
+                for (let taskSummaryObject of taskSummaryObjects) {
+                    var externalEvent = {};
+                    externalEvent.id = taskSummaryObject.id;
+                    externalEvent.name = taskSummaryObject.name;
+                    externalEvent.type = "externalevent";
+                    externalEvent.properties = taskSummaryObject.properties;
+
+                    if(taskSummaryObject.data) {
+                        var attributes = taskSummaryObject.data.attributes;
+
+                        if(attributes) {
+                            var eventAttributes = {};
+
+                            eventAttributes["taskId"] = attributes["taskId"];
+                            eventAttributes["fileName"] = attributes["fileName"];
+                            eventAttributes["fileType"] = attributes["fileType"];
+                            eventAttributes["formatter"] = attributes["fileType"];
+                            eventAttributes["eventSubType"] = attributes["status"];
+                            eventAttributes["recordCount"] = attributes["totalRecords"];
+                            eventAttributes["createdOn"] = {"values": [
+                                {
+                                    "locale": "en-US",
+                                    "source": "internal",
+                                    "id": uuidV1(),
+                                    "value": taskSummaryObject.properties ? taskSummaryObject.properties.createdDate : ""
+                                }
+                            ]};
+                            eventAttributes["userId"] = attributes["submittedBy"];
+
+                            var data = externalEvent["data"] = {};
+                            data["attributes"] = eventAttributes;
+                        }
+                    }
+
+                    response.events.push(externalEvent);
+                }
+
+                delete response.requestObjects;
+            }
+        }
+    },
+    //Task summarization processor temp changes...
+    _getTaskDetailsFromSummarizationProcessor: async function(taskId) {
+        var response = {};
+
+        //Generate summary get request...
+        var taskSummmaryGetRequest = this._generateTaskSummaryGetReq(taskId);
+
+        var taskSummaryGetUrl = 'requesttrackingservice/get';
+        var taskSummaryGetRes = await this.post(taskSummaryGetUrl, taskSummmaryGetRequest);
+
+        if (taskSummaryGetRes && taskSummaryGetRes.response && taskSummaryGetRes.response.requestObjects && taskSummaryGetRes.response.requestObjects.length > 0) {
+            var requestObject = taskSummaryGetRes.response.requestObjects[0];
+
+            var taskType = this._getAttributeValue(requestObject, "taskType");
+            if(taskType == "entity_import") {
+                taskType = "Entity data imports"
+            } else if ("system_integrations_entity_import") {
+                taskType = "System integrations - entity data imports";
+            } else {
+                taskType = "N/A";
+            }
+
+            var taskName = this._getAttributeValue(requestObject, "taskName");
+            var taskStatus = this._getAttributeValue(requestObject, "status");
+            var fileName = this._getAttributeValue(requestObject, "fileName");
+            var fileId = this._getAttributeValue(requestObject, "fileId");
+            var fileType = this._getAttributeValue(requestObject, "fileType");
+            var submittedBy = this._getAttributeValue(requestObject, "submittedBy");
+            var totalRecords = this._getAttributeValue(requestObject, "totalRecords");
+            var message = this._getAttributeValue(requestObject, "errorMessage");
+            var startTime = requestObject.properties.createdDate;
+
+            response.taskId = taskId;
+            response.taskName = taskName ? taskName : "N/A";
+            response.taskType = taskType;
+            response.taskStatus = taskStatus ? taskStatus : "N/A";
+            response.fileId = fileId ? fileId : "N/A";
+            response.fileName = fileName ? fileName : response.fileId;
+            response.fileType = fileType ? fileType : "N/A";
+            response.submittedBy = submittedBy ? submittedBy.replace("_user", "") : "N/A";
+            response.totalRecords = (totalRecords && totalRecords > -1) ? totalRecords : "N/A";
+            response.message = message ? message : "N/A";
+            response.startTime = startTime ? startTime : "N/A";
+            response.endTime = "N/A";
+
+            var taskStats = response["taskStats"] = {};
+            taskStats.error = "N/A";
+            taskStats.processing = "N/A";
+            taskStats.success = "N/A";
+            taskStats.createRecords = "0%";
+            taskStats.updateRecords = "0%";
+            taskStats.deleteRecords = "0%";
+            //By default setting noChange to 100%... At this stage we are not sure about the records which got changed.. 
+            //this will be calculated later on
+            taskStats.noChangeRecords = "100%"; 
+
+            this._populateTaskStatsAndOtherProperties(requestObject, response);
+            await this._populateSuccessRecords(taskId, response);
+        }
+
+        return response;
+    },
+    //Task summarization processor temp changes...
+    _generateTaskSummaryGetReq: function (taskId) {
+        var types = ["tasksummaryobject"];
+        var req = this._getRequestJson(types);
+
+        req.params.query.id = taskId;
+        req.params.fields.attributes = ["_ALL"];
+        req.params.query.valueContexts = [{
+            "source": "internal",
+            "locale": "en-US"
+        }];
+
+        req.params.options = {
+            "maxRecords": 1
+        }
+
+        return req;
+    },
+    //Task summarization processor temp changes...
+    _populateTaskStatsAndOtherProperties: function(requestObject, taskDetails) {
+        var successCount = this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalRecordsSuccess"));
+        var errorCount = this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalRDPErrors")) + this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalTransformError"));
+        var createCount = this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalRecordsCreate"));
+        var updateCount = this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalRecordsUpdate"));
+        var deleteCount = this._convertToPositiveInteger(this._getAttributeValue(requestObject, "totalRecordsDelete"));
+
+        //Calculate various stats
+        var totalRecordCount = this._convertToPositiveInteger(taskDetails.totalRecords);
+        var taskStatus = taskDetails.taskStatus.toLowerCase();
+
+        if (taskStatus == "completed") {
+            taskDetails.taskStatus = "Completed";
+            taskDetails.taskStats.success = "100%";
+            taskDetails.taskStats.error = "0%";
+            taskDetails.taskStats.processing = "0%";
+        } else if (taskStatus == "errored" || taskStatus == "failed") {
+            taskDetails.taskStatus = "Errored";
+            taskDetails.taskStats.error = "100%";
+            taskDetails.taskStats.success = "0%";
+            taskDetails.taskStats.processing = "0%";
+
+            //Task is errored.. check whether any error message is available 
+            //If yes, it could happen only during pre-process phase of task..Set appropriate flag
+            if(taskDetails.message != "N/A") {
+                taskDetails.preProcessFailure = true;
+            }
+        } else {
+            // if (totalRecordCount > 0 && (totalRecordCount == successCount + errorCount)) {
+            //     taskDetails.taskStatus = "Completed With Errors";
+            // } 
+            // else {
+            //     taskDetails.taskStatus = "Processing"
+            // }
+
+            if(totalRecordCount > 0) {
+                var inProgressCount = totalRecordCount - (successCount + errorCount);
+
+                var successPercentage = (successCount * 100) / totalRecordCount;
+                var errorPercentage = ((errorCount) * 100) / totalRecordCount;
+                var inProgressPercentage = (inProgressCount * 100) / totalRecordCount;
+
+                if(successPercentage > 100) {
+                    successPercentage = 100;
+                }
+
+                if(errorPercentage > 100) {
+                    errorPercentage = 100;
+                }
+
+                if(inProgressPercentage > 100) {
+                    inProgressPercentage = 100;
+                }
+
+                taskDetails.taskStats.success = this._convertToPositiveInteger(successPercentage) + "%";
+                taskDetails.taskStats.error = this._convertToPositiveInteger(errorPercentage) + "%";
+                taskDetails.taskStats.processing = this._convertToPositiveInteger(inProgressPercentage) + "%";
+            }
+        }
+
+        if(totalRecordCount > 0) {
+            var createPercentage = (createCount * 100) / totalRecordCount;
+            var updatePercentage = (updateCount * 100) / totalRecordCount;
+            var deletePercentage = (deleteCount * 100) / totalRecordCount;
+            var noChangePercentage = ((totalRecordCount - successCount) * 100) / totalRecordCount;
+
+            if(createPercentage > 100) {
+                createPercentage = 100;
+            }
+
+            if(updatePercentage > 100) {
+                updatePercentage = 100;
+            }
+
+            if(deletePercentage > 100) {
+                deletePercentage = 100;
+            }
+
+            if(noChangePercentage > 100) {
+                noChangePercentage = 100;
+            }
+
+            taskDetails.taskStats.createRecords = this._convertToPositiveInteger(createPercentage) + "%";
+            taskDetails.taskStats.updateRecords = this._convertToPositiveInteger(updatePercentage) + "%";
+            taskDetails.taskStats.deleteRecords = this._convertToPositiveInteger(deletePercentage) + "%";
+            taskDetails.taskStats.noChangeRecords = this._convertToPositiveInteger(noChangePercentage) + "%";
+        }
+
+        if(taskStatus != "processing" && taskStatus != "queued") {
+            taskDetails.endTime = requestObject.properties.modifiedDate;
+        }
+    },
+    //Task summarization processor temp changes...
+    _populateSuccessRecords: async function(taskId, taskDetails){
+        var successObjIds = [];
+        var successObjTypes = [];
+
+        //Generate request tracking get request...
+        var isBulkWorkflowTask = false;
+        if(taskDetails.taskType.toLowerCase().indexOf("workflow") >= 0) {
+            isBulkWorkflowTask = true;
+        }
+
+        //Generate details get request...
+        var taskDetailsGetRequest = this._generateTaskDetailsGetReq(taskId, isBulkWorkflowTask, taskDetails.totalRecords);
+        
+        //console.log('Task details get request to RDF', JSON.stringify(taskDetailsGetRequest));
+        var taskDetailsGetUrl = 'requesttrackingservice/get';
+        var taskDetailsGetRes = await this.post(taskDetailsGetUrl, taskDetailsGetRequest);
+
+        if (taskDetailsGetRes && taskDetailsGetRes.response)
+            var requestObjects = taskDetailsGetRes.response.requestObjects;
+            if(requestObjects && requestObjects.length > 0) {
+                for (var i = 0; i < requestObjects.length; i++) {
+                    var reqObj = requestObjects[i];
+
+                    var objId = this._getAttributeValue(reqObj, "entityId");
+                    var objType = this._getAttributeValue(reqObj, "entityType");
+
+                    if(objId) {
+                        successObjIds.push(objId);
+
+                        if (objType && successObjTypes.indexOf(objType) < 0) {
+                            successObjTypes.push(objType);
+                        }
+                    }
+                }
+        }
+
+        taskDetails.successEntities = {
+            "ids": successObjIds,
+            "types": successObjTypes
+        }
+    },
+    //Task summarization processor temp changes...
+    _generateTaskDetailsGetReq: function (taskId, isBulkWorkflowTask, totalRecords) {
+        var types = ["requestObject"];
+        var req = this._getRequestJson(types);
+
+        var attributeNames = ["entityId", "entityType"];
+        req.params.fields.attributes = attributeNames;
+        req.params.query.valueContexts = [{
+            "source": "rdp",
+            "locale": "en-US"
+        }];
+
+        var attributesCriteria = [];
+        
+        //Add task id criterion...
+        var taskIdCriterion = {
+            "taskId": {
+                "exact": taskId
+            }
+        };
+        attributesCriteria.push(taskIdCriterion);
+
+        //Add service name criterion...
+        var serviceName = "entityManageService";
+        if (isBulkWorkflowTask) {
+            serviceName = "entityGovernService";
+        }
+
+        var serviceNameCriterion = {
+            "serviceName": {
+                "eq": serviceName
+            }
+        };
+        attributesCriteria.push(serviceNameCriterion);
+
+        var requestStatusCriterion = {
+            "requestStatus": {
+                "eq": "success"
+            }
+        };
+        attributesCriteria.push(requestStatusCriterion);
+
+        if(!isBulkWorkflowTask) {
+            var impactedEventCriterion = {
+                "impacted": {
+                    "exact": "false"
+                }
+            };
+            attributesCriteria.push(impactedEventCriterion);
+        }
+
+        req.params.query.filters.attributesCriterion = attributesCriteria;
+
+        req.params.sort = {
+            "properties": [{
+                "createdDate": "_ASC",
+                "sortType": "_DATETIME"
+            }]
+        };
+
+        req.params.options = {
+            "maxRecords": totalRecords
+        }
+
+        return req;
+    },
+    _convertToPositiveInteger: function(strInteger) {
+        var integer = parseInt(strInteger);
+
+        if(!integer || integer < 0) {
+            integer = 0;
+        }
+
+        return integer;
     },
     _getRequestJson: function (types) {
         var req = {

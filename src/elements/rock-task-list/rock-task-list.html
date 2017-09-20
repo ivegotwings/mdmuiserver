@@ -1,5 +1,7 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/neon-animation/web-animations.html">
 <link rel="import" href="../../../bower_components/paper-tooltip/paper-tooltip.html">
+<link rel="import" href="../../../bower_components/polymer/lib/elements/custom-style.html">
 
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
@@ -8,6 +10,7 @@
 <link rel="import" href="../pebble-icon/pebble-icon.html">
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-popover/pebble-popover.html">
+<link rel="import" href="../pebble-dropdown/pebble-dropdown.html">
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 <link rel="import" href="../pebble-toggle-button/pebble-toggle-button.html">
 
@@ -26,38 +29,42 @@
 
 <dom-module id="rock-task-list">
     <template>
-        <style is="custom-style" include="pebble-styles-shared">
-            #stateButton {
-                margin-left: 10px;
-            }
+        <custom-style>
+            <style include="pebble-styles-shared">
+                #stateButton {
+                    margin-left: 10px;
+                }
 
-            rock-grid {
-                --rock-grid-container:{
-                margin: 0;
-            }
-        }
-            pebble-toggle-button {
-                --pebble-toggle-button-checked-bar-color: var(--success-color, #4caf50);
-                --pebble-toggle-button-checked-button-color: var(--success-color, #4caf50);
-                --pebble-toggle-button-checked-ink-color: var(--success-color, #4caf50);
-            }
+                pebble-toggle-button {
+                    --pebble-toggle-button-checked-bar-color: var(--success-color, #4caf50);
+                    --pebble-toggle-button-checked-button-color: var(--success-color, #4caf50);
+                    --pebble-toggle-button-checked-ink-color: var(--success-color, #4caf50);
+                }
 
-            .alignRight {
-                margin-left: auto;
-            }
+                .alignRight {
+                    margin-left: auto;
+                }
 
-            #refreshButton {
-                color: var(--icon-color, #757575);
-            }
+                #refreshButton {
+                    color: var(--icon-color, #757575);
+                }
 
-            rock-grid {
-                --rock-grid-height: 260px;
-            }
+                rock-grid {
+                    --rock-grid-height: 260px;
+                    --pebble-grid-container:{
+                        margin-top:0;
+                        margin-left:0;
+                        margin-right:0;
+                        margin-bottom:0;
+                    };
+                }
 
-            .search-container {
-                width: 100%
-            }
-        </style>
+                .search-container {
+                    width: 100%
+                }
+               
+            </style>
+        </custom-style>
 
         <div class="search-container">
             <rock-search-bar id="searchBar" placeholder="Enter Search text"></rock-search-bar>
@@ -77,15 +84,15 @@
             </div>
             <div class="col text-right">
                 <pebble-button id="refreshButton" icon="pebble-md-icons:ToolbarRefresh" class="pebble-md-icons iconButton tooltip-bottom m-r-10"
-                    data-tooltip="Refresh" on-tap="_refreshList"></pebble-button>
+                    data-tooltip$="Refresh" on-tap="_refreshList"></pebble-button>
                 <template is="dom-if" if="[[userToggleAllowed]]">
                     <pebble-toggle-button checked="{{!getAllUsersEvents}}">Show Only My Jobs</pebble-toggle-button>
                 </template>
             </div>
         </div>
-        <event-list-datasource id="eventDataSource" request="[[request]]" data-source="{{dataSource}}" data-formatter="{{_dataFormatter}}">
+        <event-list-datasource id="eventDataSource" request="[[request]]" event-list-data-source="{{dataSource}}" grid-data-formatter="{{_dataFormatter}}">
         </event-list-datasource>
-        <rock-grid id="importlistGrid" no-header config="{{config}}" page-size="50" data-source="{{dataSource}}" data-source-id="eventDataSource"></rock-grid>
+        <rock-grid id="importlistGrid" no-header config="{{config}}" page-size="50" r-data-source="{{dataSource}}" data-source-id$="eventDataSource"></rock-grid>
     </template>
 
     <script>
@@ -112,6 +119,10 @@
                             {
                                 "value": "PROCESSING",
                                 "title": "Processing"
+                            },
+                            {
+                                "value": "COMPLETED",
+                                "title": "Completed"
                             },
                             {
                                 "value": "ERRORED",
@@ -167,7 +178,7 @@
                             ],
                             'ERRORED': ['PROCESSING_ERROR', 'ABORTED', 'SUBMISSION_ERROR', 'QUEUED_ERROR',
                                 "PROCESSING_START_ERROR",
-                                "PROCESSING_COMPLETE_ERROR", "PROCESSING_SUBMISSION_ERROR"
+                                "PROCESSING_COMPLETE_ERROR", "PROCESSING_SUBMISSION_ERROR", "FAILED"
                             ]
                         }
                     },
@@ -323,9 +334,14 @@
 
                     req.params.isTaskListGetRequest = true;
 
+                    //Task summarization processor temp changes...
+                    if(this.selectedEventType == "USER_ENTITY_IMPORT") {
+                        req.params.fields.attributes.push("isSummaryFromTaskProcessor");
+                    }
+
                     this.set("request", req);
 
-                    this.$$("#importlistGrid").reloadListData();
+                    this.shadowRoot.querySelector("#importlistGrid").reloadListData();
                 },
                 _addEventTypeCriterion: function (attributesCriterion) {
                     if (this.selectedEventType) {
@@ -443,7 +459,7 @@
 
                     for (var i in events) {
                         var event = events[i];
-                        event.eventSubType = this._getExternalEventSubType(event.eventSubType);
+                        event.eventSubType = this._getExternalEventSubType(event.eventSubType.toUpperCase());
                         var eventTypeCode = event.eventType;
                         var eventSubTypeCode = event.eventSubType;
 
@@ -543,7 +559,18 @@
                         this._addTaskTypeCriterion(attributesCriteria);
                         this._addIntegrationTypeCriterion(attributesCriteria);
 
-                        this.$$("#importlistGrid").reloadListData();
+                        //Task summarization processor temp changes...
+                        var attributes = req.params.fields.attributes;
+                        if(this.selectedEventType == "USER_ENTITY_IMPORT") {
+                            attributes.push("isSummaryFromTaskProcessor");
+                        } else {
+                            var index = attributes.indexOf("isSummaryFromTaskProcessor");
+                            if(index >= 0){
+                                attributes.splice(index, 1);
+                            }
+                        }
+
+                        this.shadowRoot.querySelector("#importlistGrid").reloadListData();
                     }
                 },
                 _onEventSubTypeFilterChanged: function (selectedEventSubType) {
@@ -561,7 +588,7 @@
 
                         this._addEventSubTypeCriterion(attributesCriteria);
 
-                        this.$$("#importlistGrid").reloadListData();
+                        this.shadowRoot.querySelector("#importlistGrid").reloadListData();
                     }
                 },
                 _onSearch: function (e, detail) {
@@ -577,7 +604,7 @@
                             delete req.params.query.filters.keywordsCriterion;
                         }
 
-                        this.$$("#importlistGrid").reloadListData();
+                        this.shadowRoot.querySelector("#importlistGrid").reloadListData();
                     }
                 },
                 _userStateChanged: function (getAllUsersEvents) {
@@ -599,7 +626,7 @@
                                 }
                             }
                         }
-                        this.$$("#importlistGrid").reloadListData();
+                        this.shadowRoot.querySelector("#importlistGrid").reloadListData();
                     }
                 },
                 _sortByDesecnding: function () {
@@ -620,12 +647,12 @@
                             }
                         }
 
-                        this.$$("#importlistGrid").reloadListData();
+                        this.shadowRoot.querySelector("#importlistGrid").reloadListData();
                     }
                 },
                 _refreshList: function () {
-                    this.$$("#eventDataSource").resetDataSource();
-                    this.$$("#importlistGrid").reloadListData();
+                    this.shadowRoot.querySelector("#eventDataSource").resetDataSource();
+                    this.shadowRoot.querySelector("#importlistGrid").reloadListData();
                 },
                 _getExternalEventSubType: function (internalEventSubType) {
                     var eventSubFilterMap = this.eventSubTypeMap;
@@ -643,20 +670,20 @@
                 _resetSearch: function () {
                     if (this.request && !_.isEmpty(this.request)) {
 
-                        var rockSearchBar = this.$$('#searchBar');
+                        var rockSearchBar = this.shadowRoot.querySelector('#searchBar');
                         if (rockSearchBar) {
                             rockSearchBar.query = "";
                         }
 
                         var req = this.request;
                         delete req.params.query.filters.keywordsCriterion;
-                        this.$$("#importlistGrid").reloadListData();
+                        this.shadowRoot.querySelector("#importlistGrid").reloadListData();
 
                         this._resetSearchEnabled = false;
                     }
                 },
                 _showResetSearch: function (e) {
-                    var rockSearchBar = this.$$('#searchBar');
+                    var rockSearchBar = this.shadowRoot.querySelector('#searchBar');
                     var query = '';
 
                     if (rockSearchBar) {

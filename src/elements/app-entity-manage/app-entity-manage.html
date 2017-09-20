@@ -1,4 +1,6 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/polymer/lib/utils/async.html">
+<link rel="import" href="../../../bower_components/polymer/lib/utils/debounce.html">
 <link rel="import" href="../bedrock-app-behavior/bedrock-app-behavior.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-helpers/component-helper.html">
@@ -34,11 +36,9 @@
             }
 
             rock-titlebar {
-                --rock-main-title:{
                 color: var(--pagetitle-text-color, #034c89);
                 font-weight: var(--font-bold, bold);
             }
-        }
             .stepper-style {
                 --connected-badge-width: 50px;
                 --connected-badge-height: 50px;
@@ -69,19 +69,19 @@
                 vertical-align: middle;
                 --dimesion-selector-container-popover: {
                     width: 70px;
-                }
+                };
                 
                 --dimesion-selector-source-popover: {
                     width: 55px;
-                }
+                };
                 
                 --dimesion-selector-date-dropdown: {
                     width: 60px;
-                }
+                };
                 
                 --dimesion-selector-locale-popover: {
                     width: 65px;
-                }
+                };
                 
             }
 
@@ -93,7 +93,10 @@
             pebble-vertical-divider {
                 --pebble-vertical-divider-color: var(--divider-color, #212121);
                 min-width: 1px;
-                margin: 10px 5px;
+                margin-top: 10px;
+                margin-right: 5px;
+                margin-bottom: 10px;
+                margin-left: 5px;
                 min-height: 18px;
             }
 
@@ -114,16 +117,15 @@
                 --rock-tab-content: {
                     overflow-y: auto;
                     font-size: var(--default-font-size, 14px);
-                }
-                ;
+                };
                 --tab-error-circle: {
                     margin-bottom: 8px;
-                }
+                };
             }
             rock-layout {
                 --scroller: {
                     overflow: hidden;
-                } 
+                };
             }            
         </style>
 
@@ -131,14 +133,14 @@
             <pebble-spinner active="[[_loading]]"></pebble-spinner>
             <liquid-config-aggregate-get id="getManageAppConfig" verbose operation="getbyids" request-id="req1" app-name="app-entity-manage"
                 context-data="[[contextData]]" on-config-get-response="_onApplicationConfigReceived"></liquid-config-aggregate-get>
-            <rock-titlebar icon="dashboard" main-title="" sub-title="" config="{{getConfig('rock-titlebar')}}" non-minimizable="[[appConfig.nonMinimizable]]" non-closable="[[appConfig.nonClosable]]">
+            <rock-titlebar icon="dashboard" main-title="" slot="rock-titlebar" sub-title="" config="{{getConfig('rock-titlebar')}}" non-minimizable="[[appConfig.nonMinimizable]]" non-closable="[[appConfig.nonClosable]]">
                 <div id="dimensionContainer" align="right">
                     <rock-dimension-selector id="dimensionSelector" config-data="{{getConfig('rock-dimension-selector')}}" entity-id="[[_entityId]]"
-                        entity-type="[[_entityType]]"></rock-dimension-selector>
+                        entity-type="[[_entityType]]"></rock-dimension-selector>                    
                 </div>
             </rock-titlebar>
-            <rock-header frozen>
-                <div class="fixed-content">
+            <rock-header frozen slot="rock-header">
+                <div slot="fixed-content" class="fixed-content">
                     <bedrock-pubsub event-name="toolbar-button-event" handler="_onToolbarEvent" target-id="entityManageHeader"></bedrock-pubsub>
                     <!--<bedrock-pubsub on-bedrock-event-route-changed="onRouteChange"></bedrock-pubsub>-->
                     <rock-entity-header id="entityManageHeader" context-data="[[contextData]]" header-config="{{getConfig('rock-entity-header','','headerConfig')}}"
@@ -147,7 +149,7 @@
                 </div>
             </rock-header>
             <bedrock-pubsub event-name="refresh-entity-thumbnail" handler="_refreshEntityThumbnail"></bedrock-pubsub>
-            <rock-sidebar id="rockSideBar" position="right">
+            <rock-sidebar id="rockSideBar" position="right" slot="rock-sidebar">
                 <div class="p-10">
                     <rock-workflow-panel context-data="[[contextData]]"></rock-workflow-panel>
                 </div>
@@ -176,6 +178,7 @@
         <rock-business-function-dialog id="entityDownloadDialog"></rock-business-function-dialog>
         <rock-business-function-dialog id="rePublishDialog"></rock-business-function-dialog>
         <bedrock-pubsub event-name="refresh-classification" handler="_refreshDimensionSelector" target-id="contextDialog"></bedrock-pubsub>
+        <bedrock-pubsub event-name="govern-complete" handler="_onGovernComplete"></bedrock-pubsub>
         <liquid-entity-data-get name="attributeGetDataServiceForTitleBar" operation="getbyids" request-data="{{titleAttributeRequest}}"
             on-response="_onTitleAttributesGetResponse"></liquid-entity-data-get>
     </template>
@@ -185,34 +188,6 @@
 
             Polymer({
                 is: 'app-entity-manage',
-                created: function () {
-                    this.contentHeightVariable = "--rock-tab-content-height";
-                },
-                attached: function () {
-
-                    this.logInfo("EntityManageAttached");
-
-                    var userContext = {
-                        "role": this.roleId,
-                        "user": this.userId
-                    };
-
-                    this.contextData[this.CONTEXT_TYPE_USER] = [userContext];
-                },
-                ready: function () {
-
-                    this.logInfo("EntityManageReady");
-
-                    this._entityId = DataHelper.getParamValue('id');
-                    this._entityType = DataHelper.getParamValue('type');
-
-                    var itemContext = {
-                        'id': this._entityId,
-                        'type': this._entityType
-                    };
-
-                    this.updateContext(this.CONTEXT_TYPE_ITEM, [itemContext]);
-                },
                 properties: {
                     /*
                      * Indicates the config object for the summary element
@@ -242,7 +217,24 @@
                             return {};
                         }
                     },
-
+                    _entityType: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _entityId: {
+                            type: Object,
+                            value: function () {
+                                return {};
+                            }
+                    },
+                    contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
                     _lastSavedTime: {
                         value: ""
                     },
@@ -279,11 +271,37 @@
                         value: function(){
                             return {};
                         }
-                     }
+                    },
+                    _showNotificationToast:{
+                        type: Boolean,
+                        value: false
+                    }
                 },
                 behaviors: [
                     RUFBehaviors.AppBehavior
                 ],
+                created: function () {
+
+                    //this.logInfo("EntityManageAttached");
+                     this.contentHeightVariable = "--rock-tab-content-height";
+                    var userContext = {
+                        "role": this.roleId,
+                        "user": this.userId
+                    };
+
+                    this.contextData[this.CONTEXT_TYPE_USER] = [userContext];
+                     //this.logInfo("EntityManageReady");
+
+                    this._entityId = DataHelper.getParamValue('id');
+                    this._entityType = DataHelper.getParamValue('type');
+
+                    var itemContext = {
+                        'id': this._entityId,
+                        'type': this._entityType
+                    };
+
+                    this.updateContext(this.CONTEXT_TYPE_ITEM, [itemContext]);
+                },
                 refresh: function () {
                     var isDirty = false;
                     if (this.getIsDirty) {
@@ -292,17 +310,17 @@
                     if (isDirty) {
                         if (window.confirm(
                             "There are unsaved changes. Do you want to discard the changes?")) {
-                            this.$$('rock-dimension-selector').refresh();
+                            this.shadowRoot.querySelector('rock-dimension-selector').refresh();
                             this._reRenderOnDimensionChange();
                         }
                     } else {
-                        this.$$('rock-dimension-selector').refresh();
+                        this.shadowRoot.querySelector('rock-dimension-selector').refresh();
                         this._reRenderOnDimensionChange();
                     }
                 },
                 getAppCurrentStatus: function () {
                     var title = this._entityType + ": ";
-                    var titlebar = this.$$('rock-titlebar');
+                    var titlebar = this.shadowRoot.querySelector('rock-titlebar');
                     if (titlebar && titlebar.mainTitle != "") {
                         title += titlebar.mainTitle;
                     } else {
@@ -321,9 +339,9 @@
                     this.set('applicationConfig', e.detail);
                 },
                 _openContextManagement: function (taxonomy) {
-                    this.$$("#contextDialog").name = "extension-manage-" + taxonomy;
-                    this.$$("#contextDialog").sharedData = { "context-data": this.contextData };
-                    this.$$("#contextDialog").open();
+                    this.shadowRoot.querySelector("#contextDialog").name = "extension-manage-" + taxonomy;
+                    this.shadowRoot.querySelector("#contextDialog").sharedData = { "context-data": this.contextData };
+                    this.shadowRoot.querySelector("#contextDialog").open();
                 },
                 _onToolbarEvent: function (e, detail) {
                     var event = detail.name;
@@ -439,7 +457,7 @@
                         };
                         selectedEntities.push(selctedEntity);
 
-                        var entityDownloadDialog = this.$$("#entityDownloadDialog");
+                        var entityDownloadDialog = this.shadowRoot.querySelector("#entityDownloadDialog");
                         entityDownloadDialog.name = "rock-entity-download";
                         entityDownloadDialog.sharedData = {
                             "context-data": clonedDataContext,
@@ -452,7 +470,7 @@
                 },
                 _rePublishEvent: function (e, detail) {
                     var itemContexts = DataHelper.cloneObject(this.getItemContexts());
-                    var rePublishDialog = this.$$("#rePublishDialog");
+                    var rePublishDialog = this.shadowRoot.querySelector("#rePublishDialog");
                     rePublishDialog.name = detail.componentName;
                     rePublishDialog.sharedData = { "context-data": this.contextData, "selected-entities": itemContexts };
                     rePublishDialog.open();
@@ -476,7 +494,7 @@
                         detail.label);
                 },
                 refreshDataContext: function () {
-                    this.dataContext = Polymer.dom(this).node.$$(
+                    this.dataContext = Polymer.dom(this).node.shadowRoot.querySelector(
                         'rock-dimension-selector[id="dimensionSelector"]')._getSelectedDimensions();
                 },
                 onDimensionGridOpen: function (e, detail, sender) {
@@ -499,7 +517,7 @@
                         dimensionGridElement.sources = dimension["sources"];
                         dimensionGridElement.contexts = dimension["contexts"];
                         dimensionGridElement.dataId = DataHelper.getParamValue('id');
-                        dimensionGridElement.dataContext = Polymer.dom(this).node.$$(
+                        dimensionGridElement.dataContext = Polymer.dom(this).node.shadowRoot.querySelector(
                             'rock-dimension-selector[id="dimensionSelector"]').getSelectedDimensions();
                         dimensionGridElement.contextData = this.contextData;
                         dimensionGridContainer.appendChild(dimensionGridElement);
@@ -515,12 +533,12 @@
                     alert("Cancel");
                 },
                 errorLengthChanged: function (e, detail) {
-                    this.$$('rock-tabs')._currentTabErrorLength = detail;
+                    this.shadowRoot.querySelector('rock-tabs')._currentTabErrorLength = detail;
                 },
                 _refreshView: function () {
                     this._refreshRockEntityHeader();
                     this._refreshWorkflowPanel();
-                    this.$$('rock-tabs').reloadCurrentTab();
+                    this.shadowRoot.querySelector('rock-tabs').reloadCurrentTab();
                 },
                 _refreshHeaderAndNavBars: function () {
                     this._invalidateEntityCache = false;
@@ -529,9 +547,15 @@
                     this._invalidateEntityCache = true;
                 },
                 getIsDirty: function () {
-                    var tabs = this.$$("rock-tabs");
+                    var tabs = this.shadowRoot.querySelector("rock-tabs");
                     if (tabs && tabs.getIsDirty) {
                         return tabs.getIsDirty();
+                    }
+                },
+                getControlIsDirty: function () {
+                    var tabs = this.$$("rock-tabs");
+                    if (tabs && tabs.getControlIsDirty) {
+                        return tabs.getControlIsDirty();
                     }
                 },
                 _onTitleAttributesGetResponse: function (e) {
@@ -551,7 +575,7 @@
                     }
                 },
                 setTitleBar: function (entity, values) {
-                    var titlebar = this.$$('rock-titlebar');
+                    var titlebar = this.shadowRoot.querySelector('rock-titlebar');
                     titlebar.mainTitle = "";
                     titlebar.subTitle = "";
                     var config = titlebar.config;
@@ -580,7 +604,7 @@
                     }
                 },
                 _refreshTitleBar: function () {
-                    var titlebar = this.$$('rock-titlebar');
+                    var titlebar = this.shadowRoot.querySelector('rock-titlebar');
                     var config = titlebar.config;
                     if (config) {
                         var attributeNames = new Array();
@@ -597,7 +621,7 @@
                                 itemContext.attributeNames = attributeNames;
                                 var req = DataRequestHelper.createEntityGetRequest(this.contextData);
                                 this.set("titleAttributeRequest", req);
-                                var liquidDataGet = this.$$("[name=attributeGetDataServiceForTitleBar]");
+                                var liquidDataGet = this.shadowRoot.querySelector("[name=attributeGetDataServiceForTitleBar]");
                                 if (liquidDataGet) {
                                     liquidDataGet.generateRequest();
                                 }
@@ -615,9 +639,9 @@
                         this._toggleStepper(valContexts);
                     }
 
-                    this.debounce('reloadTabs', function () {
-                        this.$$('rock-tabs').reloadTabs();
-                    }, 30);
+                    this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(30), () => {
+                        this.shadowRoot.querySelector('rock-tabs').reloadTabs();
+                    });
                 },
                 _onWorkflowTransitionComplete: function (e) {
                     this._refreshRockEntityHeader();
@@ -629,7 +653,7 @@
                 },
                 _refreshRockEntityHeader: function (e) {
                     this._refreshTitleBar();
-                    var entityHeaderEle = Polymer.dom(this).node.$$('rock-entity-header');
+                    var entityHeaderEle = Polymer.dom(this).node.shadowRoot.querySelector('rock-entity-header');
                     if (entityHeaderEle && entityHeaderEle.refresh) {
                         entityHeaderEle.refresh(this._invalidateEntityCache);
                     }
@@ -639,7 +663,7 @@
                     this._refreshEntityThumbnail();
                 },
                 _refreshWorkflowPanel: function () {
-                    var entityWorklflowPanelEl = Polymer.dom(this).node.$$('rock-workflow-panel');
+                    var entityWorklflowPanelEl = Polymer.dom(this).node.shadowRoot.querySelector('rock-workflow-panel');
                     if (entityWorklflowPanelEl && entityWorklflowPanelEl.refresh) {
                         entityWorklflowPanelEl.refresh();
                     }
@@ -654,12 +678,12 @@
                     }
                 },
                 _openEntityUploadBF: function (e, detail) {
-                    this.$$("#entityUploadDialog").name = "rock-entity-upload";
-                    this.$$("#entityUploadDialog").sharedData = { "context-data": this.contextData };
-                    this.$$("#entityUploadDialog").open();
+                    this.shadowRoot.querySelector("#entityUploadDialog").name = "rock-entity-upload";
+                    this.shadowRoot.querySelector("#entityUploadDialog").sharedData = { "context-data": this.contextData };
+                    this.shadowRoot.querySelector("#entityUploadDialog").open();
                 },
                 _refreshEntityThumbnail: function () {
-                    var header = this.$$("#entityManageHeader");
+                    var header = this.shadowRoot.querySelector("#entityManageHeader");
                     if (header) {
                         var thumbnailConfig = this.getConfig('rock-entity-header', '', 'thumbnailConfig');
                         header.thumbnailConfig = undefined;
@@ -668,14 +692,47 @@
                 },
                 _refreshActiveMenuItems: function () {
                     this._lastSavedTime = new Date().toLocaleString();
-                    var contentView = document.querySelector("main-app").$$("rock-content-view-manager").$$("rock-content-view:not([hidden])");
+                    var contentView = document.querySelector("main-app").shadowRoot.querySelector("rock-content-view-manager").shadowRoot.querySelector("rock-content-view:not([hidden])");
                     this.fireBedrockEvent('app-status-changed', { "viewName": contentView.name, "contentView": contentView, "config": undefined }, { appId: "main-app", ignoreId: true });
                 },
                 _refreshDimensionSelector: function () {
-                    this.async(function () {
-                        this.$$('rock-dimension-selector').refreshDimensionData();
+                    Polymer.Async.microTask.run(() => {
+                        this.shadowRoot.querySelector('rock-dimension-selector').refreshDimensionData();
                     })
-                }
+                },
+                /*
+                * Handling notification on govern complete
+                */
+                _onGovernComplete: function(e,data) {
+                    var dataIsDirty = false;
+                    var controlIsDirty = false;
+
+                    //Check if data is dirty
+                    if (this.getIsDirty) {
+                        dataIsDirty = this.getIsDirty();
+                    }
+                    
+                    //Check if controls are dirty
+                    if(this.getControlIsDirty) {
+                        controlIsDirty = this.getControlIsDirty();
+                    }
+                    
+                    var notificationObj = Polymer.dom(document).querySelector('main-app').$$('bedrock-dataobject-notification-handler');
+                     
+                    //Showing the toast message when _showNotificationToast property is set to true or if the tab is dirty, else refresh the current tab
+                    if (this._showNotificationToast) {                     
+                        notificationObj.showToast(data);                        
+                    } else if (dataIsDirty || controlIsDirty) {
+                         notificationObj.showToast(data);                        
+                    } else { 
+                        //Refresh the current tab                                                     
+                        var rockAttributeManageObj = this.$$("rock-tabs");                    
+                        rockAttributeManageObj.refresh();
+                        //Refresh the workflowpanel
+                        var rockWorkflowPanelObj = this.$$("rock-workflow-panel");                    
+                        rockWorkflowPanelObj.refresh();                         
+                    }
+                }   
             });
         })();
     </script>
