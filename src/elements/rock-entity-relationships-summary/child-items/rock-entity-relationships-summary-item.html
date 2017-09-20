@@ -1,0 +1,258 @@
+<link rel="import" href="../../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../../bower_components/iron-ajax/iron-ajax.html">
+<link rel="import" href="../../../../bower_components/iron-flex-layout/iron-flex-layout-classes.html">
+<link rel="import" href="../../../../bower_components/shadycss/apply-shim.html">
+<link rel="import" href="../../../../bower_components/polymer/lib/elements/custom-style.html">
+
+<link rel="import" href="../../liquid-config-aggregate-get/liquid-config-aggregate-get.html">
+<link rel="import" href="../../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../../pebble-styles-app/pebble-styles-app.html">
+<link rel="import" href="../../bedrock-helpers/data-helper.html">
+<link rel="import" href="../../bedrock-helpers/data-request-helper.html">
+<link rel="import" href="../../rock-grid-data-sources/entity-relationship-grid-datasource.html">
+
+<!--
+    @group rock Elements
+    @element rock-entity-relationships-summary-item
+-->
+
+<dom-module id="rock-entity-relationships-summary-item">
+    <template>
+        <style>
+            .relationships-summary__item {
+                border-radius: 50%;
+                border: solid black 2px;
+                width: 65px;
+                height: 65px;
+                box-sizing: border-box;
+                text-align: center;
+            }
+
+            .relationships-summary__item-value {
+                font-weight: bold;
+                color: black;
+                margin-top: 30%;
+                font-size: 18px;
+            }
+
+            .relationships-summary__item-description {
+                margin-top: 10px;
+                font-size: 11px;
+                font-weight: bold;
+                max-width: 70px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+        </style>
+
+        <!-- Search request section --->
+        <liquid-entity-govern-data-get exclude-in-progress
+                                       id="parentRelationsGet"
+                                       operation="initiatesearchandgetcount"
+                                       request-data="[[request]]"
+                                       on-error="_onError"></liquid-entity-govern-data-get>
+        <!-- Search request section ends--->
+
+        <!-- Get request section --->
+        <liquid-entity-data-get exclude-in-progress
+                                id="getRelations"
+                                operation="getbyids"
+                                request-data="[[request]]"
+                                on-error="_onError"></liquid-entity-data-get>
+        <!-- Get request section ends--->
+
+        <div class="relationships-summary__item" style$="border-color:[[color]]">
+            <div class="relationships-summary__item-value" style$="color:[[color]]">
+                <template is="dom-if" if="[[!_loading]]">
+                    [[value]]
+                </template>
+                <template is="dom-if" if="[[_loading]]">
+                    <div id="taskCountLoading">
+                        <img id="loadingIcon" src="../../../../src/images/loading.svg"></img>
+                    </div>
+                </template>
+
+            </div>
+        </div>
+
+        <div class="relationships-summary__item-description">[[description]]</div>
+    </template>
+
+    <script>
+        Polymer({
+            is: 'rock-entity-relationships-summary-item',
+
+            properties: {
+
+                color: {
+                    type: String,
+                    value: ""
+                },
+
+                /**
+                 *  Indicates the list of entities in the "JSON" format.
+                 */
+                data: {
+                    type: Object,
+                    notify: true,
+                    value: function () {
+                        return {};
+                    }
+                },
+
+                request: {
+                    type: Object,
+                    value: {}
+                },
+
+                isDownDirection: {
+                    type: Boolean,
+                    value: false
+                },
+
+                downRequestTemplate: {
+                    type: Object,
+                    value: {
+                        "params": {
+                            "query": {
+                                "id": "",
+                                "filters": {
+                                    "typesCriterion": []
+                                }
+                            },
+                            "fields": {
+                                "relationships": []
+                            },
+                            "options": {
+                                "maxRecords": 1
+                            }
+                        }
+                    }
+                },
+
+                upRequestTemplate: {
+                    type: Object,
+                    value: {
+                        "params": {
+                            "query": {
+                                "filters": {
+                                    "typesCriterion": [],
+                                    "relationshipsCriterion": [
+                                        {
+                                            "rchildof": {
+                                                "relTo": {
+                                                    "id": "",
+                                                    "type": ""
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            "fields": {
+                                "relationships": []
+                            },
+                            "options": {
+                                "maxRecords": 1
+                            }
+                        }
+                    }
+                },
+
+                _loading: {
+                    type: Boolean,
+                    value: true
+                }
+            },
+
+            behaviors: [
+                RUFBehaviors.UIBehavior,
+                RUFBehaviors.ComponentContextBehavior
+            ],
+
+            ready: function () {
+                var liquid;
+                this._loading = true;
+
+                if (this.isDownDirection) {
+                    this.description = this.data.relatedEntityTypes[0].properties.externalName;
+                    this.request = this.generateDownRequestObject(this.downRequestTemplate);
+                    liquid = this.$.getRelations;
+                    this._oneTimeEvent(liquid, 'response', this.onResponseGetByIdData.bind(this));
+                } else {
+                    this.description = this.data.label;
+                    this.request = this.generateUpRequestObject(this.upRequestTemplate);
+                    liquid = this.$.parentRelationsGet;
+                    this._oneTimeEvent(liquid, 'response', this.onResponseSearchData.bind(this));
+                }
+                liquid.generateRequest();
+            },
+
+            generateDownRequestObject: function (template) {
+                var request = DataHelper.cloneObject(template);
+                request.params.query.id = this.entity.id;
+                request.params.query.filters.typesCriterion = [this.entity.type];
+                request.params.fields.relationships = [this.data.relatedEntityTypes[0].id];
+                return request;
+            },
+
+            generateUpRequestObject: function (template) {
+                var request = DataHelper.cloneObject(template);
+                request.params.query.filters.typesCriterion = this.data.entityType;
+                request.params.query.filters.relationshipsCriterion[0].rchildof.relTo.id = this.entity.id;
+                request.params.query.filters.relationshipsCriterion[0].rchildof.relTo.type = this.entity.type;
+                request.params.fields.relationships = this.data.entityType;
+                return request;
+            },
+
+            onResponseGetByIdData: function (e) {
+                if (e.detail && e.detail.response) {
+                    var response = e.detail.response;
+                    if (response && response.content) {
+                        var countOfRelations = 0;
+                        if (e.detail.response.content.entities &&
+                                e.detail.response.content.entities[0] &&
+                                e.detail.response.content.entities[0].data &&
+                                e.detail.response.content.entities[0].data.relationships &&
+                                e.detail.response.content.entities[0].data.relationships[this.data.relationshipTypeName]) {
+                            countOfRelations = e.detail.response.content.entities[0].data.relationships[this.data.relationshipTypeName].length;
+                        }
+                        this.value = countOfRelations;
+                        this._loading = false;
+                    }
+                }
+            },
+
+            onResponseSearchData: function (e) {
+                console.log(e);
+                if (e.detail && e.detail.response) {
+                    var response = e.detail.response;
+                    if (response && response.content) {
+                        var countOfRelations;
+                        var totalRecords = response.content.totalRecords || 0;
+                        var maxRecords = response.content.maxRecords || 0;
+
+                        if (totalRecords > maxRecords) {
+                            countOfRelations = maxRecords + "+";
+                        } else {
+                            countOfRelations = totalRecords;
+                        }
+                    }
+                    this.value = countOfRelations;
+                    this._loading = false;
+                }
+            },
+
+            _oneTimeEvent: function (element, type, callback) {
+                element.addEventListener(type, function (e) {
+                    e.target.removeEventListener(e.type, arguments.callee);
+                    return callback(e);
+                });
+            },
+
+            _onError: function (e) {
+                this.showErrorToast(e.detail.response.reason);
+            }
+        });
+    </script>
+</dom-module>

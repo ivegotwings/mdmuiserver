@@ -1,0 +1,283 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/iron-ajax/iron-ajax.html">
+<link rel="import" href="../../../bower_components/iron-flex-layout/iron-flex-layout-classes.html">
+<link rel="import" href="../../../bower_components/shadycss/apply-shim.html">
+<link rel="import" href="../../../bower_components/polymer/lib/elements/custom-style.html">
+
+<link rel="import" href="../liquid-config-aggregate-get/liquid-config-aggregate-get.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../pebble-styles-app/pebble-styles-app.html">
+<link rel="import" href="./child-items/rock-entity-relationships-summary-item.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<!--
+    @group rock Elements
+    @element rock-entity-relationships-summary
+-->
+
+<dom-module id="rock-entity-relationships-summary">
+    <template>
+        <style>
+            .relationships-summary__items {
+                text-align: center;
+                height: 100%;
+                margin: -30px 0 0;
+                padding: 35px 0 0;
+                box-sizing: border-box;
+                overflow: hidden;
+            }
+
+            .relationships-summary__item-wrapper {
+                margin-bottom: 20px;
+                margin-left: 5px;
+                margin-right: 5px;
+                text-align: center;
+                display: inline-block;
+                vertical-align: top;
+            }
+
+            pebble-spinner {
+                background: white;
+                margin: 5px 20px 30px;
+                box-sizing: border-box;
+            }
+        </style>
+
+        <liquid-entity-model-get id="liquidModeleGet" operation="getbyids" request-data={{_request}}
+                                 on-response="_onModelReceived"
+                                 on-error="_onModelGetFailed"></liquid-entity-model-get>
+
+        <liquid-entity-model-get id="getRelDomains" operation="getbyids" on-response="_onRelModelsReceived"
+                                 on-error="_onModelGetFailed"></liquid-entity-model-get>
+
+        <pebble-spinner active="[[_loading]]"></pebble-spinner>
+
+        <ul class="relationships-summary__items">
+            <template is="dom-repeat" items="[[values]]">
+                <li class="relationships-summary__item-wrapper">
+                    <rock-entity-relationships-summary-item is-down-direction="true"
+                                                            entity="[[entity]]"
+                                                            color="[[_getStyle()]]"
+                                                            data="[[item]]"></rock-entity-relationships-summary-item>
+                </li>
+            </template>
+            <template is="dom-repeat" items="[[whereUsedItems]]">
+                <li class="relationships-summary__item-wrapper">
+                    <rock-entity-relationships-summary-item entity="[[entity]]"
+                                                            color="[[_getStyle()]]"
+                                                            data="[[item]]"></rock-entity-relationships-summary-item>
+                </li>
+            </template>
+        </ul>
+
+    </template>
+
+    <script>
+        Polymer({
+            is: 'rock-entity-relationships-summary',
+
+            properties: {
+                /**
+                 *  Indicates the list of entities in the "JSON" format.
+                 */
+                data: {
+                    type: Object,
+                    notify: true,
+                    value: function () {
+                        return {};
+                    }
+                },
+
+                contextData: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+
+                values: {
+                    type: Array,
+                    value: []
+                },
+
+                whereUsedItems: {
+                    type: Array,
+                    value: [{
+                        "relationshipType": "ischildof",
+                        "entityType": [
+                            "enart"
+                        ],
+                        "label": "Is the child of"
+                    }]
+                },
+
+                domain: {
+                    type: String,
+                    value: "thing"
+                },
+
+                entity: {
+                    type: Object,
+                    value: {}
+                },
+
+                _itemCount: {
+                    type: Number,
+                    value: 0
+                },
+
+                _loading: {
+                    type: Boolean,
+                    value: true
+                }
+            },
+
+            behaviors: [
+                RUFBehaviors.UIBehavior,
+                RUFBehaviors.ComponentContextBehavior
+            ],
+
+            /**
+             * Can be used to raise on-tap events as per the configuration.
+             */
+            _onTap: function (e) {
+                this.dispatchEvent(new CustomEvent('bedrock-event', {
+                    detail: {
+                        name: e.currentTarget.data.eventName,
+                        data: e.currentTarget.data
+                    },
+                    bubbles: true,
+                    composed: true
+                }));
+            },
+
+            _getStyle: function () {
+                var index = ++this._itemCount % 9;
+                return "var(--color-variant-" + index + ")";
+            },
+
+            ready: function () {
+                this.getData();
+                var relationshipsSummaryConfig = this.getParentAppConfig('rock-entity-relationships-summary');
+                if (relationshipsSummaryConfig) {
+                    this.domain = relationshipsSummaryConfig.domain;
+                    this.whereUsedItems = relationshipsSummaryConfig["where-used-items"];
+                }
+            },
+
+            getData: function () {
+                this._loading = true;
+                this._setRequestObject();
+                var liquid = this.$.liquidModeleGet;
+                this.entity = this.getFirstItemContext();
+                if (liquid) {
+                    liquid.generateRequest();
+                }
+            },
+
+            refresh: function () {
+                this.getData();
+            },
+
+            //TODO: copy-paste section follows. This code is need to be extracted and generalized.
+            _onModelReceived: function (e) {
+                var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response);
+                if (responseContent) {
+                    this._relationshipEntityTypeMappings = this._getRelationshipEntityTypeMappings(responseContent.entityModels);
+                    var relationshipTypeNames = this._relationshipEntityTypeMappings.map(function (rel) {
+                        return rel.relationshipTypeName + "_relationshipModel";
+                    });
+                    this._generateCheckDomainRequest(relationshipTypeNames);
+                }
+            },
+
+            _generateCheckDomainRequest: function (relationshipTypeNames) {
+                var req = DataHelper.cloneObject(this._request);
+                delete req.params.query.id;
+                req.params.query.ids = relationshipTypeNames;
+                req.params.query.domain = this.domain;
+                req.params.query.filters = {
+                    "typesCriterion": ["relationshipModel"]
+                };
+                req.params.fields = {};
+                var checkDomainLiquid = this.shadowRoot.querySelector("#getRelDomains");
+                if (checkDomainLiquid) {
+                    checkDomainLiquid.requestData = req;
+                    checkDomainLiquid.generateRequest();
+                }
+            },
+            _onRelModelsReceived: function (e) {
+                var responseContent = DataHelper.validateAndGetResponseContent(e.detail.response)
+                if (responseContent) {
+                    var models = responseContent.entityModels;
+                    var relationshipTypeNames = [];
+                    for (var i = 0; i < models.length; i++) {
+                        if (models[i].domain == this.domain) {
+                            relationshipTypeNames.push(models[i].name);
+                        }
+                    }
+                    this._relationshipEntityTypeMappings = this._relationshipEntityTypeMappings.filter(function (rel) {
+                        return relationshipTypeNames.indexOf(rel.relationshipTypeName) > -1;
+                    });
+                    this.values = this._relationshipEntityTypeMappings;
+                    this._loading = false;
+
+                    // TODO: following lines are presenting in original source
+                    // this._buildMenuItems(this._relationshipEntityTypeMappings);
+                    // this._callback(menuItems);
+                }
+            },
+
+            _onModelGetFailed: function (e) {
+                this.logError("TabMenuError", e);
+            },
+
+            _getRelationshipEntityTypeMappings: function (entityModels) {
+                var relationshipEntityTypeMappings = [];
+                if (entityModels && entityModels.length > 0) {
+                    if (entityModels[0].data && entityModels[0].data.relationships) {
+                        var relationshipModels = entityModels[0].data.relationships;
+
+                        Object.keys(relationshipModels).map(function (relationshipTypeName) {
+                            var relationshipModel = {};
+                            relationshipModel.relationshipTypeName = relationshipTypeName;
+                            relationshipModel.relatedEntityTypes = relationshipModels[
+                                    relationshipTypeName];
+                            relationshipEntityTypeMappings.push(relationshipModel);
+                        });
+                    }
+                }
+                return relationshipEntityTypeMappings;
+            },
+
+            _setRequestObject: function () {
+                var firstDataContext = this.getFirstDataContext();
+                var firstItemContext = this.getFirstItemContext();
+
+                var entityType = firstItemContext.type;
+
+                var req = {
+                    "params": {
+                        "query": {
+                            "id": entityType + "_entityCompositeModel",
+                            "filters": {
+                                "typesCriterion": ["entityCompositeModel"]
+                            }
+                        },
+                        "fields": {
+                            "properties": ["_ALL"],
+                            "relationships": ["_ALL"]
+                        }
+                    }
+                };
+
+                if (!_.isEmpty(firstDataContext)) {
+                    req.params.query.contexts = [firstDataContext];
+                }
+
+                this._request = req;
+            }
+            // TODO: ends
+        });
+
+    </script>
+</dom-module>
