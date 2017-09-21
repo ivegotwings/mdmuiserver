@@ -145,15 +145,40 @@ async function initiateSearch(callPath, args) {
         //     console.log('collection name ', JSON.stringify(collectionName, null, 4));
             var dataObjects = dataObjectResponse[collectionName];
             var index = 0;
+
             if (dataObjects !== undefined) {
                 totalRecords = dataObjectResponse.totalRecords;
+
+                var additionalIdsRequested = [];
+                if(!request.params.query.filters.attributesCriterion) {
+                    if(dataObjectType && request.params.additionalIds && request.params.additionalIds.length > 0) {
+                        additionalIdsRequested = request.params.additionalIds;
+                        if(additionalIdsRequested instanceof Array) {
+                            totalRecords += additionalIdsRequested.length;
+                        }
+    
+                        for(let additionalId of additionalIdsRequested) {
+                            var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds];
+                            response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [additionalId]))));
+                        }
+                    }
+                }
+
                 if(operation === "search") {
-                    resultRecordSize = dataObjects.length;                   
+                    if(additionalIdsRequested) {
+                        resultRecordSize = additionalIdsRequested.length;
+                    }
+
                     for (let dataObject of dataObjects) {
                         if (dataObject.id !== undefined) {
-                            var dataObjectType = dataObject.type;
-                            var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds];
-                            response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [dataObject.id]))));
+                            if(additionalIdsRequested.indexOf(dataObject.id) < 0) {
+                                var dataObjectType = dataObject.type;
+                                var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds];
+                                response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [dataObject.id]))));
+                                resultRecordSize++;
+                            } else {
+                                totalRecords--;
+                            }
                         }
                     }
                 }
