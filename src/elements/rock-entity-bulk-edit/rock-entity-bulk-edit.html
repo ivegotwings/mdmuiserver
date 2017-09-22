@@ -10,7 +10,7 @@
 <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
 
 <!--<link rel="import" href="../rock-attribute-model-grid/rock-attribute-model-grid.html">-->
-<link rel="import" href="../rock-self-attribute-model-grid/rock-self-attribute-model-grid.html">
+<link rel="import" href="../rock-bulk-edit-grid/rock-bulk-edit-grid.html">
 <link rel="import" href="../rock-attribute-list/rock-attribute-list.html">
 <link rel="import" href="../rock-scope-selector/rock-scope-selector.html">
 
@@ -78,7 +78,9 @@
         <div id="container">
             <div id="left-container">
                 <pebble-card id="card" no-header>
-                    <rock-self-attribute-model-grid id="attributesGrid" context-data="[[contextData]]" selected-items="[[_selectedItems]]" config="[[_gridConfig]]"></rock-self-attribute-model-grid>
+                    <rock-bulk-edit-grid id="attributesGrid" context-data="[[contextData]]" 
+                        selected-items="[[_selectedItems]]" config="[[_gridConfig]]"
+                        edit-attributes-only="[[editAttributesOnly]]" edit-relationship-attributes-only="[[editRelationshipAttributesOnly]]"></rock-bulk-edit-grid>
                 </pebble-card>
                 <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="attributeModelGrid"></bedrock-pubsub>
                 <bedrock-pubsub event-name="grid-deselecting-item" handler="_onDeSelectingGridItem" target-id="attributeModelGrid"></bedrock-pubsub>
@@ -181,6 +183,22 @@
                     groupName: {
                         type: String,
                         value: "Selected Attributes"
+                    },
+                    editRelationshipAttributesOnly: {
+                        type: Boolean,
+                        value: false
+                    },
+                    editAttributesOnly: {
+                        type: Boolean,
+                        value: false
+                    },
+                    originalEntity: {
+                        type: Object,
+                        value: function () { return {}; }
+                    },
+                    relationship: {
+                        type: String,
+                        value: ""
                     },
                 },
                 behaviors: [
@@ -296,8 +314,30 @@
                             attributesJSON.push(attributeJSON);
                         }
 
-                        var newEntity = DataTransformHelper.prepareEntityForAttributesSave({}, attributesJSON, this.contextData);
-                        var data = newEntity.data;
+                        var newEntity = {};
+                        var firstValueContext = this.getFirstValueContext();
+
+                        if(this.editAttributesOnly) {
+                            newEntity = DataTransformHelper.prepareEntityForAttributesSave({}, attributesJSON, this.contextData);
+                        } else if(this.editRelationshipAttributesOnly) {
+                            newEntity = DataHelper.cloneObject(this.originalEntity);
+                            var relationships = EntityHelper.getRelationshipByType(newEntity, this.getFirstDataContext(), this.relationship, true);
+                            
+                            var attributes = {};
+                            for (var i = 0; i < attributesJSON.length; i++) {
+                                var attributeJSON = attributesJSON[i];
+                                var attr = DataTransformHelper.createAttributeInstance(attributeJSON, firstValueContext);
+                                attributes[attributeJSON.name] = attr;
+                            }
+
+                            for(var i=0; i<relationships.length; i++) {
+                                var relationship = relationships[i];
+                                if(this.selectedEntities.find(obj => obj.id === relationship.relTo.id)) {
+                                    relationship.attributes = attributes;
+                                }
+                            }
+                        }
+                        var data = newEntity.data ? newEntity.data : {};
                         var req = {
                             "params": {
                                 "operationType": "inboundService",
