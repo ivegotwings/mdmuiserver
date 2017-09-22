@@ -39,7 +39,7 @@ global.config = {
     rootDirectory: 'build',
     bundledDirectory: 'bundled/ui-platform',
     unbundledDirectory: 'unbundled/ui-platform',
-    devDirectory: 'dev/ui-platform',
+    devDirectory: 'dev',
     // devDirectory: 'default',
     // Accepts either 'bundled', 'unbundled', or 'both'
     // A bundled version will be vulcanized and sharded. An unbundled version
@@ -271,7 +271,7 @@ gulp.task('copy-node-modules', function () {
   return gulp.src(nodeModulesPath, {base: '.'}).pipe(gulp.dest(unbundledPath));
 });
 
-gulp.task('dev', gulp.series(devBuild, 'app-nodemon', 'watch-element-changes'));
+gulp.task('dev', gulp.series('app-nodemon', 'watch-element-changes'));
 
 function unbundledBuild() {
   return new Promise((resolve, reject) => { // eslint-disable-line no-unused-vars

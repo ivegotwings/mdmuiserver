@@ -10,9 +10,10 @@ var bodyParser = require('body-parser');
 var compression = require('compression');
 var cookieParser = require('cookie-parser');
 var fileUpload = require('express-fileupload');
-
+var send = require("send");
+var prpl = require('prpl-server');
 var config = require('config');
-
+var parseUrl = require('parseurl');
 var logger = require('../common/logger/logger-service');
 var loggerConfig = config.get('modules.common.logger');
 logger.configure(loggerConfig);
@@ -55,11 +56,17 @@ app.use(cors());
 logger.info('Web engine start - cors middleware is loaded');
 
 //handling root path (specifically for SAML type of authentication)
-app.get('/', function (req, res) {
-    if (!renderAuthenticatedPage(req, res)) {
-        res.render('index', { isAuthenticated: false });
-    }
-});
+// app.get('/', function (req, res) {
+//     renderAuthenticatedPage(req, res);
+// });
+
+app.get('/', prpl.makeHandler('./build', {
+  builds: [
+    {name: 'dev', browserCapabilities: ['es2015']},
+    {name: 'bundled'},
+  ],
+}));
+
 
 logger.info('Web engine start - default location route is loaded');
 
@@ -138,20 +145,17 @@ fileUploadRoute(app);
 logger.info('Web engine start - fileupload routes are loaded');
 
 //register static file root ...index.html..
-app.get('*', function (req, res) {
-    if (!renderAuthenticatedPage(req, res)) {
-        //If request is not authenticated, we are trying see if URL has tenant after root of the URL
-        var urlComps = req.url.split('/');
-        tenantId = urlComps[0] != "" ? urlComps[0] : urlComps.length > 1 ? urlComps[1] : "";
-        //If we find tenant id (assumed tenant id), we set that tenant id in index file
-        if (tenantId && tenantId != "") {
-            res.render('index', { isAuthenticated: false, tenantId: tenantId });
-        }
-        else {
-            res.render('index', { isAuthenticated: false });
-        }
-    }
-});
+
+app.get('*', prpl.makeHandler('./build', {
+  builds: [
+    {name: 'dev', browserCapabilities: ['es2015']},
+    {name: 'bundled'},
+  ],
+}));
+
+// app.get('*', function (req, res) {
+//     renderAuthenticatedPage(req, res);
+// });
 
 logger.info('Web engine start - base static file root route is loaded');
 
@@ -175,7 +179,7 @@ function renderAuthenticatedPage(req, res) {
         }
         if (fullName == "") {
             fullName = userId;
-        }
+        }        
         res.render('index', { isAuthenticated: true, tenantId: tenantId, userId: userId, roleId: userRoles, fullName: fullName, userName: userName, ownershipData: ownershipData, noPreload: false });
         return true;
     } else {
