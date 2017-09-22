@@ -153,9 +153,6 @@ async function initiateSearch(callPath, args) {
                 if(!request.params.query.filters.attributesCriterion && !request.params.query.filters.keywordsCriterion) {
                     if(dataObjectType && request.params.additionalIds && request.params.additionalIds.length > 0) {
                         additionalIdsRequested = request.params.additionalIds;
-                        if(additionalIdsRequested instanceof Array) {
-                            totalRecords += additionalIdsRequested.length;
-                        }
     
                         for(let additionalId of additionalIdsRequested) {
                             var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds];
@@ -176,8 +173,6 @@ async function initiateSearch(callPath, args) {
                                 var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds];
                                 response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [dataObject.id]))));
                                 resultRecordSize++;
-                            } else {
-                                totalRecords--;
                             }
                         }
                     }
