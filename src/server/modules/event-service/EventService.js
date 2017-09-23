@@ -24,7 +24,7 @@ const eventSubTypeMap = {
 
 const eventTypesOrder = ["BATCH_COLLECT_ENTITY_IMPORT",
     "BATCH_TRANSFORM_ENTITY_IMPORT",
-    "BATCH_EXTRACT",
+    "EXTRACT",
     "BATCH_COLLECT_ENTITY_EXPORT",
     "BATCH_TRANSFORM_ENTITY_EXPORT",
     "BATCH_PUBLISH_ENTITY_EXPORT"];
@@ -223,7 +223,7 @@ Eventservice.prototype = {
 
             //Get Batch Events to get basic information of reuested tasks...
             var attributeNames = ["fileId", "fileName", "fileType", "eventType", "eventSubType", "recordCount", "createdOn", "userId", "profileType", "taskName", "taskType", "message", "integrationType"];
-            var eventTypeFilterString = "BATCH_COLLECT_ENTITY_IMPORT BATCH_TRANSFORM_ENTITY_IMPORT BATCH_EXTRACT BATCH_COLLECT_ENTITY_EXPORT BATCH_TRANSFORM_ENTITY_EXPORT BATCH_PUBLISH_ENTITY_EXPORT";
+            var eventTypeFilterString = "BATCH_COLLECT_ENTITY_IMPORT BATCH_TRANSFORM_ENTITY_IMPORT EXTRACT BATCH_COLLECT_ENTITY_EXPORT BATCH_TRANSFORM_ENTITY_EXPORT BATCH_PUBLISH_ENTITY_EXPORT";
             var eventSubTypeFilterString = "";
             var eventsGetRequest = this._generateEventsGetReq(taskId, attributeNames, eventTypeFilterString, eventSubTypeFilterString, false);
 
@@ -299,7 +299,7 @@ Eventservice.prototype = {
                     //console.log('higher order event ', JSON.stringify(highOrderEvent, null, 2));
                     var eventType = this._getAttributeValue(highOrderEvent, "eventType");
                     var eventSubType = this._getAttributeValue(highOrderEvent, "eventSubType");
-                    var taskType = this._getTaskTypeFromEvent(highOrderEvent);
+                    var taskType = this._getTaskType(highOrderEvent);
 
                     var taskName = this._getAttributeValue(highOrderEvent, "taskName");
                     var fileName = this._getAttributeValue(highOrderEvent, "fileName");
@@ -374,7 +374,7 @@ Eventservice.prototype = {
                             var preProcessErroredRecordsCount = 0;
                             var lastErroredRecordEvent;
                             var attributeNames = ["createdOn"]; //This attribute is needed to get endTime
-                            var eventTypeFilterString = "RECORD_TRANSFORM_ENTITY_IMPORT RECORD_PUBLISH_ENTITY_IMPORT RECORD_PUBLISH_ENTITY_EXPORT RECORD_LOAD";
+                            var eventTypeFilterString = "RECORD_TRANSFORM_ENTITY_IMPORT RECORD_PUBLISH_ENTITY_IMPORT RECORD_PUBLISH_ENTITY_EXPORT LOAD";
                             var eventSubTypeFilterString = "PROCESSING_ERROR PROCESSING_COMPLETE_ERROR";
                             var eventsGetRequest = this._generateEventsGetReq(taskId, attributeNames, eventTypeFilterString, eventSubTypeFilterString, true);
 
@@ -653,20 +653,26 @@ Eventservice.prototype = {
         }
 
         var requestedAttributeCriteria = inputRequest.params.query.filters.attributesCriterion;
-        var status = undefined;
-        var taskType = "entity_import";
-        var userId = undefined;
         if(requestedAttributeCriteria) {
+            var status = undefined;
+            var taskType = "entity_import";
+            var userId = undefined;
+
             for (var i in requestedAttributeCriteria) {
                 if(requestedAttributeCriteria[i].eventSubType) {
                     status = requestedAttributeCriteria[i].eventSubType.eq;
                 }
 
-                if(requestedAttributeCriteria[i].integrationType) {
-                    integrationType = requestedAttributeCriteria[i].integrationType.eq;
+                if(requestedAttributeCriteria[i].taskType) {
+                    taskType = requestedAttributeCriteria[i].taskType.contains;
+                }
+                else {
+                    if(requestedAttributeCriteria[i].integrationType) {
+                        integrationType = requestedAttributeCriteria[i].integrationType.eq;
 
-                    if(integrationType == "System") {
-                        taskType = "system_integrations_entity_import";
+                        if(integrationType == "System") {
+                            taskType = "system_integrations_entity_import";
+                        }
                     }
                 }
 
@@ -674,40 +680,40 @@ Eventservice.prototype = {
                     userId = requestedAttributeCriteria[i].userId.eq;
                 }
             }
-        }
 
-        var attributesCriteria = [];
+            var attributesCriteria = [];
+            
+            //Add task type criterion...
+            var taskTypeCriterion = {
+                "taskType": {
+                    "contains": taskType
+                }
+            };
+            attributesCriteria.push(taskTypeCriterion);
 
-        //Add task type criterion...
-        var taskTypeCriterion = {
-            "taskType": {
-                "eq": taskType
+            if (status) {
+
+                //Add task status criterion...
+                var taskStatusCriterion = {
+                    "status": {
+                        "contains": status.toLowerCase()
+                    }
+                };
+                attributesCriteria.push(taskStatusCriterion);
             }
-        };
-        attributesCriteria.push(taskTypeCriterion);
 
-        if(status) {
+            if (userId) {
+                //Add user id criterion...
+                var userIdCriterion = {
+                    "submittedBy": {
+                        "eq": userId
+                    }
+                };
+                attributesCriteria.push(userIdCriterion);
+            }
 
-            //Add task status criterion...
-            var taskStatusCriterion = {
-                "status": {
-                    "contains": status.toLowerCase()
-                }
-            };
-            attributesCriteria.push(taskStatusCriterion);
+            req.params.query.filters.attributesCriterion = attributesCriteria;
         }
-
-        if(userId){
-            //Add user id criterion...
-            var userIdCriterion = {
-                "submittedBy": {
-                    "eq": userId
-                }
-            };
-            attributesCriteria.push(userIdCriterion);
-        }
-        
-        req.params.query.filters.attributesCriterion = attributesCriteria;
 
         req.params.sort = {
             "properties": [{
@@ -745,6 +751,7 @@ Eventservice.prototype = {
                             var eventAttributes = {};
 
                             eventAttributes["taskId"] = attributes["taskId"];
+                            eventAttributes["taskName"] = attributes["taskName"];
                             eventAttributes["fileName"] = attributes["fileName"];
                             eventAttributes["fileType"] = attributes["fileType"];
                             eventAttributes["formatter"] = attributes["fileType"];
@@ -785,15 +792,7 @@ Eventservice.prototype = {
         if (taskSummaryGetRes && taskSummaryGetRes.response && taskSummaryGetRes.response.requestObjects && taskSummaryGetRes.response.requestObjects.length > 0) {
             var requestObject = taskSummaryGetRes.response.requestObjects[0];
 
-            var taskType = this._getAttributeValue(requestObject, "taskType");
-            if(taskType == "entity_import") {
-                taskType = "Entity data imports"
-            } else if ("system_integrations_entity_import") {
-                taskType = "System integrations - entity data imports";
-            } else {
-                taskType = "N/A";
-            }
-
+            var taskType = this._getTaskType(requestObject);
             var taskName = this._getAttributeValue(requestObject, "taskName");
             var taskStatus = this._getAttributeValue(requestObject, "status");
             var fileName = this._getAttributeValue(requestObject, "fileName");
@@ -1317,12 +1316,12 @@ Eventservice.prototype = {
 
         return createdDate;
     },
-    _getTaskTypeFromEvent: function (event) {
+    _getTaskType: function (obj) {
         var taskType;
 
-        var taskType = this._getAttributeValue(event, "profileType");
+        var taskType = this._getAttributeValue(obj, "profileType");
         if (!taskType) {
-            taskType = this._getAttributeValue(event, "taskType");
+            taskType = this._getAttributeValue(obj, "taskType");
         }
 
         if (taskType) {
@@ -1330,18 +1329,24 @@ Eventservice.prototype = {
                 case "entity_import":
                     taskType = "Entity data imports";
 
-                    var integrationType = this._getAttributeValue(event, "integrationType");
+                    var integrationType = this._getAttributeValue(obj, "integrationType");
                     if (integrationType && integrationType.toLowerCase() == "system") {
                         taskType = "System integrations - entity data imports";
                     }
                     break;
+                case "system_integrations_entity_import":
+                    taskType = "System integrations - entity data imports";
+                    break;
                 case "entity_export":
                     taskType = "Entity data exports";
 
-                    var integrationType = this._getAttributeValue(event, "integrationType");
+                    var integrationType = this._getAttributeValue(obj, "integrationType");
                     if (integrationType && integrationType.toLowerCase() == "system") {
                         taskType = "System integrations - entity data exports";
                     }
+                    break;
+                case "system_integrations_entity_export":
+                    taskType = "System integrations - entity data exports";
                     break;
                 case "transitionworkflow":
                 case "transitionworkflow-query":
