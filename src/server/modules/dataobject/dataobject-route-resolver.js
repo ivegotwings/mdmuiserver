@@ -315,7 +315,7 @@ function _getService(dataObjectType) {
     if (dataObjectType == 'entityCompositeModel') {
         return entityCompositeModelGetService;
     }
-    else if(dataObjectType == "externalevent") {
+    else if(dataObjectType == "externalevent" || dataObjectType == "bulkoperationevent") {
         return eventService;
     }
     else {
