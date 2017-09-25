@@ -12,6 +12,8 @@ var cookieParser = require('cookie-parser');
 var fileUpload = require('express-fileupload');
 var send = require("send");
 var prpl = require('prpl-server');
+const fs = require("fs");
+const hogan = require("hogan.js");
 var config = require('config');
 var parseUrl = require('parseurl');
 var logger = require('../common/logger/logger-service');
@@ -57,16 +59,54 @@ logger.info('Web engine start - cors middleware is loaded');
 
 //handling root path (specifically for SAML type of authentication)
 
-// app.get('/', function (req, res) {
-//     renderAuthenticatedPage(req, res);
-// });
+function compileTemplate(req, res, buildPath) {
+    var userId = req.header("x-rdp-userid");
+    var tenantId = req.header("x-rdp-tenantid");
+    var userRoles = req.header("x-rdp-userroles");
+    var firstName = req.header("x-rdp-firstname");
+    var lastName = req.header("x-rdp-lastname");
+    var userEmail = req.header("x-rdp-useremail");
+    var userName = req.header("x-rdp-username");
+    var ownershipData = req.header("x-rdp-ownershipdata");
+    var options = {};
+    if (tenantId && userId) {
+        var fullName = "";
+        if (firstName) {
+            fullName = firstName;
+        }
+        if (lastName) {
+            fullName = fullName + " " + lastName;
+        }
+        if (fullName == "") {
+            fullName = userId;
+        }        
+        options = { isAuthenticated: true, tenantId: tenantId, userId: userId, roleId: userRoles, fullName: fullName, userName: userName, ownershipData: ownershipData, noPreload: false};
+    }
+    var fullPath = buildPath + 'src/views/index.hjs';        
+    fs.readFile(fullPath, 'utf8', function (err,data) {
+      if (err) {
+        return console.log(err);
+      }
+      var template = hogan.compile(data);
+      var compiled = template.render(options);
+        fs.writeFile(buildPath + '/index.html', compiled, function(err) {
+            if(err) {
+                return console.log(err);
+            }
+            console.log("The file was saved! - " + buildPath + '/index.html');
+        }); 
+    });
+}
 
+
+// Need to run compileTemplate() before this
 app.get('/', prpl.makeHandler('./build', {
-  builds: [
-    {name: 'dev', browserCapabilities: ['es2015']},
-    {name: 'bundled'},
-  ],
-}));
+      builds: [
+        {name: 'dev', browserCapabilities: ['es2015']},
+        {name: 'bundled'},
+      ]
+    }
+))
 
 
 logger.info('Web engine start - default location route is loaded');
@@ -147,54 +187,22 @@ logger.info('Web engine start - fileupload routes are loaded');
 
 //register static file root ...index.html..
 
+// Need to run compileTemplate() before this
 app.get('*', prpl.makeHandler('./build', {
-  builds: [
-    {name: 'dev', browserCapabilities: ['es2015']},
-    {name: 'bundled'},
-  ],
-}));
-
-// app.get('*', function (req, res) {
-//     renderAuthenticatedPage(req, res);
-// });
+      builds: [
+        {name: 'dev', browserCapabilities: ['es2015']},
+        {name: 'bundled'},
+      ]}
+    )
+)
 
 logger.info('Web engine start - base static file root route is loaded');
-
-function renderAuthenticatedPage(req, res) {
-    var userId = req.header("x-rdp-userid");
-    var tenantId = req.header("x-rdp-tenantid");
-    var userRoles = req.header("x-rdp-userroles");
-    var firstName = req.header("x-rdp-firstname");
-    var lastName = req.header("x-rdp-lastname");
-    var userEmail = req.header("x-rdp-useremail");
-    var userName = req.header("x-rdp-username");
-    var ownershipData = req.header("x-rdp-ownershipdata");
-
-    if (tenantId && userId) {
-        var fullName = "";
-        if (firstName) {
-            fullName = firstName;
-        }
-        if (lastName) {
-            fullName = fullName + " " + lastName;
-        }
-        if (fullName == "") {
-            fullName = userId;
-        }        
-        res.render('index', { isAuthenticated: true, tenantId: tenantId, userId: userId, roleId: userRoles, fullName: fullName, userName: userName, ownershipData: ownershipData, noPreload: false });
-        return true;
-    } else {
-        return false;
-    }
-}
-
 logger.info('Web engine start - starting web engine...');
 
 // Finally, start the web server...
 var server = app.listen(5005, function () {
     var host = server.address().address === '::' ? 'localhost' : server.address().address;
     var port = server.address().port;
-
 
     logger.info('Web engine start - web engine is started', { "host": host, "port": port });
     console.log('Web engine is running now at http://%s:%s/', host, port);
