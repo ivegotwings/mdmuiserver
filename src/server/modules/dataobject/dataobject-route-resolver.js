@@ -150,7 +150,7 @@ async function initiateSearch(callPath, args) {
                 totalRecords = dataObjectResponse.totalRecords;
 
                 var additionalIdsRequested = [];
-                if(!request.params.query.filters.attributesCriterion && !request.params.query.filters.keywordsCriterion) {
+                if(!request.params.query || !request.params.query.filters || (!request.params.query.filters.attributesCriterion && !request.params.query.filters.keywordsCriterion)) {
                     if(dataObjectType && request.params.additionalIds && request.params.additionalIds.length > 0) {
                         additionalIdsRequested = request.params.additionalIds;
     
