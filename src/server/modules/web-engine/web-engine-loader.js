@@ -56,6 +56,7 @@ app.use(cors());
 logger.info('Web engine start - cors middleware is loaded');
 
 //handling root path (specifically for SAML type of authentication)
+
 // app.get('/', function (req, res) {
 //     renderAuthenticatedPage(req, res);
 // });
