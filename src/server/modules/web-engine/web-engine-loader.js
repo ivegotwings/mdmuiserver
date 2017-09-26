@@ -11,7 +11,6 @@ var compression = require('compression');
 var cookieParser = require('cookie-parser');
 var fileUpload = require('express-fileupload');
 var send = require("send");
-var prpl = require('prpl-server');
 const fs = require("fs");
 const hogan = require("hogan.js");
 var config = require('config');
@@ -21,6 +20,7 @@ var loggerConfig = config.get('modules.common.logger');
 logger.configure(loggerConfig);
 
 var buildPath = process.cwd();
+var basePath = process.cwd();
 var relativePath = process.env.PROJECT_PATH;
 
 //console.log('Node env', process.env);
@@ -59,7 +59,9 @@ logger.info('Web engine start - cors middleware is loaded');
 
 //handling root path (specifically for SAML type of authentication)
 
-function compileTemplate(req, res, buildPath) {
+function compileTemplate(req, res, basePath) {
+    console.log("Compiling hogan.Js template...");
+    var isIE11 = (req.headers['user-agent'].indexOf('rv:11')!==-1);
     var userId = req.header("x-rdp-userid");
     var tenantId = req.header("x-rdp-tenantid");
     var userRoles = req.header("x-rdp-userroles");
@@ -82,31 +84,28 @@ function compileTemplate(req, res, buildPath) {
         }        
         options = { isAuthenticated: true, tenantId: tenantId, userId: userId, roleId: userRoles, fullName: fullName, userName: userName, ownershipData: ownershipData, noPreload: false};
     }
-    var fullPath = buildPath + 'src/views/index.hjs';        
+    var fullPath = basePath + (isIE11 ? '/build/bundled' : '/build/dev') + '/src/views/index.hjs';     
+    console.log("fullPath",fullPath);
     fs.readFile(fullPath, 'utf8', function (err,data) {
       if (err) {
         return console.log(err);
       }
       var template = hogan.compile(data);
-      var compiled = template.render(options);
-        fs.writeFile(buildPath + '/index.html', compiled, function(err) {
-            if(err) {
-                return console.log(err);
-            }
-            console.log("The file was saved! - " + buildPath + '/index.html');
-        }); 
+      var compiled = template.render(options);        
+      fs.writeFile(fullPath.replace("src/views/index.hjs", "index.html"), compiled, function(err) {
+        if(err) {
+            return console.log(err);
+        }
+      }); 
     });
 }
 
 
 // Need to run compileTemplate() before this
-app.get('/', prpl.makeHandler('./build', {
-      builds: [
-        {name: 'dev', browserCapabilities: ['es2015']},
-        {name: 'bundled'},
-      ]
-    }
-))
+app.get('/', function(req, res) {    
+    compileTemplate(req, res, basePath);
+    send(req, buildPath + '/index.html').pipe(res);
+})
 
 
 logger.info('Web engine start - default location route is loaded');
@@ -188,13 +187,10 @@ logger.info('Web engine start - fileupload routes are loaded');
 //register static file root ...index.html..
 
 // Need to run compileTemplate() before this
-app.get('*', prpl.makeHandler('./build', {
-      builds: [
-        {name: 'dev', browserCapabilities: ['es2015']},
-        {name: 'bundled'},
-      ]}
-    )
-)
+app.get('*', function(req, res) {    
+    compileTemplate(req, res, basePath);
+    send(req, buildPath + '/index.html').pipe(res);    
+})
 
 logger.info('Web engine start - base static file root route is loaded');
 logger.info('Web engine start - starting web engine...');
