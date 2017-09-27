@@ -24,13 +24,13 @@ LoggerService.prototype = {
     for(var stream of toolSettings.streams) {
       streamPath = stream.path;
     }
-    streamPath = process.cwd() + streamPath;
-
+    streamPath = path.dirname(require.main.filename) + streamPath;
+    
     log4js.configure({
       appenders: {
         everything: { 
           type: 'file', 
-          filename: path.normalize(streamPath), 
+          filename: streamPath, 
           layout: {
             type: 'pattern',
             pattern: this._getPattern()
