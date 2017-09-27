@@ -5,6 +5,7 @@ var LOGGER_CONFIG = function(){
                         "RelatedRequestId", "GroupRequestId", "TaskId", "UserId", "EntityId", 
                         "ObjectType", "ClassName", "Method", "NewTimestamp", "Action", 
                         "InclusiveTime", "LogMessage"];
+                        
     this._modulesObject = {
         "service-base": {
             "level": "info"
