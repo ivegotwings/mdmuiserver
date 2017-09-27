@@ -10,7 +10,7 @@ var logger = require('../common/logger/logger-service.js');
 PassThroughService.prototype = {
     call: async function (request) {
         //console.log('PassThroughService.call ', request.url);
-        logger.debug("PassThroughService --> "+JSON.stringify(request))
+        //logger.debug("PassThroughService --> "+JSON.stringify(request))
         var passThroughUrl = request.url.replace('/data/pass-through/', '');
         return await this.post(passThroughUrl, request.body);
     },
