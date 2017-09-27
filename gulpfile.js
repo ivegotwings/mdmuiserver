@@ -195,6 +195,10 @@ function devBuild() {
       });
   });
 }
+function compileChangedDevFiles(changedFiles){
+  return gulp.src(changedFiles, {base:"."})
+          .pipe(gulp.dest(devPath));
+}
 var lr = null;
 
 gulp.task('app-nodemon', function (cb) {
@@ -239,9 +243,10 @@ gulp.task('app-nodemon', function (cb) {
                   ext: 'js html css json jpg jpeg png gif',
                   tasks: function (changedFiles) { // compile synchronously onChange
                     var tasks = [];
-                    if (!changedFiles || !lrEnabled) 
+                    if (!changedFiles || !lrEnabled){
                       return tasks;
-                    // compileChangedDevFiles(changedFiles);
+                    }
+                    compileChangedDevFiles(changedFiles);
                     // stackLiveReload(changedFiles);
                     return tasks;
                   } 
@@ -260,8 +265,7 @@ gulp.task('app-nodemon', function (cb) {
 gulp.task('watch-element-changes', function () {  
   gulp.watch(global.config.build.clientFilePaths).on('change', function (fpath) {
     console.log('file changed...', JSON.stringify(fpath));
-    return gulp.src(fpath, {base:'.'})
-          .pipe(gulp.dest(devPath));
+    compileChangedDevFiles(fpath);
   });
 });
 
