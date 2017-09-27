@@ -205,6 +205,38 @@ COPService.prototype = {
         }
         return await this.post(copURL, request.body);
     },
+    getOverrides: async function (request) {
+        var copURL = "copservice/getprofile";
+        if (!request.body) {
+            return {
+                "dataOperationResponse": {
+                    "status": "Error",
+                    "statusDetail": {
+                        "code": "RSUI0001",
+                        "message": "Incorrect request to get user overrides",
+                        "messageType": "Error"
+                    }
+                }
+            };
+        }
+        return await this.post(copURL, request.body);
+    },
+    saveOverrides: async function (request) {
+        var copURL = "copservice/saveoverrides";
+        if (!request.body) {
+            return {
+                "dataOperationResponse": {
+                    "status": "Error",
+                    "statusDetail": {
+                        "code": "RSUI0001",
+                        "message": "Incorrect request to save user overrides",
+                        "messageType": "Error"
+                    }
+                }
+            };
+        }
+        return await this.post(copURL, request.body);
+    },
     _validateRequest: function (request) {
         if (!request.body) {
             return false;
@@ -232,8 +264,10 @@ COPService.prototype = {
                     "createdDate": "2016-07-16T18:33:52.412-07:00",
                     "filename": "",
                     "encoding": "Base64",
-                    "type": "ENTITY_IMPORT",
-                    "subtype": ""
+                    "service": "ENTITY_IMPORT",
+                    "channel": "UI",
+                    "format": "Excel",
+                    "source": "internal"
                 },
                 "data": {
                     "blob": ""
@@ -256,7 +290,7 @@ COPService.prototype = {
             "dataObject": {
                 "id": "",
                 "dataObjectInfo": {
-                    "dataObjectType": "excelfile"
+                    "dataObjectType": "entityjson"
                 },
                 "properties": {
                     "createdByService": "user interface",
@@ -264,8 +298,12 @@ COPService.prototype = {
                     "createdDate": "2016-07-16T18:33:52.412-07:00",
                     "filename": "",
                     "encoding": "Base64",
-                    "type": "",
-                    "subtype": "",
+                    "service": "",
+                    "channel": "UI",
+                    "format": "Excel",
+                    "source": "internal",
+                    "profileId": "",
+                    "profileName": "",
                     "workAutomationId": workAutomationId ? workAutomationId : "uuid"
                 },
                 "data": {
@@ -280,7 +318,8 @@ COPService.prototype = {
 
         copRequest.dataObject.id = uuidV1();
         copRequest.dataObject.properties.filename = originalFileName;
-        copRequest.dataObject.properties.type = type;
+        copRequest.dataObject.properties.service = type;
+        //console.log("Request for process:", JSON.stringify(copRequest));
         copRequest.dataObject.data.blob = this._getFileContent(fileName, files);
         return copRequest;
     },
@@ -297,8 +336,10 @@ COPService.prototype = {
                     "createdDate": "2016-07-16T18:33:52.412-07:00",
                     "filename": "",
                     "encoding": "Base64",
-                    "type": "ENTITY_IMPORT",
-                    "subtype": ""
+                    "service": "ENTITY_IMPORT",
+                    "channel": "UI",
+                    "format": "Excel",
+                    "source": "internal"
                 },
                 "data": {
                     "blob": ""
@@ -312,7 +353,7 @@ COPService.prototype = {
 
         copRequest.binaryObject.id = uuidV1();
         copRequest.binaryObject.properties.filename = originalFileName;
-        console.log('generateFieldMapRequest: ', JSON.stringify(copRequest, null, 2));
+        //console.log('generateFieldMapRequest: ', JSON.stringify(copRequest, null, 2));
         copRequest.binaryObject.data.blob = this._getFileContent(fileName, files);
         return copRequest;
     },
