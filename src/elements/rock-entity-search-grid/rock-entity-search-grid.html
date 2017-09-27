@@ -88,7 +88,7 @@ It filters the data as per filter criteria.
                 <rock-grid hidden$="[[_loadGovernData]]" id="entityGrid" r-data-source="{{rDataSource}}" r-data-source-id="searchGrid" result-record-size="{{resultRecordSize}}"
                     current-record-size="{{currentRecordSize}}" config="[[gridConfig]]" grid-data-size="{{size}}" attribute-models="{{attributeModels}}"
                     page-size="[[pageSize]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" total-count="{{totalCount}}"
-                    max-configured-count="[[maxConfiguredCount]]"></rock-grid>
+                    max-configured-count="[[maxConfiguredCount]]" selection-enabled></rock-grid>
             </template>
             <template is="dom-if" if="[[_loadGovernData]]">
                 <rock-govern-data-grid id="governGrid" context-data="[[contextData]]" request="[[request]]" entity-name-attribute="[[governDataConfig.entityNameAttribute]]"></rock-govern-data-grid>
@@ -101,6 +101,7 @@ It filters the data as per filter criteria.
         <rock-business-function-dialog id="entityUploadDialog"></rock-business-function-dialog>
         <rock-business-function-dialog id="entityDownloadDialog"></rock-business-function-dialog>
         <rock-business-function-dialog id="entityEditDialog"></rock-business-function-dialog>
+        <bedrock-pubsub on-bedrock-event-route-changed="_onRouteChange"></bedrock-pubsub>
     </template>
 
     <script>
@@ -406,7 +407,20 @@ It filters the data as per filter criteria.
                  * Can be used to reset the grid size.
                  */
                 notifyResize: function () {
-                    this._getEntityGrid().notifyResize();
+                    if(this._getEntityGrid()) {
+                        this._getEntityGrid().notifyResize();
+                    }
+                },
+
+               /**
+                * For entity discovery & task details, this grid resize shoud happen when show/close download bar
+                */
+                _onRouteChange: function(e) {
+                    if(DataHelper.isValidObjectPath(e, "detail.route.path") &&
+                       (e.detail.route.path.indexOf('/entity-discovery') != -1 || 
+                        e.detail.route.path.indexOf('/task-detail') != -1)) {
+                            this.notifyResize();
+                    }
                 },
 
                 /**
@@ -710,9 +724,7 @@ It filters the data as per filter criteria.
                         }
                         grid.reRenderGrid();
                     }
-                    setTimeout(function () {
-                        this._setGridHeight();
-                    }.bind(this), 100);
+
                 },
 
                 _getEntityGrid: function () {
@@ -737,28 +749,6 @@ It filters the data as per filter criteria.
                     return true;
                 },
 
-                _setGridHeight: function () {
-                    if (this.parentElement && this.parentElement.parentNode) {
-                        var layout = this.domHost.parentNode.parentNode.parentNode.root.querySelector('#rockLayoutContainer');
-                        var rockGridHeight = 0;
-
-                        if (layout) {
-                            var footer = layout.querySelector('rock-footer');
-                            rockGridHeight = layout.offsetHeight;
-
-                            if (footer) {
-                                rockGridHeight = rockGridHeight - footer.offsetHeight;
-                            } else {
-                                rockGridHeight = rockGridHeight;
-                            }
-                        }
-                        var grid = this._getEntityGrid();
-
-                        if (grid && rockGridHeight > 0) {
-                            grid._getIronDataTable().style.height = rockGridHeight - 160 + 'px';
-                        }
-                    }
-                },
                 _onDownload: function (e, detail) {
                     var selectedItems = this.getSelectedItems();
                     var selectionMode = this.getSelectionMode();
@@ -791,15 +781,29 @@ It filters the data as per filter criteria.
                     var selectionMode = this.getSelectionMode();
                     var selectionQuery = this.getSelectedItemsAsQuery();
                     if (selectedItems && selectedItems.length && this.contextData) {
+                        var itemContexts = [];
+                        if(this.typesCriterion && this.typesCriterion.length) {
+                            for(var i=0; i<this.typesCriterion.length; i++) {
+                                var type = this.typesCriterion[i];
+                                if(!(itemContexts.find(obj => obj.type === type))) {
+                                    var itemContext = { "type": type };
+                                    itemContexts.push(itemContext);
+                                }
+                            }
+                        }
+                        var clonedContextData = DataHelper.cloneObject(this.contextData);
+                        clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
+                        clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
                         var entityEditDialog = this.shadowRoot.querySelector("#entityEditDialog");
                         entityEditDialog.name = "rock-entity-bulk-edit";
                         entityEditDialog.configName = "wizardConfig";
                         entityEditDialog.sharedData = {
-                            "context-data": this.contextData,
+                            "context-data": clonedContextData,
                             "workflow-criterion": this.workflowCriterion,
                             "selection-query": selectionQuery,
                             "selection-mode": selectionMode,
-                            "selected-entities": selectedItems
+                            "selected-entities": selectedItems,
+                            "edit-attributes-only": true
                         };
                         entityEditDialog.open();
                     } else {

@@ -10,7 +10,7 @@ var LOGGER_CONFIG = function(){
             "level": "info"
         },
         "df-rest-service": {
-            "level": "debug"
+            "level": "info"
         },
         "context-manager": {
             "level": "info"
