@@ -29,9 +29,15 @@ COPService.prototype = {
 
         var fileName = request.body.fileName;
         var originalFileName = request.body.originalFileName;
+        var copContext = {
+            "service": request.body.service,
+            "channel": request.body.channel,
+            "format": request.body.format,
+            "source": request.body.source
+        };
         var files = request.files;
         var hotline = request.body.hotline;
-        var copRequest = this._prepareCOPRequestForTransform(fileName, originalFileName, files, hotline);
+        var copRequest = this._prepareCOPRequestForTransform(fileName, originalFileName, files, hotline, copContext);
         //console.log('copRequest: ', JSON.stringify(copRequest, null, 2));
         return await this.post(copURL, copRequest);
     },
@@ -56,7 +62,13 @@ COPService.prototype = {
         var files = request.files;
         var workAutomationId = request.body.workAutomationId;
         var hotline = request.body.hotline;
-        var processRequest = this._prepareCOPRequestForProcess(fileName, originalFileName, "ENTITY_IMPORT", files, hotline, workAutomationId);
+        var copContext = {
+            "service": request.body.service,
+            "channel": request.body.channel,
+            "format": request.body.format,
+            "source": request.body.source
+        };
+        var processRequest = this._prepareCOPRequestForProcess(fileName, originalFileName, copContext, files, hotline, workAutomationId);
         //console.log('processRequest: ', JSON.stringify(processRequest.dataObject.properties, null, 2));
         var result = await this.post(processURL, processRequest);
 
@@ -84,7 +96,13 @@ COPService.prototype = {
 
         var fileName = request.body.fileName;
         var originalFileName = request.body.originalFileName;
-        var processModelRequest = this._prepareCOPRequestForProcess(fileName, originalFileName, "MODEL_IMPORT");
+        var copContext = {
+            "service": request.body.service,
+            "channel": request.body.channel,
+            "format": request.body.format,
+            "source": request.body.source
+        };
+        var processModelRequest = this._prepareCOPRequestForProcess(fileName, originalFileName, copContext);
         //console.log('processRequest: ', JSON.stringify(processModelRequest.dataObject.properties, null, 2));
         return await this.post(processModelURL, processModelRequest);
     },
@@ -108,7 +126,13 @@ COPService.prototype = {
         var originalFileName = request.body.originalFileName;
         var files = request.files;
         var hotline = request.body.hotline;
-        var generateFieldMapRequest = this._prepareCOPRequestForGenerateMap(fileName, originalFileName, files, hotline);
+        var copContext = {
+            "service": request.body.service,
+            "channel": request.body.channel,
+            "format": request.body.format,
+            "source": request.body.source
+        };
+        var generateFieldMapRequest = this._prepareCOPRequestForGenerateMap(fileName, originalFileName, files, hotline, copContext);
         //console.log('generateFieldMapRequest: ', JSON.stringify(generateFieldMapRequest, null, 2));
         return await this.post(generateFieldMapURL, generateFieldMapRequest);
     },
@@ -251,7 +275,7 @@ COPService.prototype = {
         return true;
     },
 
-    _prepareCOPRequestForTransform: function (fileName, originalFileName, files, hotline) {
+    _prepareCOPRequestForTransform: function (fileName, originalFileName, files, hotline, copContext) {
         var copRequest = {
             "dataObject": {
                 "id": "",
@@ -264,10 +288,10 @@ COPService.prototype = {
                     "createdDate": "2016-07-16T18:33:52.412-07:00",
                     "filename": "",
                     "encoding": "Base64",
-                    "service": "ENTITY_IMPORT",
-                    "channel": "UI",
-                    "format": "Excel",
-                    "source": "internal"
+                    "service": copContext.service,
+                    "channel": copContext.channel,
+                    "format": copContext.format,
+                    "source": copContext.source
                 },
                 "data": {
                     "blob": ""
@@ -285,7 +309,7 @@ COPService.prototype = {
         return copRequest;
     },
 
-    _prepareCOPRequestForProcess: function (fileName, originalFileName, type, files, hotline, workAutomationId) {
+    _prepareCOPRequestForProcess: function (fileName, originalFileName, copContext, files, hotline, workAutomationId) {
         var copRequest = {
             "dataObject": {
                 "id": "",
@@ -298,12 +322,10 @@ COPService.prototype = {
                     "createdDate": "2016-07-16T18:33:52.412-07:00",
                     "filename": "",
                     "encoding": "Base64",
-                    "service": "",
-                    "channel": "UI",
-                    "format": "Excel",
-                    "source": "internal",
-                    "profileId": "",
-                    "profileName": "",
+                    "service": copContext.service,
+                    "channel": copContext.channel,
+                    "format": copContext.format,
+                    "source": copContext.source,
                     "workAutomationId": workAutomationId ? workAutomationId : "uuid"
                 },
                 "data": {
@@ -318,12 +340,11 @@ COPService.prototype = {
 
         copRequest.dataObject.id = uuidV1();
         copRequest.dataObject.properties.filename = originalFileName;
-        copRequest.dataObject.properties.service = type;
         //console.log("Request for process:", JSON.stringify(copRequest));
         copRequest.dataObject.data.blob = this._getFileContent(fileName, files);
         return copRequest;
     },
-    _prepareCOPRequestForGenerateMap: function (fileName, originalFileName, files, hotline) {
+    _prepareCOPRequestForGenerateMap: function (fileName, originalFileName, files, hotline, copContext) {
         var copRequest = {
             "binaryObject": {
                 "id": "",
@@ -336,10 +357,10 @@ COPService.prototype = {
                     "createdDate": "2016-07-16T18:33:52.412-07:00",
                     "filename": "",
                     "encoding": "Base64",
-                    "service": "ENTITY_IMPORT",
-                    "channel": "UI",
-                    "format": "Excel",
-                    "source": "internal"
+                    "service": copContext.service,
+                    "channel": copContext.channel,
+                    "format": copContext.format,
+                    "source": copContext.source,
                 },
                 "data": {
                     "blob": ""
