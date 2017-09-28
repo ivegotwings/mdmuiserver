@@ -30,7 +30,7 @@ LoggerService.prototype = {
       appenders: {
         everything: { 
           type: 'file', 
-          filename: streamPath, 
+          filename: path.normalize(streamPath), 
           layout: {
             type: 'pattern',
             pattern: this._getPattern()
