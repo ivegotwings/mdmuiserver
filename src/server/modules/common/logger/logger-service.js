@@ -27,6 +27,7 @@ LoggerService.prototype = {
     streamPath = path.dirname(require.main.filename) + streamPath;
     
     log4js.configure({
+      pm2: true,
       appenders: {
         everything: { 
           type: 'file', 
