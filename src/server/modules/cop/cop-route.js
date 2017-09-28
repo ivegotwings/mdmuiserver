@@ -45,6 +45,14 @@ var COPRouter = function (app) {
         var response = await copService.publish(req);
         res.status(200).send(response);
     });
+    app.post('/data/cop/getOverrides', async function (req, res) {
+        var response = await copService.getOverrides(req);
+        res.status(200).send(response);
+    });
+    app.post('/data/cop/saveOverrides', async function (req, res) {
+        var response = await copService.saveOverrides(req);
+        res.status(200).send(response);
+    });
 };
 
 module.exports = function (app) {
