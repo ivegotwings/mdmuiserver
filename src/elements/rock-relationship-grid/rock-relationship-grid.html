@@ -412,6 +412,7 @@ The following JSON object is a sample of data which binds the grid.
               <bedrock-pubsub event-name="delete-item" handler="_onDeleteEntityRelationshipAction" target-id="[[relationship]]"></bedrock-pubsub>
               <bedrock-pubsub target-id="[[relationship]]" event-name="on-grid-msg-dialog-ok" handler="_onDialogOk"></bedrock-pubsub>
               <bedrock-pubsub event-name="grid-bulk-edit-items" handler="_onBulkEdit" target-id="[[relationship]]"></bedrock-pubsub>
+              <bedrock-pubsub event-name="grid-custom-toolbar-event" handler="_onCustomToolbarEvent" target-id="[[relationship]]"></bedrock-pubsub>
               <div id="buttonContainer" align="center" hidden>
                 <pebble-button id="cancel" class="button btn btn-secondary m-r-5" button-text="Cancel" on-tap="_revertAll" elevation=1 raised></pebble-button>
                 <pebble-button id="save" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
@@ -737,6 +738,12 @@ The following JSON object is a sample of data which binds the grid.
               var grid = this._getRelationshipGrid();
               if (this._quickManageEnabled) {
                   var selectedItem = grid.selectedItem;
+                  if(!selectedItem){
+                      var selectedItems=grid.getSelectedItems();
+                      if(selectedItems.length){
+                          selectedItem=selectedItems[selectedItems.length-1];
+                      }
+                  }
                   this._selectedEntity = selectedItem;
                   var itemContext=ContextHelper.getFirstItemContext(this.contextData);
                   if (!_.isEmpty(selectedItem)) {
@@ -1696,6 +1703,41 @@ The following JSON object is a sample of data which binds the grid.
         },
         _onRelationsSaveError: function (e, detail) {
           this.showErrorToast("Unable to delete the entity relationship, please contact administrator.");
+        },
+          _onCustomToolbarEvent:function (e,detail) {
+              if (detail && detail.name == "delete") {
+                  var grid = this._getRelationshipGrid();
+                  var selectedItems = grid.getSelectedItems();
+                  var relations = this._entityRelations;
+                  var modifiedRelations = [];
+                  if (selectedItems && selectedItems.length && this.contextData && relations) {
+                      var updateRequest = DataRequestHelper.generateRelationshipProcessRequest(this.contextData);
+                      if (this.relationship) {
+                          var selectedIds=selectedItems.map(function (item) {
+                              return item.id;
+                          });
+                          relations.forEach(function (relation) {
+                              if(selectedIds.indexOf(relation.relTo.id)>-1 ){
+                                  modifiedRelations.push(relation);
+                              }
+                          });
+                          modifiedRelations.forEach(function (rel) {
+                              rel.action = "delete";
+                          });
+                          updateRequest.data.relationships[this.relationship] = modifiedRelations;
+                          this._saveRelationsRequest = {
+                              "entities": [updateRequest]
+                          };
+                          var entitySaveLiquid = this.shadowRoot.querySelector("#entityRelationsSaveService");
+                          if (entitySaveLiquid) {
+                              entitySaveLiquid.operation = "update";
+                              entitySaveLiquid.generateRequest();
+                          }
+                      }
+                  } else {
+                      this.showInformationToast("Please select at least one relationship from grid to delete.");
+                  }
+              }
         },
         _onBulkEdit: function (e, detail) {
             var grid = this._getRelationshipGrid();
