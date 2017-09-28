@@ -1,10 +1,12 @@
+'use strict';
 
-LOGGER_CONFIG = {
-    formatKeys:["RequestId", "GUID", "TenantId", "CallerServiceName", "CalleeServiceName", 
+var LOGGER_CONFIG = function(){
+    this.formatKeys = ["RequestId", "GUID", "TenantId", "CallerServiceName", "CalleeServiceName", 
                         "RelatedRequestId", "GroupRequestId", "TaskId", "UserId", "EntityId", 
                         "ObjectType", "ClassName", "Method", "NewTimestamp", "Action", 
-                        "InclusiveTime", "LogMessage"],
-    module:{
+                        "InclusiveTime", "LogMessage"];
+                        
+    this._modulesObject = {
         "service-base": {
             "level": "info"
         },
@@ -44,7 +46,15 @@ LOGGER_CONFIG = {
         "default": {
             "level": "info"
         }
-    }
+    };
+    this.getModulesObject =function(){
+        return this._modulesObject;
+    };
+    this.setModulesObject = function(_obj){
+        this._modulesObject = _obj;
+    };
+};
 
-}
+var config = new LOGGER_CONFIG();
+module.exports = config;
 
