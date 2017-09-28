@@ -79,23 +79,19 @@ gulp.task('bundled-build', function(cb) {
     del([bundledPath])
       .then(() => {
         let sourcesStream = polymerProject.sources()
-          .pipe(sourcesStreamSplitter.split())
-          .pipe(gulpif('**/*.js', babel()))
+          // .pipe(sourcesStreamSplitter.split())
+          .pipe(gulpif('**/*.js', babel({'presets': ['es2015']})))
+          .pipe(polymerProject.addCustomElementsEs5Adapter())
           .pipe(sourcesStreamSplitter.rejoin());
         let dependenciesStream = polymerProject.dependencies()
-          .pipe(dependenciesStreamSplitter.split())
+          // .pipe(dependenciesStreamSplitter.split())
+          .pipe(gulpif('**/*.js', babel({'presets': ['es2015']})))
           .pipe(polymerProject.addCustomElementsEs5Adapter())
           .pipe(dependenciesStreamSplitter.rejoin());
         let buildStream = mergeStream(sourcesStream, dependenciesStream)
           .once('data', () => {
             console.log('Analyzing build dependencies...');
           });
-        buildStream = buildStream.pipe(polymerProject.bundler({
-            project: polymerProject,
-            buildRoot: bundledPath,
-            rewriteUrlsInTemplates:true,
-            bundled: true,
-        }));
         buildStream = buildStream.pipe(gulp.dest(bundledPath));//.pipe(debug({title:"Copy:"}));;
         return waitFor(buildStream);
       })
@@ -204,7 +200,7 @@ gulp.task('copy-node-modules', function () {
   return gulp.src(nodeModulesPath, {base: '.'}).pipe(gulp.dest(unbundledPath));
 });
 
-gulp.task('dev', gulp.series('dev-build', 'bundled-build', 'app-nodemon', 'watch-element-changes'));
+gulp.task('dev', gulp.series('app-nodemon', 'watch-element-changes'));
 
 function unbundledBuild() {
   return new Promise((resolve, reject) => { // eslint-disable-line no-unused-vars
