@@ -1028,14 +1028,12 @@ Eventservice.prototype = {
         };
         attributesCriteria.push(requestStatusCriterion);
 
-        if(!isBulkWorkflowTask) {
-            var impactedEventCriterion = {
-                "impacted": {
-                    "exact": "false"
-                }
-            };
-            attributesCriteria.push(impactedEventCriterion);
-        }
+        var impactedEventCriterion = {
+            "impacted": {
+                "exact": "false"
+            }
+        };
+        attributesCriteria.push(impactedEventCriterion);
 
         req.params.query.filters.attributesCriterion = attributesCriteria;
 

@@ -284,6 +284,11 @@ SERVICE_CONFIG = {
             "url": "/binaryobjectservice/getById",
             "mode": "online",
             "offlineSettings": {}
+        },
+        "entityappservice/delete": {
+            "url": "/entityappservice/delete",
+            "mode": "online",
+            "offlineSettings": {}
         }
     }
 };
