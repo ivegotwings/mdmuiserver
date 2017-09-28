@@ -135,15 +135,16 @@
                 context-data="[[contextData]]" on-config-get-response="_onApplicationConfigReceived"></liquid-config-aggregate-get>
             <rock-titlebar icon="dashboard" main-title="" slot="rock-titlebar" sub-title="" config="{{getConfig('rock-titlebar')}}" non-minimizable="[[appConfig.nonMinimizable]]" non-closable="[[appConfig.nonClosable]]">
                 <div id="dimensionContainer" align="right" hidden$="[[hideDimensionSelection(configData)]]">
-                    <rock-dimension-selector id="dimensionSelector" config-data="{{getConfig('rock-dimension-selector')}}" entity-id="[[_entityId]]"
-                        entity-type="[[_entityType]]"></rock-dimension-selector>
+                    <rock-dimension-selector id="dimensionSelector" readonly$="[[readonly]]" config-data="{{getConfig('rock-dimension-selector')}}" entity-id="[[_entityId]]"
+                        entity-type="[[_entityType]]"></rock-dimension-selector>                    
                 </div>
+               
             </rock-titlebar>
             <rock-header frozen slot="rock-header">
                 <div slot="fixed-content" class="fixed-content">
                     <bedrock-pubsub event-name="toolbar-button-event" handler="_onToolbarEvent" target-id="entityManageHeader"></bedrock-pubsub>
                     <!--<bedrock-pubsub on-bedrock-event-route-changed="onRouteChange"></bedrock-pubsub>-->
-                    <rock-entity-header id="entityManageHeader" context-data="[[contextData]]" header-config="{{getConfig('rock-entity-header','','headerConfig')}}"
+                    <rock-entity-header id="entityManageHeader" context-data="[[contextData]]" readonly$="[[readonly]]" header-config="{{getConfig('rock-entity-header','','headerConfig')}}"
                         buttons="{{getConfig('rock-entity-header','','toolbarConfig')}}" to-fix-data="{{getConfig('rock-entity-header','','summaryToFix')}}"
                         assignment-actions-config="{{getConfig('rock-entity-header','','assignmentActionsConfig')}}" thumbnail-config="{{getConfig('rock-entity-header','','thumbnailConfig')}}"></rock-entity-header>
                 </div>
@@ -151,13 +152,13 @@
             <bedrock-pubsub event-name="refresh-entity-thumbnail" handler="_refreshEntityThumbnail"></bedrock-pubsub>
             <rock-sidebar id="rockSideBar" position="right" slot="rock-sidebar">
                 <div class="p-10">
-                    <rock-workflow-panel context-data="[[contextData]]"></rock-workflow-panel>
+                    <rock-workflow-panel context-data="[[contextData]]" readonly$="[[readonly]]"></rock-workflow-panel>
                 </div>
             </rock-sidebar>
             <div class="content">
                 <template is="dom-if" if="true" id="tabsTemplate">
                     <div class="tab-wrap">
-                        <rock-tabs id="rockTabs" config="{{getConfig('rock-tabs')}}"></rock-tabs>
+                        <rock-tabs id="rockTabs" config="{{getConfig('rock-tabs')}}" readonly$="[[readonly]]"></rock-tabs>
                     </div>
                     <bedrock-pubsub event-name="component-creating" handler="_onComponentCreating"></bedrock-pubsub>
                     <bedrock-pubsub on-bedrock-event-todotap="summaryTodoTap"></bedrock-pubsub>
@@ -177,10 +178,13 @@
         <rock-business-function-dialog id="entityUploadDialog"></rock-business-function-dialog>
         <rock-business-function-dialog id="entityDownloadDialog"></rock-business-function-dialog>
         <rock-business-function-dialog id="rePublishDialog"></rock-business-function-dialog>
+        <rock-business-function-dialog id="entityDeleteDialog"></rock-business-function-dialog>
         <bedrock-pubsub event-name="refresh-classification" handler="_refreshDimensionSelector" target-id="contextDialog"></bedrock-pubsub>
         <bedrock-pubsub event-name="govern-complete" handler="_onGovernComplete"></bedrock-pubsub>
         <liquid-entity-data-get name="attributeGetDataServiceForTitleBar" operation="getbyids" request-data="{{titleAttributeRequest}}"
             on-response="_onTitleAttributesGetResponse"></liquid-entity-data-get>
+        <liquid-rest id="delete" url="/data/entityappservice/delete" method="POST" request-data={{deleteRequest}}
+            on-liquid-response="_deleteSuccess" on-liquid-error="_deleteFailure"></liquid-rest>
     </template>
     <script>
         (function () {
@@ -189,6 +193,10 @@
             Polymer({
                 is: 'app-entity-manage',
                 properties: {
+                    readonly: {
+                        type: Boolean,
+                        value: false                       
+                    },
                     /*
                      * Indicates the config object for the summary element
                      */
@@ -245,7 +253,13 @@
                             return {};
                         }
                     },
-
+                    
+                    deleteRequest: {
+                        type: Object,
+                        value: function () { 
+                            return {}; 
+                        }
+                    },
                     dimensions: {
                         type: Object,
                         value: function () {
@@ -279,11 +293,11 @@
                 },
                 behaviors: [
                     RUFBehaviors.AppBehavior
-                ],
+                ],                
                 created: function () {
 
                     //this.logInfo("EntityManageAttached");
-                     this.contentHeightVariable = "--rock-tab-content-height";
+                    this.contentHeightVariable = "--rock-tab-content-height";
                     var userContext = {
                         "role": this.roleId,
                         "user": this.userId
@@ -381,7 +395,7 @@
                             break;
                         case "republish":
                             this._rePublishEvent(e, detail);
-                            break;
+                            break;                       
                         default:
                             this.fireBedrockEvent("grid-custom-toolbar-event", detail);
                             break;
@@ -447,7 +461,37 @@
                     alert("event triggered: " + detail.name);
                 },
                 _deleteEvent: function (e, detail, sender) {
-                    alert("event triggered: " + detail.name);
+                    var itemContexts = DataHelper.cloneObject(this.getItemContexts());
+
+                    //Prepare request
+                    var req = {entity:{}};
+                    req["entity"]["id"] = itemContexts[0].id;
+                    req["entity"]["type"] = itemContexts[0].type;
+                    this.set("deleteRequest", req);
+
+                    //Send request to delete the entity
+                    var liquidDelete = this.shadowRoot.querySelector("#delete");
+                    if (liquidDelete) {
+                        liquidDelete.generateRequest();
+                    }
+                    
+                },
+                _deleteSuccess: function (e) {
+                    var response = e.detail.response;
+                    if(response && response["dataObjectOperationResponse"]){
+                        this.set("_deleteResponse", response['dataObjectOperationResponse']);
+                        if(this._deleteResponse && this._deleteResponse["status"]
+                            && (this._deleteResponse["status"] == "success"))
+                            {
+                                this.readonly = true;
+                                this.showSuccessToast("Entity delete request submitted successfully");
+                            }
+                    }                    
+                },
+                _deleteFailure: function (e) {
+                    //console.warn("Failed to perform delete with error: ", e.detail); 
+                    this.showErrorToast("Failed to perform delete on the entity");
+                                                       
                 },
                 _cutEvent: function (e, detail, sender) {
                     alert("event triggered: " + detail.name);
@@ -481,7 +525,7 @@
                     rePublishDialog.name = detail.componentName;
                     rePublishDialog.sharedData = { "context-data": this.contextData, "selected-entities": itemContexts };
                     rePublishDialog.open();
-                },
+                },               
                 _onCOPDownloadFailure: function (e) {
                     this.showErrorToast("Failed to download entity data. Please contact administrator.");
                     this._loading = false;
@@ -564,7 +608,7 @@
                     if (tabs && tabs.getControlIsDirty) {
                         return tabs.getControlIsDirty();
                     }
-                },
+                },                               
                 _onTitleAttributesGetResponse: function (e) {
 
                     var titleAttributeResponse = e.detail.response;
