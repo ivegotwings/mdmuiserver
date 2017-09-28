@@ -707,8 +707,8 @@ The following JSON object is a config sample which configures the grid in all ab
 					<span id="title" class="tooltip-bottom" data-tooltip$="[[title]] [[selectionTitle]]">[[title]] [[selectionTitle]]</span>
 					<div class="grid-actions row layout-middle">
 						<!-- Start pebble-toolbar -->
-						<pebble-toolbar id="gridToolbar" readonly$="[[readonly]]" config-data="[[config.toolbarConfig]]"></pebble-toolbar>
-						<bedrock-pubsub event-name="toolbar-button-event" handler="_onToolbarEvent" target-id="gridToolbar"></bedrock-pubsub>
+						<pebble-toolbar id="gridToolbar" readonly$="[[readonly]]" config-data="[[_toolbarConfig]]"></pebble-toolbar>
+						<bedrock-pubsub event-name="toolbar-button-event" handler="_onToolbarEvent" target-id="gridToolbar"></bedrock-pubsub>						
 						<pebble-vertical-divider class="m-l-5 m-r-5"></pebble-vertical-divider>
 						<paper-dropdown-menu label="{{config.viewMode}}" no-label-float class="tooltip-bottom" data-tooltip="View Mode">
 							<paper-listbox slot="dropdown-content" class="dropdown-content" attr-for-selected="value" selected="{{config.viewMode}}">
@@ -1066,7 +1066,8 @@ The following JSON object is a config sample which configures the grid in all ab
 					},
 					selectionInfo: {
 						type: Object,
-						value: function () { return {} }
+						value: function () { return {} },
+						observer: "_onSelectionInfoChange"
 					},
 					totalCount: {
 						type: Number
@@ -1080,6 +1081,16 @@ The following JSON object is a config sample which configures the grid in all ab
 					minFilterLength: {
 						type: Number,
 						value: 2
+					},
+					_toolbarConfig: {
+						type: Object,
+						value: function() {
+							return {};
+						}
+					},
+					isWorkflowCriterion: {
+						type: Boolean,
+						value: false
 					}
 				},
 				behaviors: [
@@ -1088,7 +1099,8 @@ The following JSON object is a config sample which configures the grid in all ab
 				observers: [
 					'_calculatePageRange(currentRecordSize, pageSize,resultRecordSize)',
 					'_computeTitle(config, data, currentRecordSize, sortOrder,resultRecordSize,rDataSource,config.*)',
-					'_setSelectionTitle(currentRecordSize,selectionInfo,selectedItems.*)'
+					'_setSelectionTitle(currentRecordSize,selectionInfo,selectedItems.*)',
+					'_setToolbarConfig(config.toolbarConfig, isWorkflowCriterion)'
 				],
 				listeners: {
 					'selecting-item': '_onSelectingItem',
@@ -1115,6 +1127,58 @@ The following JSON object is a config sample which configures the grid in all ab
 					var tileView = this.shadowRoot.querySelector("#gridTileView");
 					if (tileView) {
 						tileView.reloadData();
+					}
+				},
+				//On selection info change, set the delete button
+				_onSelectionInfoChange: function() {					
+					if((this.selectionInfo && this.selectionInfo.mode == "query") || this.isWorkflowCriterion) {
+						//Hide the toolbar button
+						this._setToolbarDeleteAttr("hidden", true);
+						return;
+					}
+
+					//Enable the toolbar button
+					this._setToolbarDeleteAttr("hidden", false);
+				},
+				// Change the configuration on workflow criterion - Hide delete
+				_setToolbarConfig: function() {
+					if(!this.config) {
+						return;
+					}
+
+					if(this.isWorkflowCriterion) {
+						var toolbarConfig = DataHelper.cloneObject(this.config.toolbarConfig);
+						//Hide button
+						var buttons = toolbarConfig.buttonItems[0].buttons;
+						for(var i = 0; i < buttons.length; i++) {
+							if(buttons[i].name == "bulkdelete") {
+								buttons[i].visible = false;
+								break;
+							}
+						}
+
+						this._toolbarConfig = toolbarConfig;
+						return;
+					}
+
+					this._toolbarConfig = this.config.toolbarConfig;
+				},
+				_setToolbarDeleteAttr: function(attribute, addAttr) {
+					var toolBar = this.shadowRoot.querySelector("#gridToolbar");
+
+					if(!toolBar) {
+						return;
+					} else {
+						var deleteButton = toolBar.shadowRoot.querySelector("pebble-button#bulkdelete");
+						if(!deleteButton) {
+							return;
+						}
+					}
+
+					if(addAttr) {
+						deleteButton.setAttribute(attribute, "");
+					} else {
+						deleteButton.removeAttribute(attribute);
 					}
 				},
 				_onToolbarEvent: function (e, detail) {
@@ -1388,8 +1452,8 @@ The following JSON object is a config sample which configures the grid in all ab
 						var self = this;
 						this.fireBedrockEvent('refresh-grid', self);
 					}
-                    this.selectedItems=[];
-                    this._resetAdvanceSelection();
+					this.selectedItems=[];
+					this._resetAdvanceSelection();
 				},
 				_resetAdvanceSelection: function () {
 					if (this.config.viewMode == "Tabular") {
