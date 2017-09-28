@@ -5,32 +5,32 @@ var caller = require('caller');
 var log4js = require('log4js');
 var path = require("path");
 var executionContext = require('../context-manager/execution-context');
-require('../../../../shared/logger-config.js');
+var LOGGER_CONFIG = require('./logger-config.js');
 
 var LoggerService = function (options) {
   this._logger = null;
   this._isConfigured = false;
   this._config = {};
-  this._formatKeys = LOGGER_CONFIG.formatKeys;
 };
 
 LoggerService.prototype = {
   configure: function (config) {
     this._config = config;
     this._isConfigured = true;
+    this._formatKeys = LOGGER_CONFIG.formatKeys;
 
     var toolSettings = config.toolSettings;
     var streamPath = "/logs/dataplatformLogs.log";
     for(var stream of toolSettings.streams) {
       streamPath = stream.path;
     }
-    streamPath = process.cwd() + streamPath;
-
+    streamPath = path.dirname(require.main.filename) + streamPath;
+    
     log4js.configure({
       appenders: {
         everything: { 
           type: 'file', 
-          filename: path.normalize(streamPath), 
+          filename: streamPath, 
           layout: {
             type: 'pattern',
             pattern: this._getPattern()
@@ -145,7 +145,7 @@ LoggerService.prototype = {
   },
   _getCallerModuleSettings: function (callerFile) {
     
-    var moduleSettings = this._config.moduleSettings;
+    var moduleSettings = LOGGER_CONFIG.getModulesObject();
     for (var moduleName in moduleSettings) {
       if (callerFile.indexOf(moduleName) > -1) {
         return moduleSettings[moduleName];
