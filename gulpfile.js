@@ -79,13 +79,13 @@ gulp.task('bundled-build', function(cb) {
     del([bundledPath])
       .then(() => {
         let sourcesStream = polymerProject.sources()
-          // .pipe(sourcesStreamSplitter.split())
-          .pipe(gulpif('**/*.js', babel({'presets': ['es2015']})))
+          .pipe(sourcesStreamSplitter.split())
+          .pipe(gulpif('**/*.js', babel({'presets': [['es2015', {'modules': false}]]})))
           .pipe(polymerProject.addCustomElementsEs5Adapter())
           .pipe(sourcesStreamSplitter.rejoin());
         let dependenciesStream = polymerProject.dependencies()
-          // .pipe(dependenciesStreamSplitter.split())
-          .pipe(gulpif('**/*.js', babel({'presets': ['es2015']})))
+          .pipe(dependenciesStreamSplitter.split())
+          .pipe(gulpif('**/*.js', babel({'presets': [['es2015', {'modules': false}]]})))
           .pipe(polymerProject.addCustomElementsEs5Adapter())
           .pipe(dependenciesStreamSplitter.rejoin());
         let buildStream = mergeStream(sourcesStream, dependenciesStream)
