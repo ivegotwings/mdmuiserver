@@ -2,20 +2,33 @@
 
 <link rel="import" href="../bedrock-helpers/context-helper.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html" />
 
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
+
+<link rel="import" href="../pebble-actions/pebble-actions.html">
 
 <link rel="import" href="../rock-grid/rock-grid.html">
 
 <dom-module id="rock-compare-entities">
     <template>
+        <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html" />
+        <style include="pebble-styles-shared"></style>
         <style>
-
+            #actionsButton {
+                float: right;
+            }
         </style>
 
         <div>
+            <pebble-actions id="actionsButton" button-icon="pebble-md-icons:actions" class="dropdownText dropdownIcon btn btn-actions dropdown-success"
+                button-text="Filter" actions-data="[[_getActionData()]]"></pebble-actions>
+            <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
+            </br>
+            </br>
             <rock-grid data="{{_gridData}}" config="{{_gridConfig}}" page-size="5"></rock-grid>
+
             <liquid-entity-data-get operation="getbyids" id="entityDataGet" request-data="{{_entityGetRequest}}" on-response="_onEntityDataGetSuccess"
                 on-error="_onEntityDataGetFailure">
             </liquid-entity-data-get>
@@ -23,7 +36,7 @@
     </template>
 
     <script>
-        class RockCompareEnities extends Polymer.Element {
+        class RockCompareEnities extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior], Polymer.Element) {
             static get is() {
                 return 'rock-compare-entities';
             }
@@ -84,23 +97,21 @@
                     },
                     _entityModels: {
                         type: Array,
-                        value: function() {
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _data: {
+                        type: Array,
+                        value: function () {
                             return [];
                         }
                     }
                 };
             }
 
-            static get behaviors() {
-                return [
-                    RUFBehaviors.UIBehavior,
-                    RUFBehaviors.ComponentContextBehavior
-                ];
-            }
-
             constructor() {
                 super();
-
             }
 
             connectedCallback() {
@@ -221,7 +232,7 @@
                 gridConfig.tabular.rows = this._rowsModel;
 
                 this._gridConfig = gridConfig;
-                this._gridData = items;
+                this._gridData = this._data = items;
             }
 
             _prepareGridColumnsModelAndData(entities, columns, items) {
@@ -246,8 +257,46 @@
                             } else {
                                 item[entity.id] = "";
                             }
-
                         }, this);
+
+
+                        var isEmpty = false;
+                        var hasPartialValues = false;
+                        var hasValues = false;
+                        var sameValues = false;
+
+                        Object.keys(item).forEach(function (key) {
+                            if (!hasPartialValues) {
+                                if (item[key] == "") {
+                                    if (hasValues) {
+                                        hasPartialValues = true;
+                                        hasValues = false;
+                                    } else {
+                                        isEmpty = true;
+                                    }
+                                } else {
+                                    if (isEmpty) {
+                                        hasPartialValues = true;
+                                        isEmpty = false;
+                                    } else {
+                                        hasValues = true;
+                                    }
+                                }
+                            }
+                        }, this);
+
+                        if(hasValues) {
+                            var uniqueValues = _.uniq(_.values(item));
+                            if(uniqueValues && uniqueValues.length == 1) {
+                                sameValues = true;
+                                hasValues = false;
+                            }
+                        }
+
+                        item["isEmpty"] = isEmpty;
+                        item["hasPartialValues"] = hasPartialValues;
+                        item["hasValues"] = hasValues;
+                        item["sameValues"] = sameValues;
 
                         items.push(item);
                     }, this);
@@ -326,6 +375,78 @@
                         this._contextData = clonedContext;
                     }
                 }
+            }
+
+            _getActionData() {
+                return [
+                    {
+                        "actions": [
+                            {
+                                "name": "Has Values",
+                                "text": "Has Values",
+                                "visible": true,
+                                "eventName": "has-values"
+                            },
+                            {
+                                "name": "Is Empty",
+                                "text": "Is Empty",
+                                "visible": true,
+                                "eventName": "is-empty"
+                            },
+                            {
+                                "name": "Has Partial Values",
+                                "text": "Has Partial Values",
+                                "visible": true,
+                                "eventName": "has-partial-values"
+                            },
+                            {
+                                "name": "Has Same Values",
+                                "text": "Has Same Values",
+                                "visible": true,
+                                "eventName": "has-same-values"
+                            }
+                        ]
+                    }
+                ]
+            }
+
+            _onActionItemTap(e, detail, sender) {
+                var filteredData = [];
+                var eventName;
+                if (detail && detail.data) {
+                    eventName = detail.data.eventName;
+                }
+
+                if (detail && eventName) {
+                    if (eventName == "has-values") {
+                        filteredData = this._data.filter(function (item) {
+                            if (item.hasValues) {
+                                return item;
+                            }
+                        });
+                    } else if (eventName == "has-partial-values") {
+                        filteredData = this._data.filter(function (item) {
+                            if (item.hasPartialValues) {
+                                return item;
+                            }
+                        });
+                    } else if (eventName == "is-empty") {
+                        filteredData = this._data.filter(function (item) {
+                            if (item.isEmpty) {
+                                return item;
+                            }
+                        });
+                    } else if (eventName == "has-same-values") {
+                        filteredData = this._data.filter(function (item) {
+                            if (item.sameValues) {
+                                return item;
+                            }
+                        });
+                    }
+                }
+
+                this._gridData = undefined;
+                this._gridData = filteredData;
             }
         }
 
