@@ -970,6 +970,11 @@ Eventservice.prototype = {
 
                     var objId = this._getAttributeValue(reqObj, "entityId");
                     var objType = this._getAttributeValue(reqObj, "entityType");
+                    var action = this._getAttributeValue(reqObj, "entityAction");
+
+                    if(action == "delete") {
+                        objType = "delete" + objType;
+                    }
 
                     if(objId) {
                         successObjIds.push(objId);
@@ -991,7 +996,7 @@ Eventservice.prototype = {
         var types = ["requestObject"];
         var req = this._getRequestJson(types);
 
-        var attributeNames = ["entityId", "entityType"];
+        var attributeNames = ["entityId", "entityType", "entityAction"];
         req.params.fields.attributes = attributeNames;
         req.params.query.valueContexts = [{
             "source": "rdp",
@@ -1361,6 +1366,11 @@ Eventservice.prototype = {
                 case "process-multi-query":
                     taskType = "Bulk Edit";
                     break;
+                case "delete":
+                case "delete-query":
+                case "delete-multi-query":
+                        taskType = "Bulk Entity Delete";
+                        break;
             }
         }
         else {
