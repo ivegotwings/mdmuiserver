@@ -27,11 +27,13 @@
             <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
             </br>
             </br>
-            <rock-grid data="{{_gridData}}" config="{{_gridConfig}}" page-size="5"></rock-grid>
+            <rock-grid id="compareEntitiesGrid" data="{{_gridData}}" config="{{_gridConfig}}" page-size="5"></rock-grid>
 
             <liquid-entity-data-get operation="getbyids" id="entityDataGet" request-data="{{_entityGetRequest}}" on-response="_onEntityDataGetSuccess"
                 on-error="_onEntityDataGetFailure">
             </liquid-entity-data-get>
+
+            <bedrock-pubsub event-name="refresh-grid" handler="_onRefreshGrid" target-id="compareEntitiesGrid"></bedrock-pubsub>
         </div>
     </template>
 
@@ -237,6 +239,15 @@
 
             _prepareGridColumnsModelAndData(entities, columns, items) {
                 if (this._rowsModel && this._rowsModel) {
+
+                    columns.push({
+                        "header": "attributes",
+                        "name": "Attributes",
+                        "sortable": false,
+                        "filterable": false,
+                        "readFrom": "properties"
+                    });
+
                     this._rowsModel.forEach(function (row, index) {
                         var item = {};
                         entities.forEach(function (entity) {
@@ -246,7 +257,7 @@
                                 columns.push({
                                     "header": entity.id,
                                     "name": entity.id,
-                                    "sortable": true,
+                                    "sortable": false,
                                     "filterable": false,
                                     "readFrom": "properties"
                                 });
@@ -285,9 +296,9 @@
                             }
                         }, this);
 
-                        if(hasValues) {
+                        if (hasValues) {
                             var uniqueValues = _.uniq(_.values(item));
-                            if(uniqueValues && uniqueValues.length == 1) {
+                            if (uniqueValues && uniqueValues.length == 1) {
                                 sameValues = true;
                                 hasValues = false;
                             }
@@ -340,40 +351,57 @@
                         ],
                         "rows": [
                         ]
+                    },
+                    "toolbarConfig": {
+                        "buttonItems": [
+                            {
+                                "buttons": [
+                                    {
+                                        "name": "pageRange",
+                                        "icon": "",
+                                        "text": "0 - 0 / 0",
+                                        "visible": true,
+                                        "tooltip": "Page Range"
+                                    },
+                                    {
+                                        "name": "refresh",
+                                        "icon": "pebble-md-icons:ToolbarRefresh",
+                                        "text": "",
+                                        "visible": true,
+                                        "tooltip": "Refresh"
+                                    }
+                                ]
+                            }
+                        ]
                     }
                 };
             }
 
             _prepareContext() {
 
-                if (this.selectedEntities && this.selectedEntities.length && this.contextData) {
+                var contextId = DataHelper.getParamValue('compareEntitiesContextId');
+                var compareEntitiesContext = JSON.parse(sessionStorage.getItem(contextId));
+
+                if (compareEntitiesContext) {
                     var clonedContext = {};
-                    var itemContexts = [];
-                    var entityIds = [];
-                    var entityTypes = [];
+                    var entityIds = compareEntitiesContext["entityIds"];
+                    var entityTypes = this._entityTypes = compareEntitiesContext["entityTypes"];
+                    this.contextData = compareEntitiesContext["contextData"];
 
-                    itemContexts = DataHelper.cloneObject(this.contextData[ContextHelper.CONTEXT_TYPE_ITEM]);
+                    if (this.contextData) {
 
-                    this.selectedEntities.forEach(function (selectedEntity) {
-                        if (selectedEntity) {
-                            entityIds.push(selectedEntity.id);
+                        var itemContext = {
+                            'id': entityIds,
+                            'type': entityTypes,
+                            'attributeNames': ["_ALL"]
+                        };
 
-                            if (entityTypes.indexOf(selectedEntity.type) < 0) {
-                                entityTypes.push(selectedEntity.type);
-                            }
-                        }
-                    }, this);
-
-                    if (itemContexts && itemContexts.length) {
-                        itemContexts[0].id = entityIds;
-                        this._entityTypes = entityTypes;
-                        itemContexts[0].attributeNames = ["_ALL"];
-
-                        clonedContext[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContexts[0]];
-                        clonedContext[ContextHelper.CONTEXT_TYPE_VALUE] = DataHelper.cloneObject(this.contextData[ContextHelper.CONTEXT_TYPE_VALUE]);;
+                        clonedContext[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+                        clonedContext[ContextHelper.CONTEXT_TYPE_VALUE] = DataHelper.cloneObject(this.contextData[ContextHelper.CONTEXT_TYPE_VALUE]);
 
                         this._contextData = clonedContext;
                     }
+
                 }
             }
 
@@ -447,6 +475,10 @@
 
                 this._gridData = undefined;
                 this._gridData = filteredData;
+            }
+
+            _onRefreshGrid() {
+               this._dataGet();
             }
         }
 
