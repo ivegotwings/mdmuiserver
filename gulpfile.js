@@ -12,6 +12,7 @@
 
 const path = require('path');
 const del = require('del');
+const fs = require('fs');
 const gulp = require('gulp');
 const gulpif = require('gulp-if');
 const debug = require('gulp-debug');
@@ -37,7 +38,7 @@ global.config = {
   polymerJsonPath: path.join(process.cwd(), 'polymer.json'),
   build: {
     rootDirectory: 'build',
-    bundledDirectory: 'bundled',
+    bundledDirectory: 'main',
     unbundledDirectory: 'unbundled/ui-platform',
     devDirectory: 'dev',
     bundleType: 'both',
@@ -71,11 +72,33 @@ function waitFor(stream) {
   });
 }
 
-gulp.task('bundled-build', function(cb) {
+function checkDirectory(directory, callback) {  
+  fs.stat(directory, function(err, stats) {
+    //Check if error defined and the error code is "not exists"
+    if (err && err.errno === 34) {
+      //Create the directory, call the callback.
+      console.log("Folder does not exists");
+      // fs.mkdir(directory, callback);
+    } else {
+      //just in case there was a different error:
+      console.log("Folder exists");
+      callback(err)
+    }
+  });
+}
+
+gulp.task('main-build', function(cb) {
   return new Promise((resolve, reject) => {
     let sourcesStreamSplitter = new polymerBuild.HtmlSplitter();
     let dependenciesStreamSplitter = new polymerBuild.HtmlSplitter();
     console.log(`Deleting ${bundledPath} directory...`);
+    checkDirectory("bower_components/webcomponentsjs/", function(error) {  
+      if(error) {
+        console.log("oh no!!!", error);
+      } else {
+        //Carry on, all good, directory exists / created.
+      }
+    });    
     del([bundledPath])
       .then(() => {
         let sourcesStream = polymerProject.sources()
@@ -91,11 +114,14 @@ gulp.task('bundled-build', function(cb) {
         let buildStream = mergeStream(sourcesStream, dependenciesStream)
           .once('data', () => {
             console.log('Analyzing build dependencies...');
-          });
+          });        
+        // copying uncompilled webcomponents folder
+        console.log("bundledPath...",bundledPath + "/bower_components/webcomponentsjs");
+        gulp.src(['bower_components/webcomponentsjs/**/*']).pipe(gulp.dest(bundledPath + "/bower_components/webcomponentsjs"));
         buildStream = buildStream.pipe(gulp.dest(bundledPath));//.pipe(debug({title:"Copy:"}));;
         return waitFor(buildStream);
       })
-      .then(() => {
+      .then(() => {        
         console.log('Bundled build complete!');
         resolve();
       });
