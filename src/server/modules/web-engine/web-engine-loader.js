@@ -28,6 +28,7 @@ var relativePath = process.env.PROJECT_PATH;
 if (relativePath) {
     buildPath = buildPath + '/' + relativePath;
 }
+console.log("##########", buildPath);
 
 logger.info('Web engine start - build path identified', { "buildPath": buildPath });
 
@@ -59,9 +60,9 @@ logger.info('Web engine start - cors middleware is loaded');
 
 //handling root path (specifically for SAML type of authentication)
 
-function compileTemplate(req, res, basePath) {
+function compileTemplate(req, res, basePath, isIE11) {
     console.log("Compiling hogan.Js template...");
-    var isIE11 = (req.headers['user-agent'].indexOf('rv:11')!==-1);
+    
     var userId = req.header("x-rdp-userid");
     var tenantId = req.header("x-rdp-tenantid");
     var userRoles = req.header("x-rdp-userroles");
@@ -70,6 +71,7 @@ function compileTemplate(req, res, basePath) {
     var userEmail = req.header("x-rdp-useremail");
     var userName = req.header("x-rdp-username");
     var ownershipData = req.header("x-rdp-ownershipdata");
+    var ecmaConditionalPath = isIE11 ? 'es5' : 'es6';
     var options = {};
     if (tenantId && userId) {
         var fullName = "";
@@ -82,17 +84,18 @@ function compileTemplate(req, res, basePath) {
         if (fullName == "") {
             fullName = userId;
         }        
-        options = { isAuthenticated: true, tenantId: tenantId, userId: userId, roleId: userRoles, fullName: fullName, userName: userName, ownershipData: ownershipData, noPreload: false};
+        options = { isAuthenticated: true, ecma: ecmaConditionalPath, tenantId: tenantId, userId: userId, roleId: userRoles, fullName: fullName, userName: userName, ownershipData: ownershipData, noPreload: false};
     }
-    var fullPath = basePath + (isIE11 ? '/build/bundled' : '/build/dev') + '/src/views/index.hjs';     
-    console.log("fullPath",fullPath);
-    fs.readFile(fullPath, 'utf8', function (err,data) {
+
+    var templatePath = basePath + '/build/main/src/views/index.hjs';      
+
+    fs.readFile(templatePath, 'utf8', function (err,data) {
       if (err) {
         return console.log(err);
       }
       var template = hogan.compile(data);
-      var compiled = template.render(options);        
-      fs.writeFile(fullPath.replace("src/views/index.hjs", "index.html"), compiled, function(err) {
+      var compiled = template.render(options);              
+      fs.writeFile(templatePath.replace('src/views/index.hjs', 'src/static/' + ecmaConditionalPath + '/index.html'), compiled, function(err) {
         if(err) {
             return console.log(err);
         }
@@ -103,8 +106,11 @@ function compileTemplate(req, res, basePath) {
 
 // Need to run compileTemplate() before this
 app.get('/', function(req, res) {    
-    compileTemplate(req, res, basePath);
-    send(req, buildPath + '/index.html').pipe(res);
+    var isIE11 = (req.headers['user-agent'].indexOf('rv:11')!==-1);
+    compileTemplate(req, res, basePath, isIE11);
+    var ecmaConditionalPath = isIE11 ? 'es5' : 'es6';
+    console.log("buildPath + '/index.html'", buildPath + '/src/static/' + ecmaConditionalPath + '/index.html');
+    send(req, buildPath + '/src/static/' + ecmaConditionalPath + '/index.html').pipe(res);
 })
 
 
@@ -188,8 +194,7 @@ logger.info('Web engine start - fileupload routes are loaded');
 
 // Need to run compileTemplate() before this
 app.get('*', function(req, res) {    
-    compileTemplate(req, res, basePath);
-    send(req, buildPath + '/index.html').pipe(res);    
+    send(req, req.url).pipe(res);
 })
 
 logger.info('Web engine start - base static file root route is loaded');

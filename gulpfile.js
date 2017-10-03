@@ -23,8 +23,9 @@ var tinylr = require('tiny-lr');
 var replace = require('gulp-replace');
 const babel = require("gulp-babel");
 var argv = require('yargs').argv;
-
+const hogan = require("hogan.js");
 const mergeStream = require('merge-stream');
+const forkStream = require('polymer-build').forkStream;
 const polymerBuild = require('polymer-build');
 
 // Here we add tools that will be used to process our source files.
@@ -38,7 +39,7 @@ global.config = {
   polymerJsonPath: path.join(process.cwd(), 'polymer.json'),
   build: {
     rootDirectory: 'build',
-    bundledDirectory: 'main',
+    mainDirectory: 'main',
     unbundledDirectory: 'unbundled/ui-platform',
     devDirectory: 'dev',
     bundleType: 'both',
@@ -60,7 +61,7 @@ const polymerJson = require(global.config.polymerJsonPath);
 const polymerProject = new polymerBuild.PolymerProject(polymerJson);
 const buildDirectory = 'build/dev';
 const devPath = path.join(global.config.build.rootDirectory, global.config.build.devDirectory);
-const bundledPath = path.join(global.config.build.rootDirectory, global.config.build.bundledDirectory);
+const mainPath = path.join(global.config.build.rootDirectory, global.config.build.mainDirectory);
 const unbundledPath = path.join(global.config.build.rootDirectory, global.config.build.unbundledDirectory);
 
 var lr = null;
@@ -87,46 +88,24 @@ function checkDirectory(directory, callback) {
   });
 }
 
-gulp.task('main-build', function(cb) {
-  return new Promise((resolve, reject) => {
-    let sourcesStreamSplitter = new polymerBuild.HtmlSplitter();
-    let dependenciesStreamSplitter = new polymerBuild.HtmlSplitter();
-    console.log(`Deleting ${bundledPath} directory...`);
-    checkDirectory("bower_components/webcomponentsjs/", function(error) {  
-      if(error) {
-        console.log("oh no!!!", error);
-      } else {
-        //Carry on, all good, directory exists / created.
-      }
-    });    
-    del([bundledPath])
+
+
+gulp.task('main-build', function() {
+    return del([mainPath])
       .then(() => {
-        let sourcesStream = polymerProject.sources()
-          .pipe(sourcesStreamSplitter.split())
+        
+        polymerProject.sources().pipe(gulp.dest(mainPath));
+
+        polymerProject.dependencies()
+          .pipe(gulp.dest(mainPath + "/src/static/es6"));      
+
+        polymerProject.dependencies()
           .pipe(gulpif('**/*.js', babel({'presets': [['es2015', {'modules': false}]]})))
-          .pipe(polymerProject.addCustomElementsEs5Adapter())
-          .pipe(sourcesStreamSplitter.rejoin());
-        let dependenciesStream = polymerProject.dependencies()
-          .pipe(dependenciesStreamSplitter.split())
-          .pipe(gulpif('**/*.js', babel({'presets': [['es2015', {'modules': false}]]})))
-          .pipe(polymerProject.addCustomElementsEs5Adapter())
-          .pipe(dependenciesStreamSplitter.rejoin());
-        let buildStream = mergeStream(sourcesStream, dependenciesStream)
-          .once('data', () => {
-            console.log('Analyzing build dependencies...');
-          });        
-        // copying uncompilled webcomponents folder
-        console.log("bundledPath...",bundledPath + "/bower_components/webcomponentsjs");
-        gulp.src(['bower_components/webcomponentsjs/**/*']).pipe(gulp.dest(bundledPath + "/bower_components/webcomponentsjs"));
-        buildStream = buildStream.pipe(gulp.dest(bundledPath));//.pipe(debug({title:"Copy:"}));;
-        return waitFor(buildStream);
+          .pipe(gulp.dest(mainPath + "/src/static/es5"))          
+          
       })
-      .then(() => {        
-        console.log('Bundled build complete!');
-        resolve();
-      });
   });
-})
+
 gulp.task('dev-build', function () {
   return new Promise((resolve, reject) => {
     let sourcesStreamSplitter = new polymerBuild.HtmlSplitter();
@@ -157,7 +136,7 @@ gulp.task('dev-build', function () {
 
 gulp.task('app-nodemon', function (cb) {
   var started = false;
-  var appPath = devPath + "/app.js"; //default load app from build/unbundled path
+  var appPath = mainPath + "/app.js"; //default load app from build/unbundled path
   appPath = (argv.appPath !== undefined) ? argv.appPath : appPath;
 
   var projectPath = appPath.replace('/app.js', '');
@@ -165,7 +144,7 @@ gulp.task('app-nodemon', function (cb) {
   var runOffline = (argv.runOffline !== undefined) ? argv.runOffline : 'false';
   var lrEnabled = true;
 
-  if(appPath === "build/bundled") {
+  if(appPath === "build/main") {
     projectPath = bundledPath;
     appPath = bundledPath + "/app.js";
     lrEnabled = false;
@@ -181,8 +160,11 @@ gulp.task('app-nodemon', function (cb) {
     lr.listen(global.config.build.liveReloadPort);
   }
 
+  console.log("appPath", appPath);
+  console.log("projectPath", projectPath);
+
   var stream = nodemon({
-                  script: appPath, // run ES5 code
+                  script: appPath,
                   env: { 
                     'RUN_OFFLINE': runOffline, 
                     'PROJECT_PATH': projectPath,
@@ -202,7 +184,7 @@ gulp.task('app-nodemon', function (cb) {
                   } 
               });
               
-    stream.on('start', function(){    
+    stream.on('start', function() {
       if(!started) {
         cb();
         started = true;  
