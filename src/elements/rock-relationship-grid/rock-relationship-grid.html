@@ -451,6 +451,8 @@ The following JSON object is a sample of data which binds the grid.
       <liquid-entity-data-save id="entityRelationsSaveService" request-data="[[_saveRelationsRequest]]" last-response="{{_saveRelationsResponse}}"
         on-response="_onRelationsSaveResponse" on-error="_onRelationsSaveError">
       </liquid-entity-data-save>
+      <liquid-entity-data-save id="entityRelationsDeleteService" on-response="_onRelationsDeleteResponse" on-error="_onRelationsSaveError">
+      </liquid-entity-data-save>
       <pebble-dialog id="errorsDialog" dialog-title="Errors on page">
         <p>Found below errors in entity details: </p>
         <ul>
@@ -850,7 +852,8 @@ The following JSON object is a sample of data which binds the grid.
 
                   var relationships = EntityHelper.getRelationshipsBasedOnContext(entity, this.getFirstDataContext(), isSelfContext);
                   if (!_.isEmpty(relationships)) {
-                    this._entityRelations = relationships[currentRel];
+                      var relations=relationships[currentRel];
+                      this._entityRelations =this._entityRelations.concat(relations);
 
                     if (this.dataObject) {
                       if (!this.dataObject[currentRel]) {
@@ -858,7 +861,7 @@ The following JSON object is a sample of data which binds the grid.
                       }
                     }
                     var savedItemsToLov = [];
-                    this._entityRelations.forEach(function (relItem) {
+                    relations.forEach(function (relItem) {
                       if (relItem) {
                         var record = {};
                         var lovItem = {};
@@ -1392,7 +1395,7 @@ The following JSON object is a sample of data which binds the grid.
               return { 'id': item.id, 'title': item.id }
             }
           });
-          this._savedRelationshipItemsToLov[this._currentRelationshipItem] = DataHelper.cloneObject(savedRelationshipItemsToLov);
+          this._savedRelationshipItemsToLov[this.relationship] = DataHelper.cloneObject(savedRelationshipItemsToLov);
 
           if (this.functionalMode == "dataFunction") {
               var eventName = "onSave";
@@ -1518,27 +1521,42 @@ The following JSON object is a sample of data which binds the grid.
               if (relDelItem && !_.isEmpty(relDelItem) && this.relationship) {
                 relDelItem.action = "delete";
                 updateRequest.data.relationships[this.relationship] = [relDelItem];
-                this._saveRelationsRequest = {
-                  "entities": [updateRequest]
-                };
-                var entitySaveLiquid = this.shadowRoot.querySelector("#entityRelationsSaveService");
-                if (entitySaveLiquid) {
-                  entitySaveLiquid.operation = "update";
-                  entitySaveLiquid.generateRequest();
+                var entityDelLiquid = this.shadowRoot.querySelector("#entityRelationsDeleteService");
+                if (entityDelLiquid) {
+                    entityDelLiquid.requestData= {
+                        "entities": [updateRequest]
+                    };
+                    entityDelLiquid.operation = "update";
+                    entityDelLiquid.generateRequest();
                 }
               }
-            }
-          }
-          if (this.relationship) {
-            var relGrid = this.shadowRoot.querySelector('rock-grid[id=' + this.relationship + ']');
-            var relationshipLov = Polymer.dom(this).node.shadowRoot.querySelector('rock-entity-lov[id=' + this._currentRelationshipItem + ']');
-            if (relGrid) {
-              this._changeRelationshipToReadMode();
-              relGrid.revertData();
-              if (relationshipLov) {
-                var clonedSavedRelationshipItemsToLov = DataHelper.cloneObject(this._savedRelationshipItemsToLov);
-                relationshipLov.selectedItems = clonedSavedRelationshipItemsToLov[this._currentRelationshipItem] || [];
-              }
+            } else if(this._modifiedEntityRelationship.action == "bulk-delete"){
+                var selectedItems=this._modifiedEntityRelationship.detail.selectedItems;
+                var updateRequest = DataRequestHelper.generateRelationshipProcessRequest(this.contextData);
+                var relations = this._entityRelations;
+                var modifiedRelations=[];
+                if (this.relationship) {
+                    var selectedIds=selectedItems.map(function (item) {
+                        return item.id;
+                    });
+                    relations.forEach(function (relation) {
+                        if(selectedIds.indexOf(relation.relTo.id)>-1 ){
+                            modifiedRelations.push(relation);
+                        }
+                    });
+                    modifiedRelations.forEach(function (rel) {
+                        rel.action = "delete";
+                    });
+                    updateRequest.data.relationships[this.relationship] = modifiedRelations;
+                    var entityDelLiquid = this.shadowRoot.querySelector("#entityRelationsDeleteService");
+                    if (entityDelLiquid) {
+                        entityDelLiquid.requestData= {
+                            "entities": [updateRequest]
+                        };
+                        entityDelLiquid.operation = "update";
+                        entityDelLiquid.generateRequest();
+                    }
+                }
             }
           }
         },
@@ -1646,6 +1664,7 @@ The following JSON object is a sample of data which binds the grid.
           this.fireBedrockEvent("refresh-entity-thumbnail", {}, { "ignoreId": true });
           var rel = detail.relationshipType;
           var grid = this.shadowRoot.querySelector("#" + rel);
+          this._entityRelations=[];
           grid.reRenderGrid();
         },
         //Download asset functions
@@ -1705,8 +1724,31 @@ The following JSON object is a sample of data which binds the grid.
         _onRelationsSaveResponse: function (e, detail) {
           var relGrid = this.shadowRoot.querySelector('rock-grid[id=' + this.relationship + ']');
           if (relGrid) {
+            this._entityRelations=[];
             relGrid.reRenderGrid();
           }
+        },
+        _onRelationsDeleteResponse: function (e,detail) {
+            var message =  "Relationship(s) delete request submitted successfully";
+            this.showSuccessToast(message, 10000);
+            var relGrid = this.shadowRoot.querySelector('rock-grid[id=' + this.relationship + ']');
+            if (relGrid) {
+                this._entityRelations=[];
+                relGrid.set('config.mode', "read");
+                relGrid.reRenderGrid();
+            }
+            this._changeRelationshipToReadMode();
+            var relationshipLov = Polymer.dom(this).node.shadowRoot.querySelector('rock-entity-lov[id=lov_' + this.relationship + ']');
+            if (relationshipLov) {
+                var gridData = relGrid.getData();
+                var savedRelationshipItemsToLov = gridData.map(function (item) {
+                    if (item.id) {
+                        return { 'id': item.id, 'title': item.id }
+                    }
+                });
+                this._savedRelationshipItemsToLov[this.relationship] = DataHelper.cloneObject(savedRelationshipItemsToLov);
+                relationshipLov.selectedItems = savedRelationshipItemsToLov[this.relationship] || [];
+            }
         },
         _onRelationsSaveError: function (e, detail) {
           this.showErrorToast("Unable to delete the entity relationship, please contact administrator.");
@@ -1715,32 +1757,10 @@ The following JSON object is a sample of data which binds the grid.
               if (detail && detail.name == "delete") {
                   var grid = this._getRelationshipGrid();
                   var selectedItems = grid.getSelectedItems();
-                  var relations = this._entityRelations;
-                  var modifiedRelations = [];
-                  if (selectedItems && selectedItems.length && this.contextData && relations) {
-                      var updateRequest = DataRequestHelper.generateRelationshipProcessRequest(this.contextData);
-                      if (this.relationship) {
-                          var selectedIds=selectedItems.map(function (item) {
-                              return item.id;
-                          });
-                          relations.forEach(function (relation) {
-                              if(selectedIds.indexOf(relation.relTo.id)>-1 ){
-                                  modifiedRelations.push(relation);
-                              }
-                          });
-                          modifiedRelations.forEach(function (rel) {
-                              rel.action = "delete";
-                          });
-                          updateRequest.data.relationships[this.relationship] = modifiedRelations;
-                          this._saveRelationsRequest = {
-                              "entities": [updateRequest]
-                          };
-                          var entitySaveLiquid = this.shadowRoot.querySelector("#entityRelationsSaveService");
-                          if (entitySaveLiquid) {
-                              entitySaveLiquid.operation = "update";
-                              entitySaveLiquid.generateRequest();
-                          }
-                      }
+                  if (selectedItems && selectedItems.length) {
+                      var detail={"selectedItems":selectedItems};
+                      this._modifiedEntityRelationship = { event: e, detail: detail, action: "bulk-delete" };
+                      this.openGridMsgDialog("Are you sure you want to delete?");
                   } else {
                       this.showInformationToast("Please select at least one relationship from grid to delete.");
                   }
