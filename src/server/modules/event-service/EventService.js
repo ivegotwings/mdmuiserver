@@ -1,7 +1,8 @@
 var DFRestService = require('../common/df-rest-service/DFRestService'),
     isEmpty = require('../common/utils/isEmpty'),
     uuidV1 = require('uuid/v1'),
-    arrayContains = require('../common/utils/array-contains');
+    arrayContains = require('../common/utils/array-contains'),
+    moment = require('moment');
 
 var config = require('config');
 var taskSummarizationProcessorEnabled = config.get('modules.webEngine.taskSummarizationProcessorEnabled');
@@ -100,6 +101,16 @@ Eventservice.prototype = {
                     break;
                 }
             }
+
+            //Temporary fix for the RDF query limitation to get task list when there are more than 30K records and needs sorting...
+            var dateTimeRangeFrom = moment().subtract('2', 'days').format('YYYY-MM-DDTHH:mm:ss.SSS-0500')
+            var dateTimeRangeTo = moment().format('YYYY-MM-DDTHH:mm:ss.SSS-0500');
+            attributesCriteria.push({
+                "createdOn": {
+                    "gte": dateTimeRangeFrom,
+                    "lte": dateTimeRangeTo
+                }
+            });
 
             delete request.params.options.from;
             delete request.params.options.to;
