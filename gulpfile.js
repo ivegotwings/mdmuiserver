@@ -18,6 +18,8 @@ const gulpif = require('gulp-if');
 const debug = require('gulp-debug');
 const browserSync = require('browser-sync');
 const reload = browserSync.reload;
+const HtmlSplitter = require('polymer-build').HtmlSplitter;
+
 const nodemon = require('gulp-nodemon');
 var tinylr = require('tiny-lr');
 var replace = require('gulp-replace');
@@ -91,16 +93,21 @@ function checkDirectory(directory, callback) {
 
 
 gulp.task('main-build', function() {
+    
+    let dependeciesHtmlSplitter = new HtmlSplitter();
     return del([mainPath])
       .then(() => {
         
-        polymerProject.sources().pipe(gulp.dest(mainPath));
+        polymerProject.sources()        
+        .pipe(gulp.dest(mainPath));
 
         polymerProject.dependencies()
           .pipe(gulp.dest(mainPath + "/src/static/es6"));      
 
         polymerProject.dependencies()
+          .pipe(dependeciesHtmlSplitter.split())
           .pipe(gulpif('**/*.js', babel({'presets': [['es2015', {'modules': false}]]})))
+          .pipe(dependeciesHtmlSplitter.rejoin())
           .pipe(gulp.dest(mainPath + "/src/static/es5"))          
           
       })
