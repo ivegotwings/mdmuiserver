@@ -92,7 +92,9 @@ BinaryObjectService.prototype = {
                 response.cookie('fileDownload', true, { path: "/", httpOnly: false });
                 response.writeHead(200, {
                     'Content-Type': contentType, 
-                    'Content-disposition': 'attachment;filename=' + fileName + "." + fileExtension
+                    //fix for bug: 283435. Chrome browser has a problem with comma in file name in content-disposition.
+                    //Sending filename in "" will solve the issue though file name has invalid characters.
+                    'Content-disposition': 'attachment;filename="' + fileName + "." + fileExtension + '"'
                 });
 
                 var baseString = new Buffer(blob, 'base64');
