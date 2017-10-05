@@ -108,6 +108,7 @@ gulp.task('main-build', function() {
           .pipe(dependeciesHtmlSplitter.split())
           .pipe(gulpif('**/*.js', babel({'presets': [['es2015', {'modules': false}]]})))
           .pipe(dependeciesHtmlSplitter.rejoin())
+          // .pipe(polymerProject.addCustomElementsEs5Adapter())
           .pipe(gulp.dest(mainPath + "/src/static/es5"))          
           
       })
