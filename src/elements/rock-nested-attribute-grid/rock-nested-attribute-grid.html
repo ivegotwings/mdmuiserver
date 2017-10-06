@@ -170,6 +170,10 @@
                     _isGridDirty: {
                         type: Boolean,
                         value: false
+                    },
+                    _isGridReady: {
+                        type: Boolean,
+                        value: false
                     }
                 },
                 behaviors: [
@@ -182,6 +186,9 @@
                     '_modeChanged(mode)',
                     '_gridDataChanged(_isGridDirty)'
                 ],
+                attached: function() {
+                    this._isGridReady = false;
+                },
                 _attributeModelObjectChanged: function(attributeModelObject) {
                     if(!_.isEmpty(attributeModelObject)) {
                         this._prepareGridConfig(attributeModelObject);
@@ -291,34 +298,48 @@
                             for(var i=0; i<modifiedData.length; i++) {
                                 var rowData = modifiedData[i];
                                 var _status = rowData["_rowStatus"]["status"];
-                                var value = this.attributeObject.value.find(obj => obj.valueIdentifier.value === rowData.valueIdentifier);
-                                if(!value) {
-                                    var values = DataTransformHelper.transformNestedAttributes({}, this._attributeModels);
-                                    var value = values[0];
-                                    value["valueIdentifier"].value = rowData.valueIdentifier;
-                                    this.attributeObject.value.push(value);
-                                }
-                                if(_status !== "delete" && !this._isRowEmpty(rowData)) {
-                                    for(var attrName in rowData) {
-                                        if(this._attributeModels[attrName]) {
-                                            value[attrName] = value[attrName] ? value[attrName]: {};
-                                            value[attrName]["value"] = rowData[attrName];
-                                        }
-                                        if(attrName.indexOf("referenceDataId") !== -1) {
-                                            var name = attrName.substring(0, attrName.indexOf("_"));
-                                            value[name]["referenceDataId"] = rowData[attrName];
-                                        }
+                                var value = this.attributeObject.value.find(obj => obj.valueIdentifier.value === rowData.valueIdentifier && obj.action !== "delete");
+                                var deletedValue = this.attributeObject.value.find(obj => obj.valueIdentifier.value === rowData.valueIdentifier && obj.action === "delete");
+                                var originalVal = this.originalAttributeObject.value.find(obj => obj.valueIdentifier.value === rowData.valueIdentifier);
+                                if(this._isRowEmpty(rowData)) {
+                                    if(value) {
+                                        _status = "delete";
                                     }
                                 } else {
+                                    if(!value) {
+                                        value = this._getNewValueObject(rowData);
+                                        this.attributeObject.value.push(value);
+                                    }
+                                }
+                                if(_status === "delete") {
                                     var index = this.attributeObject.value.indexOf(value);
                                     if(index !== -1) {
+                                        if(originalVal) {
+                                            this.attributeObject.value[index] = DataHelper.cloneObject(originalVal);
+                                        }
                                         this.attributeObject.value[index]["action"] = "delete";
+                                    }
+                                } else if(this._isIdentifierUpdated(rowData, originalVal) && !deletedValue) {
+                                    var index = this.attributeObject.value.indexOf(value);
+                                    if(index !== -1) {
+                                        if(originalVal) {
+                                            this.attributeObject.value[index] = DataHelper.cloneObject(originalVal);
+                                        }
+                                        this.attributeObject.value[index]["action"] = "delete";
+                                    }
+                                    
+                                    var valObj = this._getNewValueObject(rowData);
+                                    this._updateValueWithData(rowData, valObj);
+                                    this.attributeObject.value.push(valObj);
+                                } else {
+                                    if(value) {
+                                        this._updateValueWithData(rowData, value);
                                     }
                                 }
                             }
                         }
                     } else if(this.changed === false) {
-                        this.attributeObject = this.originalAttributeObject;
+                        this.attributeObject = DataHelper.cloneObject(this.originalAttributeObject);
                     }
                 },
                 _isRowEmpty: function(rowData) {
@@ -335,6 +356,38 @@
                         }
                     }
                     return true;
+                },
+                _getNewValueObject: function(rowData) {
+                    var values = DataTransformHelper.transformNestedAttributes({}, this._attributeModels);
+                    var value = values[0];
+                    value["valueIdentifier"].value = rowData.valueIdentifier;
+                    return value
+                },
+                _isIdentifierUpdated: function(data, value) {
+                    var identifierAttrName = undefined;
+                    for(var attrName in this._attributeModels) {
+                        if(this._attributeModels[attrName] && this._attributeModels[attrName].isAttributeIdentifier === true) {
+                            identifierAttrName = this._attributeModels[attrName].name;
+                        }
+                    }
+                    if(identifierAttrName) {
+                        if(value && value[identifierAttrName] && data[identifierAttrName] !== value[identifierAttrName].value) {
+                            return true;
+                        }
+                    }
+                    return false;
+                },
+                _updateValueWithData: function(rowData, value) {
+                    for(var attrName in rowData) {
+                        if(this._attributeModels[attrName]) {
+                            value[attrName] = value[attrName] ? value[attrName]: {};
+                            value[attrName]["value"] = rowData[attrName];
+                        }
+                        if(attrName.indexOf("referenceDataId") !== -1) {
+                            var name = attrName.substring(0, attrName.indexOf("_"));
+                            value[name]["referenceDataId"] = rowData[attrName];
+                        }
+                    }
                 },
                 _onRowDelete: function(e, detail) {
                    this._notifyDirty();
