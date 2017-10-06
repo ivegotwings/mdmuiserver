@@ -677,15 +677,6 @@ Eventservice.prototype = {
                 if(requestedAttributeCriteria[i].taskType) {
                     taskType = requestedAttributeCriteria[i].taskType.contains;
                 }
-                else {
-                    if(requestedAttributeCriteria[i].integrationType) {
-                        integrationType = requestedAttributeCriteria[i].integrationType.eq;
-
-                        if(integrationType == "System") {
-                            taskType = "system_integrations_entity_import";
-                        }
-                    }
-                }
 
                 if(requestedAttributeCriteria[i].userId) {
                     userId = requestedAttributeCriteria[i].userId.eq;
