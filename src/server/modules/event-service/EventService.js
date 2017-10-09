@@ -668,27 +668,17 @@ Eventservice.prototype = {
             var status = undefined;
             var taskType = "entity_import";
             var userId = undefined;
+            var integrationType = undefined;
 
             for (var i in requestedAttributeCriteria) {
                 if(requestedAttributeCriteria[i].eventSubType) {
                     status = requestedAttributeCriteria[i].eventSubType.eq;
-                }
-
-                if(requestedAttributeCriteria[i].taskType) {
+                } else if(requestedAttributeCriteria[i].taskType) {
                     taskType = requestedAttributeCriteria[i].taskType.contains;
-                }
-                else {
-                    if(requestedAttributeCriteria[i].integrationType) {
-                        integrationType = requestedAttributeCriteria[i].integrationType.eq;
-
-                        if(integrationType == "System") {
-                            taskType = "system_integrations_entity_import";
-                        }
-                    }
-                }
-
-                if(requestedAttributeCriteria[i].userId) {
+                } else if(requestedAttributeCriteria[i].userId) {
                     userId = requestedAttributeCriteria[i].userId.eq;
+                } else if(requestedAttributeCriteria[i].integrationType) {
+                    integrationType = requestedAttributeCriteria[i].integrationType.eq;
                 }
             }
 
@@ -721,6 +711,16 @@ Eventservice.prototype = {
                     }
                 };
                 attributesCriteria.push(userIdCriterion);
+            }
+
+            if(integrationType) {
+                //Add integration type criterion...
+                var integrationTypeCriterion = {
+                    "integrationType": {
+                        "eq": integrationType
+                    }
+                };
+                attributesCriteria.push(integrationTypeCriterion);
             }
 
             req.params.query.filters.attributesCriterion = attributesCriteria;
@@ -828,9 +828,9 @@ Eventservice.prototype = {
             response.endTime = "N/A";
 
             var taskStats = response["taskStats"] = {};
-            taskStats.error = "N/A";
-            taskStats.processing = "N/A";
-            taskStats.success = "N/A";
+            taskStats.error = "0%";
+            taskStats.processing = "100%";
+            taskStats.success = "0%";
             taskStats.createRecords = "0%";
             taskStats.updateRecords = "0%";
             taskStats.deleteRecords = "0%";
