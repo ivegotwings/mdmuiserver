@@ -87,17 +87,18 @@ function compileTemplate(req, res, basePath, isIE11) {
         options = { isAuthenticated: true, ecma: ecmaConditionalPath, tenantId: tenantId, userId: userId, roleId: userRoles, fullName: fullName, userName: userName, ownershipData: ownershipData, noPreload: false};
     }
 
-    var templatePath = basePath + '/build/main/src/views/index.hjs';      
 
+    var templatePath = buildPath + '/src/views/index.hjs';      
+    
     fs.readFile(templatePath, 'utf8', function (err,data) {
       if (err) {
-        return console.log(err);
+        // return console.log(err);
       }
       var template = hogan.compile(data);
       var compiled = template.render(options);              
       fs.writeFile(templatePath.replace('src/views/index.hjs', 'src/static/' + ecmaConditionalPath + '/index.html'), compiled, function(err) {
         if(err) {
-            return console.log(err);
+            // return console.log(err);
         }
       }); 
     });
@@ -109,7 +110,7 @@ app.get('/', function(req, res) {
     var isIE11 = (req.headers['user-agent'].indexOf('rv:11')!==-1);
     compileTemplate(req, res, basePath, isIE11);
     var ecmaConditionalPath = isIE11 ? 'es5' : 'es6';
-    console.log("buildPath + '/index.html'", buildPath + '/src/static/' + ecmaConditionalPath + '/index.html');
+    console.log("sending this: ", buildPath + '/src/static/' + ecmaConditionalPath + '/index.html');
     send(req, buildPath + '/src/static/' + ecmaConditionalPath + '/index.html').pipe(res);
 })
 
@@ -194,6 +195,7 @@ logger.info('Web engine start - fileupload routes are loaded');
 
 // Need to run compileTemplate() before this
 app.get('*', function(req, res) {    
+    console.log("req.url", req.url);
     send(req, req.url).pipe(res);
 })
 

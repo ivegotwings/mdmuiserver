@@ -107,8 +107,57 @@ gulp.task('dev-build', function() {
     })
 });
 
+gulp.task('app-dev', function (cb) {
+  var started = false;
+  var appPath = devPath + "/app.js"; //default load app from build/unbundled path
+  appPath = (argv.appPath !== undefined) ? argv.appPath : appPath;
 
-gulp.task('app-nodemon', function (cb) {
+  var projectPath = appPath.replace('/app.js', '');
+
+  var runOffline = (argv.runOffline !== undefined) ? argv.runOffline : 'false';
+  var lrEnabled = true;
+  if(lrEnabled) {
+    lr = tinylr();
+    lr.listen(global.config.build.liveReloadPort);
+  }  
+  console.log("appPath", appPath);
+  var stream = nodemon({
+                  script: appPath,
+                  env: { 
+                    'RUN_OFFLINE': runOffline, 
+                    'PROJECT_PATH': projectPath,
+                    'NODE_CONFIG_DIR': './src/server/config',
+                    'NODE_ENV': 'development',
+                    'BUILD_PATH': 'dev'
+                   }, // set env variables
+                  //nodeArgs:['--debug'], // set node args
+                  watch: global.config.build.serverFilePaths, // watch ES2015 code
+                  ext: 'js html css json jpg jpeg png gif',
+                  tasks: function (changedFiles) { // compile synchronously onChange
+                    console.log("files changed");
+                    var tasks = [];
+                    if (!changedFiles || !lrEnabled) {
+                      return tasks;
+                    }
+                     compileChangedDevFiles(changedFiles);
+                    // stackLiveReload(changedFiles);
+                    
+                    return tasks;
+                  }
+              });
+              
+    stream.on('start', function() {
+      console.log('start');
+      if(!started) {
+        cb();
+        started = true;  
+      }
+    });
+
+  return stream;
+});
+
+gulp.task('app-main', function (cb) {
   var started = false;
   var appPath = mainPath + "/app.js"; //default load app from build/unbundled path
   appPath = (argv.appPath !== undefined) ? argv.appPath : appPath;
@@ -140,7 +189,8 @@ gulp.task('app-nodemon', function (cb) {
                     'RUN_OFFLINE': runOffline, 
                     'PROJECT_PATH': projectPath,
                     'NODE_CONFIG_DIR': './src/server/config',
-                    'NODE_ENV': 'development'
+                    'NODE_ENV': 'development',
+                    'BUILD_PATH': 'main'
                    }, // set env variables
                   //nodeArgs:['--debug'], // set node args
                   watch: global.config.build.serverFilePaths, // watch ES2015 code
@@ -169,7 +219,7 @@ gulp.task('app-nodemon', function (cb) {
   return stream;
 });
 
-gulp.task('watch-element-changes', function () {  
+gulp.task('watch-dev', function () {  
   gulp.watch(global.config.build.clientFilePaths).on('change', function (fpath) {    
     compileChangedDevFiles(fpath);
   });
@@ -192,7 +242,7 @@ gulp.task('copy-node-modules', function () {
   return gulp.src(nodeModulesPath, {base: '.'}).pipe(gulp.dest(unbundledPath));
 });
 
-gulp.task('dev', gulp.series('dev-build', 'app-nodemon', 'watch-element-changes'));
+gulp.task('dev', gulp.series('dev-build', 'app-dev', 'watch-dev'));
 
 function unbundledBuild() {
   return new Promise((resolve, reject) => { // eslint-disable-line no-unused-vars
