@@ -1,7 +1,8 @@
 var DFRestService = require('../common/df-rest-service/DFRestService'),
     isEmpty = require('../common/utils/isEmpty'),
     uuidV1 = require('uuid/v1'),
-    arrayContains = require('../common/utils/array-contains');
+    arrayContains = require('../common/utils/array-contains'),
+    moment = require('moment');
 
 var config = require('config');
 var taskSummarizationProcessorEnabled = config.get('modules.webEngine.taskSummarizationProcessorEnabled');
@@ -100,6 +101,16 @@ Eventservice.prototype = {
                     break;
                 }
             }
+
+            //Temporary fix for the RDF query limitation to get task list when there are more than 30K records and needs sorting...
+            var dateTimeRangeFrom = moment().subtract('2', 'days').format('YYYY-MM-DDTHH:mm:ss.SSS-0500')
+            var dateTimeRangeTo = moment().format('YYYY-MM-DDTHH:mm:ss.SSS-0500');
+            attributesCriteria.push({
+                "createdOn": {
+                    "gte": dateTimeRangeFrom,
+                    "lte": dateTimeRangeTo
+                }
+            });
 
             delete request.params.options.from;
             delete request.params.options.to;
@@ -657,27 +668,17 @@ Eventservice.prototype = {
             var status = undefined;
             var taskType = "entity_import";
             var userId = undefined;
+            var integrationType = undefined;
 
             for (var i in requestedAttributeCriteria) {
                 if(requestedAttributeCriteria[i].eventSubType) {
                     status = requestedAttributeCriteria[i].eventSubType.eq;
-                }
-
-                if(requestedAttributeCriteria[i].taskType) {
+                } else if(requestedAttributeCriteria[i].taskType) {
                     taskType = requestedAttributeCriteria[i].taskType.contains;
-                }
-                else {
-                    if(requestedAttributeCriteria[i].integrationType) {
-                        integrationType = requestedAttributeCriteria[i].integrationType.eq;
-
-                        if(integrationType == "System") {
-                            taskType = "system_integrations_entity_import";
-                        }
-                    }
-                }
-
-                if(requestedAttributeCriteria[i].userId) {
+                } else if(requestedAttributeCriteria[i].userId) {
                     userId = requestedAttributeCriteria[i].userId.eq;
+                } else if(requestedAttributeCriteria[i].integrationType) {
+                    integrationType = requestedAttributeCriteria[i].integrationType.eq;
                 }
             }
 
@@ -710,6 +711,16 @@ Eventservice.prototype = {
                     }
                 };
                 attributesCriteria.push(userIdCriterion);
+            }
+
+            if(integrationType) {
+                //Add integration type criterion...
+                var integrationTypeCriterion = {
+                    "integrationType": {
+                        "eq": integrationType
+                    }
+                };
+                attributesCriteria.push(integrationTypeCriterion);
             }
 
             req.params.query.filters.attributesCriterion = attributesCriteria;
@@ -817,9 +828,9 @@ Eventservice.prototype = {
             response.endTime = "N/A";
 
             var taskStats = response["taskStats"] = {};
-            taskStats.error = "N/A";
-            taskStats.processing = "N/A";
-            taskStats.success = "N/A";
+            taskStats.error = "0%";
+            taskStats.processing = "100%";
+            taskStats.success = "0%";
             taskStats.createRecords = "0%";
             taskStats.updateRecords = "0%";
             taskStats.deleteRecords = "0%";
@@ -970,6 +981,11 @@ Eventservice.prototype = {
 
                     var objId = this._getAttributeValue(reqObj, "entityId");
                     var objType = this._getAttributeValue(reqObj, "entityType");
+                    var action = this._getAttributeValue(reqObj, "entityAction");
+
+                    if(action == "delete") {
+                        objType = "delete" + objType;
+                    }
 
                     if(objId) {
                         successObjIds.push(objId);
@@ -991,7 +1007,7 @@ Eventservice.prototype = {
         var types = ["requestObject"];
         var req = this._getRequestJson(types);
 
-        var attributeNames = ["entityId", "entityType"];
+        var attributeNames = ["entityId", "entityType", "entityAction"];
         req.params.fields.attributes = attributeNames;
         req.params.query.valueContexts = [{
             "source": "rdp",
@@ -1028,14 +1044,12 @@ Eventservice.prototype = {
         };
         attributesCriteria.push(requestStatusCriterion);
 
-        if(!isBulkWorkflowTask) {
-            var impactedEventCriterion = {
-                "impacted": {
-                    "exact": "false"
-                }
-            };
-            attributesCriteria.push(impactedEventCriterion);
-        }
+        var impactedEventCriterion = {
+            "impacted": {
+                "exact": "false"
+            }
+        };
+        attributesCriteria.push(impactedEventCriterion);
 
         req.params.query.filters.attributesCriterion = attributesCriteria;
 
@@ -1363,6 +1377,11 @@ Eventservice.prototype = {
                 case "process-multi-query":
                     taskType = "Bulk Edit";
                     break;
+                case "delete":
+                case "delete-query":
+                case "delete-multi-query":
+                        taskType = "Bulk Entity Delete";
+                        break;
             }
         }
         else {

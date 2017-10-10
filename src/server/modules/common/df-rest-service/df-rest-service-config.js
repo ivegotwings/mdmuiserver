@@ -296,6 +296,11 @@ SERVICE_CONFIG = {
             "mode": "online",
             "offlineSettings": {
             }
+        },
+        "entityappservice/delete": {
+            "url": "/entityappservice/delete",
+            "mode": "online",
+            "offlineSettings": {}
         }
     }
 };
