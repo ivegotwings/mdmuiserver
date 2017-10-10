@@ -33,7 +33,9 @@ COPService.prototype = {
             "service": request.body.service,
             "channel": request.body.channel,
             "format": request.body.format,
-            "source": request.body.source
+            "source": request.body.source,
+            "subtype": request.body.subtype,
+            "order": request.body.order
         };
         var files = request.files;
         var hotline = request.body.hotline;
@@ -66,7 +68,9 @@ COPService.prototype = {
             "service": request.body.service,
             "channel": request.body.channel,
             "format": request.body.format,
-            "source": request.body.source
+            "source": request.body.source,
+            "subtype": request.body.subtype,
+            "order": request.body.order
         };
         var processRequest = this._prepareCOPRequestForProcess(fileName, originalFileName, copContext, files, hotline, workAutomationId);
         //console.log('processRequest: ', JSON.stringify(processRequest.dataObject.properties, null, 2));
@@ -100,7 +104,9 @@ COPService.prototype = {
             "service": request.body.service,
             "channel": request.body.channel,
             "format": request.body.format,
-            "source": request.body.source
+            "source": request.body.source,
+            "subtype": request.body.subtype,
+            "order": request.body.order
         };
         var processModelRequest = this._prepareCOPRequestForProcess(fileName, originalFileName, copContext);
         //console.log('processRequest: ', JSON.stringify(processModelRequest.dataObject.properties, null, 2));
@@ -130,7 +136,9 @@ COPService.prototype = {
             "service": request.body.service,
             "channel": request.body.channel,
             "format": request.body.format,
-            "source": request.body.source
+            "source": request.body.source,
+            "subtype": request.body.subtype,
+            "order": request.body.order
         };
         var generateFieldMapRequest = this._prepareCOPRequestForGenerateMap(fileName, originalFileName, files, hotline, copContext);
         //console.log('generateFieldMapRequest: ', JSON.stringify(generateFieldMapRequest, null, 2));
@@ -153,7 +161,7 @@ COPService.prototype = {
         var parsedRequest = JSON.parse(request.body.data);
         var fileName = parsedRequest.fileName + '-' + timeStamp;
 
-        //console.log('downloadDataRequest: ', JSON.stringify(request.body, null, 2));
+        console.log('downloadDataRequest: ', JSON.stringify(parsedRequest, null, 2));
         var copResponse = await this.post(downloadDataURL, parsedRequest);
 
         this._handleDownloadResponse(copResponse, fileName, response);
@@ -291,7 +299,9 @@ COPService.prototype = {
                     "service": copContext.service,
                     "channel": copContext.channel,
                     "format": copContext.format,
-                    "source": copContext.source
+                    "source": copContext.source,
+                    "subtype": copContext.subtype,
+                    "order": copContext.order
                 },
                 "data": {
                     "blob": ""
@@ -305,6 +315,7 @@ COPService.prototype = {
 
         copRequest.dataObject.id = uuidV1();
         copRequest.dataObject.properties.filename = originalFileName;
+        console.log("Transform request: ", JSON.stringify(copRequest, null, 2));
         copRequest.dataObject.data.blob = this._getFileContent(fileName, files);
         return copRequest;
     },
@@ -326,6 +337,8 @@ COPService.prototype = {
                     "channel": copContext.channel,
                     "format": copContext.format,
                     "source": copContext.source,
+                    "subtype": copContext.subtype,
+                    "order": copContext.order,
                     "workAutomationId": workAutomationId ? workAutomationId : "uuid"
                 },
                 "data": {
@@ -340,7 +353,7 @@ COPService.prototype = {
 
         copRequest.dataObject.id = uuidV1();
         copRequest.dataObject.properties.filename = originalFileName;
-        //console.log("Request for process:", JSON.stringify(copRequest));
+        console.log("Request for process:", JSON.stringify(copRequest));
         copRequest.dataObject.data.blob = this._getFileContent(fileName, files);
         return copRequest;
     },
@@ -361,6 +374,8 @@ COPService.prototype = {
                     "channel": copContext.channel,
                     "format": copContext.format,
                     "source": copContext.source,
+                    "subtype": copContext.subtype,
+                    "order": copContext.order
                 },
                 "data": {
                     "blob": ""
@@ -374,7 +389,7 @@ COPService.prototype = {
 
         copRequest.binaryObject.id = uuidV1();
         copRequest.binaryObject.properties.filename = originalFileName;
-        //console.log('generateFieldMapRequest: ', JSON.stringify(copRequest, null, 2));
+        console.log('generateFieldMapRequest: ', JSON.stringify(copRequest, null, 2));
         copRequest.binaryObject.data.blob = this._getFileContent(fileName, files);
         return copRequest;
     },
