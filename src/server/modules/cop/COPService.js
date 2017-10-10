@@ -161,7 +161,7 @@ COPService.prototype = {
         var parsedRequest = JSON.parse(request.body.data);
         var fileName = parsedRequest.fileName + '-' + timeStamp;
 
-        console.log('downloadDataRequest: ', JSON.stringify(parsedRequest, null, 2));
+        //console.log('downloadDataRequest: ', JSON.stringify(parsedRequest, null, 2));
         var copResponse = await this.post(downloadDataURL, parsedRequest);
 
         this._handleDownloadResponse(copResponse, fileName, response);
@@ -315,7 +315,7 @@ COPService.prototype = {
 
         copRequest.dataObject.id = uuidV1();
         copRequest.dataObject.properties.filename = originalFileName;
-        console.log("Transform request: ", JSON.stringify(copRequest, null, 2));
+        //console.log("Transform request: ", JSON.stringify(copRequest, null, 2));
         copRequest.dataObject.data.blob = this._getFileContent(fileName, files);
         return copRequest;
     },
@@ -353,7 +353,7 @@ COPService.prototype = {
 
         copRequest.dataObject.id = uuidV1();
         copRequest.dataObject.properties.filename = originalFileName;
-        console.log("Request for process:", JSON.stringify(copRequest));
+        //console.log("Request for process:", JSON.stringify(copRequest));
         copRequest.dataObject.data.blob = this._getFileContent(fileName, files);
         return copRequest;
     },
@@ -389,7 +389,7 @@ COPService.prototype = {
 
         copRequest.binaryObject.id = uuidV1();
         copRequest.binaryObject.properties.filename = originalFileName;
-        console.log('generateFieldMapRequest: ', JSON.stringify(copRequest, null, 2));
+        //console.log('generateFieldMapRequest: ', JSON.stringify(copRequest, null, 2));
         copRequest.binaryObject.data.blob = this._getFileContent(fileName, files);
         return copRequest;
     },
