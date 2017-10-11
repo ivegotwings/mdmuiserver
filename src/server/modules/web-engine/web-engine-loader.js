@@ -28,7 +28,6 @@ var relativePath = process.env.PROJECT_PATH;
 if (relativePath) {
     buildPath = buildPath + '/' + relativePath;
 }
-console.log("##########", buildPath);
 
 logger.info('Web engine start - build path identified', { "buildPath": buildPath });
 
@@ -62,7 +61,6 @@ logger.info('Web engine start - cors middleware is loaded');
 
 function compileTemplate(req, res, basePath, isIE11) {
     console.log("Compiling hogan.Js template...");
-    
     var userId = req.header("x-rdp-userid");
     var tenantId = req.header("x-rdp-tenantid");
     var userRoles = req.header("x-rdp-userroles");
@@ -89,7 +87,7 @@ function compileTemplate(req, res, basePath, isIE11) {
 
 
     var templatePath = buildPath + '/src/views/index.hjs';      
-    
+
     fs.readFile(templatePath, 'utf8', function (err,data) {
       if (err) {
         // return console.log(err);
@@ -110,7 +108,7 @@ app.get('/', function(req, res) {
     var isIE11 = (req.headers['user-agent'].indexOf('rv:11')!==-1);
     compileTemplate(req, res, basePath, isIE11);
     var ecmaConditionalPath = isIE11 ? 'es5' : 'es6';
-    console.log("sending this: ", buildPath + '/src/static/' + ecmaConditionalPath + '/index.html');
+    console.log("file sent: ", buildPath + '/src/static/' + ecmaConditionalPath + '/index.html');
     send(req, buildPath + '/src/static/' + ecmaConditionalPath + '/index.html').pipe(res);
 })
 
@@ -194,8 +192,7 @@ logger.info('Web engine start - fileupload routes are loaded');
 //register static file root ...index.html..
 
 // Need to run compileTemplate() before this
-app.get('*', function(req, res) {    
-    console.log("req.url", req.url);
+app.get('*', function(req, res) {        
     send(req, req.url).pipe(res);
 })
 
