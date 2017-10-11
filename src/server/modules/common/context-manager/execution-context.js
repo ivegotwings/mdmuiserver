@@ -6,8 +6,9 @@ function createSecurityContext(req) {
     var uid = req.headers["x-rdp-userid"];
     var role = req.headers["x-rdp-userroles"];
     var tenantConfig;
+    console.log(process.cwd() + "/" + process.env.PROJECT_PATH +  "/tenant-configs/" + tid.toLowerCase() + "-tenant-config.json");
     if (tid) {
-        tenantConfig = require(process.cwd() + "/tenant-configs/" + tid.toLowerCase() + "-tenant-config");
+        tenantConfig = require(process.cwd() + "/" + process.env.PROJECT_PATH +  "/tenant-configs/" + tid.toLowerCase() + "-tenant-config.json");
         if (!tenantConfig || !tenantConfig.clientId || !tenantConfig.clientAuthKey) {
             console.log("Tenant configuration not found for tenant:" + tid);
         }
