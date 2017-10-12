@@ -1,48 +1,49 @@
 'use strict';
-
+require('../df-rest-service/df-rest-service-config.js');
 var LOGGER_CONFIG = function(){
     this.formatKeys = ["RequestId", "GUID", "TenantId", "CallerServiceName", "CalleeServiceName", 
                         "RelatedRequestId", "GroupRequestId", "TaskId", "UserId", "EntityId", 
                         "ObjectType", "ClassName", "Method", "NewTimestamp", "Action", 
                         "InclusiveTime", "LogMessage"];
                         
-    this._modulesObject = {
-        "service-base": {
+    this._modulesObject = 
+    {
+        "entityservice": {
             "level": "info"
         },
-        "df-rest-service": {
+        "entityappservice": {
+            "level": "debug"
+        },
+        "configurationservice": {
+            "level": "trace"
+        },
+        "copservice": {
             "level": "info"
         },
-        "context-manager": {
+        "binarystreamobjectservice": {
             "level": "info"
         },
-        "cop": {
-            "level": "info"
-        },
-        "dataobject": {
-            "level": "info"
-        },
-        "file-download": {
-            "level": "info"
-        },
-        "file-upload": {
-            "level": "info"
-        },
-        "notification-engine": {
+        "binaryobjectservice": {
             "level": "info"
         },
         "notification-service": {
             "level": "info"
         },
-        "pass-through": {
-            "level": "info"
-        },
-        "ruf-client": {
-            "level": "info"
-        },
-        "web-engine": {
-            "level": "info"
-        },
+        // "file-upload": {
+        //     "level": "info"
+        // },
+        // "notification-engine": {
+        //     "level": "info"
+        // },
+        // "pass-through": {
+        //     "level": "info"
+        // },
+        // "ruf-client": {
+        //     "level": "info"
+        // },
+        // "web-engine": {
+        //     "level": "info"
+        // },
         "default": {
             "level": "info"
         }

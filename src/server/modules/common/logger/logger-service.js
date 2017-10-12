@@ -45,18 +45,7 @@ LoggerService.prototype = {
     
     this._logger = log4js.getLogger("everything");
     this._logger.level = 'debug'; // default level is OFF - which means no logs at all.
-    this.info('Logger is loaded...');
-
-    // var cwdir = process.cwd();
-    // for(var stream of toolSettings.streams) {
-    //   stream.path = cwdir + stream.path;
-    // }
-
-    // this._logger = bunyan.createLogger(toolSettings);
-    // this._logger.serializers = bunyan.stdSerializers;
-
-    // this._logger.info('Logger is loaded...');
-     
+    this.info('Logger is loaded...');     
   },
   getConfig: function () {
     return this._config;
@@ -102,8 +91,6 @@ LoggerService.prototype = {
       obj = {};
     }
 
-    if (this._isLogLevelEnabled(level, moduleSetting.level)) {
-      //console.log('log entry, level: ', level, ' msg: ', msg);
       var formattedObject = this._getFormattedObject(msg, obj, callerFile);
       //Clear all the contexts
       this._logger.clearContext();
@@ -136,11 +123,10 @@ LoggerService.prototype = {
           this._logger.fatal(formattedObject);
           break;
       }
-    }
   },
   _isLogLevelEnabled: function (level, moduleLevel) {
     var loggerLevels = ["trace", "debug", "info", "warn", "error", "fatal"];
-
+    
     if (loggerLevels.indexOf(level) >= loggerLevels.indexOf(moduleLevel))
       return true;
   },
@@ -183,10 +169,9 @@ LoggerService.prototype = {
       if (securityContext && securityContext.tenantId) {
           formattedObj["TenantId"] = securityContext.tenantId;
       }
-      //CallerServiceName
-      var callerContext = executionContext.getCallerContext();
-      if (callerContext) {
-          formattedObj["CallerServiceName"] = JSON.stringify(callerContext);
+      //CalleeServiceName
+      if(obj.hasOwnProperty('module')){
+        formattedObj["CalleeServiceName"] = obj.module;
       }
 
       return formattedObj;
