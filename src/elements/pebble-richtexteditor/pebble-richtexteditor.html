@@ -1,159 +1,170 @@
-<link rel="import" href="../../../bower_components/polymer/polymer.html">
-<link rel="import" href="../../../bower_components/adamantium-editor/adamantium-editor.html">
-
-<link rel="import" href="../bedrock-validator/bedrock-validator.html">
-
-<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
-
-<!--
-`pebble-richtexteditor` Represents an element that allows plain-text editing with multiple lines.
- 
-@demo demo/index.html 
--->
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../../../bower_components/polymer-quill/polymer-quill.html">
 
 <dom-module id="pebble-richtexteditor">
   <template>
-        
-    <style include="pebble-styles-shared">
-      label {
-        font-size:var(--default-font-size, 12px) !important;
-        color:var(--input-label-color,#96b0c6);
-        line-height: 17px;
-        margin-top: 17px;
-      } 
-      #editorInput {
-        cursor: auto; 
-        line-height: 1.2;      
-      }                
-      #viewBox {
-        max-height: 25vh;
-        overflow: scroll;        
-      }
-      #viewBox * {
-        line-height: 1.2;
-      }
-      #viewBox ol li{
-         list-style-type : decimal !important; 
-      }
-    </style>
-        
+    <style include="quill-core quill-snow pebble-styles-shared"></style>   
     <div hidden$="[[readOnly]]">
         <label hidden$="[[!label]]" aria-hidden="true">[[label]]</label>
-        <adamantium-editor id="editorInput"></adamantium-editor>        
+        <div id="content">
+          <div id="toolbar">
+            <button class="ql-header tooltip-bottom" type="button" value="1" data-tooltip="Header Big" data-placement="bottom"></button>
+            <button class="ql-header tooltip-bottom" type="button" value="2" data-tooltip="Header Medium" data-placement="bottom"></button>
+
+            <button class="ql-blockquote tooltip-bottom" type="button" data-tooltip="Blockquote" data-placement="bottom"></button>
+            <button class="ql-bold tooltip-bottom" type="button" data-tooltip="Bold" data-placement="bottom"></button>
+            <button class="ql-italic tooltip-bottom" type="button" data-tooltip="Italic" data-placement="bottom"></button>
+            <button class="ql-underline tooltip-bottom" type="button" data-tooltip="Underline" data-placement="bottom"></button>
+            <button class="ql-strike tooltip-bottom" type="button" data-tooltip="Strike" data-placement="bottom"></button>
+
+            <select class="ql-align tooltip-bottom" data-tooltip="Align" data-placement="bottom">
+              <option selected="selected"></option>
+              <option value="center"></option>
+              <option value="right"></option>
+              <option value="justify"></option>
+            </select>
+        
+            <button class="ql-image tooltip-bottom" type="button" data-tooltip="Image" data-placement="bottom"></button>
+            <button class="ql-list tooltip-bottom" type="button" value="ordered" data-tooltip="List" data-placement="bottom"></button>
+            <button class="ql-list tooltip-bottom" type="button" value="bullet" data-tooltip="Bullet" data-placement="bottom"></button>
+            
+            <button class="ql-link tooltip-bottom" type="button" data-tooltip="Link" data-placement="bottom"></button>
+            <button class="ql-clean tooltip-bottom" type="button" data-tooltip="clean" data-placement="bottom"></button>
+          </div>
+          <div id="editor"></div>
+        </div>      
     </div> 
     <div hidden$="[[!readOnly]]">
       <label hidden$="[[!label]]" aria-hidden="true">[[label]]:</label>
       <div id="viewBox"></div>
     </div>
     <bedrock-validator show-error="[[showError]]" validation-errors="{{validationErrors}}" input="[[value]]" pattern="[[pattern]]" min-length="[[minlength]]" max-length="[[maxlength]]"  precision="[[precision]]" required="[[required]]"
-                        invalid="{{invalid}}" error-message="{{errorMessage}}" min="[[min]]" max="[[max]]"  type="[[validationType]]" type-array="[[validationTypeArray]]"
-    ></bedrock-validator>
+        invalid="{{invalid}}" error-message="{{errorMessage}}" min="[[min]]" max="[[max]]"  type="[[validationType]]" type-array="[[validationTypeArray]]"></bedrock-validator>
+
   </template>
-
   <script>
-   Polymer({
-            is: 'pebble-richtexteditor',
-            ready: function() {
-                var target = this.$.editorInput.$.editorBody;
-                var observer = new MutationObserver(function (mutations) {
-                    this.debounce("hold for html", function () {           
-                        this.value = target.innerHTML;                         
-                    }.bind(this), 1000);
-                }.bind(this));
-                var config = { attributes: true, childList: true, characterData: true, subtree: true };
-                observer.observe(target, config);
+    class PebbleRichtexteditor extends Polymer.Element {
+      static get is() { return 'pebble-richtexteditor' }
+
+      ready() {
+        super.ready();
+        var _this = this;
+        this.quill = new Quill(this.$.editor,{
+          modules: {
+            toolbar: this.$.toolbar           
+          },
+          placeholder: 'Enter the text here...',
+          theme: 'snow'  // or 'bubble'
+        })
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        var _this = this;        
+        this.quill.on('text-change', function(delta, oldDelta, source){
+             _this._onTextChange();            
+        });
+        if(this.$.editor.querySelector('.ql-editor')) {
+          this.editor = this.$.editor.querySelector('.ql-editor');         
+        }
+
+      }
+
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        var _this = this;   
+        this.quill.off('text-change',_this._onTextChange());
+      }
+
+      static get properties() {
+        return {           
+            /**
+            * Indicates the label for the richtexteditor.
+            * It allows to add descriptive text for the richtexteditor to inform the user about the type of data 
+            * expected in the richtexteditor. 
+            */
+            label: {
+              type: String
+            },
+            
+            /**
+            * Indicates the encoded html output from the richtexteditor.
+            */
+            value: {
+                type: String,
+                notify: true,
+                observer: '_onValueChange'               
             },
 
-            attached: function(){
-              this.$.editorInput.$.bodyWordCount.setAttribute("style","display:none");
-              
-              if(this.readOnly) {
-                this._setViewModeValue();
-              } else {
-                this._setInnerHtml();
-              }
-            },
-            properties: { 
-                /**
-                * Indicates the label for the richtexteditor.
-                * It allows to add descriptive text for the richtexteditor to inform the user about the type of data 
-                * expected in the richtexteditor. 
-                */
-                label: {
-                  type: String
-                },
-               
-                /**
-                * Indicates the html output from the richtexteditor.
-                */
-                value: {
-                    type: String,
-                    notify: true,
-                    observer: '_setInnerHtml'
-                },
+            /**
+            * Specifies whether or not the richtexteditor is non-editable. 
+            * Set it to <b>true</b> to make the textbox read-only.
+            */
+            readOnly: {
+              type: Boolean,
+              value: false,                 
+              observer: '_onReadOnlySet'
 
-                /**
-                * Specifies whether or not the richtexteditor is non-editable. 
-                * Set it to <b>true</b> to make the textbox read-only.
-                */
-                readOnly: {
-                  type: Boolean,
-                  value: false,                 
-                  observer: '_onReadOnlySet'
-
-                }
-            },            
-                   
-            _onReadOnlySet: function() {
-                if(this.readOnly == true){
-                  this._setViewModeValue();
-                   //this.$.editorInput.setAttribute("style", "pointer-events:none");
-                } else {
-                  this._setInnerHtml();
-                   //this.$.editorInput.setAttribute("style", "pointer-events:auto");
-                }   
-                
             },
- 
-            _isEncoded: function(val) {
-                var rHTMLEncoded = /&[^\s]*/;
-                return rHTMLEncoded.test(val) ;
-            },
-
-            _decode: function(str) {
-              return str.replace(/&#(\d+);/g, function(match, dec) {
-                return String.fromCharCode(dec);
-              });
-            },
-    
-            _setInnerHtml: function(){               
-              var editorBody = this.$.editorInput.$.editorBody;  
-
-              //Return without doing anything for unchanged value
-              if(this.value == editorBody.innerHTML) {
-                return;
-              }
-
-              if(this.value == ""){
-                editorBody.innerHTML = "";
-              }          
-                                   
-              editorBody.innerHTML = this._getEncodedValue(this.value);
-            },
-
-            _setViewModeValue: function() {
-              this.$.viewBox.innerHTML = this._getEncodedValue(this.value);
-            },
- 
-            _getEncodedValue: function(pVal) {
-              var val = pVal;
-              if(this._isEncoded(val)) {
-                  val = this._decode(val);  
-              }
-              return val;
+            
+            /**
+            * Indicates the richtexteditor content container.
+            */
+            editor:{
+              type: Object
             }
             
-        });
-  </script>
+        }
+      }
+           
+      _onReadOnlySet() {
+        if(this.readOnly == true){
+          this._setViewModeValue();            
+        } else{
+          this._setEditorValue();  
+        }      
+      }
+  
+      //Set the input value when the RTE is in edit mode
+      _setEditorValue() {
+        var editorContent = this.value;
+        if(this.editor && this.value) {            
+            this.editor.innerHTML = editorContent;
+        }
+      }
 
+      //Set the input value when the RTE is in view mode
+      _setViewModeValue() {
+        this.$.viewBox.innerHTML = this.value;
+      }
+      
+      //Handle the text change event on the editor
+      _onTextChange(){        
+        if(this.editor) {
+          var encodedText =  this.editor.innerHTML;
+          //Return without doing anything for unchanged value
+          if(this.value == encodedText) {
+            return;
+          } 
+          this.value = encodedText;
+        }       
+      }
+
+      //Handle the value change from the editor as well as outside controls like revert/clear
+      _onValueChange() {
+        if(this.editor) {
+          var encodedText =  this.editor.innerHTML;
+          if(this.value == encodedText) { //value changed from editor
+            return;
+          } else if (this.value == "") { 
+            this.editor.innerHTML = "";
+          } else if (this.value != encodedText) { //value changed from other controls like revert or clear
+            this.editor.innerHTML = this.value;
+          }
+        }        
+      }    
+      
+    }
+    customElements.define(PebbleRichtexteditor.is, PebbleRichtexteditor);  
+  </script> 
 </dom-module>
