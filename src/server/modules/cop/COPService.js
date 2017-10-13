@@ -29,10 +29,17 @@ COPService.prototype = {
 
         var fileName = request.body.fileName;
         var originalFileName = request.body.originalFileName;
-        var profileName = request.body.profileName;
+        var copContext = {
+            "service": request.body.service,
+            "channel": request.body.channel,
+            "format": request.body.format,
+            "source": request.body.source,
+            "subtype": request.body.subtype,
+            "order": request.body.order
+        };
         var files = request.files;
         var hotline = request.body.hotline;
-        var copRequest = this._prepareCOPRequestForTransform(fileName, originalFileName, profileName, files, hotline);
+        var copRequest = this._prepareCOPRequestForTransform(fileName, originalFileName, files, hotline, copContext);
         //console.log('copRequest: ', JSON.stringify(copRequest, null, 2));
         return await this.post(copURL, copRequest);
     },
@@ -54,11 +61,18 @@ COPService.prototype = {
 
         var fileName = request.body.fileName;
         var originalFileName = request.body.originalFileName;
-        var profileName = request.body.profileName;
         var files = request.files;
         var workAutomationId = request.body.workAutomationId;
         var hotline = request.body.hotline;
-        var processRequest = this._prepareCOPRequestForProcess(fileName, originalFileName, profileName, files, hotline, workAutomationId);
+        var copContext = {
+            "service": request.body.service,
+            "channel": request.body.channel,
+            "format": request.body.format,
+            "source": request.body.source,
+            "subtype": request.body.subtype,
+            "order": request.body.order
+        };
+        var processRequest = this._prepareCOPRequestForProcess(fileName, originalFileName, copContext, files, hotline, workAutomationId);
         //console.log('processRequest: ', JSON.stringify(processRequest.dataObject.properties, null, 2));
         var result = await this.post(processURL, processRequest);
 
@@ -86,8 +100,15 @@ COPService.prototype = {
 
         var fileName = request.body.fileName;
         var originalFileName = request.body.originalFileName;
-        var profileName = request.body.profileName;
-        var processModelRequest = this._prepareCOPRequestForProcess(fileName, originalFileName, profileName);
+        var copContext = {
+            "service": request.body.service,
+            "channel": request.body.channel,
+            "format": request.body.format,
+            "source": request.body.source,
+            "subtype": request.body.subtype,
+            "order": request.body.order
+        };
+        var processModelRequest = this._prepareCOPRequestForProcess(fileName, originalFileName, copContext);
         //console.log('processRequest: ', JSON.stringify(processModelRequest.dataObject.properties, null, 2));
         return await this.post(processModelURL, processModelRequest);
     },
@@ -109,10 +130,17 @@ COPService.prototype = {
 
         var fileName = request.body.fileName;
         var originalFileName = request.body.originalFileName;
-        var profileName = request.body.profileName;
         var files = request.files;
         var hotline = request.body.hotline;
-        var generateFieldMapRequest = this._prepareCOPRequestForGenerateMap(fileName, originalFileName, profileName, files, hotline);
+        var copContext = {
+            "service": request.body.service,
+            "channel": request.body.channel,
+            "format": request.body.format,
+            "source": request.body.source,
+            "subtype": request.body.subtype,
+            "order": request.body.order
+        };
+        var generateFieldMapRequest = this._prepareCOPRequestForGenerateMap(fileName, originalFileName, files, hotline, copContext);
         //console.log('generateFieldMapRequest: ', JSON.stringify(generateFieldMapRequest, null, 2));
         return await this.post(generateFieldMapURL, generateFieldMapRequest);
     },
@@ -133,7 +161,7 @@ COPService.prototype = {
         var parsedRequest = JSON.parse(request.body.data);
         var fileName = parsedRequest.fileName + '-' + timeStamp;
 
-        //console.log('downloadDataRequest: ', JSON.stringify(request.body, null, 2));
+        //console.log('downloadDataRequest: ', JSON.stringify(parsedRequest, null, 2));
         var copResponse = await this.post(downloadDataURL, parsedRequest);
 
         this._handleDownloadResponse(copResponse, fileName, response);
@@ -209,6 +237,38 @@ COPService.prototype = {
         }
         return await this.post(copURL, request.body);
     },
+    getOverrides: async function (request) {
+        var copURL = "copservice/getprofile";
+        if (!request.body) {
+            return {
+                "dataOperationResponse": {
+                    "status": "Error",
+                    "statusDetail": {
+                        "code": "RSUI0001",
+                        "message": "Incorrect request to get user overrides",
+                        "messageType": "Error"
+                    }
+                }
+            };
+        }
+        return await this.post(copURL, request.body);
+    },
+    saveOverrides: async function (request) {
+        var copURL = "copservice/saveoverrides";
+        if (!request.body) {
+            return {
+                "dataOperationResponse": {
+                    "status": "Error",
+                    "statusDetail": {
+                        "code": "RSUI0001",
+                        "message": "Incorrect request to save user overrides",
+                        "messageType": "Error"
+                    }
+                }
+            };
+        }
+        return await this.post(copURL, request.body);
+    },
     _validateRequest: function (request) {
         if (!request.body) {
             return false;
@@ -219,14 +279,11 @@ COPService.prototype = {
         if (!request.body.originalFileName) {
             return false;
         }
-        if (!request.body.profileName) {
-            return false;
-        }
 
         return true;
     },
 
-    _prepareCOPRequestForTransform: function (fileName, originalFileName, profileName, files, hotline) {
+    _prepareCOPRequestForTransform: function (fileName, originalFileName, files, hotline, copContext) {
         var copRequest = {
             "dataObject": {
                 "id": "",
@@ -239,8 +296,12 @@ COPService.prototype = {
                     "createdDate": "2016-07-16T18:33:52.412-07:00",
                     "filename": "",
                     "encoding": "Base64",
-                    "profileId": "d75a63f9-ed4f-4b6e-9973-8743396b61c0",
-                    "profileName": ""
+                    "service": copContext.service,
+                    "channel": copContext.channel,
+                    "format": copContext.format,
+                    "source": copContext.source,
+                    "subtype": copContext.subtype,
+                    "order": copContext.order
                 },
                 "data": {
                     "blob": ""
@@ -254,17 +315,17 @@ COPService.prototype = {
 
         copRequest.dataObject.id = uuidV1();
         copRequest.dataObject.properties.filename = originalFileName;
-        copRequest.dataObject.properties.profileName = profileName;
+        //console.log("Transform request: ", JSON.stringify(copRequest, null, 2));
         copRequest.dataObject.data.blob = this._getFileContent(fileName, files);
         return copRequest;
     },
 
-    _prepareCOPRequestForProcess: function (fileName, originalFileName, profileName, files, hotline, workAutomationId) {
+    _prepareCOPRequestForProcess: function (fileName, originalFileName, copContext, files, hotline, workAutomationId) {
         var copRequest = {
             "dataObject": {
                 "id": "",
                 "dataObjectInfo": {
-                    "dataObjectType": "excelfile"
+                    "dataObjectType": "entityjson"
                 },
                 "properties": {
                     "createdByService": "user interface",
@@ -272,8 +333,12 @@ COPService.prototype = {
                     "createdDate": "2016-07-16T18:33:52.412-07:00",
                     "filename": "",
                     "encoding": "Base64",
-                    "profileId": "d75a63f9-ed4f-4b6e-9973-8743396b61c0",
-                    "profileName": "",
+                    "service": copContext.service,
+                    "channel": copContext.channel,
+                    "format": copContext.format,
+                    "source": copContext.source,
+                    "subtype": copContext.subtype,
+                    "order": copContext.order,
                     "workAutomationId": workAutomationId ? workAutomationId : "uuid"
                 },
                 "data": {
@@ -288,11 +353,11 @@ COPService.prototype = {
 
         copRequest.dataObject.id = uuidV1();
         copRequest.dataObject.properties.filename = originalFileName;
-        copRequest.dataObject.properties.profileName = profileName;
+        //console.log("Request for process:", JSON.stringify(copRequest));
         copRequest.dataObject.data.blob = this._getFileContent(fileName, files);
         return copRequest;
     },
-    _prepareCOPRequestForGenerateMap: function (fileName, originalFileName, profileName, files, hotline) {
+    _prepareCOPRequestForGenerateMap: function (fileName, originalFileName, files, hotline, copContext) {
         var copRequest = {
             "binaryObject": {
                 "id": "",
@@ -305,9 +370,12 @@ COPService.prototype = {
                     "createdDate": "2016-07-16T18:33:52.412-07:00",
                     "filename": "",
                     "encoding": "Base64",
-                    "profileId": "d75a63f9-ed4f-4b6e-9973-8743396b61c0",
-                    "profileName": "",
-                    "profileType": "COPProfile"
+                    "service": copContext.service,
+                    "channel": copContext.channel,
+                    "format": copContext.format,
+                    "source": copContext.source,
+                    "subtype": copContext.subtype,
+                    "order": copContext.order
                 },
                 "data": {
                     "blob": ""
@@ -321,7 +389,7 @@ COPService.prototype = {
 
         copRequest.binaryObject.id = uuidV1();
         copRequest.binaryObject.properties.filename = originalFileName;
-        copRequest.binaryObject.properties.profileName = profileName;
+        //console.log('generateFieldMapRequest: ', JSON.stringify(copRequest, null, 2));
         copRequest.binaryObject.data.blob = this._getFileContent(fileName, files);
         return copRequest;
     },
