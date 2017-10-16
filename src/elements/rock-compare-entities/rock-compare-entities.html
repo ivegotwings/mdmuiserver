@@ -3,6 +3,7 @@
 <link rel="import" href="../bedrock-helpers/context-helper.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html" />
+<link rel="import" href="../bedrock-helpers/data-transform-helper.html">
 
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
@@ -29,7 +30,7 @@
             <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
             </br>
             </br>
-            <rock-grid id="compareEntitiesGrid" data="{{_gridData}}" config="{{_gridConfig}}" page-size="5"></rock-grid>
+            <rock-grid id="compareEntitiesGrid" data="{{_gridData}}" attribute-models="{{_attributeModels}}" config="{{_gridConfig}}" page-size="5"></rock-grid>
 
             <liquid-entity-data-get operation="getbyids" id="entityDataGet" request-data="{{_entityGetRequest}}" on-response="_onEntityDataGetSuccess"
                 on-error="_onEntityDataGetFailure">
@@ -153,6 +154,12 @@
                     _loading: {
                         type: Boolean,
                         value: false
+                    },
+                    _attributeModels: {
+                        type: Object,
+                        value: function() {
+                            return {};
+                        }
                     }
                 };
             }
@@ -244,6 +251,7 @@
                                             "isFrozen": true
 
                                         });
+                                        this._attributeModels[key] = attribute;
                                     } else {
                                         if (!this._rowNameExist(key, frozenRowModels)) {
                                             frozenRowModels.push({
@@ -251,6 +259,7 @@
                                                 "name": key,
                                                 "isFrozen": true
                                             });
+                                            this._attributeModels[key] = attribute;
                                         }
                                     }
                                 } else {
@@ -259,12 +268,14 @@
                                             "header": attribute.properties.externalName,
                                             "name": key
                                         });
+                                        this._attributeModels[key] = attribute;
                                     } else {
                                         if (!this._rowNameExist(key, normalRowModels)) {
                                             normalRowModels.push({
                                                 "header": attribute.properties.externalName,
                                                 "name": key
                                             });
+                                            this._attributeModels[key] = attribute;
                                         }
                                     }
                                 }
@@ -333,12 +344,20 @@
                         "readFrom": "properties",
                         "isRowHeader": true
                     });
+                    
+                    var compositeModel = {
+                        "data" : {
+                            "attributes": this._attributeModels
+                        }
+                    };
+
+                    var transformedAttrModels = DataTransformHelper.transformAttributeModels(compositeModel, this._contextData);
 
                     this._rowsModel.forEach(function (row, index) {
                         var item = {};
                         entities.forEach(function (entity) {
                             var entityHeader = this._getEntityHeader(entity);
-                            var attributes = entity.data.attributes;
+                            var attributes = DataTransformHelper.transformAttributes(entity, transformedAttrModels, this._contextData);;
 
                             if (index == 0) {
                                 columns.push({
@@ -351,7 +370,7 @@
                             }
 
                             if (attributes && attributes[row.name]) {
-                                item[entity.id] = attributes[row.name].values ? attributes[row.name].values[0].value : "";
+                                item[entity.id] = typeof attributes[row.name].value == "object" ? attributes[row.name] : attributes[row.name].value;
                             } else {
                                 item[entity.id] = "";
                             }
@@ -392,6 +411,7 @@
                         }
 
                         item["Attributes"] = row.header;
+                        item["attributeName"] = row.name;
                         item["isEmpty"] = isEmpty;
                         item["hasPartialValues"] = hasPartialValues;
                         item["hasValues"] = hasValues;
@@ -430,7 +450,7 @@
                 return {
                     "viewMode": "Tabular",
                     "readOnly": true,
-                    "schemaType": "simple",
+                    "schemaType": "colModel",
                     "tabular": {
                         "settings": {
                             "isMultiSelect": false,

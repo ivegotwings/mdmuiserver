@@ -22,6 +22,7 @@
 <link rel="import" href="../pebble-popover/pebble-popover.html">
 <link rel="import" href="../pebble-toolbar/pebble-toolbar.html">
 <link rel="import" href="../rock-attribute/rock-attribute.html">
+<link rel="import" href="../rock-nested-attribute-grid/rock-nested-attribute-grid.html">
 <link rel="import" href="../rock-entity-tofix/rock-entity-tofix.html">
 <link rel="import" href="grid-list-view.html">
 <link rel="import" href="grid-tile-view.html">
@@ -420,6 +421,13 @@ The following JSON object is a config sample which configures the grid in all ab
 				font-size: var(--font-size-sm, 12px);
 				color: var(--palette-cerulean, #036bc3);
 				cursor: default;
+				min-width: 150px!important;
+			}
+
+			data-table-cell:not([header]):not(.check-filter) {
+				min-height: 40px!important;
+				height: auto !important;
+				min-width: 150px!important;
 			}
 
 			data-table-cell:not([header]) {
@@ -782,23 +790,32 @@ The following JSON object is a config sample which configures the grid in all ab
 						</data-table-column>
 						<template is="dom-if" if="[[config.readOnly]]">
 							<template is="dom-repeat" items="[[config.tabular.columns]]" as="col" index-as="colIndex">
-								<data-table-column slot="column-slot" name="[[col.header]]" column-index="{{colIndex}}" filter-by="[[_isFilterEnabled(col)]]"
-								 sort-by="[[_isSortable(col)]]" icon="pebble-md-icons:Edit" class="pebble-md-icons" column-object="[[col]]" width="[[_getColWidth(col)]]">
+								<data-table-column model-object="{{_getAttributeModelObject(col)}}" slot="column-slot" name="[[col.header]]" column-index="{{colIndex}}"
+								 filter-by="[[_isFilterEnabled(col)]]" sort-by="[[_isSortable(col)]]" icon="pebble-md-icons:Edit" class="pebble-md-icons"
+								 column-object="[[col]]" width="[[_getColWidth(col)]]">
 									<template>
-										<template is="dom-if" if="[[_hasLinkTemplate(column.columnObject, item)]]">
-											<a slot="cell-slot-content" href$="[[_getLink(column.columnObject, item)]]">
-												<div class="cell tooltip-bottom" data-tooltip$="[[_columnValue(item, column.columnIndex)]]">
+
+										<template is="dom-if" if="[[_isNestedAttribute(item, colIndex)]]">
+											<a slot="cell-slot-content" href="#" on-tap="_openNestedAttr" data="[[_getRowModelAndData(item, column.columnObject)]]">
+												<span> click here to see values ([[_getNetsedAtrributeValueCount(item, column.columnObject)]]) </span>
+											</a>
+										</template>
+
+										<template is="dom-if" if="[[!_isNestedAttribute(item, colIndex)]]">
+											<template is="dom-if" if="[[_hasLinkTemplate(column.columnObject, item)]]">
+												<a slot="cell-slot-content" href$="[[_getLink(column.columnObject, item)]]">
+													<div class="cell tooltip-bottom" data-tooltip$="[[_columnValue(item, column.columnIndex)]]">
+														<span>[[_columnValue(item, column.columnIndex)]]</span>
+													</div>
+												</a>
+
+											</template>
+											<template is="dom-if" if="[[!_hasLinkTemplate(column.columnObject, item)]]">
+												<div slot="cell-slot-content" class="cell tooltip-bottom" data-tooltip$="[[_columnValue(item, column.columnIndex)]]">
 													<span>[[_columnValue(item, column.columnIndex)]]</span>
 												</div>
-											</a>
-
+											</template>
 										</template>
-										<template is="dom-if" if="[[!_hasLinkTemplate(column.columnObject, item)]]">
-											<div slot="cell-slot-content" class="cell tooltip-bottom" data-tooltip$="[[_columnValue(item, column.columnIndex)]]">
-												<span>[[_columnValue(item, column.columnIndex)]]</span>
-											</div>
-										</template>
-
 									</template>
 								</data-table-column>
 							</template>
@@ -809,6 +826,7 @@ The following JSON object is a config sample which configures the grid in all ab
 								 filter-by="[[_isFilterEnabled(col)]]" sort-by="[[_isSortable(col)]]" icon="pebble-md-icons:Edit" class="pebble-md-icons"
 								 column-object="[[col]]" width="[[_getColWidth(col)]]">
 									<template>
+
 										<template is="dom-if" if="[[_hasLinkTemplate(column.columnObject, item)]]">
 											<a href$="[[_getLink(column.columnObject, item)]]" slot="cell-slot-content">
 												<template is="dom-if" if="[[!column.columnObject.readOnly]]">
@@ -837,6 +855,7 @@ The following JSON object is a config sample which configures the grid in all ab
 												</div>
 											</template>
 										</template>
+
 									</template>
 								</data-table-column>
 							</template>
@@ -867,6 +886,11 @@ The following JSON object is a config sample which configures the grid in all ab
 		<pebble-dialog id="gridMsgDialog" show-ok show-cancel show-close-icon>
 			<p id="msgDialog">
 			</p>
+		</pebble-dialog>
+		<pebble-dialog id="attributeDialog" show-ok show-cancel show-close-icon modal>
+			<div id="attrDialogContainer">
+
+			</div>
 		</pebble-dialog>
 		<bedrock-pubsub target-id="gridMsgDialog" event-name="on-buttonok-clicked" handler="_onDialogOk"></bedrock-pubsub>
 		<bedrock-pubsub target-id="gridMsgDialog" event-name="on-buttoncancel-clicked" handler="_onDialogCancel"></bedrock-pubsub>
@@ -1862,6 +1886,26 @@ The following JSON object is a config sample which configures the grid in all ab
 						}
 					}
 				},
+				_getAttributeRowModelObject: function (attrName) {
+					// var displayType = "";
+					// if (this.config.schemaType == undefined || this.config.schemaType == "simple") {
+					// 	if (!col.displayType) {
+					// 		col.displayType = col.editType;
+					// 	}
+
+					// 	return col;
+					// } else if (this.config.schemaType == "attribute" || this.config.schemaType == "colModel") {
+					// 	if (this.attributeModels[col.name]) {
+					// 		return this.attributeModels[col.name];
+					// 	}
+					// 	else {
+					// 		return {};
+					// 	}
+					// }
+					if (attrName && this.attributeModels) {
+						return this.attributeModels[attrName];
+					}
+				},
 				_getAttributeObject: function (item, currentAttributeModelObject, columnIndex, index) {
 					var attributeObject = {
 						"name": currentAttributeModelObject.name,
@@ -2463,7 +2507,69 @@ The following JSON object is a config sample which configures the grid in all ab
 							window.dispatchEvent(new CustomEvent('location-changed'));
 						}
 					}
+				},
+
+				_isNestedAttribute: function (item, colIndex) {
+					if (!_.isEmpty(item) && this.config.tabular.rows) {
+						var col = this.config.tabular.columns[colIndex];
+
+						if (!col.isRowHeader) {
+							var attrName = item.attributeName;
+							var attrModel = this.attributeModels[attrName];
+
+							if (attrModel && attrModel.properties.dataType == "nested") {
+								return true;
+							}
+						}
+					}
+				},
+
+				_getRowModelAndData: function (item, col) {
+					if (item) {
+						var attrName = item.attributeName;
+						var attrModel = this.attributeModels[attrName];
+						//debugger;
+						if (attrModel) {
+							return {
+								"attrModel": attrModel,
+								"attr": item[col.header]
+							};
+						}
+					}
+				},
+
+				_openNestedAttr: function (e) {
+					var attrModel = e.currentTarget.data.attrModel;
+					var attrDialog = this.$$('#attributeDialog');
+					if (attrModel && attrModel) {
+						var rockComponent = customElements.get("rock-nested-attribute-grid");
+						var rockElement = new rockComponent();
+
+						delete attrModel.group[0].id;
+
+						rockElement.attributeModelObject = attrModel;
+						rockElement.attributeObject = e.currentTarget.data.attr;
+						rockElement.contextData = "";
+						rockElement.mode = "read";
+
+						var attrDialogContainer = attrDialog.querySelector('#attrDialogContainer');
+
+						if (attrDialogContainer.firstElementChild) {
+							attrDialogContainer.removeChild(attrDialogContainer.firstElementChild);
+						}
+
+						attrDialogContainer.appendChild(rockElement);
+					}
+
+					attrDialog.open();
+				},
+
+				_getNetsedAtrributeValueCount: function(item, col) {
+					if(!_.isEmpty(item) && col) {
+						return item[col.header] && item[col.header].value ? item[col.header].value.length : '0';
+					}
 				}
+
 			});
 		})();
 	</script>
