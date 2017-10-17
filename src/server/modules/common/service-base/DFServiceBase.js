@@ -2,7 +2,7 @@
 
 var DFConnection = require('./DFConnection');
 var executionContext = require('../context-manager/execution-context');
-var logger = require('../logger/logger');
+var logger = require('../logger/logger-service');
 
 var cryptoJS = require("crypto-js");
 var moment = require('moment');
@@ -69,7 +69,7 @@ var DFServiceBase = function (options) {
         if(!isErrorResponse) {
             logger.logResponse(internalRequestId, url, options, result, hrstart);
         }
-
+        logger.debug("RDF_RESPONSE",{response:result, request:options, url:url});
         return result;
     };
 
