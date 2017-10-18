@@ -10,6 +10,7 @@ require('./df-rest-service-config.js');
 
 var offlineRestService = null;
 var notifyUtil = notificationUtil.DataObjectNotificationUtil;
+var logger = require('../logger/logger-service.js');
 
 var DFRestService = function (options) {
     DFServiceBase.call(this, options);
@@ -19,7 +20,6 @@ var DFRestService = function (options) {
     this.post = async function (url, request, offlineCallback = this.defaultOfflineCallback) {
         //console.log('DFRestService url', url);
         //console.log('DFRestService request', JSON.stringify(request));
-
         var serviceConfig = SERVICE_CONFIG.services[url];
         //console.log('DFRestService serviceConfig', JSON.stringify(serviceConfig));
 
