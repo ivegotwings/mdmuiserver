@@ -59,11 +59,8 @@ LoggerService.prototype = {
   warn: function (msg, obj, service) {
     return this._log(msg, obj, service, 'warn');
   },
-  error: function (msg, obj) {
+  error: function (msg, obj, service) {
     return this._log(msg, obj, service, 'error');
-  },
-  trace: function (msg, obj) {
-    return this._log(msg, obj, service, 'trace');
   },
   debug: function (msg, obj, service) {
     return this._log(msg, obj, service, 'debug');
@@ -100,9 +97,6 @@ LoggerService.prototype = {
         case 'debug':
           this._logger.debug(formattedObject);
           break;
-        case 'trace':
-          this._logger.trace(formattedObject);
-          break;
         case 'info':
           this._logger.info(formattedObject);
           break;
@@ -119,7 +113,7 @@ LoggerService.prototype = {
     }
   },
   _isLogLevelEnabled: function (level, serviceName) {
-    var loggerLevels = ["fatal", "error", "info", "debug"];
+    var loggerLevels = ["fatal", "error", "warn", "info", "debug"];
     var modulesObject = LOGGER_CONFIG.getModulesObject();
     if (modulesObject[serviceName] && modulesObject[serviceName].level) {
       if (loggerLevels.indexOf(level) <= loggerLevels.indexOf(modulesObject[serviceName].level)) {
@@ -191,9 +185,10 @@ LoggerService.prototype = {
     var internalRequestId = uuidV1();
     var requestLog = {
       "requestId": internalRequestId,
-      "url": url
+      "url": url,
+      "request": options
     }
-    this.info("RDF_REQUEST_INITIATED", requestLog);
+    this.debug("RDF_REQUEST_INITIATED", requestLog);
     return internalRequestId;
   },
   logError: function (internalRequestId, url, options, result) {

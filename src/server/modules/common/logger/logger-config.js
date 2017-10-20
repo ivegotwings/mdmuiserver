@@ -19,12 +19,21 @@ var LOGGER_CONFIG = function(){
             "level": "info"
         },
         "entityappservice": {
-            "level": "debug"
+            "level": "info"
+        },
+        "entitymodelservice": {
+            "level": "info"
+        },
+        "entitygovernservice": {
+            "level": "info"
         },
         "configurationservice": {
-            "level": "trace"
+            "level": "info"
         },
         "copservice": {
+            "level": "info"
+        },
+        "matchservice": {
             "level": "info"
         },
         "binarystreamobjectservice": {
@@ -48,9 +57,9 @@ var LOGGER_CONFIG = function(){
         // "ruf-client": {
         //     "level": "info"
         // },
-        // "web-engine": {
-        //     "level": "info"
-        // },
+        "web-engine": {
+            "level": "info"
+        },
         "default": {
             "level": "info"
         }
