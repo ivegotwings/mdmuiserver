@@ -2,7 +2,7 @@
 
 var DFConnection = require('./DFConnection');
 var executionContext = require('../context-manager/execution-context');
-var logger = require("../logger/logger-service");
+var logger = require('../logger/logger-service');
 
 var cryptoJS = require("crypto-js");
 var moment = require('moment');
@@ -51,12 +51,12 @@ var DFServiceBase = function (options) {
         };
 
         var hrstart = process.hrtime();
-        var internalRequestId = this._logRequest(url, options);
+        var internalRequestId = logger.logRequest(url, options);
         var _self = this;
 
         var reqPromise = this._restRequest(options)
             .catch(function (error) {
-               _self._logException(internalRequestId, url, options, error);
+               logger.logException(internalRequestId, url, options, error);
             })
             .catch(function (err) {
                 console.error(err); // This will print any error that was thrown in the previous error handler.
@@ -64,12 +64,12 @@ var DFServiceBase = function (options) {
 
         var result = await reqPromise;
 
-        var isErrorResponse = this._logError(internalRequestId, url, options, result);
+        var isErrorResponse = logger.logError(internalRequestId, url, options, result);
 
         if(!isErrorResponse) {
-            this._logResponse(internalRequestId, url, options, result, hrstart);
+            logger.logResponse(internalRequestId, url, options, result, hrstart);
         }
-
+        logger.debug("RDF_RESPONSE",{response:result, request:options, url:url});
         return result;
     };
 
@@ -144,101 +144,6 @@ var DFServiceBase = function (options) {
 
         headers["x-rdp-authtoken"] = cryptoJS.HmacSHA256(url.split('?')[1], securityContext.clientAuthKey).toString(cryptoJS.enc.Base64);
         return headers;
-    }
-
-    this._logRequest = function(url, options) {
-        var internalRequestId = "";
-
-        for (var logServiceName of this._logServiceNames) {
-            var serviceLogSetting = this._logSettings[logServiceName];
-            if((serviceLogSetting == "trace-request" || serviceLogSetting == "trace-all") && url.indexOf(logServiceName) > 0) {
-                internalRequestId = uuidV1();
-                var requestLog = {
-                    "req": {
-                        "type": "RDF_REQUEST",
-                        "service": url,
-                        "requestId": internalRequestId,
-                        "request": JSON.stringify(options)
-                    }
-                };
-
-                //console.log('\n\n', JSON.stringify(requestLog));
-                logger.info('RDF request', requestLog);
-            }
-        }
-
-        return internalRequestId;
-    }
-
-    this._logError = function (internalRequestId, url, options, result) {
-        var isErrorResponse = false;
-
-        //check if response object has error status
-        if(result && result.response && result.response.status) {
-            var resStatus = result.response.status;
-            if(resStatus && resStatus == "error") {
-                isErrorResponse = true;
-            }
-        }
-
-        //check if generic failure happend in RDF layer
-        if(!isErrorResponse && result && result.dataObjectOperationResponse && result.dataObjectOperationResponse.status) {
-            var resStatus = result.dataObjectOperationResponse.status;
-            if(resStatus && resStatus == "error") {
-                isErrorResponse = true;
-            }
-        }
-
-        if(isErrorResponse) {
-            var errorJson = {
-                "err": {
-                    "type": "RDF_ERROR",
-                    "service": url,
-                    "requestId": internalRequestId,
-                    "request": options,
-                    "response": result,
-                }
-            };
-
-            logger.error('RDF error', errorJson);
-        }
-
-        return isErrorResponse;
-    }
-
-    this._logException = function (internalRequestId, url, options, error) {
-        var exceptionJson = {
-            "exception": {
-                "type": "RDF_CALL_EXCEPTION",
-                "service": url,
-                "detail": error,
-                "requestId": internalRequestId,
-                "request": options
-            }
-        };
-
-        logger.fatal('RDF exception', exceptionJson);
-    }
-
-    this._logResponse = function(internalRequestId, url, options, result, hrstart) {
-        for (var logServiceName of this._logServiceNames) {
-            var serviceLogSetting = this._logSettings[logServiceName];
-            if((serviceLogSetting == "trace-response" || serviceLogSetting == "trace-all") && url.indexOf(logServiceName) > 0) {
-                var hrend = process.hrtime(hrstart);
-                var taken = hrend[1]/1000000;
-                var responseLog = {
-                    "res": {
-                        "type": "RDF_RESPONSE",
-                        "service": url,
-                        "taken": taken,
-                        "requestId": internalRequestId,
-                        "response": JSON.stringify(result)
-                    }
-                };
-
-                logger.info('RDF response', responseLog);
-            }
-        }
     }
 
     //console.log('Data platform service instance initiated with ', JSON.stringify({options: options, baseUrl: this.baseUrl}, null, 4));

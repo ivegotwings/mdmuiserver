@@ -10,7 +10,6 @@ require('./df-rest-service-config.js');
 
 var offlineRestService = null;
 var notifyUtil = notificationUtil.DataObjectNotificationUtil;
-var logger = require('../logger/logger-service.js');
 
 var DFRestService = function (options) {
     DFServiceBase.call(this, options);
