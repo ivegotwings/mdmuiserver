@@ -7,7 +7,8 @@
 <link rel="import" href="../bedrock-app-behavior/bedrock-app-behavior.html" />
 <link rel="import" href="../bedrock-helpers/context-helper.html" />
 
-<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html" />
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html" />
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-gridsystem.html" />
 <link rel="import" href="../pebble-button/pebble-button.html" />
 <link rel="import" href="../pebble-actions/pebble-actions.html" />
 <link rel="import" href="../pebble-popover/pebble-popover.html" />
@@ -23,7 +24,7 @@
 
 <dom-module id="rock-entity-search-discovery">
     <template>
-        <style include="pebble-styles-shared"></style>
+        <style include="bedrock-style-common bedrock-style-gridsystem"></style>
         <style include="iron-flex"></style>
         <style is="custom-style">
              :host {
@@ -40,15 +41,36 @@
                 };
             }
 
-            .search-container {
-                width: 100%
+            .search-container .resetsearch {
+                position: absolute;
+                right: 0;
+                bottom: -14px;
+                font-size: var(--font-size-xs, 10px);
+                color: var(--link-text-color);
             }
 
-            #savedSearchButton {
-                --pebble-button: {
-                    font-size: var(--default-font-size, 14px);
-                    padding-top:3px;                  
+            .search-container .resetsearch pebble-button {
+                --pebble-button-notraised:{
+                    font-size: var(--font-size-xs, 10px)!important;
+                    bottom:3px;
                 };
+                --pebble-button-icon: {
+                    width: 14px !important;
+                    height: 14px!important;
+                    margin-right: 2px;
+                    margin-top: 3px;
+                    bottom: -1px;
+                };
+                --pebble-button-left-icon:{
+                    width:14px;
+                    height:14px;
+                };
+            }
+
+            .search-container {
+                position: relative;
+                display: inline-block;
+                width: 100%;
             }
 
             #savedSearchPopover {
@@ -61,11 +83,7 @@
                 --popover: {
                     overflow: inherit;
                 }
-                --pebble-button-notraised:{
-                    font-size:12px;
-                };
             }
-
 
             #rockSavedSearch {
                 --saved-search-tab-content: {
@@ -133,6 +151,35 @@
                     margin-right:10px;
                 }
             }
+            /* Search */
+            .search-container .resetsearch {
+                position: absolute;
+                right: 0;
+                bottom: -14px;
+                font-size: var(--font-size-xs, 10px);
+                color: var(--link-text-color);
+                --pebble-button-left-icon: {
+                    width: 14px !important;
+                    height: 14px!important;
+                    margin-right: 2px;
+                    margin-top: 3px;
+                    bottom: -1px;
+                };
+            }
+
+            .search-container .resetsearch pebble-button {
+                height: auto;
+                --pebble-button: {
+                    font-size: var(--font-size-xs, 10px)!important;
+                    height: auto;
+                };
+            }
+
+            .search-container {
+                position: relative;
+                display: inline-block;
+                width: 100%;
+            }
         </style>
         <template is="dom-if" if="[[_processTemplate]]">
             <div class="grid-filters">
@@ -179,7 +226,7 @@
                     <template is="dom-if" if="[[_getVisibility('rock-entity-search-filter')]]">
                         <div class="flex searchFilterTag">
                             <rock-entity-search-filter id="entitySearchFilter" selected-search-filters="{{_selectedSearchFilters}}" context-data="{{contextData}}"
-                                types-criterion="[[_typesCriterion]]" tags="{{tags}}"></rock-entity-search-filter>
+                                types-criterion="[[_typesCriterion]]" tags="{{tags}}" filters-config="[[getParentAppConfig('rock-entity-search-discovery', '', 'attributesFilterSortDetails')]]"></rock-entity-search-filter>
                             <bedrock-pubsub event-name="tag-item-added" handler="_showResetSearch"></bedrock-pubsub>
                             <bedrock-pubsub event-name="tag-item-remove" handler="_showResetSearch"></bedrock-pubsub>
                         </div>
@@ -702,8 +749,7 @@
 
                         // search filter info
                         this._selectedSearchFilters = [];
-                        this._entitySearchFilterElement.tags = savedSearch.searchTags ? savedSearch.searchTags :
-                            [];
+                        this._entitySearchFilterElement.tags = savedSearch.searchTags ? this._formatSavedSearchTags(savedSearch.searchTags) : [];
                         if (!DataHelper.isEmptyObject(this._entitySearchFilterElement.tags)) {
                             for (var i = 0; i < this._entitySearchFilterElement.tags.length; i++) {
                                 var attr = {};
@@ -733,6 +779,39 @@
                         this.set("_typesCriterion", typesCriterion);
                         this.refresh();
                     }
+                },
+
+                /**
+                 * Fallback logic for existing saved searches
+                 * textbox to textbox collection
+                 * lov display
+                 */
+                _formatSavedSearchTags: function(savedSearchTags) {
+                    if(savedSearchTags.length > 0) {
+                        for(var i = 0; i < savedSearchTags.length; i++) {
+                            var tag = savedSearchTags[i];
+                            if(tag && tag.value && tag.options) {
+                                //LOV
+                                if(tag.options.isReferenceType && 
+                                   tag.value.exacts && tag.value.exacts.length > 0 &&  this._entitySearchFilterElement) {
+                                    tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(tag.value.exacts);
+                                }
+
+                                //textbox
+                                if(tag.options.displayType == "textbox" && 
+                                   !tag.value.exacts &&
+                                   tag.value.exact && 
+                                   this._entitySearchFilterElement) {
+                                    tag.value.exacts = [];
+                                    tag.value.exacts.push(tag.value.exact);
+                                    delete tag.value.type;
+                                    tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(tag.value.exacts);
+                                }
+                            }
+                        }
+                    }
+
+                    return savedSearchTags;
                 },
 
 
