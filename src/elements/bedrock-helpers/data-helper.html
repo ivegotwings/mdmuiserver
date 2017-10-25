@@ -265,49 +265,71 @@
                 Math.abs(Math.floor(Math.random() * x) ^ new Date().getTime()).toString(36);
         };
 
-        DataHelper.sort = function (arrayOfObjects, sortByProperty, dataType, sortType) {
+        DataHelper.sort = function (arrayOfObjects, sortByProperty, dataType, sortType, sortByAdditionalProperties) {
             var sortedData = arrayOfObjects;
             if (arrayOfObjects && sortByProperty) {
-                if (dataType == "date" || dataType == "datetime") {
-                    sortedData = arrayOfObjects.sort(function (item1, item2) {
-                        item1[sortByProperty] = item1[sortByProperty] != undefined ? item1[sortByProperty] : "";
-                        item2[sortByProperty] = item2[sortByProperty] != undefined ? item2[sortByProperty] : "";
-                        if (sortType == "desc") {
-                            return new Date(item1[sortByProperty]) < new Date(item2[sortByProperty]) ? 1 : -1;
-                        } else {
-                            return new Date(item1[sortByProperty]) > new Date(item2[sortByProperty]) ? 1 : -1;
-                        }
-                    });
-                } else if (dataType == "integer" || dataType == "decimal") {
-                    this._assignDefaultForIntegerSort(arrayOfObjects, sortByProperty, sortType);
-                    sortedData = arrayOfObjects.sort(function (item1, item2) {
-                        item1[sortByProperty] = item1[sortByProperty] != undefined ? item1[sortByProperty] : "";
-                        item2[sortByProperty] = item2[sortByProperty] != undefined ? item2[sortByProperty] : "";
-                        if (item1[sortByProperty] != undefined && item2[sortByProperty] != undefined) {
-                            if (sortType == "desc") {
-                                return item1[sortByProperty] < item2[sortByProperty] ? 1 : -1;
-                            } else {
-                                return item1[sortByProperty] > item2[sortByProperty] ? 1 : -1;
-                            }
-                        }
-                    });
-                } else {
-                    sortedData = arrayOfObjects.sort(function (item1, item2) {
-                        item1[sortByProperty] = item1[sortByProperty] != undefined ? item1[sortByProperty] : "";
-                        item2[sortByProperty] = item2[sortByProperty] != undefined ? item2[sortByProperty] : "";
-                        if (sortType == "desc") {
-                            return item1[sortByProperty].toString().toLowerCase() < item2[sortByProperty].toString().toLowerCase() ? 1 : -1;
-                        } else {
-                            return item1[sortByProperty].toString().toLowerCase() > item2[sortByProperty].toString().toLowerCase() ? 1 : -1;
-                        }
-                    });
+
+                if (dataType == "integer" || dataType == "decimal") {
+                    this._assignDefaultForNumericSort(arrayOfObjects, sortByProperty, sortType);
                 }
+
+                sortedData = arrayOfObjects.sort(function (item1, item2) {
+                    var sortResult = DataHelper._applySort(item1, item2, sortByProperty, dataType, sortType);
+
+                    if(sortResult == 0 && sortByAdditionalProperties && sortByAdditionalProperties.length > 0) {
+                        return DataHelper._applyMultiSort(item1, item2, sortType, sortByAdditionalProperties);
+                    } else {
+                        return sortResult;
+                    }
+                });               
             }
 
             return sortedData;
         };
 
-        DataHelper._assignDefaultForIntegerSort = function(arrayOfObjects, property, sortType) {
+        DataHelper._applySort = function(item1, item2, property, dataType, sortType) {
+            var firstItem, secondItem; 
+            if (dataType == "date" || dataType == "datetime") {
+                firstItem = item1[property] ? new Date(item1[property]) : "";
+                secondItem = item2[property] ? new Date(item2[property]) : "";
+            } else if(dataType == "integer" || dataType == "decimal") {
+                firstItem = item1[property] ? parseFloat(item1[property]) : "";
+                secondItem = item2[property] ? parseFloat(item2[property]) : "";
+            } else {
+                firstItem = item1[property] ? item1[property].toString().toLowerCase() : "";
+                secondItem = item2[property] ? item2[property].toString().toLowerCase() : "";
+            }
+
+            if (sortType == "desc") {
+                if(firstItem < secondItem) return 1;
+                if(firstItem > secondItem) return -1;
+            } else {
+                if(firstItem > secondItem) return 1;
+                if(firstItem < secondItem) return -1;
+           }
+
+           return 0;
+        };
+
+        DataHelper._applyMultiSort = function(item1, item2, sortType, sortByAdditionalProperties) {
+            if (!sortByAdditionalProperties || sortByAdditionalProperties.length == 0) {
+                return 0;
+            }
+
+            for(var i = 0; i < sortByAdditionalProperties.length; i++) {
+                var sortResult = this._applySort(item1, item2, sortByAdditionalProperties[i].name, sortByAdditionalProperties[i].dataType, sortType);
+
+                if(sortResult == 0) {
+                    continue;
+                } else {
+                    return sortResult;
+                }
+            }
+
+            return 0;
+        };        
+
+        DataHelper._assignDefaultForNumericSort = function(arrayOfObjects, property, sortType) {
             var defaultValue = sortType == "desc" ? -1 : 9999999;
             for(var i=0;i<arrayOfObjects.length;i++) {
                 if(!arrayOfObjects[i][property]) {
