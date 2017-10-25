@@ -2,7 +2,7 @@
 require("babel-register");
 require("babel-polyfill");
 require("hogan.js");
-
+ 
 var express = require('express');
 var history = require('connect-history-api-fallback');
 var cors = require('cors');
@@ -62,7 +62,6 @@ logger.info('Web engine start - cors middleware is loaded');
 
 function compileTemplate(req, res, basePath, isIE11) {
     console.log("Compiling hogan.Js template...");
-    
     var userId = req.header("x-rdp-userid");
     var tenantId = req.header("x-rdp-tenantid");
     var userRoles = req.header("x-rdp-userroles");
@@ -87,17 +86,18 @@ function compileTemplate(req, res, basePath, isIE11) {
         options = { isAuthenticated: true, ecma: ecmaConditionalPath, tenantId: tenantId, userId: userId, roleId: userRoles, fullName: fullName, userName: userName, ownershipData: ownershipData, noPreload: false};
     }
 
-    var templatePath = basePath + '/build/main/src/views/index.hjs';      
+
+    var templatePath = buildPath + '/src/views/index.hjs';      
 
     fs.readFile(templatePath, 'utf8', function (err,data) {
       if (err) {
-        return console.log(err);
+        // return console.log(err);
       }
       var template = hogan.compile(data);
       var compiled = template.render(options);              
       fs.writeFile(templatePath.replace('src/views/index.hjs', 'src/static/' + ecmaConditionalPath + '/index.html'), compiled, function(err) {
         if(err) {
-            return console.log(err);
+            // return console.log(err);
         }
       }); 
     });
@@ -109,7 +109,7 @@ app.get('/', function(req, res) {
     var isIE11 = (req.headers['user-agent'].indexOf('rv:11')!==-1);
     compileTemplate(req, res, basePath, isIE11);
     var ecmaConditionalPath = isIE11 ? 'es5' : 'es6';
-    console.log("buildPath + '/index.html'", buildPath + '/src/static/' + ecmaConditionalPath + '/index.html');
+    console.log("file sent: ", buildPath + '/src/static/' + ecmaConditionalPath + '/index.html');
     send(req, buildPath + '/src/static/' + ecmaConditionalPath + '/index.html').pipe(res);
 })
 
@@ -193,7 +193,7 @@ logger.info('Web engine start - fileupload routes are loaded');
 //register static file root ...index.html..
 
 // Need to run compileTemplate() before this
-app.get('*', function(req, res) {    
+app.get('*', function(req, res) {        
     send(req, req.url).pipe(res);
 })
 

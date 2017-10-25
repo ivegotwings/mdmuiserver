@@ -45,7 +45,7 @@ global.config = {
     unbundledDirectory: 'unbundled/ui-platform',
     devDirectory: 'dev',
     bundleType: 'both',
-    serverFilePaths: ['app.js', 'src/server/**/*.js', 'src/shared/**/*.js'],
+    serverFilePaths: ['app.js', 'src/server/**/*.js'],
     clientFilePaths: ['src/main-app*.*', 'src/elements/**/*.{js,css,html}', 'src/data/**/*.*', 'src/shared/**/*.js'],
     liveReloadPort: 35729
   },
@@ -75,74 +75,75 @@ function waitFor(stream) {
   });
 }
 
-function checkDirectory(directory, callback) {  
-  fs.stat(directory, function(err, stats) {
-    //Check if error defined and the error code is "not exists"
-    if (err && err.errno === 34) {
-      //Create the directory, call the callback.
-      console.log("Folder does not exists");
-      // fs.mkdir(directory, callback);
-    } else {
-      //just in case there was a different error:
-      console.log("Folder exists");
-      callback(err)
-    }
-  });
-}
-
-
-
-gulp.task('main-build', function() {
-    
-    let dependeciesHtmlSplitter = new HtmlSplitter();
-    return del([mainPath])
-      .then(() => {
-        
-        polymerProject.sources()        
+gulp.task('build-main', function() {
+  let dependeciesHtmlSplitter = new HtmlSplitter();
+  return del([mainPath])
+    .then(() => {
+      polymerProject.sources()
         .pipe(gulp.dest(mainPath));
+      polymerProject.dependencies()
+        .pipe(gulp.dest(mainPath + "/src/static/es6"));
+      polymerProject.dependencies()
+        .pipe(dependeciesHtmlSplitter.split())
+        .pipe(gulpif('**/*.js', babel({'presets': [['es2015', {'modules': false, 'compact': false, 'allowReturnOutsideFunction': true}]]})))
+        .pipe(dependeciesHtmlSplitter.rejoin())
+        .pipe(gulp.dest(mainPath + "/src/static/es5"))
+    })
+});
 
-        polymerProject.dependencies()
-          .pipe(gulp.dest(mainPath + "/src/static/es6"));      
+gulp.task('build-dev', function() {
+  let dependeciesHtmlSplitter = new HtmlSplitter();
+  return del([devPath])
+    .then(() => {
+      polymerProject.sources()
+        .pipe(gulp.dest(devPath));
+      polymerProject.dependencies()
+        .pipe(gulp.dest(devPath + "/src/static/es6"));
+      polymerProject.dependencies()
+        .pipe(dependeciesHtmlSplitter.split())
+        .pipe(gulpif('**/*.js', babel({'presets': [['es2015', {'modules': false, 'compact': false, 'allowReturnOutsideFunction': true }]]})))
+        .pipe(dependeciesHtmlSplitter.rejoin())
+        .pipe(gulp.dest(devPath + "/src/static/es5"))
+    })
+});
 
-        polymerProject.dependencies()
-          .pipe(dependeciesHtmlSplitter.split())
-          .pipe(gulpif('**/*.js', babel({'presets': [['es2015', {'modules': false}]]})))
-          .pipe(dependeciesHtmlSplitter.rejoin())
-          // .pipe(polymerProject.addCustomElementsEs5Adapter())
-          .pipe(gulp.dest(mainPath + "/src/static/es5"))          
-          
-      })
-  });
+gulp.task('run-dev', function (cb) {
+  var started = false;
+  var appPath = devPath + "/app.js"; //default load app from build/unbundled path
+  appPath = (argv.appPath !== undefined) ? argv.appPath : appPath;
 
-gulp.task('dev-build', function () {
-  return new Promise((resolve, reject) => {
-    let sourcesStreamSplitter = new polymerBuild.HtmlSplitter();
-    let dependenciesStreamSplitter = new polymerBuild.HtmlSplitter();
-    console.log(`Deleting ${devPath} directory...`);
-    del([devPath])
-      .then(() => {
-        let sourcesStream = polymerProject.sources()
-          .pipe(sourcesStreamSplitter.split())
-          .pipe(sourcesStreamSplitter.rejoin());
-        let dependenciesStream = polymerProject.dependencies()
-          .pipe(dependenciesStreamSplitter.split())
-          .pipe(dependenciesStreamSplitter.rejoin());
-        let buildStream = mergeStream(sourcesStream, dependenciesStream)
-          .once('data', () => {
-            console.log('Analyzing build dependencies...');
-          });
-        buildStream = buildStream.pipe(polymerProject.addPushManifest());
-        buildStream = buildStream.pipe(gulp.dest(devPath));
-        return waitFor(buildStream);
-      })
-      .then(() => {
-        console.log('Build complete!');
-        resolve();
-      });
-  })
-})
+  var projectPath = appPath.replace('/app.js', '');
 
-gulp.task('app-nodemon', function (cb) {
+  var runOffline = (argv.runOffline !== undefined) ? argv.runOffline : 'false';
+  var lrEnabled = true;
+  if(lrEnabled) {
+    lr = tinylr();
+    lr.listen(global.config.build.liveReloadPort);
+  }  
+  console.log("appPath", appPath);
+  var stream = nodemon({
+                  script: appPath,
+                  env: { 
+                    'RUN_OFFLINE': runOffline, 
+                    'PROJECT_PATH': projectPath,
+                    'NODE_CONFIG_DIR': './src/server/config',
+                    'NODE_ENV': 'development',
+                    'BUILD_PATH': 'dev'
+                   }
+              });
+              
+    stream.on('start', function() {
+      console.log('start');
+      if(!started) {
+        cb();
+        started = true;  
+      }
+    });
+
+  return stream;
+});
+
+gulp.task('run-main', function (cb) {
   var started = false;
   var appPath = mainPath + "/app.js"; //default load app from build/unbundled path
   appPath = (argv.appPath !== undefined) ? argv.appPath : appPath;
@@ -166,7 +167,7 @@ gulp.task('app-nodemon', function (cb) {
   if(lrEnabled) {
     lr = tinylr();
     lr.listen(global.config.build.liveReloadPort);
-  }
+  }  
 
   console.log("appPath", appPath);
   console.log("projectPath", projectPath);
@@ -177,22 +178,27 @@ gulp.task('app-nodemon', function (cb) {
                     'RUN_OFFLINE': runOffline, 
                     'PROJECT_PATH': projectPath,
                     'NODE_CONFIG_DIR': './src/server/config',
-                    'NODE_ENV': 'development'
+                    'NODE_ENV': 'development',
+                    'BUILD_PATH': 'main'
                    }, // set env variables
                   //nodeArgs:['--debug'], // set node args
                   watch: global.config.build.serverFilePaths, // watch ES2015 code
                   ext: 'js html css json jpg jpeg png gif',
                   tasks: function (changedFiles) { // compile synchronously onChange
+                    console.log("files changed");
                     var tasks = [];
-                    if (!changedFiles || !lrEnabled) 
+                    if (!changedFiles || !lrEnabled) {
                       return tasks;
-                    // compileChangedDevFiles(changedFiles);
+                    }
+                     compileChangedDevFiles(changedFiles);
                     // stackLiveReload(changedFiles);
+                    
                     return tasks;
-                  } 
+                  }
               });
               
     stream.on('start', function() {
+      console.log('start');
       if(!started) {
         cb();
         started = true;  
@@ -202,13 +208,37 @@ gulp.task('app-nodemon', function (cb) {
   return stream;
 });
 
-gulp.task('watch-element-changes', function () {  
-  gulp.watch(global.config.build.clientFilePaths).on('change', function (fpath) {
-    console.log('file changed...', JSON.stringify(fpath));
-    return gulp.src(fpath, {base:'.'})
-          .pipe(gulp.dest(devPath));
+gulp.task('watch-dev', function () {  
+  gulp.watch(global.config.build.clientFilePaths).on('change', function (fpath) {    
+    copyStaticFiles(fpath);
+  });
+  gulp.watch(global.config.build.serverFilePaths).on('change', function (fpath) {    
+    copyServerFiles(fpath);
   });
 });
+
+function copyStaticFiles(fpath){
+  let dependeciesHtmlSplitter = new HtmlSplitter();
+  console.log('Change detected:',fpath);
+  gulp.src(fpath)
+    .pipe(gulp.dest('build/dev/src/static/es6/' + fpath.substring(0, fpath.lastIndexOf("/"))));
+    console.log('► Copying new file to ES6 folder ');
+    console.log('► Copying and compiling new file to ES5 folder ');
+  return gulp.src(fpath)
+    .pipe(dependeciesHtmlSplitter.split())
+    .pipe(gulpif('**/*.js', babel({'presets': [['es2015', {'modules': false, 'compact': false, 'allowReturnOutsideFunction': true}]]})))
+    .pipe(dependeciesHtmlSplitter.rejoin())
+    .pipe(gulp.dest('build/dev/src/static/es5/' + fpath.substring(0, fpath.lastIndexOf("/"))));
+}
+
+function copyServerFiles(fpath){
+  let dependeciesHtmlSplitter = new HtmlSplitter();
+  console.log('Change detected:',fpath);
+  console.log('► Copying new server file to /build/dev folder');
+  return gulp.src(fpath)
+    .pipe(gulp.dest('build/dev/' + fpath.substring(0, fpath.lastIndexOf("/"))));
+    
+}
 
 gulp.task('copy-node-modules', function () { 
   const bundleType = global.config.build.bundleType;
@@ -216,7 +246,7 @@ gulp.task('copy-node-modules', function () {
   return gulp.src(nodeModulesPath, {base: '.'}).pipe(gulp.dest(unbundledPath));
 });
 
-gulp.task('dev', gulp.series('app-nodemon', 'watch-element-changes'));
+gulp.task('dev', gulp.series('build-dev', 'run-dev', 'watch-dev'));
 
 function unbundledBuild() {
   return new Promise((resolve, reject) => { // eslint-disable-line no-unused-vars
