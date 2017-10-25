@@ -284,6 +284,23 @@ SERVICE_CONFIG = {
             "url": "/binaryobjectservice/getById",
             "mode": "online",
             "offlineSettings": {}
+        },
+        "copservice/getprofile": {
+            "url": "/rsConnectService/getprofile",
+            "mode": "online",
+            "offlineSettings": {
+            }
+        },
+        "copservice/saveoverrides": {
+            "url": "/rsConnectService/saveoverrides",
+            "mode": "online",
+            "offlineSettings": {
+            }
+        },
+        "entityappservice/delete": {
+            "url": "/entityappservice/delete",
+            "mode": "online",
+            "offlineSettings": {}
         }
     }
 };

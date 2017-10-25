@@ -7,14 +7,23 @@
 <link rel="import" href="../bedrock-helpers/data-transform-helper.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 
-<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-info-icon/pebble-info-icon.html">
 <link rel="import" href="../rock-grid/rock-grid.html">
 
 <dom-module id="rock-nested-attribute-grid">
     <template>
-        <style  include="pebble-styles-shared">
+        <style  include="bedrock-style-common">
+            .attribute-view-label {
+                font-size: var(--font-size-sm, 12px);
+                font-weight: normal;
+                font-style: normal;
+                font-stretch: normal;
+                line-height: 1.42;
+                text-transform: uppercase;
+                color: var(--label-text-color);
+            }
             #attributesGrid {
                 --rock-grid-height: 60px;
             }
@@ -161,6 +170,10 @@
                     _isGridDirty: {
                         type: Boolean,
                         value: false
+                    },
+                    _isGridReady: {
+                        type: Boolean,
+                        value: false
                     }
                 },
                 behaviors: [
@@ -179,7 +192,7 @@
                     }
                 },
                 _attributeObjectChanged: function(attributeObject) {
-                    if(!_.isEmpty(attributeObject) && attributeObject.value && (!this._isGridReady || (this.mode === "edit" && this.originalAttributeObject && this.originalAttributeObject.value && DataHelper.areEqualArrays(attributeObject.value, this.originalAttributeObject.value)))) {
+                    if(!_.isEmpty(attributeObject) && attributeObject.value && (!this._isGridReady || (this.originalAttributeObject && this.originalAttributeObject.value && DataHelper.areEqualArrays(attributeObject.value, this.originalAttributeObject.value)))) {
                         this._prepareGridData(attributeObject);
                     }
                 },
@@ -208,9 +221,7 @@
                 },
                 _prepareGridData: function(attributeObject) {
                     this._gridData = [];
-                    if(!this._isGridReady) {
-                        this.originalAttributeObject = DataHelper.cloneObject(attributeObject);
-                    }
+                    
                     this.async(function() {
                         if(attributeObject && attributeObject.value && attributeObject.value.length > 0) {
                             for(var  i=0; i<attributeObject.value.length; i++) {
@@ -282,34 +293,48 @@
                             for(var i=0; i<modifiedData.length; i++) {
                                 var rowData = modifiedData[i];
                                 var _status = rowData["_rowStatus"]["status"];
-                                var value = this.attributeObject.value.find(obj => obj.valueIdentifier.value === rowData.valueIdentifier);
-                                if(!value) {
-                                    var values = DataTransformHelper.transformNestedAttributes({}, this._attributeModels);
-                                    var value = values[0];
-                                    value["valueIdentifier"].value = rowData.valueIdentifier;
-                                    this.attributeObject.value.push(value);
-                                }
-                                if(_status !== "delete" && !this._isRowEmpty(rowData)) {
-                                    for(var attrName in rowData) {
-                                        if(this._attributeModels[attrName]) {
-                                            value[attrName] = value[attrName] ? value[attrName]: {};
-                                            value[attrName]["value"] = rowData[attrName];
-                                        }
-                                        if(attrName.indexOf("referenceDataId") !== -1) {
-                                            var name = attrName.substring(0, attrName.indexOf("_"));
-                                            value[name]["referenceDataId"] = rowData[attrName];
-                                        }
+                                var value = this.attributeObject.value.find(obj => obj.valueIdentifier.value === rowData.valueIdentifier && obj.action !== "delete");
+                                var deletedValue = this.attributeObject.value.find(obj => obj.valueIdentifier.value === rowData.valueIdentifier && obj.action === "delete");
+                                var originalVal = this.originalAttributeObject.value.find(obj => obj.valueIdentifier.value === rowData.valueIdentifier);
+                                if(this._isRowEmpty(rowData)) {
+                                    if(value) {
+                                        _status = "delete";
                                     }
                                 } else {
+                                    if(!value) {
+                                        value = this._getNewValueObject(rowData);
+                                        this.attributeObject.value.push(value);
+                                    }
+                                }
+                                if(_status === "delete") {
                                     var index = this.attributeObject.value.indexOf(value);
                                     if(index !== -1) {
-                                        this.attributeObject.value.splice(index, 1);
+                                        if(originalVal) {
+                                            this.attributeObject.value[index] = DataHelper.cloneObject(originalVal);
+                                        }
+                                        this.attributeObject.value[index]["action"] = "delete";
+                                    }
+                                } else if(this._isIdentifierUpdated(rowData, originalVal) && !deletedValue) {
+                                    var index = this.attributeObject.value.indexOf(value);
+                                    if(index !== -1) {
+                                        if(originalVal) {
+                                            this.attributeObject.value[index] = DataHelper.cloneObject(originalVal);
+                                        }
+                                        this.attributeObject.value[index]["action"] = "delete";
+                                    }
+                                    
+                                    var valObj = this._getNewValueObject(rowData);
+                                    this._updateValueWithData(rowData, valObj);
+                                    this.attributeObject.value.push(valObj);
+                                } else {
+                                    if(value) {
+                                        this._updateValueWithData(rowData, value);
                                     }
                                 }
                             }
                         }
                     } else if(this.changed === false) {
-                        this.attributeObject = this.originalAttributeObject;
+                        this.attributeObject = DataHelper.cloneObject(this.originalAttributeObject);
                     }
                 },
                 _isRowEmpty: function(rowData) {
@@ -327,6 +352,38 @@
                     }
                     return true;
                 },
+                _getNewValueObject: function(rowData) {
+                    var values = DataTransformHelper.transformNestedAttributes({}, this._attributeModels, true);
+                    var value = values[0];
+                    value["valueIdentifier"].value = rowData.valueIdentifier;
+                    return value
+                },
+                _isIdentifierUpdated: function(data, value) {
+                    var identifierAttrName = undefined;
+                    for(var attrName in this._attributeModels) {
+                        if(this._attributeModels[attrName] && this._attributeModels[attrName].isAttributeIdentifier === true) {
+                            identifierAttrName = this._attributeModels[attrName].name;
+                        }
+                    }
+                    if(identifierAttrName) {
+                        if(value && value[identifierAttrName] && data[identifierAttrName] !== value[identifierAttrName].value) {
+                            return true;
+                        }
+                    }
+                    return false;
+                },
+                _updateValueWithData: function(rowData, value) {
+                    for(var attrName in rowData) {
+                        if(this._attributeModels[attrName]) {
+                            value[attrName] = value[attrName] ? value[attrName]: {};
+                            value[attrName]["value"] = rowData[attrName];
+                        }
+                        if(attrName.indexOf("referenceDataId") !== -1) {
+                            var name = attrName.substring(0, attrName.indexOf("_"));
+                            value[name]["referenceDataId"] = rowData[attrName];
+                        }
+                    }
+                },
                 _onRowDelete: function(e, detail) {
                    this._notifyDirty();
                 },
@@ -335,7 +392,7 @@
                 },
                 _onAddRowClick: function(e) {
                     var length = this._gridData.length;
-                    var values = DataTransformHelper.transformNestedAttributes({}, this._attributeModels);
+                    var values = DataTransformHelper.transformNestedAttributes({}, this._attributeModels, true);
                     var value = values[0];
                     value["valueIdentifier"].value = length;
                     var newRowItem = {};
