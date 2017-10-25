@@ -18,7 +18,7 @@ const gulpif = require('gulp-if');
 const debug = require('gulp-debug');
 const browserSync = require('browser-sync');
 const reload = browserSync.reload;
-const HtmlSplitter = require('polymer-build').HtmlSplitter;
+
 
 const nodemon = require('gulp-nodemon');
 var tinylr = require('tiny-lr');
@@ -34,7 +34,7 @@ const HtmlSplitter = require('polymer-build').HtmlSplitter,
 
 const mergeStream = require('merge-stream');
 const forkStream = require('polymer-build').forkStream;
-const polymerBuild = require('polymer-build')
+const polymerBuild = require('polymer-build');
 
 // Here we add tools that will be used to process our source files.
 // const imagemin = require('gulp-imagemin');
@@ -104,13 +104,27 @@ gulp.task('build-dev', function() {
     .then(() => {
       polymerProject.sources()
         .pipe(gulp.dest(devPath));
+        
       polymerProject.dependencies()
-        .pipe(gulp.dest(devPath + "/src/static/es6"));
+        .pipe(gulp.dest(devPath + "/src/static/es6"));      
+      polymerBuild.addServiceWorker({
+          project: polymerProject,
+          buildRoot: devPath + "/src/static/es6",
+          bundled: false,
+          swPrecacheConfig: swPrecacheConfig
+      });
+
       polymerProject.dependencies()
         .pipe(dependeciesHtmlSplitter.split())
         .pipe(gulpif('**/*.js', babel({'presets': [['es2015', {'modules': false, 'compact': false, 'allowReturnOutsideFunction': true }]]})))
         .pipe(dependeciesHtmlSplitter.rejoin())
         .pipe(gulp.dest(devPath + "/src/static/es5"))
+      polymerBuild.addServiceWorker({
+          project: polymerProject,
+          buildRoot: devPath + "/src/static/es5",
+          bundled: false,
+          swPrecacheConfig: swPrecacheConfig
+      });
     })
 });
 
@@ -179,9 +193,6 @@ gulp.task('run-main', function (cb) {
     lr.listen(global.config.build.liveReloadPort);
   }  
 
-  console.log("appPath", appPath);
-  console.log("projectPath", projectPath);
-
   var stream = nodemon({
                   script: appPath,
                   env: { 
@@ -247,12 +258,10 @@ function copyServerFiles(fpath){
   console.log('Change detected:',fpath);
   console.log('► Copying new server file to /build/dev folder');
   return gulp.src(fpath)
-    .pipe(gulp.dest('build/dev/' + fpath.substring(0, fpath.lastIndexOf("/"))));
-    
+    .pipe(gulp.dest('build/dev/' + fpath.substring(0, fpath.lastIndexOf("/"))));    
 }
 
 gulp.task('copy-node-modules', function () { 
-
   const bundleType = global.config.build.bundleType;
   const nodeModulesPath = '/node_modules/**/*.*';
   return gulp.src(nodeModulesPath, { base: '.' }).pipe(gulp.dest(unbundledPath));
