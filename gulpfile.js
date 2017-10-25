@@ -90,11 +90,23 @@ gulp.task('build-main', function() {
         .pipe(gulp.dest(mainPath));
       polymerProject.dependencies()
         .pipe(gulp.dest(mainPath + "/src/static/es6"));
+      polymerBuild.addServiceWorker({
+          project: polymerProject,
+          buildRoot: devPath + "/src/static/es6",
+          bundled: false,
+          swPrecacheConfig: swPrecacheConfig
+      });
       polymerProject.dependencies()
         .pipe(dependeciesHtmlSplitter.split())
         .pipe(gulpif('**/*.js', babel({'presets': [['es2015', {'modules': false, 'compact': false, 'allowReturnOutsideFunction': true}]]})))
         .pipe(dependeciesHtmlSplitter.rejoin())
         .pipe(gulp.dest(mainPath + "/src/static/es5"))
+      polymerBuild.addServiceWorker({
+          project: polymerProject,
+          buildRoot: devPath + "/src/static/es5",
+          bundled: false,
+          swPrecacheConfig: swPrecacheConfig
+      });
     })
 });
 
@@ -104,7 +116,7 @@ gulp.task('build-dev', function() {
     .then(() => {
       polymerProject.sources()
         .pipe(gulp.dest(devPath));
-        
+
       polymerProject.dependencies()
         .pipe(gulp.dest(devPath + "/src/static/es6"));      
       polymerBuild.addServiceWorker({
