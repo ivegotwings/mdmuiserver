@@ -28,7 +28,7 @@ var argv = require('yargs').argv;
 const hogan = require("hogan.js");
 const mergeStream = require('merge-stream');
 const forkStream = require('polymer-build').forkStream;
-const polymerBuild = require('polymer-build');
+const polymerBuild = require('polymer-build')
 
 // Here we add tools that will be used to process our source files.
 // const imagemin = require('gulp-imagemin');
