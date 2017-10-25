@@ -1,25 +1,22 @@
 const getNamespace = require('continuation-local-storage').getNamespace;
 var urlModule = require('url');
+var config = require('config');
+
+var clientId = config.get('modules.dfService.clientId');
+var clientAuthKey = config.get('modules.dfService.clientAuthKey');
 
 function createSecurityContext(req) {
     var tid = req.headers["x-rdp-tenantid"];
     var uid = req.headers["x-rdp-userid"];
-    var role = req.headers["x-rdp-userroles"];
-    var tenantConfig;
-    if (tid) {
-        tenantConfig = require(process.cwd() + "/tenant-configs/" + tid.toLowerCase() + "-tenant-config");
-        if (!tenantConfig || !tenantConfig.clientId || !tenantConfig.clientAuthKey) {
-            console.log("Tenant configuration not found for tenant:" + tid);
-        }
-    }
+    var role = req.headers["x-rdp-userroles"];    
 
     var securityContext = {
         'user': uid,
         'role': role,
         'tenantId': tid,
-        'clientAuthKey': tenantConfig && tenantConfig.clientAuthKey ? tenantConfig.clientAuthKey : "",
+        'clientAuthKey': clientAuthKey ? clientAuthKey : "",
         'headers': {
-            "clientId": tenantConfig && tenantConfig.clientId ? tenantConfig.clientId : "",
+            "clientId": clientId ? clientId : "",
             "ownershipData": req.headers["x-rdp-ownershipdata"],
             "userId": uid,
             "firstName": req.headers["x-rdp-firstname"],

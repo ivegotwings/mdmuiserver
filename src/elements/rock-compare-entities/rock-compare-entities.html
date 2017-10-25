@@ -1,0 +1,533 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-helpers/context-helper.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html" />
+
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+<link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
+
+<link rel="import" href="../pebble-dropdown/pebble-dropdown.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
+
+<link rel="import" href="../rock-grid/rock-grid.html">
+
+<dom-module id="rock-compare-entities">
+    <template>
+        <link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html" />
+        <style include="pebble-styles-shared"></style>
+        <style>
+            #actionsButton {
+                float: right;
+            }
+        </style>
+
+        <div>
+            <pebble-spinner active="[[_loading]]"></pebble-spinner>
+
+            <pebble-dropdown id="actionsButton" label="Filter By" selected-value="{{_selectedValue}}" items="[[_dropDownItems]]"></pebble-dropdown>
+            <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
+            </br>
+            </br>
+            <rock-grid id="compareEntitiesGrid" data="{{_gridData}}" config="{{_gridConfig}}" page-size="5"></rock-grid>
+
+            <liquid-entity-data-get operation="getbyids" id="entityDataGet" request-data="{{_entityGetRequest}}" on-response="_onEntityDataGetSuccess"
+                on-error="_onEntityDataGetFailure">
+            </liquid-entity-data-get>
+
+            <bedrock-pubsub event-name="refresh-grid" handler="_onRefreshGrid" target-id="compareEntitiesGrid"></bedrock-pubsub>
+        </div>
+    </template>
+
+    <script>
+        class RockCompareEnities extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior], Polymer.Element) {
+            static get is() {
+                return 'rock-compare-entities';
+            }
+
+            static get properties() {
+                return {
+                    contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    selectedEntities: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _entityGetRequest: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _girdConfig: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _gridData: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _rowsModel: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _entityTypes: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _modelGetTracker: {
+                        type: Number,
+                        value: 0
+                    },
+                    _entityModels: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _data: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _dropDownItems: {
+                        type: Array,
+                        value: [
+                            {
+                                "value": "None",
+                                "title": "None"
+                            },
+                            {
+                                "value": "Has Values",
+                                "title": "Has Values"
+                            },
+                            {
+                                "value": "Has Partial Values",
+                                "title": "Has Partial Values"
+                            },
+                            {
+                                "value": "Has Same Values",
+                                "title": "Has Same Values"
+                            },
+                            {
+                                "value": "Is Empty",
+                                "title": "Is Empty"
+                            }
+                        ]
+                    },
+                    _selectedValue: {
+                        type: String,
+                        value: 'None'
+                    },
+                    _loading: {
+                        type: Boolean,
+                        value: false
+                    }
+                };
+            }
+
+            constructor() {
+                super();
+            }
+
+            connectedCallback() {
+                super.connectedCallback();
+
+                var pebbleDropDown = this.$$("#actionsButton");
+                if (pebbleDropDown) {
+                    pebbleDropDown.addEventListener('change', this._onDropdownChange.bind(this));
+                }
+
+                this._prepareContext();
+                this._attributeModelGet();
+            }
+
+            _attributeModelGet() {
+                if (this._contextData) {
+                    this._loading = true;
+                    if (this._entityTypes && this._entityTypes.length) {
+                        this._entityTypes.forEach(function (entityType) {
+                            var modelCompositeGet = this.shadowRoot.querySelector('#attr_' + entityType);
+                            if (modelCompositeGet) {
+                                liquidElement.generateRequest();
+                                this._modelGetTracker++;
+                            } else {
+                                var firstItemContext = this._contextData[ContextHelper.CONTEXT_TYPE_ITEM] && this._contextData[ContextHelper.CONTEXT_TYPE_ITEM].length ? this._contextData[ContextHelper.CONTEXT_TYPE_ITEM][0] : undefined;
+                                if (firstItemContext) {
+                                    firstItemContext.type = entityType;
+                                }
+
+                                var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this._contextData);
+                                var liquidCustomElement = customElements.get("liquid-entity-model-composite-get");
+                                var liquidElement = new liquidCustomElement();
+
+                                liquidElement.name = entityType;
+                                liquidElement.id = "attr_" + entityType;
+                                liquidElement.requestData = compositeModelGetRequest;
+                                liquidElement.addEventListener("entity-model-composite-get-response", this._onCompositeModelGetResponse.bind(this));
+
+                                this.shadowRoot.appendChild(liquidElement);
+
+                                liquidElement.generateRequest();
+                                this._modelGetTracker++;
+                            }
+                        }, this);
+                    }
+                }
+            }
+
+            _onCompositeModelGetResponse(e) {
+                var rows = [];
+                var entityModels = e.detail.response.content.entityModels;
+
+                if (entityModels && entityModels.length) {
+                    this._entityModels.push(entityModels[0]);
+                }
+
+                this._modelGetTracker--;
+
+                if (this._modelGetTracker == 0) {
+                    this._prepareGridRowsModel(this._entityModels, rows);
+                    this._rowsModel = rows;
+                    this._dataGet();
+                }
+            }
+
+            _prepareGridRowsModel(entityModels, rows) {
+                entityModels.forEach(function (entityModel) {
+                    if (entityModel && entityModel.data && entityModel.data.attributes) {
+                        var attributes = entityModel.data.attributes;
+
+                        Object.keys(attributes).forEach(function (key, index) {
+                            if (attributes[key]) {
+                                var attribute = attributes[key];
+
+                                if (index == 0) {
+                                    rows.push({
+                                        "header": attribute.properties.externalName,
+                                        "name": key
+                                    });
+                                } else {
+                                    if (!this._rowNameExist(key, rows)) {
+                                        rows.push({
+                                            "header": attribute.properties.externalName,
+                                            "name": key
+                                        });
+                                    }
+                                }
+                            }
+                        }, this);
+                    }
+                }, this);
+            }
+
+            _rowNameExist(rowName, rows) {
+                var existingRows = [];
+                if (rowName && rows && rows.length) {
+                    existingRows = rows.filter(function (row) {
+                        return row.name == rowName
+                    });
+                }
+
+                if (existingRows) {
+                    if (existingRows.length) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+            }
+
+            _onEntityDataGetSuccess(e) {
+                var columns = [];
+                var items = [];
+
+                var entities = e.detail.response.content.entities;
+
+                if (entities && entities.length) {
+                    this._prepareGridColumnsModelAndData(entities, columns, items);
+                }
+
+                var gridConfig = this._getBaseGridConfig();
+                gridConfig.tabular.columns = columns;
+                gridConfig.tabular.rows = this._rowsModel;
+
+                this._gridConfig = gridConfig;
+                this._gridData = this._data = items;
+
+                this._loading = false;
+            }
+
+            _prepareGridColumnsModelAndData(entities, columns, items) {
+                if (this._rowsModel && this._rowsModel) {
+
+                    columns.push({
+                        "header": "attributes",
+                        "name": "Attributes",
+                        "sortable": false,
+                        "filterable": false,
+                        "readFrom": "properties",
+                        "isRowHeader": true
+                    });
+
+                    this._rowsModel.forEach(function (row, index) {
+                        var item = {};
+                        entities.forEach(function (entity) {
+                            var attributes = entity.data.attributes;
+
+                            if (index == 0) {
+                                columns.push({
+                                    "header": entity.id,
+                                    "name": entity.id,
+                                    "sortable": false,
+                                    "filterable": false,
+                                    "readFrom": "properties"
+                                });
+                            }
+
+                            if (attributes && attributes[row.name]) {
+                                item[entity.id] = attributes[row.name].values ? attributes[row.name].values[0].value : "";
+                            } else {
+                                item[entity.id] = "";
+                            }
+                        }, this);
+
+
+                        var isEmpty = false;
+                        var hasPartialValues = false;
+                        var hasValues = false;
+                        var sameValues = false;
+
+                        Object.keys(item).forEach(function (key) {
+                            if (!hasPartialValues) {
+                                if (item[key] == "") {
+                                    if (hasValues) {
+                                        hasPartialValues = true;
+                                        hasValues = false;
+                                    } else {
+                                        isEmpty = true;
+                                    }
+                                } else {
+                                    if (isEmpty) {
+                                        hasPartialValues = true;
+                                        isEmpty = false;
+                                    } else {
+                                        hasValues = true;
+                                    }
+                                }
+                            }
+                        }, this);
+
+                        if (hasValues) {
+                            var uniqueValues = _.uniq(_.values(item));
+                            if (uniqueValues && uniqueValues.length == 1) {
+                                sameValues = true;
+                                hasValues = false;
+                            }
+                        }
+
+                        item["Attributes"] = row.header;
+                        item["isEmpty"] = isEmpty;
+                        item["hasPartialValues"] = hasPartialValues;
+                        item["hasValues"] = hasValues;
+                        item["sameValues"] = sameValues;
+
+                        items.push(item);
+                    }, this);
+                }
+            }
+
+            _onEntityDataGetFailure(e) {
+                this._loading = false;
+                var reason = e.detail.response.reason;
+                this.showErrorToast("Entity get failed due to following reason: ", reason);
+            }
+
+            _dataGet() {
+                if (this._contextData) {
+
+                    var firstItemContext = this._contextData[ContextHelper.CONTEXT_TYPE_ITEM] && this._contextData[ContextHelper.CONTEXT_TYPE_ITEM].length ? this._contextData[ContextHelper.CONTEXT_TYPE_ITEM][0] : undefined;
+                    if (firstItemContext) {
+                        firstItemContext.type = this._entityTypes;
+                    }
+
+                    var req = DataRequestHelper.createEntityGetRequest(this._contextData);
+                    this.set("_entityGetRequest", req);
+
+                    var liquidDataGet = this.shadowRoot.querySelector("[id=entityDataGet]");
+                    if (liquidDataGet) {
+                        liquidDataGet.generateRequest();
+                    }
+                }
+            }
+
+            _getBaseGridConfig() {
+                return {
+                    "viewMode": "Tabular",
+                    "readOnly": true,
+                    "schemaType": "simple",
+                    "tabular": {
+                        "settings": {
+                            "isMultiSelect": false,
+                            "disableSelectAll": true
+                        },
+                        "columns": [
+                        ],
+                        "rows": [
+                        ]
+                    },
+                    "toolbarConfig": {
+                        "buttonItems": [
+                            {
+                                "buttons": [
+                                    {
+                                        "name": "pageRange",
+                                        "icon": "",
+                                        "text": "0 - 0 / 0",
+                                        "visible": true,
+                                        "tooltip": "Page Range"
+                                    },
+                                    {
+                                        "name": "refresh",
+                                        "icon": "pebble-md-icons:ToolbarRefresh",
+                                        "text": "",
+                                        "visible": true,
+                                        "tooltip": "Refresh"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                };
+            }
+
+            _prepareContext() {
+
+                var contextId = DataHelper.getParamValue('compareEntitiesContextId');
+                var compareEntitiesContext = JSON.parse(sessionStorage.getItem(contextId));
+
+                if (compareEntitiesContext) {
+                    var clonedContext = {};
+                    var entityIds = compareEntitiesContext["entityIds"];
+                    var entityTypes = this._entityTypes = compareEntitiesContext["entityTypes"];
+                    this.contextData = compareEntitiesContext["contextData"];
+
+                    if (this.contextData) {
+
+                        var itemContext = {
+                            'id': entityIds,
+                            'type': entityTypes,
+                            'attributeNames': ["_ALL"]
+                        };
+
+                        clonedContext[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+                        clonedContext[ContextHelper.CONTEXT_TYPE_VALUE] = DataHelper.cloneObject(this.contextData[ContextHelper.CONTEXT_TYPE_VALUE]);
+
+                        this._contextData = clonedContext;
+                    }
+
+                }
+            }
+
+            _getActionData() {
+                return [
+                    {
+                        "actions": [
+                            {
+                                "name": "Has Values",
+                                "text": "Has Values",
+                                "visible": true,
+                                "eventName": "has-values"
+                            },
+                            {
+                                "name": "Is Empty",
+                                "text": "Is Empty",
+                                "visible": true,
+                                "eventName": "is-empty"
+                            },
+                            {
+                                "name": "Has Partial Values",
+                                "text": "Has Partial Values",
+                                "visible": true,
+                                "eventName": "has-partial-values"
+                            },
+                            {
+                                "name": "Has Same Values",
+                                "text": "Has Same Values",
+                                "visible": true,
+                                "eventName": "has-same-values"
+                            }
+                        ]
+                    }
+                ]
+            }
+
+            _onRefreshGrid() {
+                this._dataGet();
+            }
+
+            _onDropdownChange(e, detail) {
+                var filter = this.shadowRoot.querySelector("#actionsButton");
+                var filteredData = this._data;
+
+                if (filter) {
+                    var filterBy = filter.selectedValue;
+
+                    if (filterBy == "Has Values") {
+                        filteredData = this._data.filter(function (item) {
+                            if (item.hasValues) {
+                                return item;
+                            }
+                        });
+                    } else if (filterBy == "Has Partial Values") {
+                        filteredData = this._data.filter(function (item) {
+                            if (item.hasPartialValues) {
+                                return item;
+                            }
+                        });
+                    } else if (filterBy == "Is Empty") {
+                        filteredData = this._data.filter(function (item) {
+                            if (item.isEmpty) {
+                                return item;
+                            }
+                        });
+                    } else if (filterBy == "Has Same Values") {
+                        filteredData = this._data.filter(function (item) {
+                            if (item.sameValues) {
+                                return item;
+                            }
+                        });
+                    }
+                }
+
+                this._gridData = undefined;
+                this._gridData = filteredData;
+            }
+        }
+
+        customElements.define(RockCompareEnities.is, RockCompareEnities);
+    </script>
+</dom-module>
