@@ -103,7 +103,7 @@ gulp.task('build-main', function() {
         .pipe(gulp.dest(mainPath + "/src/static/es5"))
       polymerBuild.addServiceWorker({
           project: polymerProject,
-          buildRoot: devPath + "/src/static/es5",
+          buildRoot: mainPath + "/src/static/es5",
           bundled: false,
           swPrecacheConfig: swPrecacheConfig
       });
