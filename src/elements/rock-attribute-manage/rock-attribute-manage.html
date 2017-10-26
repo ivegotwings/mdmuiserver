@@ -17,7 +17,7 @@
 <link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
 
 <link rel="import" href="../pebble-button/pebble-button.html">
-<link rel="import" href="../pebble-styles-shared/pebble-styles-shared.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
 
 <link rel="import" href="../rock-attribute-list/rock-attribute-list.html">
 
@@ -30,7 +30,7 @@ It is responsible to "get" and "save" the attributes.
 -->
 <dom-module id="rock-attribute-manage">
     <template>
-        <style include="pebble-styles-shared">
+        <style include="bedrock-style-common">
             :host{
                 @apply --rock-attribute-manage
             }
@@ -43,7 +43,7 @@ It is responsible to "get" and "save" the attributes.
                     font-size: 15px;
                 }
             }
-
+            
             .focus {
                 --pebble-button: {
                     height: 30px;
@@ -86,18 +86,7 @@ It is responsible to "get" and "save" the attributes.
 
             #errorsDialog {
                 --popup-header-color: var(--palette-pinkish-red, #ee204c);
-            }
-            /*ToDo: shadow component cannot be replaced with mixin with the following reason.
-            *paper-dialog shadow component is ::slotted>ul  and paper-dialog is not havng any mixin 
-            that can be reused*/
-
-            pebble-dialog::shadow ::slotted(ul){
-                padding-left: 50px !important;
-            }
-
-            pebble-dialog>ul>li {
-                list-style-type: disc;
-            }
+            }            
 
             pebble-button#skip {
                 --pebble-button-paper-style: {
@@ -138,7 +127,7 @@ It is responsible to "get" and "save" the attributes.
             <p>Are you sure you want to discard the unsaved changes.</p>
         </pebble-dialog>
         <bedrock-pubsub event-name="on-buttonok-clicked" handler="_revertAll" target-id="cancelDialog"></bedrock-pubsub>
-        <rock-attribute-list context-data="[[contextData]]" show-group-name$=[[showGroupName]] group-name="[[groupName]]" attribute-values="[[_attributeValues]]"
+        <rock-attribute-list context-data="[[contextData]]" readonly$="[[readonly]]" show-group-name$=[[showGroupName]] group-name="[[groupName]]" attribute-values="[[_attributeValues]]"
             attribute-models="[[_attributeModels]]" no-of-columns="[[noOfColumns]]" mode="{{mode}}" attribute-messages="{{_attributeMessages}}"></rock-attribute-list>
         <liquid-entity-data-get name="attributeGetDataService" operation="getbyids" request-data="{{_attributeRequest}}" last-response="{{_attributeResponse}}"></liquid-entity-data-get>
         <liquid-entity-govern-data-get id="attributeGetMessageService" operation="getbyids" request-data={{_attributeMessageRequest}}
@@ -158,7 +147,7 @@ It is responsible to "get" and "save" the attributes.
         </template>
         <div id="buttonContainer" align="center" class$="[[_getButtonsClass(functionalMode)]]">
             <pebble-button id="cancel" class="btn btn-secondary m-r-10" button-text="Cancel" on-tap="_openCancelDialog" elevation=1 raised></pebble-button>
-            <pebble-button id="save" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
+            <pebble-button id="save" disabled$="[[readonly]]" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
         </div>
     </template>
     <script>
@@ -182,6 +171,13 @@ It is responsible to "get" and "save" the attributes.
                         type: String,
                         value: "view",
                         notify: true
+                    },
+                    /**
+                     * If set as true , it indicates the component is in read only mode
+                     */
+                    readonly: {
+                        type: Boolean,
+                        value: false                        
                     },
                     /**
                       * <b><i>Content development is under progress... </b></i> 
@@ -355,6 +351,9 @@ It is responsible to "get" and "save" the attributes.
                     _entityMatchRequest: {
                         type: Object,
                         value: function () { return {}; }
+                    },
+                    parentContainer: {
+                        type: Object
                     }
                 },
                 behaviors: [
@@ -384,8 +383,19 @@ It is responsible to "get" and "save" the attributes.
                     if (mode != undefined) {
                         if (mode == 'edit') {
                             if (this.functionalMode != "dataFunction") {
-                                var width = Polymer.dom(this).parentNode.clientWidth;
+                                if(this.parentContainer) {
+                                    var container = this.parentContainer.getBoundingClientRect();
+                                    var item = Polymer.dom(this).node.getBoundingClientRect();
+                                    var leftPositionInsideParentContainer = item.left - container.left;
+                                    //Calculating position of button-bar as a
+                                    //proportion of self element width and container width
+                                    var position = Math.floor((leftPositionInsideParentContainer + item.width / 2) / container.width * 100) + "%";
+                                    this.$.buttonContainer.style.left = position;
+                                    this.$.buttonContainer.style.width = item.width + "px";
+                                } else {
+                                    var width = Polymer.dom(this).clientWidth;
                                 this.$.buttonContainer.style.width = width + "px";
+                                }
                             }
                             this.$.buttonContainer.style.display = "inline-block";
                             this.shadowRoot.querySelector("rock-attribute-list").style.paddingBottom = "120px";
@@ -499,7 +509,10 @@ It is responsible to "get" and "save" the attributes.
                         this._attributeValues = attributes;
                     }
                 },
-                _save: function () {
+                _save: function (e) {
+                    if(e.currentTarget.disabled == true){
+                        return;
+                    }
                     //TODO: Needs to check with Vishal.
                     var mainApp = document.querySelector('#app');
 
@@ -778,12 +791,17 @@ It is responsible to "get" and "save" the attributes.
                         return attributeList.getControlIsDirty();
                     }
                 },
+                _hasErrors: function(detail){
+                    return  !detail || !detail.response ||
+                            (detail.response.dataObjectOperationResponse && detail.response.dataObjectOperationResponse.status && detail.response.dataObjectOperationResponse.status.toLowerCase() == "error") ||
+                            (detail.response.response.dataObjectOperationResponse && detail.response.response.dataObjectOperationResponse.status &&
+                            detail.response.response.dataObjectOperationResponse.status.toLowerCase() == "error");
+                },
                 _onMatchSuccess: function (e, detail) {
                     if (detail.response) {
                         var response = detail.response.response;
-                        if ((response.dataObjectOperationResponse && response.dataObjectOperationResponse.status &&
-                            response.dataObjectOperationResponse.status.toLowerCase() == "error") ||
-                            (response.status && response.status.toLowerCase() == "error")) {
+
+                        if (this._hasErrors(detail)) {
                             console.warn("Failed to request match service with error: ", detail);
                             this.showErrorToast("There is a problem in match service. Please contact administrator.");
                             return;

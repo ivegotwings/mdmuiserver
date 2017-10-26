@@ -2,6 +2,11 @@
 var bunyan = require('bunyan');
 var caller = require('caller');
 
+var log4js = require('log4js');
+var path = require("path");
+var executionContext = require('../context-manager/execution-context');
+var LOGGER_CONFIG = require('./logger-config.js');
+
 var LoggerService = function (options) {
   this._logger = null;
   this._isConfigured = false;
@@ -11,18 +16,47 @@ var LoggerService = function (options) {
 LoggerService.prototype = {
   configure: function (config) {
     this._config = config;
-    var toolSettings = config.toolSettings;
-
-    var cwdir = process.cwd();
-    for(var stream of toolSettings.streams) {
-      stream.path = cwdir + stream.path;
-    }
-
-    this._logger = bunyan.createLogger(toolSettings);
-    this._logger.serializers = bunyan.stdSerializers;
-
-    this._logger.info('Logger is loaded...');
     this._isConfigured = true;
+    this._formatKeys = LOGGER_CONFIG.formatKeys;
+
+    var toolSettings = config.toolSettings;
+    var streamPath = "/logs/dataplatformLogs.log";
+    for(var stream of toolSettings.streams) {
+      streamPath = stream.path;
+    }
+    streamPath = path.dirname(require.main.filename) + streamPath;
+    
+    log4js.configure({
+      pm2: true,
+      appenders: {
+        everything: { 
+          type: 'file', 
+          filename: path.normalize(streamPath), 
+          layout: {
+            type: 'pattern',
+            pattern: this._getPattern()
+          }
+       }
+      },
+      categories: {
+        default: { appenders: [ 'everything' ], level: 'error'}
+      }
+    });
+    
+    this._logger = log4js.getLogger("everything");
+    this._logger.level = 'debug'; // default level is OFF - which means no logs at all.
+    this.info('Logger is loaded...');
+
+    // var cwdir = process.cwd();
+    // for(var stream of toolSettings.streams) {
+    //   stream.path = cwdir + stream.path;
+    // }
+
+    // this._logger = bunyan.createLogger(toolSettings);
+    // this._logger.serializers = bunyan.stdSerializers;
+
+    // this._logger.info('Logger is loaded...');
+     
   },
   getConfig: function () {
     return this._config;
@@ -67,27 +101,39 @@ LoggerService.prototype = {
     if(!obj) {
       obj = {};
     }
-    
+
     if (this._isLogLevelEnabled(level, moduleSetting.level)) {
       //console.log('log entry, level: ', level, ' msg: ', msg);
+      var formattedObject = this._getFormattedObject(msg, obj, callerFile);
+      //Clear all the contexts
+      this._logger.clearContext();
+      for (var i = 0; i < this._formatKeys.length; i++) {
+        var element = this._formatKeys[i];
+        if(formattedObject.hasOwnProperty(element)){
+            this._logger.addContext(element, formattedObject[element]);
+        }else{
+            this._logger.addContext(element, "");
+        }
+      }
+
       switch (level) {
         case 'debug':
-          this._logger.debug(obj, msg);
+          this._logger.debug(formattedObject);
           break;
         case 'trace':
-          this._logger.trace(obj, msg);
+          this._logger.trace(formattedObject);
           break;
         case 'info':
-          this._logger.info(obj, msg);
+          this._logger.info(formattedObject);
           break;
         case 'warn':
-          this._logger.warn(obj, msg);
+          this._logger.warn(formattedObject);
           break;
         case 'error':
-          this._logger.error(obj, msg);
+          this._logger.error(formattedObject);
           break;
         default:
-          this._logger.fatal(obj, msg);
+          this._logger.fatal(formattedObject);
           break;
       }
     }
@@ -99,7 +145,8 @@ LoggerService.prototype = {
       return true;
   },
   _getCallerModuleSettings: function (callerFile) {
-    var moduleSettings = this._config.moduleSettings;
+    
+    var moduleSettings = LOGGER_CONFIG.getModulesObject();
     for (var moduleName in moduleSettings) {
       if (callerFile.indexOf(moduleName) > -1) {
         return moduleSettings[moduleName];
@@ -107,6 +154,42 @@ LoggerService.prototype = {
     }
 
     return moduleSettings.default;
+  },
+  _getPattern:function(){
+      var pattern = "%d{ISO8601_WITH_TZ_OFFSET} [%p]";
+      for (var i = 0; i < this._formatKeys.length; i++) {
+        if((i == 4) || (i == 12)){
+          pattern += "%n";
+        }
+        if(this._formatKeys[i] == "NewTimestamp"){
+          pattern += " %d{ISO8601_WITH_TZ_OFFSET}";
+        }else{
+          pattern += " [%X{"+this._formatKeys[i]+"}]";
+        }
+      }
+      return pattern;
+  },
+  _getFormattedObject:function(msg, obj){
+      var formattedObj = {};
+      formattedObj["ClassName"] = "UI";
+      formattedObj["LogMessage"] = msg;
+      //RequestId
+      var requestId = obj["requestId"];
+      if(requestId){
+        formattedObj["RequestId"] = requestId;
+      }
+      //Tenent ID
+      var securityContext = executionContext.getSecurityContext();
+      if (securityContext && securityContext.tenantId) {
+          formattedObj["TenantId"] = securityContext.tenantId;
+      }
+      //CallerServiceName
+      var callerContext = executionContext.getCallerContext();
+      if (callerContext) {
+          formattedObj["CallerServiceName"] = JSON.stringify(callerContext);
+      }
+
+      return formattedObj;
   }
 };
 

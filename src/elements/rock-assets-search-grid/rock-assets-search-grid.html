@@ -15,6 +15,7 @@
 <link rel="import" href="../liquid-rest/liquid-rest.html">
 
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-dialog/pebble-dialog.html">
 
 <link rel="import" href="../rock-grid/rock-grid.html">
 <link rel="import" href="assets-search-grid-datasource.html">
@@ -39,16 +40,25 @@
         <template is="dom-if" if="[[_isWorkflowRequest(_loadGrid, _loadWithoutWorkflow)]]">
             <assets-search-grid-datasource id="searchGrid" request="{{request}}" asset-search-data-source="{{rDataSource}}" asset-search-dataFormatter="{{dataFormatter}}"
                 current-record-size="{{currentRecordSize}}" result-record-size="{{resultRecordSize}}" total-count="{{totalCount}}"></assets-search-grid-datasource>
-            <rock-grid id="entityGrid" r-data-source="{{rDataSource}}" data-source-id$="searchGrid" current-record-size="{{currentRecordSize}}"
+            <rock-grid id="entityGrid" r-data-source="{{rDataSource}}" r-data-source-id="searchGrid" current-record-size="{{currentRecordSize}}"
                 result-record-size="{{resultRecordSize}}" config="{{gridConfig}}" attribute-models="{}" page-size="[[pageSize]]"
-                selected-item="{{selectedItem}}" total-count="{{totalCount}}" max-configured-count="[[maxConfiguredCount]]"></rock-grid>
+                selected-item="{{selectedItem}}" total-count="{{totalCount}}" max-configured-count="[[maxConfiguredCount]]" is-workflow-criterion$="[[_isWorkflowCriterion(workflowCriterion)]]"></rock-grid>
             <bedrock-pubsub event-name="grid-download-item" handler="_onDownload" target-id="entityGrid"></bedrock-pubsub>
             <bedrock-pubsub event-name="grid-upload-item" handler="_onUpload" target-id="entityGrid"></bedrock-pubsub>
             <bedrock-pubsub event-name="grid-custom-toolbar-event" handler="_onCustomToolbarEvent" target-id="entityGrid"></bedrock-pubsub>
             <bedrock-pubsub event-name="download-original-asset" handler="_onOriginalAssetDownloadAction" target-id="entityGrid"></bedrock-pubsub>
+            <bedrock-pubsub event-name="grid-bulk-delete-items" handler="_showConfirmationDialog" target-id="entityGrid"></bedrock-pubsub>
         </template>
+
+        <pebble-dialog id="confirmationDialog" dialog-title="Confirmation" modal show-cancel show-ok no-cancel-on-outside-click no-cancel-on-esc-key
+            small>
+            Are you sure you want to delete?
+        </pebble-dialog>
+        <bedrock-pubsub event-name="on-buttonok-clicked" handler="_onBulkDelete" target-id="confirmationDialog"></bedrock-pubsub>
+
         <rock-business-function-dialog id="entityUploadDialog"></rock-business-function-dialog>
         <rock-business-function-dialog id="entityDownloadDialog"></rock-business-function-dialog>
+        <rock-business-function-dialog id="entityDeleteDialog"></rock-business-function-dialog>
     </template>
 
     <script>
@@ -566,6 +576,14 @@
                     return true;
                 },
 
+                _isWorkflowCriterion: function() {
+                    if (_.isEmpty(this.workflowCriterion)) {
+                        return false;
+                    }
+
+                    return true;
+                },
+
                 _onOriginalAssetDownloadAction: function (e, detail) {
                     if (detail) {
                         var fileName = detail.property_objectkey;
@@ -623,6 +641,41 @@
                         this.showInformationToast("Please select at least one asset from grid to download.");
                     }
                 },
+                _showConfirmationDialog: function(e, detail) {
+                    var selectedItems = this.getSelectedItems();
+                    if (!selectedItems || selectedItems.length == 0) {
+                        this.showInformationToast("Please select at least one entity from grid to delete.");
+                        return;
+                    }
+
+                    this._deleteComponentName = detail.componentName;
+                    this.shadowRoot.querySelector("#confirmationDialog").open();
+                },
+                _onBulkDelete: function () {
+                    var selectedItems = this.getSelectedItems();
+                    var selectionMode = this.getSelectionMode();
+                    var selectionQuery = this.getSelectedItemsAsQuery();
+
+                    //Safer code - Already delete button is hidden
+                    if(selectionMode == "query") {
+                        this.showInformationToast("Cannot perform delete based on 'All Search Criteria', please select the entities manually to perform this operation.");
+                        return;
+                    }
+
+                    if (this.contextData) {
+                        var entityDeleteDialog = this.shadowRoot.querySelector("#entityDeleteDialog");
+                        entityDeleteDialog.name = this._deleteComponentName;
+                        entityDeleteDialog.sharedData = {
+                            "context-data": this.contextData,
+                            "selection-query": selectionQuery,
+                            "selection-mode": selectionMode,
+                            "selected-entities": selectedItems
+                        };
+                        entityDeleteDialog.open();
+                    } else {
+                        this.showInformationToast("Context not available, cannot perform delete operation.");
+                    }
+                },
                 _onGetDownloadUrlResponse: function (e) {
                     if (e.detail && e.detail.response && e.detail.response.response) {
                         var response = e.detail.response.response;
@@ -658,13 +711,15 @@
                     var selectionQuery = this.getSelectedItemsAsQuery();
 
                     if (selectedItems && selectedItems.length && this.contextData) {
+                        var selectedItemsCount = selectionMode == "query" ? this.totalCount : selectedItems.length;
                         var entityDownloadDialog = this.shadowRoot.querySelector("#entityDownloadDialog");
                         entityDownloadDialog.name = "rock-entity-download";
                         entityDownloadDialog.sharedData = {
                             "context-data": this.contextData,
                             "selection-query": selectionQuery,
                             "selection-mode": selectionMode,
-                            "selected-entities": selectedItems
+                            "selected-entities": selectedItems,
+                            "selected-items-count": selectedItemsCount
                         };
                         entityDownloadDialog.open();
                     } else {
