@@ -28,7 +28,6 @@ var relativePath = process.env.PROJECT_PATH;
 if (relativePath) {
     buildPath = buildPath + '/' + relativePath;
 }
-console.log("##########", buildPath);
 
 logger.info('Web engine start - build path identified', { "buildPath": buildPath });
 
@@ -106,11 +105,7 @@ function compileTemplate(req, res, basePath, isIE11) {
 
 // Need to run compileTemplate() before this
 app.get('/', function(req, res) {    
-    var isIE11 = (req.headers['user-agent'].indexOf('rv:11')!==-1);
-    compileTemplate(req, res, basePath, isIE11);
-    var ecmaConditionalPath = isIE11 ? 'es5' : 'es6';
-    console.log("file sent: ", buildPath + '/src/static/' + ecmaConditionalPath + '/index.html');
-    send(req, buildPath + '/src/static/' + ecmaConditionalPath + '/index.html').pipe(res);
+    renderIndex(req, res);
 })
 
 
@@ -194,8 +189,18 @@ logger.info('Web engine start - fileupload routes are loaded');
 
 // Need to run compileTemplate() before this
 app.get('*', function(req, res) {        
-    send(req, req.url).pipe(res);
+    renderIndex(req, res);
 })
+function renderIndex(req, res) {
+    var isIE11 = (req.headers['user-agent'].indexOf('rv:11')!==-1);
+    var ecmaConditionalPath = isIE11 ? 'es5' : 'es6'; 
+    fs.access(buildPath + '/src/static/' + ecmaConditionalPath + '/index.html', (err) => {
+        if (err) {        
+            compileTemplate(req, res, basePath, isIE11);
+        }
+    });
+    send(req, buildPath + '/src/static/' + ecmaConditionalPath + '/index.html').pipe(res);
+}
 
 logger.info('Web engine start - base static file root route is loaded');
 logger.info('Web engine start - starting web engine...');
