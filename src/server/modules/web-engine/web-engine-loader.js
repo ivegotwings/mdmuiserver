@@ -10,6 +10,7 @@ var bodyParser = require('body-parser');
 var compression = require('compression');
 var cookieParser = require('cookie-parser');
 var fileUpload = require('express-fileupload');
+var path = require("path");
 
 var config = require('config');
 
@@ -64,7 +65,7 @@ app.get('/', function (req, res) {
 logger.info('Web engine start - default location route is loaded');
 
 // register static file content folder path..
-app.use(express.static(buildPath, { maxAge: "1s" }));
+//app.use(express.static(buildPath, { maxAge: "1s" }));
 
 logger.info('Web engine start - static content routes are loaded');
 
@@ -101,6 +102,9 @@ logger.info('Web engine start - client logger routes are loaded');
 
 var healthCheckRoute = require('../api-healthcheck/api-health-check-route');
 healthCheckRoute(app);
+
+var loggerRoute = require('../common/logger/logger-route');
+loggerRoute(app);
 
 logger.info('Web engine start - client logger routes are loaded');
 
@@ -139,6 +143,37 @@ logger.info('Web engine start - fileupload routes are loaded');
 
 //register static file root ...index.html..
 app.get('*', function (req, res) {
+    var isES5 = (req.headers['user-agent'].indexOf('rv:11')!==-1);
+    var userId = req.header("x-rdp-userid");
+    var tenantId = req.header("x-rdp-tenantid");
+    if (tenantId && userId) {
+        var url = req.url;
+        var modified = false;
+        if(url.indexOf(tenantId) > -1){
+            url = url.replace("/"+tenantId, "");
+        }
+        if((url.lastIndexOf(".js") > -1) || (url.lastIndexOf(".html") > -1)){
+            modified = true;
+            if(isES5){ 
+                if(req.url.indexOf("/src/") > -1){
+                    url = req.url.replace("/src/", "/es5-unbundled/src/");
+                }
+                if(req.url.indexOf("/bower_components/") > -1){
+                    url = req.url.replace("/bower_components/", "/es5-unbundled/bower_components/");
+                }
+            }
+        }
+        if(url.indexOf("/images/") > -1){
+            modified = true;
+        }
+        if(modified){
+            if(url.indexOf("?") > -1){
+                url = url.split("?")[0];
+            }
+            res.sendFile(path.join(buildPath, url));
+            return;
+        }
+    }
     if (!renderAuthenticatedPage(req, res)) {
         //If request is not authenticated, we are trying see if URL has tenant after root of the URL
         var urlComps = req.url.split('/');
@@ -153,6 +188,8 @@ app.get('*', function (req, res) {
     }
 });
 
+app.use(express.static(buildPath, { maxAge: "1s" }));
+app.use(express.static(path.join(buildPath, "/es5-unbundled"), { maxAge: "1s" }));
 logger.info('Web engine start - base static file root route is loaded');
 
 function renderAuthenticatedPage(req, res) {

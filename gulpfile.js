@@ -26,11 +26,6 @@ var argv = require('yargs').argv;
 const mergeStream = require('merge-stream');
 const polymerBuild = require('polymer-build');
 
-// Here we add tools that will be used to process our source files.
-// const imagemin = require('gulp-imagemin');
-const {generateCountingSharedBundleUrlMapper,
-       generateSharedDepsMergeStrategy} = require('polymer-bundler');
-
 // !!! IMPORTANT !!! //
 // Keep the global.config above any of the gulp-tasks that depend on it
 global.config = {
@@ -85,115 +80,74 @@ function waitFor(stream) {
     stream.on('error', reject);
   });
 }
+function deleteFolder(path){
+    return new Promise((resolve, reject) => {
+        del([path])
+        .then(() => {
+            resolve();
+        });
+    })
+}
+function appBuild(buildPath, mode){
+  if(!mode){
+    mode = "es6";
+  }
+  return new Promise((resolve, reject) => {
+      let sourcesStreamSplitter = new polymerBuild.HtmlSplitter();
+      let dependenciesStreamSplitter = new polymerBuild.HtmlSplitter();
+      console.log(`BuildPath is ${buildPath} ..`);
+      var finalPath = (mode == "es5") ? path.join(buildPath, "es5-unbundled") : buildPath;
+      del([finalPath])
+        .then(() => {
+            let sourcesStream = polymerProject.sources().pipe(sourcesStreamSplitter.split());
+            let dependenciesStream = polymerProject.dependencies().pipe(dependenciesStreamSplitter.split());
+            if(mode == "es5"){
+              sourcesStream = sourcesStream.pipe(gulpif('**/*.js', babel({'presets': [['es2015', {'modules': false, 'compact': false, 'allowReturnOutsideFunction': true}]]})));
+              dependenciesStream = dependenciesStream.pipe(gulpif(['**/*.js'], babel({'presets': [['es2015', {'modules': false, 'compact': false, 'allowReturnOutsideFunction': true}]]})));
+            }
+            
+            sourcesStream = sourcesStream.pipe(sourcesStreamSplitter.rejoin());
+            dependenciesStream = dependenciesStream.pipe(dependenciesStreamSplitter.rejoin());
 
-function devBuild() {
-  return new Promise((resolve, reject) => { // eslint-disable-line no-unused-vars
-
-    // Lets create some inline code splitters in case you need them later in your build.
-    let sourcesStreamSplitter = new polymerBuild.HtmlSplitter();
-    let dependenciesStreamSplitter = new polymerBuild.HtmlSplitter();
-
-    // Okay, so first thing we do is clear the build directory
-    console.log(`Deleting ${devPath} directory...`);
-    del([devPath])
-      .then(() => {
-
-        // Let's start by getting your source files. These are all the files
-        // in your `src/` directory, or those that match your polymer.json
-        // "sources"  property if you provided one.
-        let sourcesStream = polymerProject.sources()
-
-          // If you want to optimize, minify, compile, or otherwise process
-          // any of your source code for production, you can do so here before
-          // merging your sources and dependencies together.
-        //   .pipe(gulpif(/\.(png|gif|jpg|svg)$/, imagemin()))
-
-          // The `sourcesStreamSplitter` created above can be added here to
-          // pull any inline styles and scripts out of their HTML files and
-          // into seperate CSS and JS files in the build stream. Just be sure
-          // to rejoin those files with the `.rejoin()` method when you're done.
-          .pipe(sourcesStreamSplitter.split())
-          // Uncomment these lines to add a few more example optimizations to your
-          // source files, but these are not included by default. For installation, see
-          // the require statements at the beginning.
-          // .pipe(gulpif(/\.js$/, uglify())) // Install gulp-uglify to use
-          // .pipe(gulpif(/\.css$/, cssSlam())) // Install css-slam to use
-          // .pipe(gulpif(/\.html$/, htmlMinifier())) // Install gulp-html-minifier to use
-          //.pipe(gulpif('**/*.js', babel()))
-          // Remember, you need to rejoin any split inline code when you're done.
-          .pipe(sourcesStreamSplitter.rejoin());
-          //.pipe(debug({title:"After join"}));
-
-
-        // Similarly, you can get your dependencies seperately and perform
-        // any dependency-only optimizations here as well.
-        let dependenciesStream = polymerProject.dependencies()
-          .pipe(dependenciesStreamSplitter.split())
-          //.pipe(gulpif(['**/*.js', '!bower_components/web-component-tester/**/*'], babel()))
-          // Add any dependency optimizations here.
-          .pipe(dependenciesStreamSplitter.rejoin());
-
-
-        // Okay, now let's merge your sources & dependencies together into a single build stream.
-        let buildStream = mergeStream(sourcesStream, dependenciesStream)
-          .once('data', () => {
-            console.log('Analyzing build dependencies...');
+            let buildStream = mergeStream(sourcesStream, dependenciesStream)
+              .once('data', () => {
+                console.log('Analyzing '+mode+' build dependencies...');
+              });
+            buildStream = buildStream.pipe(polymerProject.addPushManifest())
+                                      .pipe(gulp.dest(finalPath));
+            return waitFor(buildStream)
+        }) 
+        .then(() => {
+          // Okay, now let's generate the Service Worker
+          console.log('Generating the Service Worker...');
+          return polymerBuild.addServiceWorker({
+            project: polymerProject,
+            buildRoot: finalPath,
+            bundled: false,
+            swPrecacheConfig: swPrecacheConfig
           });
-
-        // If you want bundling, pass the stream to polymerProject.bundler.
-        // This will bundle dependencies into your fragments so you can lazy
-        // load them.
-        // buildStream = buildStream.pipe(polymerProject.bundler({
-        //     project: polymerProject,
-        //     buildRoot: devPath,
-        //     rewriteUrlsInTemplates:true,
-        //     bundled: true,
-        // }));//.pipe(debug({title:"buildStream:"}));
-        
-        // buildStream = buildStream.pipe(polymerProject.bundler({
-        //   bundle: false,
-          // bundle: {
-          //   // excludes: ["src/shared/dataobject-falcor-util.js", "src/shared/enums-util.js"],
-          //   stripComments: true,
-          //   inlineCss: true,
-          // },
-          // js: {compile: false}
-        // }));//.pipe(debug({title:"bundler:"}));
-
-        // buildStream = buildStream.pipe(polymerProject.bundler({
-        //                 excludes: ['bower_components/web-component-tester'],
-        //                 sourcemaps: false,
-        //                 rewriteUrlsInTemplates: true,
-        //                 stripComments: true,
-        //                 // strategy: generateSharedDepsMergeStrategy(3),
-        //                 // urlMapper: generateCountingSharedBundleUrlMapper('shared/bundle_')
-        //               }));
-
-        // Now let's generate the HTTP/2 Push Manifest
-        buildStream = buildStream.pipe(polymerProject.addPushManifest());
-
-        // Okay, time to pipe to the build directory
-        buildStream = buildStream.pipe(gulp.dest(devPath));//.pipe(debug({title:"Copy:"}));;
-
-        // waitFor the buildStream to complete
-        return waitFor(buildStream);
-      })
-      // .then(() => {
-      //   // Okay, now let's generate the Service Worker
-      //   console.log('Generating the Service Worker...');
-      //   return polymerBuild.addServiceWorker({
-      //     project: polymerProject,
-      //     buildRoot: devPath,
-      //     bundled: true,
-      //     swPrecacheConfig: global.config.swPrecacheConfig
-      //   });
-      // })
-      .then(() => {
-        // You did it!
-        console.log('Build complete!');
-        resolve();
-      });
+        })
+        .then(() => {
+          console.log(mode+' Build complete!');
+          resolve();
+        });
   });
+};
+
+function watchElementBuild(fpath, mode){
+  var finalPath = (mode == "es5") ? path.join(devPath, "es5-unbundled") : devPath;
+  return new Promise((resolve, reject) => {
+        return gulp.src(fpath, {base:'.'})
+          .pipe(gulp.dest(finalPath));
+    })
+};
+
+function compileChangedDevFiles(changedFiles){
+    var tasks = [
+                  watchElementBuild(changedFiles),
+                  watchElementBuild(changedFiles, "es5")
+                ];
+    return Promise.all(tasks);
 }
 var lr = null;
 
@@ -239,9 +193,10 @@ gulp.task('app-nodemon', function (cb) {
                   ext: 'js html css json jpg jpeg png gif',
                   tasks: function (changedFiles) { // compile synchronously onChange
                     var tasks = [];
-                    if (!changedFiles || !lrEnabled) 
+                    if (!changedFiles || !lrEnabled) {
                       return tasks;
-                    // compileChangedDevFiles(changedFiles);
+                    }
+                    compileChangedDevFiles(changedFiles);
                     // stackLiveReload(changedFiles);
                     return tasks;
                   } 
@@ -259,9 +214,8 @@ gulp.task('app-nodemon', function (cb) {
 
 gulp.task('watch-element-changes', function () {  
   gulp.watch(global.config.build.clientFilePaths).on('change', function (fpath) {
-    console.log('file changed...', JSON.stringify(fpath));
-    return gulp.src(fpath, {base:'.'})
-          .pipe(gulp.dest(devPath));
+      console.log('file changed...', JSON.stringify(fpath));
+      compileChangedDevFiles(fpath)
   });
 });
 
@@ -271,84 +225,33 @@ gulp.task('copy-node-modules', function () {
   return gulp.src(nodeModulesPath, {base: '.'}).pipe(gulp.dest(unbundledPath));
 });
 
-gulp.task('dev', gulp.series(devBuild, 'app-nodemon', 'watch-element-changes'));
+gulp.task('dev-env', function(){
+    var tasks = [
+                  appBuild(devPath),
+                  appBuild(devPath, "es5")
+                ];
+    return Promise.all(tasks)
+});
 
-function unbundledBuild() {
-  return new Promise((resolve, reject) => { // eslint-disable-line no-unused-vars
+gulp.task('dev-delete', function(){
+    return Promise.all([
+        deleteFolder(devPath)
+    ]);
+});
 
-    // Lets create some inline code splitters in case you need them later in your build.
-    let sourcesStreamSplitter = new polymerBuild.HtmlSplitter();
-    let dependenciesStreamSplitter = new polymerBuild.HtmlSplitter();
+gulp.task('dev', gulp.series('dev-delete', 'dev-env', 'app-nodemon', 'watch-element-changes'));
 
-    // Okay, so first thing we do is clear the build directory
-    console.log(`Deleting ${unbundledPath} directory...`);
-    del([unbundledPath])
-      .then(() => {
+gulp.task('prod-env', function(){
+    var tasks = [
+                  appBuild(unbundledPath),
+                  appBuild(unbundledPath, "es5")
+                ];
+    return Promise.all(tasks)
+});
 
-        // Let's start by getting your source files. These are all the files
-        // in your `src/` directory, or those that match your polymer.json
-        // "sources"  property if you provided one.
-        let sourcesStream = polymerProject.sources()
-
-          // If you want to optimize, minify, compile, or otherwise process
-          // any of your source code for production, you can do so here before
-          // merging your sources and dependencies together.
-        //   .pipe(gulpif(/\.(png|gif|jpg|svg)$/, imagemin()))
-
-          // The `sourcesStreamSplitter` created above can be added here to
-          // pull any inline styles and scripts out of their HTML files and
-          // into seperate CSS and JS files in the build stream. Just be sure
-          // to rejoin those files with the `.rejoin()` method when you're done.
-          .pipe(sourcesStreamSplitter.split())
-          // Uncomment these lines to add a few more example optimizations to your
-          // source files, but these are not included by default. For installation, see
-          // the require statements at the beginning.
-          // .pipe(gulpif(/\.js$/, uglify())) // Install gulp-uglify to use
-          // .pipe(gulpif(/\.css$/, cssSlam())) // Install css-slam to use
-          // .pipe(gulpif(/\.html$/, htmlMinifier())) // Install gulp-html-minifier to use
-          // .pipe(gulpif('**/*.js', babel()))
-          // Remember, you need to rejoin any split inline code when you're done.
-          .pipe(sourcesStreamSplitter.rejoin());
-          //.pipe(debug({title:"After join"}));
-
-        // Similarly, you can get your dependencies seperately and perform
-        // any dependency-only optimizations here as well.
-        let dependenciesStream = polymerProject.dependencies()
-          .pipe(dependenciesStreamSplitter.split())
-          // Add any dependency optimizations here.
-          .pipe(dependenciesStreamSplitter.rejoin());
-
-        // Okay, now let's merge your sources & dependencies together into a single build stream.
-        let buildStream = mergeStream(sourcesStream, dependenciesStream)
-          .once('data', () => {
-            console.log('Analyzing build dependencies...');
-          });
-
-        // Now let's generate the HTTP/2 Push Manifest
-        buildStream = buildStream.pipe(polymerProject.addPushManifest());
-
-        // Okay, time to pipe to the build directory
-        buildStream = buildStream.pipe(gulp.dest(unbundledPath));//.pipe(debug({title:"Copy:"}));;
-
-        // waitFor the buildStream to complete
-        return waitFor(buildStream);
-      })
-      .then(() => {
-        // Okay, now let's generate the Service Worker
-        console.log('Generating the Service Worker...');
-        return polymerBuild.addServiceWorker({
-          project: polymerProject,
-          buildRoot: unbundledPath,
-          bundled: false,
-          swPrecacheConfig: swPrecacheConfig
-        });
-      })
-      .then(() => {
-        // You did it!
-        console.log('Build complete!');
-        resolve();
-      });
-  });
-}
-
-gulp.task('default', gulp.series(unbundledBuild, 'copy-node-modules'));
+gulp.task('prod-delete', function(){
+    return Promise.all([
+        deleteFolder(unbundledPath)
+    ]);
+});
+gulp.task('default', gulp.series('prod-delete', 'prod-env' , 'copy-node-modules'));

@@ -13,6 +13,7 @@
 
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
 <link rel="import" href="../pebble-toggle-button/pebble-toggle-button.html">
+<link rel="import" href="../pebble-dialog/pebble-dialog.html">
 
 <link rel="import" href="../rock-grid/rock-grid.html">
 <link rel="import" href="../rock-grid-data-sources/entity-search-grid-datasource.html">
@@ -123,11 +124,20 @@ It filters the data as per filter criteria.
             <bedrock-pubsub event-name="grid-download-item" handler="_onDownload" target-id="entityGrid"></bedrock-pubsub>
             <bedrock-pubsub event-name="grid-upload-item" handler="_onUpload" target-id="entityGrid"></bedrock-pubsub>
             <bedrock-pubsub event-name="grid-bulk-edit-items" handler="_onBulkEdit" target-id="entityGrid"></bedrock-pubsub>
+            <bedrock-pubsub event-name="grid-bulk-delete-items" handler="_showConfirmationDialog" target-id="entityGrid"></bedrock-pubsub>
         </template>
-        
+
+        <pebble-dialog id="confirmationDialog" dialog-title="Confirmation" modal show-cancel show-ok no-cancel-on-outside-click no-cancel-on-esc-key
+            small>
+            Are you sure you want to delete?
+        </pebble-dialog>
+        <bedrock-pubsub event-name="on-buttonok-clicked" handler="_onBulkDelete" target-id="confirmationDialog"></bedrock-pubsub>
+
         <rock-business-function-dialog id="entityUploadDialog"></rock-business-function-dialog>
         <rock-business-function-dialog id="entityDownloadDialog"></rock-business-function-dialog>
         <rock-business-function-dialog id="entityEditDialog"></rock-business-function-dialog>
+        <rock-business-function-dialog id="entityDeleteDialog"></rock-business-function-dialog>
+        <bedrock-pubsub on-bedrock-event-route-changed="_onRouteChange"></bedrock-pubsub>
     </template>
 
     <script>
@@ -203,8 +213,7 @@ It filters the data as per filter criteria.
                         notify: true,
                         value: function () {
                             return [];
-                        },
-                        observer: '_loadSearchResultsByFilters'
+                        }
                     },
                     /**
                      * Specifies the query object that initiates the search.
@@ -212,8 +221,7 @@ It filters the data as per filter criteria.
                     searchQuery: {
                         type: String,
                         notify: true,
-                        value: "",
-                        observer: '_loadSearchResultsByQuery'
+                        value: ""
                     },
                     /**
                      * Specifies the workflow criterion for the search.
@@ -377,7 +385,8 @@ It filters the data as per filter criteria.
                 ],
 
                 observers: [
-                    '_onGridConfigChange(gridConfig, savedSearchCriterion)'
+                    '_onGridConfigChange(gridConfig, savedSearchCriterion)',
+                    '_loadSearchResultsByQueryOrFilters(searchFilters,searchQuery)'
                 ],
 
                 attached: function(){
@@ -433,7 +442,20 @@ It filters the data as per filter criteria.
                  * Can be used to reset the grid size.
                  */
                 notifyResize: function () {
-                    this._getEntityGrid().notifyResize();
+                    if(this._getEntityGrid()) {
+                        this._getEntityGrid().notifyResize();
+                    }
+                },
+
+               /**
+                * For entity discovery & task details, this grid resize shoud happen when show/close download bar
+                */
+                _onRouteChange: function(e) {
+                    if(DataHelper.isValidObjectPath(e, "detail.route.path") &&
+                       (e.detail.route.path.indexOf('/entity-discovery') != -1 || 
+                        e.detail.route.path.indexOf('/task-detail') != -1)) {
+                            this.notifyResize();
+                    }
                 },
 
                 /**
@@ -568,6 +590,14 @@ It filters the data as per filter criteria.
 
                 _onCompositeModelGetResponse: function (e) {
                     if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+                        var entityModels = e.detail.response.content.entityModels;
+                        for (var i = 0; i < entityModels.length; i++) {
+                            var entityModel = entityModels[i];
+                            var properties = entityModel.properties;
+                            if (properties && properties.hasOwnProperty("defaultThumbnailId")) {
+                                this._typeThumbnailMapping[entityModel.name] = properties.defaultThumbnailId;
+                            }
+                        }
                         this.attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
                     }
                     this.reloadGrid();
@@ -583,36 +613,28 @@ It filters the data as per filter criteria.
                     if (data && data.content) {
                         var entities = data.content.entities;
                         if (entities && entities.length > 0) {
-                            formattedEntities = DataTransformHelper.transformEntitiesToGridFormat(entities, this.attributeModels, this.contextData, this.gridConfig.tabular.columns);
+                            if(this.gridConfig.viewMode=="Tabular") {
+                                formattedEntities = DataTransformHelper.transformEntitiesToGridFormat(entities, this.attributeModels, this.contextData, this.gridConfig.tabular.columns);
+                            }else{
+                                var attributes = this.gridConfig.dataRequest.attributes;
+                                if(attributes.indexOf("type")==-1){
+                                    attributes.push("type");
+                                }
+                                formattedEntities = DataTransformHelper.transformEntitiesToSimpleSchema(entities, attributes, this.attributeModels);
+                                for (var i = 0; i < formattedEntities.length; i++) {
+                                    var type = formattedEntities[i].type;
+                                    if (!formattedEntities[i].thumbnailid) {
+                                        formattedEntities[i].thumbnailid = "";
+                                        if(this._typeThumbnailMapping && this._typeThumbnailMapping[type]) {
+                                            formattedEntities[i].thumbnailid = this._typeThumbnailMapping[type];
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
 
                     return formattedEntities;
-                },
-
-                _loadSearchResultsByFilters: function () {
-                    var grid = this._getEntityGrid();
-                    var dataSource = this._getEntityDataSource();
-
-                    if (grid && this.searchFilters) {
-                        var attrsCriterion = this._removeUnSupportedFilters(this.searchFilters);
-                        this._entityDataGetReq.params.query.filters.attributesCriterion = attrsCriterion;
-                        if(!_.isEmpty(this._governDataGetReq)) {
-                            this._governDataGetReq.params.query.filters.attributesCriterion = this._getDefaultGovernAttributesCriterion();
-                        }
-                        this._updateGovernRequestAttributesCriterion(attrsCriterion);
-
-                        if (this._isCombinedGetReq) {
-                            this.request = DataRequestHelper.createCombinedGetRequest(this._governDataGetReq, this._entityDataGetReq);
-                        } else {
-                            this.request = this._entityDataGetReq;
-                        }
-
-                        if (dataSource) {
-                            dataSource.resetDataSource();
-                        }
-                        grid.reRenderGrid();
-                    }
                 },
 
                 // Remove unsupported filters which were added for tags
@@ -641,32 +663,42 @@ It filters the data as per filter criteria.
                     return filters;
                 },
 
-                _loadSearchResultsByQuery: function () {
-                    var grid = this._getEntityGrid();
-                    var dataSource = this._getEntityDataSource();
+                _loadSearchResultsByQueryOrFilters: function () {
+                    this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(100), () => {
+                        var grid = this._getEntityGrid();
+                        var dataSource = this._getEntityDataSource();
 
-                    if (grid) {
-                        if (!this._entityDataGetReq.params.query) {
-                            this._entityDataGetReq.params.query = {};
+                        if (grid  && !_.isEmpty(this._entityDataGetReq)) {
+                            if (!this._entityDataGetReq.params.query) {
+                                this._entityDataGetReq.params.query = {};
+                            }
+
+                            if (!this._entityDataGetReq.params.query.filters) {
+                                this._entityDataGetReq.params.query.filters = {};
+                            }
+                            if(this.searchFilters) {
+                                var attrsCriterion = this._removeUnSupportedFilters(this.searchFilters);
+                                this._entityDataGetReq.params.query.filters.attributesCriterion = attrsCriterion;
+                                if (!_.isEmpty(this._governDataGetReq)) {
+                                    this._governDataGetReq.params.query.filters.attributesCriterion = this._getDefaultGovernAttributesCriterion();
+                                }
+                                this._updateGovernRequestAttributesCriterion(attrsCriterion);
+                            }
+
+                            this._setSearchCriteria();
+
+                            if (this._isCombinedGetReq) {
+                                this.request = DataRequestHelper.createCombinedGetRequest(this._governDataGetReq, this._entityDataGetReq);
+                            } else {
+                                this.request = this._entityDataGetReq;
+                            }
+
+                            if (dataSource) {
+                                dataSource.resetDataSource();
+                            }
+                            grid.reRenderGrid();
                         }
-
-                        if (!this._entityDataGetReq.params.query.filters) {
-                            this._entityDataGetReq.params.query.filters = {};
-                        }
-
-                        this._setSearchCriteria();
-
-                        if (this._isCombinedGetReq) {
-                            this.request = DataRequestHelper.createCombinedGetRequest(this._governDataGetReq, this._entityDataGetReq);
-                        } else {
-                            this.request = this._entityDataGetReq;
-                        }
-
-                        if (dataSource) {
-                            dataSource.resetDataSource();
-                        }
-                        grid.reRenderGrid();
-                    }
+                    })
                 },
 
                 _setSearchCriteria: function() {
@@ -737,9 +769,7 @@ It filters the data as per filter criteria.
                         }
                         grid.reRenderGrid();
                     }
-                    setTimeout(function () {
-                        this._setGridHeight();
-                    }.bind(this), 100);
+
                 },
 
                 _getEntityGrid: function () {
@@ -764,45 +794,29 @@ It filters the data as per filter criteria.
                     return true;
                 },
 
-                _setGridHeight: function () {
-                    if (this.parentElement &&
-                        this.parentElement.parentNode &&
-                        this.domHost.parentNode.parentNode.parentNode &&
-                        this.domHost.parentNode.parentNode.parentNode.root) {
-
-                        var layout = this.domHost.parentNode.parentNode.parentNode.root.querySelector('#rockLayoutContainer');
-                        var rockGridHeight = 0;
-
-                        if (layout) {
-                            var footer = layout.querySelector('rock-footer');
-                            rockGridHeight = layout.offsetHeight;
-
-                            if (footer) {
-                                rockGridHeight = rockGridHeight - footer.offsetHeight;
-                            } else {
-                                rockGridHeight = rockGridHeight;
-                            }
-                        }
-                        var grid = this._getEntityGrid();
-
-                        if (grid && rockGridHeight > 0) {
-                            grid._getIronDataTable().style.height = rockGridHeight - 160 + 'px';
-                        }
+                _isWorkflowCriterion: function() {
+                    if (_.isEmpty(this.workflowCriterion)) {
+                        return false;
                     }
+
+                    return true;
                 },
+
                 _onDownload: function (e, detail) {
                     var selectedItems = this.getSelectedItems();
                     var selectionMode = this.getSelectionMode();
                     var selectionQuery = this.getSelectedItemsAsQuery();
 
                     if (selectedItems && selectedItems.length && this.contextData) {
+                        var selectedItemsCount = selectionMode == "query" ? this.totalCount : selectedItems.length;
                         var entityDownloadDialog = this.shadowRoot.querySelector("#entityDownloadDialog");
                         entityDownloadDialog.name = "rock-entity-download";
                         entityDownloadDialog.sharedData = {
                             "context-data": this.contextData,
                             "selection-query": selectionQuery,
                             "selection-mode": selectionMode,
-                            "selected-entities": selectedItems
+                            "selected-entities": selectedItems,
+                            "selected-items-count": selectedItemsCount
                         };
                         entityDownloadDialog.open();
                     } else {
@@ -822,19 +836,68 @@ It filters the data as per filter criteria.
                     var selectionMode = this.getSelectionMode();
                     var selectionQuery = this.getSelectedItemsAsQuery();
                     if (selectedItems && selectedItems.length && this.contextData) {
+                        var itemContexts = [];
+                        if(this.typesCriterion && this.typesCriterion.length) {
+                            for(var i=0; i<this.typesCriterion.length; i++) {
+                                var type = this.typesCriterion[i];
+                                if(!(itemContexts.find(obj => obj.type === type))) {
+                                    var itemContext = { "type": type };
+                                    itemContexts.push(itemContext);
+                                }
+                            }
+                        }
+                        var clonedContextData = DataHelper.cloneObject(this.contextData);
+                        clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
+                        clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
                         var entityEditDialog = this.shadowRoot.querySelector("#entityEditDialog");
                         entityEditDialog.name = "rock-entity-bulk-edit";
                         entityEditDialog.configName = "wizardConfig";
                         entityEditDialog.sharedData = {
-                            "context-data": this.contextData,
+                            "context-data": clonedContextData,
                             "workflow-criterion": this.workflowCriterion,
                             "selection-query": selectionQuery,
                             "selection-mode": selectionMode,
-                            "selected-entities": selectedItems
+                            "selected-entities": selectedItems,
+                            "edit-attributes-only": true
                         };
                         entityEditDialog.open();
                     } else {
                         this.showInformationToast("Please select at least one entity from grid to edit.");
+                    }
+                },
+                _showConfirmationDialog: function(e, detail) {
+                    var selectedItems = this.getSelectedItems();
+                    if (!selectedItems || selectedItems.length == 0) {
+                        this.showInformationToast("Please select at least one entity from grid to delete.");
+                        return;
+                    }
+
+                    this._deleteComponentName = detail.componentName;
+                    this.shadowRoot.querySelector("#confirmationDialog").open();
+                },
+                _onBulkDelete: function () {
+                    var selectedItems = this.getSelectedItems();
+                    var selectionMode = this.getSelectionMode();
+                    var selectionQuery = this.getSelectedItemsAsQuery();
+
+                    //Safer code - Already delete button is hidden
+                    if(selectionMode == "query") {
+                        this.showInformationToast("Cannot perform delete based on 'All Search Criteria', please select the entities manually to perform this operation.");
+                        return;
+                    }
+
+                    if (this.contextData) {
+                        var entityDeleteDialog = this.shadowRoot.querySelector("#entityDeleteDialog");
+                        entityDeleteDialog.name = this._deleteComponentName;
+                        entityDeleteDialog.sharedData = {
+                            "context-data": this.contextData,
+                            "selection-query": selectionQuery,
+                            "selection-mode": selectionMode,
+                            "selected-entities": selectedItems
+                        };
+                        entityDeleteDialog.open();
+                    } else {
+                        this.showInformationToast("Context not available, cannot perform delete operation.");
                     }
                 },
                 /**

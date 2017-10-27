@@ -8,8 +8,8 @@ var clientAuthKey = config.get('modules.dfService.clientAuthKey');
 function createSecurityContext(req) {
     var tid = req.headers["x-rdp-tenantid"];
     var uid = req.headers["x-rdp-userid"];
-    var role = req.headers["x-rdp-userroles"];
-   
+    var role = req.headers["x-rdp-userroles"];    
+
     var securityContext = {
         'user': uid,
         'role': role,
@@ -33,7 +33,9 @@ function createSecurityContext(req) {
 
 function getSecurityContext() {
     var session = getNamespace('User Session');
-    return session.get('securityContext');
+    if(session){
+        return session.get('securityContext');
+    }
 }
 
 function createCallerContext(req) {
@@ -61,7 +63,9 @@ function createCallerContext(req) {
 
 function getCallerContext() {
     var session = getNamespace('User Session');
-    return session.get('callerContext');
+    if(session){
+        return session.get('callerContext');
+    }
 }
 
 module.exports = {
