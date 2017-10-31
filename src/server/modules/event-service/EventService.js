@@ -727,6 +727,11 @@ Eventservice.prototype = {
             req.params.query.filters.attributesCriterion = attributesCriteria;
         }
 
+        var requestedKeywordCriteria = inputRequest.params.query.filters.keywordsCriterion;
+        if(requestedKeywordCriteria) {
+            req.params.query.filters.keywordsCriterion = requestedKeywordCriteria;
+        }
+
         req.params.sort = {
             "properties": [{
                 "createdDate": "_DESC",
