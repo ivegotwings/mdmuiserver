@@ -329,6 +329,7 @@ Eventservice.prototype = {
                     response.submittedBy = submittedBy ? submittedBy.replace("_user", "") : "N/A";
                     response.totalRecords = totalRecords ? totalRecords : "N/A";
                     response.message = message ? message : "N/A";
+                    response.startTime = "N/A";
                     response.endTime = "N/A";
 
                     //Consider low order event in order to identify StartTime..
@@ -768,6 +769,7 @@ Eventservice.prototype = {
                             eventAttributes["formatter"] = attributes["fileType"];
                             eventAttributes["eventSubType"] = attributes["status"];
                             eventAttributes["recordCount"] = attributes["totalRecords"];
+                            eventAttributes["profileName"] = attributes["profileName"];
                             eventAttributes["createdOn"] = {"values": [
                                 {
                                     "locale": "en-US",
