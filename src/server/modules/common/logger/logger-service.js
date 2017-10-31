@@ -153,7 +153,7 @@ LoggerService.prototype = {
         finalMessage += "[Request - " + JSON.stringify(obj.request.body) + "] ";
     }
     if(obj.response){
-        finalMessage += "[Response - " + obj.response + "]";
+        finalMessage += "[Response - " + JSON.stringify(obj.response) + "]";
     }
     if(obj.detail){
         finalMessage += "[Detail - " + JSON.stringify(obj.detail) + "] ";
