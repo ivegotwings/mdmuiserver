@@ -8,8 +8,8 @@ var clientAuthKey = config.get('modules.dfService.clientAuthKey');
 function createSecurityContext(req) {
     var tid = req.headers["x-rdp-tenantid"];
     var uid = req.headers["x-rdp-userid"];
-    var role = req.headers["x-rdp-userroles"];
-   
+    var role = req.headers["x-rdp-userroles"];    
+
     var securityContext = {
         'user': uid,
         'role': role,
