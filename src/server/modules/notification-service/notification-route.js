@@ -4,6 +4,7 @@ var config = require('config');
 var isEmpty = require('../common/utils/isEmpty');
 var enums = require('../../../shared/enums-util');
 var logsEnabled = config.get('modules.notificationService.logsEnabled');
+var logger = require('../common/logger/logger-service');
 
 function prepareNotificationObject(data) {
     var notificationInfo = {};
@@ -115,9 +116,9 @@ module.exports = function (app) {
             console.log(JSON.stringify(req.body));
             console.log('-------------------------------------------------------------------\n\n');
         }
-
+       logger.debug("NOTIFICATION_REQUEST",{ request:req}, "notification-service");
+       //  console.log("notification response", res)
         var notificationObject = req.body.notificationObject;
-
         if (notificationObject) {
             var notificationInfo = prepareNotificationObject(notificationObject.data);
             // console.log('------------------ notification object ---------------------');
