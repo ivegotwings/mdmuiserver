@@ -77,22 +77,49 @@ It filters the data as per filter criteria.
             }
         </style>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
-        <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
+        <liquid-entity-model-composite-get name="compositeAttributeModelGet"
+                                           request-data="{{attributeModelRequest}}"
+                                           on-entity-model-composite-get-response="_onCompositeModelGetResponse">
+        </liquid-entity-model-composite-get>
         <template is="dom-if" if="[[_isWorkflowRequest(_loadGrid, _loadWithoutWorkflow)]]">
             <template is="dom-if" if="[[_showToggle()]]">
                 <pebble-toggle-button class="toggle-button" noink checked="{{_loadGovernData}}">Govern Data</pebble-toggle-button>
             </template>
             <template is="dom-if" if="[[!_loadGovernData]]">
-                <entity-search-grid-datasource id="searchGrid" request="{{request}}" r-data-source="{{rDataSource}}" r-data-formatter="{{rDataFormatter}}"
-                    buffer-record-size="{{size}}" current-record-size="{{currentRecordSize}}" result-record-size="{{resultRecordSize}}"
-                    total-count="{{totalCount}}" attribute-models="{{attributeModels}}" is-combined-get="[[_isCombinedGetReq]]"></entity-search-grid-datasource>
-                <rock-grid hidden$="[[_loadGovernData]]" id="entityGrid" r-data-source="{{rDataSource}}" r-data-source-id="searchGrid" result-record-size="{{resultRecordSize}}"
-                    current-record-size="{{currentRecordSize}}" config="[[gridConfig]]" grid-data-size="{{size}}" attribute-models="{{attributeModels}}"
-                    page-size="[[pageSize]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" total-count="{{totalCount}}"
-                    max-configured-count="[[maxConfiguredCount]]" selection-enabled is-workflow-criterion$="[[_isWorkflowCriterion(workflowCriterion)]]"></rock-grid>
+                <entity-search-grid-datasource id="searchGrid"
+                                               request="{{request}}"
+                                               r-data-source="{{rDataSource}}"
+                                               r-data-formatter="{{rDataFormatter}}"
+                                               buffer-record-size="{{size}}"
+                                               current-record-size="{{currentRecordSize}}"
+                                               result-record-size="{{resultRecordSize}}"
+                                               total-count="{{totalCount}}"
+                                               attribute-models="{{attributeModels}}"
+                                               is-combined-get="[[_isCombinedGetReq]]"></entity-search-grid-datasource>
+
+                <rock-grid hidden$="[[_loadGovernData]]"
+                           id="entityGrid"
+                           r-data-source="{{rDataSource}}"
+                           r-data-source-id="searchGrid"
+                           result-record-size="{{resultRecordSize}}"
+                           current-record-size="{{currentRecordSize}}"
+                           config="[[gridConfig]]"
+                           grid-data-size="{{size}}"
+                           attribute-models="{{attributeModels}}"
+                           page-size="[[pageSize]]"
+                           selected-item="{{selectedItem}}"
+                           selected-items="{{selectedItems}}"
+                           total-count="{{totalCount}}"
+                           max-configured-count="[[maxConfiguredCount]]"
+                           selection-enabled></rock-grid>
+
             </template>
             <template is="dom-if" if="[[_loadGovernData]]">
-                <rock-govern-data-grid id="governGrid" context-data="[[contextData]]" request="[[request]]" entity-name-attribute="[[governDataConfig.entityNameAttribute]]"></rock-govern-data-grid>
+                <rock-govern-data-grid id="governGrid"
+                                       context-data="[[contextData]]"
+                                       request="[[request]]"
+                                       entity-name-attribute="[[governDataConfig.entityNameAttribute]]">
+                </rock-govern-data-grid>
             </template>
             <bedrock-pubsub event-name="grid-download-item" handler="_onDownload" target-id="entityGrid"></bedrock-pubsub>
             <bedrock-pubsub event-name="grid-upload-item" handler="_onUpload" target-id="entityGrid"></bedrock-pubsub>
@@ -186,8 +213,7 @@ It filters the data as per filter criteria.
                         notify: true,
                         value: function () {
                             return [];
-                        },
-                        observer: '_loadSearchResultsByFilters'
+                        }
                     },
                     /**
                      * Specifies the query object that initiates the search.
@@ -195,8 +221,7 @@ It filters the data as per filter criteria.
                     searchQuery: {
                         type: String,
                         notify: true,
-                        value: "",
-                        observer: '_loadSearchResultsByQuery'
+                        value: ""
                     },
                     /**
                      * Specifies the workflow criterion for the search.
@@ -360,7 +385,8 @@ It filters the data as per filter criteria.
                 ],
 
                 observers: [
-                    '_onGridConfigChange(gridConfig, savedSearchCriterion)'
+                    '_onGridConfigChange(gridConfig, savedSearchCriterion)',
+                    '_loadSearchResultsByQueryOrFilters(searchFilters,searchQuery)'
                 ],
 
                 attached: function(){
@@ -564,6 +590,14 @@ It filters the data as per filter criteria.
 
                 _onCompositeModelGetResponse: function (e) {
                     if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+                        var entityModels = e.detail.response.content.entityModels;
+                        for (var i = 0; i < entityModels.length; i++) {
+                            var entityModel = entityModels[i];
+                            var properties = entityModel.properties;
+                            if (properties && properties.hasOwnProperty("defaultThumbnailId")) {
+                                this._typeThumbnailMapping[entityModel.name] = properties.defaultThumbnailId;
+                            }
+                        }
                         this.attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
                     }
                     this.reloadGrid();
@@ -579,36 +613,28 @@ It filters the data as per filter criteria.
                     if (data && data.content) {
                         var entities = data.content.entities;
                         if (entities && entities.length > 0) {
-                            formattedEntities = DataTransformHelper.transformEntitiesToGridFormat(entities, this.attributeModels, this.contextData, this.gridConfig.tabular.columns);
+                            if(this.gridConfig.viewMode=="Tabular") {
+                                formattedEntities = DataTransformHelper.transformEntitiesToGridFormat(entities, this.attributeModels, this.contextData, this.gridConfig.tabular.columns);
+                            }else{
+                                var attributes = this.gridConfig.dataRequest.attributes;
+                                if(attributes.indexOf("type")==-1){
+                                    attributes.push("type");
+                                }
+                                formattedEntities = DataTransformHelper.transformEntitiesToSimpleSchema(entities, attributes, this.attributeModels);
+                                for (var i = 0; i < formattedEntities.length; i++) {
+                                    var type = formattedEntities[i].type;
+                                    if (!formattedEntities[i].thumbnailid) {
+                                        formattedEntities[i].thumbnailid = "";
+                                        if(this._typeThumbnailMapping && this._typeThumbnailMapping[type]) {
+                                            formattedEntities[i].thumbnailid = this._typeThumbnailMapping[type];
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
 
                     return formattedEntities;
-                },
-
-                _loadSearchResultsByFilters: function () {
-                    var grid = this._getEntityGrid();
-                    var dataSource = this._getEntityDataSource();
-
-                    if (grid && this.searchFilters) {
-                        var attrsCriterion = this._removeUnSupportedFilters(this.searchFilters);
-                        this._entityDataGetReq.params.query.filters.attributesCriterion = attrsCriterion;
-                        if(!_.isEmpty(this._governDataGetReq)) {
-                            this._governDataGetReq.params.query.filters.attributesCriterion = this._getDefaultGovernAttributesCriterion();
-                        }
-                        this._updateGovernRequestAttributesCriterion(attrsCriterion);
-
-                        if (this._isCombinedGetReq) {
-                            this.request = DataRequestHelper.createCombinedGetRequest(this._governDataGetReq, this._entityDataGetReq);
-                        } else {
-                            this.request = this._entityDataGetReq;
-                        }
-
-                        if (dataSource) {
-                            dataSource.resetDataSource();
-                        }
-                        grid.reRenderGrid();
-                    }
                 },
 
                 // Remove unsupported filters which were added for tags
@@ -637,32 +663,42 @@ It filters the data as per filter criteria.
                     return filters;
                 },
 
-                _loadSearchResultsByQuery: function () {
-                    var grid = this._getEntityGrid();
-                    var dataSource = this._getEntityDataSource();
+                _loadSearchResultsByQueryOrFilters: function () {
+                    this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(100), () => {
+                        var grid = this._getEntityGrid();
+                        var dataSource = this._getEntityDataSource();
 
-                    if (grid) {
-                        if (!this._entityDataGetReq.params.query) {
-                            this._entityDataGetReq.params.query = {};
+                        if (grid  && !_.isEmpty(this._entityDataGetReq)) {
+                            if (!this._entityDataGetReq.params.query) {
+                                this._entityDataGetReq.params.query = {};
+                            }
+
+                            if (!this._entityDataGetReq.params.query.filters) {
+                                this._entityDataGetReq.params.query.filters = {};
+                            }
+                            if(this.searchFilters) {
+                                var attrsCriterion = this._removeUnSupportedFilters(this.searchFilters);
+                                this._entityDataGetReq.params.query.filters.attributesCriterion = attrsCriterion;
+                                if (!_.isEmpty(this._governDataGetReq)) {
+                                    this._governDataGetReq.params.query.filters.attributesCriterion = this._getDefaultGovernAttributesCriterion();
+                                }
+                                this._updateGovernRequestAttributesCriterion(attrsCriterion);
+                            }
+
+                            this._setSearchCriteria();
+
+                            if (this._isCombinedGetReq) {
+                                this.request = DataRequestHelper.createCombinedGetRequest(this._governDataGetReq, this._entityDataGetReq);
+                            } else {
+                                this.request = this._entityDataGetReq;
+                            }
+
+                            if (dataSource) {
+                                dataSource.resetDataSource();
+                            }
+                            grid.reRenderGrid();
                         }
-
-                        if (!this._entityDataGetReq.params.query.filters) {
-                            this._entityDataGetReq.params.query.filters = {};
-                        }
-
-                        this._setSearchCriteria();
-
-                        if (this._isCombinedGetReq) {
-                            this.request = DataRequestHelper.createCombinedGetRequest(this._governDataGetReq, this._entityDataGetReq);
-                        } else {
-                            this.request = this._entityDataGetReq;
-                        }
-
-                        if (dataSource) {
-                            dataSource.resetDataSource();
-                        }
-                        grid.reRenderGrid();
-                    }
+                    })
                 },
 
                 _setSearchCriteria: function() {
