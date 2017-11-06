@@ -88,16 +88,19 @@ function deleteFolder(path){
         });
     })
 }
-function appBuild(buildPath, mode){
+function appBuild(buildPath, mode, env){
   if(!mode){
     mode = "es6";
+  }
+  if(!env){
+    env = "prod";
   }
   return new Promise((resolve, reject) => {
       let sourcesStreamSplitter = new polymerBuild.HtmlSplitter();
       let dependenciesStreamSplitter = new polymerBuild.HtmlSplitter();
       console.log(`BuildPath is ${buildPath} ..`);
       var finalPath = (mode == "es5") ? path.join(buildPath, "es5-unbundled") : buildPath;
-      del([finalPath])
+      var delPromise = del([finalPath])
         .then(() => {
             let sourcesStream = polymerProject.sources().pipe(sourcesStreamSplitter.split());
             let dependenciesStream = polymerProject.dependencies().pipe(dependenciesStreamSplitter.split());
@@ -116,18 +119,20 @@ function appBuild(buildPath, mode){
             buildStream = buildStream.pipe(polymerProject.addPushManifest())
                                       .pipe(gulp.dest(finalPath));
             return waitFor(buildStream)
-        }) 
-        .then(() => {
-          // Okay, now let's generate the Service Worker
-          console.log('Generating the Service Worker...');
-          return polymerBuild.addServiceWorker({
-            project: polymerProject,
-            buildRoot: finalPath,
-            bundled: false,
-            swPrecacheConfig: swPrecacheConfig
-          });
-        })
-        .then(() => {
+        });
+        if(env == "prod"){
+          delPromise = delPromise.then(() => {
+            // Okay, now let's generate the Service Worker
+            console.log('Generating the Service Worker...');
+            return polymerBuild.addServiceWorker({
+              project: polymerProject,
+              buildRoot: finalPath,
+              bundled: false,
+              swPrecacheConfig: swPrecacheConfig
+            });
+          })
+        }
+        delPromise = delPromise.then(() => {
           console.log(mode+' Build complete!');
           resolve();
         });
@@ -226,10 +231,10 @@ gulp.task('copy-node-modules', function () {
 });
 
 gulp.task('dev-env', function(){
-    var tasks = [
-                  appBuild(devPath),
-                  appBuild(devPath, "es5")
-                ];
+    var tasks = [appBuild(devPath, "es6", "dev")];
+    if(argv.es5){
+      tasks.push(appBuild(devPath, "es5", "dev"))
+    }
     return Promise.all(tasks)
 });
 
