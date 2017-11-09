@@ -229,7 +229,7 @@ Below steps are needed only for the first time when you setup your OSX dev machi
 
 1. Navigate to directory '/usr/local/etc/dnsmasq.conf'
 
-2. Insert 'address=/riversand.com/127.0.0.1' into the file and save
+2. Insert 'address=/MACHINE-NAME.riversand.com/127.0.0.1' into the file and save
 
 3. Restart process with the following:
 
@@ -315,19 +315,8 @@ Below steps are needed only for the first time when you setup your OSX dev machi
    }, 
    
    ```
-   
- 5. In ui-platform codebase, update your **socket.io** config.js files to update as  https://MACHINE-NAME.local. This is required to make socket.io work. Here is sample:  
- 
-    ```
-    {
-        "notificationManager" : {
-            "url": "https://MACHINE-NAME.local"
-        }
-     },
-     
-     ```
     
-6. Install nginx 
+5. Install nginx 
 
     • Open terminal and run
 
@@ -341,7 +330,9 @@ Below steps are needed only for the first time when you setup your OSX dev machi
 
     `nginx -V`
 
-7. Copy 'nginx.conf' file from unzipped AuthSetup-Package 'ngnix/conf' into '/usr/local/etc/nginx' and overwrite file in directory
+6. Copy 'nginx.conf' file from unzipped AuthSetup-Package 'ngnix/conf' into '/usr/local/etc/nginx' and overwrite file in directory
+
+7. Copy 'keys/' directory from unzipped AuthSetup-Package 'ngnix/conf' into '/usr/local/etc/nginx' and overwrite forlder if it already exist
 
 
 ## Run Nginx, auth-service and ui-platform app:
