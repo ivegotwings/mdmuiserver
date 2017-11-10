@@ -102,90 +102,85 @@
           var path = viewName;
           var contentView;
           viewName = ComponentHelper.getViewNameWithQueryParams(queryParams, viewName);
-          if (viewName) {
 
-            //Where rendering is going on, there is an issue closing and opening an app. So, we are making sure that it is flushed
-            Polymer.dom.flush();
+          if(!viewName) return;
+          //Where rendering is going on, there is an issue closing and opening an app. So, we are making sure that it is flushed
+          Polymer.dom.flush();
 
-            if (viewName != this.currentViewName) {
-              if (this.currentViewName) {
-                this._hideView(this.currentViewName);
-              }
-              //raise event - TODO: allow cancel?
-              this.dispatchEvent(new CustomEvent('open', {detail:{ "viewName": viewName, "contentView": undefined, "config": config }, bubbles:true,composed:true}));
+          if(viewName === this.currentViewName) return;
 
-              var openSuccessful = false;
-              //check for existing
-              if (this._views[viewName]) {
-                contentView = this.$.contentViewManager.querySelector('rock-content-view[name="' + viewName + '"]');
-                if (contentView) {
-                  this._showView(viewName);
-                    //manage viewstack
-                  if (this._activeStack[this._activeStack.length - 1] != viewName) {
-                    this._takeOutFromStack(this._minimizeStack, viewName);
-                    this._takeOutFromStack(this._activeStack, viewName);
-                    this._activeStack.push(viewName);
-                  }
+          this._displayView(this.currentViewName, false);
+          //raise event - TODO: allow cancel?
+          this.dispatchEvent(new CustomEvent('open', {detail:{ "viewName": viewName, "contentView": undefined, "config": config }, bubbles:true,composed:true}));
 
-                  openSuccessful = true;
-                }
-                
-              }
-              else {
-                // Polymer.importHref(this.resolveUrl('rock-content-view.html'),
-                // () => this._loadContentView(viewName, config,queryParams,action, path),
-                // true
-                // );
-                //if no existing, create new
-                var cView = customElements.get('rock-content-view');
-                contentView = new cView();//this.create('rock-content-view')//document.createElement('rock-content-view');
-                contentView.name = viewName;
-                contentView.setAttribute("name", viewName);
-                contentView.component = config.component;
-                if (!contentView.component.properties) {
-		              contentView.component.properties={};
-                }
-                contentView.component.properties["app-config"] = DataHelper.cloneObject(config);
-                contentView.viewTitle = config.title;
-                contentView.icon = config.icon;
-                contentView.nonClosable = config.nonClosable;
-                contentView.nonMinimizable = config.nonMinimizable;
-                contentView.noShare = config.nonSharable;
-					      contentView.noSettings = config.noSettings;
-                contentView.manager = this;
-                contentView.queryParams = queryParams;
-                contentView.path = path;
-                contentView.renderedCallback = function(renderedElement){
-                  this.dispatchEvent(new CustomEvent('opened', {detail:{ "contentView": renderedElement }, bubbles:true, composed:true}));
-                }.bind(this);
-                this.$.contentViewManager.appendChild(contentView);
-                contentView.render();
-
-                this._views[viewName] = contentView;//TODO: this is not really needed, we will see
-
+          var openSuccessful = false;
+          //check for existing
+          if (this._views[viewName]) {
+            contentView = this._getContentViewByName(viewName);
+            if (contentView) {
+              this._displayView(viewName, true);
                 //manage viewstack
+              if (this._activeStack[this._activeStack.length - 1] != viewName) {
+                this._takeOutFromStacks([
+                  this._minimizeStack,
+                  this._activeStack
+                ], viewName);
                 this._activeStack.push(viewName);
-                this._openStack.push(viewName);
+              }
 
-                openSuccessful = true;
-              }
-              
-              var content=contentView.getContent();
-              if(content && content.isRufComponent && action && action.name){
-                  content.fire(action.name,action.data);
-              }
-              action={};
-              //hide current view
-              if (openSuccessful) {
-                this.currentViewName = viewName;
-              } else {
-                this._showView(this.currentViewName)
-              }
-              
+              openSuccessful = true;
             }
+            
           }
           else {
-            //TODO: viewname not given
+            // Polymer.importHref(this.resolveUrl('rock-content-view.html'),
+            // () => this._loadContentView(viewName, config,queryParams,action, path),
+            // true
+            // );
+            //if no existing, create new
+            var cView = customElements.get('rock-content-view');
+            contentView = new cView();//this.create('rock-content-view')//document.createElement('rock-content-view');
+            contentView.name = viewName;
+            contentView.setAttribute("name", viewName);
+            contentView.component = config.component;
+            if (!contentView.component.properties) {
+              contentView.component.properties={};
+            }
+            contentView.component.properties["app-config"] = DataHelper.cloneObject(config);
+            contentView.viewTitle = config.title;
+            contentView.icon = config.icon;
+            contentView.nonClosable = config.nonClosable;
+            contentView.nonMinimizable = config.nonMinimizable;
+            contentView.noShare = config.nonSharable;
+            contentView.noSettings = config.noSettings;
+            contentView.manager = this;
+            contentView.queryParams = queryParams;
+            contentView.path = path;
+            contentView.renderedCallback = function(renderedElement){
+              this.dispatchEvent(new CustomEvent('opened', {detail:{ "contentView": renderedElement }, bubbles:true, composed:true}));
+            }.bind(this);
+            this.$.contentViewManager.appendChild(contentView);
+            contentView.render();
+
+            this._views[viewName] = contentView;//TODO: this is not really needed, we will see
+
+            //manage viewstack
+            this._activeStack.push(viewName);
+            this._openStack.push(viewName);
+
+            openSuccessful = true;
+          }
+          
+          var content=contentView.getContent();
+          if(content && content.isRufComponent && action && action.name){
+              content.fire(action.name,action.data);
+          }
+          action={};
+          //hide current view
+          if (openSuccessful) {
+            this.currentViewName = viewName;
+          } else {
+            this._displayView(this.currentViewName, true);
           }
         },
 
@@ -194,42 +189,39 @@
         * @param {string} viewName The name of the view to be opened.
         */
         closeView: function (viewName, queryParams,action) {
-          if (viewName) {
-            viewName = ComponentHelper.getViewNameWithQueryParams(queryParams, viewName);
-            var contentView = this.$.contentViewManager.querySelector('rock-content-view[name="' + viewName + '"]');
-            if (contentView) {
+          if(!viewName) return;
+            
+          viewName = ComponentHelper.getViewNameWithQueryParams(queryParams, viewName);
+          var contentView = this._getContentViewByName(viewName);
 
-              //Where rendering is going on, there is an issue closing and opening next app. So, we are making sure that it is flushed
-              Polymer.dom.flush();
+          if(!contentView) return;
 
-              //raise event - TODO: allow cancel?
-              this.dispatchEvent(new CustomEvent('close', {detail:{ "viewName": viewName, "contentView": contentView, "config": undefined }, bubbles:true, composed:true}));
+          //Where rendering is going on, there is an issue closing and opening next app. So, we are making sure that it is flushed
+          Polymer.dom.flush();
 
-              this.$.contentViewManager.removeChild(contentView);
-              delete this._views[viewName];
+          //raise event - TODO: allow cancel?
+          this.dispatchEvent(new CustomEvent('close', {detail:{ "viewName": viewName, "contentView": contentView, "config": undefined }, bubbles:true, composed:true}));
 
-              //manage viewstack
-              this._takeOutFromStack(this._activeStack, viewName);
-              this._takeOutFromStack(this._openStack, viewName);
-              this._takeOutFromStack(this._minimizeStack, viewName);
+          this.$.contentViewManager.removeChild(contentView);
+          delete this._views[viewName];
 
-              //show previous view when the current one is closed
-              if (this.currentViewName == viewName) {
-                this.currentViewName = "";
-                if (this._activeStack.length > 0) {
-                  this._navigateToLastOpenedContentView(action);
-                }
-                else {
-                  this._changeRoute("/");
-                }
-              }
+          //manage viewstack
+          this._takeOutFromStacks([
+            this._activeStack,
+            this._openStack,
+            this._minimizeStack
+          ], viewName);
+
+          //show previous view when the current one is closed
+          if (this.currentViewName == viewName) {
+            this.currentViewName = "";
+            if (this._activeStack.length) {
+              this._navigateToLastOpenedContentView(action);
             }
             else {
-              //TODO: contentview not found for the given view name
+              //no views to show, should go back to dashboard
+              this._changeRoute("/dashboard");
             }
-          }
-          else {
-            //TODO: viewname not given
           }
         },
 
@@ -238,67 +230,56 @@
         * @param {string} viewName The name of the view to be opened.
         */
         minimizeView: function (viewName, queryParams) {
-          if (viewName) {
-            viewName = ComponentHelper.getViewNameWithQueryParams(queryParams, viewName);
-            var contentView = this.$.contentViewManager.querySelector('rock-content-view[name="' + viewName + '"]');
-            if (contentView) {
+          if(!viewName) return;
+          
+          viewName = ComponentHelper.getViewNameWithQueryParams(queryParams, viewName);
+          var contentView = this._getContentViewByName(viewName);
 
-               //Where rendering is going on, there is an issue minimizing and opening next app. So, we are making sure that it is flushed
-              Polymer.dom.flush();
+          if(!contentView) return;
 
-              //raise event - TODO: allow cancel?
-              this.dispatchEvent(new CustomEvent('minimize', {detail:{ "viewName": viewName, "contentView": contentView, "config": undefined }, bubbles:true,composed:true}));
+          //Where rendering is going on, there is an issue minimizing and opening next app. So, we are making sure that it is flushed
+          Polymer.dom.flush();
 
-              this._hideView(viewName);
+          //raise event - TODO: allow cancel?
+          this.dispatchEvent(new CustomEvent('minimize', {detail:{ "viewName": viewName, "contentView": contentView, "config": undefined }, bubbles:true,composed:true}));
 
-              //manage viewstack
-              this._minimizeStack.push(viewName);
-              this._takeOutFromStack(this._activeStack, viewName);//ideally a pop, will change soon
-              this.currentViewName = "";
-              //show previous view when the current one is closed
-              if (this._activeStack.length > 0) {
-                this._navigateToLastOpenedContentView();
-              }
-              else {
-                //TODO: no views to show, should go back to dashboard
-                this._changeRoute("/");
-              }
-            }
-            else {
-              //TODO: contentview not found for the given view name
-            }
+          this._displayView(viewName, false);
+
+          //manage viewstack
+          this._minimizeStack.push(viewName);
+          this._takeOutFromStacks([this._activeStack], viewName);//ideally a pop, will change soon
+          this.currentViewName = "";
+          //show previous view when the current one is closed
+          if (this._activeStack.length) {
+            this._navigateToLastOpenedContentView();
           }
           else {
-            //viewname not given
+            //no views to show, should go back to dashboard
+            this._changeRoute("/dashboard");
           }
         },
 
-        _takeOutFromStack: function (stack, viewName) {
-          var viewIndex;
-          for (var i = 0; i < stack.length; i++) {
-            if (stack[i] == viewName) {
-              viewIndex = i;
-            }
-          }
-          stack.splice(viewIndex, 1);
+        _takeOutFromStacks(stacks=[], viewName) {
+          stacks.forEach(stack => {
+            const viewIndex = stack.findIndex(item => item === viewName);
+
+            if(viewIndex >=0) stack.splice(viewIndex, 1);
+          });
         },
 
-        _hideView: function (viewName) {
-          if (viewName) {
-            var contentView = this.$.contentViewManager.querySelector('rock-content-view[name="' + viewName + '"]');
-            if (contentView) {
-              contentView.setAttribute("hidden", "");
-            }
-          }
+        _displayView(viewName, display) {
+          const contentView = this._getContentViewByName(viewName);
+
+          if(!contentView) return;
+
+          if(display)
+            contentView.removeAttribute("hidden");
+          else
+            contentView.setAttribute("hidden", "");
         },
 
-        _showView: function (viewName) {
-          if (viewName) {
-            var contentView = this.$.contentViewManager.querySelector('rock-content-view[name="' + viewName + '"]');
-              if (contentView) {
-              contentView.removeAttribute("hidden");
-            }
-          }
+        _getContentViewByName(viewName) {
+          return viewName ? this.$.contentViewManager.querySelector(`rock-content-view[name="${viewName}"]`) : null;
         },
         _changeRoute: function (path, queryParams,action) {
           if (!queryParams) {
@@ -307,16 +288,16 @@
 
           var mainApp = document.querySelector("main-app");
 
-          if (mainApp) {
-            ComponentHelper.setQueryParamsWithoutEncode(queryParams);
+          if(!mainApp) return;
 
-            if (path != mainApp.pageRoute.path) {
-              mainApp.changePageRoutePath(path,action);
-            }
+          ComponentHelper.setQueryParamsWithoutEncode(queryParams);
+
+          if (path !== mainApp.pageRoute.path) {
+            mainApp.changePageRoutePath(path,action);
           }
         },
         _navigateToLastOpenedContentView: function (action) {
-          var lastOpenedContentView = this.$.contentViewManager.querySelector('rock-content-view[name="' + this._activeStack[this._activeStack.length - 1] + '"]');
+          var lastOpenedContentView = this._getContentViewByName(this._activeStack[this._activeStack.length - 1]);
           this._changeRoute(lastOpenedContentView.path, lastOpenedContentView.queryParams,action);
         },
         /** 
@@ -324,7 +305,7 @@
         */
         getIsDirty: function () {
           if (this.currentViewName) {
-            var currenttView = this.$.contentViewManager.querySelector('rock-content-view[name="' + this.currentViewName + '"]');
+            var currenttView = this._getContentViewByName(this.currentViewName);
           }
           if (currenttView) {
             var content = currenttView.$.content;
