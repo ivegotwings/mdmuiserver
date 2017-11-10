@@ -7,9 +7,11 @@
 <link rel="import" href="../bedrock-app-behavior/bedrock-app-behavior.html" />
 <link rel="import" href="../bedrock-helpers/context-helper.html" />
 <link rel="import" href="../bedrock-helpers/element-helper.html" />
-
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html" />
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-gridsystem.html" />
+
+<link rel="import" href="../liquid-config-get/liquid-config-get.html" />
+
 <link rel="import" href="../pebble-button/pebble-button.html" />
 <link rel="import" href="../pebble-actions/pebble-actions.html" />
 <link rel="import" href="../pebble-popover/pebble-popover.html" />
@@ -206,9 +208,9 @@
             <div class="row-wrap">
                 <template is="dom-if" if="[[_getVisibility('rock-entity-search-grid')]]">
                     <div class$="[[_applyClass(_quickManageEnabled)]]">
-                        <rock-entity-search-grid id="entitySearchGrid" context-data="[[contextData]]" grid-config="[[getParentAppConfig('rock-entity-search-grid', '', 'gridConfig')]]"
-                            govern-attributes-criterion="[[getParentAppConfig('rock-entity-search-grid', '', 'governAttributesCriterion')]]"
-                            govern-data-config="[[getParentAppConfig('rock-entity-search-grid', '', 'governDataConfig')]]" search-query="{{searchQuery}}"
+                        <rock-entity-search-grid id="entitySearchGrid" context-data="[[contextData]]" grid-config="[[_getGridConfig('gridConfig', entitySearchGridConfig)]]"
+                            govern-attributes-criterion="[[_getGridConfig('governAttributesCriterion', entitySearchGridConfig)]]"
+                            govern-data-config="[[_getGridConfig('governDataConfig', entitySearchGridConfig)]]" search-query="{{searchQuery}}"
                             saved-search-id="[[savedSearchId]]" workflow-criterion="[[_workflowCriterion]]" search-filters="[[_selectedSearchFilters]]"
                             current-record-size="{{_gridFullLength}}" types-criterion="[[_typesCriterion]]" entity-id-list="[[entityIdList]]"></rock-entity-search-grid>
                         <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="entityGrid"></bedrock-pubsub>
@@ -233,6 +235,8 @@
                 </template>
             </div>
         </template>
+        <liquid-config-get id="initiateConfigSearch" operation="initiatesearch" request-data={{initiateConfigSearchRequestData}} last-response="{{initiateConfigSearchResponse}}" on-response="_onInitiateConfigSearchResponse"></liquid-config-get>
+        <liquid-config-get id="getConfigSearchDetails" operation="getsearchresultdetail" on-response="_onGetConfigSearchDetailsResponse"></liquid-config-get>
     </template>
     <script>
         (function () {
@@ -381,12 +385,28 @@
                             return [];
                         }
                     },
+                    _entityTypes: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
                     _currentIndex: {
                         type: Number,
                         value: -1
                     },
                     domain:{
                         type:String
+                    },
+                    entitySearchGridConfig: {
+                        type: Object,
+                        value: function() {
+                            return DataHelper.cloneObject(this.getParentAppConfig("rock-entity-search-grid"));
+                        }
+                    },
+                    _isBaseGridConfigLoaded: {
+                        type: Boolean,
+                        value: true
                     }
                 },
 
@@ -445,7 +465,13 @@
                             }
                         }
 
-                        this._gridConfig = this.getParentAppConfig("rock-entity-search-grid", "", "gridConfig");
+                        this._gridConfig = this._getGridConfig("gridConfig");
+                    }
+                },
+
+                _getGridConfig: function(subComponent) {
+                    if(this.entitySearchGridConfig && this.entitySearchGridConfig[subComponent]) {
+                        return this.entitySearchGridConfig[subComponent];
                     }
                 },
 
@@ -931,7 +957,7 @@
                     this.shadowRoot.querySelector("#entityTypeFilterPopover").open();
                 },
 
-                _onSelectedEntityTypesChange: function (e, detail) {
+                _onSelectedEntityTypesChange: function (e, detail) {                    
                     var selectedEntitiesObj = detail.data;
 
                     if (selectedEntitiesObj && selectedEntitiesObj.length) {
@@ -941,11 +967,18 @@
                                 selectedEntities.push(selectedEntitiesObj[i].id);
                             }
                         }
-                        this.set("_typesCriterion", selectedEntities);
-                        this.refresh();
+                        this._entityTypes = selectedEntities;
+                        this._updateGridConfigurationOnEntityTypeChange(selectedEntities);
                     } else {
                         this._onGridConfigChange();
-                    }
+                        this.shadowRoot.querySelector("#entityTypeFilterPopover").close();
+                        this._updateSearchEntityTypeTag(selectedEntities);
+                    }                    
+                },
+
+                _updateTypesCriterion: function(selectedEntities) {
+                    this.set("_typesCriterion", selectedEntities);
+                    this.refresh();
                     this.shadowRoot.querySelector("#entityTypeFilterPopover").close();
                     this._updateSearchEntityTypeTag(selectedEntities);
                 },
@@ -1229,6 +1262,78 @@
                             grid.updateStyles({"--rock-grid-height": rockGridHeight - 130 + 'px'});
                     }
 
+                },
+
+                _updateGridConfigurationOnEntityTypeChange: function(selectedEntityTypes) {
+                    if(!selectedEntityTypes || selectedEntityTypes.length > 1) {
+                        if(!this._isBaseGridConfigLoaded) {
+                            this._clearGridConfig();
+                            var gridConfig = DataHelper.cloneObject(this.getParentAppConfig("rock-entity-search-grid"));
+                            this.async(function() {
+                                this.set('entitySearchGridConfig', gridConfig);
+                                this.async(function() { //must call after gridConfig update
+                                    this._updateTypesCriterion(this._entityTypes);
+                                });                                
+                            });
+                            this._isBaseGridConfigLoaded = true;
+                        } else {
+                            this._updateTypesCriterion(this._entityTypes);
+                        }                            
+                    } else {
+                        var entityType = selectedEntityTypes[0];
+                        var userCtx = ContextHelper.getFirstUserContext(this.contextData);
+                        var collectionContext = {"entityType": entityType, "role": userCtx.role}
+                        this.initiateConfigSearchRequestData = DataRequestHelper.getContextSepecificConfigRequest("app-entity-discovery", "rock-entity-search-grid", collectionContext);
+                        var initiateConfigSearch = this.shadowRoot.querySelector("#initiateConfigSearch");
+                        initiateConfigSearch.generateRequest();
+                    }
+                },
+
+                _onInitiateConfigSearchResponse: function (e) {
+                    var totalRecords = this.initiateConfigSearchResponse.content.totalRecords;
+                    var options = { 'from': 0, 'to': totalRecords };
+                    var searchResultId = this.initiateConfigSearchResponse.content.requestId;
+
+                    var getConfigSearchDetails = this.shadowRoot.querySelector('#getConfigSearchDetails');
+                    var reqData = this.initiateConfigSearchRequestData;
+                    reqData.params.options = options;
+                    getConfigSearchDetails.requestId = searchResultId;
+                    getConfigSearchDetails.requestData = reqData;
+
+                    getConfigSearchDetails.generateRequest();
+                },
+
+                _onGetConfigSearchDetailsResponse: function(e) {
+                    var gridConfig = {};
+                    if(e.detail.response &&
+                       e.detail.response.status == "success" && 
+                       DataHelper.isValidObjectPath(e, 'detail.response.content.configObjects.0.data.contexts.0.jsonData.config')) {
+                           gridConfig = e.detail.response.content.configObjects[0].data.contexts[0].jsonData.config;
+                           this._isBaseGridConfigLoaded = false;
+                    } else {
+                        if(!this._isBaseGridConfigLoaded) {
+                            gridConfig = DataHelper.cloneObject(this.getParentAppConfig("rock-entity-search-grid"));
+                            this._isBaseGridConfigLoaded = true;
+                        }
+                    }
+                    
+                    if(!_.isEmpty(gridConfig)) {
+                        this._clearGridConfig();
+                        this.async(function() {
+                            this.set('entitySearchGridConfig', gridConfig);
+                            this.async(function() { //must call after gridConfig update
+                                this._updateTypesCriterion(this._entityTypes);
+                            });
+                        });                        
+                    } else {
+                        this._updateTypesCriterion(this._entityTypes);
+                    }
+                },
+
+                _clearGridConfig: function() {
+                    var grid = ElementHelper.getElement(this, "#entitySearchGrid");
+                    grid.attributeModels={};
+                    grid.gridConfig = {};
                 }
             });
         })();
