@@ -145,7 +145,8 @@
                 position: absolute;
                 z-index: 3;
                 width: 560px;
-                top: 185px;
+                top: 138px;
+                right: 16%;
             }      
             .queryBuilderContainer paper-card {
                 width: 100%;
@@ -182,6 +183,28 @@
                             <bedrock-pubsub event-name="rock-search-update" handler="_showResetSearch" target-id="searchBar"></bedrock-pubsub>                          
                         </div>
                     </template>
+                    <template is="dom-if" if="[[_getVisibility('rock-query-builder')]]">
+                        <div class="advancedsearch">
+                            <pebble-button class="btn-link" on-tap="_showQueryBuilder" button-text="Advanced"></pebble-button>
+                        </div>
+                        <template is="dom-if" if="[[_queryBuilderEnabled]]">
+                            <div class="queryBuilderContainer">
+                                <paper-card>
+                                    <div class="card-content">
+                                        <rock-query-builder id="queryBuilder" domain="[[domain]]" allowed-entity-types="{{allowedEntityTypes}}" selected-entity-types="{{_selectedEntityTypes}}"
+                                            input-query-string="{{inputQueryString}}" attribute-grid-data="{{attributeGridData}}"
+                                            context-data="{{contextData}}" workflow-name="[[workflowName]]" search-query="{{searchQuery}}"></rock-query-builder>
+                                    </div>
+                                </paper-card>
+                            </div>
+                        </template>
+                        <rock-search-query-parser id="queryParser"></rock-search-query-parser>
+                        <bedrock-pubsub event-name="rock-search" handler="_onSearch" target-id="searchBar"></bedrock-pubsub>
+                        <bedrock-pubsub event-name="rock-search-update" handler="_showResetSearch" target-id="searchBar"></bedrock-pubsub>
+                        <bedrock-pubsub event-name="hide-query-builder" handler="_hideQueryBuilder" target-id="queryBuilder"></bedrock-pubsub>
+                        <bedrock-pubsub event-name="on-query-build" handler="_onQueryBuild" target-id="queryBuilder"></bedrock-pubsub>
+                        <bedrock-pubsub event-name="on-search-filters" handler="_onSearchFiltersChange" target-id="queryParser"></bedrock-pubsub>
+                    </template>
                     <template is="dom-if" if="[[_getVisibility('rock-saved-searches')]]">
                         <pebble-button id="savedSearchButton" icon="pebble-md-icons:SavedSearch" button-text="Load Saved Search" noink raised dropdown-icon
                             on-tap="_onSavedSearchTap" class="dropdownIcon dropdownText btn m-l-10 dropdown-outline-primary"></pebble-button>
@@ -194,29 +217,7 @@
                         <bedrock-pubsub event-name="rock-saved-search-click" handler="_loadSavedSearch" target-id=""></bedrock-pubsub>
                     </template>
                 </div>
-                <div class="layout horizontal p-t-10">
-                    <template is="dom-if" if="[[_getVisibility('rock-query-builder')]]">
-                        <div class="advancedsearch">
-                            <pebble-button class="btn-link" on-tap="_showQueryBuilder" button-text="Advanced Search"></pebble-button>
-                        </div>
-                        <template is="dom-if" if="[[_queryBuilderEnabled]]">
-                            <div class="queryBuilderContainer">
-                                <paper-card>
-                                    <div class="card-content">
-                                        <rock-query-builder id="queryBuilder" domain="[[domain]]" allowed-entity-types="{{allowedEntityTypes}}" selected-entity-types="{{_selectedEntityTypes}}"
-                                            input-query-string="{{inputQueryString}}" attribute-grid-data="{{attributeGridData}}"
-                                            context-data="{{contextData}}" workflow-name="[[workflowName]]"></rock-query-builder>
-                                    </div>
-                                </paper-card>
-                            </div>
-                        </template>
-                        <rock-search-query-parser id="queryParser"></rock-search-query-parser>
-                        <bedrock-pubsub event-name="rock-search" handler="_onSearch" target-id="searchBar"></bedrock-pubsub>
-                        <bedrock-pubsub event-name="rock-search-update" handler="_showResetSearch" target-id="searchBar"></bedrock-pubsub>
-                        <bedrock-pubsub event-name="hide-query-builder" handler="_hideQueryBuilder" target-id="queryBuilder"></bedrock-pubsub>
-                        <bedrock-pubsub event-name="on-query-build" handler="_onQueryBuild" target-id="queryBuilder"></bedrock-pubsub>
-                        <bedrock-pubsub event-name="on-search-filters" handler="_onSearchFiltersChange" target-id="queryParser"></bedrock-pubsub>
-                    </template>
+                <div class="layout horizontal p-t-10">                    
                     <template is="dom-if" if="[[_getVisibility('rock-entity-search-filter')]]">
                         <div class="flex searchFilterTag">
                             <rock-entity-search-filter id="entitySearchFilter" selected-search-filters="{{_selectedSearchFilters}}" context-data="{{contextData}}"
@@ -652,6 +653,8 @@
                 // Rock search bar
                 _onSearch: function (e, detail, sender) {                    
                     this.searchQuery = detail;
+
+                    this._buildQueryString();
                     // this.fireBedrockEvent("search-criteria-changed");
                     // this._searchTimeStamp = new Date().toLocaleString();
                 },
@@ -664,7 +667,7 @@
                     }
 
                     //Preventing the reset search button from disappearing when there is a saved search selected/ search bar query/ refine more tag
-                    if (!DataHelper.isEmptyObject(this._searchBarElement.query) || tags.length > 0 || this.savedSearchId != "") {
+                    if (!DataHelper.isEmptyObject(this._searchBarElement.query) || tags.length > 0 || this.savedSearchId != "" || this.inputQueryString!="") {
                         this._resetSearchEnabled = true;
                     } else {
                         this._resetSearchEnabled = false;
@@ -701,6 +704,11 @@
 
                     this._resetSearchEnabled = false;
 
+                    //TODO reset the entityTypes to select all
+                    //this._selectedEntityTypes = this._getSelectedEntityTypes(this._selectedEntityTypes);
+                    //this._updateSearchEntityTypeTag(this._selectedEntityTypes);
+
+                    //Clear the advanced search options
                     this.inputQueryString = "";
                     this.attributeGridData = new Array();
                     
@@ -1044,6 +1052,11 @@
                 _onSelectedEntityTypesChange: function (e, detail) {
                     var selectedEntitiesObj = detail.data;
 
+                    if(!selectedEntitiesObj){
+                        this.showErrorToast("Please select atleast one Entity Type");
+                        return;
+                    }
+
                     if (selectedEntitiesObj && selectedEntitiesObj.length) {
                         var selectedEntities = [];
                         for (var i = 0; i < selectedEntitiesObj.length; i++) {
@@ -1053,6 +1066,7 @@
                         }
                         this._entityTypes = selectedEntities;
                         this._updateGridConfigurationOnEntityTypeChange(selectedEntities);
+                        this._buildQueryString();
                     } else {
                         this._onGridConfigChange();
                         this.shadowRoot.querySelector("#entityTypeFilterPopover").close();
@@ -1442,22 +1456,31 @@
                         }
                     } 
 
-                    var entityTypes = this.getSelectedEntityTypes(this._selectedEntityTypes); 
-
-                    var attributeList = detail;
-                    var attributeListArray = new Array();
-                    for(var i=0;i<attributeList.length;i++){
-                        let newItem = {
-                            name : attributeList[i].longName,
-                            value : attributeList[i].displayValue,
-                            attributeModel : attributeList[i].options
-                        } 
-                        attributeListArray.push(newItem);  
+                    //User has input some keyword search criteria
+                    var keywordSearchStr = "";
+                    if(this.searchQuery){
+                        keywordSearchStr = this.searchQuery;
                     }
+                    var entityTypes = this.getSelectedEntityTypes(this._selectedEntityTypes); 
+                    var attributeListArray = new Array();
 
-                    var queryString = this.buildQuery(entityTypes,attributeListArray,relationship,relationshipsListArray,workflowListArray);
+                    if(detail) {
+                        var attributeList = detail;                    
+                        for(var i=0;i<attributeList.length;i++){
+                            let newItem = {
+                                name : attributeList[i].longName,
+                                value : attributeList[i].displayValue,
+                                attributeModel : attributeList[i].options
+                            } 
+                            attributeListArray.push(newItem);  
+                        }
+                        this.attributeGridData = attributeListArray;
+                    } else if (this.attributeGridData){
+                        attributeListArray = this.attributeGridData; 
+                    }
                     
-                    this.attributeGridData = attributeListArray;
+                    var queryString = this.buildQuery(entityTypes,attributeListArray,relationship,relationshipsListArray,workflowListArray,false,keywordSearchStr);
+                                        
                     this._displayQuery(queryString);
                     
                 },
@@ -1483,6 +1506,7 @@
                         this._searchBarElement.setAttribute("placeholder","");
                         this._searchBarElement.setAttribute("placeholder",queryStr);
                     } 
+                    this._showResetSearch();
                 },
 
                 /**
@@ -1507,6 +1531,9 @@
                         this.set("_workflowCriterion", workflowCriterion);
                     }
                     this._updateSearchEntityTypeTag(typesCriterion);
+                    this.set("_selectedEntityTypes","");
+                    var selectedEntityTypes = this._getSelectedEntityTypes(typesCriterion);                    
+                    this.set("_selectedEntityTypes",selectedEntityTypes);
                     this.refresh();
                 }
             });
