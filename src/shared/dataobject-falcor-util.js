@@ -678,15 +678,6 @@ DataObjectFalcorUtil.deepAssign = function (...objs) {
 
     var target = objs[0];
 
-    if(!DataObjectFalcorUtil.isObject(target) && !Array.isArray(target)) {
-        for (var i = 1; i < objs.length; i++) {
-            const source = objs[i];
-            if(!DataObjectFalcorUtil.isObject(target) && !Array.isArray(target)) {
-
-            }
-        }
-    }
-
     for (var i = 1; i < objs.length; i++) {
         var source = objs[i];
         if(!DataObjectFalcorUtil.isObject(source) && !Array.isArray(source)) {

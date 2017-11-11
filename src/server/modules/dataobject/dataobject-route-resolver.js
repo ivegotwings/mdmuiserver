@@ -372,7 +372,6 @@ async function get(dataObjectIds, reqData) {
         //console.log('req to api ', JSON.stringify(request));
 
         if (isCoalesceGet) {
-            console.log('req to colase api ');
             res = await service.getCoalesce(request);
         }
         else if (isNearestGet) {
