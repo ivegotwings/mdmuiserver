@@ -114,7 +114,7 @@
     
     <!-- Entity Type search -->       
     <div>
-        <pebble-button id="entityTypeFilterButton" icon="pebble-sm-icons:Filter-wt" button-text="Entity Type" dropdown-icon="" noink="" class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" is-ruf-component="" target-id="productSearchPopover" on-tap="_openLov"></pebble-button>
+        <pebble-button id="entityTypeFilterButton" icon="pebble-sm-icons:Filter-wt" button-text="{{selectedEntityTypeNames}}" dropdown-icon="" noink="" class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" is-ruf-component="" target-id="productSearchPopover" on-tap="_openLov"></pebble-button>
         <pebble-popover id="productSearchPopover" for="entityTypeFilterButton" vertical-align="auto" horizontal-align="auto">
             <rock-entity-type-model-lov id="entityTypeLov" domain="[[domain]]" select-all="true" allowed-entity-types="{{allowedEntityTypes}}" selected-items="{{selectedEntityTypes}}"></rock-entity-type-model-lov>    
             <div class="PebbleButtonPadding text-center m-t-10">
@@ -246,7 +246,7 @@
         - Relationships (nested)
         - WF search within relationships -->
     <div class="queryHeading">
-        <pebble-button icon="pebble-md-icons:addcircle" class="queryHeadingButton m-b-5" on-tap="" button-text="HAVING"></pebble-button> <br/>
+        <pebble-button class="queryHeadingButton m-b-5" on-tap="" button-text="HAVING"></pebble-button> <br/>
         <pebble-button id="relationshipButton" button-text="Relationships" dropdown-icon="" noink="" class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" is-ruf-component="" target-id="relationshipPopover" on-tap="_openRelationshipModelLov"></pebble-button>
        
 
@@ -354,14 +354,13 @@
             <pebble-popover id="workflowActivityPopover" for="" no-overlap auto-fit-on-attach vertical-align="auto" horizontal-align="auto">
                 <pebble-lov id="workflowActivityLov" on-selection-changed="_onWorkflowActivityLovSelectionChanged"></pebble-lov>
             </pebble-popover>
-            <liquid-entity-model-get id="getWorkflowMappingDefinition" operation="getbyids" request-id="req1" request-data={{workflowMappingDefinitionRequest}}
-                on-response="_onWfMappingsReceived" on-error="_onMappingsGetFailed"></liquid-entity-model-get>
-            <liquid-entity-model-get id="entityGetWorkflowDefinition" operation="getbyids" request-id="req1" request-data={{workflowDefinitionRequest}}
-                on-response="_onDefinitionReceived" on-error="_onDefinitionGetFailed"></liquid-entity-model-get>
-
         </div>
     </template>
-        
+    <liquid-entity-model-get id="getWorkflowMappingDefinition" operation="getbyids" request-id="req1" request-data={{workflowMappingDefinitionRequest}}
+                on-response="_onWfMappingsReceived" on-error="_onMappingsGetFailed"></liquid-entity-model-get>
+    <liquid-entity-model-get id="entityGetWorkflowDefinition" operation="getbyids" request-id="req1" request-data={{workflowDefinitionRequest}}
+                on-response="_onDefinitionReceived" on-error="_onDefinitionGetFailed"></liquid-entity-model-get>
+    
     <div class="actionButtons">
         <pebble-button id="cancelButton" class="close btn btn-secondary m-r-5" button-text="Cancel" noink elevation="2" on-tap="_onClose"></pebble-button>
         <pebble-button id="confirmButton" class="apply btn btn-success" button-text="Apply" noink elevation="2" on-tap="_onApply"></pebble-button>
@@ -568,7 +567,14 @@
                 type: String,
                 value: ""
             },
-
+            selectedEntityTypeNames:{
+               type: String,
+               computed: "getSelectedEntityTypeNames(selectedEntityTypes)" 
+            },
+            searchQuery: {
+                type: String,
+                value: ""
+            }
             }
         }      
          
@@ -640,6 +646,13 @@
             this.selectedEntityTypes = new Array();
             this._selectedItems = new Array();
             this.currentFilterObj = "";
+
+            //Reset the relationship lov
+            var relModelLov = this.shadowRoot.querySelector("#relationshipModelLov");
+            relModelLov.selectedItem = [];
+
+            //Reset the button text names
+            this._displaySelectedRelationships();
         }
 
         /**
@@ -712,8 +725,8 @@
                 relationshipTitle = relModelLov.selectedItem.title;
             }
                       
-            this.outputQueryString =  this.buildQuery(entityTypes,this.attributeGridData,relationshipTitle,this.relationshipGridData,this.workflowGridData);
-            var parserQueryString =  this.buildQuery(entityTypes,this.attributeGridData,relationshipId,this.relationshipGridData,this.workflowGridData,true);
+            this.outputQueryString =  this.buildQuery(entityTypes,this.attributeGridData,relationshipTitle,this.relationshipGridData,this.workflowGridData,false,this.searchQuery);
+            var parserQueryString =  this.buildQuery(entityTypes,this.attributeGridData,relationshipId,this.relationshipGridData,this.workflowGridData,true,this.searchQuery);
             
             var eventDetail = {
                 "displayQuery": this.outputQueryString,
@@ -755,23 +768,18 @@
             
             this._onEntityTypePopoverClose();
             //Show the selected entities on the entityTypeFilterButton
-            this._displaySelectedEntities();
             this._getWorkflowMappings();
         }       
 
-        /**
-         *  Function to display the selected entities as the button text
-         */ 
-        _displaySelectedEntities(){
-            var btnObj = this.shadowRoot.querySelector("#entityTypeFilterButton");
-            var selectedEntityStr = this.getSelectedEntityTypes(this.selectedEntityTypes).join();
+        getSelectedEntityTypeNames(selectedEntityTypes){
+            var selectedEntityStr = this.getSelectedEntityTypes(selectedEntityTypes).join();
             if(selectedEntityStr.length <= 0){
-            btnObj.setAttribute("button-text","Entity Type");             
+               return "Entity Type";             
             } else {
-                btnObj.setAttribute("button-text",selectedEntityStr);             
+                return selectedEntityStr;             
             }
         }
-
+        
         /**
          *  Opens the attribute Model lov
         */
@@ -862,10 +870,13 @@
          *   When attribute is selected, which popover component need to show
         */        
         _showTagModifier(displayType) {
-            if (this.currentFilterObj.dataType.toLowerCase() == "integer" || this.currentFilterObj.dataType.toLowerCase() == "decimal"){
+            if(!this.currentFilterObj){
+                return;
+            } else if (this.currentFilterObj.dataType.toLowerCase() == "integer" || this.currentFilterObj.dataType.toLowerCase() == "decimal"){
                 this.currentFilterObj.displayType = "numeric";
-            }
-            if (this.currentFilterObj && this.currentFilterObj.displayType.toLowerCase() == displayType.toLowerCase()) {
+            } 
+            
+            if (this.currentFilterObj.displayType.toLowerCase() == displayType.toLowerCase()) {
                 return true;
             }
             return false;
