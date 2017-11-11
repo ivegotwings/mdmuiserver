@@ -1,0 +1,1635 @@
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
+
+<dom-module id="rock-query-builder">
+  <template>
+    <style include="bedrock-style-common">
+        .queryHeading {
+            border-bottom: 1px solid var(--default-border-color, #c1cad4);
+            padding: 10px 0;
+            line-height: 0;
+        }
+        .queryHeadingButton {
+            height: 18px;
+            line-height: 15px;
+            font-weight: 500;
+            --pebble-button: {
+                min-width: auto;
+                padding-top: 0;
+                padding-right: 0;
+                padding-bottom: 0;
+                padding-left: 0;
+            }
+        }
+        .relationshipGridContainer {
+            border-radius: 3px;
+            width: 95%;
+            margin: 10px auto 0 auto;
+            box-shadow: 0 0 var(--popup-box-shadow-size,8px) 0 var(--popup-box-shadow,#8A98A3);
+        }
+        .actionButtons {
+            text-align: center;
+            padding-top : 15px;
+        }
+        #attributesSearchGrid {
+            --rock-grid-height: 60px;
+        }
+        .dropdown-icon {
+            --pebble-icon-height: 10px !important;
+            --pebble-icon-width: 10px !important;
+        }
+        pebble-data-table data-table-row[header] {
+           display: none;
+        } 
+        pebble-data-table data-table-row:not([header]) {
+            color: var(--palette-dark, #1a2028);
+            font-size: var(--default-font-size, 12px);
+            height: 100%;
+            background-color: var(--palette-white, #ffffff);
+        }        
+        pebble-data-table data-table-row:not([header]):hover,
+        pebble-data-table data-table-row[selected] {
+            background-color: var(--table-row-selected-color, #c1cad4) !important;
+        }        
+        pebble-data-table data-table-row:not([header]):hover data-table-checkbox,
+        pebble-data-table data-table-row[selected] data-table-checkbox {
+            background-color: var(--palette-white, #ffffff) !important;
+        }
+        pebble-data-table {
+            max-height: 100px;
+            --pebble-data-table-header : {
+                 display: none;
+            }           
+        }
+
+        #workflow-grid {
+            max-height: 35px;
+        }     
+        data-table-cell {
+            height: 35px;
+            padding-left: 20px;
+            padding-right: 0;
+            position: relative;
+            flex-basis: auto!important;
+        }
+        data-table-cell #iconDiv {
+            position: absolute;
+            right: 6px;
+        }
+        data-table-cell #inputDiv {
+            width: 100%;
+        }
+        pebble-textbox {
+            --paper-input-container: {
+                padding-top: 0px;
+                padding-right: 0px;
+                padding-bottom: 0px;
+                padding-left: 0px;
+                position: relative;
+            }
+        }
+        .dialogOptions paper-radio-button {
+            display: block;
+        }
+        paper-radio-group paper-radio-button{
+            --paper-radio-button-unchecked-color: var(--radio-button-border, #026bc3);
+            --paper-radio-button-checked-color: var(--radio-button-selected, #026bc3);
+        }
+        .input-content::slotted(input), .input-content::slotted(textarea), .input-content::slotted(iron-autogrow-textarea),
+        .input-content::slotted(.paper-input-input) {
+            font-size: var(--default-font-size, 14px);
+        }
+        
+        pebble-textbox-collection {
+            --tags-container: {
+                min-height: 0px;
+                margin-right: 0px;
+            }
+            --text-collection-container: {
+                min-height: 0px;
+                margin-top: 0px;
+            }
+        }  
+     
+    </style>   
+    
+    <!-- Entity Type search -->       
+    <div>
+        <pebble-button id="entityTypeFilterButton" icon="pebble-sm-icons:Filter-wt" button-text="Entity Type" dropdown-icon="" noink="" class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" is-ruf-component="" target-id="productSearchPopover" on-tap="_openLov"></pebble-button>
+        <pebble-popover id="productSearchPopover" for="entityTypeFilterButton" vertical-align="auto" horizontal-align="auto">
+            <rock-entity-type-model-lov id="entityTypeLov" domain="[[domain]]" select-all="true" allowed-entity-types="{{allowedEntityTypes}}" selected-items="{{selectedEntityTypes}}"></rock-entity-type-model-lov>    
+            <div class="PebbleButtonPadding text-center m-t-10">
+              <pebble-button class="btn btn-secondary m-r-5" target-id="productSearchPopover" on-tap="_closeLov" raised elevation="1" button-text="Close"></pebble-button>
+              <pebble-button class="btn btn-success" button-text="Apply" raised elevation="1" on-tap="_onSelectedEntityTypesChange" target-id="entityTypeLov"></pebble-button>
+            </div>
+        </pebble-popover>
+    </div>
+
+    <template is="dom-if" if="{{_enableAttributeList}}">
+            <!-- Attributes search - supports multiple attributes -->
+            <div class="queryHeading">
+                <pebble-button icon="pebble-md-icons:addcircle" class="queryHeadingButton" target-id="attribute-grid" on-tap="_onAddRowClick" button-text="WITH"></pebble-button>                   
+            </div>
+        
+            <div class="attributeGridContainer">
+                <pebble-data-table id="attribute-grid" items="{{attributeGridData}}">
+                        <data-table-column slot="column-slot" flex="0" class="first">
+                            <template>
+                                <pebble-icon slot="cell-slot-content" icon="pebble-md-icons:Delete" target-id="attribute-grid" class="pebble-md-icons" on-tap="_onDeleteRowClick"></pebble-icon>                        
+                            </template>
+                        </data-table-column>
+                        <data-table-column slot="column-slot">
+                            <template>
+                                <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
+                                    <pebble-textbox readonly id="attributes-text_[[index]]" row-id="[[index]]" value="{{item.name}}" no-label-float="true"></pebble-textbox>
+                                </div>
+                                <div id="iconDiv" slot="cell-slot-content">
+                                    <pebble-icon class="dropdown-icon" id="txtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-xs-icons:ExpandMore" on-tap="_openAttributeModelLov"></pebble-icon>
+                                </div>                         
+                            </template>                        
+                        </data-table-column>
+                        <data-table-column slot="column-slot">
+                            <template>
+                                <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
+                                    <pebble-textbox readonly id="attributes-value_[[index]]" row-id="[[index]]" value="{{item.value}}" no-label-float="true"></pebble-textbox>
+                                </div>
+                                <div id="iconDiv" slot="cell-slot-content">
+                                    <pebble-icon class="dropdown-icon" id="txtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-xs-icons:ExpandMore" on-tap="_onOpenFilterPopover"></pebble-icon>
+                                </div>                         
+                            </template>  
+                        </data-table-column>
+                </pebble-data-table>
+                <bedrock-pubsub event-name="self-attribute-model-lov-selection-changed" handler="_onAttributeSelection" target-id="attributeModelLov"></bedrock-pubsub>
+                <pebble-popover id="attributesPopover" for="" no-overlap auto-fit-on-attach vertical-align="auto" horizontal-align="auto">
+                    <rock-self-attribute-model-lov id="attributeModelLov" context-data="{{_contextData}}" no-sub-title id-field="name" title-pattern="externalName"
+                    type-field="[]" sort-details="[[filtersConfig]]"></rock-self-attribute-model-lov>
+                </pebble-popover>
+        </template>
+
+                <!-- Filter popover starts here -->         
+                <pebble-popover id="filterPopover" for="" no-overlap auto-fit-on-attach vertical-align="auto" horizontal-align="auto">
+                    <template is="dom-if" if="{{_showTagModifier('textbox',currentFilterObj.displayType)}}">
+                        <pebble-textbox-collection id="textCollection" values="{{txtBoxCollection}}" no-popover textbox-label="Enter more values here to search" show-seperator seperator="or"></pebble-textbox-collection>
+                        <div class="PebbleButtonPadding text-center m-t-15">
+                        <pebble-button class="btn btn-secondary m-r-5" target-id="filterPopover" on-tap="_closeLov" raised elevation="1" button-text="Close"></pebble-button>
+                        <pebble-button class="btn btn-success" button-text="Apply" raised elevation="1" on-tap="_onUpdateValue"></pebble-button> 
+                        <div class="clearfix"></div>
+                        </div>
+                    </template>
+                    <template is="dom-if" if="{{_showTagModifier('textarea',currentFilterObj.displayType)}}">
+                        <pebble-textarea class="input" label="Enter text here" value="{{txtAreaInput}}"></pebble-textarea>
+                        <div class="PebbleButtonPadding text-center m-t-15">
+                        <pebble-button class="btn btn-secondary m-r-5" target-id="filterPopover" on-tap="_closeLov" raised elevation="1" button-text="Close"></pebble-button>
+                        <pebble-button class="btn btn-success" button-text="Apply" raised elevation="1" on-tap="_onUpdateValue"></pebble-button> 
+                        <div class="clearfix"></div>
+                        </div> 
+                    </template>
+                    <template is="dom-if" if="{{_showTagModifier('richtexteditor',currentFilterObj.displayType)}}">
+                        <pebble-textarea class="input" label="Enter text here" value="{{txtAreaInput}}"></pebble-textarea>
+                        <div class="PebbleButtonPadding text-center m-t-15">
+                        <pebble-button class="btn btn-secondary m-r-5" target-id="filterPopover" on-tap="_closeLov" raised elevation="1" button-text="Close"></pebble-button>
+                        <pebble-button class="btn btn-success" button-text="Apply" raised elevation="1" on-tap="_onUpdateValue"></pebble-button> 
+                        <div class="clearfix"></div>
+                        </div>
+                    </template>
+                    <template is="dom-if" if="{{_showTagModifier('referencelist',currentFilterObj.displayType)}}">
+                        <rock-entity-lov id="rockEntityLov" multi-select show-action-buttons selected-items="{{_selectedItems}}"></rock-entity-lov>
+                    </template>
+                    <template is="dom-if" if="{{_showTagModifier('boolean',currentFilterObj.displayType)}}">
+                        <pebble-boolean class="text-center" id="booleanDisplay" value="{{booleanvalue}}" required></pebble-boolean>
+                        <div class="PebbleButtonPadding text-center m-t-15">
+                        <pebble-button class="btn btn-secondary m-r-5" target-id="filterPopover" on-tap="_closeLov" raised elevation="1" button-text="Close"></pebble-button>
+                        <pebble-button class="btn btn-success" button-text="Apply" raised elevation="1" on-tap="_onUpdateValue"></pebble-button>
+                        </div> 
+                    </template>
+                    <template is="dom-if" if="{{_showTagModifier('numeric',currentFilterObj.displayType)}}">
+                    <paper-radio-group aria-labelledby="{{longName}}" class="dialogOptions" on-paper-radio-group-changed="_onRadioGroupChange">
+                    <paper-radio-button name="range">
+                        <div class="colspan-2 pull-left">
+                        <pebble-textbox label="Min" prevent-invalid-input allowed-pattern="[0-9.]" invalid="{{numericMinInvalid}}" show-error input-data-type="[[currentFilterObj.dataType]]"
+                            value="{{gte}}">
+                        </pebble-textbox>
+                        </div>
+                        <div class="colspan-2 pull-left">
+                        <pebble-textbox label="Max" prevent-invalid-input allowed-pattern="[0-9.]" invalid="{{numericMaxInvalid}}" show-error input-data-type="[[currentFilterObj.dataType]]"
+                            value="{{lte}}">
+                        </pebble-textbox>
+                        </div>
+                        <div class="clearfix"></div>
+                    </paper-radio-button>
+                    <paper-radio-button name="equalToData">
+                        <div class="col-90 pull-left">
+                        <pebble-textbox-collection id="textNumericCollection" values="{{_tagsNumericCollection}}" no-popover textbox-label="Enter more values here to search" show-seperator seperator="or" allowed-pattern="[0-9.]"></pebble-textbox-collection>
+                        </div>
+                        <div class="clearfix"></div>
+                    </paper-radio-button>
+                    </paper-radio-group>
+                    <div class="PebbleButtonPadding text-center">
+                    <pebble-button class="btn btn-secondary m-r-5" target-id="filterPopover" on-tap="_closeLov" raised elevation="1" button-text="Close"></pebble-button>
+                    <pebble-button class="btn btn-success" button-text="Apply" raised elevation="1" on-tap="_onUpdateValue" disabled="{{_updateDisable}}"></pebble-button>
+                    </div>
+                </template>
+                </pebble-popover>
+                <bedrock-pubsub event-name="on-popover-close" handler="_onFilterPopoverClose" target-id="filterPopover"></bedrock-pubsub>
+                <bedrock-pubsub event-name="entity-lov-confirm-button-tap" handler="_onLOVConfirmTap" target-id="rockEntityLov"></bedrock-pubsub>
+                <bedrock-pubsub event-name="entity-lov-close-button-tap" handler="_onLOVCloseTap" target-id="rockEntityLov"></bedrock-pubsub>
+            
+                <!-- Already overlay, so out of popover -->
+                <pebble-datetime-picker-overlay id="rangepicker" for="" picker-type="daterange" show-ranges heading-format="ddd, MMM DD YYYY"
+                start-date-text="{{displaygte}}" end-date-text="{{displaylte}}" start-date-value="{{gte}}" end-date-value="{{lte}}"
+                on-date-range-selected="_onUpdateValue">
+                </pebble-datetime-picker-overlay>
+                <!-- Filter popover ends here -->        
+            </div>
+
+    <!-- Relationship search
+        - Relationship attributes
+        - Relationships (nested)
+        - WF search within relationships -->
+    <div class="queryHeading">
+        <pebble-button icon="pebble-md-icons:addcircle" class="queryHeadingButton m-b-5" on-tap="" button-text="HAVING"></pebble-button> <br/>
+        <pebble-button id="relationshipButton" button-text="Relationships" dropdown-icon="" noink="" class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" is-ruf-component="" target-id="relationshipPopover" on-tap="_openRelationshipModelLov"></pebble-button>
+       
+
+        <liquid-entity-model-composite-get id="liquidModelGet" request-data={{relationshipRequest}} on-entity-model-composite-get-response="_onModelReceived"
+            on-error="_onModelGetFailed" exclude-in-progress>
+        </liquid-entity-model-composite-get>
+        <!--liquid-entity-model-get id="liquidModelGet" operation="getbyids" request-data={{relationshipRequest}} on-response="_onModelReceived"
+            on-error="_onModelGetFailed"></liquid-entity-model-get-->
+        <pebble-popover id="relationshipPopover" for="relationshipButton" vertical-align="auto" horizontal-align="auto">
+            <pebble-lov id="relationshipModelLov" on-selection-changed="_onRelationshipLovSelectionChanged"></pebble-lov>    
+        </pebble-popover>    
+    </div>
+
+    <div class="relationshipGridContainer">
+        <div class="queryHeading">
+            <pebble-button icon="pebble-md-icons:addcircle" class="queryHeadingButton m-l-10" target-id="relationship-grid" on-tap="_onAddRowClick" button-text="WITH"></pebble-button>                   
+        </div>
+        <div class="p-10">
+        <pebble-data-table id="relationship-grid" items="{{relationshipGridData}}">
+                <data-table-column slot="column-slot" flex="0">
+                    <template>
+                        <pebble-icon slot="cell-slot-content" icon="pebble-md-icons:Delete" target-id="relationship-grid" class="pebble-md-icons" on-tap="_onDeleteRowClick"></pebble-icon>                        
+                    </template>
+                </data-table-column>
+                <data-table-column slot="column-slot">
+                    <template>
+                        <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
+                            <pebble-textbox readonly id="relationship-text_[[index]]" row-id="[[index]]" value="{{item.name}}" no-label-float="true"></pebble-textbox>
+                        </div>
+                        <div id="iconDiv" slot="cell-slot-content">
+                            <pebble-icon class="dropdown-icon" id="rtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-xs-icons:ExpandMore" on-tap="_openRelationshipAttributeModelLov"></pebble-icon>
+                        </div>                         
+                    </template>                        
+                </data-table-column>
+                 <data-table-column slot="column-slot">
+                    <template>
+                       <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
+                            <pebble-textbox readonly id="relationship-value_[[index]]" row-id="[[index]]" value="{{item.value}}" no-label-float="true"></pebble-textbox>
+                        </div>
+                        <div id="iconDiv" slot="cell-slot-content">
+                            <pebble-icon class="dropdown-icon" id="rtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-xs-icons:ExpandMore" on-tap="_onOpenFilterPopover"></pebble-icon>
+                        </div>                                                
+                    </template>  
+                </data-table-column>
+        </pebble-data-table>
+        </div>
+        <pebble-popover id="relAttributesPopover" for="" no-overlap auto-fit-on-attach vertical-align="auto" horizontal-align="auto">
+            <pebble-lov id="relAttributeModelLov" on-selection-changed="_onRelAttributeLovSelectionChanged"></pebble-lov>
+        </pebble-popover>       
+    </div>
+
+
+        <!--div class="queryHeading">
+            <pebble-button icon="pebble-md-icons:addcircle" class="queryHeadingButton" on-tap="_addSearchAttributes" button-text="HAVING"></pebble-button>                   
+        </div>
+
+        <div class="queryHeading">
+            <pebble-button icon="pebble-md-icons:addcircle" class="queryHeadingButton" on-tap="_addSearchAttributes" button-text="IN"></pebble-button>                   
+        </div>
+
+        <div class="queryHeading">
+            <pebble-button icon="pebble-md-icons:addcircle" class="queryHeadingButton" on-tap="_addSearchAttributes" button-text="PENDING"></pebble-button>                   
+        </div>
+    
+
+    <!-- WF search -->
+    <template is="dom-if" if="[[_isWorkflowSearchEnabled(workflowName)]]">
+        <div class="workflowGridContainer">
+            <div class="queryHeading">
+                <!--pebble-button icon="pebble-md-icons:addcircle" class="queryHeadingButton m-l-10" target-id="workflow-grid" on-tap="_onAddRowClick" button-text="PENDING"></pebble-button-->
+                <pebble-button class="queryHeadingButton m-l-10" target-id="workflow-grid" button-text="PENDING"></pebble-button>
+            </div>
+            <div class="p-10">
+                <pebble-data-table id="workflow-grid" items="{{workflowGridData}}">
+                    <data-table-column slot="column-slot" flex="0">
+                        <template>
+                            <pebble-icon slot="cell-slot-content" icon="pebble-md-icons:Delete" target-id="workflow-grid" class="pebble-md-icons" on-tap="_onDeleteRowClick"></pebble-icon>
+                        </template>
+                    </data-table-column>
+                    <data-table-column slot="column-slot">
+                        <template>
+                            <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
+                                <pebble-textbox readonly id="workflow-text_[[index]]" row-id="[[index]]" value="{{item.name}}" no-label-float="true"></pebble-textbox>
+                            </div>
+                            <div id="iconDiv" slot="cell-slot-content">
+                                <pebble-icon class="dropdown-icon" id="wtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-xs-icons:ExpandMore" on-tap="_openWorkflowModelLov"></pebble-icon>
+                            </div>
+                        </template>
+                    </data-table-column>
+                    <data-table-column slot="column-slot">
+                        <template>
+                            <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
+                                <pebble-textbox readonly id="workflow-value_[[index]]" row-id="[[index]]" value="{{item.value}}" no-label-float="true"></pebble-textbox>
+                            </div>
+                            <div id="iconDiv" slot="cell-slot-content">
+                                <pebble-icon class="dropdown-icon" id="wtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-xs-icons:ExpandMore" on-tap="_openWorkflowActivityLov"></pebble-icon>
+                            </div>
+                        </template>
+                    </data-table-column>
+                </pebble-data-table>
+            </div>
+            <pebble-popover id="workflowPopover" for="" no-overlap auto-fit-on-attach vertical-align="auto" horizontal-align="auto">
+                <pebble-lov id="workflowModelLov" on-selection-changed="_onWorkflowLovSelectionChanged"></pebble-lov>
+            </pebble-popover>
+            <pebble-popover id="workflowActivityPopover" for="" no-overlap auto-fit-on-attach vertical-align="auto" horizontal-align="auto">
+                <pebble-lov id="workflowActivityLov" on-selection-changed="_onWorkflowActivityLovSelectionChanged"></pebble-lov>
+            </pebble-popover>
+            <liquid-entity-model-get id="getWorkflowMappingDefinition" operation="getbyids" request-id="req1" request-data={{workflowMappingDefinitionRequest}}
+                on-response="_onWfMappingsReceived" on-error="_onMappingsGetFailed"></liquid-entity-model-get>
+            <liquid-entity-model-get id="entityGetWorkflowDefinition" operation="getbyids" request-id="req1" request-data={{workflowDefinitionRequest}}
+                on-response="_onDefinitionReceived" on-error="_onDefinitionGetFailed"></liquid-entity-model-get>
+
+        </div>
+    </template>
+        
+    <div class="actionButtons">
+        <pebble-button id="cancelButton" class="close btn btn-secondary m-r-5" button-text="Cancel" noink elevation="2" on-tap="_onClose"></pebble-button>
+        <pebble-button id="confirmButton" class="apply btn btn-success" button-text="Apply" noink elevation="2" on-tap="_onApply"></pebble-button>
+    </div>
+           
+    
+  </template>
+  <script>
+      
+    class RockQueryBuilder extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehaviors.AppContextBehavior,RUFBehaviors.QueryBuilderBehavior, RUFBehaviors.ComponentContextBehavior], Polymer.Element) {
+
+        static get is() { return 'rock-query-builder' }
+
+        ready() {
+            super.ready();            
+        }
+    
+        static get properties() {
+            return {
+            inputQueryString:{
+                type: String,
+                value: ""
+                //observer: "_onQueryStringChange"
+            },
+            allowedEntityTypes: {
+                type: Array,
+                value: function () {
+                    return [];
+                }
+            },                   
+            selectedEntityTypes: {
+                type: Array,
+                value: function () {
+                    return [];
+                }
+                
+            },
+            _showAttributeSearchGrid: {
+                type: Boolean,
+                value: false
+            },
+			domains: {
+				type: Array,
+				value: function () { return []; }
+			},
+            _contextData: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+			contextData: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },          
+            attributeGridData: {
+                type: Array,
+                value: function () {
+                    return [
+                        {
+                            "name": "",
+                            "value": ""    
+                        }
+                                               
+                    ];
+                }
+            },     
+            relationshipGridData: {
+                type: Array,
+                value: function () {
+                    return [
+                        {
+                            "name": "",
+                            "value": ""    
+                        }                           
+                    ];
+                }
+            },
+            workflowGridData:{
+                type: Array,
+                value: function () {
+                    return [
+                        {
+                            "name": "",
+                            "value": ""    
+                        }                           
+                    ];
+                } 
+            },
+            currentFilterObj: {
+                type: Object,
+                notify: true                
+            },
+
+            txtBoxCollection: {
+                type: Array,
+                value: function() {
+                    return [];
+                }
+            },
+            txtAreaInput:{
+                type: String,
+                value: ""
+            },
+            booleanvalue:{
+                type: Boolean                
+            },
+            gte: {
+                type: String,
+                value: function () {
+                    return "";
+                },
+                observer: '_isMaxGreaterThanMin'
+            },
+            /**
+             * <b><i>Content development is under progress... </b></i> 
+             */
+            lte: {
+                type: String,
+                value: function () {
+                    return "";
+                },
+                observer: '_isMaxGreaterThanMin'
+            },
+            /**
+             * <b><i>Content development is under progress... </b></i> 
+             */
+            equalNum: {
+                type: String,
+                value: function () {
+                    return "";
+                }
+            },
+            /**
+             * <b><i>Content development is under progress... </b></i> 
+             */
+            numericMinInvalid: {
+                type: Boolean,
+                value: false
+            },
+            /**
+             * <b><i>Content development is under progress... </b></i> 
+             */
+            numericMaxInvalid: {
+                type: Boolean,
+                value: false
+            },
+            /**
+             * <b><i>Content development is under progress... </b></i> 
+             */
+            numericEqualInvalid: {
+                type: Boolean,
+                value: false
+            },
+
+            _updateDisable: {
+                type: Boolean,
+                computed: '_disableUpdate(numericMinInvalid, numericMaxInvalid, _tagsNumericCollection, _tagNumericInput, gte, lte)'
+            },
+            _tagsNumericCollection: {
+                type: Array,
+                value: function() {
+                    return [];
+                }
+            },
+            _selectedItems: {
+                type: Array,
+                value: function () {
+                    return [];
+                }
+            },
+            relationshipRequest: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            domain:{
+                type:String
+            }, 
+            _enableAttributeList:{
+                type: Boolean,
+                value: false
+            },
+            workflowMappingDefinitionRequest: {
+                type: Object,
+                value: function() {
+                    return {};
+                }
+            },
+            workflowDefinitionRequest: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            _mappedWorkflowNames: {
+                type: Array,
+                value: function () { return []; }
+            },
+            workflowName: {
+                type: String,
+                value: ""
+            },
+
+            }
+        }      
+         
+        /**
+         *  Add Listener to close the query builder when clicked elsewhere
+        */
+        connectedCallback() {
+            super.connectedCallback();
+            document.addEventListener('down', this._close.bind(this), true);
+            this._getWorkflowMappings();
+        }
+
+        /**
+         *  Remove Listener to close the query builder
+        */
+        disconnectedCallback() {
+            super.disconnectedCallback();
+            document.removeEventListener('down',this._close());
+        }
+
+        /**
+         *  Open lov whose target-id is defined
+        */
+        _openLov(e) {
+            var targetId = e.target.getAttribute("target-id");
+            this.shadowRoot.querySelector("#"+targetId).open();
+        }
+        
+        /**
+         *  Close lov whose target-id is defined
+        */
+        _closeLov(e) {
+            var targetId = e.target.getAttribute("target-id");
+            this.shadowRoot.querySelector("#"+targetId).hide();
+        }
+        
+        /**
+         *  Close query builder
+        */
+        _onClose() {
+            this.fireBedrockEvent('hide-query-builder');
+        }
+        
+        /**
+         *  Close query builder if the user is not using on the query builder
+        */
+        _close() {
+            var queryBuilderFound = false;
+            for(var key=0; key<event.path.length; key++){
+                if(event.path[key].tagName){
+                    if(event.path[key].tagName.toUpperCase() == "ROCK-QUERY-BUILDER"){
+                    queryBuilderFound = true;
+                    break;
+                    }
+                }
+            }
+            if(!queryBuilderFound){
+                this._onClose();  
+            }
+        }
+
+        /**
+        * Function to reset the query builder
+        */ 
+        resetQueryBuilder(){
+            this.attributeGridData = new Array();
+            this.relationshipGridData = new Array();
+            this.workflowGridData = new Array();
+            this.selectedEntityTypes = new Array();
+            this._selectedItems = new Array();
+            this.currentFilterObj = "";
+        }
+
+        /**
+        * Function to read the input query string
+        * //TODO - For enabling copy paste of the query into the searchbar
+        **/
+        _onQueryStringChange(){
+            if(this.inputQueryString == this.outputQueryString){
+                return;               
+            } else {
+                if(this.inputQueryString == ""){
+                    return;
+                } else {
+                    
+                    var tempStr = this.inputQueryString;
+                    tempStr = tempStr.toLowerCase();
+                    
+                    var start_pos = tempStr.indexOf('show') + 4;
+                    var end_pos1 = tempStr.indexOf('with');
+                    var end_pos2 = tempStr.indexOf('having');
+                    var end_pos = end_pos1;
+                    if(end_pos2 > -1) {  //case where having is not defined
+                        end_pos = Math.min(end_pos1, end_pos2);
+                    }
+                        
+                    if(start_pos < end_pos) {
+                       var entityTypesStr = tempStr.substring(start_pos,end_pos);
+                       var entityTypes = entityTypesStr.split(",");                      
+                    }
+
+                    tempStr = tempStr.substring(end_pos,tempStr.length);
+                    start_pos = tempStr.indexOf('with') + 4;
+                    end_pos = tempStr.indexOf('having');
+                    if(start_pos < end_pos) {
+                        var attributesStr = tempStr.substring(start_pos,end_pos); 
+                        var attributesPair = attributesStr.split("and");                           
+                    }
+
+                    tempStr = tempStr.substring(end_pos,tempStr.length); 
+                    start_pos = tempStr.indexOf('having') + 6;  
+                    end_pos = tempStr.indexOf('with');
+                    if(start_pos < end_pos) {
+                        var relationshipStr = tempStr.substring(start_pos,end_pos);                         
+                    }
+
+                    tempStr = tempStr.substring(end_pos,tempStr.length);
+                    start_pos = tempStr.indexOf('with') + 4;
+                    end_pos = tempStr.length;
+                    if(start_pos < end_pos) {
+                        var relationshipAttributesStr = tempStr.substring(start_pos,end_pos);
+                        var relationshipAttributesPair = relationshipAttributesStr.split("and");                  
+                        
+                    } 
+
+                }
+            }
+            
+        }
+
+        /**
+         *  Build the query, Hide the querybuilder
+        */
+        _onApply(){  
+            var entityTypes = this.getSelectedEntityTypes(this.selectedEntityTypes); 
+            var relModelLov = this.shadowRoot.querySelector("#relationshipModelLov");
+            var relationshipTitle = ""; 
+            var relationshipId = "";           
+            if(relModelLov.selectedItem) {                
+                relationshipId = relModelLov.selectedItem.id;               
+                relationshipTitle = relModelLov.selectedItem.title;
+            }
+                      
+            this.outputQueryString =  this.buildQuery(entityTypes,this.attributeGridData,relationshipTitle,this.relationshipGridData,this.workflowGridData);
+            var parserQueryString =  this.buildQuery(entityTypes,this.attributeGridData,relationshipId,this.relationshipGridData,this.workflowGridData,true);
+            
+            var eventDetail = {
+                "displayQuery": this.outputQueryString,
+                "parsableQuery": parserQueryString
+            };
+            this.fireBedrockEvent('on-query-build',eventDetail);            
+            this._onClose();                  
+        }
+        
+        /**
+        * Function to close the entity type popover
+        */
+        _onEntityTypePopoverClose(e, detail) {
+            this.shadowRoot.querySelector("#productSearchPopover").close();
+        }
+        
+        /**
+         *  Handles the selected entitity change
+        */
+        _onSelectedEntityTypesChange(e){
+			var contextData = DataHelper.cloneObject(this.contextData);
+			var domain;
+			if(this.domains){
+				domain=this.domains[0];
+			}
+            var data = this.selectedEntityTypes;
+            if (data.length > 0) {
+                var itemContexts = [];
+                for (var i in data) {
+                    var itemContext = {
+                        'type': data[i].id,
+						"domain":domain
+                    };
+                    itemContexts.push(itemContext);
+                }
+                contextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;  
+				this._contextData = contextData;	
+            }
+            
+            this._onEntityTypePopoverClose();
+            //Show the selected entities on the entityTypeFilterButton
+            this._displaySelectedEntities();
+            this._getWorkflowMappings();
+        }       
+
+        /**
+         *  Function to display the selected entities as the button text
+         */ 
+        _displaySelectedEntities(){
+            var btnObj = this.shadowRoot.querySelector("#entityTypeFilterButton");
+            var selectedEntityStr = this.getSelectedEntityTypes(this.selectedEntityTypes).join();
+            if(selectedEntityStr.length <= 0){
+            btnObj.setAttribute("button-text","Entity Type");             
+            } else {
+                btnObj.setAttribute("button-text",selectedEntityStr);             
+            }
+        }
+
+        /**
+         *  Opens the attribute Model lov
+        */
+        _openAttributeModelLov(e){
+            var rowId = e.currentTarget.rowId;
+            if(rowId >= 0) {
+                var lov = this.shadowRoot.querySelector("#attributeModelLov");
+                var popover = this.shadowRoot.querySelector("#attributesPopover");
+                if(lov && popover) {
+                    lov.currentRowId = rowId;
+                    popover.for = "attributes-text_" + rowId;
+                    popover.show();
+                }
+            } 
+        }
+
+        /**
+         *  Handles the attribute selection
+        */
+        _onAttributeSelection(e, detail) {
+            var lov = this.shadowRoot.querySelector("#attributeModelLov");
+            if(lov) {
+                var rowId = lov.currentRowId;
+                if(rowId >= 0) {
+                    var attributeTxtbox = this.root.querySelector("#attributes-text_" + rowId);
+                    if(!attributeTxtbox) {
+                        attributeTxtbox = this.shadowRoot.querySelector("#attributes-text_" + rowId);
+                    }                
+                    var row = this._getParentRow(attributeTxtbox)
+                    if(row) {
+                        row.item.attributeModel = detail.data;
+                        row.item["rowModified"] = true;
+                        row.item.name = detail.data.title;
+                        attributeTxtbox.value = row.item.name;
+                        attributeTxtbox.title = row.item.name;
+                    }                               
+                }
+            }
+            var popover = this.shadowRoot.querySelector("#attributesPopover");
+            popover.for = "";
+            popover.hide();
+          
+        }
+
+        /**
+         *  Get the parent row
+        */
+        _getParentRow(element) {
+            if (element) {
+                if (element.is == "data-table-row") {
+                    return element;
+                } else {
+                    return this._getParentRow(element.parentNode);
+                }
+            }
+            return undefined;
+        }
+
+        /**
+         *  Handles the add row click
+        */
+        _onAddRowClick(e) {    
+            var gridId = e.target.getAttribute("target-id");
+            var grid = this.shadowRoot.querySelector("#"+gridId);
+            var newRowItem = 
+            {
+                "name": "",
+                "value": ""    
+            }  
+            newRowItem.id = grid.items.length;            
+            grid.items.push(newRowItem);
+            grid.clearCache();
+        }
+
+        /**
+         *  Handles delete row click
+        */
+        _onDeleteRowClick(e){
+            var gridId = e.target.getAttribute("target-id");
+            var grid = this.shadowRoot.querySelector("#"+gridId);
+            var row = this._getParentRow(e.currentTarget);
+            var index = row.index;
+            grid.items.splice(index, 1);
+            grid.clearCache();
+        }
+
+        /**
+         *   When attribute is selected, which popover component need to show
+        */        
+        _showTagModifier(displayType) {
+            if (this.currentFilterObj.dataType.toLowerCase() == "integer" || this.currentFilterObj.dataType.toLowerCase() == "decimal"){
+                this.currentFilterObj.displayType = "numeric";
+            }
+            if (this.currentFilterObj && this.currentFilterObj.displayType.toLowerCase() == displayType.toLowerCase()) {
+                return true;
+            }
+            return false;
+        }
+
+        /**
+         *   Handles the opening of filter popover
+        */ 
+        _onOpenFilterPopover(e) {  
+
+            var rowId = e.currentTarget.rowId;
+            var filterInputValue = "";
+            //var attributeValTxtbox = this.root.querySelector("#attributes-value_" + rowId);
+            var attributeValTxtbox = this.root.querySelector("#relationship-value_" + rowId);
+            if(attributeValTxtbox.value){
+                filterInputValue = attributeValTxtbox.value;
+            }
+
+            var row = this._getParentRow(attributeValTxtbox)
+            if(row) {
+                this.currentFilterObj = row.item.attributeModel;
+            }
+            
+            //DateTime Control
+            if (this.currentFilterObj.displayType.toLowerCase() == "datetime" || this.currentFilterObj.displayType.toLowerCase() == "date"){
+                var rangePicker = this.shadowRoot.querySelector('#rangepicker');
+                if(filterInputValue == ""){
+                    rangePicker.startDateValue = "";
+                    rangePicker.endDateValue = "";
+                    rangePicker.setDate(new Date());
+                    rangePicker.setRangeType(null);                                                     
+                } else {
+                    if(filterInputValue.indexOf('-')> -1){
+                        filterInputValues = filterInputValue.split('-');
+                        rangePicker.startDateValue = filterInputValues[0];
+                        rangePicker.endDateValue = filterInputValues[1];
+                    } else {
+                        rangePicker.startDateValue = filterInputValue;
+                        rangePicker.endDateValue = "";
+                    }
+                    var _date = new Date(rangePicker.startDateValue);
+                    rangePicker.setDate(_date);
+                }
+
+                rangePicker.positionTarget = e.currentTarget;
+                rangePicker.noOverlap = true;
+                rangePicker.rowId = rowId; 
+                rangePicker.show(true);
+                return; 
+            }
+            
+            var filterPopover = this.shadowRoot.querySelector('#filterPopover');
+            filterPopover.for = "";            
+            if(rowId >= 0) {
+                //filterPopover.for = "attributes-value_" + rowId;
+                filterPopover.for = "relationship-value_" + rowId;
+                filterPopover.show();
+            }
+                                            
+            if (this.currentFilterObj.displayType.toLowerCase() == "textbox") {
+                Polymer.Async.microTask.run(() => {
+                    var collectionInput = filterPopover.querySelector('#textCollection').shadowRoot.querySelector("#txtInputTag"); 
+                    this.txtBoxCollection = new Array();
+                    if(filterInputValue) {
+                        var filterInputValues = filterInputValue.split(' '+ 'or' +' ');
+                        //If the value has already been added, show it in the textbox for updating
+                        this.txtBoxCollection = filterInputValues;
+                    }
+                    collectionInput.value = "";                    
+                    collectionInput.focus();
+                });
+            } else if (this.currentFilterObj.displayType.toLowerCase() == "textarea"){
+                var filterInput = filterPopover.querySelector('.input');
+                this.txtAreaInput = "";
+                if (filterInput) {
+                    filterInput.value = filterInputValue;
+                    this.txtAreaInput = filterInputValue;
+                    filterInput.focus();  
+                }  
+            } else if (this.currentFilterObj.displayType.toLowerCase() == "richtexteditor"){
+                var filterInput = filterPopover.querySelector('.input');
+                this.txtAreaInput = "";
+                if (filterInput) {
+                    filterInput.value = filterInputValue;
+                    this.txtAreaInput = filterInputValue;
+                    filterInput.focus();  
+                }  
+            } else if (this.currentFilterObj.displayType.toLowerCase() == "boolean") {
+                var filterInput = filterPopover.querySelector('#booleanDisplay');
+                this.booleanvalue = "";
+                if (filterInput) {
+                    filterInput.value = filterInputValue;
+                    this.booleanvalue = filterInputValue;
+                }
+            } else if (this.currentFilterObj.displayType.toLowerCase() == "referencelist") {               
+
+                var lovComponent = filterPopover.querySelector('#rockEntityLov');  
+                if(lovComponent) {
+                    var titlePattern = "";
+                    var subTitlePattern = "";
+                    if(this.currentFilterObj.referenceEntityInfo && this.currentFilterObj.referenceEntityInfo.length) {
+                        titlePattern = this.currentFilterObj.referenceEntityInfo[0].listTitle;
+                        subTitlePattern = this.currentFilterObj.referenceEntityInfo[0].listSubTitle;
+                    }
+                    lovComponent.idField = "id";
+                    lovComponent.titlePattern = titlePattern;
+                    lovComponent.subTitlePattern = subTitlePattern;
+                    lovComponent.valueField = "name";
+                    this._selectedItems = [];
+                    if(filterInputValue) {
+                        lovComponent.selectedItems = row.item.selectedItems;
+                        this._selectedItems = row.item.selectedItems;
+                    }  
+                    var refEntityTypes = [this.currentFilterObj.referenceEntityInfo[0].refEntityType];
+                    var itemContexts = [];
+                    for (var i in refEntityTypes) {
+                        itemContexts.push({
+                            "type": refEntityTypes[i]
+                        });
+                    }
+                    var contextData = DataHelper.cloneObject(this.contextData);
+                    contextData[this.CONTEXT_TYPE_ITEM] = itemContexts;
+                    lovComponent.requestData = DataRequestHelper.createEntityGetRequest(contextData);
+                    lovComponent.requestData.params.additionalIds = this.currentFilterObj.selectedIds;
+                    lovComponent.reset();
+                } 
+            } else if (this.currentFilterObj.displayType.toLowerCase() == "numeric"){
+
+                this._tagsNumericCollection = [];
+                this._tagNumericInput = ""; 
+                this.lte = "";
+                this.gte = "";
+
+                if(filterInputValue) {
+                    var filterInputValues= [];
+                    if(filterInputValue.indexOf('-') > -1) {
+                        filterInputValues = filterInputValue.split('-');
+                        this.gte = filterInputValues[0];
+                        this.lte = filterInputValues[1];
+                    } else if (filterInputValue.indexOf('<=') > -1) {
+                        filterInputValues = filterInputValue.split('<=');
+                        this.lte = filterInputValues[1];
+                        this.gte = "";
+                    } else if (filterInputValue.indexOf('>=') > -1) {
+                        filterInputValues = filterInputValue.split('>=');
+                        this.gte = filterInputValues[1];
+                        this.lte = "";
+                    } else {
+                        this._tagsNumericCollection = filterInputValue;
+                    }
+                }           
+                 
+            } 
+
+        }
+
+        /**
+        * validate the input for numeric display type and disables the update button
+        */
+      _disableUpdate(numericMinInvalid, numericMaxInvalid, _tagsNumericCollection, _tagNumericInput, gte, lte) {
+            if (!_.isEmpty(this.gte + "") || !_.isEmpty(this.lte + "") || !_.isEmpty(_tagsNumericCollection) || _tagNumericInput) {
+            if (this.shadowRoot.querySelector('paper-radio-group') && this.shadowRoot.querySelector('paper-radio-group').selected == "range") {
+                return (numericMaxInvalid || numericMinInvalid);
+            } else {
+                return _.isEmpty(_tagsNumericCollection) && !_tagNumericInput;
+            }
+            } else {
+                return true;
+            }
+        }
+        
+        /**
+         * checks if the min value is less than maximum value in numeric display type popover
+        */
+        _isMaxGreaterThanMin() {
+            if (!_.isEmpty(this.gte + "") && !_.isEmpty(this.lte + "")) {
+            if (parseFloat(this.gte) > parseFloat(this.lte)) {
+                this.set('numericMaxInvalid', true);
+            } else {
+                this.set('numericMaxInvalid', false);
+            }
+            } else {
+            this.set('numericMaxInvalid', false);
+            }
+        }
+
+        /**
+         *  Handles updating of the filter popover content 
+        */ 
+        _onUpdateValue(e){
+
+            //Updating Date and Datetime inputs
+            if(this.currentFilterObj.displayType.toLowerCase() == "datetime" || this.currentFilterObj.displayType.toLowerCase() == "date"){
+                if (this.gte == this.lte) { 
+                    filterInputValue = this.displaygte;
+                } else {                    
+                    if (this.displaygte == this.displaylte) {
+                        filterInputValue = this.displaygte;
+                    } else {
+                        filterInputValue = this.displaygte + " - " + this.displaylte;
+                    }
+                } 
+                
+                //var attributeValTxtbox = this.root.querySelector("#attributes-value_" + e.currentTarget.rowId);
+                var attributeValTxtbox = this.root.querySelector("#relationship-value_" + e.currentTarget.rowId);
+                var row = this._getParentRow(attributeValTxtbox);              
+                if(row) {
+                    row.item.value = filterInputValue;
+                    attributeValTxtbox.value = filterInputValue;
+                    attributeValTxtbox.title = filterInputValue;
+                }
+                return;
+            }
+           
+            //Updating other inputs
+            var filterPopover = this.shadowRoot.querySelector('#filterPopover');
+            var attributeValTxtbox = this.root.querySelector("#"+ filterPopover.for);
+            var row = this._getParentRow(attributeValTxtbox);
+
+            var filterInput;
+            var filterInputValue;
+            if (this.currentFilterObj.displayType.toLowerCase() == "textbox") {
+                var collectionInput = filterPopover.querySelector('#textCollection').shadowRoot.querySelector("#txtInputTag"); 
+                filterInputValue = collectionInput.value;               
+                if(this.txtBoxCollection.length > 0) {
+                    filterInputValue = this.txtBoxCollection.join(' '+ 'or' +' ');
+                }
+            } else if (this.currentFilterObj.displayType.toLowerCase() == "textarea") {
+                filterInput = filterPopover.querySelector('.input');
+                filterInputValue = filterInput.value;
+            } else if (this.currentFilterObj.displayType.toLowerCase() == "richtexteditor") {
+                filterInput = filterPopover.querySelector('.input');
+                filterInputValue = filterInput.value;
+            } else if (this.currentFilterObj.displayType.toLowerCase() == "boolean") {
+                filterInput = filterPopover.querySelector('#booleanDisplay');
+                filterInputValue = filterInput.value;
+            } else if(this.currentFilterObj.displayType.toLowerCase() == "numeric"){
+                if (this.shadowRoot.querySelector('paper-radio-group').selected == "range") {
+                    if (this.gte == "") {
+                        this.gte = undefined;
+                    }
+                    if (this.lte == "") {
+                        this.lte = undefined;
+                    }
+                    if (!(this.gte || this.lte)) {
+                        this.logWarning("FilterValuesEmpty");
+                        return;
+                    } else {
+                        var gteAsString = (parseFloat(this.gte)).toString();
+                        var lteAsString = (parseFloat(this.lte)).toString();
+                        if (!this.gte) {                   
+                            filterInputValue = "<= " + lteAsString;
+                        } else if (!this.lte) {                  
+                            filterInputValue = ">= " + gteAsString;
+                        } else {                   
+                            filterInputValue = gteAsString + " - " + lteAsString;
+                        }
+                    }
+                } else if (this._tagsNumericCollection.length > 0){
+                    filterInputValue = this._tagsNumericCollection;
+                } 
+            }
+
+            //Update the grid row
+            if(row) {
+                row.item.value = filterInputValue;
+                attributeValTxtbox.value = filterInputValue;
+                attributeValTxtbox.title = filterInputValue;
+            }     
+            
+            //close the filter popover
+            filterPopover.close();
+
+        }
+
+        /**
+         *  Handles referencelist confirm tap 
+        */ 
+        _onLOVConfirmTap(){
+
+            var filterPopover = this.shadowRoot.querySelector('#filterPopover');
+            var attributeValTxtbox = this.root.querySelector("#"+ filterPopover.for);
+            var row = this._getParentRow(attributeValTxtbox);   
+
+            var filterInputValue = [];
+            var selectedItemsObj = this._selectedItems;
+            
+            for (let i = 0; i < selectedItemsObj.length; i++) {
+                if (selectedItemsObj[i].title) {
+                    filterInputValue.push(selectedItemsObj[i].title);
+                }            
+            }
+           
+            //Update the grid row
+            if(row) {
+                row.item.value = filterInputValue;
+                row.item.selectedItems = this._selectedItems;
+                attributeValTxtbox.value = filterInputValue;
+                attributeValTxtbox.title = filterInputValue;
+            }  
+            
+            //close the filter popover
+            filterPopover.close();
+
+        }
+
+        /**
+         *  Handles referencelist close tap 
+        */ 
+        _onLOVCloseTap(e,detail){
+            var filterPopover = this.shadowRoot.querySelector('#filterPopover');
+            filterPopover.close();
+        }
+
+        /**
+         *  Open relationship lov 
+        */ 
+        _openRelationshipModelLov() {
+           
+                /*var entityTypes = this.getSelectedEntityTypes(this.selectedEntityTypes);
+                var ids = this.getRelationshipModelLovQueryIds(entityTypes);
+                //Prepare request
+                var req = {
+                    "params": {
+                        "query": {
+                            "ids": ids,
+                            "filters": {
+                                "typesCriterion": [
+                                    "entityCompositeModel"
+                                ]
+                            }
+                        },
+                        "fields": {        
+                            "relationships": [
+                                "_ALL"
+                            ],
+                            "relationshipAttributes": [
+                                "_ALL"
+                            ]
+                        }
+                    }                       
+                };
+                    
+                this.set("relationshipRequest", req);
+
+                //Send request to delete the entity
+                var liquidGet = this.shadowRoot.querySelector("#liquidModelGet");
+                if (liquidGet) {
+                    liquidGet.generateRequest();
+                }*/
+
+                var clonedContextData = DataHelper.cloneObject(this.contextData);
+                var entityTypes = this.getSelectedEntityTypes(this.selectedEntityTypes);
+                this._currentIndex = entityTypes.length;
+                this._currentItems = [];
+                for(let i=0; i<entityTypes.length; i++) {
+                    var type = entityTypes[i];
+                    var itemContexts = [];
+                    var itemContext = {};
+                    itemContext.type = type;
+                    itemContext.relationships = ["_ALL"];
+                    itemContext.relationshipAttributes = ["status", "isprimary", "order", "swatchimage", "hascolorized", "issiblingswatch", "imagetype", "linkdescription", "enabled", "componentskuquantity"];
+
+                    itemContexts.push(itemContext);
+                    clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
+
+                    var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(clonedContextData);
+
+                    this.set("relationshipRequest", compositeModelGetRequest);
+
+                    var liquidGet = this.shadowRoot.querySelector("#liquidModelGet");
+                    if (liquidGet) {
+                        liquidGet.generateRequest();
+                    }
+                }
+        }
+
+        /**
+         *  Construct the Ids for the relationships model lov
+        */ 
+        getRelationshipModelLovQueryIds(entityTypes) {
+            var tempArray = new Array();
+            for(var i=0;i<entityTypes.length;i++){
+                tempArray.push(entityTypes[i]+"_entityCompositeModel");
+            }
+            return tempArray;
+        }
+
+        /**
+         *  On liquidModelGet success
+         */
+        _onModelReceived(e){
+           /* var entityModels = e.detail.response.content.entityModels;
+            if(entityModels.length>=1){
+               var relationships = new Array();                    
+               for(let i=0;i<entityModels.length;i++) {
+                    var relationshipObj = entityModels[i].data.relationships;
+                    for(var obj in relationshipObj){
+                        var newItem = {
+                            id : obj,
+                            title : relationshipObj[obj][0].properties.externalName,
+                            attributes : relationshipObj[obj][0].attributes
+                        }                        
+                        relationships.push(newItem);
+                    }
+               }
+           }
+           
+            //Get the intersection if the selected entities are more than 1
+            if(entityModels.length>1) {
+                relationships = this.findDuplicate(relationships,'title');
+            }
+           var relationshipPopover = this.shadowRoot.querySelector('#relationshipPopover');
+           var relationshipModelLov = this.shadowRoot.querySelector('#relationshipModelLov');
+           relationshipModelLov.items = new Array();
+           relationshipModelLov.items = relationships;
+           relationshipPopover.show();*/
+
+            var response = e.detail.response;
+            var relationshipModels = DataTransformHelper.transformRelationshipModels(response.content.entityModels[0], this.contextData);
+
+            if (this._currentIndex == 1) {
+                this._currentItems = [];
+            }
+            this.push('_currentItems', relationshipModels);
+
+            if (this._currentItems.length == this._currentIndex) {
+                var relationships = [];
+                for (let i = 0; i < this._currentItems.length; i++) {
+                    var currentItem = this._currentItems[i];
+                    var relTypes = Object.keys(currentItem);
+                    if (relTypes && relTypes.length > 0) {
+                        for (let j = 0; j < relTypes.length; j++) {
+                            var relType = relTypes[j];
+                            var rel = currentItem[relType] && currentItem[relType].length > 0 ? currentItem[relType][0] : undefined;
+                            if (rel && rel.attributes) {
+                                var newItem = {
+                                    id: rel.id,
+                                    title: rel.properties && rel.properties.externalName ? rel.properties.externalName : "",
+                                    attributes: rel.attributes
+                                };
+                                relationships.push(newItem);
+                            }
+                        }
+                    }
+                }
+                //Get the intersection if the selected entities are more than 1
+                if (this._currentIndex > 1) {
+                    relationships = this.findDuplicate(relationships, 'title');
+                }
+                var relationshipPopover = this.shadowRoot.querySelector('#relationshipPopover');
+                var relationshipModelLov = this.shadowRoot.querySelector('#relationshipModelLov');
+                relationshipModelLov.items = new Array();
+                relationshipModelLov.items = relationships;
+                relationshipPopover.show();
+            }
+
+            
+        }
+
+        /**
+         *  On liquidModelGet failure
+         */
+        _onModelGetFailed(e) {
+            this.logError("Rock query builder error",e);
+        }
+
+        /**
+         *  Function to find the duplicate items in an object array
+         */
+        findDuplicate (arrayOfObj, key) {
+            return arrayOfObj.filter((item, index, array) => {
+                return array.map((mapItem) => mapItem[key]).indexOf(item[key]) === index
+            })
+        }
+
+        /**
+         *  Function to populate relationship attributes
+         */
+        _onRelationshipLovSelectionChanged(e){
+            var attributesList = e.detail.item.attributes;            
+            var attributes = new Array();        
+            for(var obj in attributesList){
+                var newItem = {
+                    name : obj,
+                    title : attributesList[obj].properties.externalName,
+                    dataType : attributesList[obj].properties.dataType,
+                    displayType : attributesList[obj].properties.displayType,
+                    groupName : attributesList[obj].properties.groupName,
+                    referenceEntityInfo : attributesList[obj].properties.referenceEntityInfo                           
+                }                        
+                attributes.push(newItem);
+            }
+
+           //Populate the relAttributeModelLov
+           var relAttributeModelLov = this.shadowRoot.querySelector('#relAttributeModelLov');
+           relAttributeModelLov.items = new Array();
+           relAttributeModelLov.items = attributes;
+            
+           //Close the relationshipModelLov
+           var relationshipPopover = this.shadowRoot.querySelector('#relationshipPopover');
+           relationshipPopover.close();
+           this._displaySelectedRelationships();
+
+        }
+        
+        /**
+        * Function to display the selected relationship on the button
+        */
+        _displaySelectedRelationships(){
+            var btnObj = this.shadowRoot.querySelector("#relationshipButton");
+            var relModelLov = this.shadowRoot.querySelector("#relationshipModelLov");
+            if(relModelLov.selectedItem.title){
+                btnObj.setAttribute("button-text",relModelLov.selectedItem.title);                     
+            } else {
+                btnObj.setAttribute("button-text","Relationships");                   
+            }
+        }
+        
+        /**
+         *  Function to open relationship attributes lov
+         */
+        _openRelationshipAttributeModelLov(e){
+            var rowId = e.currentTarget.rowId;
+            if(rowId >= 0) {
+                var lov = this.shadowRoot.querySelector("#relAttributeModelLov");
+                var popover = this.shadowRoot.querySelector("#relAttributesPopover");
+                if(lov && popover) {
+                    lov.currentRowId = rowId;
+                    popover.for = "relationship-text_" + rowId;
+                    popover.show();
+                }
+            } 
+        }
+
+         /**
+         *  Function to select relationship attribute from the lov
+         */
+        _onRelAttributeLovSelectionChanged(e){
+            var lov = this.shadowRoot.querySelector("#relAttributeModelLov");
+            if(lov) {
+                var rowId = lov.currentRowId;
+                if(rowId >= 0) {
+                    var relattributeTxtbox = this.root.querySelector("#relationship-text_" + rowId);
+                    if(!relattributeTxtbox) {
+                        relattributeTxtbox = this.shadowRoot.querySelector("#relationship-text_" + rowId);
+                    }                
+                    var row = this._getParentRow(relattributeTxtbox)
+                    if(row) {
+                        row.item.attributeModel = e.detail.item;
+                        row.item["rowModified"] = true;
+                        row.item.name = e.detail.item.title;
+                        relattributeTxtbox.value = row.item.name;
+                        relattributeTxtbox.title = row.item.name;
+                    }                               
+                }
+            }
+            var popover = this.shadowRoot.querySelector("#relAttributesPopover");
+            popover.for = "";
+            popover.hide();
+        }  
+
+
+        /**
+        * Function to generate a request to get the workflow mappings
+        */
+        _getWorkflowMappings(){
+            if (!_.isEmpty(this.contextData)) {
+                var contextData = DataHelper.cloneObject(this.contextData);
+                var itemContexts = [];
+                var itemContext = {};
+                itemContext.type = this.getSelectedEntityTypes(this.selectedEntityTypes);
+                itemContexts.push(itemContext);
+                contextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;            
+                this.workflowMappingDefinitionRequest = DataRequestHelper.createWorkflowMappingGetRequest(contextData);
+                this.shadowRoot.querySelector('#getWorkflowMappingDefinition').generateRequest();
+            }
+        }
+
+        /**
+        * Function to get the workflow mappings
+        */
+        _onWfMappingsReceived(e) {
+            var response = e.detail.response;
+            if(response) {
+                var mappedWorkflowNames = [];
+                var mappingModels = response.content && response.content.entityModels ? response.content.entityModels: undefined;
+                if(mappingModels && mappingModels.length > 0) {
+                    for(var i=0; i<mappingModels.length;i++){
+                        var wfDefinitionMappingModel = mappingModels[i];
+                        var wfRelationships = DataMergeHelper.mergeWorkflowMappings(wfDefinitionMappingModel, this.contextData);
+                        var workflowNames = DataHelper.getRelToNames(wfRelationships.hasWorkflowsDefined);
+                        mappedWorkflowNames = mappedWorkflowNames.concat(workflowNames);
+                    }
+                    
+                    this.set("_mappedWorkflowNames", mappedWorkflowNames);
+                    var itemContext = this.getFirstItemContext();
+                    itemContext.workflowNames = this._mappedWorkflowNames;
+                    if(!_.isEmpty(this._mappedWorkflowNames)) {                   
+                        var itemContext = this.getFirstItemContext();
+                        itemContext.workflowNames = this._mappedWorkflowNames;
+                        this.workflowDefinitionRequest = DataRequestHelper.createWorkflowDefinitionGetRequest(this.contextData);
+                        this.shadowRoot.querySelector("#entityGetWorkflowDefinition").generateRequest();
+                    }                            
+                }
+            }
+        }
+
+        /**
+        * Workflow mappings failed
+        */
+        _onMappingsGetFailed(e) {
+            this.logWarning("Failed to get workflow mappings","response",JSON.stringify(e.detail));       
+        }
+
+        /**
+        * Function to get the workflow definitions
+        */
+        _onDefinitionReceived(e) {
+            var workflowDefinitionResponse = e.detail.response.content.entityModels;
+            if(workflowDefinitionResponse.length>=1){
+                var workflowDefinition = new Array();                    
+                for(let i=0;i<workflowDefinitionResponse.length;i++) {
+                        var wfObj = workflowDefinitionResponse[i].data.attributes;
+                        var newItem = {
+                                name : workflowDefinitionResponse[i].name,
+                                title : wfObj.workflowName.values[0].value,
+                                attributes : wfObj.activities.group
+                        }                        
+                        workflowDefinition.push(newItem);                    
+                }
+            }
+
+            //Populate the workflowModelLov
+            var wfModelLov = this.shadowRoot.querySelector('#workflowModelLov');
+            wfModelLov.items = new Array();
+            wfModelLov.items = workflowDefinition;
+        }   
+        
+        /**
+        * Workflow definitions failed
+        */
+        _onDefinitionGetFailed(e) {
+            this.logWarning("workflow definition get failed with error",JSON.stringify(e.detail)); 
+        }
+
+        /**
+        * Open the Workflow Lov
+        */
+        _openWorkflowModelLov(e) {
+            var rowId = e.currentTarget.rowId;
+            if(rowId >= 0) {
+                var lov = this.shadowRoot.querySelector("#workflowModelLov");
+                var popover = this.shadowRoot.querySelector("#workflowPopover");
+                if(lov && popover) {
+                    lov.currentRowId = rowId;
+                    popover.for = "workflow-text_" + rowId;
+                    popover.show();
+                }
+            } 
+        }
+        
+        /**
+        *  Function to select workflow attribute from the lov
+        */
+        _onWorkflowLovSelectionChanged(e){
+            var lov = this.shadowRoot.querySelector("#workflowModelLov");
+                if(lov) {
+                    var rowId = lov.currentRowId;
+                    if(rowId >= 0) {
+                        var wfattributeTxtbox = this.root.querySelector("#workflow-text_" + rowId);
+                        if(!wfattributeTxtbox) {
+                            wfattributeTxtbox = this.shadowRoot.querySelector("#workflow-text_" + rowId);
+                        }                
+                        var row = this._getParentRow(wfattributeTxtbox)
+                        if(row) {
+                            row.item.workflowExternalName = e.detail.item.title;
+                            row.item.workflowShortName = e.detail.item.name;
+                            row.item.attributeModel = e.detail.item;
+                            row.item["rowModified"] = true;
+                            row.item.name = e.detail.item.title;
+                            wfattributeTxtbox.value = row.item.name;
+                            wfattributeTxtbox.title = row.item.name;
+                        }                               
+                    }
+                }
+                var popover = this.shadowRoot.querySelector("#workflowPopover");
+                popover.for = "";
+                popover.hide();
+        }
+
+        /**
+        * Open the Workflow Activity Lov
+        */
+        _openWorkflowActivityLov(e) {        
+            var rowId = e.currentTarget.rowId;
+        
+            if(rowId >= 0) {
+                var wfattributeTxtbox = this.root.querySelector("#workflow-text_" + rowId);
+                if(!wfattributeTxtbox) {
+                    wfattributeTxtbox = this.shadowRoot.querySelector("#workflow-text_" + rowId);
+                }                
+                var row = this._getParentRow(wfattributeTxtbox);
+
+                //Populate the Workflow Activity Lov
+                var wfAttributes = row.item.attributeModel.attributes;
+                var workflowActivities = new Array();   
+                for(var i=0;i<wfAttributes.length;i++){
+                    var newItem = {
+                        name : wfAttributes[i].activityName.values[0].value,                    
+                        title : wfAttributes[i].externalName.values[0].value
+                    }                        
+                    workflowActivities.push(newItem);
+                }
+                var lov = this.shadowRoot.querySelector("#workflowActivityLov");
+                lov.items = new Array();
+                lov.items = workflowActivities;
+                var popover = this.shadowRoot.querySelector("#workflowActivityPopover");
+                if(lov && popover) {
+                    lov.currentRowId = rowId;
+                    popover.for = "relationship-value_" + rowId;
+                    popover.show();
+                }
+            } 
+        }
+
+        /**
+        *  Function to select workflow activity attribute from the lov
+        */
+        _onWorkflowActivityLovSelectionChanged(e){
+            var lov = this.shadowRoot.querySelector("#workflowActivityLov");
+            if(lov) {
+                var rowId = lov.currentRowId;
+                if(rowId >= 0) {
+                    var wfattributeTxtbox = this.root.querySelector("#workflow-value_" + rowId);
+                    if(!wfattributeTxtbox) {
+                        wfattributeTxtbox = this.shadowRoot.querySelector("#workflow-value_" + rowId);
+                    }                
+                    var row = this._getParentRow(wfattributeTxtbox)
+                    if(row) {
+                        row.item.workflowActivityExternalName = e.detail.item.title;
+                        row.item.workflowActivityShortName = e.detail.item.name;
+                        row.item["rowModified"] = true;
+                        row.item.value = e.detail.item.title;
+                        wfattributeTxtbox.value = row.item.value;
+                        wfattributeTxtbox.title = row.item.value;
+                    }                               
+                }
+            }
+            var popover = this.shadowRoot.querySelector("#workflowActivityPopover");
+            popover.for = "";
+            popover.hide();
+        }
+
+        _isWorkflowSearchEnabled(workflowName) {
+            if(workflowName && workflowName !== "") {
+                return false;
+            }
+            return true;
+        }
+    }
+
+    customElements.define(RockQueryBuilder.is, RockQueryBuilder);  
+  </script> 
+</dom-module>
+
+

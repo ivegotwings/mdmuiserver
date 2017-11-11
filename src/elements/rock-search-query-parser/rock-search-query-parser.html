@@ -1,0 +1,264 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/context-helper.html">
+<link rel="import" href="../bedrock-helpers/data-request-helper.html">
+<link rel="import" href="../bedrock-helpers/constant-helper.html">
+
+<link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
+<script src="./search-query-parser.js"></script>
+
+<dom-module id="rock-search-query-parser">
+  <template>
+    <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{_attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse">
+        </liquid-entity-model-composite-get>
+  </template>
+  <script>
+    (function () {
+      'use strict';
+
+      Polymer({
+        is: "rock-search-query-parser",
+
+        properties: {
+          contextData: {
+              type: Object,
+              value: function () {
+                  return {};
+              }
+          },
+          query: {
+            type: String,
+            value: ""
+          },
+
+          parsedQuery: {
+            type: Object,
+            value: function() {
+              return {};
+            }
+          },
+          _attributeModelRequest: {
+              type: Object,
+              value: function () {
+                  return {};
+              }
+          },
+          _entityAttributes: {
+            type: Object,
+            value: function() { return {}; }
+          },
+          _relationshipAttributes: {
+            type: Object,
+            value: function() { return {}; }
+          },
+          searchFilters: {
+            type: Object,
+            value: function() { return {}; }
+          }
+        },
+
+        behaviors: [
+            RUFBehaviors.UIBehavior,
+            RUFBehaviors.ComponentContextBehavior
+        ],
+
+        parseQueryToFilters: function(query) {
+          var parsedQuery = this.parseQuery(query);
+          this.transformQueryToFilters(parsedQuery);
+        },
+
+        parseQuery: function(query) {
+          this.set("query", query);
+          var parsedQuery = queryParser.parse(query);
+          return parsedQuery;
+        },
+
+        transformQueryToFilters: function(queryObject) {
+          var clonedContextData = DataHelper.cloneObject(this.contextData);
+          var itemContexts = [];
+          var itemContext = {};
+
+          var workflowCriterion = queryObject.workflowCriterion ? queryObject.workflowCriterion : undefined;
+          if(workflowCriterion) {
+            this.searchFilters["workflowCriterion"] = workflowCriterion;
+          }
+
+          var entityAttributes = queryObject.entityData && queryObject.entityData.attributes ? Object.keys(queryObject.entityData.attributes) : "_ALL";
+          itemContext.attributeNames = entityAttributes;
+          this.set("_entityAttributes", queryObject.entityData.attributes);
+
+          var relationshipName = queryObject.entityRelationships && queryObject.entityRelationships.relationshipName ? queryObject.entityRelationships.relationshipName : undefined;
+          this.searchFilters["relationshipName"] = relationshipName;
+          if (relationshipName) {
+            itemContext.relationships = [relationshipName];
+            var relationshipAttributes = queryObject.entityRelationships && queryObject.entityRelationships.attributes ? Object.keys(queryObject.entityRelationships.attributes) : "_ALL";
+            itemContext.relationshipAttributes = relationshipAttributes;
+            this.set("_relationshipAttributes", queryObject.entityRelationships.attributes);
+          }
+
+          var entityTypes = queryObject.entityData && queryObject.entityData.types ? queryObject.entityData.types : [];
+          if(entityTypes && entityTypes.length > 0) {
+            this.searchFilters["typesCriterion"] = entityTypes;
+            this._currentIndex = entityTypes.length;
+            this._currentItems = [];
+            for (var i = 0; i < entityTypes.length; i++) {
+              var entityType = entityTypes[i];
+
+              itemContext.type = entityType;
+
+              itemContexts.push(itemContext);
+              clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
+
+              var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(clonedContextData);
+
+              this.set("_attributeModelRequest", compositeModelGetRequest);
+              var liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
+              if (liquidModelGet && compositeModelGetRequest) {
+                liquidModelGet.generateRequest();
+              }
+            }
+          }
+        },
+
+        _onCompositeModelGetResponse: function(e) {
+          if (e && e.detail && DataHelper.validateGetAttributeModelsResponse_New(e.detail.response)) {
+            var attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
+
+            var relationshipModels = DataTransformHelper.transformRelationshipModels(e.detail.response.content.entityModels[0], this.contextData);
+
+            if (this._currentIndex == 1) {
+                this._currentItems = [];
+            }
+            this.push('_currentItems', attributeModels);
+
+            if (this._currentItems.length == this._currentIndex) {
+              var compositeModels = [];
+              for(var i=0; i<this._currentItems.length; i++) {
+                  var currentItem = this._currentItems[i];
+                  var keys = Object.keys(currentItem);
+                  if(keys && keys.length > 0) {
+                      for(var j=0; j<keys.length; j++) {
+                          var key = keys[j];
+                          if(!(compositeModels.find(obj => obj.name === key))) {
+                              compositeModels.push(currentItem[key]);
+                          }
+                      }
+                  }
+              }
+
+              var attrsCriterion = this._prepareAttrsCriterion(compositeModels, this._entityAttributes);
+              var relationshipsCriterion = this._prepareRelationshipsCriterion(relationshipModels, this._relationshipAttributes);
+              this.searchFilters["attributesCriterion"] = !_.isEmpty(attrsCriterion) ? attrsCriterion : undefined;
+              this.searchFilters["relationshipsCriterion"] = !_.isEmpty(relationshipsCriterion) ? [relationshipsCriterion] : undefined;
+
+              this.fireBedrockEvent('on-search-filters',this.searchFilters);
+            }
+          }
+        },
+
+        _prepareAttrsCriterion: function(attributeModels, attributes) {
+          var attrsCriterion = [];
+          var attrNames = Object.keys(attributes);
+          if(attrNames.length > 0) {
+            for(var i=0; i<attrNames.length; i++) {
+              var attrName = attrNames[i];
+              var attrModel = attributeModels.find(obj => obj.name === attrName);
+              if(attrModel) {
+                var attrVal = attributes[attrName];
+                var displayType = attrModel.displayType.toLowerCase();
+                var dataType = ConstantHelper.getDataTypeConstant(attrModel.dataType);
+                var keys = Object.keys(attrVal);
+                if(keys && keys.length > 0) {
+                  for(var j=0; j<keys.length; j++) {
+                    var key = keys[j];
+                    var val = attrVal[key].replace(/'/g,'');
+                    var operator;
+                    var splitQueryByAnd = val.toLowerCase().split(' and ');
+                    var splitQueryByOr = val.toLowerCase().split(' or ');
+                    var containsStr = val;
+
+                    if (splitQueryByAnd.length > 1) {
+                      operator = "_AND";
+                      containsStr = splitQueryByAnd;
+                    } else if (splitQueryByOr.length > 1) {
+                      operator = "_OR";
+                      containsStr = splitQueryByOr;
+                    }
+
+                    if (containsStr instanceof Array) {
+                      containsStr = containsStr.join(' ');
+                    }
+                    if(dataType === "_DECIMAL") {
+                      displayType = "numeric";
+                    }
+
+                    attrVal["type"] = dataType;
+                    if(displayType === "referencelist" || displayType === "textbox") {
+                      attrVal["exacts"] = [containsStr];
+                      delete attrVal[key];
+                    } else if(displayType === "boolean") {
+                      attrVal["eq"] = containsStr;
+                      delete attrVal[key];
+                    } else if(displayType === "richtexteditor") {
+                      attrVal["contains"] = containsStr;
+                      attrVal["operator"] = operator;
+                      delete attrVal[key];
+                    } else if(displayType === "numeric") {
+                      if(key === "equals") {
+                        attrVal["contains"] = containsStr;
+                        delete attrVal[key];
+                      }
+                    } else if(displayType === "datetime") {
+                    } else {
+                      if(operator) {
+                        attrVal["contains"] = containsStr;
+                        attrVal["operator"] = operator;
+                      } else {
+                        attrVal["exact"] = containsStr;
+                      }
+                      delete attrVal[key];
+                    }
+                  }
+                }
+                var attrCriterion = {};
+                attrCriterion[attrName] = attrVal;
+                attrsCriterion.push(attrCriterion)
+              }
+            }
+          }
+          return attrsCriterion;
+        },
+
+        _prepareRelationshipsCriterion: function(relationshipModels, relationshipAttributes) {
+          var relType = this.searchFilters["relationshipName"];
+          var relationshipsCriterion = {};
+          if(relType) {
+            var rel = relationshipModels[relType] && relationshipModels[relType].length ? relationshipModels[relType][0] : undefined;
+            if(rel && rel.attributes) {
+                var relData = {};
+                relData.data = {};
+                relData.data.attributes = rel.attributes;
+                var relationshipAttrModels = DataTransformHelper.transformAttributeModels(relData, this.contextData);
+                var keys = Object.keys(relationshipAttrModels);
+                var relationshipAttributeModels = [];
+                if(keys && keys.length > 0) {
+                  for(let i=0; i<keys.length; i++) {
+                    relationshipAttributeModels.push(relationshipAttrModels[keys[i]]);
+                  }
+                }
+                var relationshipAttrsCriterion = this._prepareAttrsCriterion(relationshipAttributeModels, relationshipAttributes);
+                relationshipsCriterion[relType] = {
+                  "attributes": relationshipAttrsCriterion
+                };
+            }
+          }
+
+          return relationshipsCriterion;
+        }
+      });
+    })();
+  </script>
+</dom-module>
