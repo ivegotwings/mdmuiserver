@@ -1,0 +1,195 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<script>
+    /***
+     * `RUFBehaviors.QueryBuilderBehavior` provides common properties and methods that must be implemented for all
+     *  query builder elements. It is a mandatory behavior for all query builder elements to implement.
+     *
+     *  ### Example
+     *
+     *     <dom-module id="x-lov">
+     *        <template>
+     *        </template>
+     *        <script>
+     *           Polymer({
+     *             is: ""x-lov",
+     *
+     *             behaviors: [
+     *               RUFBehaviors.QueryBuilderBehavior
+     *             ],
+     *
+     *             properties: {
+     *              
+     *             }
+     *           });
+     *        <&lt;>/script>
+     *     </dom-module>
+     * @demo demo/index.html
+     * @polymerBehavior RUFBehaviors.QueryBuilderBehavior
+     */
+
+    window.RUFBehaviors = window.RUFBehaviors || {};
+    /** @polymerBehavior RUFBehaviors.QueryBuilderBehavior */
+    RUFBehaviors.QueryBuilderBehavior = {
+
+        properties: {            
+            outputQueryString:{
+                type: String,
+                value: ""                
+            }
+             
+        },
+
+        /**
+         *  Returns the selected entitities titles list
+        */        
+        getSelectedEntityTypes: function(selectedEntityTypes){
+            var entityTypes=[];
+            if(selectedEntityTypes){
+                for(let i=0;i<selectedEntityTypes.length; i++){
+                    entityTypes.push(selectedEntityTypes[i].title);
+                }
+            }
+            
+            return entityTypes;
+        },
+
+        /**
+         *  Builds the query string
+         */
+        buildQuery: function(entityTypes,attributesList,relationship,relationshipsList,workflowList,isParserQuery,keywordSearch){
+           
+            //Build the selected entity type
+            var queryString = "show "+ entityTypes.join(" and ");
+
+            //Build the selected attributes
+            var selAttributesString = "";
+            if(attributesList.length > 0) {
+                selAttributesString = this.getSelectedAttributes(attributesList,isParserQuery);
+                if(selAttributesString) {
+                    selAttributesString = " with " + selAttributesString;
+                }      
+            }
+             
+             //Build the relationship
+            var selRelationshipsString = "";
+            if(relationship) {
+                selRelationshipsString = " having " + relationship;
+            }
+
+            //Build the relationship attributes
+            if(relationshipsList && relationshipsList.length > 0) {
+                var relAttrStr = this.getSelectedAttributes(relationshipsList,isParserQuery); 
+                if(relAttrStr) {
+                    selRelationshipsString = selRelationshipsString + " with " + relAttrStr;
+                }
+            } 
+              
+            //Build the workflow 
+            var workflowString = "";
+            if(workflowList && workflowList.length > 0){
+               workflowString = this.getWorkflowAttributes(workflowList,isParserQuery);
+               if(workflowString) {
+                    workflowString = " pending " + workflowString;
+                }  
+            }
+
+            var keywordSearchStr = "";
+            if(keywordSearch) {
+                var isIdSearch = false;
+                var prefix = /^id:/i;
+                if(prefix.test(keywordSearch)) {
+                    isIdSearch = true;
+                }
+
+                if(isIdSearch){                    
+                    keywordSearchStr = " and " + keywordSearch.replace(":"," = ");
+                } else {
+                    keywordSearchStr = " and _ANY = "+ keywordSearch; 
+                }
+            }
+
+            //Build the query
+            queryString = queryString+selAttributesString+selRelationshipsString+workflowString+keywordSearchStr;
+
+            //Return the constructed query
+            return queryString
+        },
+
+        /**
+         *  Returns the selected attributes
+        */
+        getSelectedAttributes : function (gridData,isParserQuery) {
+            var queryStr = "";
+
+            if(gridData) {
+                if(isParserQuery){
+                    for(let i=0;i<gridData.length; i++){
+                        if(!gridData[i].attributeModel) {
+                            break;
+                        } 
+                        if(gridData[i].attributeModel.name!="" && gridData[i].value!="") {
+                            let value = gridData[i].value;
+                            if(gridData[i].value.indexOf(">=") > -1){
+                                let tempvalue = value.substring(2,value.length);
+                                queryStr =  queryStr + gridData[i].attributeModel.name + " > "+ tempvalue + " and ";
+                            } else if(gridData[i].value.indexOf("<=") > -1) {  
+                                let tempvalue = value.substring(2,value.length);                          
+                                queryStr =  queryStr + gridData[i].attributeModel.name + " < "+ tempvalue + " and ";
+                            } else if(gridData[i].value.indexOf("-") > -1){
+                                let tempvalue = value.split("-");
+                                queryStr =  queryStr + gridData[i].attributeModel.name + " > "+ tempvalue[0] + " and " + gridData[i].attributeModel.name + " < " + tempvalue[1] + " and ";
+                            } else {
+                                queryStr =  queryStr + gridData[i].attributeModel.name + " = " + gridData[i].value + " and ";    
+                            }
+                        } 
+                    }
+
+                } else {
+                    for(let i=0;i<gridData.length; i++){
+                        if(gridData[i].name!="" && gridData[i].value!="") {
+                            if(gridData[i].value.indexOf("=") > -1) {
+                                queryStr =  queryStr + gridData[i].name + gridData[i].value + " and ";                                
+                            } else if(gridData[i].value.indexOf("-") > -1){
+                                let tempvalue = gridData[i].value.split("-");
+                                queryStr =  queryStr + gridData[i].name + " > "+ tempvalue[0] + " and " + gridData[i].name + " < " + tempvalue[1] + " and ";
+                            } else {
+                                queryStr =  queryStr + gridData[i].name + " = " + gridData[i].value + " and "; 
+                            }
+                               
+                        } 
+                    }
+                }
+            
+               
+                queryStr = queryStr.substring(0,queryStr.length-5);
+            } 
+
+            return queryStr;
+        },
+
+        /**
+         *  Returns the selected attributes
+        */
+        getWorkflowAttributes : function (gridData,isParserQuery) {
+            var queryStr = "";
+
+            if(gridData) {
+                for(let i=0;i<gridData.length; i++){
+                    if(isParserQuery){
+                        if(gridData[i].workflowShortName && gridData[i].workflowShortName!="" && gridData[i].workflowActivityShortName && gridData[i].workflowActivityShortName!="") {
+                            queryStr =  queryStr + gridData[i].workflowShortName + " " + gridData[i].workflowActivityShortName;
+                        }
+                    } else {
+                        if(gridData[i].workflowExternalName && gridData[i].workflowExternalName!="" && gridData[i].workflowActivityExternalName && gridData[i].workflowActivityExternalName!="") {
+                            queryStr =  queryStr + gridData[i].workflowExternalName + " " + gridData[i].workflowActivityExternalName;
+                        }
+                    }
+                }
+            }
+
+            return queryStr;
+        }
+        
+    };
+</script>
