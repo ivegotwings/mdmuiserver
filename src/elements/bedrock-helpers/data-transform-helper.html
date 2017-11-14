@@ -302,6 +302,9 @@
                     }
                 } else {
                     attr = this.createAttributeInstance(attributeJSON, firstValueContext);
+                    if (!this._isLocalizable(model)) {
+                        this._overrideLocale(attr, DataHelper.getDefaultLocale());
+                    }
                 }
 
                 if (attributeJSON.selfContext) {
@@ -337,6 +340,18 @@
             newEntity["data"] = newData;
 
             return newEntity;
+        };
+
+        DataTransformHelper._overrideLocale = function (attr, locale) {
+            if(attr.values) {
+                for (var i = 0; i < attr.values.length; i++) {
+                    attr.values[i].locale = locale;
+                }
+            }
+        };
+
+        DataTransformHelper._isLocalizable = function (model) {
+            return model && model.properties && model.properties.isLocalizable;
         };
 
         DataTransformHelper.prepareEntityForCreate = function (entityId, entityType, attributesJSON, contextData, createdBy) {
@@ -459,6 +474,17 @@
             return transformedAttributes;
         };
 
+        DataTransformHelper._overrideByDefaultLocaleValue = function(attributes, attributeModel, attributeJSON) {
+            let defaultLocaleId = DataHelper.getDefaultLocale();
+            if (attributeJSON && attributes[attributeModel.name] && attributes[attributeModel.name].values) {
+                let defaultLocaleValue = attributes[attributeModel.name].values.find(v => v.locale === defaultLocaleId);
+                if (defaultLocaleValue) {
+                    attributeJSON.locale = defaultLocaleValue.locale;
+                    attributeJSON.value = defaultLocaleValue.value;
+                }
+            }
+        };
+
         DataTransformHelper._transformAttributes = function (attributes, attributeModels, valueContext) {
             var transformedAttributes = {};
 
@@ -496,6 +522,10 @@
                         attributeJSON["value"] = DataTransformHelper.transformNestedAttributes(attribute, childAttributeModels);
                     }
 
+                    if (attributeModel.properties && !attributeModel.properties.isLocalizable) {
+                        this._overrideByDefaultLocaleValue(attributes, attributeModel, attributeJSON);
+                    }
+
                     if (attributeJSON && !DataHelper.isEmptyObject(attributeJSON.properties)) {
                         if (attributeJSON.properties.referenceData) {
                             var refEntityType = attributeModel.referenceEntityTypes && attributeModel.referenceEntityTypes.length > 0 ? attributeModel.referenceEntityTypes[0] : "";
@@ -529,38 +559,50 @@
                         delete childAttributes.id;
                         var childAttributeJson = {};
 
+                        var hasAttributes = false;
+                        var childAttrNames = Object.keys(childAttributes);
                         for (var attributeName in childAttributeModels) {
-                            var childAttrModel = childAttributeModels[attributeName];
-                            var childAttr = childAttributes[attributeName];
-                            childAttributeJson[attributeName] = {};
+                            if(childAttrNames.find(name => name === attributeName)) {
+                                hasAttributes = true;
+                                break;
+                            } else {
+                                continue;
+                            }
+                        }
+                        if (hasAttributes) {
+                            for (var attributeName in childAttributeModels) {
+                                var childAttrModel = childAttributeModels[attributeName];
+                                var childAttr = childAttributes[attributeName];
+                                childAttributeJson[attributeName] = {};
 
-                            if (childAttr) {
-                                var attrVal = AttributeHelper.getFirstAttributeValue(childAttr);
-                                childAttributeJson[attributeName]["value"] = attrVal;
-                                if (childAttrModel.displayType === "referencelist") {
-                                    var refEntityType = childAttrModel.referenceEntityTypes && childAttrModel.referenceEntityTypes.length > 0 ? childAttrModel.referenceEntityTypes[0] : "";
-                                    childAttributeJson[attributeName]["referenceEntityType"] = refEntityType;
-                                    if (!DataHelper.isEmptyObject(childAttr.values[0].properties) && childAttr.values[0].properties.referenceData) {
-                                        var referenceData = childAttr.values[0].properties.referenceData;
-                                        var referenceDataId = referenceData.replace(refEntityType + "/", "");
-                                        childAttributeJson[attributeName]["referenceDataId"] = referenceDataId;
-                                    } else {
+                                if (childAttr) {
+                                    var attrVal = AttributeHelper.getFirstAttributeValue(childAttr);
+                                    childAttributeJson[attributeName]["value"] = attrVal;
+                                    if (childAttrModel.displayType === "referencelist") {
+                                        var refEntityType = childAttrModel.referenceEntityTypes && childAttrModel.referenceEntityTypes.length > 0 ? childAttrModel.referenceEntityTypes[0] : "";
+                                        childAttributeJson[attributeName]["referenceEntityType"] = refEntityType;
+                                        if (!DataHelper.isEmptyObject(childAttr.values[0].properties) && childAttr.values[0].properties.referenceData) {
+                                            var referenceData = childAttr.values[0].properties.referenceData;
+                                            var referenceDataId = referenceData.replace(refEntityType + "/", "");
+                                            childAttributeJson[attributeName]["referenceDataId"] = referenceDataId;
+                                        } else {
+                                            childAttributeJson[attributeName]["referenceDataId"] = "";
+                                        }
+                                    }
+                                } else {
+                                    childAttributeJson[attributeName]["value"] = "";
+                                    if (childAttrModel.displayType === "referencelist") {
+                                        var refEntityType = childAttrModel.referenceEntityTypes && childAttrModel.referenceEntityTypes.length > 0 ? childAttrModel.referenceEntityTypes[0] : "";
+                                        childAttributeJson[attributeName]["referenceEntityType"] = refEntityType;
                                         childAttributeJson[attributeName]["referenceDataId"] = "";
                                     }
                                 }
-                            } else {
-                                childAttributeJson[attributeName]["value"] = "";
-                                if (childAttrModel.displayType === "referencelist") {
-                                    var refEntityType = childAttrModel.referenceEntityTypes && childAttrModel.referenceEntityTypes.length > 0 ? childAttrModel.referenceEntityTypes[0] : "";
-                                    childAttributeJson[attributeName]["referenceEntityType"] = refEntityType;
-                                    childAttributeJson[attributeName]["referenceDataId"] = "";
-                                }
                             }
-                        }
-                        childAttributeJson["valueIdentifier"] = {};
-                        childAttributeJson["valueIdentifier"]["value"] = i;
+                            childAttributeJson["valueIdentifier"] = {};
+                            childAttributeJson["valueIdentifier"]["value"] = i;
 
-                        value.push(childAttributeJson);
+                            value.push(childAttributeJson);
+                        }
                     }
                 } else {
                     if (returnEmptyRecord) {

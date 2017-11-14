@@ -362,7 +362,7 @@ The following JSON object is a sample of data which binds the grid.
 
               <rock-grid id$="[[relationship]]" readonly$="[[readonly]]" r-data-source="{{rDataSource}}" r-data-source-id="datasource_[[relationship]]" config="{{relationshipGridConfig.gridConfig}}"
                          attribute-models="[[_getRelationshipAttributeModels(relationship)]]" grid-data-size="{{size}}" current-record-size="{{currentRecordSize}}"
-                         result-record-size="{{resultRecordSize}}" total-count="{{totalCount}}" page-size="10"></rock-grid>
+                         row-drag-drop-enabled="[[_getRowDragDropEnabled()]]" on-row-drop-event-raised="_onRowDropEventRaised"result-record-size="{{resultRecordSize}}" total-count="{{totalCount}}" page-size="10"></rock-grid>
               <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="[[relationship]]"></bedrock-pubsub>
               <bedrock-pubsub event-name="download-original-asset" handler="_onOriginalAssetDownloadAction" target-id="[[relationship]]"></bedrock-pubsub>
               <bedrock-pubsub event-name="delete-item" handler="_onDeleteEntityRelationshipAction" target-id="[[relationship]]"></bedrock-pubsub>
@@ -640,6 +640,41 @@ The following JSON object is a sample of data which binds the grid.
         },
         _getRelationshipGrid:function () {
           return this.shadowRoot.querySelector("rock-grid");
+        },
+        _getRowDragDropEnabled:function(){
+          var isOrderAvailable = false;
+          var isRowDragDropEnabled = false;
+          var dragDropEnable = false;
+          var isOrderAvailableInColumns = false;
+          if (DataHelper.isValidObjectPath(this.relationshipGridConfig, "gridConfig.tabular.columns")) {
+            var columnsList = this.relationshipGridConfig.gridConfig.tabular.columns;
+            if (columnsList) {
+              for (var i = 0; i < columnsList.length; i++) {
+                if (columnsList[i].name == "order") {
+                  isOrderAvailableInColumns = true;
+                  break;
+                }
+              }
+            }
+          }
+          if (isOrderAvailableInColumns && DataHelper.isValidObjectPath(this.relationshipGridConfig, "gridConfig.tabular.settings.sort.default")) {
+            var defaultSortList = this.relationshipGridConfig.gridConfig.tabular.settings.sort.default;
+            if (defaultSortList) {
+              for (var i = 0; i < defaultSortList.length; i++) {
+                if (defaultSortList[i].field == "Order") {
+                  isOrderAvailable = true;
+                  break;
+                }
+              }
+            }
+          }
+          if (DataHelper.isValidObjectPath(this.relationshipGridConfig, "gridConfig.rowDragDropEnabled")) {
+            isRowDragDropEnabled = this.relationshipGridConfig.gridConfig.rowDragDropEnabled;
+          }          
+          if(isOrderAvailable && isRowDragDropEnabled){
+            dragDropEnable= true;
+          }
+          return dragDropEnable;
         },
         _onSelectingGridItem: function (e, detail, sender) {
           if (this._quickManageEnabled) {
@@ -1734,6 +1769,31 @@ The following JSON object is a sample of data which binds the grid.
               }
             } else {
               this.showInformationToast("Please select at least one relationship from grid to delete.");
+            }
+          }
+        },
+        _onRowDropEventRaised:function(e,detail){           
+          var grid = this._getRelationshipGrid();
+          var gridData = grid.getData();
+          var item, updatedId, getOrderPoisiton;
+          if (gridData) {
+            var keyNames = Object.keys(gridData[0]);
+            for (var j in keyNames) {
+              if (keyNames[j] == "order") {
+                getOrderPoisiton = j;
+              }
+            }
+            for (var i = 0; i <= gridData.length; i++) {
+              item = gridData[i]
+              updatedId = (i + 1).toString();
+              if (item && item.order) {
+                item.order = updatedId;
+                grid.shadowRoot.querySelector("[id=row" + i + "col" + getOrderPoisiton +"]").attributeObject = {
+                  "value": updatedId,
+                  "name": "order"
+                }
+                grid.updateRowStatus(item, "update");
+              }
             }
           }
         },
