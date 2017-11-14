@@ -317,6 +317,10 @@ Custom property | Description | Default
             _isConfigLoaded: {
                 type: Boolean,
                 value: false
+            },
+            _isContextLoad: {
+                type: Boolean,
+                value: false
             }
         },
 
@@ -364,22 +368,19 @@ Custom property | Description | Default
 
         _configDataChanged: function () {
 
-            var isContextLoad = false;
-
             if (this.configData && this.configData.length) {
+                this.configData.forEach(function (item) {
+                    if (item && item.isContextModel) {
+                        this._isContextLoad = true;
+                    }
+                }, this);
 
                 if (!this._isConfigLoaded) {
                     this._isConfigLoaded = true;
                 }
-
-                this.configData.forEach(function (item) {
-                    if (item && item.isContextModel) {
-                        isContextLoad = true;
-                    }
-                }, this);
             }
 
-            if ((isContextLoad && this._isDynamic) || (!isContextLoad && !this._isDynamic)) {
+            if ((this._isContextLoad && this._isDynamic) || (!this._isContextLoad && !this._isDynamic)) {
                 this._updateSelectedDimensions();
             } else {
                 this._isDynamic = false;
@@ -683,7 +684,7 @@ Custom property | Description | Default
                     this._isDynamic = true;
                 }
 
-                if (this._isConfigLoaded) {
+                if (this._isConfigLoaded && this._isContextLoad) {
                     this._contextModelGetReq = this._getContextModelGetRequest(entityType);
 
                     var liquidElement = this.$$('#contextModelGet');
@@ -769,17 +770,19 @@ Custom property | Description | Default
                         this._contexts = _contexts;
                     }
 
-                    var ctxIds = [];
+                    var _ctxIds = [];
                     if (_ctxKeys && _ctxKeys.length) {
                         //TODO: Nikhil has to provide full colase path in context model and it has to applied as _contextHierarchy.
                         this._contextHierarchy = ["dcountry", "dchannel", "taxonomy", "classification"];//_ctxKeys;
                         _ctxKeys.forEach(function (item) {
                             if (item) {
-                                ctxIds.push(item + "_entityManageModel");
+                                _ctxIds.push(item);
                             }
                         }, this);
                     }
 
+                    var ctxIds = [];
+                    var missingContextModel = [];
                     if (this.configData && this.configData.length) {
                         this.configData.forEach(function (item) {
                             if (!item.isContextModel) {
@@ -787,14 +790,30 @@ Custom property | Description | Default
                                     var type = item.dataMappings.type[0];
 
                                     if (type) {
-                                        ctxIds.push(type + "_entityManageModel");
+                                        if (item.dataRequestType != "entity-context") {
+                                            ctxIds.push(type + "_entityManageModel");
+                                        }
+
                                         if (this._contextHierarchy.indexOf(type) < 0) {
                                             this._contextHierarchy.push(type);
                                         }
                                     }
                                 }
+                            } else if (item.isContextModel) {
+                                if (_ctxIds.indexOf(item.id) > -1) {
+                                    if (item.dataRequestType != "entity-context") {
+                                        ctxIds.push(item.id + "_entityManageModel");
+                                    }
+                                } else {
+                                    missingContextModel.push(item.id);
+                                }
                             }
                         }, this);
+                    }
+
+                    if (missingContextModel && missingContextModel.length) {
+                        var message = "Dimension(s): " + missingContextModel.join(", ") + " are configured but not present in context model for entity type: " + this.entityType;
+                        this.showErrorToast(message, 5000);
                     }
 
                     if (ctxIds && ctxIds.length) {
