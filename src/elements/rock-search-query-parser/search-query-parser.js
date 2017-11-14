@@ -140,7 +140,7 @@ var queryParser = {};
 
 queryParser.options = {};
 queryParser.options["startsWith"] = "show";
-queryParser.options["keywords"] = ["show", "with", "having", "pending"];
+queryParser.options["keywords"] = ["show", "with", "having", "pending", "_ANY"];
 queryParser.options["attributeKeywords"] = ["and"];
 queryParser.options["operators"] = ["=", ">", "<"];
 
@@ -291,6 +291,8 @@ queryParser.splitValuesByKeywords = function(keyValues, keywords) {
                 valueList = value.split(" ");
             } else if(key === "extraText") {
                 extraText = value;
+            } else if(key === "_ANY") {
+                valueList = [value];
             } else {
                 valueList = value.split(regex).map(function(item) {
                     return item.replace(/'|"/g, '').trim();
@@ -374,6 +376,8 @@ queryParser.getFinalQuery = function(parsedQuery) {
         var workflowName = parsedQuery.pending && parsedQuery.pending.length > 0 ? parsedQuery.pending[0] : undefined;
         var workflowActivityName = parsedQuery.pending && parsedQuery.pending.length > 0 ? parsedQuery.pending[1] : undefined;
 
+        var searchQuery = parsedQuery._ANY && parsedQuery._ANY.length > 0 ? parsedQuery._ANY[0] : undefined;
+
         if (entityTypes) {
             var entityData = {
                 "types": entityTypes,
@@ -394,6 +398,9 @@ queryParser.getFinalQuery = function(parsedQuery) {
                 "workflowActivityName": workflowActivityName
             }
             finalQuery.workflowCriterion = workflowCriterion;
+        }
+        if(searchQuery) {
+            finalQuery.searchQuery = searchQuery;
         }
         return finalQuery;
     }
