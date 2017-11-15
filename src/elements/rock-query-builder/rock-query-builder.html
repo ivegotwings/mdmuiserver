@@ -108,7 +108,14 @@
                 min-height: 0px;
                 margin-top: 0px;
             }
-        }  
+        }
+
+        #entityTypeFilterButton {
+            --paper-button-text: {
+                max-width: 85px;
+            }  
+        }
+        
      
     </style>   
     
@@ -313,7 +320,6 @@
     <template is="dom-if" if="[[_isWorkflowSearchEnabled(workflowName)]]">
         <div class="workflowGridContainer">
             <div class="queryHeading">
-                <!--pebble-button icon="pebble-md-icons:addcircle" class="queryHeadingButton m-l-10" target-id="workflow-grid" on-tap="_onAddRowClick" button-text="PENDING"></pebble-button-->
                 <pebble-button class="queryHeadingButton m-l-10" target-id="workflow-grid" button-text="PENDING"></pebble-button>
             </div>
             <div class="p-10">
@@ -457,6 +463,10 @@
                     ];
                 } 
             },
+            workflowEntityTypes:{
+                 type: Array,
+                 value: {}
+            },
             currentFilterObj: {
                 type: Object,
                 notify: true                
@@ -574,7 +584,7 @@
             },
             selectedEntityTypeNames:{
                type: String,
-               computed: "getSelectedEntityTypeNames(selectedEntityTypes)" 
+               computed: "getSelectedEntityTypeNames(selectedEntityTypes)"             
             },
             searchQuery: {
                 type: String,
@@ -588,8 +598,7 @@
         */
         connectedCallback() {
             super.connectedCallback();
-            document.addEventListener('down', this._close.bind(this), true);
-            this._getWorkflowMappings();
+            document.addEventListener('down', this._close.bind(this), true);            
         }
 
         /**
@@ -650,7 +659,8 @@
             this.workflowGridData = new Array();
             this._selectedItems = new Array();
             this.currentFilterObj = "";
-            this.selectedRelationship = [];          
+            this.workflowEntityTypes = new Array();
+            this.selectedRelationship = [];
         }       
 
         /**
@@ -770,11 +780,12 @@
 				this._contextData = contextData;	
             }
             
-            this._onEntityTypePopoverClose();
-            //Show the selected entities on the entityTypeFilterButton
-            this._getWorkflowMappings();
+            this._onEntityTypePopoverClose();            
         }       
 
+        /**
+         * Function to display the selected entity names on the entityTypeFilterButton
+         */
         getSelectedEntityTypeNames(selectedEntityTypes){
             var selectedEntityStr = this.getSelectedEntityTypes(selectedEntityTypes).join();
             if(selectedEntityStr.length <= 0){
@@ -1411,14 +1422,21 @@
         /**
         * Function to generate a request to get the workflow mappings
         */
-        _getWorkflowMappings(){
-            if (!_.isEmpty(this.contextData)) {
+        _getWorkflowMappings(){           
+            if (!_.isEmpty(this.contextData)) { 
+                //If entity types are not changed, return without making a rdf call
+                var selectedEntities =  this.getSelectedEntityTypes(this.selectedEntityTypes);              
+                if(JSON.stringify(this.workflowEntityTypes) === JSON.stringify(selectedEntities)){
+                     return;
+                }
+                  
                 var contextData = DataHelper.cloneObject(this.contextData);
                 var itemContexts = [];
                 var itemContext = {};
-                itemContext.type = this.getSelectedEntityTypes(this.selectedEntityTypes);
+                itemContext.type = selectedEntities;
                 itemContexts.push(itemContext);
-                contextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;            
+                contextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
+                this.workflowEntityTypes = itemContext.type;           
                 this.workflowMappingDefinitionRequest = DataRequestHelper.createWorkflowMappingGetRequest(contextData);
                 this.shadowRoot.querySelector('#getWorkflowMappingDefinition').generateRequest();
             }
@@ -1495,6 +1513,9 @@
         * Open the Workflow Lov
         */
         _openWorkflowModelLov(e) {
+
+            this._getWorkflowMappings();
+
             var rowId = e.currentTarget.rowId;
             if(rowId >= 0) {
                 var lov = this.shadowRoot.querySelector("#workflowModelLov");
