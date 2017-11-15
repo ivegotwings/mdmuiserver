@@ -208,18 +208,16 @@
                                     <div class="card-content">
                                         <rock-query-builder id="queryBuilder" domain="[[domain]]" allowed-entity-types="{{allowedEntityTypes}}" selected-entity-types="{{_currentEntityTypes}}"
                                             input-query-string="{{inputQueryString}}" attribute-grid-data="{{attributeGridData}}"
-                                            context-data="{{contextData}}" workflow-name="[[workflowName]]" search-query="{{searchQuery}}"></rock-query-builder>
+                                            context-data="{{contextData}}" search-query="{{searchQuery}}"></rock-query-builder>
                                     </div>
                                 </paper-card>
                             </div>
                         </template>
                         </div>
-                        <rock-search-query-parser id="queryParser"></rock-search-query-parser>
                         <bedrock-pubsub event-name="rock-search" handler="_onSearch" target-id="searchBar"></bedrock-pubsub>
                         <bedrock-pubsub event-name="rock-search-update" handler="_showResetSearch" target-id="searchBar"></bedrock-pubsub>
                         <bedrock-pubsub event-name="hide-query-builder" handler="_hideQueryBuilder" target-id="queryBuilder"></bedrock-pubsub>
                         <bedrock-pubsub event-name="on-query-build" handler="_onQueryBuild" target-id="queryBuilder"></bedrock-pubsub>
-                        <bedrock-pubsub id="parser-event" event-name="on-search-filters" handler="_onSearchFiltersChange" target-id="queryParser"></bedrock-pubsub>
                     </template>
                     <template is="dom-if" if="[[_getVisibility('rock-saved-searches')]]">
                         <pebble-button id="savedSearchButton" icon="pebble-md-icons:SavedSearch" button-text="Load Saved Search" noink raised dropdown-icon
@@ -264,11 +262,21 @@
             <div class="row-wrap">
                 <template is="dom-if" if="[[_getVisibility('rock-entity-search-grid')]]">
                     <div class$="[[_applyClass(_quickManageEnabled)]]">
-                        <rock-entity-search-grid id="entitySearchGrid" context-data="[[contextData]]" grid-config="[[_getGridConfig('gridConfig', entitySearchGridConfig)]]"
+                        <rock-entity-search-grid id="entitySearchGrid" 
+                            context-data="[[contextData]]" 
+                            grid-config="[[_getGridConfig('gridConfig', entitySearchGridConfig)]]"
                             govern-attributes-criterion="[[_getGridConfig('governAttributesCriterion', entitySearchGridConfig)]]"
-                            govern-data-config="[[_getGridConfig('governDataConfig', entitySearchGridConfig)]]" search-query="{{searchQuery}}"
-                            saved-search-id="[[savedSearchId]]" workflow-criterion="[[_workflowCriterion]]" search-filters="[[_selectedSearchFilters]]"
-                            relationship-search-filters="[[_relationshipSearchFilters]]" current-record-size="{{_gridFullLength}}" types-criterion="[[_typesCriterion]]" entity-id-list="[[entityIdList]]"></rock-entity-search-grid>
+                            govern-data-config="[[_getGridConfig('governDataConfig', entitySearchGridConfig)]]" 
+                            search-query="{{searchQuery}}" 
+                            saved-search-id="[[savedSearchId]]" 
+                            workflow-criterion="[[_workflowCriterion]]" 
+                            govern-data-criterion="[[_governDataCriterion]]" 
+                            search-filters="[[_selectedSearchFilters]]" 
+                            relationship-search-filters="[[_relationshipSearchFilters]]" 
+                            current-record-size="{{_gridFullLength}}" 
+                            types-criterion="[[_typesCriterion]]" 
+                            entity-id-list="[[entityIdList]]">
+                        </rock-entity-search-grid>
                         <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="entityGrid"></bedrock-pubsub>
                         <bedrock-pubsub event-name="govern-grid-selecting-item" handler="_onSelectingGridItem" target-id="governGrid"></bedrock-pubsub>
                     </div>
@@ -290,6 +298,8 @@
                     </template>
                 </template>
             </div>
+        <rock-search-query-parser id="queryParser"></rock-search-query-parser>
+        <bedrock-pubsub id="parser-event" event-name="on-search-filters" handler="_onSearchFiltersChange" target-id="queryParser"></bedrock-pubsub>
         </template>
         <liquid-config-get id="initiateConfigSearch" operation="initiatesearch" request-data={{initiateConfigSearchRequestData}} last-response="{{initiateConfigSearchResponse}}" on-response="_onInitiateConfigSearchResponse"></liquid-config-get>
         <liquid-config-get id="getConfigSearchDetails" operation="getsearchresultdetail" on-response="_onGetConfigSearchDetailsResponse"></liquid-config-get>
@@ -425,6 +435,12 @@
                             return {};
                         }
                     },
+                    _governDataCriterion: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
                     _gridFullLength: {
                         type: Number,
                         value: 0
@@ -505,7 +521,7 @@
 
                         this._searchBarElement.searchInput = [];
                         if (this.searchQuery) {
-                            this._searchBarElement.query = this.searchQuery;
+                            this._searchQuery = this.searchQuery;
                         }
 
                         if (this.savedSearchId && this.savedSearchId !== this._lastSavedSearchId) {
@@ -523,11 +539,14 @@
                             var workflowCriterion = {
                                 "workflowName": this.workflowName,
                                 "workflowActivityName": this.workflowActivityName,
-                                "workflowActivityExternalName": this.workflowActivityExternalName,
+                                "workflowActivityExternalName": this.workflowActivityExternalName
+                            };
+
+                            var governDataCriterion = {
                                 "userId": userId,
                                 "status": this.status,
                                 "businessConditionExternalName": this.businessConditionExternalName
-                            };
+                            }
                             //WF short name should be added only when it is available
                             if (this.workflowShortName) {
                                 workflowCriterion["workflowShortName"] = this.workflowShortName
@@ -536,18 +555,22 @@
                             if (this.businessConditionName) {
                                 var businessConditionNames = this.businessConditionName.split("#@#");
                                 if (businessConditionNames.length > 1) {
-                                    workflowCriterion.businessConditionNames = businessConditionNames;
+                                    governDataCriterion.businessConditionNames = businessConditionNames;
                                 } else {
-                                    workflowCriterion.businessConditionName = this.businessConditionName;
+                                    governDataCriterion.businessConditionName = this.businessConditionName;
                                 }
                             }
 
                             if (!DataHelper.isEmptyObject(workflowCriterion)) {
                                 this.set("_workflowCriterion", workflowCriterion);
                             }
+                            if (!DataHelper.isEmptyObject(governDataCriterion)) {
+                                this.set("_governDataCriterion", governDataCriterion);
+                            }
                         }
 
                         this._gridConfig = this._getGridConfig("gridConfig");
+                        this._buildQueryString();
                     }
                 },
 
@@ -739,19 +762,21 @@
 
                     //Reset the entityTypes according to the _gridConfig 
                     var entityTypes  = this._getSelectedEntityTypes(this._gridConfig.dataRequest.typesCriterion);
-                    this._selectedEntityTypes = entityTypes;                                                                       
-                                       
+                    this._selectedEntityTypes = entityTypes;
+
                     //Clear the advanced search options
                     this.inputQueryString = "";
                     this.attributeGridData = new Array();
+                    this.set("_workflowCriterion", new Object());
+                    this.set("_governDataCriterion", new Object());
                     
                     var queryBuilder = this.shadowRoot.querySelector("#queryBuilder");
                     if(queryBuilder){
                         queryBuilder.resetQueryBuilder();
-                    }
+                    }                
                     
                     this._buildQueryString();
-                    
+
                 },
 
 
@@ -797,11 +822,14 @@
                         // dimension selectors info
                         _savedSearchDetails["dimensions"] = this.selectedDimensions;
 
-                        // create or edit form info
+                        // display query Info
                         _savedSearchDetails["display-query"] = displayQuery;
 
-                        // dimension selectors info
+                        // Internal query info
                         _savedSearchDetails["internal-query"] = internalQuery;
+
+                        // business conditions data info
+                        _savedSearchDetails["govern-data"] = this._governDataCriterion;
 
 
                         if (detail.selectedSearch && !DataHelper.isEmptyObject(detail.selectedSearch)) {
@@ -836,7 +864,7 @@
                                 this._savedSearch = savedSearch;
                                 this.selectedDimensions = savedSearch.dimensions;
                                 this._savedSearchButton.buttonText = savedSearch.name;
-                                this.searchQuery = savedSearch.searchQuery;
+                                this._governDataCriterion = savedSearch.governData;
 
                                 var displayQuery = savedSearch.displayQuery;
                                 var internalQuery = savedSearch.internalQuery;
@@ -1074,6 +1102,7 @@
                 },
 
                 _updateTypesCriterion: function(selectedEntities) {
+                    this.refresh();
                     this.shadowRoot.querySelector("#entityTypeFilterPopover").close();
                     //this._updateSearchEntityTypeTag(selectedEntities);
                 },
@@ -1424,7 +1453,6 @@
                 _clearGridConfig: function() {
                     var grid = ElementHelper.getElement(this, "#entitySearchGrid");
                     grid.attributeModels={};
-                    // grid.gridConfig = {};
                 },
 
                 /**
@@ -1444,8 +1472,18 @@
                     //Hadling a case where query is already been built inside the query builder
                     var relationship = "";
                     var relationshipShortName = "";
-                    var relationshipsListArray = "";  
-                    var workflowListArray = "";  
+                    var relationshipsListArray = "";
+                    var workflowListArray = "";
+                    if(!_.isEmpty(this._workflowCriterion)) {
+                        workflowListArray = [];
+                        var workflowData = {
+                            "workflowShortName": this._workflowCriterion.workflowShortName,
+                            "workflowExternalName": this._workflowCriterion.workflowName,
+                            "workflowActivityShortName": this._workflowCriterion.workflowActivityName,
+                            "workflowActivityExternalName": this._workflowCriterion.workflowActivityExternalName
+                        };
+                        workflowListArray.push(workflowData);
+                    }
                     var queryBuilder = this.shadowRoot.querySelector("#queryBuilder");
                     if(queryBuilder){
                         var relModelLov = queryBuilder.shadowRoot.querySelector("#relationshipModelLov");
@@ -1458,6 +1496,10 @@
                         }
                         if(queryBuilder.workflowGridData) {
                             workflowListArray = queryBuilder.workflowGridData;
+                        } else {
+                            if(!_.isEmpty(workflowListArray)) {
+                                queryBuilder.workflowGridData = workflowListArray;
+                            }
                         }
                     } 
 
@@ -1470,9 +1512,9 @@
                     var attributeListArray = new Array();
 
                     if(detail) {
-                        var attributeList = detail; 
-                        let displayValue = "";                   
-                        for(var i=0;i<attributeList.length;i++){                            
+                        var attributeList = detail;
+                        let displayValue = "";                    
+                        for(var i=0;i<attributeList.length;i++){
                             let newItem = {
                                 name : attributeList[i].longName,
                                 value : (attributeList[i].displayValue).replace(/"|'/g,""),
@@ -1545,7 +1587,9 @@
                     this.set("_selectedSearchFilters", selectedSearchFilters);
                     this.set("_relationshipSearchFilters", relationshipSearchFilters);
                     if(workflowCriterion) {
-                        this.set("_workflowCriterion", workflowCriterion);
+                        this._workflowCriterion.workflowShortName = workflowCriterion.workflowShortName;
+                        this._workflowCriterion.workflowActivityName = workflowCriterion.workflowActivityName;
+                        this.set("_workflowCriterion", this._workflowCriterion);
                     }
                     if(searchQuery) {
                         this.set("searchQuery", searchQuery);
