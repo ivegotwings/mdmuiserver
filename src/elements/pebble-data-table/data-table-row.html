@@ -53,21 +53,25 @@
           display: flex;
           display: -webkit-flex;
           flex-direction: row;
-          width: 100%;
+          width: 100%;         
+        }
+        .picked{
+          @apply --pebble-data-table-row-cell;
+        }
+        
+        .cells:hover::after {
+          @apply --pebble-data-table-row-cell-after;
         }
         .cells {
-            -moz-user-select: none;
-          
-            -khtml-user-select: none;
-          
-            -webkit-user-select: none;
-          
+            -moz-user-select: none;          
+            -khtml-user-select: none;          
+            -webkit-user-select: none;          
             user-select: none;
           
-          }
+        }
       </style>
     </custom-style>
-    <div class="cells" on-mousedown="dragMouseDown" on-mouseup="closeDragElement">
+    <div class="cells" on-mousedown="dragMouseDown" on-mouseup="closeDragElement" on-track="handleTrack">
       <slot name="row-header"></slot>
       <slot name="data-table-checkbox-slot"></slot>
       <slot name="data-table-cell-slot"></slot>
@@ -104,6 +108,9 @@
         },
         rowDragDropEnabled:{
           type:Boolean
+        },
+        pickedIndex:{
+          type:Number
         }
       },
 
@@ -144,30 +151,56 @@
           }
         }
       },
-
-      dragMouseDown: function(e) {
-        if(this.rowDragDropEnabled){
+      dragMouseDown: function (e) {
+         if (this.rowDragDropEnabled) {
+            this.pickedIndex = this.index;
             this.parentNode["pickedRowIndex"] = this.index;
-         }
-        },
-      /* stop moving when mouse button is released:*/
-      closeDragElement: function(e) {           
-          if(this.rowDragDropEnabled){
-          var div = this.shadowRoot.querySelector('[class=cells]');
-          if(div){
-            div.onmouseup = null;
-            div.onmousemove = null;
-          }            
+          }
+      },
+      handleTrack: function (e) {
+        if (this.rowDragDropEnabled) {
+          switch (e.detail.state) {
+            case 'start':
+              e.detail.pickedIndex = this.pickedIndex;
+              this._addPickedBackgroundColor();
+              this.fireBedrockEvent("drag-started", e.detail, { ignoreId: true });
+              break;
+            case 'track':
+              this.fireBedrockEvent("drag-inprogress", e.detail, { ignoreId: true });
+              break;
+          }
+        }
+      },
+      closeDragElement: function (e) {
+        if (this.rowDragDropEnabled) {
           var eventDetail = {
             "pickedRowIndex": this.parentNode["pickedRowIndex"],
             "droppedAtIndex": this.index,
-            "event":e
+            "event": e
           };
-          if(eventDetail.pickedRowIndex !== eventDetail.droppedAtIndex){
+          this._removePickedBackgroundColor();
+          this.fireBedrockEvent("drag-ended", eventDetail, { ignoreId: true });
+          if (eventDetail.pickedRowIndex !== eventDetail.droppedAtIndex) {
             this.fireBedrockEvent("row-dropped", eventDetail, { ignoreId: true });
           }
         }
       },
+      _addPickedBackgroundColor: function () {
+        var dataTableRows = this.parentElement.querySelectorAll('data-table-row');
+        for (var i = 0; i < dataTableRows.length; i++) {
+          if (dataTableRows[i].shadowRoot.querySelector('.cells') && this.pickedIndex == i-1) {
+            dataTableRows[i].shadowRoot.querySelector('.cells').classList.add('picked');
+          }
+        }
+      },
+      _removePickedBackgroundColor: function () {
+        var dataTableRows = this.parentElement.querySelectorAll('data-table-row');
+        for (var i = 0; i < dataTableRows.length; i++) {
+          if (dataTableRows[i].shadowRoot.querySelector('.cells')) {
+            dataTableRows[i].shadowRoot.querySelector('.cells').classList.remove('picked');
+          }
+        }
+      },    
       _beforeBind: function (beforeBind, index, item, selected, expanded) {
         //TODO need to check functionally what all combinations should aloow to execute this function instead waiting for all params with some other values.
         if (!(beforeBind === undefined || index === undefined || item === undefined || selected === undefined || expanded === undefined)) {
