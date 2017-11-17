@@ -285,6 +285,10 @@ function createGetRequest(reqData) {
     }
 
     if (!isEmpty(valContexts)) {
+        for(let valContext of valContexts) {
+            valContext.localeCoalesce = true;
+        }
+        
         query.valueContexts = valContexts;
     }
 
