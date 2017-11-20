@@ -38,6 +38,12 @@ SERVICE_CONFIG = {
                 "fieldToCompareInData": "id"
             }
         },
+        "entitymodelservice/getcontext": {
+            "url": "/entityappmodelservice/getcontext",
+            "mode": "online",
+            "offlineSettings": {
+            }
+        },
         "entitymodelservice/getcoalesce": {
             "url": "/entityappmodelservice/getcoalesce",
             "mode": "online",
