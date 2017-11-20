@@ -48,7 +48,7 @@ async function initiateSearch(callPath, args) {
     var response = [];
     var isCombinedQuerySearch = false;
 
-    try{
+    try {
 
         //console.log(callPath, args);
 
@@ -61,25 +61,25 @@ async function initiateSearch(callPath, args) {
         request.dataIndex = dataIndex;
 
         var operation = request.operation || "search";
-        
+
         var maxRecordsSupported = dataIndexInfo.maxRecordsToReturn || 2000;
 
         if (request.params) {
-            if(request.params.isCombinedQuerySearch) {
+            if (request.params.isCombinedQuerySearch) {
                 isCombinedQuerySearch = true;
                 delete request.params.isCombinedQuerySearch;
 
-                if(request.params.options) {
+                if (request.params.options) {
                     delete request.params.options;
                 }
 
                 request.params.pageSize = dataIndexInfo.combinedQueryPageSize || 500;
-                
-                //Identify the last executable query...
-                if(request.entity && request.entity.data && request.entity.data.jsonData) {
-                    var searchQueries =request.entity.data.jsonData.searchQueries;
 
-                    if(searchQueries) {
+                //Identify the last executable query...
+                if (request.entity && request.entity.data && request.entity.data.jsonData) {
+                    var searchQueries = request.entity.data.jsonData.searchQueries;
+
+                    if (searchQueries) {
                         var currentSearchQuerysequence = 0;
                         var highestSeqSearchQuery = undefined;
                         for (var i = 0; i < searchQueries.length; i++) {
@@ -89,13 +89,13 @@ async function initiateSearch(callPath, args) {
                                 delete searchQuery.searchQuery.options;
                             }
 
-                            if(searchQuery.searchSequence >= currentSearchQuerysequence) {
+                            if (searchQuery.searchSequence >= currentSearchQuerysequence) {
                                 highestSeqSearchQuery = searchQuery;
                                 currentSearchQuerysequence = searchQuery.searchSequence;
                             }
                         }
 
-                        if(highestSeqSearchQuery) {
+                        if (highestSeqSearchQuery) {
                             var options = falcorUtil.getOrCreate(highestSeqSearchQuery.searchQuery, 'options', {});
                             options.maxRecords = maxRecordsSupported;
                         }
@@ -107,26 +107,26 @@ async function initiateSearch(callPath, args) {
             }
         }
 
-        if(operation === "initiatesearchandgetcount") {
+        if (operation === "initiatesearchandgetcount") {
             options.maxRecords = 1; // Do not load entity ids and types if only count is requested..
         }
 
         var dataObjectType = undefined;
-        
-        if(request.params.query && request.params.query.filters && 
-                request.params.query.filters.typesCriterion && request.params.query.filters.typesCriterion.length) {
+
+        if (request.params.query && request.params.query.filters &&
+            request.params.query.filters.typesCriterion && request.params.query.filters.typesCriterion.length) {
             dataObjectType = request.params.query.filters.typesCriterion[0]; // pick first object type..
         }
 
         var service = _getService(dataObjectType);
 
-        if(service != eventService) {
-             //console.log('request str', JSON.stringify(request, null, 4));
+        if (service != eventService) {
+            //console.log('request str', JSON.stringify(request, null, 4));
             delete request.params.fields; // while initiating search, we dont want any of the fields to be returned..all we want is resulted ids..
         }
 
         var res = undefined;
-        if(isCombinedQuerySearch) {
+        if (isCombinedQuerySearch) {
             res = await service.getCombined(request);
         } else {
             res = await service.get(request);
@@ -142,7 +142,7 @@ async function initiateSearch(callPath, args) {
         var dataObjectResponse = res ? res[dataIndexInfo.responseObjectName] : undefined;
 
         if (dataObjectResponse && dataObjectResponse.status == "success") {
-        //     console.log('collection name ', JSON.stringify(collectionName, null, 4));
+            //     console.log('collection name ', JSON.stringify(collectionName, null, 4));
             var dataObjects = dataObjectResponse[collectionName];
             var index = 0;
 
@@ -150,25 +150,25 @@ async function initiateSearch(callPath, args) {
                 totalRecords = dataObjectResponse.totalRecords;
 
                 var additionalIdsRequested = [];
-                if(!request.params.query || !request.params.query.filters || (!request.params.query.filters.attributesCriterion && !request.params.query.filters.keywordsCriterion)) {
-                    if(dataObjectType && request.params.additionalIds && request.params.additionalIds.length > 0) {
+                if (!request.params.query || !request.params.query.filters || (!request.params.query.filters.attributesCriterion && !request.params.query.filters.keywordsCriterion)) {
+                    if (dataObjectType && request.params.additionalIds && request.params.additionalIds.length > 0) {
                         additionalIdsRequested = request.params.additionalIds;
-    
-                        for(let additionalId of additionalIdsRequested) {
+
+                        for (let additionalId of additionalIdsRequested) {
                             var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds];
                             response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [additionalId]))));
                         }
                     }
                 }
 
-                if(operation === "search") {
-                    if(additionalIdsRequested) {
+                if (operation === "search") {
+                    if (additionalIdsRequested) {
                         resultRecordSize = additionalIdsRequested.length;
                     }
 
                     for (let dataObject of dataObjects) {
                         if (dataObject.id !== undefined) {
-                            if(additionalIdsRequested.indexOf(dataObject.id) < 0) {
+                            if (additionalIdsRequested.indexOf(dataObject.id) < 0) {
                                 var dataObjectType = dataObject.type;
                                 var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds];
                                 response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [dataObject.id]))));
@@ -179,15 +179,15 @@ async function initiateSearch(callPath, args) {
                 }
             }
         }
-        else if(dataObjectResponse && dataObjectResponse.status == 'error') {
-            if(dataObjectResponse.statusDetail) {
-                if(dataObjectResponse.statusDetail.messages){
+        else if (dataObjectResponse && dataObjectResponse.status == 'error') {
+            if (dataObjectResponse.statusDetail) {
+                if (dataObjectResponse.statusDetail.messages) {
                     var firstAvailableError = dataObjectResponse.statusDetail.messages[0];
-                    if(firstAvailableError){
+                    if (firstAvailableError) {
                         throw firstAvailableError;
                     }
                 }
-                else if(dataObjectResponse.statusDetail.message){
+                else if (dataObjectResponse.statusDetail.message) {
                     throw new Error(dataObjectResponse.statusDetail.message);
                 }
             }
@@ -198,10 +198,10 @@ async function initiateSearch(callPath, args) {
         response.push(mergeAndCreatePath(basePath, ["requestId"], $atom(requestId)));
         //response.push(mergeAndCreatePath(basePath, ["request"], $atom(request)));
     }
-    catch(err){
+    catch (err) {
         response = buildErrorResponse(err, "Failed to get search results.");
     }
-    finally{
+    finally {
     }
 
     //console.log(JSON.stringify(response));   
@@ -275,7 +275,7 @@ function createGetRequest(reqData) {
     var filters = {};
 
     if (reqData.dataObjectType) {
-        filters.typesCriterion = [ reqData.dataObjectType ];
+        filters.typesCriterion = [reqData.dataObjectType];
     }
 
     var query = {};
@@ -285,6 +285,10 @@ function createGetRequest(reqData) {
     }
 
     if (!isEmpty(valContexts)) {
+        for(let valContext of valContexts) {
+            valContext.localeCoalesce = true;
+        }
+        
         query.valueContexts = valContexts;
     }
 
@@ -315,7 +319,7 @@ function _getService(dataObjectType) {
     if (dataObjectType == 'entityCompositeModel') {
         return entityCompositeModelGetService;
     }
-    else if(dataObjectType == "externalevent" || dataObjectType == "bulkoperationevent") {
+    else if (dataObjectType == "externalevent" || dataObjectType == "bulkoperationevent") {
         return eventService;
     }
     else {
@@ -326,8 +330,8 @@ function _getService(dataObjectType) {
 async function get(dataObjectIds, reqData) {
     var response = {};
     var operation = reqData.operation;
-    
-    try{
+
+    try {
         var res = undefined;
         var isCoalesceGet = false;
         var isNearestGet = false;
@@ -335,36 +339,30 @@ async function get(dataObjectIds, reqData) {
         var service = _getService(reqData.dataObjectType);
 
         var request = createGetRequest(reqData);
-        
+
         if (request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel') {
             if (!isEmpty(request.params.query.contexts)) {
-                var contexts = request.params.query.contexts;
-                if (contexts && contexts.length == 1) {
-                    var firstContext = contexts[0];
-                    //TODO: We need a fix to remove this classification context check when RDF fixes
-                    if (firstContext && firstContext.classification) {
-                        isCoalesceGet = true;
-                    }
-                }
+
+                isCoalesceGet = true;
             }
         }
         else if (request.dataIndex == "config" && reqData.dataObjectType == 'uiConfig') {
-            if(!isEmpty(request.params.query.contexts)) {
+            if (!isEmpty(request.params.query.contexts)) {
                 var contexts = request.params.query.contexts;
                 if (contexts && contexts.length > 0) {
                     isNearestGet = true;
                 }
             }
         }
-        
+
         //TURNING OFF THIS FEATURE TILL RDF FINISHES ITS WORK
         isNearestGet = false;
 
         //Populate dataObject id in request query...
         //Nearest get is based on context and not Ids. Hence skipping Id population for request get
-        if(!isNearestGet) {
-            if(dataObjectIds.length > 1) {
-                for(var idx in dataObjectIds) {
+        if (!isNearestGet) {
+            if (dataObjectIds.length > 1) {
+                for (var idx in dataObjectIds) {
                     dataObjectIds[idx] = dataObjectIds[idx].toString();
                 }
 
@@ -380,7 +378,7 @@ async function get(dataObjectIds, reqData) {
         if (isCoalesceGet) {
             res = await service.getCoalesce(request);
         }
-        else if(isNearestGet) {
+        else if (isNearestGet) {
             res = await service.getNearest(request);
         }
         else {
@@ -409,7 +407,7 @@ async function get(dataObjectIds, reqData) {
                     byIdsJson[dataObject.id] = dataObjectResponseJson;
                 }
 
-                if(isNearestGet) {
+                if (isNearestGet) {
                     //In case of nearest get, comapare requested Id with nearest object Id resulted from response...
                     //If ids are not same then the response is for nearest context and hence populate as $ref in response Json
 
@@ -417,7 +415,7 @@ async function get(dataObjectIds, reqData) {
                     var requestedId = dataObjectIds[0];
                     var dataObject = dataObjects[0];
 
-                    if(!isEmpty(dataObject) && requestedId != dataObject.id) {
+                    if (!isEmpty(dataObject) && requestedId != dataObject.id) {
                         //populate as ref...
                         byIdsJson[requestedId] = buildRefResponse(dataObject, reqData);
                     }
@@ -425,21 +423,21 @@ async function get(dataObjectIds, reqData) {
             }
         }
     }
-    catch(err){
+    catch (err) {
         console.log('Failed to get data.\nOperation:', operation, '\nError:', err.message, '\nStackTrace:', err.stack);
         throw err;
     }
-    finally{
+    finally {
     }
     //console.log('res', JSON.stringify(response, null, 4));
     return response;
 }
 
 async function getByIds(pathSet, operation) {
-    
+
     var response = {};
 
-    try{
+    try {
 
         /*
         */
@@ -474,11 +472,11 @@ async function getByIds(pathSet, operation) {
             dataJson[dataObjectType] = dataByObjectTypeJson;
         }
     }
-    catch(err){
+    catch (err) {
         console.log('Failed to get data.\nOperation:', operation, '\nError:', err.message, '\nStackTrace:', err.stack);
         throw err;
     }
-    finally{
+    finally {
     }
 
     //console.log('getByIds response ', JSON.stringify(response, null, 4));
@@ -488,9 +486,9 @@ async function getByIds(pathSet, operation) {
 async function processData(dataIndex, dataObjects, dataObjectAction, operation, clientState) {
     //console.log(dataObjectAction, operation);
     var response = {};
-    try{
+    try {
         var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
-        
+
         var responsePaths = [];
         var jsonGraphResponse = response['jsonGraph'] = {};
         var rootJson = jsonGraphResponse[pathKeys.root] = {};
@@ -509,17 +507,17 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
             apiRequestObj[dataIndexInfo.name] = dataObject;
 
             //Added hotline to api request only when it is true
-            if(clientState.hotline) {
+            if (clientState.hotline) {
                 apiRequestObj["hotline"] = clientState.hotline;
             }
             //Hotline set to api request, so delete from clientState
             delete clientState.hotline;
 
-            if(dataObjectAction == "create" || dataObjectAction == "update") {
+            if (dataObjectAction == "create" || dataObjectAction == "update") {
                 _prependAuthorizationType(apiRequestObj);
             }
             //console.log('api request data for process dataObjects', JSON.stringify(apiRequestObj));
-            var dataOperationResult = {};            
+            var dataOperationResult = {};
 
             if (dataObjectAction == "create") {
                 dataOperationResult = await dataObjectManageService.create(apiRequestObj);
@@ -532,11 +530,10 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
             }
             //console.log('dataObject api UPDATE raw response', JSON.stringify(dataOperationResult, null, 4));
 
-            if(dataOperationResult && !isEmpty(dataOperationResult))
-            {
+            if (dataOperationResult && !isEmpty(dataOperationResult)) {
                 var responsePath = pathKeys.dataIndexInfo[dataIndex].responseObjectName;
                 var dataOperationResponse = dataOperationResult[responsePath];
-                if(dataOperationResponse && dataOperationResponse.status == 'success'){
+                if (dataOperationResponse && dataOperationResponse.status == 'success') {
                     if (dataObject) {
 
                         var dataObjectType = dataObject.type;
@@ -558,11 +555,11 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
                             'buildPaths': true,
                             'basePath': basePath
                         };
-                        
+
                         var dataByObjectTypeJson = dataJson[dataObjectType];
                         var byIdsJson;
 
-                        if(dataByObjectTypeJson == undefined || dataByObjectTypeJson == null){
+                        if (dataByObjectTypeJson == undefined || dataByObjectTypeJson == null) {
                             dataByObjectTypeJson = dataJson[dataObjectType] = {};
                             byIdsJson = dataByObjectTypeJson[pathKeys.byIds] = {};
                         }
@@ -576,15 +573,15 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
                         response['paths'] = responsePaths;
                     }
                 }
-                else if(dataOperationResponse && dataOperationResponse.status == 'error'){
-                    if(dataOperationResponse.statusDetail) {
-                        if(dataOperationResponse.statusDetail.messages){
+                else if (dataOperationResponse && dataOperationResponse.status == 'error') {
+                    if (dataOperationResponse.statusDetail) {
+                        if (dataOperationResponse.statusDetail.messages) {
                             var firstAvailableError = dataOperationResponse.statusDetail.messages[0];
-                            if(firstAvailableError){
+                            if (firstAvailableError) {
                                 throw firstAvailableError;
                             }
                         }
-                        else if(dataOperationResponse.statusDetail.message){
+                        else if (dataOperationResponse.statusDetail.message) {
                             throw new Error(dataOperationResponse.statusDetail.message);
                         }
                     }
@@ -592,10 +589,10 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
             }
         }
     }
-    catch(err){
+    catch (err) {
         response = buildErrorResponse(err, "Failed to submit " + operation + " request.");
     }
-    finally{
+    finally {
     }
 
     //console.log(JSON.stringify(response, null, 4));
@@ -606,7 +603,7 @@ async function create(callPath, args, operation) {
 
     var response;
 
-    try{
+    try {
         var jsonEnvelope = args[0];
         var dataIndex = callPath.dataIndexes[0];
         var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
@@ -633,10 +630,10 @@ async function create(callPath, args, operation) {
 
         response = processData(dataIndex, dataObjects, "create", operation, clientState);
     }
-    catch(err){
+    catch (err) {
         response = buildErrorResponse(err, "Failed to submit create request.");
     }
-    finally{
+    finally {
     }
 
     return response;
@@ -646,7 +643,7 @@ async function update(callPath, args, operation) {
 
     var response;
 
-    try{
+    try {
         var jsonEnvelope = args[0];
         var dataIndex = callPath.dataIndexes[0];
         var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
@@ -655,10 +652,10 @@ async function update(callPath, args, operation) {
 
         response = processData(dataIndex, dataObjects, "update", operation, clientState);
     }
-    catch(err){
+    catch (err) {
         response = buildErrorResponse(err, "Failed to submit update request.");
     }
-    finally{
+    finally {
     }
 
     return response;
@@ -668,7 +665,7 @@ async function deleteDataObjects(callPath, args, operation) {
 
     var response;
 
-    try{
+    try {
         var jsonEnvelope = args[0];
         var dataIndex = callPath.dataIndexes[0];
         var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
@@ -677,10 +674,10 @@ async function deleteDataObjects(callPath, args, operation) {
 
         response = processData(dataIndex, dataObjects, "delete", operation, clientState);
     }
-    catch(err){
+    catch (err) {
         response = buildErrorResponse(err, "Failed to submit delete request.");
     }
-    finally{
+    finally {
     }
 
     return response;
@@ -689,10 +686,10 @@ async function deleteDataObjects(callPath, args, operation) {
 function _getOriginalRelIds(dataObject) {
     var originalRelIds;
 
-    if(dataObject.data && dataObject.data.relationships) {
+    if (dataObject.data && dataObject.data.relationships) {
         var rels = dataObject.data.relationships;
 
-        if(rels.originalRelIds) {
+        if (rels.originalRelIds) {
             originalRelIds = rels.originalRelIds;
             delete rels.originalRelIds;
         }
@@ -702,7 +699,7 @@ function _getOriginalRelIds(dataObject) {
 }
 
 function _prependAuthorizationType(reqObject) {
-    if(reqObject.params) {
+    if (reqObject.params) {
         reqObject.params["authorizationType"] = "accommodate";
     } else {
         reqObject.params = {

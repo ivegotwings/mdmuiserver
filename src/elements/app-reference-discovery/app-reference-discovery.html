@@ -162,13 +162,6 @@
                     bottom: -14px;
                     font-size: var(--font-size-xs, 10px);
                     color: var(--link-text-color);
-                    --pebble-button-left-icon: {
-                        width: 14px !important;
-                        height: 14px!important;
-                        margin-right: 2px;
-                        margin-top: 3px;
-                        bottom: -1px;
-                    };
                 }
 
                 .search-container .resetsearch pebble-button {
@@ -176,6 +169,14 @@
                     --pebble-button: {
                         font-size: var(--font-size-xs, 10px)!important;
                         height: auto;
+                        padding-bottom:0;
+                    };
+                    --pebble-button-left-icon: {
+                        width: 14px !important;
+                        height: 14px!important;
+                        margin-right: 2px;
+                        margin-top: 3px;
+                        bottom: -1px;
                     };
                 }
 
@@ -229,10 +230,11 @@
                     <div class="layout horizontal p-t-10">
                         <div class="flex searchFilterTag">
                             <!-- Search Filter Tags -->
-                            <rock-entity-search-filter id="searchFilter" selected-search-filters="{{_selectedSearchFilters}}" context-data="{{contextData}}"
+                            <rock-entity-search-filter id="searchFilter" selected-search-filters="{{_selectedSearchFilters}}" context-data="[[contextData]]" types-criterion="[[_typesCriterion]]"
                                 tags="{{tags}}"></rock-entity-search-filter>
                             <bedrock-pubsub event-name="tag-item-added" handler="_showResetSearch"></bedrock-pubsub>
                             <bedrock-pubsub event-name="tag-item-remove" handler="_showResetSearch"></bedrock-pubsub>
+                            <bedrock-pubsub event-name="build-query" handler="_searchFiltersChanged"></bedrock-pubsub>
                         </div>
                         <pebble-button class="btn btn-primary" button-text="Manage" on-tap="_onTapManage"></pebble-button>
                     </div>
@@ -461,10 +463,34 @@
                     var selectedItem = detail.data.id;
                     this.set("_typeCriterion", selectedItem);
                     this._prepareContext();
+                    var entitySearchFilterEl = this.shadowRoot.querySelector('[id=searchFilter]');
+                    if(entitySearchFilterEl && entitySearchFilterEl.refresh) {
+                        entitySearchFilterEl.refresh();
+                    }
 
                     var popover = this.shadowRoot.querySelector("#actionsPopover");
                     if (popover) {
                         popover.hide();
+                    }
+                },
+
+                _prepareContext: function () {
+                    if (!_.isEmpty(this.contextData)) {
+                        if (this._typeCriterion) {
+                            this._mainTitle = this._typeCriterion;
+                            this._selectedReferenceType = this._typeCriterion;
+                            this._gridConfig.dataRequest.typesCriterion = [this._typeCriterion];
+                            var itemContext = {};
+                            itemContext.type = this._typeCriterion;
+                            itemContext.attributeNames = ["_ALL"];
+                            this.contextData[this.CONTEXT_TYPE_ITEM] = [itemContext];
+                            var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+                            this.set("_attributeModelRequest", compositeModelGetRequest);
+                            var liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
+                            if (liquidModelGet) {
+                                liquidModelGet.generateRequest();
+                            }
+                        }
                     }
                 },
 
@@ -484,7 +510,8 @@
 
                             var itemContext = ContextHelper.getFirstItemContext(this.contextData);
                             itemContext.attributeNames = attributeNames;
-                            this.updateContext(this.CONTEXT_TYPE_ITEM, [itemContext]);
+                            this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+                            //this.updateContext(this.CONTEXT_TYPE_ITEM, [itemContext]);
 
                             var columns = [];
                             for (var i = 0; i < attributeNames.length; i++) {
@@ -502,11 +529,21 @@
                             grid.attributeModels={};
                             grid.gridConfig = {};
                             grid.gridConfig = this._gridConfig;
+                            if (this._quickManageEnabled) {
+                                if (this.shadowRoot.querySelector("#entityQuickManage")) {
+                                    this.shadowRoot.querySelector("#entityQuickManage").reload();
+                                }
+                            } else {
+                                this._refreshGrid();
+                            }
                         }
                     }
                 },
                 _onSearch: function (e, detail, sender) {
-                    this._searchQuery = detail;
+                    if(!_.isEmpty(detail)) {
+                        this._searchQuery = detail.query;
+                        this._refreshGrid();
+                    }
                 },
                 _resetSearch: function () {
                     this._searchQuery = '';
@@ -516,12 +553,14 @@
                     var rockSearchBar = this.shadowRoot.querySelector('#searchBar');
                     if (rockSearchBar) {
                         rockSearchBar.query = "";
+                        rockSearchBar.searchText = "";
                     }
 
                     this._selectedSearchFilters = [];
                     this.$.searchFilter.clearSearchFilters();
 
                     this._resetSearchEnabled = false;
+                    this._refreshGrid();
                 },
                 _getSearchGrid: function () {
                     return ElementHelper.getElement(this, "#entitySearchGrid");
@@ -727,33 +766,7 @@
                         this.shadowRoot.querySelector("#entityQuickManage").reload();
                     }
                 },
-                _prepareContext: function () {
-                    if (!_.isEmpty(this.contextData)) {
-                        if (this._typeCriterion) {
-                            this._mainTitle = this._typeCriterion;
-                            this._selectedReferenceType = this._typeCriterion;
-                            this._gridConfig.dataRequest.typesCriterion = [this._typeCriterion];
-                            var itemContext = {};
-                            itemContext.type = this._typeCriterion;
-                            itemContext.attributeNames = ["_ALL"];
-                            this.contextData[this.CONTEXT_TYPE_ITEM] = [itemContext];
-                            var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
-                            this.set("_attributeModelRequest", compositeModelGetRequest);
-                            var liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
-                            if (liquidModelGet) {
-                                liquidModelGet.generateRequest();
-                            }
-                        }
-                    }
-
-                    if (this._quickManageEnabled) {
-                        if (this.shadowRoot.querySelector("#entityQuickManage")) {
-                            this.shadowRoot.querySelector("#entityQuickManage").reload();
-                        }
-                    } else {
-                        this._refreshGrid();
-                    }
-                },
+                
                 _showResetSearch: function (e) {
                     var rockSearchBar = this.shadowRoot.querySelector('#searchBar');
                     var rockSearchFilter = this._getElement('rockSearchFilter');
@@ -770,9 +783,21 @@
 
                     if (!_.isEmpty(query) || tags.length > 0) {
                         this._resetSearchEnabled = true;
-                    } else {
-                        this._resetSearchEnabled = false;
                     }
+                },
+                _searchFiltersChanged: function(e, detail) {
+                    var tags = detail;
+                    var _selectedSearchFilters = [];
+                    if(tags && tags.length > 0) {
+                        for(let i=0; i<tags.length; i++) {
+                            var tag = tags[i];
+                            var attrCond = {};
+                            attrCond[tag.name] = tag.value;
+                            _selectedSearchFilters.push(attrCond);
+                        }
+                    }
+                    this.set('_selectedSearchFilters',  _selectedSearchFilters);
+                    this._refreshGrid();
                 },
                 _onQuickManageAdd: function () {
                     var itemContext = {

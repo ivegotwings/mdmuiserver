@@ -10,6 +10,8 @@
 <link rel="import" href="../../../bower_components/polymer/lib/utils/debounce.html">
 <link rel="import" href="../../../bower_components/polymer/lib/utils/flattened-nodes-observer.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-styles-scroll-bar.html" />
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="data-table-column.html">
 <link rel="import" href="data-table-column-sort.html">
 <link rel="import" href="data-table-cell.html">
@@ -22,8 +24,8 @@
 
 <dom-module id="pebble-data-table">
   <template>
-      <style include="bedrock-styles-scroll-bar">
-       :host {
+    <style include="bedrock-styles-scroll-bar">
+      :host {
         display: block;
         position: relative;
         overflow-x: auto;
@@ -31,11 +33,11 @@
         height: 250px;
         @apply --pebble-data-table;
         --pebble-data-table-header: {
-					min-height: 40px;
-				}
-				--pebble-data-table-row-odd: {
-					background-color: var(--secondary-button-color, #ffffff);
-				}
+          min-height: 40px;
+        }
+        --pebble-data-table-row-odd: {
+          background-color: var(--secondary-button-color, #ffffff);
+        }
         --pebble-data-table-row: {
           height: 40px;
           align-items: center;
@@ -62,7 +64,7 @@
       }
 
       #container {
-        position: absolute;
+        position: var(--data-table-container-position, absolute);
         left: 0;
         top: 0;
         bottom: 0;
@@ -139,6 +141,55 @@
       .data-table-cell {
         position: relative;
       }
+
+      #rowTracker {
+        position: fixed;
+        left: var(--tracker-left, 0px);
+        top: var(--tracker-top, 0px);
+        background-color:var(--bgColor-hover, #e8f4f9);
+        z-index:99999999;
+        border: 2px solid #cacaca;
+        opacity: 0;
+      }
+      #rowTracker ul {
+        list-style-type: none;
+        padding: 0px;
+        margin: 0px;
+        display: -webkit-box;
+        display: -webkit-flex;
+        display: -ms-flexbox;
+        display: flex;        
+      }
+      #rowTracker ul li{
+        padding: 10px 5px;
+        min-width: 50px;
+        text-align: center;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      } 
+      /* cursor:var(--tracker-cursor,'pointer');*/
+      :host > * {
+        --pebble-data-table-row-cell:{         
+          background-color:var(--bgColor-hover, #e8f4f9);
+        }   
+        --pebble-data-table-row-cell-after:{
+          content: '';
+          width: 100%;
+          position: absolute;
+          left: 0;
+          bottom: 0px;
+          border-bottom:var(--tracker-border-bottom, 0px) dotted #036bc3 !important;
+        }
+      } 
+      #rowTracker.fader{
+          opacity:1;
+          -moz-transition: opacity .4s linear;
+          -o-transition: opacity .4s linear;
+          -webkit-transition: opacity .4s linear;
+          transition: opacity .4s linear;
+      }
     </style>
     <div id="container">
       <div id="header">
@@ -177,8 +228,9 @@
       <iron-list id="list" as="item" items="[[_cachedItems]]" on-scroll="_onVerticalScroll">
         <template>
           <div class="item">
-            <data-table-row before-bind="[[beforeRowBind]]" even$="[[!_isEven(index)]]" expanded="[[_isExpanded(item, _expandedItems, _expandedItems.*)]]"
-              index="[[index]]" item="[[item]]" tabindex="-1" selected="[[_isSelected(item, selectedItems, selectedItems.*)]]">
+            <data-table-row row-drag-drop-enabled="[[rowDragDropEnabled]]" before-bind="[[beforeRowBind]]" even$="[[!_isEven(index)]]"
+              expanded="[[_isExpanded(item, _expandedItems, _expandedItems.*)]]" index="[[index]]" item="[[item]]" tabindex="-1"
+              selected="[[_isSelected(item, selectedItems, selectedItems.*)]]">
               <data-table-checkbox slot="data-table-checkbox-slot" hidden$="[[!multiSelection]]" tabindex="0" checked="[[_isSelected(item, selectedItems, selectedItems.*)]]"
                 on-tap="_onCheckBoxTap"></data-table-checkbox>
 
@@ -233,8 +285,13 @@
           </div>
         </template>
       </iron-list>
+      <div id="rowTracker"><ul></ul></div>
     </div>
     <paper-spinner-lite active></paper-spinner-lite>
+    <bedrock-pubsub event-name="row-dropped" handler="_onRowDropped" target-id=""></bedrock-pubsub>
+    <bedrock-pubsub event-name="drag-started" handler="_onDragStarted" target-id=""></bedrock-pubsub>
+    <bedrock-pubsub event-name="drag-inprogress" handler="_onDragInProgress" target-id=""></bedrock-pubsub>
+    <bedrock-pubsub event-name="drag-ended" handler="_onDragEnd" target-id=""></bedrock-pubsub>
     <slot name="column-slot"></slot>
     <slot name="row-detail"></slot>
   </template>
@@ -537,12 +594,19 @@
         _disableGridCheckbox: {
           type: Boolean,
           value: false
+        },
+        rowDragDropEnabled: {
+          type: Boolean
         }
       },
 
       observers: ['_itemsChanged(items.*)',
         '_currentPageChanged(rDataSource, _currentPage)',
         '_resetData(rDataSource, filter.*, sortOrder.*)'
+      ],
+
+      behaviors: [
+        RUFBehaviors.UIBehavior
       ],
 
       attached: function () {
@@ -565,7 +629,7 @@
             this.set('columns', cols);
             //this.set('columns', this.shadowRoot.querySelector('slot[select=data-table-column]').assignedNodes({flatten:true})
             //            .filter(n => n.nodeType === Node.ELEMENT_NODE));
-            this.notifyResize();
+            this.$.list.notifyResize();
           }
 
           if (info.addedNodes.filter(hasDetails).length > 0) {
@@ -1013,7 +1077,7 @@
             pageSize: this.pageSize,
             filter: this.filter,
             sortOrder: this.sortOrder,
-            viewMode:"tabular"
+            viewMode: "tabular"
           }, success, err);
         }
       },
@@ -1226,7 +1290,7 @@
       },
 
       _onCheckBoxTap: function (e) {
-        if(this.selectionInfo && this.selectionInfo.mode == "query") {
+        if (this.selectionInfo && this.selectionInfo.mode == "query") {
           return;
         }
         this._resetAdvanceSelection();
@@ -1331,7 +1395,7 @@
       },
 
       _freezeDataTableCells: function (isVertical) {
-        
+
         if (isVertical) {
           var frozenRowCells = this.querySelectorAll("data-table-cell[frozen-row]");
           var frozenCellTransform = this._getTranslate(0, this.$.list._scrollTop);
@@ -1363,8 +1427,86 @@
 
       _getRowTranslate: function (y) {
         return 'translateY(' + y + 'px)';
+      }, 
+      _calculateRowCount:function(event){
+        var topVirtualDomRowCount,pebbleDataTableOffsetY,mouseEventOffSetTop,gridTopHeight;
+        var gridRowHeight = 0, gridHeaderHeight = 0;
+        gridHeaderHeight = this.querySelectorAll('data-table-row')[0].offsetHeight;
+        for (var key = 0; key < event.path.length; key++) {
+          if (event.path[key].tagName) {
+            if (event.path[key].tagName.toUpperCase() == "DATA-TABLE-ROW") {
+              gridRowHeight = event.path[key].offsetHeight;
+              break;
+            }
+          }
+        }
+        pebbleDataTableOffsetY = this.getBoundingClientRect().y;
+        mouseEventOffSetTop = event.pageY - event.target.offsetTop;
+        gridTopHeight = mouseEventOffSetTop - (pebbleDataTableOffsetY + gridHeaderHeight)
+        topVirtualDomRowCount = Math.floor(gridTopHeight / gridRowHeight);
+        return topVirtualDomRowCount;
+      }, 
+      _onRowDropped: function (e, detail) {
+        var event,item,topVirtualDomRowCount;
+        var cachedItems =[]
+        event = detail.event;
+        item = this._cachedItems[detail.pickedRowIndex];
+        this._cachedItems.splice(detail.pickedRowIndex, 1);
+        this._cachedItems.splice(detail.droppedAtIndex, 0, item);     
+        detail["dragDropItems"] = [];
+        detail.dragDropItems.push(this._cachedItems); 
+        topVirtualDomRowCount = this._calculateRowCount(event);           
+        this.$.list.scrollToIndex(detail.droppedAtIndex - topVirtualDomRowCount); 
+        this.dispatchEvent(new CustomEvent("row-drop-event", { detail: detail, bubbles: true, composed: true }));
+      },
+      _emptyChildNode:function(){
+        var ulNode = this.shadowRoot.querySelector('#rowTracker ul')
+        while (ulNode.hasChildNodes()) {
+          ulNode.removeChild(ulNode.lastChild);
+        }
+      },
+      _onDragStarted: function(e) {
+        var itemPicked;
+        var rowListHTML;
+        this._emptyChildNode();
+        if (e.detail && e.detail.pickedIndex != undefined) {
+          if (this._cachedItems) {
+            itemPicked = this._cachedItems[e.detail.pickedIndex];
+            var columns = this.columns;
+            for (var i = 0; i < columns.length; i++) {
+              if (columns[i] && this.columns[i].modelObject && columns[i].modelObject.name) {
+                var columnData = itemPicked[columns[i].modelObject.name];
+                columnData = columnData == undefined ? "" : columnData;
+                li = document.createElement("li");
+                li.innerHTML = columnData;
+                this.shadowRoot.querySelector('#rowTracker ul').appendChild(li);
+              }
+            }
+            if(this.shadowRoot.querySelector('#rowTracker')){
+              this.shadowRoot.querySelector('#rowTracker').classList.add('fader');
+            }
+          }
+        }
+        this.updateStyles({            
+          '--tracker-left': e.detail.x + 5 + 'px',
+          '--tracker-top': e.detail.y + 5 +'px'
+        });
+      },
+      _onDragInProgress: function(e) {
+        this.updateStyles({            
+          '--tracker-left': e.detail.x + 5 + 'px',
+          '--tracker-top': e.detail.y + 5 +'px',
+          "--tracker-border-bottom":1+"px"
+        });
+      },
+      _onDragEnd:function(e){
+        this.updateStyles({  
+          "--tracker-border-bottom":0+"px"
+        });
+        if(this.shadowRoot.querySelector('#rowTracker')){
+          this.shadowRoot.querySelector('#rowTracker').classList.remove('fader')
+        }
       }
-
     });
   </script>
 </dom-module>

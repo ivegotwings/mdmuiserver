@@ -27,6 +27,8 @@ const CONST_ALL = falcorUtil.CONST_ALL,
 
 const pathKeys = falcorUtil.getPathKeys();
 
+const LOCALE_COALESCE_KEY = "localeCoalesce";
+
 var errorMessageExpireTime = -10 * 1000; // 10 secs
 
 function _getKeyNames(obj, reqKeys) {
@@ -99,6 +101,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                 var locale = val.locale || undefined;
 
                 var valCtxItem = { 'source': source, 'locale': locale }; //TODO: Here, source and locale are hard coded... How to find out val contexts keys from the flat list of values object..??
+
                 var valCtxKey = falcorUtil.createCtxKey(valCtxItem);
 
                 var valCtxItem = falcorUtil.getOrCreate(valCtxItems, valCtxKey, {});

@@ -5,16 +5,21 @@
 
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html" />
 <link rel="import" href="../bedrock-app-behavior/bedrock-app-behavior.html" />
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-query-builder-behavior/bedrock-query-builder-behavior.html">
 <link rel="import" href="../bedrock-helpers/context-helper.html" />
 <link rel="import" href="../bedrock-helpers/element-helper.html" />
-
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html" />
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-gridsystem.html" />
+
+<link rel="import" href="../liquid-config-get/liquid-config-get.html" />
+
 <link rel="import" href="../pebble-button/pebble-button.html" />
 <link rel="import" href="../pebble-actions/pebble-actions.html" />
 <link rel="import" href="../pebble-popover/pebble-popover.html" />
 <link rel="import" href="../pebble-vertical-divider/pebble-vertical-divider.html" />
 
+<link rel="import" href="../rock-search-query-parser/rock-search-query-parser.html" />
 <link rel="import" href="../rock-search-bar/rock-search-bar.html" />
 <link rel="import" href="../rock-saved-searches/rock-saved-searches.html" />
 <link rel="import" href="../rock-entity-type-model-lov/rock-entity-type-model-lov.html" />
@@ -22,19 +27,20 @@
 <link rel="import" href="../rock-entity-search-grid/rock-entity-search-grid.html" />
 <link rel="import" href="../rock-business-function-dialog/rock-business-function-dialog.html" />
 <link rel="import" href="../rock-entity-quick-manage/rock-entity-quick-manage.html" />
+<link rel="import" href="../rock-query-builder/rock-query-builder.html" />
 
 <dom-module id="rock-entity-search-discovery">
     <template>
         <style include="bedrock-style-common bedrock-style-gridsystem"></style>
         <style include="iron-flex"></style>
         <style is="custom-style">
-            :host {
+             :host {
                 --item-length-overflow: {
                     overflow: hidden;
                     text-overflow: ellipsis;
                     white-space: nowrap;
                 }
-            }     
+            }
 
             #savedSearchPopover {
                 width: 400px;
@@ -64,7 +70,7 @@
                 width: 70%;
                 padding-right: 10px;
             }
-
+           
             pebble-popover paper-item {
                 cursor: pointer;
                 font-size: var(--default-font-size, 14px);
@@ -92,8 +98,6 @@
                 margin-left: 0px;
             }
 
-
-
             #entityTypeFilterPopover {
                 --pebble-popover-width: 260px;
                 --pebble-popover-max-width: 100%;
@@ -104,8 +108,8 @@
                 --pebble-actions-button-icon: {
                     margin-right: 10px;
                 }
-            }
-          
+            } 
+
             /* Search */
             .search-container .resetsearch {
                 position: absolute;
@@ -113,6 +117,15 @@
                 bottom: -14px;
                 font-size: var(--font-size-xs, 10px);
                 color: var(--link-text-color);
+            }
+
+            .search-container .resetsearch pebble-button {
+                height: auto;
+                --pebble-button: {
+                    font-size: var(--font-size-xs, 10px)!important;
+                    height: auto;
+                    padding-bottom:0;
+                };
                 --pebble-button-left-icon: {
                     width: 14px !important;
                     height: 14px!important;
@@ -122,34 +135,102 @@
                 };
             }
 
-            .search-container .resetsearch pebble-button {
-                height: auto;
-                --pebble-button: {
-                    font-size: var(--font-size-xs, 10px)!important;
-                    height: auto;
-                };
-            }
-
             .search-container {
                 position: relative;
                 display: inline-block;
                 width: 100%;
+            } 
+            .advancedsearch {
+                position: relative;                
             }
+            .underline{
+                height: 16px;
+                --pebble-button: {
+                    text-decoration: underline;
+                    padding-top: 0;
+                    padding-right: 0;
+                    padding-bottom: 0;
+                    padding-left: 0;
+                }
+            }
+            #entityTypeFilterButton {
+                letter-spacing: 0.5px;
+            }
+            .queryBuilderContainer {
+                position: absolute;
+                z-index: 3;
+                width: 560px;
+                top: 32px;
+                right: 0;
+            }      
+            .queryBuilderContainer paper-card {
+                width: 100%;
+                max-height: 490px;
+            }           
+            #entityGridComponents {
+                width : 100%;
+                display: inline-flex;
+            }
+            #entityGridInfo {
+                width: 100%;
+                height: 30px;
+                font-weight: var(--font-bold, bold);
+                color: var(--palette-dark, #1a2028);
+                margin-top: 25px;
+                text-align: center;
+                flex: 0 0 100%;
+                display: none;
+            }
+                   
         </style>
         <template is="dom-if" if="[[_processTemplate]]">
             <div class="grid-filters">
                 <div class="layout horizontal">
+                    <template is="dom-if" if="[[_getVisibility('rock-entity-type-model-lov')]]">
+                        <div class="entityTypeFilterContainer m-r-10">
+                            <pebble-button id="entityTypeFilterButton" icon="pebble-sm-icons:Filter-wt" button-text="Entity Type" dropdown-icon noink
+                                class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" on-tap="_openEntityTypeFilterLov"></pebble-button>
+                            <pebble-popover id="entityTypeFilterPopover" for="entityTypeFilterButton" no-overlap auto-fit-on-attach vertical-align="auto"
+                                horizontal-align="auto">
+                                <rock-entity-type-model-lov id="entityTypeModelLov" domain="[[domain]]" select-all="true" allowed-entity-types="[[allowedEntityTypes]]" selected-items="{{_selectedEntityTypes}}"
+                                    show-action-buttons>
+                                </rock-entity-type-model-lov>                                
+                            </pebble-popover>
+                            <bedrock-pubsub event-name="entity-type-model-lov-confirm-button-tap" handler="_onSelectedEntityTypesChange" target-id="entityTypeModelLov"></bedrock-pubsub>
+                            <bedrock-pubsub event-name="entity-type-model-lov-close-button-tap" handler="_onEntityTypePopoverClose" target-id="entityTypeModelLov"></bedrock-pubsub>
+                        </div>
+                    </template>
                     <template is="dom-if" if="[[_getVisibility('rock-search-bar')]]">
                         <div class="flex">
                             <div class="search-container">
-                                <rock-search-bar id="searchBar" placeholder="Enter Search text"></rock-search-bar>
+                                <rock-search-bar id="searchBar" placeholder="Enter Search text"></rock-search-bar>                                                                
                                 <div class="resetsearch" hidden$="[[!_resetSearchEnabled]]">
                                     <pebble-button icon="pebble-sm-icons:Resetsearch" class="btn-link" on-tap="_resetSearch" button-text="Reset Search"></pebble-button>
-                                </div>
+                                </div>                                 
                             </div>
                             <bedrock-pubsub event-name="rock-search" handler="_onSearch" target-id="searchBar"></bedrock-pubsub>
-                            <bedrock-pubsub event-name="rock-search-update" handler="_showResetSearch" target-id="searchBar"></bedrock-pubsub>
+                            <bedrock-pubsub event-name="rock-search-update" handler="_showResetSearch" target-id="searchBar"></bedrock-pubsub>                          
                         </div>
+                    </template>
+                    <template is="dom-if" if="[[_getVisibility('rock-query-builder')]]">
+                        <div class="advancedsearch">
+                            <pebble-button class="btn-link underline" on-tap="_showQueryBuilder" button-text="Advanced"></pebble-button>
+                        <template is="dom-if" if="[[_queryBuilderEnabled]]">
+                            <div class="queryBuilderContainer">
+                                <paper-card>
+                                    <div class="card-content">
+                                        <rock-query-builder id="queryBuilder" domain="[[domain]]" allowed-entity-types="{{allowedEntityTypes}}" selected-entity-types="{{_currentEntityTypes}}"
+                                            input-query-string="{{inputQueryString}}" attribute-grid-data="{{attributeGridData}}"
+                                            context-data="{{contextData}}" workflow-name="[[workflowName]]" search-query="{{searchQuery}}"></rock-query-builder>
+                                    </div>
+                                </paper-card>
+                            </div>
+                        </template>
+                        </div>
+                        <bedrock-pubsub event-name="rock-search" handler="_onSearch" target-id="searchBar"></bedrock-pubsub>
+                        <bedrock-pubsub event-name="rock-search-update" handler="_showResetSearch" target-id="searchBar"></bedrock-pubsub>
+                        <bedrock-pubsub event-name="hide-query-builder" handler="_hideQueryBuilder" target-id="queryBuilder"></bedrock-pubsub>
+                        <bedrock-pubsub event-name="on-query-build" handler="_onQueryBuild" target-id="queryBuilder"></bedrock-pubsub>
                     </template>
                     <template is="dom-if" if="[[_getVisibility('rock-saved-searches')]]">
                         <pebble-button id="savedSearchButton" icon="pebble-md-icons:SavedSearch" button-text="Load Saved Search" noink raised dropdown-icon
@@ -163,29 +244,17 @@
                         <bedrock-pubsub event-name="rock-saved-search-click" handler="_loadSavedSearch" target-id=""></bedrock-pubsub>
                     </template>
                 </div>
-                <div class="layout horizontal p-t-10">
-                    <template is="dom-if" if="[[_getVisibility('rock-entity-type-model-lov')]]">
-                        <div class="entityTypeFilterContainer m-r-10">
-                            <pebble-button id="entityTypeFilterButton" icon="pebble-sm-icons:Filter-wt" button-text="Entity Type" dropdown-icon noink
-                                class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" on-tap="_openEntityTypeFilterLov"></pebble-button>
-                            <pebble-popover id="entityTypeFilterPopover" for="entityTypeFilterButton" no-overlap auto-fit-on-attach vertical-align="auto"
-                                horizontal-align="auto">
-                                <rock-entity-type-model-lov id="entityTypeModelLov" domain="[[domain]]" select-all="true" allowed-entity-types="[[allowedEntityTypes]]" selected-items="{{_selectedEntityTypes}}"
-                                    show-action-buttons>
-                                </rock-entity-type-model-lov>
-                            </pebble-popover>
-                            <bedrock-pubsub event-name="entity-type-model-lov-confirm-button-tap" handler="_onSelectedEntityTypesChange" target-id="entityTypeModelLov"></bedrock-pubsub>
-                            <bedrock-pubsub event-name="entity-type-model-lov-close-button-tap" handler="_onEntityTypePopoverClose" target-id="entityTypeModelLov"></bedrock-pubsub>
-                        </div>
-                    </template>
+                <div class="layout horizontal p-t-10">                    
                     <template is="dom-if" if="[[_getVisibility('rock-entity-search-filter')]]">
                         <div class="flex searchFilterTag">
                             <rock-entity-search-filter id="entitySearchFilter" selected-search-filters="{{_selectedSearchFilters}}" context-data="{{contextData}}"
                                 types-criterion="[[_typesCriterion]]" tags="{{tags}}" filters-config="[[getParentAppConfig('rock-entity-search-discovery', '', 'attributesFilterSortDetails')]]"></rock-entity-search-filter>
                             <bedrock-pubsub event-name="tag-item-added" handler="_showResetSearch"></bedrock-pubsub>
                             <bedrock-pubsub event-name="tag-item-remove" handler="_showResetSearch"></bedrock-pubsub>
+                            <bedrock-pubsub event-name="build-query" handler="_buildQueryString"></bedrock-pubsub>                            
                         </div>
                     </template>
+                    
                     <template is="dom-if" if="[[_getVisibility('pebble-actions')]]">
                         <div class="action-buttons">
                             <pebble-actions id="assignmentActions" hidden$="[[_isWorkflowActionsHidden(_workflowCriterion)]]" button-icon="pebble-md-icons:assignedactions"
@@ -200,39 +269,58 @@
                             <rock-business-function-dialog id="wfAssignmentDialog"></rock-business-function-dialog>
                             <rock-business-function-dialog id="rePublishDialog"></rock-business-function-dialog>
                         </div>
-                    </template>
+                    </template>                    
                 </div>
             </div>
             <div class="row-wrap">
-                <template is="dom-if" if="[[_getVisibility('rock-entity-search-grid')]]">
-                    <div class$="[[_applyClass(_quickManageEnabled)]]">
-                        <rock-entity-search-grid id="entitySearchGrid" context-data="[[contextData]]" grid-config="[[getParentAppConfig('rock-entity-search-grid', '', 'gridConfig')]]"
-                            govern-attributes-criterion="[[getParentAppConfig('rock-entity-search-grid', '', 'governAttributesCriterion')]]"
-                            govern-data-config="[[getParentAppConfig('rock-entity-search-grid', '', 'governDataConfig')]]" search-query="{{searchQuery}}"
-                            saved-search-id="[[savedSearchId]]" workflow-criterion="[[_workflowCriterion]]" search-filters="[[_selectedSearchFilters]]"
-                            current-record-size="{{_gridFullLength}}" types-criterion="[[_typesCriterion]]" entity-id-list="[[entityIdList]]"></rock-entity-search-grid>
-                        <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="entityGrid"></bedrock-pubsub>
-                        <bedrock-pubsub event-name="govern-grid-selecting-item" handler="_onSelectingGridItem" target-id="governGrid"></bedrock-pubsub>
-                    </div>
-                </template>
-                <template is="dom-if" if="[[_getVisibility('rock-entity-quick-manage')]]">
-                    <template is="dom-if" if="[[_quickManageEnabled]]">
-                        <div>
-                            <pebble-vertical-divider>
-                            </pebble-vertical-divider>
-                        </div>
-                        <div class="quick-manage-container">
-                            <rock-entity-quick-manage id="entityQuickManage" context-data="[[contextData]]" current-index="{{_currentIndex}}" current-record-size="[[_gridFullLength]]"
-                                selected-entity="[[_selectedEntity]]" tab-config="[[getParentAppConfig('rock-entity-quick-manage', '', 'rock-tabs')]]"
-                                toolbar-config="[[getParentAppConfig('rock-entity-quick-manage', '', 'pebble-toolbar')]]" fixes="[[getParentAppConfig('rock-entity-quick-manage', '', 'rock-entity-tofix')]]"></rock-entity-quick-manage>
-                            <bedrock-pubsub event-name="on-attribute-save" handler="_onAttributeSave"></bedrock-pubsub>
-                            <bedrock-pubsub event-name="on-tap-previous" handler="_onClickPrevious" target-id="entityQuickManage"></bedrock-pubsub>
-                            <bedrock-pubsub event-name="on-tap-next" handler="_onClickNext" target-id="entityQuickManage"></bedrock-pubsub>
+                <div id="entityGridInfo"> No results found for the given criteria </div>
+                <div id="entityGridComponents">
+                    <template is="dom-if" if="[[_getVisibility('rock-entity-search-grid')]]">
+                        <div class$="[[_applyClass(_quickManageEnabled)]]">
+                            <rock-entity-search-grid id="entitySearchGrid" 
+                                context-data="[[contextData]]" 
+                                grid-config="[[_getGridConfig('gridConfig', entitySearchGridConfig)]]"
+                                govern-attributes-criterion="[[_getGridConfig('governAttributesCriterion', entitySearchGridConfig)]]"
+                                govern-data-config="[[_getGridConfig('governDataConfig', entitySearchGridConfig)]]" 
+                                search-query="{{searchQuery}}" 
+                                saved-search-id="[[savedSearchId]]" 
+                                workflow-criterion="[[_workflowCriterion]]" 
+                                govern-data-criterion="[[_governDataCriterion]]" 
+                                search-filters="[[_selectedSearchFilters]]" 
+                                relationship-search-filters="[[_relationshipSearchFilters]]" 
+                                current-record-size="{{_gridFullLength}}" 
+                                types-criterion="[[_typesCriterion]]" 
+                                entity-id-list="[[entityIdList]]">
+                            </rock-entity-search-grid>
+                            <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="entityGrid"></bedrock-pubsub>
+                            <bedrock-pubsub event-name="govern-grid-selecting-item" handler="_onSelectingGridItem" target-id="governGrid"></bedrock-pubsub>
+                            <bedrock-pubsub event-name="empty-grid" handler="_onEntityGridEmpty" target-id="entitySearchGrid"></bedrock-pubsub>
+                            <bedrock-pubsub event-name="grid-with-data" handler="_onEntityGridFull" target-id="entitySearchGrid"></bedrock-pubsub>
                         </div>
                     </template>
-                </template>
+                    <template is="dom-if" if="[[_getVisibility('rock-entity-quick-manage')]]">
+                        <template is="dom-if" if="[[_quickManageEnabled]]">
+                            <div>
+                                <pebble-vertical-divider>
+                                </pebble-vertical-divider>
+                            </div>
+                            <div class="quick-manage-container">
+                                <rock-entity-quick-manage id="entityQuickManage" context-data="[[contextData]]" current-index="{{_currentIndex}}" current-record-size="[[_gridFullLength]]"
+                                    selected-entity="[[_selectedEntity]]" tab-config="[[getParentAppConfig('rock-entity-quick-manage', '', 'rock-tabs')]]"
+                                    toolbar-config="[[getParentAppConfig('rock-entity-quick-manage', '', 'pebble-toolbar')]]" fixes="[[getParentAppConfig('rock-entity-quick-manage', '', 'rock-entity-tofix')]]"></rock-entity-quick-manage>
+                                <bedrock-pubsub event-name="on-attribute-save" handler="_onAttributeSave"></bedrock-pubsub>
+                                <bedrock-pubsub event-name="on-tap-previous" handler="_onClickPrevious" target-id="entityQuickManage"></bedrock-pubsub>
+                                <bedrock-pubsub event-name="on-tap-next" handler="_onClickNext" target-id="entityQuickManage"></bedrock-pubsub>
+                            </div>
+                        </template>
+                    </template>
+                </div>
             </div>
+        <rock-search-query-parser id="queryParser"></rock-search-query-parser>
+        <bedrock-pubsub id="parser-event" event-name="on-search-filters" handler="_onSearchFiltersChange" target-id="queryParser"></bedrock-pubsub>
         </template>
+        <liquid-config-get id="initiateConfigSearch" operation="initiatesearch" request-data={{initiateConfigSearchRequestData}} last-response="{{initiateConfigSearchResponse}}" on-response="_onInitiateConfigSearchResponse"></liquid-config-get>
+        <liquid-config-get id="getConfigSearchDetails" operation="getsearchresultdetail" on-response="_onGetConfigSearchDetailsResponse"></liquid-config-get>
     </template>
     <script>
         (function () {
@@ -262,6 +350,10 @@
                         }
                     },
                     searchQuery: {
+                        type: String,
+                        value: ""
+                    },
+                    _searchQuery: {
                         type: String,
                         value: ""
                     },
@@ -343,6 +435,10 @@
                             return [];
                         }
                     },
+                    _currentEntityTypes:{
+                        type: Array,
+                        computed:"_getActiveEntityTypes(_typesCriterion)"
+                    },
                     _typesCriterion: {
                         type: Array,
                         value: function () {
@@ -356,6 +452,12 @@
                         }
                     },
                     _workflowCriterion: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _governDataCriterion: {
                         type: Object,
                         value: function () {
                             return {};
@@ -381,17 +483,55 @@
                             return [];
                         }
                     },
+                    _entityTypes: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
                     _currentIndex: {
                         type: Number,
                         value: -1
                     },
                     domain:{
                         type:String
-                    }
+                    },
+                    entitySearchGridConfig: {
+                        type: Object,
+                        value: function() {
+                            return DataHelper.cloneObject(this.getParentAppConfig("rock-entity-search-grid"));
+                        }
+                    },
+                    _isBaseGridConfigLoaded: {
+                        type: Boolean,
+                        value: true
+                    },                    
+                    _queryBuilderEnabled:{
+                        type: Boolean,
+                        value: false 
+                    },
+                    inputQueryString:{
+                        type: String,
+                        value: ""
+                    },
+                    attributeGridData:{
+                        type: Array,
+                        value: function () {
+                            return []
+                        }
+                    },
+                    _relationshipSearchFilters: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+
                 },
 
                 behaviors: [
-                    RUFBehaviors.AppBehavior
+                    RUFBehaviors.AppBehavior,
+                    RUFBehaviors.QueryBuilderBehavior
                 ],
 
                 _configDataChanged: function () {
@@ -403,7 +543,7 @@
 
                         this._searchBarElement.searchInput = [];
                         if (this.searchQuery) {
-                            this._searchBarElement.query = this.searchQuery;
+                            this._searchQuery = this.searchQuery;
                         }
 
                         if (this.savedSearchId && this.savedSearchId !== this._lastSavedSearchId) {
@@ -421,11 +561,14 @@
                             var workflowCriterion = {
                                 "workflowName": this.workflowName,
                                 "workflowActivityName": this.workflowActivityName,
-                                "workflowActivityExternalName": this.workflowActivityExternalName,
+                                "workflowActivityExternalName": this.workflowActivityExternalName
+                            };
+
+                            var governDataCriterion = {
                                 "userId": userId,
                                 "status": this.status,
                                 "businessConditionExternalName": this.businessConditionExternalName
-                            };
+                            }
                             //WF short name should be added only when it is available
                             if (this.workflowShortName) {
                                 workflowCriterion["workflowShortName"] = this.workflowShortName
@@ -434,18 +577,31 @@
                             if (this.businessConditionName) {
                                 var businessConditionNames = this.businessConditionName.split("#@#");
                                 if (businessConditionNames.length > 1) {
-                                    workflowCriterion.businessConditionNames = businessConditionNames;
+                                    governDataCriterion.businessConditionNames = businessConditionNames;
                                 } else {
-                                    workflowCriterion.businessConditionName = this.businessConditionName;
+                                    governDataCriterion.businessConditionName = this.businessConditionName;
                                 }
                             }
 
                             if (!DataHelper.isEmptyObject(workflowCriterion)) {
                                 this.set("_workflowCriterion", workflowCriterion);
                             }
+                            if (!DataHelper.isEmptyObject(governDataCriterion)) {
+                                this.set("_governDataCriterion", governDataCriterion);
+                            }
                         }
 
-                        this._gridConfig = this.getParentAppConfig("rock-entity-search-grid", "", "gridConfig");
+                        this._gridConfig = this._getGridConfig("gridConfig");
+
+                        if(!this.savedSearchId) {
+                            this._buildQueryString();
+                        }
+                    }
+                },
+
+                _getGridConfig: function(subComponent) {
+                    if(this.entitySearchGridConfig && this.entitySearchGridConfig[subComponent]) {
+                        return this.entitySearchGridConfig[subComponent];
                     }
                 },
 
@@ -522,10 +678,23 @@
 
                         this._selectedEntityTypes = this._getSelectedEntityTypes(this._typesCriterion);
                         //Add the tags of the selected entity types
-                        var rockSearchFilter = this._entitySearchFilterElement.$$("rock-search-filter");
+                        /*var rockSearchFilter = this._entitySearchFilterElement.$$("rock-search-filter");
                         if (rockSearchFilter) {
                             rockSearchFilter.addEntityTypeTag(this._getSelectedEntityTypeTitles(this._selectedEntityTypes));
+                        }*/
+                    }
+                },
+
+                _updateContextData: function(typesCriterion) {
+                     if (typesCriterion && typesCriterion.length > 0) {
+                        var itemContexts = [];
+                        for (var i in typesCriterion) {
+                            var itemContext = {
+                                'type': typesCriterion[i]
+                            };
+                            itemContexts.push(itemContext);
                         }
+                        this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts
                     }
                 },
 
@@ -563,9 +732,13 @@
 
 
                 // Rock search bar
-                _onSearch: function (e, detail, sender) {
-                    this.searchQuery = detail;
-                    //   this.fireBedrockEvent("search-criteria-changed");
+                _onSearch: function (e, detail, sender) {                    
+                    if(!_.isEmpty(detail)) {
+                        this._searchQuery = detail.query;
+                    }
+
+                    this._buildQueryString();
+                    // this.fireBedrockEvent("search-criteria-changed");
                     // this._searchTimeStamp = new Date().toLocaleString();
                 },
 
@@ -577,17 +750,32 @@
                     }
 
                     //Preventing the reset search button from disappearing when there is a saved search selected/ search bar query/ refine more tag
-                    if (!DataHelper.isEmptyObject(this._searchBarElement.query) || tags.length > 0 || this.savedSearchId != "") {
+                    if (!DataHelper.isEmptyObject(this._searchBarElement.query) || tags.length > 0 || this.savedSearchId != "" || this.inputQueryString!="") {
                         this._resetSearchEnabled = true;
                     } else {
                         this._resetSearchEnabled = false;
                     }
                 },
 
+                _showQueryBuilder: function (e) {                    
+                    var inputQueryString = this._searchBarElement.query;
+                    if(inputQueryString && (inputQueryString.substring(0, 4) == "show" || inputQueryString.substring(0, 4) == "Show")){
+                        this.inputQueryString = inputQueryString;
+                    } 
+                    this._queryBuilderEnabled = true; 
+                        
+                },
+
+                _hideQueryBuilder: function (e) {                    
+                    this._queryBuilderEnabled = false;                          
+                },
+
                 _resetSearch: function () {
                     // Clear SearchBar
                     this.searchQuery = "";
+                    this._searchQuery = "";
                     this._searchBarElement.query = "";
+                    this._searchBarElement.setAttribute("placeholder","");
 
                     // Clear SavedSearch
                     this._savedSearchButton.buttonText = "Saved Search";
@@ -599,6 +787,24 @@
                     this._entitySearchFilterElement.clearSearchFilters();
 
                     this._resetSearchEnabled = false;
+
+                    //Reset the entityTypes according to the _gridConfig 
+                    var entityTypes  = this._getSelectedEntityTypes(this._gridConfig.dataRequest.typesCriterion);
+                    this._selectedEntityTypes = entityTypes;
+
+                    //Clear the advanced search options
+                    this.inputQueryString = "";
+                    this.attributeGridData = new Array();
+                    this.set("_workflowCriterion", new Object());
+                    this.set("_governDataCriterion", new Object());
+                    
+                    var queryBuilder = this.shadowRoot.querySelector("#queryBuilder");
+                    if(queryBuilder){
+                        queryBuilder.resetQueryBuilder();
+                    }                
+                    
+                    this._buildQueryString();
+
                 },
 
 
@@ -627,34 +833,32 @@
                             }
                         }
 
+                        var displayQuery = this._searchBarElement.placeholder;
+                        var internalQuery = this._searchBarElement.internalQuery;
+
                         //Initiate
                         var _savedSearchDetails = {
                             "saved-search-info": "",
-                            "search-query": "",
-                            "workflowCriterion": this._workflowCriterion,
-                            "search-tags": [],
                             "dimensions": {},
-                            "entityTypes": []
+                            "display-query": "",
+                            "internal-query": ""
                         };
 
                         // create or edit form info
                         _savedSearchDetails["saved-search-info"] = detail;
 
-                        // search input info
-                        _savedSearchDetails["search-query"] = this._searchBarElement.query;
-
-                        // search filters
-                        if (this._entitySearchFilterElement) {
-                            var searchFilterElement = this._entitySearchFilterElement.$$(
-                                "rock-search-filter");
-                            _savedSearchDetails["search-tags"] = searchFilterElement.tags;
-                        }
-
                         // dimension selectors info
                         _savedSearchDetails["dimensions"] = this.selectedDimensions;
 
-                        // entity-types
-                        _savedSearchDetails["entityTypes"] = this._entityTypeModelLov.selectedItems;
+                        // display query Info
+                        _savedSearchDetails["display-query"] = displayQuery;
+
+                        // Internal query info
+                        _savedSearchDetails["internal-query"] = internalQuery;
+
+                        // business conditions data info
+                        _savedSearchDetails["govern-data"] = this._governDataCriterion;
+
 
                         if (detail.selectedSearch && !DataHelper.isEmptyObject(detail.selectedSearch)) {
                             this._savedSearchElement.createUpdateSavedSearch(_savedSearchDetails,
@@ -673,7 +877,7 @@
 
                 _loadSavedSearch: function (e, detail, sender) {
                     if (detail) {
-                        this.savedSearchId = detail.id;
+                        //this.savedSearchId = detail.id;
                         ComponentHelper.setQueryParams({
                             "_savedSearchId": detail.id
                         });
@@ -684,8 +888,20 @@
                     if (newValue != oldValue) {
                         if (this.savedSearchId && this.savedSearches) {
                             var savedSearch = this._getSavedSearches(this.savedSearches, this.savedSearchId);
-                            this._populateHeaderControls(savedSearch);
-                            this._searchGridElement.savedSearchCriterion = savedSearch;
+                            if(savedSearch) {
+                                this._savedSearch = savedSearch;
+                                this.selectedDimensions = savedSearch.dimensions;
+                                this._savedSearchButton.buttonText = savedSearch.name;
+                                this._governDataCriterion = savedSearch.governData;
+
+                                var displayQuery = savedSearch.displayQuery;
+                                var internalQuery = savedSearch.internalQuery;
+
+                                this._isSavedSearchLoad = true;
+
+                                this._displayQuery(displayQuery);
+                                this._parseQuery(internalQuery);
+                            }
                         }
                     }
                 },
@@ -711,97 +927,78 @@
                     return savedSearch;
                 },
 
-                _populateHeaderControls: function (savedSearch) {
-                    if (savedSearch) {
-                        //Show the Reset Button
+                _populateHeaderControls: function (attributeModels) {
+                    if(!_.isEmpty(this._typesCriterion)) {
                         this._showResetSearch();
-
-                        // search input info
-                        this._searchBarElement.query = savedSearch.searchQuery;
-
-                        // search filter info
-                        this._selectedSearchFilters = [];
-                        this._entitySearchFilterElement.tags = savedSearch.searchTags ? this._formatSavedSearchTags(savedSearch.searchTags) : [];
-                        if (!DataHelper.isEmptyObject(this._entitySearchFilterElement.tags)) {
-                            for (var i = 0; i < this._entitySearchFilterElement.tags.length; i++) {
-                                var attr = {};
-                                attr[this._entitySearchFilterElement.tags[i].name] = this._entitySearchFilterElement
-                                    .tags[i].value;
-                                attr[this._entitySearchFilterElement.tags[i].name]["noPopoverOnAttach"] = true;
-                                this.push('_selectedSearchFilters', attr);
-                            }
-                        }
-
-                        // dimensionselector info
-                        this.selectedDimensions = savedSearch.dimensions;
-                        // dimensionSelector.$$('rock-entity-lov').refershTemplate(); // Todo: May be need to raise an event here
-
-                        this._savedSearchButton.buttonText = savedSearch.name;
-                        this.searchQuery = savedSearch.searchQuery;
-
-                        if (!DataHelper.isEmptyObject(savedSearch.workflowCriterion)) {
-                            this.set("_workflowCriterion", savedSearch.workflowCriterion);
-                        }
-
-                        // entitytype info
-                        this._entityTypeModelLov.selectedItems = savedSearch.entityTypes;
-                        this._updateSearchEntityTypeTag(this._getSelectedEntityTypeTitles(savedSearch.entityTypes));                       
-                        var typesCriterion = savedSearch.entityTypes.map(function (e) {
-                            return e.id
-                        });
-                        this.set("_typesCriterion", typesCriterion);
-                        this.refresh();
                     }
+
+                    if(!_.isEmpty(this._selectedSearchFilters)) {
+                        this._showResetSearch();
+                        this._entitySearchFilterElement.tags = this._formatSavedSearchTags(this._selectedSearchFilters, attributeModels);
+                    }
+                    //this._searchGridElement.savedSearchCriterion = this._savedSearch;
                 },
 
-                _updateSearchEntityTypeTag: function(selectedItems){
+                /*_updateSearchEntityTypeTag: function(selectedItems){
                     if (this._entitySearchFilterElement) {
                         var searchFilterElement = this._entitySearchFilterElement.$$("rock-search-filter");
                         searchFilterElement.onEntityTypeChange(selectedItems);
                     }
-                },
+                },*/
 
                 /**
                  * Fallback logic for existing saved searches
                  * textbox to textbox collection
                  * lov display
                  */
-                _formatSavedSearchTags: function(savedSearchTags) {
-                    if(savedSearchTags.length > 0) {
-                        for(var i = 0; i < savedSearchTags.length; i++) {
-                            var tag = savedSearchTags[i];
-                            if(tag && tag.value && tag.options) {
-                                //LOV
-                                if(tag.options.isReferenceType && 
-                                   tag.value.exacts && tag.value.exacts.length > 0 &&  this._entitySearchFilterElement) {
-                                    tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(tag.value.exacts);
+                _formatSavedSearchTags: function(searchFilters, attributeModels) {
+                    if(searchFilters.length > 0) {
+                        var tags = [];
+                        for(var i = 0; i < searchFilters.length; i++) {
+                            var filter = searchFilters[i];
+                            if(!_.isEmpty(filter)) {
+                                var tag = {};
+                                for(var attrName in filter) {
+                                    var attrModel = attributeModels.find(obj => obj.name === attrName);
+                                    var attribute = filter[attrName];
+                                    if(attrModel) {
+                                        if(attrModel.dataType.toLowerCase() == "integer" || attrModel.dataType.toLowerCase() == "decimal"){
+                                            attrModel.displayType = "numeric";
+                                        }                                       
+                                        tag.name = attrName;
+                                        tag.longName = attrModel.externalName;
+                                        tag.options = attrModel;
+                                    }
+                                    tag.value = attribute;
+                                    if(attribute.type === "_STRING") {
+                                        if(attribute.exacts) {
+                                            tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(attribute.exacts);
+                                        } else if(attribute.contains) {
+                                            tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(attribute.contains.split(" "));
+                                        } else if(attribute.exact) {
+                                            tag.displayValue = attribute.exact;
+                                        }
+                                    } else if(attribute.type === "_DECIMAL" || attribute.type === "_INTEGER") {
+                                        if(attribute.lte && attribute.gte) {
+                                            tag.displayValue = attribute.gte + " - " + attribute.lte;
+                                        } else if(attribute.contains) {
+                                            tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(attribute.contains.split(" "));
+                                        }
+                                    } else if(attribute.type === "_BOOLEAN") {
+                                        tag.displayValue = attribute.eq;
+                                    } else if(attribute.type === "_DATETIME") {
+                                        if(attribute.lte === attribute.gte) {
+                                            tag.displayValue = attribute.gte;
+                                        } else {
+                                            tag.displayValue = attribute.gte + " - " + attribute.lte;
+                                        }
+                                    }
                                 }
-
-                                //textbox
-                                else if(tag.options.displayType == "textbox" && 
-                                   !tag.value.exacts &&
-                                   tag.value.exact && 
-                                   this._entitySearchFilterElement) {
-                                    tag.value.exacts = [];
-                                    tag.value.exacts.push(tag.value.exact);
-                                    delete tag.value.type;
-                                    tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(tag.value.exacts);
-                                }
-
-                                //Numeric
-                                else if(tag.options.displayType == "numeric" && 
-                                   !tag.value.contains &&
-                                   tag.value.eq && 
-                                   this._entitySearchFilterElement) {
-                                    tag.value.contains = tag.value.eq;
-                                    tag.value.operator = "_OR";
-                                    tag.displayValue = this._entitySearchFilterElement.formatFilterCollectionDisplay(tag.value.contains.split(" "));
-                                }
+                                tags.push(tag);
                             }
                         }
+                        return tags;
                     }
-
-                    return savedSearchTags;
                 },
 
                 // Quick Manage
@@ -932,22 +1129,7 @@
                 },
 
                 _onSelectedEntityTypesChange: function (e, detail) {
-                    var selectedEntitiesObj = detail.data;
-
-                    if (selectedEntitiesObj && selectedEntitiesObj.length) {
-                        var selectedEntities = [];
-                        for (var i = 0; i < selectedEntitiesObj.length; i++) {
-                            if (typeof selectedEntitiesObj[i].id == "string" || typeof selectedEntitiesObj[i].id == "number") {
-                                selectedEntities.push(selectedEntitiesObj[i].id);
-                            }
-                        }
-                        this.set("_typesCriterion", selectedEntities);
-                        this.refresh();
-                    } else {
-                        this._onGridConfigChange();
-                    }
-                    this.shadowRoot.querySelector("#entityTypeFilterPopover").close();
-                    this._updateSearchEntityTypeTag(selectedEntities);
+                    this._buildQueryString();
                 },
 
                 _onEntityTypePopoverClose: function (e, detail) {
@@ -1229,6 +1411,253 @@
                             grid.updateStyles({"--rock-grid-height": rockGridHeight - 130 + 'px'});
                     }
 
+                },
+
+                _updateGridConfigurationOnEntityTypeChange: function(selectedEntityTypes) {
+                    if(!selectedEntityTypes || selectedEntityTypes.length > 1) {
+                        this._clearGridConfig();
+                        var gridConfig = DataHelper.cloneObject(this.getParentAppConfig("rock-entity-search-grid"));
+                        this.async(function() {
+                            this.set('entitySearchGridConfig', gridConfig);
+                            this.shadowRoot.querySelector("#entityTypeFilterPopover").close();
+                            this._updateProperties(this._searchFilters);                        
+                        });
+                        this._isBaseGridConfigLoaded = true;                           
+                    } else {
+                        var entityType = selectedEntityTypes[0];
+                        var userCtx = ContextHelper.getFirstUserContext(this.contextData);
+                        var collectionContext = {"entityType": entityType, "role": userCtx.role}
+                        this.initiateConfigSearchRequestData = DataRequestHelper.getContextSepecificConfigRequest("app-entity-discovery", "rock-entity-search-grid", collectionContext);
+                        var initiateConfigSearch = this.shadowRoot.querySelector("#initiateConfigSearch");
+                        initiateConfigSearch.generateRequest();
+                    }
+                },
+
+                _onInitiateConfigSearchResponse: function (e) {
+                    var totalRecords = this.initiateConfigSearchResponse.content.totalRecords;
+                    var options = { 'from': 0, 'to': totalRecords };
+                    var searchResultId = this.initiateConfigSearchResponse.content.requestId;
+
+                    var getConfigSearchDetails = this.shadowRoot.querySelector('#getConfigSearchDetails');
+                    var reqData = this.initiateConfigSearchRequestData;
+                    reqData.params.options = options;
+                    getConfigSearchDetails.requestId = searchResultId;
+                    getConfigSearchDetails.requestData = reqData;
+
+                    getConfigSearchDetails.generateRequest();
+                },
+
+                _onGetConfigSearchDetailsResponse: function(e) {
+                    var gridConfig = {};
+                    if(e.detail.response &&
+                       e.detail.response.status == "success" && 
+                       DataHelper.isValidObjectPath(e, 'detail.response.content.configObjects.0.data.contexts.0.jsonData.config')) {
+                           gridConfig = e.detail.response.content.configObjects[0].data.contexts[0].jsonData.config;
+                           this._isBaseGridConfigLoaded = false;
+                    } else {
+                        if(!this._isBaseGridConfigLoaded) {
+                            gridConfig = DataHelper.cloneObject(this.getParentAppConfig("rock-entity-search-grid"));
+                            this._isBaseGridConfigLoaded = true;
+                        }
+                    }
+                    
+                    if(!_.isEmpty(gridConfig)) {
+                        this._clearGridConfig();
+                        this.async(function() {
+                            this.set('entitySearchGridConfig', gridConfig);
+                            this.shadowRoot.querySelector("#entityTypeFilterPopover").close();
+                            this._updateProperties(this._searchFilters);
+                        });                        
+                    } else {
+                        this.shadowRoot.querySelector("#entityTypeFilterPopover").close();
+                        this._updateProperties(this._searchFilters);
+                    }
+                },
+
+                _clearGridConfig: function() {
+                    var grid = ElementHelper.getElement(this, "#entitySearchGrid");
+                    grid.attributeModels={};
+                },
+
+                /**
+                * When the grid data is empty, hide the grid,action buttons and show the "no data" info
+                **/
+                _onEntityGridEmpty: function(){
+                    var gridComponents = this.shadowRoot.querySelector("#entityGridComponents");
+                    gridComponents.style['visibility']= "hidden"; 
+                    var actionBtns = this.shadowRoot.querySelector(".action-buttons");
+                    actionBtns.style['visibility']= "hidden";         
+                    
+                    var gridInfo = this.shadowRoot.querySelector("#entityGridInfo");
+                    gridInfo.style['display'] = "block"; 
+                   
+                    this._quickManageEnabled = false;
+                },
+
+                 /**
+                * When the grid data is not empty, show the grid,action buttons and hide the "no data" info
+                **/
+                _onEntityGridFull: function(){
+                    var gridInfo = this.shadowRoot.querySelector("#entityGridInfo");
+                    gridInfo.style['display']= "none"; 
+                    
+                    var gridComponents = this.shadowRoot.querySelector("#entityGridComponents");
+                    gridComponents.style['visibility']= "visible";
+                    var actionBtns = this.shadowRoot.querySelector(".action-buttons");
+                    actionBtns.style['visibility']= "visible";                           
+                },
+                /**
+                * Getting the active selected entities when typescriterion changes
+                **/
+                _getActiveEntityTypes: function(activeEntities){
+                    var selectedEntityTypes = new Array();
+                    if(activeEntities){
+                        selectedEntityTypes = this._getSelectedEntityTypes(activeEntities);  
+                    }
+                    return selectedEntityTypes;
+                },
+                /**
+                * When Refine more tags get added/updated, search query needs to be built and advanced search options need to be incorporated
+                */
+                _buildQueryString: function(e, detail){
+                    //Hadling a case where query is already been built inside the query builder
+                    var relationship = "";
+                    var relationshipShortName = "";
+                    var relationshipsListArray = "";
+                    var workflowListArray = "";
+                    if(!_.isEmpty(this._workflowCriterion)) {
+                        workflowListArray = [];
+                        var workflowData = {
+                            "workflowShortName": this._workflowCriterion.workflowShortName,
+                            "workflowExternalName": this._workflowCriterion.workflowName,
+                            "workflowActivityShortName": this._workflowCriterion.workflowActivityName,
+                            "workflowActivityExternalName": this._workflowCriterion.workflowActivityExternalName
+                        };
+                        workflowListArray.push(workflowData);
+                    }
+                    var queryBuilder = this.shadowRoot.querySelector("#queryBuilder");
+                    if(queryBuilder){
+                        var relModelLov = queryBuilder.shadowRoot.querySelector("#relationshipModelLov");
+                        if(relModelLov.selectedItem) {
+                            relationship = relModelLov.selectedItem.title;
+                            relationshipShortName = relModelLov.selectedItem.id;
+                        }
+                        if(queryBuilder.relationshipGridData) {
+                            relationshipsListArray = queryBuilder.relationshipGridData;
+                        }
+                        if(queryBuilder.workflowGridData) {
+                            workflowListArray = queryBuilder.workflowGridData;
+                        } else {
+                            if(!_.isEmpty(workflowListArray)) {
+                                queryBuilder.workflowGridData = workflowListArray;
+                            }
+                        }
+                    } 
+
+                    //User has input some keyword search criteria
+                    var keywordSearchStr = "";
+                    if(this._searchQuery){
+                        keywordSearchStr = this._searchQuery;
+                    }
+                    var entityTypes = this.getSelectedEntityTypes(this._selectedEntityTypes); 
+                    var attributeListArray = new Array();
+
+                    if(detail) {
+                        var attributeList = detail;
+                        let displayValue = "";                    
+                        for(var i=0;i<attributeList.length;i++){
+                            let newItem = {
+                                name : attributeList[i].longName,
+                                value : (attributeList[i].displayValue).replace(/"|'/g,""),
+                                attributeModel : attributeList[i].options
+                            } 
+                            attributeListArray.push(newItem);  
+                        }
+                        this.attributeGridData = attributeListArray;
+                    } else if (this.attributeGridData){
+                        attributeListArray = this.attributeGridData; 
+                    }
+                    
+                    var queryString = this.buildQuery(entityTypes,attributeListArray,relationship,relationshipsListArray,workflowListArray,false,keywordSearchStr);
+
+                    var parsableString = this.buildQuery(entityTypes,attributeListArray,relationshipShortName,relationshipsListArray,workflowListArray,true,keywordSearchStr);
+                                        
+                    this._displayQuery(queryString, parsableString);
+                    this._parseQuery(parsableString);
+                },
+
+                /**
+                * When search query is built from the query-builder, display query on the search bar
+                */
+                _onQueryBuild: function (e, detail) {
+                    var displayQuery = detail.displayQuery;
+                    var prasableQuery = detail.parsableQuery;
+                    this._displayQuery(displayQuery, prasableQuery);
+                    this._parseQuery(prasableQuery);
+                },
+
+                /**
+                * Function to display the query on the search bar
+                */
+                _displayQuery: function (queryStr, parsableQueryStr) {
+                    this.inputQueryString = queryStr;                    
+                    this._searchBarElement.searchInput = [];
+                    if (queryStr) {
+                        this._searchBarElement.query = this._searchQuery;
+                        this._searchBarElement.searchText = this._searchQuery;
+                        this._searchBarElement.setAttribute("placeholder","");
+                        this._searchBarElement.setAttribute("placeholder",queryStr);
+                    }
+                    if(parsableQueryStr) {
+                        this._searchBarElement.internalQuery = parsableQueryStr;
+                    } 
+                    this._showResetSearch();
+                },
+
+                /**
+                * Function to parse the query
+                */
+                _parseQuery: function(query) {
+                    var parserPubsub = this.shadowRoot.querySelector("[id=parser-event]");
+                    var queryParser = this.shadowRoot.querySelector("[id=queryParser]");
+                    if(parserPubsub) {
+                        parserPubsub.registerEvent();
+                    }
+                    if(queryParser) {
+                        queryParser.parseQueryToFilters(query);
+                    }
+                },
+                
+                _onSearchFiltersChange: function (e, detail) {
+                    this._entityTypes = detail.typesCriterion;
+                    this._searchFilters = detail;
+                    this._updateGridConfigurationOnEntityTypeChange(this._entityTypes);
+                },
+                _updateProperties: function(searchFilters) {
+                    var typesCriterion = searchFilters.typesCriterion;
+                    var selectedSearchFilters = searchFilters.attributesCriterion;
+                    var relationshipSearchFilters = searchFilters.relationshipsCriterion;
+                    var workflowCriterion = searchFilters.workflowCriterion ? searchFilters.workflowCriterion : undefined;
+                    var searchQuery = searchFilters.searchQuery ? searchFilters.searchQuery : "";
+                    this.set("_typesCriterion", typesCriterion);
+                    this._updateContextData(this._typesCriterion);
+                    this.set("_selectedSearchFilters", selectedSearchFilters);
+                    this.set("_relationshipSearchFilters", relationshipSearchFilters);
+                    if(workflowCriterion) {
+                        this._workflowCriterion.workflowShortName = workflowCriterion.workflowShortName;
+                        this._workflowCriterion.workflowActivityName = workflowCriterion.workflowActivityName;
+                        this.set("_workflowCriterion", this._workflowCriterion);
+                    }
+                    this.set("searchQuery", searchQuery);
+                    this.set("_selectedEntityTypes","");
+                    var selectedEntityTypes = this._getSelectedEntityTypes(typesCriterion);                    
+                    this.set("_selectedEntityTypes",selectedEntityTypes);
+                    if(this._isSavedSearchLoad) {
+                        var attributeModels = searchFilters.compositeModels;
+                        this._isSavedSearchLoad = false;
+                        this._populateHeaderControls(attributeModels);
+                    }
+                    this.refresh();
                 }
             });
         })();

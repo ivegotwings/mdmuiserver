@@ -240,13 +240,14 @@ The users can switch between a search mode and a filter mode to get the query th
 
         <bedrock-pubsub event-name="self-attribute-model-lov-selection-changed" handler="_onSelectedFilterChange" target-id="attributeModelLov"></bedrock-pubsub>
         <div class="tagContainer">
-          <pebble-tags id="filter-entity-type-tag" tags="{{entityTypeTag}}" class="p-l-10 p-r-10">
-          </pebble-tags>
+          <!--pebble-tags id="filter-entity-type-tag" tags="{{entityTypeTag}}" class="p-l-10 p-r-10">
+          </pebble-tags-->
           <pebble-tags id="filter-tags" tags="{{tags}}" show-expand-icon show-remove-icon class="p-l-10 p-r-10">
           </pebble-tags>
         </div>
         <bedrock-pubsub event-name="on-tap-tag-item" handler="_onTagItemTap"></bedrock-pubsub>
         <bedrock-pubsub event-name="on-attached-tag-item" handler="_onTagItemTap"></bedrock-pubsub>
+        <bedrock-pubsub event-name="tag-item-remove" handler="_onTagItemRemove"></bedrock-pubsub>
         <bedrock-pubsub event-name="entity-lov-confirm-button-tap" handler="_onLOVConfirmTap" target-id="rockEntityLov"></bedrock-pubsub>
         <bedrock-pubsub event-name="entity-lov-close-button-tap" handler="_onLOVCloseTap" target-id="rockEntityLov"></bedrock-pubsub>
         <!-- Refine popover starts here -->
@@ -563,16 +564,25 @@ The users can switch between a search mode and a filter mode to get the query th
 
       /**
        * Updating the entity tags when the user updates the entity selection
-       */
+       *
       onEntityTypeChange: function (selectedEntities) {            
           var entityTypeTagStr = this._getEntityTypeDisplayValue(selectedEntities);           
           var entityTypeTagObj =  this.shadowRoot.querySelector("#filter-entity-type-tag");
-          entityTypeTagObj.set('tags.0.longName', entityTypeTagStr);          
+          if(entityTypeTagStr) {
+            if(this.entityTypeTag.length > 0){
+              entityTypeTagObj.set('tags.0.longName', entityTypeTagStr); 
+            } else {
+              this.addEntityTypeTag(selectedEntities);
+            }
+          } else {
+            this.entityTypeTag = [];
+          }
+                   
       },
 
       /**
        * Displaying the selected entity types as tags
-       */
+       *
       addEntityTypeTag: function (selectedEntities) {  
           if(selectedEntities.length > 0) {             
             this.entityTypeTag = [];
@@ -584,16 +594,18 @@ The users can switch between a search mode and a filter mode to get the query th
        
       /**
        *  Formating the selected entity tag
-       */  
+       *  
       _getEntityTypeDisplayValue: function (entityTypeList) {
         var tempArray = [];
         //Capitalizing the first character of the list
-        for(var i = 0 ; i < entityTypeList.length ; i++){
-          tempArray[i] = entityTypeList[i].charAt(0).toUpperCase()+ entityTypeList[i].substr(1);
-        } 
+        if(entityTypeList.length > 0) {
+          for(var i = 0 ; i < entityTypeList.length ; i++){
+            tempArray[i] = entityTypeList[i].charAt(0).toUpperCase()+ entityTypeList[i].substr(1);
+          } 
+          return "Entity Types: " + tempArray.join(",");
+        }
 
-        return "Entity Types: " + tempArray.join(",");
-      },
+      }*/
 
       /**
        * Can be used add a filter tag on selecting it from the dropdown.
@@ -890,7 +902,7 @@ The users can switch between a search mode and a filter mode to get the query th
 
         this.shadowRoot.querySelector('#filterPopover').hide();
         //Fire event
-        this._fireChangeEvent(this.currentTag.name, this.currentTag.value, this.currentTag.options.type);
+        this._fireChangeEvent();
 
       },
 
@@ -903,12 +915,12 @@ The users can switch between a search mode and a filter mode to get the query th
         this.currentTag.value = {
             "exacts": this._tagsCollection
         }
-
+        
         this.set('tags.' + this.currentTag.index + '.displayValue', this.formatFilterCollectionDisplay(this._tagsCollection));
         this.set('tags.' + this.currentTag.index + '.value', this.currentTag.value);
         this.shadowRoot.querySelector('#filterPopover').hide();
         //Fire event
-        this._fireChangeEvent(this.currentTag.name, this.currentTag.value, this.currentTag.options.type)
+        this._fireChangeEvent();
       },
 
       formatFilterCollectionDisplay: function(collection, seperator) {
@@ -1077,22 +1089,24 @@ The users can switch between a search mode and a filter mode to get the query th
         }
 
         //Fire event
-        this._fireChangeEvent(this.currentTag.name, this.currentTag.value);
+        this._fireChangeEvent();
       },
 
-      _fireChangeEvent: function (_name, _value, _type) {
-        var attribute = {
-          name: _name,
-          value: _value,
-          type: _type
-        };
-        if (_name) {
-          this.fireBedrockEvent('tag-value-change', attribute, {
+      _fireChangeEvent: function () {        
+        //Fire the event to build the query string
+        this.fireBedrockEvent("build-query", this.tags, {
             ignoreId: true
-          });
-        }
+        });       
+        
       },
 
+      _onTagItemRemove: function(){
+          //Fire the event to build the query string
+          this.fireBedrockEvent("build-query", this.tags, {
+              ignoreId: true
+          });
+      },
+        
       _fireAddEvent: function (_name, _value, _type) {
         var attribute = {
           name: _name
@@ -1143,6 +1157,13 @@ The users can switch between a search mode and a filter mode to get the query th
         this.tags = tags;
         if(removeTags.length > 0) {
           this.fireBedrockEvent('filter-tags-remove', removeTags, { ignoreId: true });
+        }
+      },
+
+      refresh: function() {
+        var attributesLov = this.shadowRoot.querySelector('[id=attributeModelLov]');
+        if(attributesLov && attributesLov.refresh) {
+          attributesLov.refresh();
         }
       }
     });
