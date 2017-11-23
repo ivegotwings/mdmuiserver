@@ -11,6 +11,7 @@
 
 <link rel="import" href="../bedrock-app-behavior/bedrock-app-behavior.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-styles-scroll-bar.html"/>
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 
 <dom-module id="rock-entity-graph">
     <template>
@@ -25,8 +26,14 @@
                 --quick-manage-header: {
                     display: none;
                 }
-                --grid-actions: {
+                /* --grid-actions: {
                     display: none; 
+                } */
+                --rock-where-used-grid-govern-toggle:{
+                    display: none;
+                }
+                --grid-quick-manage:{
+                    display:none;
                 }
             }
             .left-panel{
@@ -45,7 +52,7 @@
         context-data="[[prepareContextDataForLiquid(contextData)]]" on-config-get-response="_onApplicationConfigReceived"></liquid-config-aggregate-get>
            <pebble-resizable-panels>
                 <div class="left-panel" panel-width="30%">
-                    <rock-entity-graph-tree id="childFamilyTree" context-data="[[contextData]]" item-data="{{_itemData}}"></rock-entity-graph-tree>
+                    <rock-entity-graph-tree id="graphTree" context-data="[[contextData]]" item-data="{{_itemData}}"></rock-entity-graph-tree>
                 </div>
                 <div class="right-panel" panel-width="70%">
                     <template is="dom-if" if="{{!_visibleMessageCard(_itemData)}}">
@@ -70,6 +77,7 @@
                     </template>
                 </div>
             </pebble-resizable-panels>
+            <bedrock-pubsub event-name="grid-data-refreshed" handler="_onRefreshGrid" ></bedrock-pubsub>
     </template>
 <script>
 (function(){
@@ -135,6 +143,9 @@
             clickedEntityTypes: {
                 type: Array,
                 value: function () { return []; }
+            },
+            _graphTree:{
+                type:Element
             }
         },
         behaviors: [
@@ -145,6 +156,14 @@
         observers: [
             '_itemClickHandler(_itemData)'
         ],
+        attached:function(){
+            this._graphTree = this.shadowRoot.querySelector("#graphTree");
+        },
+        _onRefreshGrid:function(ev){
+            if(this._itemData){
+                this._graphTree.refreshTree();
+            }
+        },
         _itemClickHandler: function(){
             if(this._itemData && !_.isEmpty(this._itemData)){
                 if(this._itemData.viewMode && this._itemData.id && this._itemData.type){
@@ -205,34 +224,7 @@
                     relationshipManage.relationshipTypeList = [];
                     relationshipManage.relationshipGridConfigs = this.relationshipGridConfigs;
                 }
-                // var components = e.detail.components;
-                // if(components['rock-tabs'] && components['rock-tabs'].config && components['rock-tabs'].config.tabItems){
-                    
-                //     var rockTabItems =  components['rock-tabs'].config.tabItems;
-                //     for (let i = 0; i < rockTabItems.length; i++) {
-                //         const element = rockTabItems[i];
-                //         if(element && element.name == "relationships"){
-                //             if(element.component && element.component.properties){
-                //                 if(element.component.properties['config-context']){
-                //                     var configContext =  element.component.properties['config-context'];
-                //                     configContext.relationshipNames = [this._itemData.relationshipName];
-                //                     this.set('configContext', configContext);
-                //                 }
-                //                 if(element.component.properties['mode']){
-                //                     this.set('mode', element.component.properties['mode']);
-                //                 }
-                //                 if(element.component.properties['do-sync-validation']){
-                //                     this.set('doSyncValidation', element.component.properties['do-sync-validation']);
-                //                 }
-                //                 if(element.component.properties['no-of-columns']){
-                //                     this.set('noOfColumns', element.component.properties['no-of-columns']);
-                //                 }
-                //             }
-                //             break;
-                //         }
-                        
-                //     }
-                // }
+                
                 
                 // var relationshipManageConfig = components["rock-relationship-manage"];
                 // if(relationshipManageConfig){
@@ -308,12 +300,66 @@
             return contextData;
         },
         _getConfigContext:function(){
-            var configContext = {"relationshipType":"Relationships"}
+            var configContext = {}
             if(this._itemData){
                 if(this._itemData.relationshipName){
                     configContext.relationshipNames = [this._itemData.relationshipName];
                 }
                 configContext.relationshipTypeName = this._itemData.relationshipName;
+            }
+            var components = this.applicationConfig["components"];
+            if(components && components['rock-tabs'] && components['rock-tabs'].config && components['rock-tabs'].config.tabItems){
+                    
+                var rockTabItems =  components['rock-tabs'].config.tabItems;
+                var componentProperties;
+                for (let i = 0; i < rockTabItems.length; i++) {
+                    const element = rockTabItems[i];
+                    componentProperties = {}
+                    if(this._itemData.relEntityType && (this._itemData.relEntityType == "image")){
+                        if(element && element.name == "assets"){
+                            if(element.component && element.component.properties){
+                                componentProperties = element.component.properties;
+                            }
+                        }
+                    }else{
+                        if(element && element.name == "relationships"){
+                            if(element.component && element.component.properties){
+                                // if(element.component.properties['config-context']){
+                                    componentProperties = element.component.properties;
+                                    // var _configContext =  element.component.properties['config-context'];
+                                    // if(_configContext.addRelationshipMode){
+                                    //     configContext["addRelationshipMode"] = _configContext.addRelationshipMode;
+                                    // }
+                                    //configContext.relationshipNames = [this._itemData.relationshipName];
+                                    //this.set('configContext', configContext);
+                                // }
+                                
+                            }
+                            
+                        }
+                    }
+                    if(componentProperties && !_.isEmpty(componentProperties)){
+                        if(componentProperties['config-context']){
+                            var _configContext =  componentProperties['config-context'];
+                            if(_configContext.addRelationshipMode){
+                                configContext["addRelationshipMode"] = _configContext.addRelationshipMode;
+                            }
+                            if(_configContext.relationshipType){
+                                configContext["relationshipType"] = _configContext.relationshipType;
+                            }
+                        }
+                        if(componentProperties['mode']){
+                            this.set('mode', componentProperties['mode']);
+                        }
+                        if(componentProperties['do-sync-validation']){
+                            this.set('doSyncValidation', componentProperties['do-sync-validation']);
+                        }
+                        if(componentProperties['no-of-columns']){
+                            this.set('noOfColumns', componentProperties['no-of-columns']);
+                        }
+                        break;
+                    }
+                }
             }
             return configContext;
         },
