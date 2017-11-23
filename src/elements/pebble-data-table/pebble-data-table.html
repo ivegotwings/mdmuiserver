@@ -12,6 +12,7 @@
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-styles-scroll-bar.html" />
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="data-table-column.html">
 <link rel="import" href="data-table-column-sort.html">
 <link rel="import" href="data-table-cell.html">
@@ -184,11 +185,7 @@
         }
       } 
       #rowTracker.fader{
-          opacity:1;
-          -moz-transition: opacity .4s linear;
-          -o-transition: opacity .4s linear;
-          -webkit-transition: opacity .4s linear;
-          transition: opacity .4s linear;
+          opacity:1;         
       }
     </style>
     <div id="container">
@@ -597,6 +594,9 @@
         },
         rowDragDropEnabled: {
           type: Boolean
+        },
+        topVirtualDomRowCount:{
+          type:Number
         }
       },
 
@@ -1429,7 +1429,7 @@
         return 'translateY(' + y + 'px)';
       }, 
       _calculateRowCount:function(event){
-        var topVirtualDomRowCount,pebbleDataTableOffsetY,mouseEventOffSetTop,gridTopHeight;
+        var pebbleDataTableOffsetY,mouseEventOffSetTop,gridTopHeight;
         var gridRowHeight = 0, gridHeaderHeight = 0;
         gridHeaderHeight = this.querySelectorAll('data-table-row')[0].offsetHeight;
         for (var key = 0; key < event.path.length; key++) {
@@ -1443,20 +1443,18 @@
         pebbleDataTableOffsetY = this.getBoundingClientRect().y;
         mouseEventOffSetTop = event.pageY - event.target.offsetTop;
         gridTopHeight = mouseEventOffSetTop - (pebbleDataTableOffsetY + gridHeaderHeight)
-        topVirtualDomRowCount = Math.floor(gridTopHeight / gridRowHeight);
-        return topVirtualDomRowCount;
+        this.topVirtualDomRowCount = Math.floor(gridTopHeight / gridRowHeight);
       }, 
       _onRowDropped: function (e, detail) {
-        var event,item,topVirtualDomRowCount;
-        var cachedItems =[]
+        var event,item;
+        var cachedItems = DataHelper.cloneObject(this._cachedItems);
         event = detail.event;
         item = this._cachedItems[detail.pickedRowIndex];
-        this._cachedItems.splice(detail.pickedRowIndex, 1);
-        this._cachedItems.splice(detail.droppedAtIndex, 0, item);     
+        cachedItems.splice(detail.pickedRowIndex, 1);
+        cachedItems.splice(detail.droppedAtIndex, 0, item);     
         detail["dragDropItems"] = [];
-        detail.dragDropItems.push(this._cachedItems); 
-        topVirtualDomRowCount = this._calculateRowCount(event);           
-        this.$.list.scrollToIndex(detail.droppedAtIndex - topVirtualDomRowCount); 
+        detail.dragDropItems.push(cachedItems);
+        this._calculateRowCount(event); 
         this.dispatchEvent(new CustomEvent("row-drop-event", { detail: detail, bubbles: true, composed: true }));
       },
       _emptyChildNode:function(){
@@ -1496,7 +1494,7 @@
         this.updateStyles({            
           '--tracker-left': e.detail.x + 5 + 'px',
           '--tracker-top': e.detail.y + 5 +'px',
-          "--tracker-border-bottom":1+"px"
+          "--tracker-border-bottom":2+"px"
         });
       },
       _onDragEnd:function(e){
@@ -1505,6 +1503,18 @@
         });
         if(this.shadowRoot.querySelector('#rowTracker')){
           this.shadowRoot.querySelector('#rowTracker').classList.remove('fader')
+        }
+      },
+      updateData: function(data,detail) {
+        if(!_.isEmpty(data)) {
+          this.loading = true;
+          setTimeout(() => {
+            this.loading = false;
+            this.set("_cachedItems", []);
+            this.set("_cachedItems", data);
+            this.$.list.scrollToIndex(detail.droppedAtIndex - this.topVirtualDomRowCount); 
+           }, 300);
+          
         }
       }
     });
