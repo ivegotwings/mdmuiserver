@@ -380,12 +380,12 @@ The following JSON object is a config sample which configures the grid in all ab
 				width: 100%;
 			}
 
-			data-table-cell[header] {
+			data-table-cell[header] {	
 				min-height: 30px!important;
 				font-size: var(--font-size-sm, 12px);
 				color: var(--palette-cerulean, #036bc3);				
 				text-transform: uppercase;
-				cursor: default;				
+				cursor: default;	
 			}	
 
 			data-table-cell:not([header]) {
@@ -659,7 +659,6 @@ The following JSON object is a config sample which configures the grid in all ab
 		<template is="dom-if" if="{{_dataIsNotNull(config, attributeModels)}}" restamp>
 			<template is="dom-if" if="[[!noHeader]]">
 				<div id="gridHeader" align="right" class="row layout-middle layout-between">
-
 					<div id="title">[[title]]</div>
 					<paper-tooltip for="title" position="bottom" animation-delay="0">[[title]][[selectionTitle]]</paper-tooltip>
 					<div id="selection-title">[[selectionTitle]]</div>
@@ -702,7 +701,7 @@ The following JSON object is a config sample which configures the grid in all ab
 								<span id="error-circle[[index]]" class="error-circle" hidden item="[[item]]" index="[[index]]" on-tap="_openPopover" on-mouseenter="_openPopover">
 								</span>
 							</data-table-column>
-							<data-table-column slot="column-slot" name="Status" width="60px" flex="0" hidden$="[[!config.statusEnabled]]">
+							<data-table-column slot="column-slot" name="Status" width="60px" flex="0" hidden$="[[!_isStatusEnabled(config.statusEnabled, config.mode)]]">
 								<template>
 									<pebble-icon slot="cell-slot-content" id="rowStatus" icon="{{_getRowStatusIcon(item)}}"></pebble-icon>
 								</template>
@@ -820,20 +819,16 @@ The following JSON object is a config sample which configures the grid in all ab
 					</template>
 				</template>
 			</div>
-		</template>
-		<template>
-		<pebble-dialog id="gridMsgDialog" show-ok show-cancel show-close-icon>
-			<p id="msgDialog">
-			</p>
-		</pebble-dialog>
-		</template>
-		<template>
-		<pebble-dialog id="attributeDialog" show-ok show-cancel show-close-icon modal>
-			<div id="attrDialogContainer">
-
-			</div>
-		</pebble-dialog>
-		</template>
+			<pebble-dialog id="gridMsgDialog" show-ok show-cancel show-close-icon>
+				<p id="msgDialog">
+				</p>
+			</pebble-dialog>
+			<pebble-dialog id="attributeDialog" show-ok show-cancel show-close-icon modal>
+				<div id="attrDialogContainer">
+	
+				</div>
+			</pebble-dialog>
+		</template>		
 		<bedrock-pubsub target-id="gridMsgDialog" event-name="on-buttonok-clicked" handler="_onDialogOk"></bedrock-pubsub>
 		<bedrock-pubsub target-id="gridMsgDialog" event-name="on-buttoncancel-clicked" handler="_onDialogCancel"></bedrock-pubsub>
 	</template>
@@ -1507,6 +1502,7 @@ The following JSON object is a config sample which configures the grid in all ab
 						var self = this;
 						this.fireBedrockEvent('refresh-grid', self);
 					}
+					this.fireBedrockEvent('grid-data-refreshed', null, {ignoreId: true });
 					this.clearSelection();
 					this._resetAdvanceSelection();
 				},
@@ -1662,6 +1658,9 @@ The following JSON object is a config sample which configures the grid in all ab
 					return 'count';//default value
 				},
 
+				_isStatusEnabled(statusEnabled, mode) {
+					return statusEnabled && mode === 'edit';
+				},
 
 				changeToEditMode: function (e, detail) {
 					this.set('config.mode', "edit");
@@ -1713,8 +1712,10 @@ The following JSON object is a config sample which configures the grid in all ab
 				  * <b><i>Content development is under progress... </b></i> 
 				  */
 				openGridMsgDialog: function (msg) {
-					this.shadowRoot.querySelector('p[id="msgDialog"]').innerText = msg;
-					this.$.gridMsgDialog.open();
+					if(this.shadowRoot.querySelector('#gridMsgDialog')){
+						this.shadowRoot.querySelector('#msgDialog').innerText = msg;
+						this.shadowRoot.querySelector('#gridMsgDialog').open();
+					}
 				},
 				_computeTitle: function (config, data, currentRecordSize, sortOrder) {
 					var status = "";
@@ -2033,17 +2034,19 @@ The following JSON object is a config sample which configures the grid in all ab
 
 					if (row) {
 						var rowStatusIcon = row.querySelector('pebble-icon[id="rowStatus"]');
-						if (rowStatusIcon && item._rowStatus) {
-							if (item._rowStatus.status == "update") {
-								item._rowStatus.statusIcon = rowStatusIcon.icon = "pebble-icons:Edit";
-							} else if (item._rowStatus.status == "read") {
-								item._rowStatus.statusIcon = rowStatusIcon.icon = "";
+						if(rowStatusIcon) {
+							if (item._rowStatus) {
+								if (item._rowStatus.status == "update") {
+									item._rowStatus.statusIcon = rowStatusIcon.icon = "pebble-icons:Edit";
+								} else if (item._rowStatus.status == "read") {
+									item._rowStatus.statusIcon = rowStatusIcon.icon = "";
+								}
+							} else {
+								rowStatusIcon.icon = "";
+								item._rowStatus = {
+									"statusIcon": ""
+								};
 							}
-						} else {
-							rowStatusIcon.icon = "";
-							item._rowStatus = {
-								"statusIcon": ""
-							};
 						}
 					}
 					var index = e.currentTarget.index;
@@ -2308,7 +2311,7 @@ The following JSON object is a config sample which configures the grid in all ab
 
 				_hasLinkTemplate: function (col, item) {
 					if (col.linkTemplate && col.linkTemplate != "") {
-						var notEditable = (this.config && this.config.mode && this.config.mode.toLowerCase() != "edit") || (item.mode && item.mode.toLowerCase() !=
+						var notEditable = (this.config && this.config.mode && this.config.mode.toLowerCase() != "edit") || (item && item.mode && item.mode.toLowerCase() !=
 							"edit");
 						if (notEditable) {
 							return true;
@@ -2585,6 +2588,13 @@ The following JSON object is a config sample which configures the grid in all ab
 				_getNetsedAtrributeValueCount: function (item, col) {
 					if (!_.isEmpty(item) && col) {
 						return item[col.header] && item[col.header].value ? item[col.header].value.length : '0';
+					}
+				},
+
+				updateGridData:function(data,detail) {
+					var ironDataTable = this._getIronDataTable();
+					if(ironDataTable) {
+						ironDataTable.updateData(data,detail);
 					}
 				}
 

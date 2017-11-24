@@ -146,13 +146,6 @@
                     bottom: -14px;
                     font-size: var(--font-size-xs, 10px);
                     color: var(--link-text-color);
-                    --pebble-button-left-icon: {
-                        width: 14px !important;
-                        height: 14px!important;
-                        margin-right: 2px;
-                        margin-top: 3px;
-                        bottom: -1px;
-                    };
                 }
 
                 .search-container .resetsearch pebble-button {
@@ -160,6 +153,14 @@
                     --pebble-button: {
                         font-size: var(--font-size-xs, 10px)!important;
                         height: auto;
+                        padding-bottom:0;
+                    };
+                    --pebble-button-left-icon: {
+                        width: 14px !important;
+                        height: 14px!important;
+                        margin-right: 2px;
+                        margin-top: 3px;
+                        bottom: -1px;
                     };
                 }
 
@@ -197,6 +198,20 @@
                     width: 100%;
                     max-height: 490px;
                     box-shadow: none;
+                }
+                #assetGridComponents {
+                    width : 100%;
+                    display: inline-flex;
+                }
+                #assetGridInfo {                   
+                    font-weight: var(--font-bold, bold);
+                    color: var(--palette-dark, #1a2028);
+                    text-align: center;
+                    position: absolute;
+                    top: 25px;
+                    right: 0;
+                    left: 0;
+                    display: none;
                 }
             </style>
         </custom-style>
@@ -278,11 +293,15 @@
                     </div>
                 </div>
             </rock-header>
-            <div class="layout horizontal contentContainer">
+            <div class="layout horizontal contentContainer p-relative">
+                <div id="assetGridInfo"> No results found for the given criteria </div>
+                <div id="assetGridComponents">
                 <div id="entityGridContainer" class$="[[_applyClass(_quickManageEnabled)]]">
                     <rock-assets-search-grid id="assetsSearchGrid" context-data="[[contextData]]" types-criterion="[[_typesCriterion]]" grid-config="[[getConfig('rock-assets-search-grid')]]"
                         search-filters="{{_selectedSearchFilters}}" search-query="[[_searchQuery]]" workflow-criterion="[[_workflowCriterion]]" govern-data-criterion="[[_governDataCriterion]]" 
                         result-record-size="{{_gridFullLength}}"></rock-assets-search-grid>
+                    <bedrock-pubsub event-name="empty-grid" handler="_onAssetGridEmpty" target-id="assetsSearchGrid"></bedrock-pubsub>
+                    <bedrock-pubsub event-name="grid-with-data" handler="_onAssetGridFull" target-id="assetsSearchGrid"></bedrock-pubsub>
                     <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="entityGrid"></bedrock-pubsub>
                 </div>
                 <template is="dom-if" if="[[_quickManageEnabled]]">
@@ -298,6 +317,7 @@
                         <bedrock-pubsub target-id="entityQuickManage" event-name="on-tap-next" handler="_onClickNext"></bedrock-pubsub>
                     </div>
                 </template>
+                </div>
             </div>
             <rock-search-query-parser id="queryParser"></rock-search-query-parser>
             <bedrock-pubsub event-name="on-search-filters" handler="_onSearchFiltersChange" target-id="queryParser"></bedrock-pubsub>
@@ -617,7 +637,9 @@
 
                 //Rock search
                 _onSearch: function (e, detail, sender) {
-                    this._searchQuery = detail;
+                    if(!_.isEmpty(detail)) {
+                        this._searchQuery = detail.query;
+                    }
                     this._searchTimeStamp = new Date().toLocaleString();
                     this._buildQueryString();
                 },
@@ -681,9 +703,12 @@
                                 'id': this._selectedEntity.id,
                                 'type': this._selectedEntity.type
                             };
-                            this.updateContext(this.CONTEXT_TYPE_ITEM, [itemContext]);
+                            this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
                             Polymer.Async.microTask.run(() => {
                                 this._currentIndex = this._getSearchGrid().getSelectedItemIndex();
+                                if (this.shadowRoot.querySelector("#entityQuickManage")) {
+                                    this.shadowRoot.querySelector("#entityQuickManage").reload();
+                                }
                             });
                         }
                     }
@@ -702,22 +727,25 @@
                 _onQuickManageChanged: function () {
                     var grid = this._getSearchGrid();
                     if (this._quickManageEnabled) {
-                        var selectedItem = grid.selectedItem;
                         var selectedCount = grid.getSelectedItems();
                         if (selectedCount.length > 1) {
                             this.showWarningToast("Cannot use multiple assets for Quick Manage");
                         }
+                        var selectedItem = selectedCount[selectedCount.length - 1];
                         this._selectedEntity = selectedItem;
                         if (!_.isEmpty(selectedItem)) {
                             var itemContext = {
                                 'id': selectedItem.id,
                                 'type': selectedItem.type
                             };
-                            this.updateContext(this.CONTEXT_TYPE_ITEM, [itemContext]);
+                            this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
                             grid.clearSelection(); //Clear current selection
                             grid.selectItem(selectedItem); //
                             this._currentIndex = grid.getSelectedItemIndex();
                             grid.scrollToIndex(this._currentIndex);
+                            if (this.shadowRoot.querySelector("#entityQuickManage")) {
+                                this.shadowRoot.querySelector("#entityQuickManage").reload();
+                            }
                         }
                     } else {
                         this._currentIndex = -1;
@@ -746,7 +774,7 @@
                                     'id': this._selectedEntity.id,
                                     'type': this._selectedEntity.type
                                 };
-                                this.updateContext(this.CONTEXT_TYPE_ITEM, [itemContext]);
+                                this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
                                 this._currentIndex = index;
                                 grid.clearSelection();
                                 grid.selectItem(gridData[index]);
@@ -942,6 +970,38 @@
                             }
                         }
                 },
+
+                /**
+                * When the grid data is empty, hide the grid,action buttons and show the "no data" info
+                **/
+                _onAssetGridEmpty: function(){
+                    var gridComponents = this.shadowRoot.querySelector("#assetGridComponents");
+                    gridComponents.style['visibility']= "hidden"; 
+                    var actionBtns = this.shadowRoot.querySelector(".action-buttons");
+                    actionBtns.style['visibility']= "hidden";         
+                    
+                    var gridInfo = this.shadowRoot.querySelector("#assetGridInfo");
+                    gridInfo.style['display']= "block";   
+                    
+                    this._quickManageEnabled = false;
+                },
+
+                /**
+                * When the grid data is not empty, show the grid,action buttons and hide the "no data" info
+                **/
+                _onAssetGridFull: function(){
+                    var gridInfo = this.shadowRoot.querySelector("#assetGridInfo");
+                    gridInfo.style['display']= "none"; 
+                    
+                    var gridComponents = this.shadowRoot.querySelector("#assetGridComponents");
+                    gridComponents.style['visibility']= "visible";
+                    var actionBtns = this.shadowRoot.querySelector(".action-buttons");
+                    actionBtns.style['visibility']= "visible";                           
+                },
+
+                /**
+                 * Check if the component is visible according to the config 
+                 */ 
                 _getVisibility: function (componentName) {
                     if (typeof (this._componentConfig) == "object") {
                         var componentsVisibility = this._componentConfig;
@@ -952,6 +1012,7 @@
                         }
                     }
                 },
+
                 /**
                 * Getting the active selected entities when typescriterion changes
                 **/
@@ -966,7 +1027,7 @@
                 * When Refine more tags get added/updated, search query needs to be built and advanced search options need to be incorporated
                 */
                 _buildQueryString: function(e, detail){
-                    //Hadling a case where query is already been built inside the query builder
+                    //Handling a case where query is already been built inside the query builder
                     var relationship = "";
                     var relationshipShortName = ""; 
                     var relationshipsListArray = "";  

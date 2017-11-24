@@ -10,10 +10,12 @@
 <link rel="import" href="../rock-entity-graph-tree/rock-entity-graph-tree.html">
 
 <link rel="import" href="../bedrock-app-behavior/bedrock-app-behavior.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-styles-scroll-bar.html"/>
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 
 <dom-module id="rock-entity-graph">
     <template>
-        <style>
+        <style include="bedrock-styles-scroll-bar">
             :host{
                 --rock-grid-actions:{
                     display:none;
@@ -24,20 +26,41 @@
                 --quick-manage-header: {
                     display: none;
                 }
+                /* --grid-actions: {
+                    display: none; 
+                } */
+                --rock-where-used-grid-govern-toggle:{
+                    display: none;
+                }
+                --grid-quick-manage:{
+                    display:none;
+                }
+            }
+            .left-panel{
+                height: 100%;
+                overflow: auto;
+            }
+            .message {
+                padding: 10px;
+                margin: 10px 20px;
+                background: var(--palette-pale-grey-four, #eff4f8);
+                text-align: center;
+                border-radius: 3px;
             }
         </style>
         <liquid-config-aggregate-get id="getAppConfig" verbose operation="getbyids" request-id="req1" app-name="app-entity-discovery"
         context-data="[[prepareContextDataForLiquid(contextData)]]" on-config-get-response="_onApplicationConfigReceived"></liquid-config-aggregate-get>
            <pebble-resizable-panels>
                 <div class="left-panel" panel-width="30%">
-                    <rock-entity-graph-tree id="childFamilyTree" context-data="[[contextData]]" item-data="{{_itemData}}"></rock-entity-graph-tree>
+                    <rock-entity-graph-tree id="graphTree" context-data="[[contextData]]" item-data="{{_itemData}}"></rock-entity-graph-tree>
                 </div>
                 <div class="right-panel" panel-width="70%">
                     <template is="dom-if" if="{{!_visibleMessageCard(_itemData)}}">
                         <template is="dom-if" if="[[applicationConfig.components]]">
                                     
                             <template is="dom-if" if="[[_isGridView]]">
-                                <rock-relationship-manage mode="[[mode]]" context-data="[[contextData]]" config-context="[[configContext]]" no-of-columns="[[noOfColumns]]" do-sync-validation$="[[doSyncValidation]]"></rock-relationship-manage>
+                                <rock-relationship-manage id="relationshipManage" mode="[[mode]]" context-data="[[_getContextData(applicationConfig.*)]]" config-context="[[_getConfigContext(applicationConfig.*)]]" 
+                                no-of-columns="[[noOfColumns]]" do-sync-validation$="[[doSyncValidation]]" ></rock-relationship-manage>
                             </template>                    
                             <template is="dom-if" if="[[!_isGridView]]">
                                 <div>
@@ -50,14 +73,14 @@
                         </template>
                     </template>
                     <template is="dom-if" if="{{_visibleMessageCard(_itemData)}}">
-                        <div>Select left section to see results.</div>
+                        <div class="message">Select left section to see results.</div>
                     </template>
                 </div>
             </pebble-resizable-panels>
+            <bedrock-pubsub event-name="grid-data-refreshed" handler="_onRefreshGrid" ></bedrock-pubsub>
     </template>
 <script>
 (function(){
-
     Polymer({
         is: "rock-entity-graph",
         properties:{
@@ -65,8 +88,7 @@
                 type: Object,
                 value: function () {
                     return {};
-                },
-                notify:true
+                }
             },
             configContext: {
                 type: Object,
@@ -84,22 +106,22 @@
                 type:Boolean,
                 value: true
             },
-            configContext: {
-                type: Object,
-                value: function() {
-                    return {
-                        // "relationshipType": "Relationships",
-                        // "relationshipNames": [
-                        //     "productpresentationtolot",
-                        //     "ensembletoproductpresentation"
-                        // ],
-                        // "addRelationshipMode": "lov",
-                        // "relationshipTitle": "Lots",
-                        // "relationshipTypeName": "productpresentationtolot"
-                        };
-                },
-                notify: true
-            },
+            // configContext: {
+            //     type: Object,
+            //     value: function() {
+            //         return {
+            //             // "relationshipType": "Relationships",
+            //             // "relationshipNames": [
+            //             //     "productpresentationtolot",
+            //             //     "ensembletoproductpresentation"
+            //             // ],
+            //             // "addRelationshipMode": "lov",
+            //             // "relationshipTitle": "Lots",
+            //             // "relationshipTypeName": "productpresentationtolot"
+            //             };
+            //     },
+            //     notify: true
+            // },
             mode: {
                 type: String,
                 value: function(){
@@ -121,20 +143,39 @@
             clickedEntityTypes: {
                 type: Array,
                 value: function () { return []; }
+            },
+            _graphTree:{
+                type:Element
             }
         },
         behaviors: [
-            RUFBehaviors.AppBehavior
+            // RUFBehaviors.AppBehavior
+            RUFBehaviors.ComponentContextBehavior,
+			RUFBehaviors.UIBehavior
         ],
         observers: [
             '_itemClickHandler(_itemData)'
         ],
+        attached:function(){
+            this._graphTree = this.shadowRoot.querySelector("#graphTree");
+        },
+        _onRefreshGrid:function(ev){
+            if(this._itemData){
+                this._graphTree.refreshTree();
+            }
+        },
         _itemClickHandler: function(){
             if(this._itemData && !_.isEmpty(this._itemData)){
                 if(this._itemData.viewMode && this._itemData.id && this._itemData.type){
-                    if(this.clickedEntityTypes[this.clickedEntityTypes.length-1] != this._itemData.id + "_" + this._itemData.relationshipName){
+                   // if(this.clickedEntityTypes[this.clickedEntityTypes.length-1] != this._itemData.id + "_" + this._itemData.relationshipName){
                         if(this._itemData.viewMode == "QUICK_MANAGE"){
                             this.contextData.ItemContexts = [];
+
+                            //Image quick manage attributes are not coming when context data having contexts
+                            if(this._itemData.type == "image" || this._itemData.type == "video" ||
+                                this._itemData.type == "document" || this._itemData.type == "audio"){
+                                delete this.contextData.Contexts;
+                            }
                             this.push('contextData.ItemContexts', {"id":this._itemData.id,"type":this._itemData.type});
                             this._isGridView = false;
                             setTimeout(() => {
@@ -142,18 +183,19 @@
                             }, 0);
                         }
                          else if(this._itemData.viewMode == "GRID"){
-                            this.set("configContext", {"relationshipTitle":"SKUs","relationshipTypeName":this._itemData.relationshipName});
-                            this.set('contextData.ItemContexts', [{"id":this._itemData.id,"type":this._itemData.type}]);
+                            // this.set("configContext", {"relationshipTypeName":this._itemData.relationshipName});
+                            // this.contextData.ItemContexts = [];
+                            // this.push('contextData.ItemContexts', {"id":this._itemData.id,"type":this._itemData.type, "relationships":[this._itemData.relationshipName], attributeNames:[], relationshipAttributes:[] });
                             var liquidElemet = this.shadowRoot.querySelector("#getAppConfig");
-                            liquidElemet.contextData=this.contextData;
+                            liquidElemet.contextData =  this._getContextData();
                             if(liquidElemet.appName != "app-entity-manage"){
                                 liquidElemet.appName = "app-entity-manage";
                             }
                             liquidElemet.refresh();
                             this._isGridView = true;
                         }
-                         this.clickedEntityTypes.push(this._itemData.id + "_" + this._itemData.relationshipName);
-                    }
+                    //      this.clickedEntityTypes.push(this._itemData.id + "_" + this._itemData.relationshipName);
+                    // }
                 }
             }
         },
@@ -164,14 +206,162 @@
             return true;
         },
         _onApplicationConfigReceived: function (e) {
-            this.set('applicationConfig', e.detail);
-
-            var relationshipManageConfig = e.detail.components["rock-relationship-manage"];
-            if(relationshipManageConfig){
-                var relationshipGridConfig = relationshipManageConfig.config.relationshipGridConfig;
-                var relationshipManage = this.shadowRoot.querySelector("rock-relationship-manage");
-                relationshipManage.set("relationshipGridConfigs", relationshipGridConfig);
+            
+            if(e.detail){
+                this.set('applicationConfig', {});
+                this.set('applicationConfig', e.detail);
+                
+                this.relationshipGridConfigs = {};
+                if(this.applicationConfig && this.applicationConfig.components){
+                    var components = this.applicationConfig["components"];
+                    var relationshipManageConfig = components["rock-relationship-manage"];
+                    if(relationshipManageConfig){
+                        this.relationshipGridConfigs = relationshipManageConfig.config.relationshipGridConfig;
+                    }
+                }
+                var relationshipManage = this.shadowRoot.querySelector("#relationshipManage");
+                if(relationshipManage){
+                    relationshipManage.relationshipTypeList = [];
+                    relationshipManage.relationshipGridConfigs = this.relationshipGridConfigs;
+                }
+                
+                
+                // var relationshipManageConfig = components["rock-relationship-manage"];
+                // if(relationshipManageConfig){
+                //     var relationshipGridConfig = relationshipManageConfig.config.relationshipGridConfig;
+                //     var relationshipManage = this.shadowRoot.querySelector("rock-relationship-manage");
+                //     if(relationshipManage){
+                //         relationshipManage.set("relationshipGridConfigs", relationshipGridConfig);
+                //         // relationshipManage.refresh();
+                //     }
+                // }
             }
+        },
+        // _getContextData:function(appConfig, itemData){
+        //     if(this.applicationConfig && this.applicationConfig.components){
+        //         var components = this.applicationConfig.components;
+        //         if(components['rock-tabs'] && components['rock-tabs'].config && components['rock-tabs'].config.tabItems){
+                    
+        //             var rockTabItems =  components['rock-tabs'].config.tabItems;
+        //             for (let i = 0; i < rockTabItems.length; i++) {
+        //                 const element = rockTabItems[i];
+        //                 if(element && element.name == "relationships"){
+        //                     if(element.component && element.component.properties){
+        //                         if(element.component.properties['mode']){
+        //                             this.set('mode', element.component.properties['mode']);
+        //                         }
+        //                         if(element.component.properties['do-sync-validation']){
+        //                             this.set('doSyncValidation', element.component.properties['do-sync-validation']);
+        //                         }
+        //                         if(element.component.properties['no-of-columns']){
+        //                             this.set('noOfColumns', element.component.properties['no-of-columns']);
+        //                         }
+        //                         if(element.component.properties['config-context']){
+        //                             var configContext =  element.component.properties['config-context'];
+        //                             configContext.relationshipNames = [this._itemData.relationshipName];
+                                    
+        //                             this.set('configContext', configContext);
+        //                             // var relationshipManageConfig = components["rock-relationship-manage"];
+        //                             // if(relationshipManageConfig){
+        //                             //     var relationshipGridConfig = relationshipManageConfig.config.relationshipGridConfig;
+        //                             //     var relationshipManage = this.shadowRoot.querySelector("rock-relationship-manage");
+        //                             //     if(relationshipManage){
+        //                             //         relationshipManage.set("relationshipGridConfigs", {});
+        //                             //         relationshipManage.set("relationshipGridConfigs", relationshipGridConfig);
+        //                             //         // relationshipManage.refresh();
+        //                             //     }
+        //                             // }
+        //                             break;
+        //                         }
+        //                     }
+                           
+        //                 }
+                        
+        //             }
+        //         }
+        //     }
+        //     return this.configContext;
+        // },
+        _getContextData:function(){
+            var contextData = DataHelper.cloneObject(this.contextData);
+            if(contextData.ItemContexts && (contextData.ItemContexts.length == 1)){
+                if(this._itemData.id){
+                    contextData.ItemContexts[0].id = this._itemData.id;
+                }
+                if(this._itemData.relationshipName){
+                    contextData.ItemContexts[0].relationships = [this._itemData.relationshipName];
+                }
+                if(this._itemData.type){
+                    contextData.ItemContexts[0].type = this._itemData.type;
+                }
+            }
+            // return this.contextData;
+            // console.log(this.contextData)
+            return contextData;
+        },
+        _getConfigContext:function(){
+            var configContext = {}
+            if(this._itemData){
+                if(this._itemData.relationshipName){
+                    configContext.relationshipNames = [this._itemData.relationshipName];
+                }
+                configContext.relationshipTypeName = this._itemData.relationshipName;
+            }
+            var components = this.applicationConfig["components"];
+            if(components && components['rock-tabs'] && components['rock-tabs'].config && components['rock-tabs'].config.tabItems){
+                    
+                var rockTabItems =  components['rock-tabs'].config.tabItems;
+                var componentProperties;
+                for (let i = 0; i < rockTabItems.length; i++) {
+                    const element = rockTabItems[i];
+                    componentProperties = {}
+                    if(this._itemData.relEntityType && (this._itemData.relEntityType == "image")){
+                        if(element && element.name == "assets"){
+                            if(element.component && element.component.properties){
+                                componentProperties = element.component.properties;
+                            }
+                        }
+                    }else{
+                        if(element && element.name == "relationships"){
+                            if(element.component && element.component.properties){
+                                // if(element.component.properties['config-context']){
+                                    componentProperties = element.component.properties;
+                                    // var _configContext =  element.component.properties['config-context'];
+                                    // if(_configContext.addRelationshipMode){
+                                    //     configContext["addRelationshipMode"] = _configContext.addRelationshipMode;
+                                    // }
+                                    //configContext.relationshipNames = [this._itemData.relationshipName];
+                                    //this.set('configContext', configContext);
+                                // }
+                                
+                            }
+                            
+                        }
+                    }
+                    if(componentProperties && !_.isEmpty(componentProperties)){
+                        if(componentProperties['config-context']){
+                            var _configContext =  componentProperties['config-context'];
+                            if(_configContext.addRelationshipMode){
+                                configContext["addRelationshipMode"] = _configContext.addRelationshipMode;
+                            }
+                            if(_configContext.relationshipType){
+                                configContext["relationshipType"] = _configContext.relationshipType;
+                            }
+                        }
+                        if(componentProperties['mode']){
+                            this.set('mode', componentProperties['mode']);
+                        }
+                        if(componentProperties['do-sync-validation']){
+                            this.set('doSyncValidation', componentProperties['do-sync-validation']);
+                        }
+                        if(componentProperties['no-of-columns']){
+                            this.set('noOfColumns', componentProperties['no-of-columns']);
+                        }
+                        break;
+                    }
+                }
+            }
+            return configContext;
         },
         getQuickManageConfig: function (componentName, configName) {
             var componentConfig = {};
@@ -193,6 +383,5 @@
         }
     });
 })();
-
 </script>
 </dom-module>

@@ -14,10 +14,20 @@
     <template>
          <style>
              :host{
+                --pebble-tree: {
+                    padding-right: 20px;
+                    padding-left: 20px;
+                };
                 --pebble-tree-node:{
-                    margin-top: 10px;
-                    margin-bottom: 10px;
-                }
+                    padding-top: 0px;
+                    padding-bottom: 0px;
+                    margin-top: 0;
+                    margin-bottom: 0;
+                };
+                --pebble-tree-node-list: {
+                    padding-top: 5px;
+                    padding-bottom: 5px;
+                };
                 --pebble-tree-node-nodetext:{
                     font-size: var(--font-size-sm, 12px);
                     font-weight: var(--font-medium, 500);
@@ -43,7 +53,6 @@
     </template>
 <script>
 (function(){
-
     Polymer({
         is: "rock-entity-graph-tree",
         properties:{
@@ -133,6 +142,12 @@
             },
             _entityModelElement:{
                 type:Object
+            },
+            _selectedNode:{
+                type:Object
+            },
+            _pebbleTree:{
+                type:Element
             }
         },
         behaviors: [
@@ -155,6 +170,7 @@
             
         },
         attached:function(){
+            this._pebbleTree = this.shadowRoot.querySelector("#tree");
             this._entityModelElement = this.shadowRoot.querySelector("#liquidModeleGet")
             var _self = this;
             setTimeout(() =>{
@@ -164,7 +180,7 @@
         },
         _treeNodeExpanded: function (e) {
             this._currentNode = e.detail;
-            if (!this._currentNode.nodeData.children) {
+            if (!this._currentNode.nodeData.children && this._currentNode.nodeData.relationships) {
                 this._currentNodeData = this._currentNode.nodeData;
                 this._initiateModelRequest();
                 this._currentNode.startLoading();
@@ -174,6 +190,13 @@
             if(e && e.detail && e.detail.data){
                 var node = e.detail.data;
                 if(node.nodeData){
+                    if(this._selectedNode){
+                        this._selectedNode.highlightNode = false;
+                    }
+                    this._selectedNode = e.detail.data;
+                    this._selectedNode.highlightNode = true;
+
+                    this.itemData = {};
                     this.itemData = node.nodeData;
                 }else{
                     this.itemData = {}
@@ -296,7 +319,6 @@
                         }
                     }
                 }
-
                 if(dataObj.whereUsedRelationshipNames && dataObj.whereUsedRelationshipNames.length > 0){
                     //For whereUsed 
                     this._whereUsedRequest = this._getWhereUsedRequest(dataObj);
@@ -314,7 +336,6 @@
             if(!_.isEmpty(res)){
                 var entityValidation = DataHelper.validateGetEntitiesResponse(res);
                 var currentNodeData;
-
                 if(entityValidation){
                     var entity = DataHelper.findEntityById(res.content.entities, this._currentNodeData.id);
                     if(entity){
@@ -335,7 +356,6 @@
                             for (var i = 0; i < this._currentNodeData.relationships.length; i++) {
                                 relationship = this._currentNodeData.relationships[i];
                                 childNodeObj = {};
-
                                 if(relationship && relationship.relationshipName){
                                     relationship.expanded = true;
                                     tempArray = [];
@@ -345,6 +365,7 @@
                                             if(_relTo && _relTo.relTo){
                                                 var _relToObj = _relTo.relTo;
                                                 _relToObj.text = this._getNodeTitle(_relToObj, relationship.treeNodeTitle);
+                                                _relToObj.value = _relToObj.text;
                                                 _relToObj.treeNodeTitle = relationship.treeNodeTitle;
                                                 _relToObj.displayName = relationship.displayName;
                                                 _relToObj.relationshipName = relationship.relationshipName;
@@ -361,8 +382,10 @@
                                     childNodeObj.id = this._currentNodeData.id;
                                     childNodeObj.type = this._currentNodeData.type;
                                     childNodeObj.relationshipName = relationship.relationshipName;
+                                    childNodeObj.relEntityType = relationship.relEntityType;
                                     childNodeObj.expanded = true;
                                     childNodeObj.text = relationship.displayName + _nodeTitle;
+                                    childNodeObj.value = childNodeObj.text;
                                     childNodeObj.viewMode = "GRID";
                                     childNodeObj.children = tempArray;
                                     nodeChildren.push(childNodeObj);
@@ -376,7 +399,6 @@
             }
         },
         _onOwnedDataSourceError: function(ev){
-
         },
         _onWhereUsedDataSourceResponse: function(ev){
             if(ev && ev.content && ev.content.entities){
@@ -397,6 +419,7 @@
                                 if(entity.data && entity.data.relationships){
                                     if(entity.data.relationships[relationship.relationshipName]){
                                         entity.text = this._getNodeTitle(entity, relationship.treeNodeTitle);
+                                        entity.value = entity.text;
                                         entity.treeNodeTitle = relationship.treeNodeTitle;
                                         entity.displayName = relationship.displayName;
                                         entity.relationshipName = relationship.relationshipName;
@@ -407,15 +430,18 @@
                                         tempArray.push(entity);
                                     }
                                 }
-
                             }, this);
-
-                            
+                            var _nodeTitle = this._getNodeTitle(this._currentNodeData, this._currentNodeData.treeNodeTitle);
+                            if(!_nodeTitle){
+                                _nodeTitle = this._currentNodeData.id;
+                            }
                             childNodeObj.id = this._currentNodeData.id;
                             childNodeObj.type = this._currentNodeData.type;
                             childNodeObj.relationshipName = relationship.relationshipName;
+                            childNodeObj.relEntityType = relationship.relEntityType;
                             childNodeObj.expanded = true;
-                            childNodeObj.text = relationship.displayName;
+                            childNodeObj.text = relationship.displayName + _nodeTitle;
+                            childNodeObj.value = childNodeObj.text;
                             childNodeObj.viewMode = "GRID";
                             childNodeObj.children = tempArray;
                             nodeChildren.push(childNodeObj);
@@ -431,7 +457,6 @@
             if(this._currentNodeData.children && this._currentNodeData.children.length > 0){
                 for (var j = 0; j < this._currentNodeData.children.length; j++) {
                     var currentChild = this._currentNodeData.children[j];
-
                     if(currentChild.children && (currentChild.children.length == 0)){
                         for (var k = 0; k < _nodeChildren.length; k++) {
                             var child = _nodeChildren[k];
@@ -445,11 +470,9 @@
             }else{
                 this._currentNodeData.children = _nodeChildren;
             }
-
             this._refreshGraphTree();
         },
         _onWhereUsedDataSourceError: function(ev){
-
         },
         _getWhereUsedRequest: function(reqData){
             //var typeConfig = this.treeConfig; //this.getParentAppConfig('rock-entity-family', '', this.entityType);
@@ -481,7 +504,6 @@
             req.params.fields.attributes = [reqData.attribute];
             req.params.fields.relationships = reqData.whereUsedRelationshipNames;
             req.params.fields.relationshipAttributes = reqData.whereUsedRelationshipAttributes;
-
             var relationshipsCriterion = [];
             var relCriterion = {};
             var relTo = {
@@ -497,7 +519,6 @@
             }
             
             req.params.query.filters.typesCriterion = reqData.whereUsedTypesCriterion;
-
             req.params.query.filters.relationshipsCriterion = relationshipsCriterion;
             
             return req;
@@ -510,7 +531,6 @@
                 req.params.query.ids = [reqData.id];
                 //assign entity type
                 req.params.query.filters.typesCriterion = [reqData.type];
-
                 req.params.fields.attributes = [reqData.attribute];
                 req.params.fields.relationships = reqData.ownedRelationshipNames;
                 req.params.fields.relationshipAttributes = reqData.ownedRelationshipAttributes;
@@ -547,14 +567,26 @@
         },
         _updateNodeTitle: function(_title){
             this._graphData.text = _title;
+            this._graphData.value = _title;
             this._graphData.expanded = true;
+        },
+        refreshTree: function(){
+            if(this._selectedNode && this._currentNodeData){
+                this._currentNodeData.children = [];
+                this._initiateModelRequest();
+                this._selectedNode.startLoading();
+            }
         },
         _refreshGraphTree: function(){
             this._graphs = [];
             this._graphs = [this._graphData];
+
+            if(this._pebbleTree && this._selectedNode && this._selectedNode.valuePath){
+                this._selectedNode = this._pebbleTree.getElementNodeByPath(this._selectedNode.valuePath);
+                this._selectedNode.highlightNode = true;
+            }
         }
     })
 })();
-
 </script>
 </dom-module>
