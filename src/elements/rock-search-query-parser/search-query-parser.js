@@ -139,9 +139,9 @@ Parsed query json after stage4 looks like:
 var queryParser = {};
 
 queryParser.options = {};
-queryParser.options["startsWith"] = "show";
-queryParser.options["keywords"] = ["show", "with", "having", "pending", "_ANY"];
-queryParser.options["attributeKeywords"] = ["and"];
+queryParser.options["startsWith"] = "!%&show&%!";
+queryParser.options["keywords"] = ["!%&show&%!", "!%&with&%!", "!%&having&%!", "!%&pending&%!", "!%&_ANY&%!"];
+queryParser.options["attributeKeywords"] = ["!%&and&%!"];
 queryParser.options["operators"] = ["=", ">", "<"];
 
 queryParser.mappings = {
@@ -283,6 +283,7 @@ queryParser.splitValuesByKeywords = function(keyValues, keywords) {
         for(var i=0; i<keys.length; i++) {
             var key = keys[i];
             var value = keyValues[key];
+            key = key.replace(/!|%|&/g,'');
             var valueList;
             if(key === "having") {
                 // send the value for parsing
