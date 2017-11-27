@@ -305,6 +305,22 @@ It makes it easy to explore and switch between different views or functional asp
                     RUFBehaviors.UIBehavior
                 ],
 
+                created() {
+                    this.onTabContentScrollDebounce = _.debounce(this.onTabContentScroll, 300);
+                },
+
+                get tabContentElements() {
+                    return this.shadowRoot.querySelectorAll('.tab-content');
+                },
+
+                detached() {
+                    Array
+                        .from(this.tabContentElements)
+                        .forEach(
+                            content => content.removeEventListener('scroll', this.onTabContentScrollDebounce)
+                        );
+                },
+
                 /*
                  * Can be used to get the value of a badge for the `tab-name` that the user specified.
                  */
@@ -474,35 +490,62 @@ It makes it easy to explore and switch between different views or functional asp
 
                 _onIronSelect: function (e) {
                     this._currentTabErrorLength = 0; //reset errors
-                    if (e && e.detail && e.detail.item) {
-                        // Capturing selected tab configuration
-                        var tabConfig = this.selectedTab = e.detail.item.tabConfig;
-                        var menuItemConfig = e.detail.item.menuItemConfig;
-                        var subTitle = tabConfig.subtitle == undefined ? "" : tabConfig.subtitle;
+                    
+                    if (!e || !e.detail || !e.detail.item) return;
+                    
+                    // Capturing selected tab configuration
+                    var tabConfig = this.selectedTab = e.detail.item.tabConfig;
+                    var menuItemConfig = e.detail.item.menuItemConfig;
+                    var subTitle = tabConfig.subtitle == undefined ? "" : tabConfig.subtitle;
 
-                        //Capturing for Quick Manage, reload tab with this configuration
-                        this._selectedTabConfig = {
-                            "tabConfig": tabConfig,
-                            "menuItemConfig": menuItemConfig,
-                            "subTitle": subTitle
-                        };
+                    //Capturing for Quick Manage, reload tab with this configuration
+                    this._selectedTabConfig = {
+                        "tabConfig": tabConfig,
+                        "menuItemConfig": menuItemConfig,
+                        "subTitle": subTitle
+                    };
 
-                        if (tabConfig && menuItemConfig) {
-                            subTitle = menuItemConfig.title;
-                            this._loadContent(menuItemConfig, tabConfig.name);
+                    if (tabConfig && menuItemConfig) {
+                        subTitle = menuItemConfig.title;
+                        this._loadContent(menuItemConfig, tabConfig.name);
+                        this._resetSubTitles(tabConfig,subTitle);
+                    } else {
+                        if (!this.shadowRoot.querySelector("#" + this.id)._isMenuIconClicked) {
+                            this._loadContent(tabConfig);
                             this._resetSubTitles(tabConfig,subTitle);
-                        } else {
-                            if (!this.shadowRoot.querySelector("#" + this.id)._isMenuIconClicked) {
-                                this._loadContent(tabConfig);
-                                this._resetSubTitles(tabConfig,subTitle);
-                            }
-                        }
-                        if (subTitle) {
-                            this._applyMargin(tabConfig.name, true);
-                        } else {
-                            this._applyMargin(tabConfig.name, false);
                         }
                     }
+                    if (subTitle) {
+                        this._applyMargin(tabConfig.name, true);
+                    } else {
+                        this._applyMargin(tabConfig.name, false);
+                    }
+
+                    this.subscribeContentTabScroll();
+                },
+
+                subscribeContentTabScroll() {
+                    const activeContent = Array
+                        .from(this.tabContentElements)
+                        .find(el => !el.hasAttribute('hidden') && (el.id.indexOf('content-attributes') + 1));
+
+                    if (activeContent) {
+                        activeContent.removeEventListener('scroll', this.onTabContentScrollDebounce)
+                        activeContent.addEventListener('scroll', this.onTabContentScrollDebounce);
+                    }
+                },
+
+                onTabContentScroll(activeContent) {
+                    const tabElement = this;
+
+                    const {scrollHeight, offsetHeight, scrollTop } = tabElement;
+
+                    const PRELOAD_HEIGHT = 200;
+
+                    const scrollDiff = scrollHeight - offsetHeight - scrollTop;
+
+                    if (scrollDiff <= PRELOAD_HEIGHT)
+                        ComponentHelper.fireBedrockEvent("tab-content-scroll", null, { ignoreId: true });
                 },
 
                 _resetSubTitles: function (currentTabConfig,subtitle) {
