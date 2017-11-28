@@ -6,7 +6,8 @@
         .queryHeading {
             border-bottom: 1px solid var(--default-border-color, #c1cad4);
             padding: 10px 0;
-            line-height: 0;
+            line-height: 0;            
+            position: relative;
         }
         .queryHeadingButton {
             height: 18px;
@@ -121,8 +122,9 @@
             padding-left:10px;
         }
         .queryHeadingReset {
-            float: right;
-            margin-right: 10px;
+            position: absolute;
+            right: 0px;
+            bottom: 11px;
         }
         .queryHeadingReset pebble-button {
             height: 18px;
@@ -286,7 +288,7 @@
     <div class="relationshipGridContainer">
         <div class="queryHeading">
             <pebble-button icon="pebble-md-icons:addcircle" class="queryHeadingButton m-l-10" target-id="relationship-grid" on-tap="_onAddRowClick" button-text="WITH"></pebble-button> 
-            <div class="queryHeadingReset">
+            <div class="queryHeadingReset m-r-10">
                 <pebble-button class="btn-link" on-tap="_onResetRelationshipGrid" button-text="Reset"></pebble-button>                   
             </div>                   
         </div>
@@ -307,9 +309,9 @@
                         </div>                         
                     </template>                        
                 </data-table-column>
-                <data-table-column slot="column-slot">
+                 <data-table-column slot="column-slot">
                     <template>
-                    <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
+                       <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
                             <pebble-textbox readonly id="relationship-value_[[index]]" row-id="[[index]]" value="{{item.value}}" no-label-float="true"></pebble-textbox>
                         </div>
                         <div id="iconDiv" slot="cell-slot-content">
@@ -317,7 +319,7 @@
                         </div>                                                
                     </template>  
                 </data-table-column>
-        </pebble-data-table>        
+        </pebble-data-table>
         </div>
         <pebble-popover id="relAttributesPopover" for="" no-overlap auto-fit-on-attach vertical-align="auto" horizontal-align="auto">
             <pebble-lov id="relAttributeModelLov" on-selection-changed="_onRelAttributeLovSelectionChanged"></pebble-lov>
@@ -339,7 +341,7 @@
     
 
     <!-- WF search -->
-    <template is="dom-if" if="[[_isWorkflowSearchEnabled(workflowName)]]">
+    <!--<template is="dom-if" if="[[_isWorkflowSearchEnabled(workflowName)]]">-->
         <div class="workflowGridContainer">
             <div class="queryHeading">
                 <pebble-button class="queryHeadingButton" target-id="workflow-grid" button-text="PENDING"></pebble-button>
@@ -378,7 +380,7 @@
                 <pebble-lov id="workflowActivityLov" on-selection-changed="_onWorkflowActivityLovSelectionChanged"></pebble-lov>
             </pebble-popover>
         </div>
-    </template>
+    <!--</template>-->
     <liquid-entity-model-get id="getWorkflowMappingDefinition" operation="getbyids" request-id="req1" request-data={{workflowMappingDefinitionRequest}}
                 on-response="_onWfMappingsReceived" on-error="_onMappingsGetFailed"></liquid-entity-model-get>
     <liquid-entity-model-get id="entityGetWorkflowDefinition" operation="getbyids" request-id="req1" request-data={{workflowDefinitionRequest}}
@@ -398,7 +400,9 @@
         static get is() { return 'rock-query-builder' }
 
         ready() {
-            super.ready();            
+            super.ready();  
+            
+            this._close = this._close.bind(this);
         }
     
         static get properties() {
@@ -419,7 +423,6 @@
                 value: function () {
                     return [];
                 }
-                
             },
             selectedRelationship:{
                 type: String,
@@ -475,12 +478,7 @@
             workflowGridData:{
                 type: Array,
                 value: function () {
-                    return [
-                        {
-                            "name": "",
-                            "value": ""    
-                        }                           
-                    ];
+                    return [];
                 } 
             },
             workflowEntityTypes:{
@@ -609,6 +607,18 @@
             searchQuery: {
                 type: String,
                 value: ""
+            },
+            _workflowData: {
+                type: Object,
+                value: function() { return {}; }
+            },
+            relationshipsData: {
+                type: Object,
+                value: function() { return {}; }
+            },
+            workflowCriterion: {
+                type: Object,
+                value: function () { return {}; }
             }
             }
         }      
@@ -618,7 +628,14 @@
         */
         connectedCallback() {
             super.connectedCallback();
-            document.addEventListener('down', this._close.bind(this), true);                   
+            document.addEventListener('down', this._close, true);
+            //add methods to get workflow mappings, relationships, rulecontext mappings when selected entity types available
+            if(!_.isEmpty(this.selectedEntityTypes) && !_.isEmpty(this.contextData)) {
+                //get relationshipmodels for selected entity types
+                this._getRelationshipModels();
+                //get mapped workflows data for the selected entity types
+                this._getWorkflowMappings();
+            }
         }
 
         /**
@@ -626,7 +643,7 @@
         */
         disconnectedCallback() {
             super.disconnectedCallback();
-            document.removeEventListener('down',this._close());
+            document.removeEventListener('down',this._close, true);
         }
 
         /**
@@ -660,8 +677,8 @@
             for(var key=0; key<event.path.length; key++){
                 if(event.path[key].tagName){
                     if(event.path[key].tagName.toUpperCase() == "ROCK-QUERY-BUILDER"){
-                        queryBuilderFound = true;
-                        break;
+                    queryBuilderFound = true;
+                    break;
                     }
                 }
             }
@@ -670,7 +687,7 @@
             }
         }
 
-        /**
+         /**
          * Re-initialise the query builder components when the query builder is opened
         */ 
         onOpenQueryBuilder() {
@@ -682,13 +699,13 @@
         }
 
         /**
-         * Function to reset the query builder
+        * Function to reset the query builder
         */ 
         resetQueryBuilder(){
             this.reset = true;
             this.attributeGridData = [];
             this._onResetRelationship();
-            this._onResetWorkflowGrid();  
+            this._onResetWorkflowGrid(); 
         }       
 
         /**
@@ -696,7 +713,7 @@
          */ 
         _onResetRelationship(){
             this.selectedRelationship = [];
-	    this._onResetRelationshipGrid();            
+            this._onResetRelationshipGrid();
         }
 
         /**
@@ -717,12 +734,12 @@
             this.workflowEntityTypes = [];
             this.workflowGridData = [{"name": "","value": ""}]; 
         }
-        
+
         /**
          * Function to get the query builder data to form the query
          */
         getQueryBuilderData(){            
-            var queryBuilderData = [];
+            var queryBuilderData = {};
 
             var relModelLov = this.shadowRoot.querySelector('#relationshipModelLov');
             if(relModelLov.selectedItem) {
@@ -737,6 +754,234 @@
             } 
             
             return queryBuilderData;
+        }
+
+        _getRelationshipModels() {
+            var clonedContextData = DataHelper.cloneObject(this.contextData);
+            var entityTypes =  this.getSelectedEntityTypes(this.selectedEntityTypes);  
+            this._currentIndex = entityTypes.length;
+            this._currentItems = [];
+            for(let i=0; i<entityTypes.length; i++) {
+                var type = entityTypes[i];
+                var itemContexts = [];
+                var itemContext = {};
+                itemContext.type = type;
+                itemContext.relationships = ["_ALL"];
+                itemContext.relationshipAttributes = ["status", "isprimary", "order", "swatchimage", "hascolorized", "issiblingswatch", "imagetype", "linkdescription", "enabled", "componentskuquantity"];
+
+                itemContexts.push(itemContext);
+                clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
+
+                var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(clonedContextData);
+
+                this.set("relationshipRequest", compositeModelGetRequest);
+
+                var liquidGet = this.shadowRoot.querySelector("#liquidModelGet");
+                if (liquidGet) {
+                    liquidGet.generateRequest();
+                }
+            }
+        }
+
+        /**
+         *  On liquidModelGet success
+         */
+        _onModelReceived(e){
+            var response = e.detail.response;
+            var relationshipModels = DataTransformHelper.transformRelationshipModels(response.content.entityModels[0], this.contextData);
+            var entityType = response.content.entityModels[0].name;
+
+            if (this._currentIndex == 1) {
+                this._currentItems = {};
+            }
+            this._currentItems[entityType] = relationshipModels;
+            var keys = Object.keys(this._currentItems);
+            if (keys && keys.length == this._currentIndex) {
+                var relationships = {};
+                for (let i = 0; i < keys.length; i++) {
+                    var currentItem = this._currentItems[keys[i]];
+                    var relTypes = Object.keys(currentItem);
+                    if (relTypes && relTypes.length > 0) {
+                        var rels = [];
+                        for (let j = 0; j < relTypes.length; j++) {
+                            var relType = relTypes[j];
+                            var rel = currentItem[relType] && currentItem[relType].length > 0 ? currentItem[relType][0] : undefined;
+                            if (rel && rel.attributes) {
+                                var newItem = {
+                                    id: rel.id,
+                                    title: rel.properties && rel.properties.externalName ? rel.properties.externalName : "",
+                                    attributes: rel.attributes
+                                };
+                                rels.push(newItem);
+                            }
+                        }
+                        relationships[keys[i]] = rels;
+                    }
+                }
+                this.set("_relationshipsData", relationships);
+                if(!_.isEmpty(this.relationshipsData)) {
+                    this._populateRelationshipsGridData(this.relationshipsData);
+                }
+            }
+        }
+
+        /**
+         *  On liquidModelGet failure
+         */
+        _onModelGetFailed(e) {
+            this.logError("Rock query builder error",e);
+        }
+
+        /**
+        * Function to generate a request to get the workflow mappings
+        */
+        _getWorkflowMappings(){           
+            if (!_.isEmpty(this.contextData)) { 
+                
+                var selectedEntities =  this.getSelectedEntityTypes(this.selectedEntityTypes);
+                var contextData = DataHelper.cloneObject(this.contextData);
+                var itemContexts = [];
+                var itemContext = {};
+                itemContext.type = selectedEntities;
+                itemContexts.push(itemContext);
+                contextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
+                this.workflowEntityTypes = itemContext.type;
+                this.workflowMappingDefinitionRequest = DataRequestHelper.createWorkflowMappingGetRequest(contextData);
+                this.shadowRoot.querySelector('#getWorkflowMappingDefinition').generateRequest();
+            }
+        }
+
+        /**
+        * Function to get the workflow mappings
+        */
+        _onWfMappingsReceived(e) {
+            var response = e.detail.response;
+            if(response) {
+                var mappedWorkflowNames = [];
+                var mappingModels = response.content && response.content.entityModels ? response.content.entityModels: undefined;
+                if(mappingModels && mappingModels.length > 0) {
+                    for(var i=0; i<mappingModels.length;i++){
+                        var wfDefinitionMappingModel = mappingModels[i];
+                        var type = wfDefinitionMappingModel.name;
+                        var wfRelationships = DataMergeHelper.mergeWorkflowMappings(wfDefinitionMappingModel, this.contextData);
+                        var workflowNames = DataHelper.getRelToNames(wfRelationships.hasWorkflowsDefined);
+                        mappedWorkflowNames = mappedWorkflowNames.concat(workflowNames);
+                        this._mappedWorkflowNames[type] = workflowNames;
+                    }
+                    
+                    var itemContext = this.getFirstItemContext();
+                    itemContext.workflowNames = mappedWorkflowNames;
+                    if(!_.isEmpty(mappedWorkflowNames)) {                   
+                        var itemContext = this.getFirstItemContext();
+                        itemContext.workflowNames = mappedWorkflowNames;
+                        this.workflowDefinitionRequest = DataRequestHelper.createWorkflowDefinitionGetRequest(this.contextData);
+                        this.shadowRoot.querySelector("#entityGetWorkflowDefinition").generateRequest();
+                    }                            
+                }
+            }
+        }
+
+        /**
+        * Workflow mappings failed
+        */
+        _onMappingsGetFailed(e) {
+            this.logWarning("Failed to get workflow mappings","response",JSON.stringify(e.detail));       
+        }
+
+        /**
+        * Function to get the workflow definitions
+        */
+        _onDefinitionReceived(e) {
+            var workflowDefinitionResponse = e.detail.response.content.entityModels;
+            if(workflowDefinitionResponse.length>=1){
+                var workflows = {};
+                for(let i=0;i<workflowDefinitionResponse.length;i++) {
+                    var name = workflowDefinitionResponse[i].name;
+                    var mappedEntityType;
+                    for(var type in this._mappedWorkflowNames) {
+                        if(this._mappedWorkflowNames[type].indexOf(name) !== -1) {
+                            mappedEntityType = type;
+                            break;
+                        }
+                    }
+                    workflows[type] = workflows[type] ? workflows[type] : [];
+                    var wfObj = workflowDefinitionResponse[i].data.attributes;
+                    var newItem = {
+                            name : workflowDefinitionResponse[i].name,
+                            title : AttributeHelper.getFirstAttributeValue(wfObj.workflowName),
+                            attributes : wfObj.activities.group
+                    }
+                    workflows[type].push(newItem);
+                }
+
+                this.set("_workflowData", workflows);
+
+                if(!_.isEmpty(this.workflowCriterion)) {
+                    this._populateWorkflowGridData(this.workflowCriterion);
+                }
+            }
+        }   
+        
+        /**
+        * Workflow definitions failed
+        */
+        _onDefinitionGetFailed(e) {
+            this.logWarning("workflow definition get failed with error",JSON.stringify(e.detail)); 
+        }
+
+        _populateRelationshipsGridData(relationshipsData) {
+            var selectedRelationship = {
+                "id": relationshipsData.relationshipName,
+                "title": relationshipsData.relationshipLongName,
+            };
+
+            this.set("selectedRelationship", selectedRelationship);
+
+            if(!_.isEmpty(relationshipsData.selectedAttributes)) {
+                var relationshipGridData = [];
+                for(let i=0;i<relationshipsData.selectedAttributes.length; i++) {
+                    var attribute = relationshipsData.selectedAttributes[i];
+                    var rowData = {
+                        "name": attribute.longName,
+                        "value": attribute.displayValue,
+                        "attributeModel": attribute.options
+                    };
+                    relationshipGridData.push(rowData);
+                }
+
+                this.set("relationshipGridData", relationshipGridData);
+            }
+        }
+
+        _populateWorkflowGridData(workflowCriterion) {
+            var wfName = workflowCriterion.workflowShortName;
+            var wfActivityName = workflowCriterion.workflowActivityName;
+
+            var wfLongName;
+            var wfActivityLongName;
+            for(var type in this._workflowData) {
+                var wf = this._workflowData[type].find(obj => obj.name === wfName);
+                if(wf) {
+                    wfLongName = wf.title;
+                    var wfActivity = wf.attributes.find(obj => AttributeHelper.getFirstAttributeValue(obj.activityName) === wfActivityName);
+                    if(wfActivity) {
+                        wfActivityLongName = AttributeHelper.getFirstAttributeValue(wfActivity.externalName);
+                    }
+                    break;
+                } else {
+                    continue;
+                }
+            }
+            var rowData = {
+                "name": wfLongName,
+                "value": wfActivityLongName,
+                "workflowExternalName": wfLongName,
+                "workflowShortName": wfName,
+                "workflowActivityExternalName": wfActivityLongName,
+                "workflowActivityShortName": wfActivityName
+            };
+
+            this.set("workflowGridData", [rowData]);
         }
 
         /**
@@ -801,7 +1046,7 @@
         */
         _onApply(){  
             var entityTypes = this.getSelectedEntityTypes(this.selectedEntityTypes); 
-            var queryBuilderData = [];
+            var queryBuilderData = {};
             queryBuilderData = this.getQueryBuilderData();
                       
             this.outputQueryString =  this.buildQuery(entityTypes,this.attributeGridData,queryBuilderData,false,this.searchQuery);
@@ -832,27 +1077,13 @@
                 return;
             }
 
-			var contextData = DataHelper.cloneObject(this.contextData);
-			var domain;
-			if(this.domains){
-				domain=this.domains[0];
-			}
-            var data = this.selectedEntityTypes;
-            if (data.length > 0) {
-                var itemContexts = [];
-                for (var i in data) {
-                    var itemContext = {
-                        'type': data[i].id,
-						"domain":domain
-                    };
-                    itemContexts.push(itemContext);
-                }
-                contextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;  
-				this._contextData = contextData;	
-            }
+            //get relationshipmodels for selected entity types
+            this._getRelationshipModels();
+            //get mapped workflows data for the selected entity types
+            this._getWorkflowMappings();
             
             this._onEntityTypePopoverClose();            
-        }       
+        }
 
         /**
          * Function to display the selected entity names on the entityTypeFilterButton
@@ -1122,7 +1353,7 @@
         /**
         * validate the input for numeric display type and disables the update button
         */
-      _disableUpdate(numericMinInvalid, numericMaxInvalid, _tagsNumericCollection, _tagNumericInput, gte, lte) {
+        _disableUpdate(numericMinInvalid, numericMaxInvalid, _tagsNumericCollection, _tagNumericInput, gte, lte) {
             if (!_.isEmpty(this.gte + "") || !_.isEmpty(this.lte + "") || !_.isEmpty(_tagsNumericCollection) || _tagNumericInput) {
             if (this.shadowRoot.querySelector('paper-radio-group') && this.shadowRoot.querySelector('paper-radio-group').selected == "range") {
                 return (numericMaxInvalid || numericMinInvalid);
@@ -1281,104 +1512,18 @@
          *  Open relationship lov 
         */ 
         _openRelationshipModelLov() {
-            //TODO : Whereused relationship attributes
-            var clonedContextData = DataHelper.cloneObject(this.contextData);
-            var entityTypes = this.getSelectedEntityTypes(this.selectedEntityTypes);
-            this._currentIndex = entityTypes.length;
-            this._currentItems = [];
-            for(let i=0; i<entityTypes.length; i++) {
-                var type = entityTypes[i];
-                var itemContexts = [];
-                var itemContext = {};
-                itemContext.type = type;
-                itemContext.relationships = ["_ALL"];
-                itemContext.relationshipAttributes = ["status", "isprimary", "order", "swatchimage", "hascolorized", "issiblingswatch", "imagetype", "linkdescription", "enabled", "componentskuquantity"];
-
-                itemContexts.push(itemContext);
-                clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
-
-                var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(clonedContextData);
-
-                this.set("relationshipRequest", compositeModelGetRequest);
-
-                var liquidGet = this.shadowRoot.querySelector("#liquidModelGet");
-                if (liquidGet) {
-                    liquidGet.generateRequest();
-                }
-            }
-        }
-
-        /**
-         *  Construct the Ids for the relationships model lov
-        */ 
-        getRelationshipModelLovQueryIds(entityTypes) {
-            var tempArray = new Array();
-            for(var i=0;i<entityTypes.length;i++){
-                tempArray.push(entityTypes[i]+"_entityCompositeModel");
-            }
-            return tempArray;
-        }
-
-        /**
-         *  On liquidModelGet success
-         */
-        _onModelReceived(e){
-           /* var entityModels = e.detail.response.content.entityModels;
-            if(entityModels.length>=1){
-               var relationships = new Array();                    
-               for(let i=0;i<entityModels.length;i++) {
-                    var relationshipObj = entityModels[i].data.relationships;
-                    for(var obj in relationshipObj){
-                        var newItem = {
-                            id : obj,
-                            title : relationshipObj[obj][0].properties.externalName,
-                            attributes : relationshipObj[obj][0].attributes
-                        }                        
-                        relationships.push(newItem);
-                    }
-               }
-           }
-           
             //Get the intersection if the selected entities are more than 1
-            if(entityModels.length>1) {
-                relationships = this.findDuplicate(relationships,'title');
-            }
-           var relationshipPopover = this.shadowRoot.querySelector('#relationshipPopover');
-           var relationshipModelLov = this.shadowRoot.querySelector('#relationshipModelLov');
-           relationshipModelLov.items = new Array();
-           relationshipModelLov.items = relationships;
-           relationshipPopover.show();*/
-
-            var response = e.detail.response;
-            var relationshipModels = DataTransformHelper.transformRelationshipModels(response.content.entityModels[0], this.contextData);
-
-            if (this._currentIndex == 1) {
-                this._currentItems = [];
-            }
-            this.push('_currentItems', relationshipModels);
-
-            if (this._currentItems.length == this._currentIndex) {
+            var entityTypes = this.getSelectedEntityTypes(this.selectedEntityTypes);
+            if(!_.isEmpty(entityTypes) && !_.isEmpty(this._relationshipsData)) {
                 var relationships = [];
-                for (let i = 0; i < this._currentItems.length; i++) {
-                    var currentItem = this._currentItems[i];
-                    var relTypes = Object.keys(currentItem);
-                    if (relTypes && relTypes.length > 0) {
-                        for (let j = 0; j < relTypes.length; j++) {
-                            var relType = relTypes[j];
-                            var rel = currentItem[relType] && currentItem[relType].length > 0 ? currentItem[relType][0] : undefined;
-                            if (rel && rel.attributes) {
-                                var newItem = {
-                                    id: rel.id,
-                                    title: rel.properties && rel.properties.externalName ? rel.properties.externalName : "",
-                                    attributes: rel.attributes
-                                };
-                                relationships.push(newItem);
-                            }
-                        }
+                for(let i=0; i<entityTypes.length; i++) {
+                    var type = entityTypes[i];
+                    if(this._relationshipsData[type]) {
+                        relationships = relationships.concat(this._relationshipsData[type]);
                     }
                 }
-                //Get the intersection if the selected entities are more than 1
-                if (this._currentIndex > 1) {
+
+                if(!_.isEmpty(relationships)) {
                     relationships = this.findDuplicate(relationships, 'title');
                 }
                 var relationshipPopover = this.shadowRoot.querySelector('#relationshipPopover');
@@ -1387,15 +1532,6 @@
                 relationshipModelLov.items = relationships;
                 relationshipPopover.show();
             }
-
-            
-        }
-
-        /**
-         *  On liquidModelGet failure
-         */
-        _onModelGetFailed(e) {
-            this.logError("Rock query builder error",e);
         }
 
         /**
@@ -1487,97 +1623,6 @@
             var popover = this.shadowRoot.querySelector("#relAttributesPopover");
             popover.for = "";
             popover.hide();
-        }  
-
-
-        /**
-        * Function to generate a request to get the workflow mappings
-        */
-        _getWorkflowMappings(){           
-            if (!_.isEmpty(this.contextData)) { 
-                //If entity types are not changed, return without making a rdf call
-                var selectedEntities =  this.getSelectedEntityTypes(this.selectedEntityTypes);              
-                if(JSON.stringify(this.workflowEntityTypes) === JSON.stringify(selectedEntities)){
-                     return;
-                }
-                  
-                var contextData = DataHelper.cloneObject(this.contextData);
-                var itemContexts = [];
-                var itemContext = {};
-                itemContext.type = selectedEntities;
-                itemContexts.push(itemContext);
-                contextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
-                this.workflowEntityTypes = itemContext.type;           
-                this.workflowMappingDefinitionRequest = DataRequestHelper.createWorkflowMappingGetRequest(contextData);
-                this.shadowRoot.querySelector('#getWorkflowMappingDefinition').generateRequest();
-            }
-        }
-
-        /**
-        * Function to get the workflow mappings
-        */
-        _onWfMappingsReceived(e) {
-            var response = e.detail.response;
-            if(response) {
-                var mappedWorkflowNames = [];
-                var mappingModels = response.content && response.content.entityModels ? response.content.entityModels: undefined;
-                if(mappingModels && mappingModels.length > 0) {
-                    for(var i=0; i<mappingModels.length;i++){
-                        var wfDefinitionMappingModel = mappingModels[i];
-                        var wfRelationships = DataMergeHelper.mergeWorkflowMappings(wfDefinitionMappingModel, this.contextData);
-                        var workflowNames = DataHelper.getRelToNames(wfRelationships.hasWorkflowsDefined);
-                        mappedWorkflowNames = mappedWorkflowNames.concat(workflowNames);
-                    }
-                    
-                    this.set("_mappedWorkflowNames", mappedWorkflowNames);
-                    var itemContext = this.getFirstItemContext();
-                    itemContext.workflowNames = this._mappedWorkflowNames;
-                    if(!_.isEmpty(this._mappedWorkflowNames)) {                   
-                        var itemContext = this.getFirstItemContext();
-                        itemContext.workflowNames = this._mappedWorkflowNames;
-                        this.workflowDefinitionRequest = DataRequestHelper.createWorkflowDefinitionGetRequest(this.contextData);
-                        this.shadowRoot.querySelector("#entityGetWorkflowDefinition").generateRequest();
-                    }                            
-                }
-            }
-        }
-
-        /**
-        * Workflow mappings failed
-        */
-        _onMappingsGetFailed(e) {
-            this.logWarning("Failed to get workflow mappings","response",JSON.stringify(e.detail));       
-        }
-
-        /**
-        * Function to get the workflow definitions
-        */
-        _onDefinitionReceived(e) {
-            var workflowDefinitionResponse = e.detail.response.content.entityModels;
-            if(workflowDefinitionResponse.length>=1){
-                var workflowDefinition = new Array();                    
-                for(let i=0;i<workflowDefinitionResponse.length;i++) {
-                        var wfObj = workflowDefinitionResponse[i].data.attributes;
-                        var newItem = {
-                                name : workflowDefinitionResponse[i].name,
-                                title : wfObj.workflowName.values[0].value,
-                                attributes : wfObj.activities.group
-                        }                        
-                        workflowDefinition.push(newItem);                    
-                }
-            }
-
-            //Populate the workflowModelLov
-            var wfModelLov = this.shadowRoot.querySelector('#workflowModelLov');
-            wfModelLov.items = new Array();
-            wfModelLov.items = workflowDefinition;
-        }   
-        
-        /**
-        * Workflow definitions failed
-        */
-        _onDefinitionGetFailed(e) {
-            this.logWarning("workflow definition get failed with error",JSON.stringify(e.detail)); 
         }
 
         /**
@@ -1585,18 +1630,30 @@
         */
         _openWorkflowModelLov(e) {
 
-            this._getWorkflowMappings();
-
-            var rowId = e.currentTarget.rowId;
-            if(rowId >= 0) {
-                var lov = this.shadowRoot.querySelector("#workflowModelLov");
-                var popover = this.shadowRoot.querySelector("#workflowPopover");
-                if(lov && popover) {
-                    lov.currentRowId = rowId;
-                    popover.for = "workflow-text_" + rowId;
-                    popover.show();
+            //If entity types are not changed, return without making a rdf call
+            var selectedEntities =  this.getSelectedEntityTypes(this.selectedEntityTypes);
+            
+            if(!_.isEmpty(selectedEntities) && !_.isEmpty(this._workflowData)) {
+                var workflows = [];
+                for(let i=0; i<selectedEntities.length; i++) {
+                    var type = selectedEntities[i];
+                    if(this._workflowData[type]) {
+                        workflows = workflows.concat(this._workflowData[type]);
+                    }
                 }
-            } 
+
+                var rowId = e.currentTarget.rowId;
+                if(rowId >= 0) {
+                    var lov = this.shadowRoot.querySelector("#workflowModelLov");
+                    lov.items = workflows;
+                    var popover = this.shadowRoot.querySelector("#workflowPopover");
+                    if(lov && popover) {
+                        lov.currentRowId = rowId;
+                        popover.for = "workflow-text_" + rowId;
+                        popover.show();
+                    }
+                }
+            }
         }
         
         /**
@@ -1638,16 +1695,27 @@
                 var wfattributeTxtbox = this.root.querySelector("#workflow-text_" + rowId);
                 if(!wfattributeTxtbox) {
                     wfattributeTxtbox = this.shadowRoot.querySelector("#workflow-text_" + rowId);
-                }                
+                }
                 var row = this._getParentRow(wfattributeTxtbox);
+                var wfName = row && row.item && row.item.workflowShortName ? row.item.workflowShortName : "";
+                var wfAttributes = [];
+
+                for(var type in this._workflowData) {
+                    var workflow = this._workflowData[type].find(obj => obj.name === wfName);
+                    if(workflow) {
+                        wfAttributes = workflow.attributes;
+                        break;
+                    } else {
+                        continue;
+                    }
+                }
 
                 //Populate the Workflow Activity Lov
-                var wfAttributes = row.item.attributeModel.attributes;
                 var workflowActivities = new Array();   
                 for(var i=0;i<wfAttributes.length;i++){
                     var newItem = {
-                        name : wfAttributes[i].activityName.values[0].value,                    
-                        title : wfAttributes[i].externalName.values[0].value
+                        name : AttributeHelper.getFirstAttributeValue(wfAttributes[i].activityName),
+                        title : AttributeHelper.getFirstAttributeValue(wfAttributes[i].externalName)
                     }                        
                     workflowActivities.push(newItem);
                 }
@@ -1702,5 +1770,3 @@
     customElements.define(RockQueryBuilder.is, RockQueryBuilder);  
   </script> 
 </dom-module>
-
-
