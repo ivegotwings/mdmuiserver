@@ -1,0 +1,156 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../liquid-config-get/liquid-config-get.html">
+<link rel="import" href="../bedrock-helpers/data-request-helper.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/component-helper.html">
+<link rel="import" href="../bedrock-helpers/context-helper.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+
+<script>
+    /*
+    * <i><b>Content development is under progress... </b></i>
+    * @demo demo/index.html
+    * @polymerBehavior RUFBehaviors.ComponentConfigBehavior
+    */
+    window.RUFBehaviors = window.RUFBehaviors || {};
+
+    /** @polymerBehavior RUFBehaviors.ComponentConfigBehavior */
+    RUFBehaviors.ComponentConfigBehavior = {
+        properties: {
+            componentConfig: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            DEFAULT_CONTEXT_KEY: {
+                type: String,
+                value: '_DEFAULT'
+            }
+        },
+        requestConfig: function (component, contextData) {
+            var configRequest = this._buildConfigRequest(component, contextData);
+            return this._initiateComponentConfigGetRequest(configRequest);
+        },
+        onConfigLoaded: function (componentConfig) {
+            // This is abstract method and consumer of this behavior need to implement it
+        },
+        _buildConfigRequest: function (component, contextData) {
+
+            if(!component) {
+                component = this.localName;
+            }
+
+            if (_.isEmpty(component)) {
+                throw "Component name is not available to fetch component config";
+            }
+
+            if (!contextData && this.contextData) {
+                contextData = this.contextData;
+            }
+
+            var configContext = this._createConfigContext(component, contextData);
+            var configId = this._createConfigId(configContext);
+
+            return DataRequestHelper.createConfigGetRequestNew(configId, configContext);
+        },
+        _createConfigContext: function (component, contextData) {            
+            var tenantId = undefined;
+            var appName = undefined;
+
+            if(_.isEmpty(contextData)) {
+                var currentApp = ComponentHelper.getCurrentActiveApp();
+
+                if (currentApp) {
+                    if (!contextData) {
+                        contextData = currentApp.contextData;
+                    }
+
+                    if (currentApp.localName) {
+                        appName = currentApp.localName;
+                    }
+
+                    if(currentApp.tenantId) {
+                        tenantId = currentApp.tenantId;
+                    }
+                }
+            }
+
+            var domainContext = {};
+            var dataContext = {};
+            var valueContext = {};
+            var itemContext = {};
+            var userContext = {};
+
+
+            var DEFAULT_CONTEXT_KEY = this.DEFAULT_CONTEXT_KEY;
+
+            if (contextData) {
+                domainContext = ContextHelper.getFirstDomainContext(contextData);
+                dataContext = ContextHelper.getFirstDataContext(contextData);
+                valueContext = ContextHelper.getFirstValueContext(contextData);
+                itemContext = ContextHelper.getFirstItemContext(contextData);
+                userContext = ContextHelper.getFirstUserContext(contextData);
+            }
+
+            var configContext = {
+                "component": component,
+                "sysDomain": domainContext && domainContext.sysDomain ? domainContext.sysDomain : DEFAULT_CONTEXT_KEY,
+                "app": appName ? appName : DEFAULT_CONTEXT_KEY,
+                "tenant": tenantId ? tenantId : DEFAULT_CONTEXT_KEY,
+                "domain": domainContext && domainContext.domain ? domainContext.domain: DEFAULT_CONTEXT_KEY,
+                "entityType": itemContext && itemContext.type ? itemContext.type : DEFAULT_CONTEXT_KEY,
+                "relationship": itemContext && itemContext.relationship ? itemContext.relationship : DEFAULT_CONTEXT_KEY,
+            };
+
+            // copy over dataContext keys to config context
+            if(!_.isEmpty(dataContext)) {
+                for(var contextKey in dataContext) {
+                    configContext[contextKey] = dataContext[contextKey];
+                }
+            }
+
+            configContext.role = userContext && userContext.role ? userContext.role : DEFAULT_CONTEXT_KEY,
+            configContext.user = userContext && userContext.user ? userContext.user : DEFAULT_CONTEXT_KEY
+            
+            return configContext;
+        },
+        _createConfigId: function (configContext) {
+            var configId = 'x-';
+            for(var contextKey in configContext) {
+                var contextVal = configContext[contextKey];
+                if(!_.isEmpty(contextVal) && contextVal != DEFAULT_CONTEXT_KEY) {
+                    configId = configId + "_" + contextVal;
+                }
+            }
+
+            configId = configId + "_uiConfig";
+        },
+        _initiateComponentConfigGetRequest: function (configRequest) {
+            var liquidCustomElement = customElements.get("liquid-config-get");
+
+            var liquidElement = new liquidCustomElement();
+
+            liquidElement.requestData = configRequest;
+            liquidElement.operation = "getbyids";
+            liquidElement.addEventListener("response", this._onComponentConfigGetResponse.bind(this));
+
+            //VISH: Test without attaching this liq to dom tree..
+            //this.appendChild(liquidElement);
+
+            liquidElement.generateRequest();
+        },
+        _onComponentConfigGetResponse: function (e) {
+            if (e.detail) {
+                var configs = e.detail.response.content.configObjects;
+
+                if (DataHelper.isValidObjectPath(configs, 'configObjects.0.data.contexts.0.jsonData')) {
+                    this.componentConfig = configs[0].data.contexts[0].jsonData;
+                }
+
+                this._onConfigLoaded(this.componentConfig);
+            }
+        }
+    };
+
+</script>
