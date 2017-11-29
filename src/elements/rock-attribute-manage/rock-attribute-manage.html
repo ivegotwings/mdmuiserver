@@ -88,15 +88,20 @@ It is responsible to "get" and "save" the attributes.
             <p>Are you sure you want to discard the unsaved changes.</p>
         </pebble-dialog>
         <bedrock-pubsub event-name="on-buttonok-clicked" handler="_revertAll" target-id="cancelDialog"></bedrock-pubsub>
-        <rock-attribute-list context-data="[[contextData]]"
-                             readonly$="[[readonly]]"
-                             show-group-name$=[[showGroupName]]
-                             group-name="[[groupName]]"
-                             attribute-values="[[_attributeValues]]"
-                             attribute-models="[[_attributeModels]]"
-                             no-of-columns="[[noOfColumns]]"
-                             mode="{{mode}}"
-                             attribute-messages="{{_attributeMessages}}"></rock-attribute-list>
+        <rock-attribute-list 
+            context-data="[[contextData]]"
+            readonly$="[[readonly]]"
+            show-group-name$=[[showGroupName]]
+            group-name="[[groupName]]"
+            attribute-values="[[_attributeValues]]"
+            attribute-models="[[_attributeModels]]"
+            no-of-columns="[[noOfColumns]]"
+            mode="{{mode}}"
+            attribute-messages="{{_attributeMessages}}"
+            functionalMode="[[functionalMode]]"
+            on-save-changes="_save"
+            on-edit-cancel="_openCancelDialog"
+        ></rock-attribute-list>
         <liquid-entity-data-get name="attributeGetDataService" operation="getbyids" request-data="{{_attributeRequest}}" last-response="{{_attributeResponse}}"></liquid-entity-data-get>
         <liquid-entity-govern-data-get id="attributeGetMessageService" operation="getbyids" request-data={{_attributeMessageRequest}}
             on-response="_onAttributesMessageReceived" on-error="_onEntityGetFailed"></liquid-entity-govern-data-get>
@@ -113,10 +118,6 @@ It is responsible to "get" and "save" the attributes.
         <template is="dom-if" if="[[_showNoAttributeMessage]]">
             <div align="center"> No attributes Found</div>
         </template>
-        <div id="buttonContainer" align="center" class$="[[_getButtonsClass(functionalMode)]]">
-            <pebble-button id="cancel" class="btn btn-secondary m-r-10" button-text="Cancel" on-tap="_openCancelDialog" elevation=1 raised></pebble-button>
-            <pebble-button id="save" disabled$="[[readonly]]" class="focus btn btn-success" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
-        </div>
     </template>
     <script>
         (function () {
@@ -330,8 +331,7 @@ It is responsible to "get" and "save" the attributes.
                 ],
                 observers: [
                     '_attributeResponseChanged(_attributeResponse)',
-                    '_contextChanged(contextData)',
-                    '_modeChanged(mode)'
+                    '_contextChanged(contextData)'
                 ],
                 /**
                   * <b><i>Content development is under progress... </b></i> 
@@ -339,39 +339,6 @@ It is responsible to "get" and "save" the attributes.
                 refresh: function () {
                     //this._configContextChanged(this.getFirstValueContext());
                     this._contextChanged(this.contextData.ValContexts);
-                },
-                _getButtonsClass: function (functionalMode) {
-                    if (functionalMode == "dataFunction") {
-                        return "dataFunctionButton";
-                    } else {
-                        return "defaultButton"
-                    }
-                },
-                _modeChanged: function (mode) {
-                    if (mode != undefined) {
-                        if (mode == 'edit') {
-                            if (this.functionalMode != "dataFunction") {
-                                if(this.parentContainer) {
-                                    var container = this.parentContainer.getBoundingClientRect();
-                                    var item = Polymer.dom(this).node.getBoundingClientRect();
-                                    var leftPositionInsideParentContainer = item.left - container.left;
-                                    //Calculating position of button-bar as a
-                                    //proportion of self element width and container width
-                                    var position = Math.floor((leftPositionInsideParentContainer + item.width / 2) / container.width * 100) + "%";
-                                    this.$.buttonContainer.style.left = position;
-                                    this.$.buttonContainer.style.width = item.width + "px";
-                                } else {
-                                    var width = Polymer.dom(this).clientWidth;
-                                this.$.buttonContainer.style.width = width + "px";
-                                }
-                            }
-                            this.$.buttonContainer.style.display = "inline-block";
-                            this.shadowRoot.querySelector("rock-attribute-list").style.paddingBottom = "120px";
-                        } else {
-                            this.$.buttonContainer.style.display = "none";
-                            this.shadowRoot.querySelector("rock-attribute-list").style.paddingBottom = "10px";
-                        }
-                    }
                 },
                 _contextChanged: function (valueContexts) {
                     if (valueContexts != undefined) {
@@ -594,33 +561,20 @@ It is responsible to "get" and "save" the attributes.
                     return attributesJSON;
                 },
                 _save: function (e) {
-                    if(e.currentTarget.disabled == true){
-                        return;
-                    }
-                    //TODO: Needs to check with Vishal.
-                    //check if any changes
-                    //if none, then return operationResult with warning message else proceed
-                    var attributeList = Polymer.dom(this).node.shadowRoot.querySelector('rock-attribute-list');
+                    if(e.currentTarget.disabled) return;
 
-                    //If have errors return
-                    if (!this.allowSaveOnError && attributeList.hasModelErrors()) {
-                        this.showErrorToast("Cannot save the entity, please resolve the errors.");
-                        return;
-                    }
+                    const { attributes, hasModelErrors } = e.detail;
 
-                    var changedAttributeElements = attributeList.getChangedAttributeElements();
-                    if (changedAttributeElements == undefined || changedAttributeElements.length == 0) {
-                        this.showNoChangesToast();
-                        return {
-                            "message": "No changes to save"
-                        }; //TODO: Prepare OR
-                    }
+                    if (!this.allowSaveOnError && hasModelErrors)
+                        return this.showErrorToast("Cannot save the entity, please resolve the errors.");
+
+                    if (!attributes || attributes.length == 0)
+                        return this.showNoChangesToast();
 
                     //TODO: Temporary, need to send all the attributes for save as API is not supporting delta comparion within entity content and replacing complete entity object...
-                    //changedAttributeElements = attributeList.root.querySelectorAll('rock-attribute');
                     //validate - if error then return operationResult, else proceed
                     //prepare attribute JSON from changed attributes
-                    var attributesJSON = this.extractAttributes(changedAttributeElements);
+                    var attributesJSON = this.extractAttributes(attributes);
 
                     this.logInfo("AttributeManageSave", "attributes", JSON.stringify(attributesJSON, null, 2));
                     var newEntity = {};
