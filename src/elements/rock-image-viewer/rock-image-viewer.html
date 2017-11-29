@@ -3,6 +3,7 @@
 <link rel="import" href="../../../bower_components/paper-icon-button/paper-icon-button.html">
 
 <link rel="import" href="../pebble-dialog/pebble-dialog.html">
+<link rel="import" href="../pebble-asset-viewer/pebble-asset-viewer.html">
 <link rel="import" href="../pebble-image-viewer/pebble-image-viewer.html">
 
 <link rel="import" href="../liquid-rest/liquid-rest.html">
@@ -31,15 +32,27 @@
                 width:100%;
                 height:100%;
             }
+            #bigImage{
+                background-image: url(../../images/loader.gif);
+                background-size: 30px 30px;
+                background-repeat: no-repeat;
+                background-attachment: fixed;
+                background-position: center; 
+            }
         </style>
-
-        <pebble-image-viewer  lazy-load alt="[[alt]]"  error="{{error}}" fade="[[fade]]" height="[[height]]"
-                             loaded="{{loaded}}" loading="{{loading}}" placeholder="[[placeholder]]" position="[[position]]"
-                             preload="[[preload]]" prevent-load="[[preventLoad]]" sizing="[[sizing]]" src="[[_src]]"
-                             width="[[width]]" active="{{active}}">
-        </pebble-image-viewer>
+        <liquid-rest id="getDownloadUrl" url="/data/binarystreamobjectservice/prepareDownload" method="POST" on-liquid-response="_onGetDownloadUrlResponse">
+        </liquid-rest>
         <liquid-rest id="getThumbnail" url="/data/pass-through/binaryobjectservice/get" method="POST"  on-liquid-response="_onGetThumbnailResponse">
         </liquid-rest>
+        <pebble-image-viewer id="imageView" lazy-load alt="[[alt]]"  error="{{error}}" fade="[[fade]]" height="[[height]]"
+                             loaded="{{loaded}}" loading="{{loading}}" placeholder="[[placeholder]]" position="[[position]]"
+                             preload prevent-load="[[preventLoad]]" sizing="[[sizing]]" src="[[_src]]"
+                             width="[[width]]" active="{{active}}" asset-details="[[assetDetails]]">
+        </pebble-image-viewer>
+        <pebble-dialog id="pebbleModal" dialog-title="[[assetDetails.property_originalfilename]]" show-close-icon> 
+
+            <pebble-asset-viewer asset-type="[[assetType]]" asset-url="[[assetUrl]]"></pebble-asset-viewer>
+        </pebble-dialog>
 
     </template>
 
@@ -248,12 +261,23 @@
                 active:{
                     type:Boolean,
                     value:false
+                },
+                assetDetails: {
+                    type:Object
+                },
+                assetType:{
+                    type: String
+                },
+                assetUrl: {
+                    type: String
                 }
             },
             observers:[
                 "_generateGetThumbnailRequest(thumbnailId,active,src)"
             ],
-
+            listeners: {
+                'enlarge-asset': '_onAssetEnlargeEvent'
+            },
             _generateGetThumbnailRequest:function () {
                 if(this.thumbnailId) {
                     this.set("_src",this.loadingThumbnailPath);
@@ -320,12 +344,68 @@
                         var imgSrc = "data:" + e + ";base64," + thumbnail;
                         
                         this.set("_src", imgSrc);
-                    } else {
+                    } 
+                    else if(this.src){
+                        this.set("_src",this.src);
+                    }
+                    else {
                         //console.log('no thumbnail path ', this.noThumbnailImagePath);
                         this.set("_src",this.noThumbnailImagePath);
                     }
                 }
-            }
+                
+            },
+            _onAssetEnlargeEvent: function(event, eventDetails){
+                var imageDetail = eventDetails;
+                if(imageDetail){
+                    if(imageDetail.name == "view-by-item"){
+                        this.set("assetType", imageDetail.data.type);
+                        var fileName = imageDetail.data.property_objectkey;
+                        if (fileName) {
+                            var req = {
+                                "binaryStreamObject": {
+                                "id": fileName,
+                                "type": "binarystreamobject",
+                                "data": {}
+                                }
+                            };
+                            var downloadUrlLiquid = this.shadowRoot.querySelector("#getDownloadUrl");
+                            if (downloadUrlLiquid) {
+                                downloadUrlLiquid.requestData = [req];
+                                downloadUrlLiquid.generateRequest();
+                            }
+                        }
+                    }
+                    else{
+                        this.set("assetType", "image");
+                        this.set("assetUrl", imageDetail.data); 
+                        var modal = this.$.pebbleModal;
+                        modal.open(); 
+                    }
+                }                
+            },
+            
+            _onGetDownloadUrlResponse: function (e) {
+                var modal = this.$.pebbleModal;
+                if (e.detail && e.detail.response && e.detail.response.response) {
+                    var response = e.detail.response.response;
+                    if (response.status.toLowerCase() == "success") {
+                    var binaryStreamObjects = response.binaryStreamObjects;
+                    if (binaryStreamObjects) {
+                        for (var i = 0; i < binaryStreamObjects.length; i++) {
+                        if (binaryStreamObjects[i].data) {
+                            var downloadURL = binaryStreamObjects[i].data.properties.downloadURL;
+                            if (downloadURL) {
+                                this.set("assetUrl", downloadURL); 
+                                modal.open();               
+                               
+                            }
+                        }
+                        }
+                    }
+                    }
+                }
+            },
         });
     </script>
 </dom-module>
