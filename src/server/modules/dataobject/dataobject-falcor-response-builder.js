@@ -70,13 +70,6 @@ function _buildFieldsResponse(dataObject, reqData, baseJson, paths) {
     return;
 }
 
-function _hasLocaleCoalesceValue(reqData, locale) {
-    if (reqData && reqData.valCtxKeys && locale) {
-        return reqData.valCtxKeys.find((context)=> ~context.indexOf(locale) && ~context.indexOf(LOCALE_COALESCE_KEY));
-    }
-    return null;
-}
-
 function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJson, paths, basePath) {
     //console.log('reqAttrNames ', attrNames);
 
@@ -108,10 +101,6 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                 var locale = val.locale || undefined;
 
                 var valCtxItem = { 'source': source, 'locale': locale }; //TODO: Here, source and locale are hard coded... How to find out val contexts keys from the flat list of values object..??
-
-                if (_hasLocaleCoalesceValue(reqData, locale)) {
-                    valCtxItem.localeCoalesce = true;
-                }
 
                 var valCtxKey = falcorUtil.createCtxKey(valCtxItem);
 

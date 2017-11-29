@@ -1,6 +1,7 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-helpers/context-helper.html">
 <link rel="import" href="../bedrock-helpers/data-request-helper.html">
@@ -254,6 +255,16 @@ It filters the data as per filter criteria.
                         }
                     },
                     /**
+                     * Specifies the workflow criterion for the search.
+                     */
+                    governDataCriterion: {
+                        type: Object,
+                        notify: true,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    /**
                      * Specifies the format of the data that are passed to the `remote-data`.
                      */
                     rDataFormatter: {
@@ -394,11 +405,6 @@ It filters the data as per filter criteria.
                     RUFBehaviors.ComponentContextBehavior
                 ],
 
-                observers: [
-                    '_onGridConfigChange(gridConfig, savedSearchCriterion)',
-                    '_loadSearchResultsByQueryOrFilters(searchFilters,searchQuery,relationshipSearchFilters)'
-                ],
-
                 attached: function(){
                     Polymer.RenderStatus.beforeNextRender(this, function() {
                         this._isViewLoaded = true;
@@ -408,7 +414,7 @@ It filters the data as per filter criteria.
                  * <b><i>Content development is under progress... </b></i> 
                  */
                 refresh: function () {
-                    this._onGridConfigChange(this.gridConfig, this.savedSearchCriterion);
+                    this._onGridConfigChange(this.gridConfig);
                 },
 
                 /**
@@ -492,16 +498,17 @@ It filters the data as per filter criteria.
                         return;
                     }
                     var title=this.workflowCriterion.workflowActivityExternalName +" ("+  this.workflowCriterion.workflowName+ ")";
-                    if(this.workflowCriterion.businessConditionExternalName){
-                        var status=this.workflowCriterion.status;
+                    if(this.governDataCriterion && this.governDataCriterion.businessConditionExternalName){
+                        var status=this.governDataCriterion.status;
                         if(!status){
                             status="failed";
                         }
-                        title+= " - "+this.workflowCriterion.businessConditionExternalName + " ("+ status + ")"
-                    }
-                    if(this.workflowCriterion.userId){
-                        var userText= this.workflowCriterion.userId=="_UNASSIGNED"? "Unassigned": "Assigned to me";
-                        title+=" - "+userText;
+                        title+= " - "+this.governDataCriterion.businessConditionExternalName + " ("+ status + ")"
+
+                        if(this.governDataCriterion.userId){
+                            var userText= this.governDataCriterion.userId=="_UNASSIGNED"? "Unassigned": "Assigned to me";
+                            title+=" - "+userText;
+                        }
                     }
                     this.set('gridConfig.workflowTitle', title);
                 },
@@ -512,17 +519,19 @@ It filters the data as per filter criteria.
                     if (!_.isEmpty(this.workflowCriterion)) {
                         this._addWorkflowDetailsToConfig();
                         var workflowActivityName = this.workflowCriterion.workflowActivityName;
-                        var userId = this.workflowCriterion.userId;
-                        var businessConditionName = this.workflowCriterion.businessConditionName;
-                        var businessConditionNames = this.workflowCriterion.businessConditionNames;
-                        var passedBusinessConditions = this.workflowCriterion.status=="passed";
                         var contexts = [];
                         var excludeNonContextual=false;
-                        if(!(businessConditionName || businessConditionNames)) {
-                            contexts.push({
-                                "workflow": this.workflowCriterion.workflowShortName
-                            });
-                            excludeNonContextual=true;
+                        if(!_.isEmpty(this.governDataCriterion)) {
+                            var userId = this.governDataCriterion.userId;
+                            var businessConditionName = this.governDataCriterion.businessConditionName;
+                            var businessConditionNames = this.governDataCriterion.businessConditionNames;
+                            var passedBusinessConditions = this.governDataCriterion.status=="passed";
+                            if(!(businessConditionName || businessConditionNames)) {
+                                contexts.push({
+                                    "workflow": this.workflowCriterion.workflowShortName
+                                });
+                                excludeNonContextual=true;
+                            }
                         }
 
                         var options = {
@@ -554,7 +563,7 @@ It filters the data as per filter criteria.
                     }
                 },
 
-                _onGridConfigChange: function (gridConfig, savedSearchCriterion) {
+                _onGridConfigChange: function (gridConfig) {
                     var dataRequest = {};
 
                     if (_.isEmpty(this.contextData) || _.isEmpty(gridConfig)) {
@@ -567,11 +576,11 @@ It filters the data as per filter criteria.
                         }
                     }
 
-                    //TODO:: Search has to be restructured.
-                    // Below is temporary fix.
-                    if (!_.isEmpty(this.savedSearchId) && _.isEmpty(savedSearchCriterion)) {
-                        return;
-                    }
+                    // //TODO:: Search has to be restructured.
+                    // // Below is temporary fix.
+                    // if (!_.isEmpty(this.savedSearchId) && _.isEmpty(savedSearchCriterion)) {
+                    //     return;
+                    // }
 
                     if (!gridConfig.dataRequest) {
                         return;
@@ -641,6 +650,12 @@ It filters the data as per filter criteria.
                                     }
                                 }
                             }
+                            this.fireBedrockEvent('grid-with-data');
+                        } else {
+                            //Check on scroll down, the grid can still have some data
+                            if(this.getData().length <= 0) {
+                                 this.fireBedrockEvent('empty-grid');
+                            }                               
                         }
                     }
 
@@ -671,47 +686,6 @@ It filters the data as per filter criteria.
                     }
 
                     return filters;
-                },
-
-                _loadSearchResultsByQueryOrFilters: function () {
-                    this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(100), () => {
-                        var grid = this._getEntityGrid();
-                        var dataSource = this._getEntityDataSource();
-
-                        if (grid  && !_.isEmpty(this._entityDataGetReq)) {
-                            if (!this._entityDataGetReq.params.query) {
-                                this._entityDataGetReq.params.query = {};
-                            }
-
-                            if (!this._entityDataGetReq.params.query.filters) {
-                                this._entityDataGetReq.params.query.filters = {};
-                            }
-                            if(this.searchFilters) {
-                                var attrsCriterion = this._removeUnSupportedFilters(this.searchFilters);
-                                this._entityDataGetReq.params.query.filters.attributesCriterion = attrsCriterion;
-                                if (!_.isEmpty(this._governDataGetReq)) {
-                                    this._governDataGetReq.params.query.filters.attributesCriterion = this._getDefaultGovernAttributesCriterion();
-                                }
-                                this._updateGovernRequestAttributesCriterion(attrsCriterion);
-                            }
-                            if(!_.isEmpty(this.relationshipSearchFilters)) {
-                                this._entityDataGetReq.params.query.filters.relationshipsCriterion = this.relationshipSearchFilters;
-                            }
-
-                            this._setSearchCriteria();
-
-                            if (this._isCombinedGetReq) {
-                                this.request = DataRequestHelper.createCombinedGetRequest(this._governDataGetReq, this._entityDataGetReq);
-                            } else {
-                                this.request = this._entityDataGetReq;
-                            }
-
-                            if (dataSource) {
-                                dataSource.resetDataSource();
-                            }
-                            grid.reRenderGrid();
-                        }
-                    })
                 },
 
                 _setSearchCriteria: function() {
@@ -759,8 +733,16 @@ It filters the data as per filter criteria.
                     this._entityDataGetReq = DataRequestHelper.createEntityGetRequest(this.contextData);
 
                     if (this.searchFilters && !_.isEmpty(this.searchFilters)) {
-                        this._entityDataGetReq.params.query.filters.attributesCriterion = this.searchFilters;
-                        this._updateGovernRequestAttributesCriterion(this.searchFilters);
+                        var attrsCriterion = this._removeUnSupportedFilters(this.searchFilters);
+                        this._entityDataGetReq.params.query.filters.attributesCriterion = attrsCriterion;
+                        if (!_.isEmpty(this._governDataGetReq)) {
+                            this._governDataGetReq.params.query.filters.attributesCriterion = this._getDefaultGovernAttributesCriterion();
+                            this._updateGovernRequestAttributesCriterion(this.searchFilters);
+                        }
+                    }
+
+                    if(!_.isEmpty(this.relationshipSearchFilters)) {
+                        this._entityDataGetReq.params.query.filters.relationshipsCriterion = this.relationshipSearchFilters;
                     }
 
                     this._setSearchCriteria();

@@ -88,14 +88,15 @@
           var itemContexts = [];
           var itemContext = {};
 
+          var searchQuery = queryObject.searchQuery ? queryObject.searchQuery : undefined;
+          this.searchFilters["searchQuery"] = searchQuery;
+
           var workflowCriterion = queryObject.workflowCriterion ? queryObject.workflowCriterion : undefined;
-          if (workflowCriterion) {
-            this.searchFilters["workflowCriterion"] = workflowCriterion;
-          }
+          this.searchFilters["workflowCriterion"] = workflowCriterion;
 
           var attributeNames = queryObject.entityData && queryObject.entityData.attributes ? this._getAttributeNames(queryObject.entityData.attributes) : "_ALL";
           itemContext.attributeNames = attributeNames;
-          this.set("_entityAttributes", queryObject.entityData.attributes);
+          this._entityAttributes = queryObject.entityData && queryObject.entityData.attributes ? queryObject.entityData.attributes : undefined;
 
           var relationshipName = queryObject.entityRelationships && queryObject.entityRelationships.relationshipName ? queryObject.entityRelationships.relationshipName : undefined;
           this.searchFilters["relationshipName"] = relationshipName;
@@ -103,7 +104,7 @@
             itemContext.relationships = [relationshipName];
             var relationshipAttributes = queryObject.entityRelationships && queryObject.entityRelationships.attributes ? this._getAttributeNames(queryObject.entityRelationships.attributes) : "_ALL";
             itemContext.relationshipAttributes = relationshipAttributes;
-            this.set("_relationshipAttributes", queryObject.entityRelationships.attributes);
+            this._relationshipAttributes = queryObject.entityRelationships && queryObject.entityRelationships.attributes ? queryObject.entityRelationships.attributes : undefined;
           }
 
           var entityTypes = queryObject.entityData && queryObject.entityData.types ? queryObject.entityData.types : [];
@@ -160,7 +161,8 @@
               var relationshipsCriterion = this._prepareRelationshipsCriterion(relationshipModels, this._relationshipAttributes);
               this.searchFilters["attributesCriterion"] = !_.isEmpty(attrsCriterion) ? attrsCriterion : undefined;
               this.searchFilters["relationshipsCriterion"] = !_.isEmpty(relationshipsCriterion) ? [relationshipsCriterion] : undefined;
-
+              this.searchFilters["compositeModels"] = compositeModels;
+              this.searchFilters["relationshipModels"] = relationshipModels;
               this.fireBedrockEvent('on-search-filters', this.searchFilters);
             }
           }
@@ -176,6 +178,12 @@
                   var attrVal = attribute[attrName];
                   var displayType = attrModel.displayType.toLowerCase();
                   var dataType = ConstantHelper.getDataTypeConstant(attrModel.dataType);
+                  if (dataType === "_DECIMAL" || dataType === "_INTEGER") {
+                    displayType = "numeric";
+                  }
+                  if(dataType === "_DATE") {
+                    dataType = ConstantHelper.getDataTypeConstant("datetime");
+                  }
                   var keys = Object.keys(attrVal);
                   if (keys && keys.length > 0) {
                     for (var j = 0; j < keys.length; j++) {
@@ -197,13 +205,16 @@
                       if (containsStr instanceof Array) {
                         containsStr = containsStr.join(' ');
                       }
-                      if (dataType === "_DECIMAL") {
-                        displayType = "numeric";
-                      }
-
-                      attrVal["type"] = dataType;
+                  
                       if (displayType === "referencelist" || displayType === "textbox") {
-                        attrVal["exacts"] = [containsStr];
+                        var valSplitByOr = val.split(' or ');
+                        var valSplitByAnd = val.split(' and ');
+
+                        if(valSplitByAnd.length > 1) {
+                          attrVal["exacts"] = valSplitByAnd;
+                        } else {
+                          attrVal["exacts"] = valSplitByOr;
+                        }
                         delete attrVal[key];
                       } else if (displayType === "boolean") {
                         attrVal["eq"] = containsStr;
@@ -215,9 +226,19 @@
                       } else if (displayType === "numeric") {
                         if (key === "equals") {
                           attrVal["contains"] = containsStr;
+                          attrVal["operator"] = "_OR";
                           delete attrVal[key];
                         }
-                      } else if (displayType === "datetime") {
+                      } else if (displayType === "datetime" || displayType === "date") {
+                        if(key === "gte") {
+                          attrVal[key] = moment(attrVal[key]).startOf("day").format("YYYY-MM-DDTHH:mm:ss.SSS-0500");
+                        } else if(key === "lte") {
+                          attrVal[key] = moment(attrVal[key]).endOf("day").format("YYYY-MM-DDTHH:mm:ss.SSS-0500");
+                        } else if(key === "equals") {
+                          attrVal["gte"] = moment(attrVal[key]).startOf("day").format("YYYY-MM-DDTHH:mm:ss.SSS-0500");
+                          attrVal["lte"] = moment(attrVal[key]).endOf("day").format("YYYY-MM-DDTHH:mm:ss.SSS-0500");
+                          delete attrVal[key];
+                        }
                       } else {
                         if (operator) {
                           attrVal["contains"] = containsStr;
@@ -228,6 +249,7 @@
                         delete attrVal[key];
                       }
                     }
+                    attrVal["type"] = dataType;
                   }
                   attributes[i] = attribute;
                 }

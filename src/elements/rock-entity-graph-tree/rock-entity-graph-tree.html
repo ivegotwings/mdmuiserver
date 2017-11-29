@@ -1,0 +1,541 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../pebble-tree/pebble-tree.html">
+
+<link rel="import" href="entity-graph-tree-datasource.html">
+
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/entity-helper.html">
+<link rel="import" href="../bedrock-helpers/attribute-helper.html">
+
+<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+
+<dom-module id="rock-entity-graph-tree">
+    <template>
+         <style>
+             :host{
+                --pebble-tree: {
+                    padding-right: 20px;
+                    padding-left: 20px;
+                };
+                --pebble-tree-node:{
+                    padding-top: 0px;
+                    padding-bottom: 0px;
+                    margin-top: 0;
+                    margin-bottom: 0;
+                };
+                --pebble-tree-node-list: {
+                    padding-top: 5px;
+                    padding-bottom: 5px;
+                };
+                --pebble-tree-node-nodetext:{
+                    font-size: var(--font-size-sm, 12px);
+                    font-weight: var(--font-medium, 500);
+                    color: var(--buttontext-color, #616161);
+                    text-align:left;
+                    display: -webkit-box;
+                    display: -webkit-flex;
+                    display: -ms-flexbox;
+                    display: flex;
+                    align-items: flex-start;
+                    -webkit-align-items: flex-start;
+                }
+             }
+         </style>
+        <liquid-entity-model-get id="liquidModeleGet" operation="searchandget" request-data="[[_modelRequest]]" on-response="_onModelReceived" on-error="_onModelGetFailed"></liquid-entity-model-get>
+        <liquid-entity-data-get id="titleAttributeGet" operation="getbyids" request-data="[[_titleRequest]]" on-response="_onTitleAttributesGetResponse"></liquid-entity-data-get>
+
+        <entity-graph-tree-datasource where-used-request="{{_whereUsedRequest}}" where-used-data-source="{{_whereUsedDataSource}}" 
+                owned-relationships-request="{{_ownedRelationshipsRequest}}" owned-data-source="{{_ownedDataSource}}"></entity-graph-tree-datasource>
+
+        <pebble-tree id="tree" leaf-node-only="[[leafNodeOnly]]" data="{{_graphs}}" default-child-depth="10" multi-select="[[multiSelect]]"></pebble-tree>
+    </template>
+<script>
+(function(){
+    Polymer({
+        is: "rock-entity-graph-tree",
+        properties:{
+            contextData: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            _treeConfig: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            leafNodeOnly:{
+                type:Boolean,
+                value:true
+            },
+            _graphs: {
+                type: Array,
+                value: function () {
+                    return [];
+                }
+            },
+            _graphData:{
+                type:Object,
+                value: function(){
+                    return {};
+                }
+            },
+            _selectedItems: {
+                type: Array,
+                value: function () {
+                    return [];
+                }
+            },
+            _selectedItem: {
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            multiSelect:{
+                type:Boolean,
+                value:false
+            },
+            _currentNode:{
+                type:Object,
+                value: function(){
+                    return {};
+                }
+            },
+            _whereUsedRequest:{
+                type:Object,
+                value:function(){
+                    return {}
+                }
+            },
+            _whereUsedDataSource:{
+                type:Object,
+                notify:true
+            },  
+            _ownedDataSource:{
+                type:Function,
+                notify:true
+            },
+            _ownedRelationshipsRequest:{
+                type:Object,
+                notify:true
+            },
+            _currentNodeData:{
+                type:Object
+            },
+            itemData:{
+                type:Object,
+                value: function() {
+                    return {};
+                },
+                notify:true
+            },
+            _modelRequest:{
+                type:Object
+            },
+            _titleRequest:{
+                type:Object,
+                value:function(){
+                    return {}
+                }
+            },
+            _entityModels:{
+                type:Array,
+                value:function(){
+                    return []
+                }
+            },
+            _pageSize:{
+                type:Number,
+                value:10
+            },
+            _selectedNode:{
+                type:Object
+            },
+            _pebbleTree:{
+                type:Element
+            }
+        },
+        behaviors: [
+            RUFBehaviors.UIBehavior
+        ],
+        listeners: {
+            'tree-node-expanded': '_treeNodeExpanded',
+            'tree-node-clicked': '_treeNodeClicked'
+        },
+        ready: function(){
+            this._pebbleTree = this.shadowRoot.querySelector("#tree");
+            this._treeConfig = this.getParentAppConfig('rock-entity-graph', '', 'entityGraphTreeConfig');
+            if(!_.isEmpty(this._treeConfig)){
+                this._treeConfig.id = DataHelper.getParamValue('id');
+                this._treeConfig.type = DataHelper.getParamValue('type');
+
+                var entityModelElement = this.shadowRoot.querySelector("#liquidModeleGet");
+                if(entityModelElement){
+                    this._modelRequest = this._getModelRequest();
+                    entityModelElement.generateRequest();
+                }
+            }
+            
+        },
+        _initiateGraphTree: function(_title){
+            var graphData = DataHelper.cloneObject(this._treeConfig); 
+            graphData.text = _title; 
+            this._updateConfigWithGraphModel(graphData);
+            graphData.expanded = true;
+            graphData.viewMode = "";
+            graphData.value = _title;
+            graphData.highlightNode = true;
+            graphData.children = graphData.relationships;
+            this._graphData = {};
+            this._graphData = graphData;
+            // this._currentNodeData = this._graphData;
+            this._graphs = [this._graphData];
+        },
+        _initiateTitleGet: function(){
+            var titleAttributeGet = this.shadowRoot.querySelector("#titleAttributeGet");
+            if(titleAttributeGet){
+                if (this.contextData && this.contextData.ItemContexts && this.contextData.ItemContexts.length > 0) {
+                    var itemContext = this.contextData.ItemContexts[0];
+                    //add attribute names in item context
+                    var attribute = this._parseNodeTitle(this._treeConfig.treeNodeTitle);
+                    if(attribute){
+                        itemContext.attributeNames = [attribute];
+                    }
+                    this._titleRequest = DataRequestHelper.createEntityGetRequest(this.contextData);
+                    titleAttributeGet.generateRequest();
+                }
+            }
+        },
+        _onTitleAttributesGetResponse:function(ev){
+            if(ev && ev.detail && ev.detail.response){
+                const res = ev.detail.response;
+                if(!_.isEmpty(res)){
+                    var entityValidation = DataHelper.validateGetEntitiesResponse(res);
+                    if(entityValidation){
+                        var ent_id = DataHelper.getParamValue('id');
+                        var entity = DataHelper.findEntityById(res.content.entities, this._treeConfig.id);
+                        if(entity){
+                            var nodeTitle = this._treeConfig.treeNodeTitle;
+                            var attribute = this._parseNodeTitle(this._treeConfig.treeNodeTitle);
+                            if(attribute){
+                                nodeTitle = this._getNodeTitle(entity, this._treeConfig.treeNodeTitle);
+                            }
+                            this._treeConfig.title = nodeTitle;
+                            this._initiateGraphTree(nodeTitle);
+                        }
+                    }
+                }
+            }
+           
+        },
+        _treeNodeExpanded: function (e) {
+            this._currentNode = e.detail;
+            if (this._currentNode.nodeData && !this._currentNode.nodeData.dataLoaded) {
+                this._currentNodeData = this._currentNode.nodeData;
+                this._executeRequest();
+                this._currentNode.startLoading();
+            }
+        },
+        _treeNodeClicked: function (e){
+            if(e && e.detail && e.detail.data){
+                var node = e.detail.data;
+                if(node.nodeData){
+                    if(this._selectedNode){
+                        this._selectedNode.highlightNode = false;
+                    }
+                    this._selectedNode = e.detail.data;
+                    this._selectedNode.highlightNode = true;
+
+                    this.itemData = {};
+                    this.itemData = node.nodeData;
+                }else{
+                    this.itemData = {}
+                }
+            }
+            
+        },
+        _getModelRequest: function(){
+            if(_.isEmpty(this._treeConfig))
+            {
+                return;
+            }
+            var params = {
+                            "query": {
+                                
+                                "filters": {
+                                    "typesCriterion": [
+                                        "entityGraphModel"
+                                    ]
+                                }
+                            },
+                            "fields": {
+                                "relationships": []
+                            },
+                            "options": {
+                                "maxRecords": 200
+                            }
+                        }
+            var relationships = [];
+            function getRelationshipName(_obj){
+                if(_obj && !_.isEmpty(_obj)){
+                    if(_obj.relationshipName){
+                        relationships.push(_obj.relationshipName);
+                    }
+                    if(_obj.relationships && _obj.relationships.length > 0){
+                        for (let i = 0; i < _obj.relationships.length; i++) {
+                            const rel = _obj.relationships[i];
+                            getRelationshipName(rel);
+                        }
+                    }
+                }
+            }
+            getRelationshipName(this._treeConfig);
+            params.fields.relationships = relationships;
+            var req = {params:params};
+            return req;
+        },
+        _onModelReceived: function(ev){
+            if(ev && ev.detail && ev.detail.response){
+                const res = ev.detail.response;
+                if(res.content && (res.status == "success")){
+                    if(res.content.entityModels){
+                        this._entityModels = [];
+                        this._entityModels = res.content.entityModels;
+                        this._initiateTitleGet();
+                    }
+                   
+                }
+            }
+        },
+        _updateConfigWithGraphModel: function(relObj){
+            if(relObj && !_.isEmpty(relObj) && relObj.type){
+                var modelId = relObj.type+"_entityGraphModel";
+                var entity = DataHelper.findEntityById(this._entityModels, modelId);
+                if(entity){
+                    if(relObj.relationships){
+                        for (var i = 0; i < relObj.relationships.length; i++) {
+                            var relationship = relObj.relationships[i];
+                            
+                            if(relationship && relationship.relationshipName){
+                                var _relationshipDataArray = EntityHelper.getRelationshipByType(entity, null, relationship.relationshipName, true);
+                                if(_relationshipDataArray && _relationshipDataArray.length > 0){
+                                    var _relProperties = _relationshipDataArray[0].properties;
+                                    if(_relProperties.externalName){
+                                        relationship.displayName = "All "+_relProperties.externalName+" of ";
+                                    }
+                                    if(relObj.title){
+                                        relationship.text = relationship.displayName + relObj.title;
+                                    }
+                                    if(_relProperties.relationshipOwnership){
+                                        relationship.relationshipOwnership = _relProperties.relationshipOwnership;
+                                    }
+                                    if(_relProperties.relatedEntityInfo && _relProperties.relatedEntityInfo.length > 0){
+                                        relationship.type = _relProperties.relatedEntityInfo[0].relEntityType;
+                                    }
+                                    if(relObj.id){
+                                        relationship.id = relObj.id;
+                                    }
+                                    if(relObj.id){
+                                        relationship.parentType = relObj.type;
+                                    }
+                                    if(relationship.treeNodeTitle){
+                                        relationship.attribute = this._parseNodeTitle(relationship.treeNodeTitle);
+                                    }
+                                    relationship.page = 0;
+                                    relationship.dataLoaded = false;
+                                }
+                                this._updateConfigWithGraphModel(relationship);
+                            }
+                        
+                        }   
+                        // relObj.children = relObj.relationships;
+                        relObj.attribute = this._parseNodeTitle(relObj.treeNodeTitle);
+                        relObj.page = 0;
+                        relObj.dataLoaded = false;
+                    }
+                    relObj.viewMode = "GRID";
+                }
+            }
+        },
+        _onModelGetFailed:function(e){
+            //Need to log error
+        },
+        _executeRequest: function(){
+            if(this._currentNodeData){     
+                if(this._currentNodeData.relationshipOwnership && (this._currentNodeData.relationshipOwnership == "owned")){
+                    //For owned
+                    this._ownedRelationshipsRequest = this._getRelationshipsRequest();
+                    this._ownedDataSource({page:this._currentNodeData.page, pageSize:this._pageSize}, this._onOwnedRelationshipsResponse.bind(this), this._onOwnedDataSourceError.bind(this))
+                }else{
+                    //For whereUsed 
+                    this._whereUsedRequest = this._getRelationshipsRequest();
+                    this._whereUsedDataSource({page:this._currentNodeData.page, pageSize:this._pageSize}, this._onWhereUsedRelationshipsResponse.bind(this), this._onWhereUsedDataSourceError.bind(this));
+                }
+            }
+        },
+        _getRelationshipsRequest: function(){
+            var req = DataRequestHelper.createEntityGetRequest(this.contextData);
+            if(req && req.params){
+                 
+                req.params.fields.attributes = [this._currentNodeData.attribute];
+                req.params.fields.relationships = [this._currentNodeData.relationshipName];
+                req.params.fields.relationshipAttributes = [this._currentNodeData.attribute];
+                req.params.fields.relatedEntityAttributes = [this._currentNodeData.attribute];
+
+                if(this._currentNodeData.relationshipOwnership == "whereused"){                
+                    //Where used criterion
+                    var relationshipsCriterion = [];
+                    var relCriterion = {};
+                    var relTo = {
+                        "relTo":{
+                            id:this._currentNodeData.id,
+                            type:this._currentNodeData.parentType
+                        }
+                    }
+                    relCriterion[this._currentNodeData.relationshipName] = relTo;
+                    relationshipsCriterion.push(relCriterion);
+                    req.params.query.filters.relationshipsCriterion = relationshipsCriterion;
+                    req.params.query.filters.typesCriterion = [this._currentNodeData.type];
+                    delete req.params.query.ids;
+                }else{
+                    //assign entity ID
+                    req.params.query.ids = [this._currentNodeData.id];
+                    //assign entity type
+                    req.params.query.filters.typesCriterion = [this._currentNodeData.parentType];
+                }
+            }
+            return req;
+        },
+        _onOwnedRelationshipsResponse: function(res){
+            if(!_.isEmpty(res)){
+                var entityValidation = DataHelper.validateGetEntitiesResponse(res);
+                if(entityValidation){
+                    var entity = DataHelper.findEntityById(res.content.entities, this._currentNodeData.id);
+                    if(entity){
+                        
+                        var tempArray = [];
+                        var _relationshipDataArray = EntityHelper.getRelationshipByType(entity, null, this._currentNodeData.relationshipName, true);
+                        if(_relationshipDataArray && _relationshipDataArray.length > 0){
+                            _relationshipDataArray.forEach(function(_relTo) {
+                                if(_relTo && _relTo.relTo){
+                                    var _relToObj = _relTo.relTo;
+                                    _relToObj.text = this._getNodeTitle(_relToObj, this._currentNodeData.treeNodeTitle);
+                                    _relToObj.value = _relToObj.text;
+                                    _relToObj.viewMode = "QUICK_MANAGE";
+                                    _relToObj.parentType = this._currentNodeData.type;
+                                    _relToObj.dataLoaded = true;
+
+                                    var configRelationships = [];
+                                    if(this._currentNodeData.relationships && this._currentNodeData.relationships.length > 0){
+                                        for (let i = 0; i < this._currentNodeData.relationships.length; i++) {
+                                            const rel = DataHelper.cloneObject(this._currentNodeData.relationships[i]);
+                                            rel.id = _relToObj.id;
+                                            rel.text = rel.displayName + _relToObj.text;
+                                            configRelationships.push(rel);
+                                        }
+                                        _relToObj.relationships = configRelationships;
+                                        _relToObj.children = configRelationships;
+                                    }
+                                    tempArray.push(_relToObj);
+                                }
+                            }, this);
+                            this._currentNodeData.children = [];
+                            this._currentNodeData.children = tempArray;
+                        }
+                    }
+                }
+            }
+            this._currentNodeData.dataLoaded = true;
+            this._currentNode.refreshChildList();
+        },
+        
+        _onWhereUsedRelationshipsResponse: function(res){
+            if(res && !_.isEmpty(res)){
+                var entityValidation = DataHelper.validateGetEntitiesResponse(res);
+                if(entityValidation && res.content && res.content.entities){
+                    var entities = res.content.entities;
+                    var tempArray = [];
+                    entities.forEach(function(entity) {
+                        if(entity){
+                            entity.text = this._getNodeTitle(entity, this._currentNodeData.treeNodeTitle);
+                            entity.value = entity.text;
+                            entity.viewMode = "QUICK_MANAGE";
+                            entity.parentType = this._currentNodeData.type;
+                            entity.dataLoaded = true;
+
+                            var configRelationships = [];
+                            if(this._currentNodeData.relationships && this._currentNodeData.relationships.length > 0){
+                                for (let i = 0; i < this._currentNodeData.relationships.length; i++) {
+                                    const rel = DataHelper.cloneObject(this._currentNodeData.relationships[i]);
+                                    rel.id = entity.id;
+                                    rel.text = rel.displayName + entity.text;
+                                    configRelationships.push(rel);
+                                }
+                                entity.relationships = configRelationships;
+                                entity.children = configRelationships;
+                            }
+                            tempArray.push(entity);
+                        }
+                    }, this);
+                    this._currentNodeData.children = [];
+                    this._currentNodeData.children = tempArray;   
+                }
+            }
+            this._currentNodeData.dataLoaded = true;
+            this._currentNode.refreshChildList();
+        },
+        _onOwnedDataSourceError: function(ev){
+        },
+        _onWhereUsedDataSourceError: function(ev){
+        },
+        _parseNodeTitle: function(_title){
+            if(_title && (_title.indexOf("attribute:") > -1)){
+                return _title.substr(10, _title.length);
+            }
+            return "";
+        },
+        _getNodeTitle: function(entity, attribute){
+            var _title = "";
+            if(entity){
+                if(attribute.indexOf("attribute:") > -1){
+                    var _keyName = attribute.substr(10, attribute.length);
+                    var _attribute;
+                    if(entity.data){
+                        _attribute = EntityHelper.getAttribute(entity, _keyName);
+                    }else{
+                        if(entity.attributes && entity.attributes[_keyName]){
+                            _attribute = entity.attributes[_keyName];
+                        }
+                    }
+                    _title = AttributeHelper.getFirstAttributeValue(_attribute);
+                }else{
+                    _title = attribute;
+                }
+            }
+            return _title;
+        },
+        reRenderTreeChildList: function(){
+            if(this._selectedNode && this._currentNodeData){
+                this._currentNodeData.children = [];
+                this._executeRequest();
+                this._selectedNode.startLoading();
+            }
+        },
+        // _refreshGraphTree: function(){
+        //     this._graphs = [];
+        //     this._graphs = [this._graphData];
+
+        //     if(this._pebbleTree && this._selectedNode && this._selectedNode.valuePath){
+        //         this._selectedNode = this._pebbleTree.getElementNodeByPath(this._selectedNode.valuePath);
+        //         this._selectedNode.highlightNode = true;
+        //     }
+        // }
+    })
+})();
+</script>
+</dom-module>

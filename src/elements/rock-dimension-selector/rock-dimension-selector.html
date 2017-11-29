@@ -160,7 +160,7 @@ Custom property | Description | Default
                             <pebble-popover id="[[ctx.id]]-popover" for="[[ctx.id]]-toggle-button" auto-fit-on-attach no-overlap horizontal-align="right">
                                 <rock-entity-lov id="[[ctx.id]]-lov" r-data="[[ctx]]" readonly$=[[readonly]] config-data-item-id="[[ctx.id]]" id-field="[[ctx.dataMappings.id]]"
                                     title-pattern="[[ctx.dataMappings.title]]" selected-items="[[_getSelectedItems(ctx.selectedItem)]]"
-                                    external-data-formatter="[[_entityExternalDataFormatter]]" type-field="[[ctx.dataMappings.type]]"
+                                    external-data-formatter="[[_entityExternalDataFormatter]]" type-field="[[ctx.dataMappings.type]]" sort-field="[[ctx.dataMappings.sort]]"
                                     multi-select show-action-buttons></rock-entity-lov>
                             </pebble-popover>
                             <bedrock-pubsub event-name="entity-lov-confirm-button-tap" handler="_onEntityLovConfirmButtonTapped" target-id="[[ctx.ctxName]]-lov"></bedrock-pubsub>
@@ -181,7 +181,7 @@ Custom property | Description | Default
                 </template>
             </template>
         </div>
-        <liquid-rest id="contextModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_contextModelGetReq}}"
+        <liquid-rest id="contextModelGet" url="/data/pass-through/entitymodelservice/getcontext" method="POST" request-data="{{_contextModelGetReq}}"
             on-liquid-response="_onContextModelGetResponse" on-liquid-error="_onContextModelGetFailed"></liquid-rest>
         <liquid-rest id="entityModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_entityModelRequest}}"
             on-liquid-response="_onEntityModelGetResponse"></liquid-rest>
@@ -317,6 +317,10 @@ Custom property | Description | Default
             _isConfigLoaded: {
                 type: Boolean,
                 value: false
+            },
+            _isContextLoad: {
+                type: Boolean,
+                value: false
             }
         },
 
@@ -364,22 +368,19 @@ Custom property | Description | Default
 
         _configDataChanged: function () {
 
-            var isContextLoad = false;
-
             if (this.configData && this.configData.length) {
+                this.configData.forEach(function (item) {
+                    if (item && item.useContextModel) {
+                        this._isContextLoad = true;
+                    }
+                }, this);
 
                 if (!this._isConfigLoaded) {
                     this._isConfigLoaded = true;
                 }
-
-                this.configData.forEach(function (item) {
-                    if (item && item.isContextModel) {
-                        isContextLoad = true;
-                    }
-                }, this);
             }
 
-            if ((isContextLoad && this._isDynamic) || (!isContextLoad && !this._isDynamic)) {
+            if ((this._isContextLoad && this._isDynamic) || (!this._isContextLoad && !this._isDynamic)) {
                 this._updateSelectedDimensions();
             } else {
                 this._isDynamic = false;
@@ -522,9 +523,10 @@ Custom property | Description | Default
                         }
 
                         if (typeof (rockLov) !== "undefined") {
-                            var entityTypes = configDataItem.dataMappings.type;
+                            const { dataMappings } = configDataItem;
+                            var entityTypes = dataMappings && dataMappings.type;
 
-                            if (typeof (entityTypes) !== "undefined") {
+                            if (entityTypes) {
                                 for (var j = 0; j < entityTypes.length; j++) {
                                     if (!rockLov.multiSelect) {
                                         var itemId = this._getItemId(rockLov.selectedItem);
@@ -664,13 +666,15 @@ Custom property | Description | Default
         },
 
         _getItemId: function (item) {
-            var itemId = this.get("id", item);
+            if (item) {
+                var itemId = this.get("id", item);
 
-            if (typeof (itemId) == "undefined" || typeof (itemId) == "null") {
-                itemId = ""; // Could be -1 or ""?
+                if (typeof (itemId) == "undefined" || typeof (itemId) == "null") {
+                    itemId = ""; // Could be -1 or ""?
+                }
+
+                return itemId;
             }
-
-            return itemId;
         },
 
 
@@ -683,7 +687,7 @@ Custom property | Description | Default
                     this._isDynamic = true;
                 }
 
-                if (this._isConfigLoaded) {
+                if (this._isConfigLoaded && this._isContextLoad) {
                     this._contextModelGetReq = this._getContextModelGetRequest(entityType);
 
                     var liquidElement = this.$$('#contextModelGet');
@@ -769,32 +773,50 @@ Custom property | Description | Default
                         this._contexts = _contexts;
                     }
 
-                    var ctxIds = [];
+                    var _ctxIds = [];
                     if (_ctxKeys && _ctxKeys.length) {
                         //TODO: Nikhil has to provide full colase path in context model and it has to applied as _contextHierarchy.
                         this._contextHierarchy = ["dcountry", "dchannel", "taxonomy", "classification"];//_ctxKeys;
                         _ctxKeys.forEach(function (item) {
                             if (item) {
-                                ctxIds.push(item + "_entityManageModel");
+                                _ctxIds.push(item);
                             }
                         }, this);
                     }
 
+                    var ctxIds = [];
+                    var missingContextModel = [];
                     if (this.configData && this.configData.length) {
                         this.configData.forEach(function (item) {
-                            if (!item.isContextModel) {
+                            if (!item.useContextModel) {
                                 if (item.dataMappings && item.dataMappings.type && item.dataMappings.type) {
                                     var type = item.dataMappings.type[0];
 
                                     if (type) {
-                                        ctxIds.push(type + "_entityManageModel");
+                                        if (item.dataRequestType != "entity-context") {
+                                            ctxIds.push(type + "_entityManageModel");
+                                        }
+
                                         if (this._contextHierarchy.indexOf(type) < 0) {
                                             this._contextHierarchy.push(type);
                                         }
                                     }
                                 }
+                            } else if (item.useContextModel) {
+                                if (_ctxIds.indexOf(item.id) > -1) {
+                                    if (item.dataRequestType != "entity-context") {
+                                        ctxIds.push(item.id + "_entityManageModel");
+                                    }
+                                } else {
+                                    missingContextModel.push(item.id);
+                                }
                             }
                         }, this);
+                    }
+
+                    if (missingContextModel && missingContextModel.length) {
+                        var message = "Dimension(s): " + missingContextModel.join(", ") + " are configured but not present in context model for entity type: " + this.entityType;
+                        this.showErrorToast(message, 5000);
                     }
 
                     if (ctxIds && ctxIds.length) {
@@ -930,16 +952,19 @@ Custom property | Description | Default
                             }
 
                             ctx.default = item.default;
+                            ctx.useContextModel = item.useContextModel;
 
-
-                            if (!item.isContextModel) {
+                            if (!item.useContextModel) {
                                 ctx.dataRequestType = item.dataRequestType;
                                 ctx.dataRequest = item.dataRequest;
+                            } 
+                            
+                            if (item.dataMappings) {
                                 ctx.dataMappings = item.dataMappings;
                             }
 
                         } else {
-                            if (item.isContextModel && item.dataRequestType == "entity-context") {
+                            if (item.dimensionType == "data" && item.dataRequestType == "entity-context") {
                                 ctx = item;
                                 ctx.dataMappings = {
                                     "id": "name",
@@ -951,8 +976,6 @@ Custom property | Description | Default
                                 ctxs[item.id] = ctx;
                             }
                         }
-
-
                     }
                 }, this);
 
@@ -1118,25 +1141,32 @@ Custom property | Description | Default
                 var elementInfo = this.rData;
 
                 if (elementInfo) {
-                    var ctxType = elementInfo.id;
-                    var filteredCtx = this.domHost._getContextsBasedOnEntityContexts();
 
-                    if (filteredCtx && filteredCtx.length) {
-                        var flattenedCtx = this.domHost._getFlattenedContexts(filteredCtx);
+                    if (elementInfo.useContextModel) {
+                        var ctxType = elementInfo.id;
+                        var filteredCtx = this.domHost._getContextsBasedOnEntityContexts();
 
-                        if (flattenedCtx && flattenedCtx[ctxType]) {
-                            var existingContext = flattenedCtx[ctxType];
+                        if (filteredCtx && filteredCtx.length) {
+                            var flattenedCtx = this.domHost._getFlattenedContexts(filteredCtx);
 
-                            if (existingContext && existingContext.length) {
-                                data.forEach(function (item) {
-                                    if (existingContext.indexOf(item.title) >= 0) {
-                                        item.subtitle = "Existing";
-                                        filteredData.push(item);
-                                    }
-                                }, this);
+                            if (flattenedCtx && flattenedCtx[ctxType]) {
+                                var existingContext = flattenedCtx[ctxType];
+
+                                if (existingContext && existingContext.length) {
+                                    data.forEach(function (item) {
+                                        if (existingContext.indexOf(item.title) >= 0) {
+                                            item.subtitle = "Existing";
+                                            filteredData.push(item);
+                                        }
+                                    }, this);
+                                }
                             }
                         }
+                    } else {
+                        filteredData = data;
                     }
+                } else {
+                    filteredData = data;
                 }
             }
 
@@ -1227,10 +1257,18 @@ Custom property | Description | Default
                     var isMatch = false;
 
                     if (ctx) {
-                        var ctxKeys = Object.keys(ctx);
-                        for (var hierarchyIndex = 0; hierarchyIndex <= ctxKeys.length; hierarchyIndex++) {
-                            var sdv = this._currentContexts[ctxKeys[hierarchyIndex]];
-                            var ctxv = ctx[ctxKeys[hierarchyIndex]];
+                        var sortedCtxKeys = [];
+                        var entityCtxKeys = Object.keys(ctx);
+                        this._contextHierarchy.forEach(function (item) {
+                            if (entityCtxKeys.indexOf(item) > -1) {
+                                sortedCtxKeys.push(item);
+                            }
+                        }, this);
+
+                        for (var hierarchyIndex = 0; hierarchyIndex <= sortedCtxKeys.length; hierarchyIndex++) {
+                            var ctxKey = sortedCtxKeys[hierarchyIndex];
+                            var sdv = this._currentContexts[ctxKey];
+                            var ctxv = ctx[ctxKey];
 
                             if (ctxv) {
                                 if (sdv && sdv.length) {

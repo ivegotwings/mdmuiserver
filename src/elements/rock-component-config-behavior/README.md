@@ -1,0 +1,1 @@
+rock-component-config-behavior

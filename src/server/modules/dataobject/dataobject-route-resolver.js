@@ -18,6 +18,7 @@ const CONST_ALL = falcorUtil.CONST_ALL,
     CONST_DATAOBJECT_METADATA_FIELDS = falcorUtil.CONST_DATAOBJECT_METADATA_FIELDS;
 
 const DataObjectManageService = require('./DataObjectManageService');
+const ConfigurationService = require('./ConfigurationService');
 const EntityCompositeModelGetService = require('./EntityCompositeModelGetService');
 const EventService = require('../event-service/EventService');
 
@@ -42,6 +43,7 @@ if (runOffline) {
 
 const dataObjectManageService = new DataObjectManageService(options);
 const entityCompositeModelGetService = new EntityCompositeModelGetService(options);
+const configurationService = new ConfigurationService(options);
 const eventService = new EventService(options);
 
 async function initiateSearch(callPath, args) {
@@ -285,13 +287,19 @@ function createGetRequest(reqData) {
     }
 
     if (!isEmpty(valContexts)) {
+        for(let valContext of valContexts) {
+            valContext.localeCoalesce = true;
+        }
+        
         query.valueContexts = valContexts;
     }
 
-    if (reqData.dataIndex == "config" && contexts && contexts.length > 0) {
-        filters.excludeNonContextual = true;
-        fields.attributes = ['_ALL'];
-    }
+    if (reqData.dataIndex == "config") {
+        fields.jsonData = true;
+        if( contexts && contexts.length > 0) {
+            filters.excludeNonContextual = true;
+        }
+    } 
 
     if (!isEmpty(filters)) {
         query.filters = filters;
@@ -314,6 +322,9 @@ function createGetRequest(reqData) {
 function _getService(dataObjectType) {
     if (dataObjectType == 'entityCompositeModel') {
         return entityCompositeModelGetService;
+    }
+    if (dataObjectType == 'uiConfig') {
+        return configurationService;
     }
     else if (dataObjectType == "externalevent" || dataObjectType == "bulkoperationevent") {
         return eventService;
@@ -351,22 +362,16 @@ async function get(dataObjectIds, reqData) {
             }
         }
 
-        //TURNING OFF THIS FEATURE TILL RDF FINISHES ITS WORK
-        isNearestGet = false;
-
-        //Populate dataObject id in request query...
-        //Nearest get is based on context and not Ids. Hence skipping Id population for request get
-        if (!isNearestGet) {
-            if (dataObjectIds.length > 1) {
-                for (var idx in dataObjectIds) {
-                    dataObjectIds[idx] = dataObjectIds[idx].toString();
-                }
-
-                request.params.query.ids = dataObjectIds;
+        //set the ids into request object..
+        if (dataObjectIds.length > 1) {
+            for (var idx in dataObjectIds) {
+                dataObjectIds[idx] = dataObjectIds[idx].toString();
             }
-            else {
-                request.params.query.id = dataObjectIds[0].toString();
-            }
+
+            request.params.query.ids = dataObjectIds;
+        }
+        else {
+            request.params.query.id = dataObjectIds[0].toString();
         }
 
         //console.log('req to api ', JSON.stringify(request));
@@ -397,7 +402,6 @@ async function get(dataObjectIds, reqData) {
                 for (let dataObject of dataObjects) {
                     var dataObjectType = dataObject.type;
 
-                    //console.log('building response...', JSON.stringify(dataObject, null, 2));
                     var dataObjectResponseJson = buildResponse(dataObject, reqData);
 
                     byIdsJson[dataObject.id] = dataObjectResponseJson;
@@ -407,6 +411,7 @@ async function get(dataObjectIds, reqData) {
                     //In case of nearest get, comapare requested Id with nearest object Id resulted from response...
                     //If ids are not same then the response is for nearest context and hence populate as $ref in response Json
 
+                    //console.log('byIdJson so far before nearest get response ', JSON.stringify(byIdsJson, null, 2));
                     //Nearest get should always return first nearest object hence considering first requested Id and first dataObject in response...
                     var requestedId = dataObjectIds[0];
                     var dataObject = dataObjects[0];
