@@ -7,6 +7,8 @@
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 
 <link rel="import" href="../liquid-config-aggregate-get/liquid-config-aggregate-get.html">
+<link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
+<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
 
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-dialog/pebble-dialog.html">
@@ -32,7 +34,7 @@
         <style include="bedrock-style-common">
             rock-entity-header {
                 border-bottom: 1px solid var(--default-border-color, #c1cad4);
-                padding: 10px 20px;
+                padding: 0px;
             }
 
             rock-titlebar {
@@ -70,24 +72,25 @@
                 --dimesion-selector-container-popover: {
                     width: 70px;
                 };
-                
+
                 --dimesion-selector-source-popover: {
                     width: 55px;
                 };
-                
+
                 --dimesion-selector-date-dropdown: {
                     width: 60px;
                 };
-                
+
                 --dimesion-selector-locale-popover: {
                     width: 65px;
                 };
-                
+
             }
 
             #dimensionContainer {
                 align-self: center;
                 -webkit-align-self: center;
+                width: 100%;
             }
 
             pebble-vertical-divider {
@@ -162,11 +165,11 @@
                                         buttons="{{getConfig('rock-entity-header','','toolbarConfig')}}"
                                         to-fix-data="{{getConfig('rock-entity-header','','summaryToFix')}}"
                                         assignment-actions-config="{{getConfig('rock-entity-header','','assignmentActionsConfig')}}"
-                                        thumbnail-config="{{getConfig('rock-entity-header','','thumbnailConfig')}}"></rock-entity-header>
+                                        thumbnail-config="{{getConfig('rock-entity-header','','thumbnailConfig')}}" collapse collapsable></rock-entity-header>
                 </div>
             </rock-header>
             <bedrock-pubsub event-name="refresh-entity-thumbnail" handler="_refreshEntityThumbnail"></bedrock-pubsub>
-            <rock-sidebar id="rockSideBar" position="right" slot="rock-sidebar">
+            <rock-sidebar id="rockSideBar" position="right" slot="rock-sidebar" collapse collapsable>
                 <div class="p-10">
                     <rock-workflow-panel context-data="[[contextData]]" readonly$="[[readonly]]"></rock-workflow-panel>
                 </div>
@@ -177,7 +180,7 @@
                         <rock-tabs id="rockTabs" config="{{getConfig('rock-tabs')}}" readonly$="[[readonly]]"></rock-tabs>
                     </div>
                     <bedrock-pubsub event-name="component-creating" handler="_onComponentCreating"></bedrock-pubsub>
-                    <bedrock-pubsub on-bedrock-event-todotap="summaryTodoTap"></bedrock-pubsub>
+                    <bedrock-pubsub on-bedrock-event-trigger-todo-action="summaryTodoTap"></bedrock-pubsub>
                     <bedrock-pubsub on-bedrock-event-tofixtap="summaryTofixTap"></bedrock-pubsub>
                     <bedrock-pubsub event-name="error-length-changed" handler="errorLengthChanged"></bedrock-pubsub>
                     <bedrock-pubsub event-name="dimension-grid-open" handler="onDimensionGridOpen"></bedrock-pubsub>
@@ -199,12 +202,21 @@
         <rock-business-function-dialog id="entityUploadDialog"></rock-business-function-dialog>
         <rock-business-function-dialog id="entityDownloadDialog"></rock-business-function-dialog>
         <rock-business-function-dialog id="rePublishDialog"></rock-business-function-dialog>
+        <rock-business-function-dialog id="addRelDialog" name="rock-relationship-add"></rock-business-function-dialog>
+        <rock-business-function-dialog id="manageAttributesDialog" name="bf-attributes-manage"></rock-business-function-dialog>
+        <rock-business-function-dialog id="manageRelationshipsDialog" name="bf-relationships-manage"></rock-business-function-dialog>
         <bedrock-pubsub event-name="refresh-classification" handler="_refreshDimensionSelector" target-id="contextDialog"></bedrock-pubsub>
         <bedrock-pubsub event-name="govern-complete" handler="_onGovernComplete"></bedrock-pubsub>
         <liquid-entity-data-get name="attributeGetDataServiceForTitleBar" operation="getbyids" request-data="{{titleAttributeRequest}}"
             on-response="_onTitleAttributesGetResponse"></liquid-entity-data-get>
         <liquid-rest id="entityDeleteLiquidRest" url="/data/pass-through/entityappservice/delete" method="POST" request-data={{deleteRequest}}
             on-liquid-response="_deleteSuccess" on-liquid-error="_deleteFailure"></liquid-rest>
+        <liquid-entity-model-composite-get id="compositeRelModelGet" request-data="{{_relModelRequest}}" on-entity-model-composite-get-response="_onRelationshipCompositeModelGetResponse" on-error="_onCompositeModelGetError">
+        </liquid-entity-model-composite-get>
+        <liquid-entity-model-composite-get id="compositeAttrModelGet" request-data="{{_attrModelRequest}}" on-entity-model-composite-get-response="_onAttributeCompositeModelGetResponse" on-error="_onCompositeModelGetError">
+        </liquid-entity-model-composite-get>
+        <liquid-entity-model-get id="getRelDomains" operation="getbyids"  on-response="_onRelModelsReceived"
+                                 on-error="_onModelGetFailed"></liquid-entity-model-get>
     </template>
     <script>
         (function () {
@@ -589,8 +601,222 @@
                     }
                 },
                 summaryTodoTap: function (e, detail, sender) {
-                    alert("event triggered: " + detail.eventName + ' >> ' + detail.label);
+                    if(!detail || !detail.type) {
+                        this.showErrorToast("Configuration missing. Please contact administrator.");
+                        return;
+                    }
+                    this.todoActionDialogTitle = detail.label;
+                    if(detail.type == "linkAssets") {
+                        if(detail && detail.config && detail.config.relationshipTypeName) {
+                            this._triggerLinkAssets(detail.config.relationshipTypeName);
+                        } else {
+                            this.showErrorToast("Relationships are not configured for this action. Please contact administrator.");
+                            return;
+                        }
+                    } else if(detail.type == "manageAttributes") {
+                        this.manageAttrLabel = detail.label || "Manage Attributes";
+                        this.manageAttrNames = detail.config.attributeNames || [];
+                        this.manageAttrGroups = detail.config.attributeGroupNames || [];
+
+                        if(this.manageAttrGroups.length > 0) {
+                            this._triggerManageAttributes();
+                        } else {
+                          if(this.manageAttrNames.length > 0) {
+                            this._openManageAttributesDialog(this.manageAttrLabel, this.manageAttrNames);
+                          } else {
+                            this.showErrorToast("Attributes are not configured for this action. Please contact administrator.");
+                          }
+                        }
+                    }  else if(detail.type == "manageRelationships") {
+                        if(detail && detail.config && detail.config.relationshipTypeName) {
+                            this._triggerManageRelationships(detail.config.relationshipTypeName);
+                        } else {
+                            this.showErrorToast("Relationships are not configured for this action. Please contact administrator.");
+                            return;
+                        }
+                    }
                 },
+
+                _triggerLinkAssets: function(relationshipTypeName) {
+                   var liqRelModelGet = this.shadowRoot.querySelector("#compositeRelModelGet");
+                   var request = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+                   delete request.params.fields.attributes;
+                   request.params.fields.relationships = [relationshipTypeName];
+                   this._relModelRequest = request;
+
+                   if(liqRelModelGet) {
+                       liqRelModelGet.generateRequest();
+                   }
+                },
+
+                _onRelationshipCompositeModelGetResponse: function(e, detail) {
+                    var relationshipDetails = {};
+                    if (detail && DataHelper.validateGetModelsResponse(detail.response)) {
+                        var relType = "";
+                        if (detail.request) {
+                            relType = detail.request.requestData.params.fields.relationships[0];
+                            relationshipDetails.relType = relType; // Set relationshipType
+                        }
+                        var compositeModel = detail.response.content.entityModels[0];
+                        if (relType && compositeModel && compositeModel.data) {
+                            var relationships = DataTransformHelper.transformRelationshipModels(compositeModel, this.contextData);
+                            if (relationships && relationships[relType]) {
+                                relationshipDetails.selfContext = relationships[relType].selfContext; // Set selfContext
+                                var rel = relationships[relType] && relationships[relType].length ? relationships[relType][0] : undefined;
+                                if (rel) {
+                                    var relatedEntityInfo = [];
+
+                                    if (rel.properties && Object.keys(rel.properties).length) {
+                                        relatedEntityInfo = rel.properties.relatedEntityInfo;
+                                        if (relatedEntityInfo && relatedEntityInfo.length) {
+                                            var relEntityTypes=relatedEntityInfo.map(function (relContext) {
+                                                if(relContext.relEntityType) {
+                                                    return relContext.relEntityType;
+                                                }
+                                            });
+                                            relationshipDetails.relatedEntityTypes = relEntityTypes; // Set relatedEntityTypes
+                                        }
+
+                                        relationshipDetails.mode = "asset"; // Set mode
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if(!_.isEmpty(relationshipDetails)) {
+                        this._openLinkAssetsDialog(relationshipDetails);
+                    } else {
+                        this.showErrorToast("Relationship model missing. Please contact administrator.");
+                    }
+                },
+
+                _triggerManageAttributes: function() {
+                    var liqAttrModelGet = this.shadowRoot.querySelector("#compositeAttrModelGet");
+                    var request = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+                    delete request.params.fields.relationships;
+                    delete request.params.fields.relationshipAttributes;
+                    request.params.fields.attributes = ["_ALL"];
+                    this._attrModelRequest = request;
+
+                    if(liqAttrModelGet) {
+                        liqAttrModelGet.generateRequest();
+                    }
+                },
+
+                _onAttributeCompositeModelGetResponse: function(e, detail) {
+                    if (detail && DataHelper.validateGetModelsResponse(detail.response)) {
+                        var groupAttributes = [];
+                        if(DataHelper.isValidObjectPath(detail, 'response.content.entityModels.0')) {
+                            var attributes = DataTransformHelper.transformAttributeModels(detail.response.content.entityModels[0], this.contextData);
+                            for(var key in attributes) {
+                                if(this.manageAttrGroups.indexOf(attributes[key].properties.groupName) != -1) {
+                                    groupAttributes.push(key);
+                                }
+                            }
+                        }
+                    }
+
+                    // Merge config attributes and group attributes
+                    var allAttrNames = this.manageAttrNames.concat(groupAttributes);
+
+                    if(allAttrNames.length > 0) {
+                        this._openManageAttributesDialog(this.manageAttrLabel, allAttrNames);
+                    } else {
+                        this.showErrorToast("Attributes not available. Please contact administrator.");
+                    }
+                },
+
+                _triggerManageRelationships: function(relationshipTypeName) {
+                    var req = {
+                        "params": {
+                            "query": {
+                                "id": relationshipTypeName + "_relationshipModel",
+                                "filters": {
+                                    "typesCriterion": ["relationshipModel"]
+                                }
+                            },
+                            "fields": {}
+                        }
+                    };
+
+                    var relModelLiquid = this.shadowRoot.querySelector("#getRelDomains");
+                    if (relModelLiquid) {
+                        relModelLiquid.requestData = req;
+                        relModelLiquid.generateRequest();
+                    }
+                },
+
+                _onRelModelsReceived: function (e, detail) {
+                    var responseContent = DataHelper.validateAndGetResponseContent(detail.response)
+                    if (responseContent) {
+                        var models = responseContent.entityModels;
+                        if(models && models.length > 0) {
+                            this._openManageRelationshipsDialog(models[0]);
+                        }
+                    }
+                },
+
+                _onCompositeModelGetError: function(e, detail) {
+                    this.showErrorToast("Unable to perform the action now. Please contact administrator.");
+                },
+
+                _openLinkAssetsDialog: function (relationshipDetails) {
+                    var rel = relationshipDetails.relType;
+                    var typesCriterion = relationshipDetails.relatedEntityTypes;
+                    var dialog = this.shadowRoot.querySelector("#addRelDialog");
+                    var itemContext = ContextHelper.getFirstItemContext(this.contextData);
+                    var entity = { "id": itemContext.id, "type": itemContext.type };
+                    var mode = relationshipDetails.mode;
+                    var selfContext = relationshipDetails.selfContext;
+
+                    dialog.sharedData = {
+                        "mode": mode,
+                        "context-data": this.contextData,
+                        "types-criterion": typesCriterion,
+                        "relationship-type": rel,
+                        "selected-entities": [entity],
+                        "self-context": selfContext
+                    };
+                    dialog.open();
+                    this._setDialogTitle(dialog);
+                },
+
+                _openManageAttributesDialog: function(label, attributeNames) {
+                    var clonedContextData = DataHelper.cloneObject(this.contextData);
+                    var itemContext = ContextHelper.getFirstItemContext(clonedContextData);
+                    var configContext = { "groupName":  label};
+                    itemContext.attributeNames = attributeNames;
+                    var dialog = this.shadowRoot.querySelector("#manageAttributesDialog");
+                    dialog.sharedData = {
+                        "context-data": clonedContextData,
+                        "config-context": configContext
+                    };
+                    dialog.open();
+                    this._setDialogTitle(dialog);
+                },
+
+                _openManageRelationshipsDialog: function(model) {
+                    var clonedContextData = DataHelper.cloneObject(this.contextData);
+                    var configContext = {
+                        "addRelationshipMode": model.domain == "digitalAsset" ? "businessFunction" : "lov",
+                        "relationshipTypeName": model.name
+                    };
+                    var dialog = this.shadowRoot.querySelector("#manageRelationshipsDialog");
+                    dialog.sharedData = {
+                        "context-data": clonedContextData,
+                        "config-context": configContext
+                    };
+                    dialog.open();
+                    this._setDialogTitle(dialog);
+                },
+
+                _setDialogTitle: function(dialog) {
+                    if(this.todoActionDialogTitle) {
+                        dialog.setTitle(this.todoActionDialogTitle);
+                    }
+                },
+
                 summaryTofixTap: function (e, detail, sender) {
                     alert("event triggered: " + detail.type + ' >> ' + detail.eventName + ' >> ' +
                         detail.label);
@@ -821,28 +1047,28 @@
                     if (this.getIsDirty) {
                         dataIsDirty = this.getIsDirty();
                     }
-                    
+
                     //Check if controls are dirty
                     if(this.getControlIsDirty) {
                         controlIsDirty = this.getControlIsDirty();
                     }
-                    
+
                     var notificationObj = Polymer.dom(document).querySelector('main-app').$$('bedrock-dataobject-notification-handler');
-                     
+
                     //Showing the toast message when _showNotificationToast property is set to true or if the tab is dirty, else refresh the current tab
-                    if (this._showNotificationToast) {                     
-                        notificationObj.showToast(data);                        
+                    if (this._showNotificationToast) {
+                        notificationObj.showToast(data);
                     } else if (dataIsDirty || controlIsDirty) {
-                         notificationObj.showToast(data);                        
-                    } else { 
-                        //Refresh the current tab                                                     
-                        var rockAttributeManageObj = this.$$("rock-tabs");                    
+                         notificationObj.showToast(data);
+                    } else {
+                        //Refresh the current tab
+                        var rockAttributeManageObj = this.$$("rock-tabs");
                         rockAttributeManageObj.refresh();
                         //Refresh the workflowpanel
-                        var rockWorkflowPanelObj = this.$$("rock-workflow-panel");                    
-                        rockWorkflowPanelObj.refresh();                         
+                        var rockWorkflowPanelObj = this.$$("rock-workflow-panel");
+                        rockWorkflowPanelObj.refresh();
                     }
-                }   
+                }
             });
         })();
     </script>
