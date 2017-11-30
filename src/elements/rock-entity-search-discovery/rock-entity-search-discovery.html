@@ -220,9 +220,17 @@
                             <div class="queryBuilderContainer">
                                 <paper-card>
                                     <div class="card-content">
-                                        <rock-query-builder id="queryBuilder" domain="[[domain]]" allowed-entity-types="{{allowedEntityTypes}}" selected-entity-types="{{_currentEntityTypes}}"
-                                            input-query-string="{{inputQueryString}}" attribute-grid-data="{{attributeGridData}}"
-                                            context-data="{{contextData}}" workflow-name="[[workflowName]]" search-query="{{searchQuery}}"></rock-query-builder>
+                                        <rock-query-builder id="queryBuilder" 
+                                            domain="[[domain]]" 
+                                            context-data="[[contextData]]"
+                                            allowed-entity-types="{{allowedEntityTypes}}" 
+                                            selected-entity-types="{{_currentEntityTypes}}"
+                                            input-query-string="{{inputQueryString}}" 
+                                            attribute-grid-data="{{attributeGridData}}"
+                                            workflow-criterion="[[_workflowCriterion]]" 
+                                            relationships-data="[[_relationshipsData]]"
+                                            search-query="{{searchQuery}}">
+                                        </rock-query-builder>
                                     </div>
                                 </paper-card>
                             </div>
@@ -518,7 +526,13 @@
                     attributeGridData:{
                         type: Array,
                         value: function () {
-                            return []
+                            return [];
+                        }
+                    },
+                    _relationshipsData: {
+                        type: Object,
+                        value: function (){
+                            return {};
                         }
                     },
                     _relationshipSearchFilters: {
@@ -677,6 +691,10 @@
                             }
                         }
 
+                        if(this._entitySearchFilterElement && this._entitySearchFilterElement.refresh) {
+                            this._entitySearchFilterElement.refresh();
+                        }
+
                         this._selectedEntityTypes = this._getSelectedEntityTypes(this._typesCriterion);
                         //Add the tags of the selected entity types
                         /*var rockSearchFilter = this._entitySearchFilterElement.$$("rock-search-filter");
@@ -737,7 +755,7 @@
                     if(!_.isEmpty(detail)) {
                         this._searchQuery = detail.query;
                     }
-                   
+
                     this._buildQueryString();
                     // this.fireBedrockEvent("search-criteria-changed");
                     // this._searchTimeStamp = new Date().toLocaleString();
@@ -1537,27 +1555,13 @@
                     if (this._quickManageEnabled) {
                         this._onTapQuickManage();
                     }
-                    var workflowListArray = "";
-                    if(!_.isEmpty(this._workflowCriterion)) {
-                        workflowListArray = [];
-                        var workflowData = {
-                            "workflowShortName": this._workflowCriterion.workflowShortName,
-                            "workflowExternalName": this._workflowCriterion.workflowName,
-                            "workflowActivityShortName": this._workflowCriterion.workflowActivityName,
-                            "workflowActivityExternalName": this._workflowCriterion.workflowActivityExternalName
-                        };
-                        workflowListArray.push(workflowData);
-                    }
-                    //Handling a case where query is already been built inside the query builder                
+                    var workflowGridData = this._setWorkflowGridData(this._workflowCriterion);
+                    
                     var queryBuilder = this.shadowRoot.querySelector("#queryBuilder");
-                    var queryBuilderData = [];
+                    var queryBuilderData = {};
+                    queryBuilderData.workflowGridData = workflowGridData;
                     if(queryBuilder){
-                        queryBuilderData = queryBuilder.getQueryBuilderData();                        
-                        if(!queryBuilderData.workflowGridData) {                            
-                            if(!_.isEmpty(workflowListArray)) {
-                                queryBuilderData.workflowGridData = workflowListArray;
-                            }
-                        }                        
+                        queryBuilderData = queryBuilder.getQueryBuilderData();
                     } 
 
                     //User has input some keyword search criteria
@@ -1668,16 +1672,62 @@
                     } else {
                         this.set("_workflowCriterion", workflowCriterion);
                     }
+
                     this.set("searchQuery", searchQuery);
                     this.set("_selectedEntityTypes","");
-                    var selectedEntityTypes = this._getSelectedEntityTypes(typesCriterion);                    
+                    var selectedEntityTypes = this._getSelectedEntityTypes(typesCriterion);
                     this.set("_selectedEntityTypes",selectedEntityTypes);
                     if(this._isSavedSearchLoad) {
                         var attributeModels = searchFilters.compositeModels;
+                        var relationshipModels = searchFilters.relationshipModels;
                         this._isSavedSearchLoad = false;
+                        this._setRelationshipsData(relationshipSearchFilters, relationshipModels);
                         this._populateHeaderControls(attributeModels);
                     }
+                    if(this._entitySearchFilterElement && this._entitySearchFilterElement.refresh) {
+                        this._entitySearchFilterElement.refresh();
+                    }
                     this.refresh();
+                },
+                _setWorkflowGridData: function(workflowCriterion) {
+                    var workflowListArray = [];
+                    var workflowData = {
+                        "name": "",
+                        "value": ""
+                    }
+                    if(!_.isEmpty(workflowCriterion)) {
+                        var workflowData = {
+                            "name": workflowCriterion.workflowName,
+                            "value": workflowCriterion.workflowActivityExternalName,
+                            "workflowShortName": workflowCriterion.workflowShortName,
+                            "workflowExternalName": workflowCriterion.workflowName,
+                            "workflowActivityShortName": workflowCriterion.workflowActivityName,
+                            "workflowActivityExternalName": workflowCriterion.workflowActivityExternalName
+                        };
+                    }
+
+                    workflowListArray.push(workflowData);
+                    
+                    return workflowListArray;
+                },
+                _setRelationshipsData: function(relationshipSearchFilters, relationshipModels) {
+                    var relationshipsData = {};
+                    if(!_.isEmpty(relationshipSearchFilters)) {
+                        var relationshipfilterObj = relationshipSearchFilters[0];
+                        var relationshipName = Object.keys(relationshipfilterObj)[0];
+                        var relationshipLongName = relationshipModels[relationshipName][0].properties.externalName;
+                        var attributes = relationshipfilterObj[relationshipName].attributes;
+                        var attrModels = [];
+                        for(var key in relationshipModels[relationshipName][0].attributes) {
+                            attrModels.push(relationshipModels[relationshipName][0].attributes[key]);
+                        }
+                        var relationshipTags = this._formatSavedSearchTags(attributes, attrModels);
+                        relationshipsData.relationshipName = relationshipName;
+                        relationshipsData.relationshipLongName = relationshipLongName;
+                        relationshipsData.selectedAttributes = relationshipTags;
+
+                        this.set("_relationshipsData", relationshipsData);
+                    }
                 }
             });
         })();

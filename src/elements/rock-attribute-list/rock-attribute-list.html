@@ -21,9 +21,10 @@ It renders the list of attributes based on the specified parameters.
 <dom-module id="rock-attribute-list">
     <template>
         <style include="bedrock-style-common">
-            :host{
+            :host {
                 @apply --rock-attribute-list;
             }
+
             .group-name {
                 font-weight: var(--font-bold, bold);
                 font-family: var(--default-font-family);
@@ -82,38 +83,54 @@ It renders the list of attributes based on the specified parameters.
             pebble-horizontal-divider {
                 border-top: 1px dotted var(--default-border-color);
             }
+
+            paper-spinner-lite {
+                margin: 0 auto;
+                display: none;
+            }
+
+            paper-spinner-lite[active] {
+                display: block;
+            }
         </style>
-        
-        <template id="attributeRepeat" is="dom-repeat" items="[[attributeValues]]" initial-count="20" as="attribute" notify-dom-change>
+        <template is="dom-if" if="displayedAttributesChunks.length">
+            <div class="attributesWrapper">
+                <template is="dom-repeat" items="[[displayedAttributesChunks]]" as="chunk" index-as="chunkIndex" targetFramerate="5">
+                    <template is="dom-repeat" items="[[chunk]]" as="attribute" index-as="attributeIndex">
+                        <template is="dom-if" if="[[_checkRenderGroupBar(attribute, 0)]]">
+                            <pebble-accordion header-text="[[groupName]]" default-icon="chevron-right" open-icon="expand-more">
+                                <div class="attribute-wrapper">
+                        </template>
 
-            <template is="dom-if" if="[[_checkRenderGroupBar(attribute, 0)]]">
-                <pebble-accordion header-text="[[groupName]]" default-icon="chevron-right" open-icon="expand-more">
-                    <div class="attribute-wrapper">
-            </template>
-
-            <div class$="[[_getAttributeClass(noOfColumns, attribute)]]" name$="[[attribute.name]]">
-                <rock-attribute context-data="[[contextData]]"
-                                mode="{{mode}}"
-                                readonly$="[[readonly]]"
-                                errors="{{attribute.errors}}"
+                        <div class$="[[_getAttributeClass(noOfColumns, attribute)]]" name$="[[attribute.name]]">
+                            <rock-attribute 
+                                context-data="[[contextData]]" 
+                                mode="{{mode}}" 
+                                readonly$="[[readonly]]" 
+                                errors="{{attribute.errors}}" 
                                 server-errors="[[_getAttributeMessage(attribute,attributeMessages)]]"
-                                attribute-model-object="[[_getAttributeModel(attributeModels, attribute)]]"
+                                attribute-model-object="[[_getAttributeModel(attributeModels, attribute)]]" 
                                 attribute-object="{{attribute}}"
-                                original-attribute-object="[[_cloneObject(attribute)]]"
-                                tabindex="[[_getTabIndex(attribute)]]"
+                                original-attribute-object="[[_cloneObject(attribute)]]" 
+                                tabindex="[[_getTabIndex(attribute)]]" 
                                 on-attribute-value-changed="updateDependentAttributesAndResetErrors"
-                                show-delete-icon="[[showDeleteIcon]]"
+                                show-delete-icon="[[showDeleteIcon]]" 
                                 dependent-attribute-objects="[[_getDependentAttributes(attribute)]]"
-                                dependent-attribute-model-objects="[[_getDependentAttributeModels(attribute)]]"></rock-attribute>
-            </div>
+                                dependent-attribute-model-objects="[[_getDependentAttributeModels(attribute)]]">
+                            </rock-attribute>
+                        </div>
 
-            <template is="dom-if" if="[[_checkRenderGroupBar(attribute, 1)]]">
-                </div>
-                </pebble-accordion>
-            </template>
-            <bedrock-pubsub event-name="attribute-delete" handler="_ondeletingAttribute" target-id=""></bedrock-pubsub>
+                        <template is="dom-if" if="[[_checkRenderGroupBar(attribute, 1)]]">
+                            </div>
+                            </pebble-accordion>
+                        </template>
+                        <bedrock-pubsub event-name="attribute-delete" handler="_ondeletingAttribute" target-id=""></bedrock-pubsub>
+                    </template>
+                </template>
+            </div>
         </template>
-       
+        <paper-spinner-lite active="[[loading]]"></paper-spinner-lite>
+        <bedrock-pubsub event-name="tab-content-scroll" handler="_onTabContentScrollDebounce"></bedrock-pubsub>
     </template>
     <script>
         (function () {
@@ -121,19 +138,13 @@ It renders the list of attributes based on the specified parameters.
             Polymer({
                 is: 'rock-attribute-list',
                 created: function () {
-                    //console.log('list created');
-                },
-                attached: function () {
-                    //console.log('list attached');
-                },
-                ready: function () {
-                    //console.log('list ready');
-                    var self = this;
-                    this.$.attributeRepeat.addEventListener('dom-change', function () {
-                        setTimeout(() =>{
-                            self._calculateErrorLength(self.attributeValues);
-                        }, 1);
-                    });
+                    this.displatedAttributesChunkIndex = 1;
+
+                    this.attributesChunkLength = 20;
+
+                    this.loading = true;
+
+                    this._onTabContentScrollDebounce = _.debounce(this._onTabContentScroll, 300);
                 },
                 properties: {
                     /**
@@ -188,7 +199,7 @@ It renders the list of attributes based on the specified parameters.
                         type: Array,
                         value: function () {
                             return [];
-                        }                       
+                        }
                     },
                     /**
                      * Indicates the attribute value objects which renders the attributes.
@@ -254,8 +265,45 @@ It renders the list of attributes based on the specified parameters.
                     '_modeChanged(mode)',
                     '_onAttributeValuesChange(attributeValues)'
                 ],
-                _onAttributeValuesChange: function(attributeValues) {
+                _onAttributeValuesChange: function (attributeValues) {
                     this._previousViewName = "";
+
+                    if (!attributeValues.length) return;
+
+                    this._calculateErrorLength(this.attributeValues);
+                    
+                    this.attributesChunks = attributeValues.reduce((res, item) => {
+                        const chunkIndex = res.length;
+
+                        const currentChunk = res[chunkIndex - 1];
+
+                        if (chunkIndex && currentChunk && currentChunk.length < this.attributesChunkLength)
+                            currentChunk.push(item);
+                        else
+                            res.push([item]);
+
+                        return res;
+                    }, []);
+
+                    this.displayedAttributesChunks = this.attributesChunks.slice(0, this.displatedAttributesChunkIndex);
+
+                    this.loading = this.displayedAttributesChunks.length !== this.attributesChunks.length;
+                },
+
+                _onTabContentScroll(e) {
+                    const itemsToPush = this.attributesChunks.slice(this.displatedAttributesChunkIndex, ++this.displatedAttributesChunkIndex);
+                    
+                    if(!itemsToPush.length) {
+                        this.loading = false;
+                        return;
+                    }
+
+                    this.loading = true;
+
+                    this.async(()=> {
+                        this.displayedAttributesChunks = this.displayedAttributesChunks.concat(itemsToPush);
+                        Polymer.dom.flush();
+                    });
                 },
                 _getAttributeClass: function (n, attribute) {
                     var model = this._getAttributeModel(this.attributeModels, attribute);
@@ -425,9 +473,9 @@ It renders the list of attributes based on the specified parameters.
                             "node": this
                         };
                         this.dispatchEvent(new CustomEvent("bedrock-event", {detail:{
-                        name: "list-mode-changed",
-                        data: data
-                        }, bubbles:true, composed:true}));
+                                name: "list-mode-changed",
+                                data: data
+                            }, bubbles:true, composed:true}));
                     }
                 },
                 /**
@@ -440,9 +488,9 @@ It renders the list of attributes based on the specified parameters.
                         return true;
                     }
                 },
-                 /**
-                 * Can be used to get the controls if they are dirty.
-                 */
+                /**
+                * Can be used to get the controls if they are dirty.
+                */
                 getControlIsDirty: function () {
                     if (this.mode == "edit") {
                         return true;
@@ -484,7 +532,7 @@ It renders the list of attributes based on the specified parameters.
                         }
                     }
                     return false;
-                },  
+                },
                 _getTabIndex: function(attribute) {
                     return this._runningTabIndex++;
                 },
