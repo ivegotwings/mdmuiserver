@@ -9,6 +9,7 @@
 <link rel="import" href="../bedrock-helpers/attribute-helper.html">
 
 <link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 
 <dom-module id="rock-entity-graph-tree">
     <template>
@@ -42,14 +43,13 @@
                 }
              }
          </style>
-         <liquid-entity-model-get id="liquidModeleGet" operation="getbyids" request-data={{_modelRequest}} on-response="_onModelReceived" on-error="_onModelGetFailed"></liquid-entity-model-get>
+        <liquid-entity-model-get id="liquidModeleGet" operation="searchandget" request-data="[[_modelRequest]]" on-response="_onModelReceived" on-error="_onModelGetFailed"></liquid-entity-model-get>
+        <liquid-entity-data-get id="titleAttributeGet" operation="getbyids" request-data="[[_titleRequest]]" on-response="_onTitleAttributesGetResponse"></liquid-entity-data-get>
 
         <entity-graph-tree-datasource where-used-request="{{_whereUsedRequest}}" where-used-data-source="{{_whereUsedDataSource}}" 
                 owned-relationships-request="{{_ownedRelationshipsRequest}}" owned-data-source="{{_ownedDataSource}}"></entity-graph-tree-datasource>
 
-        <pebble-tree id="tree" leaf-node-only="[[leafNodeOnly]]" data="{{_graphs}}" default-child-depth="10" multi-select="[[multiSelect]]">
-
-        </pebble-tree>
+        <pebble-tree id="tree" leaf-node-only="[[leafNodeOnly]]" data="{{_graphs}}" default-child-depth="10" multi-select="[[multiSelect]]"></pebble-tree>
     </template>
 <script>
 (function(){
@@ -124,9 +124,6 @@
                 type:Object,
                 notify:true
             },
-            _parentNode:{
-                type:Object
-            },
             _currentNodeData:{
                 type:Object
             },
@@ -140,8 +137,21 @@
             _modelRequest:{
                 type:Object
             },
-            _entityModelElement:{
-                type:Object
+            _titleRequest:{
+                type:Object,
+                value:function(){
+                    return {}
+                }
+            },
+            _entityModels:{
+                type:Array,
+                value:function(){
+                    return []
+                }
+            },
+            _pageSize:{
+                type:Number,
+                value:10
             },
             _selectedNode:{
                 type:Object
@@ -158,31 +168,76 @@
             'tree-node-clicked': '_treeNodeClicked'
         },
         ready: function(){
+            this._pebbleTree = this.shadowRoot.querySelector("#tree");
             this._treeConfig = this.getParentAppConfig('rock-entity-graph', '', 'entityGraphTreeConfig');
             if(!_.isEmpty(this._treeConfig)){
-                this._graphData = DataHelper.cloneObject(this._treeConfig); //this._formatTree(graphConfig);
-                this._graphData.viewType = "";
-                this._graphData.id = DataHelper.getParamValue('id');
-                this._graphData.type = DataHelper.getParamValue('type');
-                this._currentNodeData = this._graphData;
-                this._graphs = [this._graphData];
+                this._treeConfig.id = DataHelper.getParamValue('id');
+                this._treeConfig.type = DataHelper.getParamValue('type');
+
+                var entityModelElement = this.shadowRoot.querySelector("#liquidModeleGet");
+                if(entityModelElement){
+                    this._modelRequest = this._getModelRequest();
+                    entityModelElement.generateRequest();
+                }
             }
             
         },
-        attached:function(){
-            this._pebbleTree = this.shadowRoot.querySelector("#tree");
-            this._entityModelElement = this.shadowRoot.querySelector("#liquidModeleGet")
-            var _self = this;
-            setTimeout(() =>{
-                
-                _self._initiateModelRequest();
-                        }, 10);
+        _initiateGraphTree: function(_title){
+            var graphData = DataHelper.cloneObject(this._treeConfig); 
+            graphData.text = _title; 
+            this._updateConfigWithGraphModel(graphData);
+            graphData.expanded = true;
+            graphData.viewMode = "";
+            graphData.value = _title;
+            graphData.highlightNode = true;
+            graphData.children = graphData.relationships;
+            this._graphData = {};
+            this._graphData = graphData;
+            // this._currentNodeData = this._graphData;
+            this._graphs = [this._graphData];
+        },
+        _initiateTitleGet: function(){
+            var titleAttributeGet = this.shadowRoot.querySelector("#titleAttributeGet");
+            if(titleAttributeGet){
+                if (this.contextData && this.contextData.ItemContexts && this.contextData.ItemContexts.length > 0) {
+                    var itemContext = this.contextData.ItemContexts[0];
+                    //add attribute names in item context
+                    var attribute = this._parseNodeTitle(this._treeConfig.treeNodeTitle);
+                    if(attribute){
+                        itemContext.attributeNames = [attribute];
+                    }
+                    this._titleRequest = DataRequestHelper.createEntityGetRequest(this.contextData);
+                    titleAttributeGet.generateRequest();
+                }
+            }
+        },
+        _onTitleAttributesGetResponse:function(ev){
+            if(ev && ev.detail && ev.detail.response){
+                const res = ev.detail.response;
+                if(!_.isEmpty(res)){
+                    var entityValidation = DataHelper.validateGetEntitiesResponse(res);
+                    if(entityValidation){
+                        var ent_id = DataHelper.getParamValue('id');
+                        var entity = DataHelper.findEntityById(res.content.entities, this._treeConfig.id);
+                        if(entity){
+                            var nodeTitle = this._treeConfig.treeNodeTitle;
+                            var attribute = this._parseNodeTitle(this._treeConfig.treeNodeTitle);
+                            if(attribute){
+                                nodeTitle = this._getNodeTitle(entity, this._treeConfig.treeNodeTitle);
+                            }
+                            this._treeConfig.title = nodeTitle;
+                            this._initiateGraphTree(nodeTitle);
+                        }
+                    }
+                }
+            }
+           
         },
         _treeNodeExpanded: function (e) {
             this._currentNode = e.detail;
-            if (!this._currentNode.nodeData.children && this._currentNode.nodeData.relationships) {
+            if (this._currentNode.nodeData && !this._currentNode.nodeData.dataLoaded) {
                 this._currentNodeData = this._currentNode.nodeData;
-                this._initiateModelRequest();
+                this._executeRequest();
                 this._currentNode.startLoading();
             }
         },
@@ -205,7 +260,7 @@
             
         },
         _getModelRequest: function(){
-            if(_.isEmpty(this._currentNodeData))
+            if(_.isEmpty(this._treeConfig))
             {
                 return;
             }
@@ -225,319 +280,218 @@
                                 "maxRecords": 200
                             }
                         }
-            
-            var relationships = []
-            if(this._currentNodeData.relationships && this._currentNodeData.relationships.length > 0){
-                for (let i = 0; i < this._currentNodeData.relationships.length; i++) {
-                    const element = this._currentNodeData.relationships[i];
-                    if(element && element.relationshipName){
-                        relationships.push(element.relationshipName);
+            var relationships = [];
+            function getRelationshipName(_obj){
+                if(_obj && !_.isEmpty(_obj)){
+                    if(_obj.relationshipName){
+                        relationships.push(_obj.relationshipName);
                     }
-                }
-            }
-            params.fields.relationships = relationships;
-            var graphModelType = this._currentNodeData.type + "_entityGraphModel";
-            params.query.id = graphModelType;
-            this._currentNodeData.modelId = graphModelType;
-            var req = {params:params};
-            return req;
-        },
-        _initiateModelRequest: function(){
-            this._modelRequest = this._getModelRequest()
-            this._entityModelElement.generateRequest();
-        },
-        _onModelReceived: function(ev){
-            if(ev && ev.detail && ev.detail.response){
-                if(ev.detail.response.content && (ev.detail.response.status == "success")){
-                    const res = ev.detail.response;
-                    var entity = DataHelper.findEntityById(res.content.entityModels, this._currentNodeData.modelId);
-                    if(entity){
-                        if(this._currentNodeData.relationships){
-                            for (var i = 0; i < this._currentNodeData.relationships.length; i++) {
-                                var relationship = this._currentNodeData.relationships[i];
-                                
-                                if(relationship && relationship.relationshipName){
-                                    var _relationshipDataArray = EntityHelper.getRelationshipByType(entity, null, relationship.relationshipName, true);
-                                    if(_relationshipDataArray && _relationshipDataArray.length > 0){
-                                        var _relProperties = _relationshipDataArray[0].properties;
-                                        if(_relProperties.externalName){
-                                            relationship.displayName = "All "+_relProperties.externalName+" of ";
-                                        }
-                                        if(_relProperties.relationshipOwnership){
-                                            relationship.relationshipOwnership = _relProperties.relationshipOwnership;
-                                        }
-                                        if(_relProperties.relatedEntityInfo && _relProperties.relatedEntityInfo.length > 0){
-                                            relationship.relEntityType = _relProperties.relatedEntityInfo[0].relEntityType;
-                                        }
-                                    }
-                                }
-                            
-                            }   
+                    if(_obj.relationships && _obj.relationships.length > 0){
+                        for (let i = 0; i < _obj.relationships.length; i++) {
+                            const rel = _obj.relationships[i];
+                            getRelationshipName(rel);
                         }
                     }
                 }
             }
-            this._executeRequest();
+            getRelationshipName(this._treeConfig);
+            params.fields.relationships = relationships;
+            var req = {params:params};
+            return req;
+        },
+        _onModelReceived: function(ev){
+            if(ev && ev.detail && ev.detail.response){
+                const res = ev.detail.response;
+                if(res.content && (res.status == "success")){
+                    if(res.content.entityModels){
+                        this._entityModels = [];
+                        this._entityModels = res.content.entityModels;
+                        this._initiateTitleGet();
+                    }
+                   
+                }
+            }
+        },
+        _updateConfigWithGraphModel: function(relObj){
+            if(relObj && !_.isEmpty(relObj) && relObj.type){
+                var modelId = relObj.type+"_entityGraphModel";
+                var entity = DataHelper.findEntityById(this._entityModels, modelId);
+                if(entity){
+                    if(relObj.relationships){
+                        for (var i = 0; i < relObj.relationships.length; i++) {
+                            var relationship = relObj.relationships[i];
+                            
+                            if(relationship && relationship.relationshipName){
+                                var _relationshipDataArray = EntityHelper.getRelationshipByType(entity, null, relationship.relationshipName, true);
+                                if(_relationshipDataArray && _relationshipDataArray.length > 0){
+                                    var _relProperties = _relationshipDataArray[0].properties;
+                                    if(_relProperties.externalName){
+                                        relationship.displayName = "All "+_relProperties.externalName+" of ";
+                                    }
+                                    if(relObj.title){
+                                        relationship.text = relationship.displayName + relObj.title;
+                                    }
+                                    if(_relProperties.relationshipOwnership){
+                                        relationship.relationshipOwnership = _relProperties.relationshipOwnership;
+                                    }
+                                    if(_relProperties.relatedEntityInfo && _relProperties.relatedEntityInfo.length > 0){
+                                        relationship.type = _relProperties.relatedEntityInfo[0].relEntityType;
+                                    }
+                                    if(relObj.id){
+                                        relationship.id = relObj.id;
+                                    }
+                                    if(relObj.id){
+                                        relationship.parentType = relObj.type;
+                                    }
+                                    if(relationship.treeNodeTitle){
+                                        relationship.attribute = this._parseNodeTitle(relationship.treeNodeTitle);
+                                    }
+                                    relationship.page = 0;
+                                    relationship.dataLoaded = false;
+                                }
+                                this._updateConfigWithGraphModel(relationship);
+                            }
+                        
+                        }   
+                        // relObj.children = relObj.relationships;
+                        relObj.attribute = this._parseNodeTitle(relObj.treeNodeTitle);
+                        relObj.page = 0;
+                        relObj.dataLoaded = false;
+                    }
+                    relObj.viewMode = "GRID";
+                }
+            }
         },
         _onModelGetFailed:function(e){
             //Need to log error
         },
         _executeRequest: function(){
-            if(this._currentNodeData){
-                var dataObj = {
-                    id:this._currentNodeData.id,
-                    type:this._currentNodeData.type,
-                    attribute:"",
-                    ownedRelationshipNames:[],
-                    ownedRelationshipAttributes:[],
-                    whereUsedRelationshipNames:[],
-                    whereUsedRelationshipAttributes:[],
-                    whereUsedTypesCriterion:[]
-                };
-                
-                dataObj.attribute = this._parseNodeTitle(this._currentNodeData.treeNodeTitle);
-                    
-                if(this._currentNodeData.relationships && this._currentNodeData.relationships.length > 0){
-                    var relObj, relAttr;
-                    for (var i = 0; i < this._currentNodeData.relationships.length; i++) {
-                        relObj = this._currentNodeData.relationships[i];
-                        relAttr = this._parseNodeTitle(relObj.treeNodeTitle)
-                        
-                        if(relObj.relationshipOwnership == 'whereused'){
-                            dataObj.whereUsedRelationshipNames.push(relObj.relationshipName);
-                            if(relObj.relEntityType){
-                                dataObj.whereUsedTypesCriterion.push(relObj.relEntityType);
-                            }
-                            if(relAttr){
-                                dataObj.whereUsedRelationshipAttributes.push(relAttr);
-                            }
-                        }else{
-                            dataObj.ownedRelationshipNames.push(relObj.relationshipName);
-                            if(relAttr){
-                                dataObj.ownedRelationshipAttributes.push(relAttr);
-                            }
-                        }
-                    }
-                }
-                if(dataObj.whereUsedRelationshipNames && dataObj.whereUsedRelationshipNames.length > 0){
-                    //For whereUsed 
-                    this._whereUsedRequest = this._getWhereUsedRequest(dataObj);
-                    this._whereUsedDataSource({}, this._onWhereUsedDataSourceResponse.bind(this), this._onWhereUsedDataSourceError.bind(this));
-                }
-                if(dataObj.ownedRelationshipNames && dataObj.ownedRelationshipNames.length > 0){
+            if(this._currentNodeData){     
+                if(this._currentNodeData.relationshipOwnership && (this._currentNodeData.relationshipOwnership == "owned")){
                     //For owned
-                    this._ownedRelationshipsRequest = this._getOwnedRelationshipsRequest(dataObj);
-                    this._ownedDataSource({}, this._onOwnedDataSourceResponse.bind(this), this._onOwnedDataSourceError.bind(this))
+                    this._ownedRelationshipsRequest = this._getRelationshipsRequest();
+                    this._ownedDataSource({page:this._currentNodeData.page, pageSize:this._pageSize}, this._onOwnedRelationshipsResponse.bind(this), this._onOwnedDataSourceError.bind(this))
+                }else{
+                    //For whereUsed 
+                    this._whereUsedRequest = this._getRelationshipsRequest();
+                    this._whereUsedDataSource({page:this._currentNodeData.page, pageSize:this._pageSize}, this._onWhereUsedRelationshipsResponse.bind(this), this._onWhereUsedDataSourceError.bind(this));
                 }
-                
             }
         },
-        _onOwnedDataSourceResponse: function(res){
+        _getRelationshipsRequest: function(){
+            var req = DataRequestHelper.createEntityGetRequest(this.contextData);
+            if(req && req.params){
+                 
+                req.params.fields.attributes = [this._currentNodeData.attribute];
+                req.params.fields.relationships = [this._currentNodeData.relationshipName];
+                req.params.fields.relationshipAttributes = [this._currentNodeData.attribute];
+                req.params.fields.relatedEntityAttributes = [this._currentNodeData.attribute];
+
+                if(this._currentNodeData.relationshipOwnership == "whereused"){                
+                    //Where used criterion
+                    var relationshipsCriterion = [];
+                    var relCriterion = {};
+                    var relTo = {
+                        "relTo":{
+                            id:this._currentNodeData.id,
+                            type:this._currentNodeData.parentType
+                        }
+                    }
+                    relCriterion[this._currentNodeData.relationshipName] = relTo;
+                    relationshipsCriterion.push(relCriterion);
+                    req.params.query.filters.relationshipsCriterion = relationshipsCriterion;
+                    req.params.query.filters.typesCriterion = [this._currentNodeData.type];
+                    delete req.params.query.ids;
+                }else{
+                    //assign entity ID
+                    req.params.query.ids = [this._currentNodeData.id];
+                    //assign entity type
+                    req.params.query.filters.typesCriterion = [this._currentNodeData.parentType];
+                }
+            }
+            return req;
+        },
+        _onOwnedRelationshipsResponse: function(res){
             if(!_.isEmpty(res)){
                 var entityValidation = DataHelper.validateGetEntitiesResponse(res);
-                var currentNodeData;
                 if(entityValidation){
                     var entity = DataHelper.findEntityById(res.content.entities, this._currentNodeData.id);
                     if(entity){
-                        var _nodeTitle = this._getNodeTitle(entity, this._currentNodeData.treeNodeTitle);
-                        if(!_nodeTitle){
-                            _nodeTitle = this._currentNodeData.id;
-                        }
-                        if(!this._parentNode){
-                            if(_nodeTitle){
-                                this._updateNodeTitle(_nodeTitle);
-                            }
-                            this._parentNode = entity;
-                        }
-                    
-                        if(this._currentNodeData.relationships){
-                            var relationship, childNodeObj, tempArray;
-                            var nodeChildren = [];
-                            for (var i = 0; i < this._currentNodeData.relationships.length; i++) {
-                                relationship = this._currentNodeData.relationships[i];
-                                childNodeObj = {};
-                                if(relationship && relationship.relationshipName){
-                                    relationship.expanded = true;
-                                    tempArray = [];
-                                    var _relationshipDataArray = EntityHelper.getRelationshipByType(entity, null, relationship.relationshipName, true);
-                                    if(_relationshipDataArray && _relationshipDataArray.length > 0){
-                                        _relationshipDataArray.forEach(function(_relTo) {
-                                            if(_relTo && _relTo.relTo){
-                                                var _relToObj = _relTo.relTo;
-                                                _relToObj.text = this._getNodeTitle(_relToObj, relationship.treeNodeTitle);
-                                                _relToObj.value = _relToObj.text;
-                                                _relToObj.treeNodeTitle = relationship.treeNodeTitle;
-                                                _relToObj.displayName = relationship.displayName;
-                                                _relToObj.relationshipName = relationship.relationshipName;
-                                                _relToObj.viewMode = "QUICK_MANAGE";
-                                                if(relationship.relationships){
-                                                    _relToObj.relationships = relationship.relationships;
-                                                }
-                                                tempArray.push(_relToObj);
-                                            }
-                                        }, this);
-                                        
+                        
+                        var tempArray = [];
+                        var _relationshipDataArray = EntityHelper.getRelationshipByType(entity, null, this._currentNodeData.relationshipName, true);
+                        if(_relationshipDataArray && _relationshipDataArray.length > 0){
+                            _relationshipDataArray.forEach(function(_relTo) {
+                                if(_relTo && _relTo.relTo){
+                                    var _relToObj = _relTo.relTo;
+                                    _relToObj.text = this._getNodeTitle(_relToObj, this._currentNodeData.treeNodeTitle);
+                                    _relToObj.value = _relToObj.text;
+                                    _relToObj.viewMode = "QUICK_MANAGE";
+                                    _relToObj.parentType = this._currentNodeData.type;
+                                    _relToObj.dataLoaded = true;
+
+                                    var configRelationships = [];
+                                    if(this._currentNodeData.relationships && this._currentNodeData.relationships.length > 0){
+                                        for (let i = 0; i < this._currentNodeData.relationships.length; i++) {
+                                            const rel = DataHelper.cloneObject(this._currentNodeData.relationships[i]);
+                                            rel.id = _relToObj.id;
+                                            rel.text = rel.displayName + _relToObj.text;
+                                            configRelationships.push(rel);
+                                        }
+                                        _relToObj.relationships = configRelationships;
+                                        _relToObj.children = configRelationships;
                                     }
-                                    
-                                    childNodeObj.id = this._currentNodeData.id;
-                                    childNodeObj.type = this._currentNodeData.type;
-                                    childNodeObj.relationshipName = relationship.relationshipName;
-                                    childNodeObj.relEntityType = relationship.relEntityType;
-                                    childNodeObj.expanded = true;
-                                    childNodeObj.text = relationship.displayName + _nodeTitle;
-                                    childNodeObj.value = childNodeObj.text;
-                                    childNodeObj.viewMode = "GRID";
-                                    childNodeObj.children = tempArray;
-                                    nodeChildren.push(childNodeObj);
+                                    tempArray.push(_relToObj);
                                 }
-                            }
-                            this._currentNodeData.expanded = true;
-                            this._updateNodeData(nodeChildren);
+                            }, this);
+                            this._currentNodeData.children = [];
+                            this._currentNodeData.children = tempArray;
                         }
                     }
-                }   
+                }
             }
+            this._currentNodeData.dataLoaded = true;
+            this._currentNode.refreshChildList();
+        },
+        
+        _onWhereUsedRelationshipsResponse: function(res){
+            if(res && !_.isEmpty(res)){
+                var entityValidation = DataHelper.validateGetEntitiesResponse(res);
+                if(entityValidation && res.content && res.content.entities){
+                    var entities = res.content.entities;
+                    var tempArray = [];
+                    entities.forEach(function(entity) {
+                        if(entity){
+                            entity.text = this._getNodeTitle(entity, this._currentNodeData.treeNodeTitle);
+                            entity.value = entity.text;
+                            entity.viewMode = "QUICK_MANAGE";
+                            entity.parentType = this._currentNodeData.type;
+                            entity.dataLoaded = true;
+
+                            var configRelationships = [];
+                            if(this._currentNodeData.relationships && this._currentNodeData.relationships.length > 0){
+                                for (let i = 0; i < this._currentNodeData.relationships.length; i++) {
+                                    const rel = DataHelper.cloneObject(this._currentNodeData.relationships[i]);
+                                    rel.id = entity.id;
+                                    rel.text = rel.displayName + entity.text;
+                                    configRelationships.push(rel);
+                                }
+                                entity.relationships = configRelationships;
+                                entity.children = configRelationships;
+                            }
+                            tempArray.push(entity);
+                        }
+                    }, this);
+                    this._currentNodeData.children = [];
+                    this._currentNodeData.children = tempArray;   
+                }
+            }
+            this._currentNodeData.dataLoaded = true;
+            this._currentNode.refreshChildList();
         },
         _onOwnedDataSourceError: function(ev){
         },
-        _onWhereUsedDataSourceResponse: function(ev){
-            if(ev && ev.content && ev.content.entities){
-                if(this._currentNodeData.relationships && this._currentNodeData.relationships.length > 0){
-                    var nodeChildren = [];
-                    var tempArray = [];
-                    var childNodeObj = {};
-                    var relationship;
-                    for (var i = 0; i < this._currentNodeData.relationships.length; i++) {
-                        relationship = this._currentNodeData.relationships[i];
-                        childNodeObj = {};
-                        
-                        if(relationship && relationship.relationshipName){
-                            relationship.expanded = true;
-                            tempArray = [];
-                            var entities = ev.content.entities;
-                            entities.forEach(function(entity) {
-                                if(entity.data && entity.data.relationships){
-                                    if(entity.data.relationships[relationship.relationshipName]){
-                                        entity.text = this._getNodeTitle(entity, relationship.treeNodeTitle);
-                                        entity.value = entity.text;
-                                        entity.treeNodeTitle = relationship.treeNodeTitle;
-                                        entity.displayName = relationship.displayName;
-                                        entity.relationshipName = relationship.relationshipName;
-                                        entity.viewMode = "QUICK_MANAGE";
-                                        if(relationship.relationships){
-                                            entity.relationships = relationship.relationships;
-                                        }
-                                        tempArray.push(entity);
-                                    }
-                                }
-                            }, this);
-                            var _nodeTitle = this._getNodeTitle(this._currentNodeData, this._currentNodeData.treeNodeTitle);
-                            if(!_nodeTitle){
-                                _nodeTitle = this._currentNodeData.id;
-                            }
-                            childNodeObj.id = this._currentNodeData.id;
-                            childNodeObj.type = this._currentNodeData.type;
-                            childNodeObj.relationshipName = relationship.relationshipName;
-                            childNodeObj.relEntityType = relationship.relEntityType;
-                            childNodeObj.expanded = true;
-                            childNodeObj.text = relationship.displayName + _nodeTitle;
-                            childNodeObj.value = childNodeObj.text;
-                            childNodeObj.viewMode = "GRID";
-                            childNodeObj.children = tempArray;
-                            nodeChildren.push(childNodeObj);
-                        }
-                        
-                    }
-                    this._currentNodeData.expanded = true;
-                    this._updateNodeData(nodeChildren);
-                }
-            }
-        },
-        _updateNodeData: function(_nodeChildren){
-            if(this._currentNodeData.children && this._currentNodeData.children.length > 0){
-                for (var j = 0; j < this._currentNodeData.children.length; j++) {
-                    var currentChild = this._currentNodeData.children[j];
-                    if(currentChild.children && (currentChild.children.length == 0)){
-                        for (var k = 0; k < _nodeChildren.length; k++) {
-                            var child = _nodeChildren[k];
-                            
-                            if(child.relationshipName == currentChild.relationshipName){
-                                this._currentNodeData.children[j] = child; 
-                            }
-                        }
-                    }
-                }
-            }else{
-                this._currentNodeData.children = _nodeChildren;
-            }
-            this._refreshGraphTree();
-        },
         _onWhereUsedDataSourceError: function(ev){
-        },
-        _getWhereUsedRequest: function(reqData){
-            //var typeConfig = this.treeConfig; //this.getParentAppConfig('rock-entity-family', '', this.entityType);
-            var reqParams = {  
-                        "query":{  
-                            "filters":{  
-                            },
-                            "contexts":[  
-                                {  
-                                "taxonomy":"Product Setup Taxonomy"
-                                }
-                            ],
-                            "valueContexts":[  
-                                {  
-                                "source":"internal",
-                                "locale":"en-US"
-                                }
-                            ]
-                        },
-                        "fields":{  
-                        },
-                        "options":{  
-                            "maxRecords":1
-                        }
-                }
-            //assign entity ID
-            var req = {params:reqParams};
-            
-            req.params.fields.attributes = [reqData.attribute];
-            req.params.fields.relationships = reqData.whereUsedRelationshipNames;
-            req.params.fields.relationshipAttributes = reqData.whereUsedRelationshipAttributes;
-            var relationshipsCriterion = [];
-            var relCriterion = {};
-            var relTo = {
-                "relTo":{
-                    id:reqData.id,
-                    type:reqData.type
-                }
-            }
-            for (var i = 0; i < reqData.whereUsedRelationshipNames.length; i++) {
-                var relationship = reqData.whereUsedRelationshipNames[i]; 
-                relCriterion[relationship] = relTo;
-                relationshipsCriterion.push(relCriterion);
-            }
-            
-            req.params.query.filters.typesCriterion = reqData.whereUsedTypesCriterion;
-            req.params.query.filters.relationshipsCriterion = relationshipsCriterion;
-            
-            return req;
-            
-        },
-        _getOwnedRelationshipsRequest:function(reqData){
-            var req = DataRequestHelper.createEntityGetRequest(this.contextData);
-            if(req && req.params){
-                //assign entity ID
-                req.params.query.ids = [reqData.id];
-                //assign entity type
-                req.params.query.filters.typesCriterion = [reqData.type];
-                req.params.fields.attributes = [reqData.attribute];
-                req.params.fields.relationships = reqData.ownedRelationshipNames;
-                req.params.fields.relationshipAttributes = reqData.ownedRelationshipAttributes;
-                req.params.fields.relatedEntityAttributes = reqData.ownedRelationshipAttributes;
-                
-            }
-            return req;
         },
         _parseNodeTitle: function(_title){
             if(_title && (_title.indexOf("attribute:") > -1)){
@@ -565,27 +519,22 @@
             }
             return _title;
         },
-        _updateNodeTitle: function(_title){
-            this._graphData.text = _title;
-            this._graphData.value = _title;
-            this._graphData.expanded = true;
-        },
-        refreshTree: function(){
+        reRenderTreeChildList: function(){
             if(this._selectedNode && this._currentNodeData){
                 this._currentNodeData.children = [];
-                this._initiateModelRequest();
+                this._executeRequest();
                 this._selectedNode.startLoading();
             }
         },
-        _refreshGraphTree: function(){
-            this._graphs = [];
-            this._graphs = [this._graphData];
+        // _refreshGraphTree: function(){
+        //     this._graphs = [];
+        //     this._graphs = [this._graphData];
 
-            if(this._pebbleTree && this._selectedNode && this._selectedNode.valuePath){
-                this._selectedNode = this._pebbleTree.getElementNodeByPath(this._selectedNode.valuePath);
-                this._selectedNode.highlightNode = true;
-            }
-        }
+        //     if(this._pebbleTree && this._selectedNode && this._selectedNode.valuePath){
+        //         this._selectedNode = this._pebbleTree.getElementNodeByPath(this._selectedNode.valuePath);
+        //         this._selectedNode.highlightNode = true;
+        //     }
+        // }
     })
 })();
 </script>
