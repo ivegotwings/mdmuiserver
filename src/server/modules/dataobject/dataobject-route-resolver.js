@@ -364,7 +364,7 @@ async function get(dataObjectIds, reqData) {
 
         var request = createGetRequest(reqData);
 
-        if ((request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel') || request.dataIndex == "entity") {
+        if ((request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel') || request.dataIndex == "entityData") {
             if (!isEmpty(request.params.query.contexts)) {
                 isCoalesceGet = true;
             }
