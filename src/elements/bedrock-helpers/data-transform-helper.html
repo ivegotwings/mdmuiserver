@@ -21,19 +21,19 @@
                 mergedAttributeModels = DataMergeHelper.mergeAttributes(mergedAttributeModels, compositeModel.data.attributes, true);
                 for (var attrKey in mergedAttributeModels) {
                     var dataAttrModel = mergedAttributeModels[attrKey];
-                    dataAttrModel.selfContext = 1;
+                    //dataAttrModel.selfContext = 1;
                 }
             }
 
             if (!_.isEmpty(firstDataContext)) {
                 //apply contexts specific model on top of default
                 var specificCtxAttributeModels = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(compositeModel, firstDataContext);
-                var mergedAttrKeys = Object.keys(mergedAttributeModels);
-                for (var attrKey in specificCtxAttributeModels) {
-                    if (mergedAttrKeys.indexOf(attrKey) >= 0) {
-                        mergedAttributeModels[attrKey] = specificCtxAttributeModels[attrKey];
-                    }
-                }
+                // var mergedAttrKeys = Object.keys(mergedAttributeModels);
+                // for (var attrKey in specificCtxAttributeModels) {
+                //     if (mergedAttrKeys.indexOf(attrKey) >= 0) {
+                //         mergedAttributeModels[attrKey] = specificCtxAttributeModels[attrKey];
+                //     }
+                // }
                 mergedAttributeModels = DataMergeHelper.mergeAttributes(mergedAttributeModels, specificCtxAttributeModels, true);
             }
 
@@ -54,7 +54,7 @@
                 mergedRelationshipModels = DataMergeHelper.mergeRelationships(mergedRelationshipModels, compositeModel.data.relationships, true);
                 for (var relKey in mergedRelationshipModels) {
                     var dataRelModel = mergedRelationshipModels[relKey];
-                    dataRelModel.selfContext = 1;
+                    //dataRelModel.selfContext = 1;
                 }
             }
 
@@ -65,7 +65,7 @@
                 for (var relKey in specificCtxRelationshipModels) {
                     var dataRelModel = mergedRelationshipModels[relKey];
                     if (!_.isEmpty(dataRelModel)) {
-                        dataRelModel.selfContext = 0;
+                        //dataRelModel.selfContext = 0;
                     }
                 }
                 mergedRelationshipModels = DataMergeHelper.mergeRelationships(mergedRelationshipModels, specificCtxRelationshipModels, true);
@@ -83,10 +83,27 @@
 
             if (entity && entity.data && entity.data.attributes) {
                 mergedAttributes = DataMergeHelper.mergeAttributes(mergedAttributes, entity.data.attributes, true);
+                for(var attrKey in mergedAttributes) {
+                    if(mergedAttributes[attrKey]) {
+                        mergedAttributes[attrKey].properties = {
+                            "contextCoalesce": [
+                                {
+                                    "self": "Self"
+                                }
+                            ]
+                        }
+                    }
+                }
             }
 
             if (firstDataContext) {
                 var ctxAttributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, firstDataContext);
+                var mergeAttrKeys = Object.keys(mergedAttributes);
+                for(var attrKey in ctxAttributes) {
+                    if(mergeAttrKeys.indexOf(attrKey) > -1) {
+                        delete mergedAttributes[attrKey].properties;
+                    }
+                }
                 if (!_.isEmpty(ctxAttributes)) {
                     mergedAttributes = DataMergeHelper.mergeAttributes(mergedAttributes, ctxAttributes, true);
                 }
@@ -243,13 +260,13 @@
                             }
                         }
 
-                         if (!_.isEmpty(transformedAttributes)) {
+                        if (!_.isEmpty(transformedAttributes)) {
                             //delete entity.data;
                             //var transformedEntity = DataHelper.cloneObject(entity);
                             var transformedEntity = entity;
                             transformedEntity.attributes = transformedAttributes;
                             transformedEntities.push(transformedEntity);
-                         }
+                        }
                     }
                 }
             }
@@ -307,7 +324,7 @@
                     }
                 }
 
-                if (attributeJSON.selfContext) {
+                if (_.isEmpty(firstDataContext)) {
                     dataAttributes[attributeJSON.name] = attr;
                 }
                 else {
@@ -368,7 +385,7 @@
                 var attributeJSON = attributesJSON[i];
                 var attr = this.createAttributeInstance(attributeJSON, firstValueContext);
 
-                if (attributeJSON.selfContext) {
+                if (_.isEmpty(firstDataContext)) {
                     dataAttributes[attributeJSON.name] = attr;
                 }
                 else {
@@ -508,36 +525,29 @@
                             var inheritedPaths = [];
                             var contextCoalesce = attribute.properties.contextCoalesce;
                             if (contextCoalesce && contextCoalesce.length) {
-                                //if ((contextCoalesce.length == 1 && !DataHelper.compareObjects(dataContext, contextCoalesce[0])) || contextCoalesce.length > 1) {
-
-                                contextCoalesce = contextCoalesce[0];
-                                //contextCoalesce.forEach(function (item) {
-                                    //var inhPath = [];
+                                if (contextCoalesce.length == 1 && !DataHelper.compareObjects(dataContext, contextCoalesce[0])) {
+                                    contextCoalesce = contextCoalesce[0];
+                                    var ctxPath = [];
                                     Object.keys(contextCoalesce).forEach(function (ctx) {
                                         if (contextCoalesce[ctx]) {
-                                            inheritedPaths.push(contextCoalesce[ctx]);
+                                            ctxPath.push(contextCoalesce[ctx]);
                                         }
                                     }, this);
 
-                                    // if (inhPath && inhPath.length) {
-                                    //     inheritedPaths.push(JSON.stringify(inhPath));
-                                    // }
-                                //}, this);
-
-                                //}
+                                    if(ctxPath && ctxPath.length) {
+                                        inheritedPaths.push(ctxPath.join(', '));
+                                    }
+                                }
                             }
 
                             var instanceCoalesce = attribute.properties.instanceCoalesce;
                             if (instanceCoalesce && instanceCoalesce.length) {
-                                var inheritedPaths = [];
                                 instanceCoalesce = instanceCoalesce[0];
-                                //instanceCoalesce.forEach(function (item) {
-                                    if (instanceCoalesce.coalesceSourceName) {
-                                        inheritedPaths.push(instanceCoalesce.coalesceSourceName);
-                                    }
-                                //}, this);
+                                if (instanceCoalesce.coalesceSourceName) {
+                                    inheritedPaths.push(instanceCoalesce.coalesceSourceName);
+                                }
                             }
-                            
+
 
                             if (inheritedPaths && inheritedPaths.length) {
                                 attributeJSON.inheritedPaths = inheritedPaths;
@@ -586,7 +596,7 @@
                         attributeJSON = AttributeHelper.getEmptyValue(valueContext, attributeModel);
                     }
 
-                    attributeJSON.selfContext = attributeModel.selfContext;
+                    //attributeJSON.selfContext = attributeModel.selfContext;
                     attributeJSON.name = attributeModel.name;
 
                     transformedAttributes[attributeModel.name] = attributeJSON;
@@ -758,8 +768,7 @@
                                             "name": key,
                                             "value": val,
                                             "source": firstValueContext.source,
-                                            "locale": firstValueContext.locale,
-                                            "selfContext": attributeModels[key].selfContext
+                                            "locale": firstValueContext.locale
                                         };
 
                                         if (attribute.value === "delete" || (attribute.value instanceof Array && attribute.value[0] === "delete")) {
