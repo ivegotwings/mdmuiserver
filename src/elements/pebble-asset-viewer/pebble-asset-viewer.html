@@ -1,15 +1,35 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
+ <link rel="import" href="../../../bower_components/paper-fab/paper-fab.html">
+ <link rel="import" href="../../../bower_components/paper-tooltip/paper-tooltip.html">
 <dom-module id="pebble-asset-viewer">
     <template>
         <style include="bedrock-style-common">
             .asset-render{
                 height: 80vh;
             }
+            .overflow{
+                overflow-y: auto;
+                overflow-x: auto;
+            }
             .video-extension-not-supported{
                 position:absolute;
                 left:40%;
                 top:50%;
+            }
+            header{
+                position: fixed;
+                bottom: 10%;
+                z-index: 1;
+                left: 50%;
+                transform: translateX(-50%);
+            }
+            header paper-fab{
+                display: inline-block;
+                background: #cbcbcb;
+            }
+            header div{
+                display: inline-block;
             }
         </style>
         <div id="viewerContainer" class$="[[_computeClass(assetType)]]">
@@ -31,8 +51,18 @@
                 </template>
             </template>
             <template is="dom-if" if="[[isDocumentView(assetType)]]">
-                <span>Document Preview Not Available!</span>
-                <a href="[[assetUrl]]">Download</a> 
+                <template is="dom-if" if="[[assetError]]">
+                    <span>Document preview not available</span>
+                    <a href="[[assetUrl]]">Download</a> 
+                </template>
+                <template is="dom-if" if="[[!assetError]]">
+                    <a href="[[assetUrl]]">Download</a> 
+                    <header>
+                        <paper-fab mini icon="arrow-back" action="previous" on-tap="_performDocumentAction"></paper-fab>
+                        <div>[[documentPage]]/[[documentPages]]</div>
+                        <paper-fab mini icon="arrow-forward" action="next" on-tap="_performDocumentAction"></paper-fab>
+                    </header>
+                </template>
             </template>
             <template is="dom-if" if="[[isAudioView(assetType)]]">
                     <audio controls autoplay src="[[assetUrl]]" oncanplay="[[_onAssetLoad]]">
@@ -56,6 +86,9 @@
                     assetUrl: {
                         type: String
                     },
+                    assetExtension:{
+                        type: String
+                    },
                     _loading: {
                         type: Boolean,
                         value: false
@@ -73,6 +106,7 @@
                         notify: true
                     },
                 },
+                observers: ["_onAssetValuesChange(assetType, assetUrl, assetExtension)"],
                 _onAssetLoad: function () {
                     var viewer = this.__dataHost.parentModel;
                     viewer.set("_loading" , false);
@@ -99,6 +133,9 @@
                 },
                 isDocumentView: function (assetType) {
                     if(assetType == "document"){
+                        if(this.assetExtension != "pdf"){
+                            this.set("assetError" , true);
+                        }
                         return true;
                     }
                     return false;
@@ -109,13 +146,43 @@
                     }
                     return false;
                 },
-                _computeClass: function (assetType) {
-                    if(assetType == "image" || assetType == "video"){
-                        return "asset-render";
+                _onAssetValuesChange:function(assetType, assetUrl, assetExtension){
+                    if(assetType && assetUrl && assetExtension){
+                        
+                        if(this.assetType == "document" && this.assetExtension == "pdf"){
+                            var link = this.importHref("../../../bower_components/pdf-viewer/pdf-viewer.html", 
+                            function() {
+                                if(!this.shadowRoot.querySelector("pdf-viewer")){
+                                    var dynamicEl = document.createElement("pdf-viewer");
+                                    dynamicEl.setAttribute("id", "docViewer");
+                                    dynamicEl.setAttribute("src", this.assetUrl);
+                                    dynamicEl.setAttribute("page", this.documentPage);
+                                    dynamicEl.setAttribute("mode", "single");
+                                    dynamicEl.setAttribute("initial-zoom", "fit-width");
+                                    Polymer.dom(this.$.viewerContainer).appendChild(dynamicEl);
+                                }
+                            }
+                            );
+                        }
                     }
+    
+                },
+                _computeClass: function (assetType) {
+                    //compute class if no error is there
+                    if(!this.assetError){
+                        if(assetType == "image" || assetType == "video"){
+                            return "asset-render";
+                        }
+                        else if(assetType == "document"){
+                            return "asset-render overflow";
+                        }
+                    }
+                    
                 },
                 _performDocumentAction: function (event) {
                     var document = this.shadowRoot.querySelector("#docViewer");
+                    this.set("documentPage",document.page);
+                    this.set("documentPages",document.pages);
                     var action = event.target.getAttribute("action")
                    
                     switch (action) {
