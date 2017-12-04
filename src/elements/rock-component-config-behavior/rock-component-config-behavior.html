@@ -54,38 +54,18 @@
 
             return DataRequestHelper.createConfigGetRequestNew(configId, configContext);
         },
-        _createConfigContext: function (component, contextData) {            
-            var tenantId = undefined;
-            var appName = undefined;
-
-            if(_.isEmpty(contextData)) {
-                var currentApp = ComponentHelper.getCurrentActiveApp();
-
-                if (currentApp) {
-                    if (!contextData) {
-                        contextData = currentApp.contextData;
-                    }
-
-                    if (currentApp.localName) {
-                        appName = currentApp.localName;
-                    }
-
-                    if(currentApp.tenantId) {
-                        tenantId = currentApp.tenantId;
-                    }
-                }
-            }
-
+        _createConfigContext: function (component, contextData) {
+            var appContext = {};
             var domainContext = {};
             var dataContext = {};
             var valueContext = {};
             var itemContext = {};
             var userContext = {};
 
-
             var DEFAULT_CONTEXT_KEY = this.DEFAULT_CONTEXT_KEY;
 
             if (contextData) {
+                appContext = ContextHelper.getFirstAppContext(contextData);
                 domainContext = ContextHelper.getFirstDomainContext(contextData);
                 dataContext = ContextHelper.getFirstDataContext(contextData);
                 valueContext = ContextHelper.getFirstValueContext(contextData);
@@ -96,8 +76,8 @@
             var configContext = {
                 "component": component,
                 "sysDomain": domainContext && domainContext.sysDomain ? domainContext.sysDomain : DEFAULT_CONTEXT_KEY,
-                "app": appName ? appName : DEFAULT_CONTEXT_KEY,
-                "tenant": tenantId ? tenantId : DEFAULT_CONTEXT_KEY,
+                "app": appContext && appContext.app ? appContext.app : DEFAULT_CONTEXT_KEY,
+                "tenant": userContext && userContext.tenantId ? userContext.tenantId : DEFAULT_CONTEXT_KEY,
                 "domain": domainContext && domainContext.domain ? domainContext.domain: DEFAULT_CONTEXT_KEY,
                 "entityType": itemContext && itemContext.type ? itemContext.type : DEFAULT_CONTEXT_KEY,
                 "relationship": itemContext && itemContext.relationship ? itemContext.relationship : DEFAULT_CONTEXT_KEY,
@@ -110,6 +90,13 @@
                 }
             }
 
+            // copy over value context keys to config context
+            if(!_.isEmpty(valueContext)) {
+                for(var valContextKey in valueContext) {
+                    configContext[valContextKey] = valueContext[valContextKey];
+                }
+            }
+
             configContext.role = userContext && userContext.role ? userContext.role : DEFAULT_CONTEXT_KEY,
             configContext.user = userContext && userContext.user ? userContext.user : DEFAULT_CONTEXT_KEY
             
@@ -119,12 +106,19 @@
             var configId = 'x-';
             for(var contextKey in configContext) {
                 var contextVal = configContext[contextKey];
-                if(!_.isEmpty(contextVal) && contextVal != DEFAULT_CONTEXT_KEY) {
-                    configId = configId + "_" + contextVal;
+                if(!_.isEmpty(contextVal) && contextVal != this.DEFAULT_CONTEXT_KEY) {
+                    if(configId == 'x-') {
+                        configId = configId + contextVal;
+                    }
+                    else {
+                        configId = configId + "_" + contextVal;
+                    }
                 }
             }
 
             configId = configId + "_uiConfig";
+
+            return configId;
         },
         _initiateComponentConfigGetRequest: function (configRequest) {
             var liquidCustomElement = customElements.get("liquid-config-get");
@@ -142,13 +136,13 @@
         },
         _onComponentConfigGetResponse: function (e) {
             if (e.detail) {
-                var configs = e.detail.response.content.configObjects;
+                var res = e.detail.response.content;
 
-                if (DataHelper.isValidObjectPath(configs, 'configObjects.0.data.contexts.0.jsonData')) {
-                    this.componentConfig = configs[0].data.contexts[0].jsonData;
+                if (DataHelper.isValidObjectPath(res, 'configObjects.0.data.contexts.0.jsonData')) {
+                    this.componentConfig = res.configObjects[0].data.contexts[0].jsonData;
                 }
 
-                this._onConfigLoaded(this.componentConfig);
+                this.onConfigLoaded(this.componentConfig);
             }
         }
     };
