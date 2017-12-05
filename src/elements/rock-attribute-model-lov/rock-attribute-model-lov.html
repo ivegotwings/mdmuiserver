@@ -18,8 +18,8 @@
 
 <dom-module id="rock-attribute-model-lov">
     <template>
-        <attribute-model-datasource id="attributeModelDataSource" request="[[requestData]]" r-data-source="{{rDataSource}}"
-            r-data-formatter="{{_dataFormatter}}" keywords-criterion-builder="{{_keywordsCriterionBuilder}}" mode="lov">
+        <attribute-model-datasource id="attributeModelDataSource" mode="[[mode]]" request="[[requestData]]" r-data-source="{{rDataSource}}"
+            r-data-formatter="{{_dataFormatter}}" keywords-criterion-builder="{{_keywordsCriterionBuilder}}" schema="lov">
         </attribute-model-datasource>
         <pebble-lov id="attributeModelLov" page-size="[[pageSize]]" multi-select="[[multiSelect]]" show-image="[[showImage]]" show-color="[[showColor]]"
             no-sub-title="[[noSubTitle]]" show-action-buttons="[[showActionButtons]]" r-data-source="{{rDataSource}}" items="[[items]]"
@@ -144,36 +144,28 @@
                 RUFBehaviors.LovBehavior
             ],
 
+            observers: [
+                '_getAttributeModels(contextData, sortDetails)'
+            ],
+
           /**
             * <b><i>Content development is under progress... </b></i> 
             */
             ready: function () {
                 this._attributesCriterionBuilder = this._prepareAttributesCriteria.bind(this);
                 this._keywordsCriterionBuilder = this._prepareKeywordsCriteria.bind(this);
-                this._dataFormatter = this._getAttributeFormattedData.bind(this);
                 this._prepareAttributeMaps();
 
                 this.logInfo("AttributeModelReady","id",this.idField,"requestData",JSON.stringify(this.requestData));
 
-                var modelGetRequest = {
-                    "params": {
-                        "query": {
-                            "filters": {
-                                "typesCriterion": [
-                                    "attributeModel"
-                                ]
-                            }
-                        },
-                        "fields": {
-                            "ctxTypes": [
-                                "properties"
-                            ],
-                            "attributes":[""]
-                        }
+                if(!_.isEmpty(this.mode)) {
+                    if(this.mode === "all") {
+                        this._dataFormatter = this._getAttributeFormattedData.bind(this);
+                    } else {
+                        this._dataFormatter = this._getAttributeFormattedDataForCompositeModel.bind(this);
                     }
-                };
-                this.requestData = undefined;
-                this.requestData = modelGetRequest;
+                }
+
             },
           /**
             * <b><i>Content development is under progress... </b></i> 
@@ -192,6 +184,64 @@
                 this._lovColumnNameValueCollection.value = this.valueField;
             },
 
+            _getAttributeModels: function (contextData) {
+                if (!_.isEmpty(this.contextData)) {
+                    if(this.mode === "all") {
+                        var modelGetRequest = {
+                            "params": {
+                                "query": {
+                                    "filters": {
+                                        "typesCriterion": [
+                                            "attributeModel"
+                                        ]
+                                    }
+                                },
+                                "fields": {
+                                    "ctxTypes": [
+                                        "properties"
+                                    ],
+                                    "attributes":[""]
+                                }
+                            }
+                        };
+                        this.requestData = undefined;
+                        this.requestData = modelGetRequest;
+                    } else {
+                        var contextData = DataHelper.cloneObject(this.contextData);
+                        if (this.contextData.ItemContexts) {
+
+                            var index = 0;
+                            for(var i=0; i < contextData.ItemContexts.length; i++){
+                                if(contextData.ItemContexts[i].type){
+                                    index++;
+                                }
+                            }
+                            this._currentIndex = index;
+                            this._currentItems = [];
+                            this._notFoundEntityTypes = [];
+                        }
+
+                        if(this.mode === "self") {
+                            contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+                        }
+
+                        if (contextData && contextData.ItemContexts) {
+                            for (var i = 0; i < this.contextData.ItemContexts.length; i++) {
+
+                                contextData.ItemContexts = [this.contextData.ItemContexts[i]];
+                                var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(
+                                    contextData);
+                                if (compositeModelGetRequest && compositeModelGetRequest.params) {
+                                    compositeModelGetRequest.params.fields.attributes = ["_ALL"];
+                                }
+                                this.set('requestData', compositeModelGetRequest);
+                                this.reTriggerRequest();
+                            }
+                        }
+                    }
+                }
+            },
+
             _getAttributeFormattedData: function (data) {
                 if (data && data.content && !_.isEmpty(data.content.entityModels)) {
                     var items = [];
@@ -206,6 +256,63 @@
                         items.push(item);
                     }
                     return items;
+                }
+            },
+
+            _getAttributeFormattedDataForCompositeModel: function (data, requestData) {
+                if (data && data.content && data.content.entityModels) {
+                    var atributeModels = DataTransformHelper.transformAttributeModels(data.content.entityModels[0], this.contextData);
+                    if (atributeModels) {
+                        if (this._currentIndex == 1) {
+                            this._currentItems = [];
+                        }
+                        this.push('_currentItems', DataTransformHelper.transformAtributeModelsToLovSchema(atributeModels, this._lovColumnNameValueCollection));
+
+                        if ((!atributeModels || _.isEmpty(atributeModels)) && requestData) {
+                            this._notFoundEntityTypes.push(requestData.params.query.name);
+                        }
+                    }
+
+                    if (this._currentItems.length == this._currentIndex) {
+                        var currentItems = this._currentItems;
+                        currentItems = currentItems.reduce(function (array1, array2) {
+                            return array1.concat(array2);
+                        })
+                        for (var i = 0; i < currentItems.length; ++i) {
+                            for (var j = i + 1; j < currentItems.length; ++j) {
+                                if (currentItems[i].title === currentItems[j].title)
+                                    currentItems.splice(j--, 1);
+                            }
+                        }
+
+                        var property, dataType, sortType, multiSortProperties;
+                        if(!_.isEmpty(this.sortDetails)) {
+                            property = this.sortDetails.property;
+                            dataType = this.sortDetails.dataType;
+                            sortType = this.sortDetails.sortType;
+                        }
+
+                        //Default sort
+                        if(!property) {
+                            property = "displaySequence";
+                            dataType = "integer";
+                        }
+
+                        //multi sort
+                        if(property != "title") {
+                            multiSortProperties = [{
+                                "name": "title",
+                                "dataType": "string"
+                            }];
+                        }
+
+                        this.items = DataHelper.sort(currentItems, property, dataType, sortType, multiSortProperties);
+
+                        if (this._notFoundEntityTypes && this._notFoundEntityTypes.length) {
+                            var messageContent = this._notFoundEntityTypes.join(", ");
+                            this.showErrorToast("Attribute models not found for entity type(s) " + messageContent + ". Please contact administrator.");
+                        }
+                    }
                 }
             },
             _prepareKeywordsCriteria: function (searchText) {
@@ -238,6 +345,10 @@
 
                 this.fireBedrockEvent("attribute-model-lov-selection-changed", eventDetail);
             },
+
+            refresh: function() {
+                this._getAttributeModels(this.contextData, this.sortDetails);
+            }
 
         });
     </script>
