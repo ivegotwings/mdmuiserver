@@ -11,9 +11,9 @@
 <dom-module id="rock-attribute-model-grid">
     <template>
         <style></style>
-        <attribute-model-datasource id="attributeModelDataSource" context-data="[[contextData]]" request="[[requestData]]" data-source="{{dataSource}}"
+        <attribute-model-datasource id="attributeModelDataSource" mode="[[mode]]" context-data="[[contextData]]" request="[[requestData]]" data-source="{{dataSource}}"
             data-formatter="{{_dataFormatter}}" buffer-record-size="{{size}}" current-record-size="{{currentRecordSize}}" result-record-size="{{resultRecordSize}}"
-            total-count="{{totalCount}}"  mode="grid"  filter-criterion-builder="{{_filterCriterionBuilder}}"  sort-criterion-builder="{{_sortCriterionBuilder}}"></attribute-model-datasource>
+            total-count="{{totalCount}}" schema="grid" filter-criterion-builder="{{_filterCriterionBuilder}}"  sort-criterion-builder="{{_sortCriterionBuilder}}"></attribute-model-datasource>
         <rock-grid id="attributeModelGrid"  no-header data-source="{{dataSource}}" data-source-id="attributeModelDataSource" result-record-size="[[resultRecordSize]]"
                     current-record-size="{{currentRecordSize}}" config="[[config]]" grid-data-size="{{size}}" attribute-models="{}"
                     page-size="50" total-count="{{totalCount}}" ></rock-grid>
@@ -41,7 +41,7 @@
                     _dataFormatter: {
                         type: Object,
                         value: function () {
-                            return this._getAttributeFormattedData.bind(this);
+                            return {};
                         }
                     },
                     _filterCriterionBuilder: {
@@ -66,13 +66,89 @@
                         type: Array,
                         value: function () { return[]; }
                     },
+                    mode: {
+                        type: String,
+                        value: "",
+                        observer: '_modeChanged'
+                    },
                 },
                 behaviors: [
                     RUFBehaviors.UIBehavior,
                     RUFBehaviors.ComponentContextBehavior
                 ],
+
+                observers: [
+                    '_getAttributeModels(contextData)'
+                ],
+                _modeChanged: function() {
+                    if(!_.isEmpty(this.mode)) {
+                        if(this.mode === "all") {
+                            this._dataFormatter = this._getAttributeFormattedData.bind(this);
+                        } else {
+                            this._dataFormatter = this._getAttributeFormattedDataForCompositeModel.bind(this);
+                        }
+                    }
+                },
                 _getAttributeModelGrid: function () {
                     return ElementHelper.getElement(this, "#attributeModelGrid");
+                },
+                _getAttributeModels: function (contextData) {
+                    if (!_.isEmpty(this.contextData)) {
+                        this._loading = true;
+
+                        if(this.mode === "all") {
+                            var modelGetRequest = {
+                                "params": {
+                                    "query": {
+                                        "filters": {
+                                            "typesCriterion": [
+                                                "attributeModel"
+                                            ]
+                                        }
+                                    },
+                                    "fields": {
+                                        "ctxTypes": [
+                                            "properties"
+                                        ],
+                                        "attributes":[""]
+                                    }
+                                }
+                            };
+                            this.requestData = undefined;
+                            this.requestData = modelGetRequest;
+                        } else {
+                            var contextData = DataHelper.cloneObject(this.contextData);
+                            if (this.contextData.ItemContexts) {
+
+                                var index = 0;
+                                for(var i=0; i < contextData.ItemContexts.length; i++){
+                                    if(contextData.ItemContexts[i].type){
+                                        index++;
+                                    }
+                                }
+                                this._currentIndex = index;
+                                this._currentItems = [];
+                                this._notFoundEntityTypes = [];
+                            }
+
+                            if(this.mode === "self") {
+                                contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+                            }
+
+                            if (contextData && contextData.ItemContexts) {
+                                for (var i = 0; i < this.contextData.ItemContexts.length; i++) {
+
+                                    contextData.ItemContexts = [this.contextData.ItemContexts[i]];
+                                    var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(
+                                        contextData);
+                                    if (compositeModelGetRequest && compositeModelGetRequest.params) {
+                                        compositeModelGetRequest.params.fields.attributes = ["_ALL"];
+                                    }
+                                    this.set('requestData', compositeModelGetRequest);
+                                }
+                            }
+                        }
+                    }
                 },
                 _getFilterCriterion: function (filters) {
                     var attributesCriterion=[];
@@ -147,6 +223,45 @@
                         return items;
                     }
                 },
+
+                _getAttributeFormattedDataForCompositeModel: function (data, requestData) {
+                    if (data && data.content && data.content.entityModels) {
+                        var attributeModels = DataTransformHelper.transformAttributeModels(data.content.entityModels[0], this.contextData);
+                        if (attributeModels) {
+                            if (this._currentIndex == 1) {
+                                this._currentItems = [];
+                            }
+                            this.push('_currentItems', attributeModels);
+
+                            if ((!attributeModels || _.isEmpty(attributeModels)) && requestData) {
+                                this._notFoundEntityTypes.push(requestData.params.query.name);
+                            }
+                        }
+
+                        if (this._currentItems.length == this._currentIndex) {
+                            var compositeModels = [];
+                            for(var i=0; i<this._currentItems.length; i++) {
+                                var currentItem = this._currentItems[i];
+                                var keys = Object.keys(currentItem);
+                                if(keys && keys.length > 0) {
+                                    for(var j=0; j<keys.length; j++) {
+                                        var key = keys[j];
+                                        if(!(compositeModels.find(obj => obj.name === key))) {
+                                            compositeModels.push(currentItem[key]);
+                                        }
+                                    }
+                                }
+                            }
+
+                            this.set("_gridData", compositeModels);
+                            this._loading = false;
+                            if (this._notFoundEntityTypes && this._notFoundEntityTypes.length) {
+                                var messageContent = this._notFoundEntityTypes.join(", ");
+                                this.showErrorToast("Attribute models not found for entity type(s) " + messageContent + ". Please contact administrator.");
+                            }
+                        }
+                    }
+                },
                 _getSortCriterion: function (sortOrders) {
                     if (sortOrders && sortOrders.length) {
                         var sortOrder = sortOrders[sortOrders.length - 1];
@@ -189,12 +304,10 @@
                     var grid = this._getAttributeModelGrid();
                     return grid.getSelectedItems();
                 },
-
                 reRenderGrid: function() {
                     var grid = this._getAttributeModelGrid();
                     grid.reRenderGrid();
                 },
-                
                 clearSelection: function() {
                     var grid = this._getAttributeModelGrid();
                     grid.clearSelection();
@@ -202,6 +315,21 @@
                 getData: function() {
                     var grid = this._getAttributeModelGrid();
                     return grid.getData();
+                },
+                deselectItem: function(item) {
+                    var grid = this._getAttributeModelGrid();
+                    grid.deselectItem(item);
+                },
+                selectItems: function(items) {
+                    if(!_.isEmpty(items)) {
+                        for(var i=0; i<items.length; i++) {
+                            this.selectItem(items[i]);
+                        }
+                    }
+                },
+                selectItem: function(item) {
+                    var grid = this._getAttributeModelGrid();
+                    grid.selectItem(item);
                 }
             });
         })();
