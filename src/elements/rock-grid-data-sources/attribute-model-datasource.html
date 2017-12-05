@@ -14,7 +14,9 @@
 -->
 <dom-module id="attribute-model-datasource">
     <template>
-        
+        <liquid-entity-model-composite-get id="compositeModelGet" name="compositeAttributeModelGet" on-entity-model-composite-get-response="_onCompositeGetResponse"
+            on-error="_onCompositeGetError" exclude-in-progress>
+        </liquid-entity-model-composite-get>
         <liquid-entity-model-get id="liquidModelInitSearch" operation="initiatesearch" request-data="{{request}}" on-error="_onError"
             last-response="{{_initSearchResponse}}" exclude-in-progress></liquid-entity-model-get>
         <liquid-entity-model-get id="liquidModelGetResult" operation="getsearchresultdetail" request-data="{{request}}" on-error="_onError"
@@ -28,6 +30,10 @@
             * <b><i>Content development is under progress... </b></i> 
             */
                 mode: {
+                    type: String,
+                    value: ""
+                },
+                schema: {
                     type: String,
                     value: ""
                 },
@@ -68,7 +74,13 @@
                 rDataFormatter: {
                     type: Function,
                     notify: true
-                }
+                },
+                request: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
             },
 
             behaviors: [
@@ -82,8 +94,13 @@
             ready: function () {
                 this._liquidInitSearchElement = this.$$('#liquidModelInitSearch');
                 this._liquidGetSearchElement = this.$$('#liquidModelGetResult');
+                this._liquidCompositeGetElement = this.$$('#compositeModelGet');
 
-                this.rDataSource = this._dataSource.bind(this);
+                if(!_.isEmpty(this.mode)) {
+                    if(this.mode === "all") {
+                        this.rDataSource = this._dataSource.bind(this);
+                    }
+                }
             },
 
             resetDataSource: function () {
@@ -151,14 +168,14 @@
 
                 // Set Options
                 this._options = options;
-                this._options["viewMode"] = this.mode;
+                this._options["viewMode"] = this.schema;
 
 
                 if(this.checkIfRequestChanged()) {
-                    if(this.mode == "lov") {
+                    if(this.schema == "lov") {
                         this.isRequestInitiated = false;
                         this._options.page = 1;
-                    } else if(this.mode == "grid") {
+                    } else if(this.schema == "grid") {
                         this.resetDataSource();
                     }
                 }
@@ -173,10 +190,14 @@
             * <b><i>Content development is under progress... </b></i> 
             */
             reTriggerRequest: function () {
-                if (!this.isRequestInitiated) {
-                    this._liquidInitSearchElement.generateRequest();
+                if(this.mode === "all") {
+                    if (!this.isRequestInitiated) {
+                        this._liquidInitSearchElement.generateRequest();
+                    } else {
+                        this._liquidGetSearchElement.generateRequest();
+                    }
                 } else {
-                    this._liquidGetSearchElement.generateRequest();
+                    this._getData();
                 }
             },
             _onInitSearchResponse: function (e) {
@@ -189,9 +210,9 @@
             _onGetSearchResponse: function (success, error) {
                     if (typeof (this.rDataFormatter) == 'function') {
                         if (this.searchResultResponse.status === "success") {
-                            if(this.mode == "lov") {
+                            if(this.schema == "lov") {
                                 success(this.rDataFormatter(this.searchResultResponse));
-                            } else if(this.mode == "grid") {
+                            } else if(this.schema == "grid") {
                                 if (this._lastPage < this._options.page) {
 
                                     //this._requestForCompositeModel(this.searchResultResponse);
@@ -225,7 +246,35 @@
 
                     this.showErrorToast("Attribute model lov load failed" + message + ". Please contact your administrator.");
                 }
-            }
+            },
+
+            /**
+            * <b><i>Content development is under progress... </b></i> 
+            */
+            _getData: function (request) {
+
+                if (_.isEmpty(this.request)) {
+                    return;
+                }
+
+                if (this._liquidCompositeGetElement) {
+                    this._liquidCompositeGetElement.requestData = this.request;
+                    this._liquidCompositeGetElement.generateRequest();
+                }
+            },
+
+            _onCompositeGetResponse: function (e) {
+                var response = e.detail.response;
+                if (typeof (this.rDataFormatter) == 'function') {
+                    if (response && response.status === "success") {
+                        this.rDataFormatter(response, e.detail.request.requestData);
+                    }
+                }
+            },
+
+            _onCompositeGetError: function (e) {
+                this.logError("AttributeModelsError",e);
+            },
         });
     </script>
 </dom-module>

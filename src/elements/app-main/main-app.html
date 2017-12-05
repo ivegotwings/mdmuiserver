@@ -487,6 +487,7 @@ Main os app for riversand ui framework
         <bedrock-notification-receiver></bedrock-notification-receiver>
         <bedrock-dataobject-notification-handler></bedrock-dataobject-notification-handler>
         <bedrock-pubsub event-name="app-status-changed" handler="_onAppStatusChanged" app-id="main-app"></bedrock-pubsub>
+        <bedrock-pubsub event-name="app-status-updated" handler="_updateActiveItemsAppStatusTitle" app-id="main-app"></bedrock-pubsub>        
         <pebble-dialog id="hotlineDialog" modal small vertical-offset=1 50 horizontal-align="auto" vertical-align="auto" no-cancel-on-outside-click
             no-cancel-on-esc-key dialog-title="Hotline">
             <p>Hotline mode timer is about to expire! Click 'Continue' to keep working in Hotline mode or 'Cancel' if you are
@@ -731,10 +732,26 @@ Main os app for riversand ui framework
                 var _this = this;
                 document.addEventListener("click", function (e) {
                     var mainAppHost = _this.$;
+
+                    //Collapsing the drawer not required when action is performed on the nav menu
+                    var navMenuFound = false;
+                    e.path =  e.composedPath();
+                    for(var key=0; key<e.path.length; key++){
+                        if(e.path[key].tagName){
+                            if(e.path[key].tagName.toUpperCase() == "ROCK-NAVMENU"){
+                                navMenuFound=true;
+                                break;
+                            }
+                        }
+                    }
+
                     if (mainAppHost.drawerLayout && mainAppHost.drawerLayout.$.contentContainer.style.width != "45px") {
                         if (e.__domApi.rootTarget.id != "trigger" && e.__domApi.rootTarget.className.indexOf("menu-trigger") == -1 && e.__domApi.rootTarget.className.indexOf("iron-selected") == -1) {
                             var navMenu = _this.shadowRoot.querySelector("rock-navmenu");
-                            if (navMenu) {
+                            if (navMenu) {                                
+                                if(navMenuFound && navMenu.doNotCollapse){
+                                    return;
+                                }
                                 navMenu.$.toggleItem.click();
                             }
                         }
@@ -762,7 +779,7 @@ Main os app for riversand ui framework
                 var drawer = this.drawerLayout;
                 //ToDo: remove hard coded style and use class toggle
                 drawer.setAttribute("menu-expanded", "");
-                drawer.style.width = "256px";
+                drawer.style.width = "266px";
             },
             // Scroll page to top and expand header
             scrollPageToTop: function () {
@@ -775,7 +792,7 @@ Main os app for riversand ui framework
             },
             onMenuCloseClick: function (e, customArgs) {
                 this.shadowRoot.querySelector('#contentViewManager').closeView(customArgs.item.data_route, customArgs.item.queryParams);
-            },
+            },            
             onRefreshClick: function () {
                 location.reload();
             },
@@ -829,7 +846,7 @@ Main os app for riversand ui framework
                     var activeItem = this.activeItems[this.activeItems.length - 1];
                     if (activeItem.component.name == app.localName) {
                         var activeItem = this.pop("activeItems");
-                        activeItem.appStatus = app.getAppCurrentStatus();
+                        activeItem.appStatus = app.getAppCurrentStatus(activeItem);
                         this.push("activeItems", activeItem);
                     }
                 }
@@ -909,6 +926,11 @@ Main os app for riversand ui framework
                             contentViewManager.openView(page, this.appRepository[page], this.queryParams, this.openAction);
                             var navMenu = this.shadowRoot.querySelector('#navMenu');
                             if (navMenu && navMenu._collapseExpandDrawer) {
+                                //Do not collapse the drawer when close item is clicked
+                                if(navMenu.doNotCollapse){
+                                    navMenu.doNotCollapse = false;
+                                    return;
+                                }
                                 navMenu._collapseExpandDrawer(true);
                             }
                         }
@@ -1031,7 +1053,7 @@ Main os app for riversand ui framework
                 }
                 var appInstance = customArgs.contentView.shadowRoot.querySelector(".view-component");
                 if (viewIndex >= 0 && appInstance && appInstance.getAppCurrentStatus) {
-                    var appStatus = appInstance.getAppCurrentStatus();
+                    var appStatus = appInstance.getAppCurrentStatus(this.activeItems[viewIndex]);
                     var activeItems = this.activeItems;
                     activeItems[viewIndex].appStatus = appStatus;
                     this.activeItems = [];
@@ -1039,7 +1061,21 @@ Main os app for riversand ui framework
                 }
             },
 
-            _onHotlineChange: function () {
+            _updateActiveItemsAppStatusTitle: function (customArgs) {
+                var activeItems = DataHelper.cloneObject(this.activeItems);
+                for(var j=0; j<activeItems.length;j++) {
+                    if(JSON.stringify(activeItems[j].queryParams) == JSON.stringify(customArgs.detail.queryParams)){                           
+                        activeItems[j].appStatus.title = customArgs.detail.title;
+                        break;
+                    }
+                }                     
+                if(activeItems.length > 0) {
+                    this.activeItems = [];
+                    this.set("activeItems", activeItems);
+                }               
+            },
+            
+            _onHotlineChange: function() {
                 if (this.hotlineModeEnabled) {
                     this._triggerHotlineTimer();
                 } else {

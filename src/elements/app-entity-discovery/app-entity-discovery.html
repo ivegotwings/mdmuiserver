@@ -2,14 +2,14 @@
 <link rel="import" href="../../../bower_components/shadycss/apply-shim.html">
 <link rel="import" href="../../../bower_components/polymer/lib/elements/custom-style.html">
 
-<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html" />
 <link rel="import" href="../bedrock-app-behavior/bedrock-app-behavior.html" />
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 
 <link rel="import" href="../liquid-config-aggregate-get/liquid-config-aggregate-get.html" />
 <link rel="import" href="../liquid-rest/liquid-rest.html" />
 
-<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html" />
-
+<link rel="import" href="../rock-layout/rock-titlebar/rock-titlebar.html" />
 <link rel="import" href="../rock-layout/rock-layout.html" />
 <link rel="import" href="../rock-layout/rock-titlebar/rock-titlebar.html" />
 <link rel="import" href="../rock-dimension-selector/rock-dimension-selector.html" />
@@ -28,15 +28,16 @@
             rock-layout {
                 --scroller: {
                     overflow: hidden;
-                } 
+                }
             }
         </style>
         <rock-layout>
             <liquid-config-aggregate-get id="getEntityDiscoveryAppConfig" verbose operation="getbyids" request-id="req1" app-name="app-entity-discovery"
                 context-data="[[contextData]]" on-config-get-response="_onApplicationConfigReceived"></liquid-config-aggregate-get>
-            <rock-titlebar slot="rock-titlebar" icon="pebble-md-icons:ToolbarSearch" main-title="Entity Search & Refine" non-minimizable="[[appConfig.nonMinimizable]]" non-closable="[[appConfig.nonClosable]]">
+            <rock-titlebar slot="rock-titlebar" icon="pebble-md-icons:ToolbarSearch" main-title="Entity Search & Refine" non-minimizable="[[appConfig.nonMinimizable]]"
+                non-closable="[[appConfig.nonClosable]]">
                 <div id="dimensionContainer" align="right">
-                    <rock-dimension-selector id="dimensionSelector" config-data="[[getConfig('rock-dimension-selector')]]" all-multi-select></rock-dimension-selector>
+                    <rock-dimension-selector id="dimensionSelector" config-data="[[getConfig('rock-dimension-selector')]]" all-single-select></rock-dimension-selector>
                 </div>
             </rock-titlebar>
             <template is="dom-if" if="{{isElementLoaded}}">
@@ -55,13 +56,13 @@
                         business-condition-name="[[_businessConditionName]]" 
                         business-condition-external-name="[[_businessConditionExternalName]]" 
                         user="[[_user]]" status="[[_status]]"
-                        requested-entity-types = "[[_mappedEntityTypes]]">
+                        requested-entity-types = "[[_mappedEntityTypes]]"
+                        on-load = "updateAppCurrentStatus">
                     </rock-entity-search-discovery>
                 </div>
-            </div>
             </template>
         </rock-layout>
-        <bedrock-pubsub event-name="app-context-changed" handler="_onAppContextChanged"></bedrock-pubsub>
+        <bedrock-pubsub event-name="dimension-selector-data-changed" handler="_onDimensionsChanged" target-id="dimensionSelector"></bedrock-pubsub>
     </template>
     <script>
         (function () {
@@ -76,29 +77,34 @@
                             return {};
                         }
                     },
-                    appConfig:{
+                    appConfig: {
                         type: Object,
-                        value: function() {
+                        value: function () {
                             return {};
                         }
                     },
-                    contextData:{
+                    contextData: {
                         type: Object,
-                        value: function() {
+                        value: function () {
                             return {};
                         }
                     },
-                    isElementLoaded:{
-                        type:Boolean,
-                        value:false
+                    isElementLoaded: {
+                        type: Boolean,
+                        value: false
                     },
                     domain:{
                         type:String
+                    },
+                    queryParams:{
+                        type:String,
+                        value:""
                     }
+
                 },
 
                 behaviors: [
-                    RUFBehaviors.AppBehavior
+                    RUFBehaviors.AppBehavior                    
                 ],
 
                 ready: function () {
@@ -116,7 +122,7 @@
                     this._user = DataHelper.getParamValue('user');
                     this._status = DataHelper.getParamValue('status');
                     var mappedEntityTypes = DataHelper.getParamValue('mappedEntityTypesString');
-                    if(mappedEntityTypes && mappedEntityTypes !== "") {
+                    if (mappedEntityTypes && mappedEntityTypes !== "") {
                         this._mappedEntityTypes = mappedEntityTypes.split("#@#");
                     }
 
@@ -126,57 +132,67 @@
                     }
                 },
 
-                created: function(){
+                created: function () {
                     var userContext = {
                         "role": this.roleId,
                         "user": this.userId,
                         "ownershipData": this.ownershipData
                     };
 
-                    this.contextData[this.CONTEXT_TYPE_USER] = [userContext];
+                    this.contextData[ContextHelper.CONTEXT_TYPE_USER] = [userContext];
                 },
                 
-                attached: function () {
-                    
+                attached: function () {                                      
                     this._searchTimeStamp = new Date().toLocaleString();
                 },
 
-                getAppCurrentStatus: function () {
-                    var tooltipParams = [];
-                    tooltipParams.push({
-                        name: "Search Query",
-                        value: this._searchQuery
-                    });
-                    tooltipParams.push({
-                        name: "Saved Search",
-                        value: this._savedSearchId
-                    });
+                /**
+                 * Function to display the left nav info
+                 */
+                getAppCurrentStatus: function (customArgs) {                    
+                    if(customArgs && customArgs.queryParams){
+                        this.queryParams = customArgs.queryParams;
+                    }                    
                     return {
-                        title: "Search & Refine",
-                        subTitle: "Last Searched",
+                        title:"",
+                        subTitle: "Last Opened",
                         subTitleValue: this._searchTimeStamp ? this._searchTimeStamp : new Date().toLocaleString(),
-                        tooltipParams: tooltipParams
+                        queryParams: this.queryParams
                     };
+                },
+
+                /**
+                 *  After the page has loaded, update the title to display on the left nav
+                 */  
+                updateAppCurrentStatus: function(e, customArgs) {                    
+                    var appStatus = this.getAppCurrentStatus();
+                    appStatus.title = customArgs.title;
+                    this.fireBedrockEvent('app-status-updated', appStatus, { appId: "main-app", ignoreId: true });
                 },
 
                 _onApplicationConfigReceived: function (e) {
                     // this.logInfo("ConfigReceived","response",JSON.stringify(e, null, 2));
                     this.set('applicationConfig', e.detail);
-                    
-                },
-                _onAppContextChanged: function (e) {
-                    this.logInfo("AppContextChanged", "contextData", JSON.stringify(e.detail.contextData));
 
+                },
+                _onContextChanged: function (e) {
+                    var contextData = this.contextData;
                     this.contextData = {}; // To notify
-                    this.contextData = e.detail.contextData;
+                    this.contextData = contextData;
+
+                    var searchDiscoveryEl = this.shadowRoot.querySelector("#entitySearchDiscoveryGrid");
+
+                    if (this.isElementLoaded && searchDiscoveryEl) {
+                        searchDiscoveryEl.reload();
+                    }
 
                     this.isElementLoaded = true
-
-                    //this.$$("#getEntityDiscoveryAppConfig").refresh();
-                    if (this.shadowRoot.querySelector("#entitySearchDiscoveryGrid")) {
-                        //this.shadowRoot.querySelector("#entitySearchDiscoveryGrid").refresh();
-                    }
                 },
+                _onDimensionsChanged: function (e) {
+                    var newDimensions = e.detail.dimensions;
+                    ContextHelper.updateContextData(this.contextData, newDimensions);
+                    this._onContextChanged();
+                }
             });
         })();
     </script>
