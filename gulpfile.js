@@ -106,7 +106,7 @@ function appBuild(buildPath, mode, env){
             let dependenciesStream = polymerProject.dependencies().pipe(dependenciesStreamSplitter.split());
             if(mode == "es5"){
               sourcesStream = sourcesStream.pipe(gulpif('**/*.js', babel({'presets': [['es2015', {'modules': false, 'compact': false, 'allowReturnOutsideFunction': true}]]})));
-              dependenciesStream = dependenciesStream.pipe(gulpif(['**/*.js'], babel({'presets': [['es2015', {'modules': false, 'compact': false, 'allowReturnOutsideFunction': true}]]})));
+              dependenciesStream = dependenciesStream.pipe(gulpif(['**/*.js', "!bower_components/pdfjs-dist/**/*.js", "!bower_components/mocha/mocha.js", "!bower_components/jsoneditor/dist/jsoneditor.min.js", "!bower_components/resize-observer-polyfill/**/*.js"], babel({'presets': [['es2015', {'modules': false, 'compact': false, 'allowReturnOutsideFunction': true}]]})));
             }
             
             sourcesStream = sourcesStream.pipe(sourcesStreamSplitter.rejoin());
