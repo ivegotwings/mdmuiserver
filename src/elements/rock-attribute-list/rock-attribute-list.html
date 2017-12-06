@@ -4,7 +4,6 @@
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
-<link rel="import" href="../bedrock-style-manager/styles/bedrock-styles-scroll-bar.html">
 
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-horizontal-divider/pebble-horizontal-divider.html">
@@ -85,7 +84,6 @@ It renders the list of attributes based on the specified parameters.
             }
 
             .content {
-                overflow: auto;
                 height: 100%;
                 padding-bottom: 28px;
                 overflow: auto;
@@ -149,10 +147,6 @@ It renders the list of attributes based on the specified parameters.
                 created: function () {
                     this.displatedAttributesChunkIndex = 1;
                     this.displayedAttributesChunks = [];
-
-                    //this.attributesChunkLength = 20;
-
-                    this.loading = true;
 
                     this._onScrollListDebounce = _.debounce(this._onScrollList.bind(this), 300);
                 },
@@ -284,11 +278,7 @@ It renders the list of attributes based on the specified parameters.
                     },
                     attributesChunkLength: {
                         type: Number,
-                        value: 20
-                    },
-                    noLazyLoad: {
-                        type: Boolean,
-                        value: false
+                        value: 0
                     }
                 },
                 behaviors: [
@@ -311,19 +301,21 @@ It renders the list of attributes based on the specified parameters.
                 },
 
                 _onScrollList(activeContent) {
-                    const { scrollHeight, scrollTop, offsetHeight } = this.scrollContainer;
+                    if(this._lazyLoad) {
+                        const { scrollHeight, scrollTop, offsetHeight } = this.scrollContainer;
 
-                    const scrollDiff = scrollHeight - offsetHeight - scrollTop;
+                        const scrollDiff = scrollHeight - offsetHeight - scrollTop;
 
-                    const PRELOAD_HEIGHT = 100;
+                        const PRELOAD_HEIGHT = 100;
 
-                    if(this.isLoadFinished) {
-                        this.loading = false;
-                        return;
+                        if(this.isLoadFinished) {
+                            this.loading = false;
+                            return;
+                        }
+
+                        if (scrollDiff <= PRELOAD_HEIGHT)
+                            return this._loadMoreAttributes();
                     }
-
-                    if (scrollDiff <= PRELOAD_HEIGHT)
-                        return this._loadMoreAttributes();
                 },
 
                 _loadMoreAttributes() {
@@ -338,26 +330,23 @@ It renders the list of attributes based on the specified parameters.
 
                     window.requestAnimationFrame(()=> {
                         this.displayedAttributesChunks = this.displayedAttributesChunks.concat(itemsToPush);
-
-                        if(this.noLazyLoad)
-                            this.loading = false;
                     });
                 },
 
                 _onAttributeValuesChange: function (attributeValues) {
                     this._previousViewName = "";
 
-                    if(_.isEmpty(this.attributeValues)){
-                        this.set("displayedAttributesChunks", []);
-                    }
-
                     if (attributeValues.path !== "attributeValues" && attributeValues.path !== "attributeValues.length") {
                         this.loading = false;
                         return;
                     }
 
+                    if(this.attributesChunkLength || this.attributesChunkLength > 0) {
+                        this._lazyLoad = true;
+                    }
+
                     this._calculateErrorLength(this.attributeValues);
-                    
+                
                     this.attributesChunks = this.attributeValues.reduce((res, item) => {
                         const chunkIndex = res.length;
 
@@ -371,12 +360,18 @@ It renders the list of attributes based on the specified parameters.
                         return res;
                     }, []);
 
-                    this.displayedAttributesChunks = this.attributesChunks.slice(0, this.displatedAttributesChunkIndex);
+                    if(this._lazyLoad) {
 
-                    if(this.isLoadFinished || this.hasScroll)
-                        this.loading = false;
-                    else
-                        this._loadMoreAttributes();
+                        this.displayedAttributesChunks = this.attributesChunks.slice(0, this.displatedAttributesChunkIndex);
+
+                        if(this.isLoadFinished || this.hasScroll)
+                            this.loading = false;
+                        else
+                            this._loadMoreAttributes();
+                    } else {
+                        this._lazyLoad = false;
+                        this.set("displayedAttributesChunks", this.attributesChunks);
+                    }
                 },
                 
                 _getAttributeClass: function (n, attribute) {
