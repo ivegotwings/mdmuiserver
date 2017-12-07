@@ -125,6 +125,23 @@ async function initiateSearch(callPath, args) {
         if (service != eventService) {
             //console.log('request str', JSON.stringify(request, null, 4));
             delete request.params.fields; // while initiating search, we dont want any of the fields to be returned..all we want is resulted ids..
+
+            //Remove value contexts if there are no filters defined other than typesCriterion
+            //This is needed to improve the performance of search/get functionality
+            if(request.params.query && request.params.query.filters && request.params.query.valueContexts) {
+                var removeValueContexts = true;
+                var filters = request.params.query.filters;
+                for (var criterionKey in filters) {
+                    if(criterionKey != "typesCriterion" && !isEmpty(filters[criterionKey])) {
+                        removeValueContexts = false;
+                        break;
+                    }
+                }
+
+                if(removeValueContexts) {
+                    delete request.params.query.valueContexts;
+                }
+            }
         }
 
         var res = undefined;
@@ -347,9 +364,8 @@ async function get(dataObjectIds, reqData) {
 
         var request = createGetRequest(reqData);
 
-        if (request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel') {
+        if ((request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel') || request.dataIndex == "entityData") {
             if (!isEmpty(request.params.query.contexts)) {
-
                 isCoalesceGet = true;
             }
         }

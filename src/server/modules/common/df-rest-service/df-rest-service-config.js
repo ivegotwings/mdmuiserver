@@ -11,6 +11,17 @@ SERVICE_CONFIG = {
                 "fieldToCompareInData": "id"
             }
         },
+        "entityservice/getcoalesce": {
+            "url": "/entityappservice/getcoalesce",
+            "mode": "online",
+            "timeout": 180000,
+            "offlineSettings": {
+                "operation": "get",
+                "requestPathToSelectDataFile": "params.query.filters.typesCriterion",
+                "requestPathToFilterData": "params.query.id",
+                "fieldToCompareInData": "id"
+            }
+        },
         "entityservice/create": {
             "url": "/entityappservice/create",
             "mode": "online"
