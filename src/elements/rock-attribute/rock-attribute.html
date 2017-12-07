@@ -2,7 +2,6 @@
 <link rel="import" href="../../../bower_components/iron-flex-layout/iron-flex-layout.html">
 <link rel="import" href="../../../bower_components/iron-icons/iron-icons.html">
 <link rel="import" href="../../../bower_components/shadycss/apply-shim.html">
-<link rel="import" href="../../../bower_components/polymer/lib/elements/custom-style.html">
 
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-helpers/data-request-helper.html">
@@ -37,7 +36,6 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
 -->
 <dom-module id="rock-attribute">
     <template>
-        <custom-style>
             <style include="bedrock-style-common">
                 :host(.fallback-value) {
                     --fallback-marker: {
@@ -47,9 +45,21 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
 
                 :host {
                     --fallback-marker: {}
+
                 }
 
                 :host(.inherited-value) {
+                    --fallback-marker: {
+                        font-style: italic;
+                    }
+                }
+
+                .attribute {
+                    @apply --layout-horizontal;
+                }
+
+
+                :host(.coalesced-value) {
                     --fallback-marker: {
                         font-style: italic;
                     }
@@ -89,6 +99,13 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                 .attribute-main:hover .attribute-icons {
                     opacity: 1;
                 }
+                .attribute-view{
+                    border-bottom: 1px solid #E0E0E0;
+                    box-shadow: 0 2px 6px -6px #000;
+                    -webkit-box-shadow: 0 2px 6px -6px #000;
+                    -moz-box-shadow: 0 2px 6px -6px #000;
+                    -ms-box-shadow: 0 2px 6px -6px #000;
+                }
 
                 .attribute-view,
                 .attribute-edit {
@@ -119,7 +136,7 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                 }
 
                 .attribute-view-value {
-                    font-size: var(--default-font-size);
+                    font-size: var(--default-font-size,14px);
                     display: inline-block;
                     width: 100%;
                     vertical-align: middle;
@@ -130,11 +147,11 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
 
                 .attribute-icons pebble-button {
                     width: 32px;
-                    color: var(--primary-icon-color);
+                    color: var(--primary-icon-color, #75808b);
                 }
 
                 .attribute pebble-button {
-                    color: var(--secondary-icon-color);
+                    color: var(--secondary-icon-color, #c1cad4);
                     padding: 0;
                     transition: all 0.3s;
                     -webkit-transition: all 0.3s;
@@ -214,8 +231,8 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                 pebble-textbox-collection {
                     --text-collection-label: {
                         font-size: 12px;
-                        color: #96B0C5;
-                    }
+                        color: var(--label-text-color, #96B0C5);
+                    };
 
                     --text-collection-manage-tag-container: {
                         height: 65px;
@@ -312,7 +329,6 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                     text-align: inherit;
                 }
             </style>
-        </custom-style>
         <div class$="attribute [[functionalMode]]">
             <div class="attribute-main">
                 <div class="attribute-icons-wrapper">
@@ -356,11 +372,11 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                                             </template>
                                         </ul>
                                     </template>
-                                    <template is="dom-if" if="[[_hasInheritedValue()]]">
+                                    <template is="dom-if" if="[[_hasContextCoalescedValue()]]">
                                         <ul class="source-information-path">
                                             Context:
                                             </br>
-                                            <template is="dom-repeat" items="[[_inheritacePathList]]">
+                                            <template is="dom-repeat" items="[[_contextCoalescePathList]]">
                                                 <li class="path-item">[[item]]</li>
                                             </template>
                                         </ul>
@@ -547,11 +563,9 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                     </template>
                 </div> -->
         </div>
-        <template>
         <pebble-popover id="errorPopover" for="error-circle" no-overlap horizontal-align="right">
-            <pebble-error-list id="attrErrorList" errors="[[errors]]"></pebble-error-list>
+            <pebble-error-list id="attrErrorList" errors="[[errors]]" show-fix-now="[[!_isEditMode(mode)]]"></pebble-error-list>
         </pebble-popover>
-        </template>
         <bedrock-pubsub target-id="attrErrorList" event-name="fix-error" handler="_fixError"></bedrock-pubsub>
 
 
@@ -748,16 +762,16 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                         }
                     },
 
-                    _inheritacePathList: {
+                    _contextCoalescePathList: {
                         type: Array,
                         value: function () {
                             return [];
                         }
-                    }
+                    },
                 },
                 observers: [
                     '_attributeObjectChanged(attributeObject.*)'
-                ],
+                ],          
                 behaviors: [
                     RUFBehaviors.UIBehavior,
                     RUFBehaviors.ComponentContextBehavior
@@ -867,6 +881,7 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                         return;
                     }
                     this.mode = "edit";
+                    this._showFixNow = false;
                 },
                 getControlIsDirty: function () {
                     if (this.mode == "edit") {
@@ -887,7 +902,7 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                         //console.log("newValue after ready " + JSON.stringify(newValue));
                     }
                     this._fallbackList = this._getFallbackPath();
-                    this._inheritacePathList = this.attributeObject.inheritedPaths;
+                    this._contextCoalescePathList = this.attributeObject.contextCoalescePaths;
                     this._updateMarkerClass();
                 },
                 _getAttributeEditClass: function (changed) {
@@ -970,8 +985,8 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                     this.$.errorPopover.positionTarget = this.shadowRoot.querySelector('#error-circle');
                     this.$.errorPopover.open();
                 },
-                _fixError: function () {
-                    this._onEditClick();
+                _fixError: function (e) {
+                    this._onEditClick(e);
                     this.$.errorPopover.close();
                 },
                 _isGrid: function (functionalMode) {
@@ -1131,7 +1146,7 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                 _onTagItemRemoved: function (e) {
                     // Note:- In a scenario where attribute is of type Reference List and is Non Collection then,
                     //        removing a tag should perform the same action what the component is performing when
-                    //        user clicks on clear Icon
+                    //        user clicks on clear Icon - ok
                     var isCollection = this.attributeModelObject && this.attributeModelObject.isCollection ? true : false;
                     if (!isCollection || (isCollection && this.attributeObject && _.isEmpty(this.attributeObject.value))) {
                         this._onClearClick(e);
@@ -1146,19 +1161,25 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                         $(root).removeClass("fallback-value");
                     }
 
-                    if (this._hasInheritedValue()) {
-                        $(root).addClass("inherited-value");
+                    if (this._hasContextCoalescedValue()) {
+                        $(root).addClass("coalesced-value");
                     } else {
-                        $(root).removeClass("inherited-value");
+                        $(root).removeClass("coalesced-value");
                     }
                 },
                 _hasFallbackValue: function () {
                     return !!(this.attributeModelObject && this.attributeModelObject.isLocalizable &&
                         this.attributeObject.properties && this.attributeObject.properties.localeCoalescePath);
+
                 },
+                _hasContextCoalescedValue: function () {
+                    return this.attributeObject.contextCoalescePaths && this.attributeObject.contextCoalescePaths.length;
+                },
+
                 _hasInheritedValue: function () {
                     return this.attributeObject.inheritedPaths && this.attributeObject.inheritedPaths.length;
                 },
+
                 _getFallbackPath: function () {
                     const { properties } = this.attributeObject;
                     const localeCoalescePath = properties && properties.localeCoalescePath;
@@ -1173,7 +1194,7 @@ the parameters it has recieved and renders appropriate UI elements to manage an 
                     }
                 },
                 _showSourceInfo: function () {
-                    return this._hasFallbackValue() || this._hasInheritedValue();
+                    return this._hasFallbackValue() || this._hasContextCoalescedValue();
                 }
             });
         })();

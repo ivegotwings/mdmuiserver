@@ -19,7 +19,7 @@ It renders the list of attributes based on the specified parameters.
 -->
 <dom-module id="rock-attribute-list">
     <template>
-        <style include="bedrock-style-common">
+        <style include="bedrock-style-common bedrock-styles-scroll-bar">
             :host {
                 @apply --rock-attribute-list;
             }
@@ -29,8 +29,8 @@ It renders the list of attributes based on the specified parameters.
                 font-family: var(--default-font-family);
                 clear: both;
                 margin: 0px;
-                font-size: var(--font-size-md);
-                color: var(--title-text-color);
+                font-size: var(--font-size-md, 16px);
+                color: var(--title-text-color, #191e22);
             }
 
             .group-container {
@@ -40,7 +40,7 @@ It renders the list of attributes based on the specified parameters.
             .group-name-container {
                 clear: left;
                 @apply --layout-horizontal;
-                background: var( --palette-pale-grey-four);
+                background: var(--palette-pale-grey-four, #eff4f8);
                 padding: 6px;
                 border-radius: 3px;
             }
@@ -80,12 +80,13 @@ It renders the list of attributes based on the specified parameters.
             }
 
             pebble-horizontal-divider {
-                border-top: 1px dotted var(--default-border-color);
+                border-top: 1px dotted var(--default-border-color, #c1cad4);
             }
 
             .content {
                 height: 100%;
                 padding-bottom: 28px;
+                overflow: auto;
             }
 
             paper-spinner-lite {
@@ -146,10 +147,6 @@ It renders the list of attributes based on the specified parameters.
                 created: function () {
                     this.displatedAttributesChunkIndex = 1;
                     this.displayedAttributesChunks = [];
-
-                    //this.attributesChunkLength = 20;
-
-                    this.loading = true;
 
                     this._onScrollListDebounce = _.debounce(this._onScrollList.bind(this), 300);
                 },
@@ -281,7 +278,11 @@ It renders the list of attributes based on the specified parameters.
                     },
                     attributesChunkLength: {
                         type: Number,
-                        value: 20
+                        value: 0
+                    },
+                    _lazyLoad: {
+                        type: Boolean,
+                        value: false
                     }
                 },
                 behaviors: [
@@ -290,7 +291,7 @@ It renders the list of attributes based on the specified parameters.
                 ],
                 observers: [
                     '_modeChanged(mode)',
-                    '_onAttributeValuesChange(attributeValues)'
+                    '_onAttributeValuesChange(attributeValues.*)'
                 ],
 
                 get hasScroll() {
@@ -304,6 +305,8 @@ It renders the list of attributes based on the specified parameters.
                 },
 
                 _onScrollList(activeContent) {
+                    if(!this._lazyLoad) return;
+
                     const { scrollHeight, scrollTop, offsetHeight } = this.scrollContainer;
 
                     const scrollDiff = scrollHeight - offsetHeight - scrollTop;
@@ -337,14 +340,18 @@ It renders the list of attributes based on the specified parameters.
                 _onAttributeValuesChange: function (attributeValues) {
                     this._previousViewName = "";
 
-                    if (!attributeValues.length) {
+                    if (attributeValues.path !== "attributeValues" && attributeValues.path !== "attributeValues.length") {
                         this.loading = false;
                         return;
                     }
 
+                    if(this.attributesChunkLength && this.attributesChunkLength > 0) {
+                        this._lazyLoad = true;
+                    }
+
                     this._calculateErrorLength(this.attributeValues);
-                    
-                    this.attributesChunks = attributeValues.reduce((res, item) => {
+                
+                    this.attributesChunks = this.attributeValues.reduce((res, item) => {
                         const chunkIndex = res.length;
 
                         const currentChunk = res[chunkIndex - 1];
@@ -356,6 +363,11 @@ It renders the list of attributes based on the specified parameters.
 
                         return res;
                     }, []);
+
+                    if(!this._lazyLoad) {
+                        this.set("displayedAttributesChunks", this.attributesChunks);
+                        return;
+                    }
 
                     this.displayedAttributesChunks = this.attributesChunks.slice(0, this.displatedAttributesChunkIndex);
 
@@ -629,7 +641,7 @@ It renders the list of attributes based on the specified parameters.
                 },
                 _getDependentAttributeModels: function(currentAttribute) {
                     return DataHelper.getDependentAttributeModels(this.attributeModels, currentAttribute);
-                }
+                }                
             });
         })();
     </script>
