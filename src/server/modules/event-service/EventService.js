@@ -67,6 +67,11 @@ Eventservice.prototype = {
                 response = await this.getTaskList(request);
             }
             else {
+                //Remove valuecontexts as for events get it is not needed...
+                if(request.params && request.params.query) {
+                    delete request.params.query.valueContexts;
+                }
+
                 var eventServiceGetUrl = 'eventservice/get';
                 response = await this.post(eventServiceGetUrl, request);
             }
