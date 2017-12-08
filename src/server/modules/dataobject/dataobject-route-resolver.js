@@ -37,6 +37,8 @@ const createPath = responseBuilder.createPath,
 var options = {};
 var runOffline = process.env.RUN_OFFLINE;
 
+const LOCALE_COALESCE_KEY = "localeCoalesce";
+
 if (runOffline) {
     options.runOffline = runOffline;
 }
@@ -227,6 +229,15 @@ async function initiateSearch(callPath, args) {
     return response;
 }
 
+
+
+function _hasLocaleCoalesceValue(reqData) {
+    if (reqData && reqData.valCtxKeys) {
+        return reqData.valCtxKeys.find((context)=> ~context.indexOf(LOCALE_COALESCE_KEY));
+    }
+    return null;
+}
+
 async function getSearchResultDetail(pathSet) {
 
     var response = [];
@@ -303,11 +314,18 @@ function createGetRequest(reqData) {
         query.contexts = contexts;
     }
 
+
+
     if (!isEmpty(valContexts)) {
-        for(let valContext of valContexts) {
-            valContext.localeCoalesce = true;
+
+        //let val of attr.values
+        //var locale = val.locale || undefined;
+        if (_hasLocaleCoalesceValue(reqData)) {
+            for(let valContext of valContexts) {
+                valContext.localeCoalesce = true;
+            }
         }
-        
+
         query.valueContexts = valContexts;
     }
 
