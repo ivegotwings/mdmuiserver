@@ -42,6 +42,18 @@
                     display: flex;
                     align-items: flex-start;
                     -webkit-align-items: flex-start;
+                    margin-left:5px;
+                }
+                --pebble-tree-node-pagination-button:{
+                    font-size: var(--font-size-sm, 12px);
+                    font-weight: var(--font-medium, 500);
+                    text-align:left;
+                    display: -webkit-box;
+                    display: -webkit-flex;
+                    display: -ms-flexbox;
+                    display: flex;
+                    align-items: flex-start;
+                    -webkit-align-items: flex-start;
                 }
                 --pebble-tree-node-holder: {
                     position: relative;
@@ -54,7 +66,7 @@
         <entity-graph-tree-datasource where-used-request="{{_whereUsedRequest}}" where-used-data-source="{{_whereUsedDataSource}}" 
                 owned-relationships-request="{{_ownedRelationshipsRequest}}" owned-data-source="{{_ownedDataSource}}"></entity-graph-tree-datasource>
 
-        <pebble-tree id="tree" leaf-node-only="[[leafNodeOnly]]" data="{{_graphs}}" default-child-depth="10" multi-select="[[multiSelect]]"></pebble-tree>
+        <pebble-tree id="tree" leaf-node-only="[[leafNodeOnly]]" data="{{_graphs}}" default-child-depth="10" multi-select="[[multiSelect]]" expand-collapse-icon-object="[[_expandCollapseIconObject]]"></pebble-tree>
     </template>
 <script>
 (function(){
@@ -163,6 +175,15 @@
             },
             _pebbleTree:{
                 type:Element
+            },
+            _expandCollapseIconObject:{
+                type:Object,
+                value:function(){
+                    return {
+                        expand:"pebble-icons:Down",
+                        collapse:"pebble-icons:Right"
+                    }
+                }
             }
         },
         behaviors: [
@@ -171,7 +192,8 @@
         listeners: {
             'tree-node-expanded': '_treeNodeExpanded',
             'tree-node-clicked': '_treeNodeClicked',
-            'node-search-updated': '_nodeSearchUpdated'
+            'node-search-updated': '_nodeSearchUpdated',
+            'node-pagination-handler':'_nodePaginationHandler'
         },
         ready: function(){
             this._pebbleTree = this.shadowRoot.querySelector("#tree");
@@ -179,6 +201,10 @@
             if(!_.isEmpty(this._treeConfig)){
                 this._treeConfig.id = DataHelper.getParamValue('id');
                 this._treeConfig.type = DataHelper.getParamValue('type');
+
+                if(this._treeConfig.pageSize){
+                    this._pageSize = this._treeConfig.pageSize;
+                }
 
                 var entityModelElement = this.shadowRoot.querySelector("#liquidModeleGet");
                 if(entityModelElement){
@@ -269,7 +295,24 @@
 
             if(ev.detail && ev.detail.query){
                 var _searchQuery = ev.detail.query;
-                console.log(ev.detail)
+                //console.log(ev.detail)
+            }
+        },
+        _nodePaginationHandler: function(ev){
+            if(ev && ev.detail && ev.detail.data && ev.detail.data.nodeData){
+                var nodeData = ev.detail.data.nodeData;
+                this._currentNodeData = nodeData;
+                if(ev.detail.mode){
+                    var mode = ev.detail.mode;
+                    if(mode == "NEXT"){
+                        this._currentNodeData.page++;
+                    }else if(mode == "PREV"){
+                        this._currentNodeData.page--;
+                    }
+                    this._executeRequest();
+                    this._currentNode = ev.detail.data;
+                    this._currentNode.startLoading();
+                }
             }
         },
         _getModelRequest: function(){
@@ -379,6 +422,33 @@
         _onModelGetFailed:function(e){
             //Need to log error
         },
+        _updatePaginationNode:function(){
+            if(this._currentNode && !_.isEmpty(this._currentNodeData)){
+                if(this._currentNodeData.totalCount > this._pageSize){
+                    // this._currentNode.searchNode = true;
+                    var nextTitle = "";
+                    var prevTitle = "";
+                    var startIndex = ((this._currentNodeData.page+1)*this._pageSize) + 1; 
+                    var endIndex = (startIndex + this._pageSize - 1);
+                    if(startIndex <= this._currentNodeData.totalCount){
+                        if(endIndex > this._currentNodeData.totalCount){
+                            endIndex = this._currentNodeData.totalCount;
+                        }
+                        if(endIndex <= this._currentNodeData.totalCount){
+                            nextTitle = "Next ( "+startIndex+" - "+endIndex+" / "+ this._currentNodeData.totalCount+" )";
+                        }
+                    }
+                    
+                    if(startIndex > (this._pageSize+1)){
+                        startIndex = ((this._currentNodeData.page-1)*this._pageSize)+1;
+                        prevTitle = "Previous ( "+(startIndex)+" - "+(startIndex+this._pageSize-1)+" / "+ this._currentNodeData.totalCount+" )";
+                    }
+                    this._currentNode.paginationObj = {nextTitle:nextTitle, prevTitle:prevTitle};
+                }else{
+                    this._currentNode.paginationObj = {};
+                }
+            }
+        },
         _executeRequest: function(){
             if(this._currentNodeData){     
                 if(this._currentNodeData.relationshipOwnership && (this._currentNodeData.relationshipOwnership == "owned")){
@@ -388,7 +458,12 @@
                 }else{
                     //For whereUsed 
                     this._whereUsedRequest = this._getRelationshipsRequest();
-                    this._whereUsedDataSource({page:this._currentNodeData.page, pageSize:this._pageSize}, this._onWhereUsedRelationshipsResponse.bind(this), this._onWhereUsedDataSourceError.bind(this));
+                    var whereUsedOptions = {
+                        page:this._currentNodeData.page, 
+                        pageSize:this._pageSize,
+                        initResponse:this._currentNodeData.initResponse
+                    }
+                    this._whereUsedDataSource(whereUsedOptions, this._onWhereUsedRelationshipsResponse.bind(this), this._onWhereUsedDataSourceError.bind(this));
                 }
             }
         },
@@ -461,6 +536,14 @@
                             this._currentNodeData.children = [];
                             this._currentNodeData.children = tempArray;
                         }
+
+                        if(entity.relationshipsTotalCount){
+                            if(entity.relationshipsTotalCount[this._currentNodeData.relationshipName]){
+                                this._currentNodeData.totalCount = entity.relationshipsTotalCount[this._currentNodeData.relationshipName];
+                            }
+                            this._updatePaginationNode();
+                        }
+
                     }
                 }
             }
@@ -472,10 +555,10 @@
         },
         
         _onWhereUsedRelationshipsResponse: function(res){
-            if(res && !_.isEmpty(res)){
-                var entityValidation = DataHelper.validateGetEntitiesResponse(res);
-                if(entityValidation && res.content && res.content.entities){
-                    var entities = res.content.entities;
+            if(res && !_.isEmpty(res) && res.result){
+                var entityValidation = DataHelper.validateGetEntitiesResponse(res.result);
+                if(entityValidation && res.result.content && res.result.content.entities){
+                    var entities = res.result.content.entities;
                     var tempArray = [];
                     entities.forEach(function(entity) {
                         if(entity){
@@ -501,6 +584,13 @@
                     }, this);
                     this._currentNodeData.children = [];
                     this._currentNodeData.children = tempArray;   
+                }
+                if(res.totalCount){
+                    this._currentNodeData.totalCount = res.totalCount;
+                    this._updatePaginationNode();
+                }
+                if(res.initResponse){
+                    this._currentNodeData.initResponse = res.initResponse;
                 }
             }
             this._currentNodeData.dataLoaded = true;
