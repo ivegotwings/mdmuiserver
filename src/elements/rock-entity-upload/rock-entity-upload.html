@@ -165,6 +165,7 @@
         <bedrock-pubsub event-name="field-map-save" handler="_onFieldMappingsSave" target-id=""></bedrock-pubsub>
         <bedrock-pubsub event-name="field-map-cancel" handler="_onFieldMappingsCancel" target-id=""></bedrock-pubsub>
         <bedrock-pubsub event-name="field-map-skip" handler="_onFieldMappingsSkip" target-id=""></bedrock-pubsub>
+        <liquid-entity-data-get id="taxonomyGetDataService" operation="getbyids" request-data="{{_taxonomyRequest}}" on-response="_onTaxonomyResponse"></liquid-entity-data-get>        
     </template>
     <script>
         (function () {
@@ -378,6 +379,10 @@
                     overridesOrder: {
                         type: Number,
                         value: 100
+                    },
+                    _taxonomyExtName: {
+                        type: String,
+                        value: ""
                     }
                 },
                 observers: [
@@ -400,8 +405,46 @@
                         var itemContext = this.getFirstItemContext();
                         var entityType = itemContext.type;
                         this._showView("entity-import");
+                        this._getTaxonomy();
                     }
                 },
+
+                _getTaxonomy: function () {
+                    var contextData = DataHelper.cloneObject(this.contextData);
+                    var firstItemContext = ContextHelper.getFirstItemContext(contextData);
+                    if (firstItemContext) {
+                        firstItemContext.type = "taxonomy";
+                        firstItemContext.attributeNames = ["externalName"];
+                        firstItemContext.id = this.taxonomy;
+                        contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+                        var req = DataRequestHelper.createEntityGetRequest(contextData);
+                        delete req.params.options;
+                        this._taxonomyRequest = req;
+
+                        var taxonomyGetElement = this.$$("#taxonomyGetDataService");
+
+                        if (taxonomyGetElement) {
+                            taxonomyGetElement.generateRequest();
+                        }
+                    }
+                },
+
+                _onTaxonomyResponse: function (e) {
+                    if (e && e.detail && e.detail.response) {
+                        var res = e.detail.response;
+                        if (res && res.content && res.content.entities && res.content.entities.length) {
+                            var entity = res.content.entities[0];
+                            if (entity && entity.data) {
+                                var attributes = entity.data.attributes;
+
+                                if (attributes && attributes['externalName']) {
+                                    this._taxonomyExtName = attributes['externalName'].values && attributes['externalName'].values.length ? attributes['externalName'].values[0].value : undefined;
+                                }
+                            }
+                        }
+                    }
+                },
+
                 _showView: function (viewName) {
                     if (viewName) {
                         var contentView = this.shadowRoot.querySelector("#content-" + viewName);
@@ -961,7 +1004,7 @@
                         this._selectedCategories.forEach(function (category) {
                             var formattedClassification = category.valuePath.replace(/#@#/g, categoryPathSeperator);
                             contexts.push({
-                                "taxonomy": this.taxonomy,
+                                "taxonomy": this._taxonomyExtName,
                                 "classification": formattedClassification
                             });
                         }, this);
