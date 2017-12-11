@@ -170,6 +170,8 @@
 
         _prepareAttrsCriterion: function (attributeModels, attributes) {
           if (attributes && attributes.length > 0) {
+            var prefix = /^\*/i;
+            var suffix = /^.+\*$/gm;
             for (var i = 0; i < attributes.length; i++) {
               var attribute = attributes[i];
               for (var attrName in attribute) {
@@ -181,14 +183,18 @@
                   if (dataType === "_DECIMAL" || dataType === "_INTEGER") {
                     displayType = "numeric";
                   }
-                  if(dataType === "_DATE") {
-                    dataType = ConstantHelper.getDataTypeConstant("datetime");
-                  }
                   var keys = Object.keys(attrVal);
                   if (keys && keys.length > 0) {
                     for (var j = 0; j < keys.length; j++) {
                       var key = keys[j];
                       var val = attrVal[key].replace(/'/g, '');
+                      var isPrefixed = prefix.test(val);
+                      var isSuffixed = suffix.test(val);
+                      var isPartialSearch = false;
+                      if(isPrefixed || isSuffixed) {
+                        isPartialSearch = true;
+                      }
+
                       var operator;
                       var splitQueryByAnd = val.toLowerCase().split(' and ');
                       var splitQueryByOr = val.toLowerCase().split(' or ');
@@ -205,51 +211,66 @@
                       if (containsStr instanceof Array) {
                         containsStr = containsStr.join(' ');
                       }
-                  
-                      if (displayType === "referencelist" || displayType === "textbox") {
-                        var valSplitByOr = val.split(' or ');
-                        var valSplitByAnd = val.split(' and ');
 
-                        if(valSplitByAnd.length > 1) {
-                          attrVal["exacts"] = valSplitByAnd;
-                        } else {
-                          attrVal["exacts"] = valSplitByOr;
-                        }
-                        delete attrVal[key];
-                      } else if (displayType === "boolean") {
-                        attrVal["eq"] = containsStr;
-                        delete attrVal[key];
-                      } else if (displayType === "richtexteditor") {
+                      if(isPartialSearch) {
                         attrVal["contains"] = containsStr;
-                        attrVal["operator"] = operator;
+                        if(operator) attrVal["operator"] = operator;
                         delete attrVal[key];
-                      } else if (displayType === "numeric") {
-                        if (key === "equals") {
-                          attrVal["contains"] = containsStr;
-                          attrVal["operator"] = "_OR";
-                          delete attrVal[key];
-                        }
-                      } else if (displayType === "datetime" || displayType === "date") {
-                        if(key === "gte") {
-                          attrVal[key] = moment(attrVal[key]).startOf("day").format("YYYY-MM-DDTHH:mm:ss.SSS-0500");
-                        } else if(key === "lte") {
-                          attrVal[key] = moment(attrVal[key]).endOf("day").format("YYYY-MM-DDTHH:mm:ss.SSS-0500");
-                        } else if(key === "equals") {
-                          attrVal["gte"] = moment(attrVal[key]).startOf("day").format("YYYY-MM-DDTHH:mm:ss.SSS-0500");
-                          attrVal["lte"] = moment(attrVal[key]).endOf("day").format("YYYY-MM-DDTHH:mm:ss.SSS-0500");
-                          delete attrVal[key];
-                        }
                       } else {
-                        if (operator) {
+                        if (displayType === "referencelist" || displayType === "textbox") {
+                          var valSplitByOr = val.split(' or ');
+                          var valSplitByAnd = val.split(' and ');
+
+                          if(valSplitByAnd.length > 1) {
+                            attrVal["exacts"] = valSplitByAnd;
+                          } else {
+                            attrVal["exacts"] = valSplitByOr;
+                          }
+                          delete attrVal[key];
+                        } else if (displayType === "boolean") {
+                          attrVal["eq"] = containsStr;
+                          delete attrVal[key];
+                        } else if (displayType === "richtexteditor") {
                           attrVal["contains"] = containsStr;
                           attrVal["operator"] = operator;
+                          delete attrVal[key];
+                        } else if (displayType === "numeric") {
+                          if (key === "equals") {
+                            attrVal["contains"] = containsStr;
+                            attrVal["operator"] = "_OR";
+                            delete attrVal[key];
+                          }
+                        } else if (displayType === "datetime") {
+                          if(key === "gte") {
+                            attrVal[key] = moment(attrVal[key]).startOf("day").format("YYYY-MM-DDTHH:mm:ss.SSS-0500");
+                          } else if(key === "lte") {
+                            attrVal[key] = moment(attrVal[key]).endOf("day").format("YYYY-MM-DDTHH:mm:ss.SSS-0500");
+                          } else if(key === "equals") {
+                            attrVal["gte"] = moment(attrVal[key]).startOf("day").format("YYYY-MM-DDTHH:mm:ss.SSS-0500");
+                            attrVal["lte"] = moment(attrVal[key]).endOf("day").format("YYYY-MM-DDTHH:mm:ss.SSS-0500");
+                            delete attrVal[key];
+                          }
+                        } else if(displayType === "date") {
+                            var isoFormatDate = moment(attrVal[key], "MM/DD/YYYY", true).format("YYYY-MM-DD");
+                            if (key === "equals") {
+                              attrVal["gte"] = isoFormatDate;
+                              attrVal["lte"] = isoFormatDate;
+                              delete attrVal[key];
+                            } else {
+                              attrVal[key] = isoFormatDate;
+                            }
                         } else {
-                          attrVal["exact"] = containsStr;
+                          if (operator) {
+                            attrVal["contains"] = containsStr;
+                            attrVal["operator"] = operator;
+                          } else {
+                            attrVal["exact"] = containsStr;
+                          }
+                          delete attrVal[key];
                         }
-                        delete attrVal[key];
                       }
                     }
-                    attrVal["type"] = dataType;
+                    attrVal["type"] = isPartialSearch ? "_STRING" : dataType;
                     if(attrModel.isLocalizable) {
                       var valContext = ContextHelper.getFirstValueContext(this.contextData);
                       var defaultValCtx = DataHelper.getDefaultValContext();
