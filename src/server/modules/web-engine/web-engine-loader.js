@@ -65,7 +65,7 @@ app.get('/', function (req, res) {
 logger.info('Web engine start - default location route is loaded');
 
 // register static file content folder path..
-//app.use(express.static(buildPath, { maxAge: "1s" }));
+app.use(express.static(buildPath, { maxAge: "1s" }));
 
 logger.info('Web engine start - static content routes are loaded');
 
