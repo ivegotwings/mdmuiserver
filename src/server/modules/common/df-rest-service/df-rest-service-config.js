@@ -132,7 +132,7 @@ SERVICE_CONFIG = {
         },
         "configurationservice/get": {
             "url": "/configurationservice/get",
-            "mode": "online",
+            "mode": "offline",
             "offlineSettings": {
                 "operation": "get",
                 "requestPathToSelectDataFile": "params.query.filters.typesCriterion",

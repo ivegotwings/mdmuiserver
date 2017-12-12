@@ -34,9 +34,9 @@
     polyfills = ['lite'];
   }
 
-  if(polyfills.length) {
-    polyfills = ['lite'];
-  }
+  // if(polyfills.length) {
+  //   polyfills = ['lite'];
+  // }
 
   if (polyfills.length) {
     var script = document.querySelector('script[src*="' + name +'"]');

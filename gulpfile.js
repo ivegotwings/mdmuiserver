@@ -31,11 +31,13 @@ const mergeStream = require('merge-stream');
 const polymerBuild = require('polymer-build');
 const forkStream = require('polymer-build').forkStream;
 
+const polyBundler = require('polymer-bundler');
+
 // Additional plugins can be used to optimize your source files after splitting.
 // Before using each plugin, install with `npm i --save-dev <package-name>`
 // const uglify = require('gulp-uglify');
-// const cssSlam = require('css-slam').gulp;
-// const htmlMinifier = require('gulp-html-minifier');
+const cssSlam = require('css-slam').gulp;
+const htmlMinifier = require('gulp-html-minifier');
 
 const swPrecacheConfig = require('./sw-precache-config.js');
 const polymerJson = require('./polymer.json');
@@ -88,24 +90,31 @@ function clientBuild(relativeBuildPath, bundle, isES5) {
     .then(() => {
 
       let sourcesStream = polymerProject.sources();
-      let dependenciesStream = polymerProject.dependencies();
+      let dependenciesStream = polymerProject.dependencies();        
+
+      let sourcesStreamSplitter = new polymerBuild.HtmlSplitter();
+      let dependenciesStreamSplitter = new polymerBuild.HtmlSplitter();
+
+      sourcesStream = sourcesStream.pipe(sourcesStreamSplitter.split());
+      dependenciesStream = dependenciesStream.pipe(dependenciesStreamSplitter.split());
 
       if (isES5) {
         console.log('Transpiling javascripts to ES5... ');
-
-        let sourcesStreamSplitter = new polymerBuild.HtmlSplitter();
-        let dependenciesStreamSplitter = new polymerBuild.HtmlSplitter();
-
-        sourcesStream = sourcesStream.pipe(sourcesStreamSplitter.split());
-        dependenciesStream = dependenciesStream.pipe(dependenciesStreamSplitter.split());
-
         sourcesStream = sourcesStream.pipe(gulpif('**/*.js', babel({ 'presets': [['es2015', { 'modules': false, 'compact': false, 'allowReturnOutsideFunction': true }]] })));
         dependenciesStream = dependenciesStream.pipe(gulpif(['**/*.js', "!bower_components/pdfjs-dist/**/*.js", "!bower_components/mocha/mocha.js", "!bower_components/jsoneditor/dist/jsoneditor.min.js", "!bower_components/resize-observer-polyfill/**/*.js"], babel({'presets': [['es2015', {'modules': false, 'compact': false, 'allowReturnOutsideFunction': true}]]})));
-      
-        sourcesStream = sourcesStream.pipe(sourcesStreamSplitter.rejoin());
-        dependenciesStream = dependenciesStream.pipe(dependenciesStreamSplitter.rejoin());
       }
 
+      sourcesStream = sourcesStream
+        .pipe(gulpif("**/*.css", cssSlam()))
+        .pipe(gulpif("**/*.html", htmlMinifier()));
+
+      dependenciesStream = dependenciesStream
+        .pipe(gulpif("**/*.css", cssSlam()))
+        .pipe(gulpif("**/*.html", htmlMinifier()));
+
+      sourcesStream = sourcesStream.pipe(sourcesStreamSplitter.rejoin());
+      dependenciesStream = dependenciesStream.pipe(dependenciesStreamSplitter.rejoin());
+      
       let buildStream = mergeStream(sourcesStream, dependenciesStream)
         .once('data', () => {
           console.log('Analyzing dependencies... ');
@@ -114,24 +123,20 @@ function clientBuild(relativeBuildPath, bundle, isES5) {
       if(bundle) {
         var bundleExcludes = [];
 
-        const {
-          generateSharedDepsMergeStrategy,
-          generateCountingSharedBundleUrlMapper} = require('polymer-bundler');
-
         buildStream = buildStream
           .pipe(polymerProject.bundler({
             excludes: bundleExcludes,
-            inlineScripts: true,
-            inlineCss: true,
+            inlineScripts: false,
+            inlineCss: false,
             rewriteUrlsInTemplates: false,
             sourcemaps: false,
-            stripComments: true,
+            stripComments: true ,
             // Merge shared dependencies into a single bundle when
             // they have at least three dependents.
-            strategy: generateSharedDepsMergeStrategy(3),
+            strategy: generateShellOnlyMergeStrategy(polymerJson.shell, 3),
             // Shared bundles will be named:
             // `shared/bundle_1.html`, `shared/bundle_2.html`, etc...
-            urlMapper: generateCountingSharedBundleUrlMapper('src/shared-bundles/bundle_')
+            urlMapper: polyBundler.generateCountingSharedBundleUrlMapper('src/shared-bundles/bundle_')
           }))
           .once('data', () => { console.log('Bundling resources... '); });
       }
@@ -163,6 +168,41 @@ function clientBuild(relativeBuildPath, bundle, isES5) {
     });
   });
 };
+
+function generateShellOnlyMergeStrategy(shell, maybeMinEntrypoints) {
+  const minEntrypoints = maybeMinEntrypoints === undefined ? 2 : maybeMinEntrypoints;
+  if (minEntrypoints < 0) {
+    throw new Error(`Minimum entrypoints argument must be non-negative`);
+  }
+  
+  return polyBundler.composeStrategies([
+    // Merge all bundles that are direct dependencies of the shell into the
+    // shell.
+    polyBundler.generateEagerMergeStrategy(shell),
+    // Create a new bundle which contains the contents of all bundles which
+    // either...
+    polyBundler.generateMatchMergeStrategy((bundle) => {
+      // ...contain the shell file
+      return (!bundle.files.has(shell)) &&
+          // or are dependencies of at least the minimum number of entrypoints
+          // and are not entrypoints themselves.
+          bundle.entrypoints.size >= minEntrypoints;
+          //&& !getBundleEntrypoint(bundle);
+    }),
+    // Don't link to the shell from other bundles.
+    polyBundler.generateNoBackLinkStrategy([shell]),
+  ]);
+}
+
+function getBundleEntrypoint(bundle) {
+  for (const entrypoint of bundle.entrypoints) {
+    if (bundle.files.has(entrypoint)) {
+      return entrypoint;
+    }
+  }
+
+  return null;
+}
 
 gulp.task('prod-delete', function () {
   return Promise.all([
