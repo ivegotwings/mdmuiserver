@@ -132,13 +132,13 @@ function clientBuild(relativeBuildPath, bundle, isES5) {
             inlineCss: false,
             rewriteUrlsInTemplates: false,
             sourcemaps: false,
-            stripComments: true ,
+            stripComments: true //,
             // Merge shared dependencies into a single bundle when
             // they have at least three dependents.
-            strategy: generateShellOnlyMergeStrategy(polymerJson.shell, 3),
+            //strategy: generateShellOnlyMergeStrategy(polymerJson.shell, 3),
             // Shared bundles will be named:
             // `shared/bundle_1.html`, `shared/bundle_2.html`, etc...
-            urlMapper: polyBundler.generateCountingSharedBundleUrlMapper('src/shared-bundles/bundle_')
+            //urlMapper: polyBundler.generateCountingSharedBundleUrlMapper('src/shared-bundles/bundle_')
           }))
           .once('data', () => { console.log('Bundling resources... '); });
       }
