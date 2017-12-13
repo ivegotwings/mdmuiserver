@@ -36,8 +36,10 @@ const polyBundler = require('polymer-bundler');
 // Additional plugins can be used to optimize your source files after splitting.
 // Before using each plugin, install with `npm i --save-dev <package-name>`
 // const uglify = require('gulp-uglify');
-const cssSlam = require('css-slam').gulp;
-const htmlMinifier = require('gulp-html-minifier');
+//const cssSlam = require('css-slam').gulp;
+//const htmlMinifier = require('gulp-html-minifier');
+
+const minifyHTML = require('gulp-minify-html');
 
 const swPrecacheConfig = require('./sw-precache-config.js');
 const polymerJson = require('./polymer.json');
@@ -105,12 +107,12 @@ function clientBuild(relativeBuildPath, bundle, isES5) {
       }
 
       sourcesStream = sourcesStream
-        .pipe(gulpif("**/*.css", cssSlam()))
-        .pipe(gulpif("**/*.html", htmlMinifier()));
+        //.pipe(gulpif("**/*.css", cssSlam()))
+        .pipe(gulpif("**/*.html", minifyHTML()));        
 
       dependenciesStream = dependenciesStream
-        .pipe(gulpif("**/*.css", cssSlam()))
-        .pipe(gulpif("**/*.html", htmlMinifier()));
+        //.pipe(gulpif("**/*.css", cssSlam()))
+        .pipe(gulpif("**/*.html", minifyHTML()));
 
       sourcesStream = sourcesStream.pipe(sourcesStreamSplitter.rejoin());
       dependenciesStream = dependenciesStream.pipe(dependenciesStreamSplitter.rejoin());
