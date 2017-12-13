@@ -1,0 +1,300 @@
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
+
+<link rel="import" href="../pebble-toolbar/pebble-toolbar.html">
+
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+
+<link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
+<link rel="import" href="../rock-business-function-dialog/rock-business-function-dialog.html" />
+
+<!--
+@group rock Elements
+@element rock-business-actions
+@demo demo/index.html
+-->
+<dom-module id="rock-business-actions">
+    <template>
+        <style include="bedrock-style-common"></style>
+        <style>
+        </style>
+<pebble-actions id="actionsButton" button-icon="pebble-md-icons:actions" class="dropdownText dropdownIcon btn btn-actions dropdown-success"
+    button-text="Actions" actions-data="[[businessActions]]">
+</pebble-actions>
+<bedrock-pubsub event-name="pebble-actions-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub>
+<rock-business-function-dialog id="rollupDialog"></rock-business-function-dialog>
+<rock-business-function-dialog id="wfTransitionDialog"></rock-business-function-dialog>
+<rock-business-function-dialog id="wfAssignmentDialog"></rock-business-function-dialog>
+<rock-business-function-dialog id="rePublishDialog"></rock-business-function-dialog>
+</template>
+<script>
+    class RockBusinessActions
+        extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], Polymer.Element) {
+        static get is() { return 'rock-business-actions' }
+        ready() {
+            super.ready();
+        }
+        static get properties() {
+            return {
+                contextData: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    },
+                    observer: '_onContextDataChange'
+                },
+                showWorkflowActions: {
+                    type: Boolean,
+                    value: false
+                },
+                businessActions: {
+                    type: Array,
+                    value: function () {
+                        return {};
+                    }
+                }
+            }
+        }
+        static get observers() {
+            return []
+        }
+        /**
+        *
+        */
+        connectedCallback() {
+            super.connectedCallback();
+        }
+        /**
+        *
+        */
+        disconnectedCallback() {
+            super.disconnectedCallback();
+        }
+        _onContextDataChange() {
+            if (!_.isEmpty(this.contextData)) {
+                this.requestConfig('rock-business-actions', this.contextData);
+            }
+        }
+        onConfigLoaded(componentConfig) {
+            if (componentConfig && componentConfig.config) {
+                var actionGroups = [];
+
+                if (componentConfig.config.actionGroups) {
+                    for (var key in componentConfig.config.actionGroups) {
+                        var group = componentConfig.config.actionGroups[key];
+
+                        if (!this.showWorkflowActions && group.isWorkflowActions) {
+                            continue;
+                        }
+
+                        group.actions = DataHelper.convertObjectToArray(group.actions);
+                        actionGroups.push(group);
+                    }
+
+                    this.businessActions = actionGroups;
+                }
+            }
+        }
+
+        _onActionItemTap(e, detail) {
+            this._currentAction = detail;
+            this.fireBedrockEvent("business-actions-action-click", detail);
+        }
+
+        triggerProcess(selectedDetails, workflowCriterion) {
+            var selectedItems = selectedDetails.selectedItems;
+            var selectionMode = selectedDetails.selectionMode;
+            var selectionQuery = selectedDetails.selectionQuery;
+            this._workflowCriterion = workflowCriterion || {};
+
+            var eventName;
+            if (this._currentAction && this._currentAction.data) {
+                eventName = this._currentAction.data.eventName;
+            }
+
+            if (!eventName) {
+                this.showErrorToast("Unknown action triggered, system cannot do the process.");
+                return;
+            }
+
+            var asyncAvailable = false;
+            if (eventName == "action-takeTask" ||
+                eventName == "action-releaseTask" ||
+                eventName == "action-wfTransitions") {
+                asyncAvailable = true;
+            }
+
+            if (!asyncAvailable || (asyncAvailable && selectionMode == "count")) {
+                if (DataHelper.isEmptyObject(selectedItems)) {
+                    this.showErrorToast(
+                        "Select atleast one entity for which you want to perform this action."
+                    );
+                    return;
+                }
+            }
+
+            if (asyncAvailable) {
+                if (selectionMode == "query" && DataHelper.isEmptyObject(selectionQuery)) {
+                    this.showErrorToast(
+                        "Selection query should be available for which you want to perform this action."
+                    );
+                    return;
+                }
+            } else { //Check needed when async not available
+                if (!DataHelper.isEmptyObject(selectedItems) && selectedItems.length > 20) {
+                    this.showErrorToast("Maximum 20 entities can be selected.");
+                    return;
+                }
+            }
+
+            if (!DataHelper.isEmptyObject(selectedItems)) {
+                this._selectedItems = selectedItems;
+            }
+
+            if (this._currentAction) {
+                if (this._currentAction.data.eventName == "action-takeTask") {
+                    this._showAssignmentDialog(this._currentAction, "take", selectionMode, selectionQuery);
+                } else if (this._currentAction.data.eventName == "action-releaseTask") {
+                    this._showAssignmentDialog(this._currentAction, "release", selectionMode, selectionQuery);
+                } else if (this._currentAction.data.eventName == "action-wfTransitions") {
+                    //Fetch the wf details from the URL
+                    var wfName = this._workflowCriterion.workflowName;
+                    var wfActivityName = this._workflowCriterion.workflowActivityName;
+                    var wfActivityExternalName = this._workflowCriterion.workflowActivityExternalName;
+                    var user = this._workflowCriterion.userId; // ?
+
+                    var currentWorkflow = {
+                        "name": wfName,
+                        "activityName": wfActivityName
+                    }
+
+                    var transitionDialog = this.shadowRoot.querySelector("#wfTransitionDialog");
+                    transitionDialog.name = this._currentAction.data.componentName;
+                    transitionDialog.sharedData = {
+                        "selection-mode": selectionMode,
+                        "selection-query": selectionQuery,
+                        "selected-entities": this._selectedItems,
+                        "context-data": this.contextData,
+                        "current-workflow": currentWorkflow
+                    };
+                    transitionDialog.open();
+                    var existingTitle = transitionDialog.getTitle();
+                    transitionDialog.setTitle(existingTitle + " - " + wfActivityExternalName);
+                } else if (this._currentAction.data.eventName == "action-rollup") {
+                    var rollupDialog = this.shadowRoot.querySelector("#rollupDialog");
+                    rollupDialog.name = this._currentAction.data.componentName;
+                    rollupDialog.configName = this._currentAction.data.componentConfigName;
+                    rollupDialog.sharedData = {
+                        "context-data": this.contextData,
+                        "selected-entities": this._selectedItems
+                    };
+                    rollupDialog.open();
+                } else if (this._currentAction.data.eventName == "action-re-publish") {
+                    var validatePublishResult = this._validateRePublish();
+                    if (validatePublishResult.valid) {
+                        var rePublishDialog = this.shadowRoot.querySelector("#rePublishDialog");
+                        rePublishDialog.name = this._currentAction.data.componentName;
+                        rePublishDialog.sharedData = {
+                            "context-data": this.contextData,
+                            "selected-entities": this._selectedItems
+                        };
+                        rePublishDialog.open();
+                    } else {
+                        this._showToastMessage(validatePublishResult);
+                    }
+                } else if (this._currentAction.data.eventName == "action-compare-entities") {
+                    if (this._currentAction && this._currentAction.data) {
+                        var mainApp = document.querySelector("main-app");
+                        var dataRoute = this._currentAction.data.dataRoute;
+                        var entityIds = [];
+                        var entityTypes = [];
+
+                        this._selectedItems.forEach(function (selectedItem) {
+                            if (selectedItem) {
+                                entityIds.push(selectedItem.id);
+
+                                if (entityTypes.indexOf(selectedItem.type) < 0) {
+                                    entityTypes.push(selectedItem.type);
+                                }
+                            }
+                        }, this);
+
+                        var compareEntitiesContextId = ElementHelper.getRandomId();
+                        var compareEntititesContextData = {
+                            "entityIds": entityIds,
+                            "entityTypes": entityTypes,
+                            "contextData": this.contextData
+                        }
+
+                        sessionStorage.setItem(compareEntitiesContextId, JSON.stringify(compareEntititesContextData));
+                        ComponentHelper.setQueryParamsWithoutEncode({ "compareEntitiesContextId": compareEntitiesContextId });
+                        mainApp.changePageRoutePath(dataRoute);
+                    }
+                }
+            }
+        }
+
+        _validateRePublish() {
+            var resultObj = {
+                valid: false,
+                type: 'error',
+                message: "welcome"
+            };
+
+            var selectedEntities = this._selectedItems;
+
+            if (selectedEntities && selectedEntities.length <= 20) {
+                resultObj.message = "Config Not Found."
+                var rock_republish_config = this.getParentAppConfig("rock-re-publish");
+                if (rock_republish_config) {
+                    var rePublishConfig = rock_republish_config.steps;
+                    if (rePublishConfig && rePublishConfig.length > 0) {
+                        var profiles = rePublishConfig[0].component.properties.profiles;
+                        if (profiles && profiles.length > 0) {
+                            var typesInConfig = [];
+
+                            _.each(profiles, function (element) {
+                                typesInConfig = _.union(typesInConfig, element[
+                                    "types-criterion"]);
+                            });
+                            var isValid = true;
+                            for (var index = 0; index < selectedEntities.length; index++) {
+                                var element = selectedEntities[index];
+                                if (typesInConfig.indexOf(element.type) == -1) {
+                                    isValid = false;
+                                    resultObj.message =
+                                        "You can publish only following entity types: " +
+                                        typesInConfig.toString();
+                                    break;
+                                }
+                            }
+                            resultObj.valid = isValid;
+                        }
+                    }
+                }
+            } else {
+                resultObj.message = "Maximum 20 entities can be selected.."
+            }
+
+            return resultObj;
+        }
+
+        _showAssignmentDialog(detail, action, selectionMode, selectionQuery) {
+            var assignmentDialog = this.shadowRoot.querySelector("#wfAssignmentDialog");
+            assignmentDialog.name = detail.data.componentName;
+            assignmentDialog.sharedData = {
+                "selection-mode": selectionMode,
+                "selection-query": selectionQuery,
+                "selected-entities": this._selectedItems,
+                "context-data": this.contextData,
+                "assignment-Action": action,
+                "workflow-external-name": this._workflowCriterion.workflowName,
+                "workflow-activity-external-name": this._workflowCriterion.workflowActivityExternalName,
+                "workflow-name": this._workflowCriterion.workflowShortName,
+                "workflow-activity-name": this._workflowCriterion.workflowActivityName
+            };
+            assignmentDialog.open();
+        }
+    }
+    customElements.define(RockBusinessActions.is, RockBusinessActions);
+</script>
+</dom-module>

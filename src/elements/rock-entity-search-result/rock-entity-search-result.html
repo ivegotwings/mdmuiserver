@@ -22,13 +22,13 @@
 <link rel="import" href="../rock-govern-data-grid/rock-govern-data-grid.html">
 
 <!--
-`rock-entity-search-grid` Represents a component that renders the entities in the grid.
+`rock-entity-search-result` Represents a component that renders the entities in the grid.
 It filters the data as per filter criteria.
 
 @demo demo/index.html
 -->
 
-<dom-module id="rock-entity-search-grid">
+<dom-module id="rock-entity-search-result">
     <template>
     <style>
         pebble-toggle-button {
@@ -112,7 +112,9 @@ It filters the data as per filter criteria.
                            selected-items="{{selectedItems}}"
                            total-count="{{totalCount}}"
                            max-configured-count="[[maxConfiguredCount]]"
-                           selection-enabled></rock-grid>
+                           selection-enabled>
+                    <rock-entity-search-result-actions slot="toolbar" id="gridActions" context-data="[[contextData]]"></rock-entity-search-result-actions>
+                </rock-grid>
 
             </template>
             <template is="dom-if" if="[[_loadGovernData]]">
@@ -146,7 +148,7 @@ It filters the data as per filter criteria.
             'use strict';
 
             Polymer({
-                is: 'rock-entity-search-grid',
+                is: 'rock-entity-search-result',
                 properties: {
                     /**
                      * Indicates the request object that is passed to the data element to retrieve the attribute model data.
@@ -400,9 +402,14 @@ It filters the data as per filter criteria.
                     }
                 },
 
+                observers: [
+                    '_onContextDataChange(contextData.*)'
+                ],
+
                 behaviors: [
                     RUFBehaviors.UIBehavior,
-                    RUFBehaviors.ComponentContextBehavior
+                    RUFBehaviors.ComponentContextBehavior,
+                    RUFBehaviors.ComponentConfigBehavior
                 ],
 
                 attached: function(){
@@ -410,6 +417,32 @@ It filters the data as per filter criteria.
                         this._isViewLoaded = true;
                     });
                 },
+
+                _onContextDataChange: function() {
+                    this.requestConfig('rock-entity-search-result', this.contextData);
+                },
+
+                onConfigLoaded: function(componentConfig) {
+                    if(componentConfig && componentConfig.config) {
+                        this.gridConfig = componentConfig.config.gridConfig;
+                        //Sample code for testing purpose
+                        // if(this.contextData.ItemContexts.length == 1) {
+                        //     delete this.gridConfig.itemConfig.fields.name;
+                        // }
+                        this.governAttributesCriterion = componentConfig.config.governAttributesCriterion;
+                        this.governDataConfig = componentConfig.config.governDataConfig;
+                        this._resetGridConfig();
+                    }
+                },
+
+                _resetGridConfig: function() {
+                    this.attributeModels = {};
+                    //Notify
+                    var temp = this.gridConfig;
+                    this.gridConfig = {};
+                    this.gridConfig = temp;
+                },
+
                 /**
                  * <b><i>Content development is under progress... </b></i> 
                  */
@@ -582,12 +615,8 @@ It filters the data as per filter criteria.
                     //     return;
                     // }
 
-                    if (!gridConfig.dataRequest) {
-                        return;
-                    }
-
-                    var attributeNames = gridConfig.dataRequest.attributes;
-                    var typesCriterion = gridConfig.dataRequest.typesCriterion;
+                    var attributeNames = this._getAttributesFromConfig();
+                    var typesCriterion = this.typesCriterion;;
                     var firstEntityType = undefined;
 
                     if (typesCriterion && typesCriterion.length > 0) {
@@ -633,9 +662,9 @@ It filters the data as per filter criteria.
                         var entities = data.content.entities;
                         if (entities && entities.length > 0) {
                             if(this.gridConfig.viewMode=="Tabular") {
-                                formattedEntities = DataTransformHelper.transformEntitiesToGridFormat(entities, this.attributeModels, this.contextData, this.gridConfig.tabular.columns);
+                                formattedEntities = DataTransformHelper.transformEntitiesToGridFormat(entities, this.attributeModels, this.contextData, this._getGridColumns());
                             }else{
-                                var attributes = this.gridConfig.dataRequest.attributes;
+                                var attributes = this._getAttributesFromConfig();
                                 if(attributes.indexOf("type")==-1){
                                     attributes.push("type");
                                 }
@@ -660,6 +689,23 @@ It filters the data as per filter criteria.
                     }
 
                     return formattedEntities;
+                },
+
+                _getGridColumns: function() {
+                    if(this.gridConfig && this.gridConfig.tabular && this.gridConfig.tabular.columns) {
+                        return this.gridConfig.tabular.columns;
+                    }
+                    var columns = [];
+                    if(DataHelper.isValidObjectPath(this.gridConfig, 'itemConfig.fields')) {
+                        columns = DataHelper.convertObjectToArray(this.gridConfig.itemConfig.fields);
+                    }
+                    return columns;
+                },
+
+                _getAttributesFromConfig: function() {
+                    return this._getGridColumns().map(function(column) {
+                        return column.name;
+                    });
                 },
 
                 // Remove unsupported filters which were added for tags
@@ -736,7 +782,7 @@ It filters the data as per filter criteria.
                     if (!itemContexts && itemContexts.length) {
                         return;
                     }
-                    var attributeNames = this.gridConfig.dataRequest.attributes;
+                    var attributeNames = this._getAttributesFromConfig();
                     for (var i in itemContexts) {
                         itemContexts[i].attributeNames = attributeNames;
                     }
