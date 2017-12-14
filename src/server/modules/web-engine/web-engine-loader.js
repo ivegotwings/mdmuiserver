@@ -1,6 +1,5 @@
-
-require("babel-register");
-require("babel-polyfill");
+//require("babel-register");
+//require("babel-polyfill");
 require("hogan.js");
 
 var express = require('express');

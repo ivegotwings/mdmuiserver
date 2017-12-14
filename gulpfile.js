@@ -17,15 +17,16 @@ const gulp = require('gulp');
 const gulpif = require('gulp-if');
 const gulpnoop = require('gulp-noop');
 const debug = require('gulp-debug');
-const browserSync = require('browser-sync');
-const reload = browserSync.reload;
+
 const nodemon = require('gulp-nodemon');
+var rename = require("gulp-rename");
+
 var tinylr = require('tiny-lr');
 var replace = require('gulp-replace');
+
 const babel = require("gulp-babel");
-var rename = require("gulp-rename");
+
 var argv = require('yargs').argv;
-var lazypipe = require('lazypipe');
 
 const mergeStream = require('merge-stream');
 const polymerBuild = require('polymer-build');
