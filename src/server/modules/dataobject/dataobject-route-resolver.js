@@ -409,6 +409,7 @@ async function get(dataObjectIds, reqData) {
 
         var dataIndexInfo = pathKeys.dataIndexInfo[request.dataIndex];
         var collectionName = dataIndexInfo.collectionName;
+        reqData.cacheExpiryDuration = dataIndexInfo.cacheExpiryDurationInMins ? -(dataIndexInfo.cacheExpiryDurationInMins * 60 * 1000) : -(60 * 60 * 1000);
 
         //console.log(dataIndexInfo);
         var dataObjectResponse = res ? res[dataIndexInfo.responseObjectName] : undefined;
@@ -552,6 +553,8 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
 
             if (dataOperationResult && !isEmpty(dataOperationResult)) {
                 var responsePath = pathKeys.dataIndexInfo[dataIndex].responseObjectName;
+                var cacheExpiryDurationInMins = pathKeys.dataIndexInfo[dataIndex].cacheExpiryDurationInMins;
+
                 var dataOperationResponse = dataOperationResult[responsePath];
                 if (dataOperationResponse && dataOperationResponse.status == 'success') {
                     if (dataObject) {
@@ -573,7 +576,8 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
                             'jsonData': true,
                             'operation': operation,
                             'buildPaths': true,
-                            'basePath': basePath
+                            'basePath': basePath,
+                            'cacheExpiryDuration': cacheExpiryDurationInMins ? -(cacheExpiryDurationInMins * 60 * 1000) : -(60 * 60 * 1000)
                         };
 
                         var dataByObjectTypeJson = dataJson[dataObjectType];
