@@ -341,12 +341,12 @@ DataObjectFalcorUtil.transformRelationshipsToExternal = function (relationships)
 
             if (rel.relToObject) {
                 var relToObject = rel.relToObject;
-                
+
                 if (relToObject.data) {
                     relToObject = DataObjectFalcorUtil.transformToExternal(relToObject);
                 }
-                
-                if(rel.relTo && relToObject.data) {
+
+                if (rel.relTo && relToObject.data) {
                     rel.relTo.data = relToObject.data;
                     rel.relTo.name = relToObject.name;
                     rel.relTo.version = relToObject.version;
@@ -355,7 +355,7 @@ DataObjectFalcorUtil.transformRelationshipsToExternal = function (relationships)
 
                 delete rel.relToObject;
             }
-            
+
             relsArray.push(rel);
         }
 
@@ -674,38 +674,44 @@ DataObjectFalcorUtil.deepAssign = function (...objs) {
         const source = objs[i];
         Object.keys(source).forEach(prop => {
             const value = source[prop];
-            if (DataObjectFalcorUtil.isObject(value)) {
-                if (target.hasOwnProperty(prop) && DataObjectFalcorUtil.isObject(target[prop])) {
-                    target[prop] = DataObjectFalcorUtil.deepAssign(target[prop], value);
-                } else {
-                    target[prop] = value;
-                }
-            } else if (Array.isArray(value)) {
-                if (target.hasOwnProperty(prop) && Array.isArray(target[prop])) {
-                    const targetArray = target[prop];
-                    value.forEach((sourceItem, itemIndex) => {
-                        if (itemIndex < targetArray.length) {
-                            const targetItem = targetArray[itemIndex];
-                            if (Object.is(targetItem, sourceItem)) {
-                                return;
-                            }
+             if (source[prop] == "_DEEP_ASSIGN_DELETE_") {
+                 delete target[prop];
+             } else {
+                if (DataObjectFalcorUtil.isObject(value)) {
+                    if (target.hasOwnProperty(prop) && DataObjectFalcorUtil.isObject(target[prop])) {
 
-                            if (DataObjectFalcorUtil.isObject(targetItem) && DataObjectFalcorUtil.isObject(sourceItem)) {
-                                targetArray[itemIndex] = DataObjectFalcorUtil.deepAssign(targetItem, sourceItem);
-                            } else if (Array.isArray(targetItem) && Array.isArray(sourceItem)) {
-                                targetArray[itemIndex] = DataObjectFalcorUtil.deepAssign(targetItem, sourceItem);
+                        target[prop] = DataObjectFalcorUtil.deepAssign(target[prop], value);
+
+                    } else {
+                        target[prop] = value;
+                    }
+                } else if (Array.isArray(value)) {
+                    if (target.hasOwnProperty(prop) && Array.isArray(target[prop])) {
+                        const targetArray = target[prop];
+                        value.forEach((sourceItem, itemIndex) => {
+                            if (itemIndex < targetArray.length) {
+                                const targetItem = targetArray[itemIndex];
+                                if (Object.is(targetItem, sourceItem)) {
+                                    return;
+                                }
+
+                                if (DataObjectFalcorUtil.isObject(targetItem) && DataObjectFalcorUtil.isObject(sourceItem)) {
+                                    targetArray[itemIndex] = DataObjectFalcorUtil.deepAssign(targetItem, sourceItem);
+                                } else if (Array.isArray(targetItem) && Array.isArray(sourceItem)) {
+                                    targetArray[itemIndex] = DataObjectFalcorUtil.deepAssign(targetItem, sourceItem);
+                                } else {
+                                    targetArray[itemIndex] = sourceItem;
+                                }
                             } else {
-                                targetArray[itemIndex] = sourceItem;
+                                targetArray.push(sourceItem);
                             }
-                        } else {
-                            targetArray.push(sourceItem);
-                        }
-                    })
+                        })
+                    } else {
+                        target[prop] = value;
+                    }
                 } else {
                     target[prop] = value;
                 }
-            } else {
-                target[prop] = value;
             }
         })
     }
