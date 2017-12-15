@@ -18,8 +18,9 @@ var loggerConfig = config.get('modules.common.logger');
 logger.configure(loggerConfig);
 
 var buildPath = process.cwd();
-var relativePath = process.env.PROJECT_PATH;
 
+var relativePath = process.env.PROJECT_PATH;
+//relativePath = '.';
 var isNodMonitorProcess = false;
 
 if (process.env.NODE_MON_PROCESS) {
@@ -32,6 +33,7 @@ if (relativePath) {
     buildPath = buildPath + '/' + relativePath;
 }
 
+console.log('build path: ', buildPath);
 logger.info('Web engine start - build path identified', { "buildPath": buildPath });
 
 var app = express();
@@ -146,6 +148,9 @@ fileUploadRoute(app);
 
 logger.info('Web engine start - fileupload routes are loaded');
 
+//app.use(express.static(path.join(buildPath, "../static"), { maxAge: "1s" }));
+app.use(express.static(buildPath, { maxAge: "1s" }));
+
 //register static file root ...index.html..
 app.get('*', function (req, res) {
     var isES5 = (req.headers['user-agent'].indexOf('rv:11') !== -1);
@@ -188,6 +193,8 @@ app.get('*', function (req, res) {
             //console.log('url prepared ', url);
         }
         
+        //console.log('url requested ', url, urlRedirected);
+
         if (urlRedirected) {
             //console.log('url requested ', url);
             if (url.indexOf("?") > -1) {
@@ -198,6 +205,7 @@ app.get('*', function (req, res) {
         }
     }
     if (!renderAuthenticatedPage(req, res)) {
+        console.log('sending non-authenticated index page');
         //If request is not authenticated, we are trying see if URL has tenant after root of the URL
         var urlComps = req.url.split('/');
         tenantId = urlComps[0] != "" ? urlComps[0] : urlComps.length > 1 ? urlComps[1] : "";
@@ -210,9 +218,6 @@ app.get('*', function (req, res) {
         }
     }
 });
-
-app.use(express.static(buildPath, { maxAge: "1s" }));
-app.use(express.static(path.join(buildPath, "../static"), { maxAge: "1s" }));
 
 logger.info('Web engine start - base static file root route is loaded');
 
