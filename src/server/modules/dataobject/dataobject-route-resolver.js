@@ -46,6 +46,8 @@ const entityCompositeModelGetService = new EntityCompositeModelGetService(option
 const configurationService = new ConfigurationService(options);
 const eventService = new EventService(options);
 
+const searchResultExpireTime = -30 * 60 * 1000;
+
 async function initiateSearch(callPath, args) {
     var response = [];
     var isCombinedQuerySearch = false;
@@ -175,7 +177,7 @@ async function initiateSearch(callPath, args) {
 
                         for (let additionalId of additionalIdsRequested) {
                             var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds];
-                            response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [additionalId]))));
+                            response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [additionalId])), searchResultExpireTime));
                         }
                     }
                 }
@@ -190,7 +192,7 @@ async function initiateSearch(callPath, args) {
                             if (additionalIdsRequested.indexOf(dataObject.id) < 0) {
                                 var dataObjectType = dataObject.type;
                                 var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds];
-                                response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [dataObject.id]))));
+                                response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [dataObject.id])), searchResultExpireTime));
                                 resultRecordSize++;
                             }
                         }
@@ -211,10 +213,11 @@ async function initiateSearch(callPath, args) {
                 }
             }
         }
-        response.push(mergeAndCreatePath(basePath, ["maxRecords"], $atom(maxRecordsSupported)));
-        response.push(mergeAndCreatePath(basePath, ["totalRecords"], $atom(totalRecords)));
-        response.push(mergeAndCreatePath(basePath, ["resultRecordSize"], $atom(resultRecordSize)));
-        response.push(mergeAndCreatePath(basePath, ["requestId"], $atom(requestId)));
+        
+        response.push(mergeAndCreatePath(basePath, ["maxRecords"], $atom(maxRecordsSupported), searchResultExpireTime));
+        response.push(mergeAndCreatePath(basePath, ["totalRecords"], $atom(totalRecords), searchResultExpireTime));
+        response.push(mergeAndCreatePath(basePath, ["resultRecordSize"], $atom(resultRecordSize), searchResultExpireTime));
+        response.push(mergeAndCreatePath(basePath, ["requestId"], $atom(requestId), searchResultExpireTime));
         //response.push(mergeAndCreatePath(basePath, ["request"], $atom(request)));
     }
     catch (err) {
