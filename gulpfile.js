@@ -109,7 +109,7 @@ function clientBuild(relativeBuildPath, bundle, isES5) {
 
       sourcesStream = sourcesStream
         //.pipe(gulpif("**/*.css", cssSlam()))
-        .pipe(gulpif("**/*.html", minifyHTML()));        
+      .pipe(gulpif("**/*.html", minifyHTML()));        
 
       dependenciesStream = dependenciesStream
         //.pipe(gulpif("**/*.css", cssSlam()))
@@ -133,13 +133,13 @@ function clientBuild(relativeBuildPath, bundle, isES5) {
             inlineCss: false,
             rewriteUrlsInTemplates: false,
             sourcemaps: false,
-            stripComments: true //,
+            stripComments: true, //,
             // Merge shared dependencies into a single bundle when
             // they have at least three dependents.
-            //strategy: generateShellOnlyMergeStrategy(polymerJson.shell, 3),
+            strategy: generateShellOnlyMergeStrategy(polymerJson.shell, 3),
             // Shared bundles will be named:
             // `shared/bundle_1.html`, `shared/bundle_2.html`, etc...
-            //urlMapper: polyBundler.generateCountingSharedBundleUrlMapper('src/shared-bundles/bundle_')
+            urlMapper: polyBundler.generateCountingSharedBundleUrlMapper('src/shared-bundles/bundle_')
           }))
           .once('data', () => { console.log('Bundling resources... '); });
       }
@@ -155,7 +155,17 @@ function clientBuild(relativeBuildPath, bundle, isES5) {
 
       // let build stream finish his work..
       return waitFor(buildStream).then(function (){
-        console.log('Generating the service worker... ');
+              console.log('Generating the service worker... ');
+
+              /*gulp task to settimeout all script tags*/
+               gulp.src("./build/ui-platform/static/es6-bundled/src/elements/*/*.html", "./build/ui-platform/static/es6-bundled/src/shared-bundles/") 
+               .pipe(replace(/<script>([\s\S]*?)<\/script>/gm,
+                    function(match, p1, offset, string) {
+                    if(match.indexOf("behavior") !== -1) return match;
+                    return "<script>" + "setTimeout("+match.substring(8,match.length-9)+",0.5)" + "</script>";
+                  }
+                ))
+               .pipe(gulp.dest('./build/ui-platform/static/es6-bundled/src/elements'));
 
         // return polymerBuild.addServiceWorker({
         //   project: polymerProject,
