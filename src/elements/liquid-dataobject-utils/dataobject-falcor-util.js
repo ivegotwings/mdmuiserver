@@ -674,24 +674,19 @@ DataObjectFalcorUtil.deepAssign = function (...objs) {
         const source = objs[i];
         Object.keys(source).forEach(prop => {
             const value = source[prop];
-            if (source[prop] == "_DEEP_ASSIGN_DELETE_") {
+            if (value == "_DEEP_ASSIGN_DELETE_") {
                 delete target[prop];
             } else {
                 if (DataObjectFalcorUtil.isObject(value)) {
                     if (target.hasOwnProperty(prop) && DataObjectFalcorUtil.isObject(target[prop])) {
                         target[prop] = DataObjectFalcorUtil.deepAssign(target[prop], value);
                     } else {
-                        if (source[prop] == "_DEEP_ASSIGN_DELETE_") {
-                            delete target[prop];
-                        } else {
-                            if(DataObjectFalcorUtil.isObject(source[prop])) {
-                                target[prop] = {};
-                                target[prop] = DataObjectFalcorUtil.deepAssign(target[prop], value);
-                            }
-                        }
+                        target[prop] = {};
+                        target[prop] = DataObjectFalcorUtil.deepAssign(target[prop], value);
+
                     }
                 } else if (Array.isArray(value)) {
-                    // TODO:: Need to verify array based scenarios.
+                    // TODO:: "_DEEP_ASSIGN_DELETE_" has to be discussed.
                     if (target.hasOwnProperty(prop) && Array.isArray(target[prop])) {
                         const targetArray = target[prop];
                         value.forEach((sourceItem, itemIndex) => {
@@ -713,18 +708,10 @@ DataObjectFalcorUtil.deepAssign = function (...objs) {
                             }
                         })
                     } else {
-                        if (source[prop] == "_DEEP_ASSIGN_DELETE_") {
-                            delete target[prop];
-                        } else {
-                            target[prop] = value;
-                        }
-                    }
-                } else {
-                    if (source[prop] == "_DEEP_ASSIGN_DELETE_") {
-                        delete target[prop];
-                    } else {
                         target[prop] = value;
                     }
+                } else {
+                    target[prop] = value;
                 }
             }
         })
