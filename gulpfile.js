@@ -81,6 +81,16 @@ function serverBuild(buildPath) {
 
 function clientBuild(relativeBuildPath, bundle, isES5) {
   return new Promise((resolve, reject) => {
+    console.log(`BuildPath : ${buildPath} ...`);
+    var serverSources = polymerJson.serverSources;
+    gulp.src(serverSources, { base: '.' }).pipe(gulp.dest(buildPath));
+    //console.log(`Completed : ${buildPath} !`);
+    resolve();
+  });
+}
+
+function clientBuild(relativeBuildPath, bundle, isES5) {
+  return new Promise((resolve, reject) => {
 
     const polymerProject = new polymerBuild.PolymerProject(polymerJson);
 
@@ -133,7 +143,14 @@ function clientBuild(relativeBuildPath, bundle, isES5) {
             inlineCss: false,
             rewriteUrlsInTemplates: false,
             sourcemaps: false,
-            stripComments: true //, //,
+            stripComments: true, //, //,
+            // Merge shared dependencies into a single bundle when
+            // they have at least three dependents.
+            //strategy: generateShellOnlyMergeStrategy(polymerJson.shell, 3),
+            // Shared bundles will be named:
+            // `shared/bundle_1.html`, `shared/bundle_2.html`, etc...
+
+            urlMapper: polyBundler.generateCountingSharedBundleUrlMapper('src/shared-bundles/bundle_'),
             // Merge shared dependencies into a single bundle when
             // they have at least three dependents.
             //strategy: generateShellOnlyMergeStrategy(polymerJson.shell, 3),
@@ -174,6 +191,29 @@ function clientBuild(relativeBuildPath, bundle, isES5) {
         //   swPrecacheConfig: swPrecacheConfig
         // });
 
+
+              /*gulp task to settimeout all script tags*/
+               gulp.src(["./build/ui-platform/static/es6-bundled/src/elements/*/*.html"]) 
+               .pipe(replace(/<script>([\s\S]*?)<\/script>/gm,
+                    function(match, p1, offset, string) { 
+                    if(match.indexOf("saulis") !== -1 || match.indexOf("RUFBehaviors.DataChannel") !== -1 || match.indexOf("window.RUFBehaviors") !== -1 || match.indexOf("window.Polymer") !== -1){
+                      return match;                                        
+                    }
+                    return "<script>" + "setTimeout("+"(function(){" + match.substring(8,match.length-9)+ "})(),0.5)" + "</script>";;  
+                  }
+                ))
+               .pipe(gulp.dest('./build/ui-platform/static/es6-bundled/src/elements'));
+
+               gulp.src(["./build/ui-platform/static/es6-bundled/src/shared-bundles/*.html"]) 
+               .pipe(replace(/<script>([\s\S]*?)<\/script>/gm,
+                    function(match, p1, offset, string) {
+                   if(match.indexOf("saulis") !== -1 || match.indexOf("RUFBehaviors.DataChannel") !== -1 || match.indexOf("window.RUFBehaviors") !== -1 || match.indexOf("window.Polymer") !== -1){
+                    return match;                                        
+                   }
+                    return "<script>" + "setTimeout("+"(function(){" + match.substring(8,match.length-9)+ "})(),0.5)" + "</script>";;  
+                  }
+                ))
+               .pipe(gulp.dest('./build/ui-platform/static/es6-bundled/src/shared-bundles'));
           resolve();
       });
 
