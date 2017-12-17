@@ -79,7 +79,7 @@ function serverBuild(buildPath) {
   });
 }
 
-function clientBuild(relativeBuildPath, bundle, isES5) {
+/*function clientBuild(relativeBuildPath, bundle, isES5) {
   return new Promise((resolve, reject) => {
     console.log(`BuildPath : ${buildPath} ...`);
     var serverSources = polymerJson.serverSources;
@@ -87,7 +87,7 @@ function clientBuild(relativeBuildPath, bundle, isES5) {
     //console.log(`Completed : ${buildPath} !`);
     resolve();
   });
-}
+}*/
 
 function clientBuild(relativeBuildPath, bundle, isES5) {
   return new Promise((resolve, reject) => {
