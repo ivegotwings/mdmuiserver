@@ -37,8 +37,6 @@ const createPath = responseBuilder.createPath,
 var options = {};
 var runOffline = process.env.RUN_OFFLINE;
 
-const LOCALE_COALESCE_KEY = "localeCoalesce";
-
 if (runOffline) {
     options.runOffline = runOffline;
 }
@@ -225,17 +223,8 @@ async function initiateSearch(callPath, args) {
     finally {
     }
 
-    //console.log(JSON.stringify(response));   
+    //console.log(JSON.stringify(response));
     return response;
-}
-
-
-
-function _hasLocaleCoalesceValue(reqData) {
-    if (reqData && reqData.valCtxKeys) {
-        return reqData.valCtxKeys.find((context)=> ~context.indexOf(LOCALE_COALESCE_KEY));
-    }
-    return null;
 }
 
 async function getSearchResultDetail(pathSet) {
@@ -314,16 +303,9 @@ function createGetRequest(reqData) {
         query.contexts = contexts;
     }
 
-
-
     if (!isEmpty(valContexts)) {
-
-        //let val of attr.values
-        //var locale = val.locale || undefined;
-        if (_hasLocaleCoalesceValue(reqData)) {
-            for(let valContext of valContexts) {
-                valContext.localeCoalesce = true;
-            }
+        for(let valContext of valContexts) {
+            valContext.localeCoalesce = true;
         }
 
         query.valueContexts = valContexts;
@@ -334,7 +316,7 @@ function createGetRequest(reqData) {
         if( contexts && contexts.length > 0) {
             filters.excludeNonContextual = true;
         }
-    } 
+    }
 
     if (!isEmpty(filters)) {
         query.filters = filters;
@@ -475,7 +457,7 @@ async function getByIds(pathSet, operation) {
     try {
 
         /*
-        */
+         */
         //console.log('---------------------' , operation, ' dataObjectsById call pathset requested:', pathSet, ' operation:', operation);
         var reqDataObjectTypes = pathSet.dataObjectTypes;
 
