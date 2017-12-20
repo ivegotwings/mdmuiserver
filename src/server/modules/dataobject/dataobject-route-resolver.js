@@ -46,6 +46,8 @@ const entityCompositeModelGetService = new EntityCompositeModelGetService(option
 const configurationService = new ConfigurationService(options);
 const eventService = new EventService(options);
 
+const searchResultExpireTime = -30 * 60 * 1000;
+
 async function initiateSearch(callPath, args) {
     var response = [];
     var isCombinedQuerySearch = false;
@@ -175,7 +177,7 @@ async function initiateSearch(callPath, args) {
 
                         for (let additionalId of additionalIdsRequested) {
                             var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds];
-                            response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [additionalId]))));
+                            response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [additionalId])), searchResultExpireTime));
                         }
                     }
                 }
@@ -190,7 +192,7 @@ async function initiateSearch(callPath, args) {
                             if (additionalIdsRequested.indexOf(dataObject.id) < 0) {
                                 var dataObjectType = dataObject.type;
                                 var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds];
-                                response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [dataObject.id]))));
+                                response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [dataObject.id])), searchResultExpireTime));
                                 resultRecordSize++;
                             }
                         }
@@ -211,10 +213,11 @@ async function initiateSearch(callPath, args) {
                 }
             }
         }
-        response.push(mergeAndCreatePath(basePath, ["maxRecords"], $atom(maxRecordsSupported)));
-        response.push(mergeAndCreatePath(basePath, ["totalRecords"], $atom(totalRecords)));
-        response.push(mergeAndCreatePath(basePath, ["resultRecordSize"], $atom(resultRecordSize)));
-        response.push(mergeAndCreatePath(basePath, ["requestId"], $atom(requestId)));
+        
+        response.push(mergeAndCreatePath(basePath, ["maxRecords"], $atom(maxRecordsSupported), searchResultExpireTime));
+        response.push(mergeAndCreatePath(basePath, ["totalRecords"], $atom(totalRecords), searchResultExpireTime));
+        response.push(mergeAndCreatePath(basePath, ["resultRecordSize"], $atom(resultRecordSize), searchResultExpireTime));
+        response.push(mergeAndCreatePath(basePath, ["requestId"], $atom(requestId), searchResultExpireTime));
         //response.push(mergeAndCreatePath(basePath, ["request"], $atom(request)));
     }
     catch (err) {
@@ -406,6 +409,7 @@ async function get(dataObjectIds, reqData) {
 
         var dataIndexInfo = pathKeys.dataIndexInfo[request.dataIndex];
         var collectionName = dataIndexInfo.collectionName;
+        reqData.cacheExpiryDuration = dataIndexInfo.cacheExpiryDurationInMins ? -(dataIndexInfo.cacheExpiryDurationInMins * 60 * 1000) : -(60 * 60 * 1000);
 
         //console.log(dataIndexInfo);
         var dataObjectResponse = res ? res[dataIndexInfo.responseObjectName] : undefined;
@@ -549,6 +553,8 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
 
             if (dataOperationResult && !isEmpty(dataOperationResult)) {
                 var responsePath = pathKeys.dataIndexInfo[dataIndex].responseObjectName;
+                var cacheExpiryDurationInMins = pathKeys.dataIndexInfo[dataIndex].cacheExpiryDurationInMins;
+
                 var dataOperationResponse = dataOperationResult[responsePath];
                 if (dataOperationResponse && dataOperationResponse.status == 'success') {
                     if (dataObject) {
@@ -570,7 +576,8 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
                             'jsonData': true,
                             'operation': operation,
                             'buildPaths': true,
-                            'basePath': basePath
+                            'basePath': basePath,
+                            'cacheExpiryDuration': cacheExpiryDurationInMins ? -(cacheExpiryDurationInMins * 60 * 1000) : -(60 * 60 * 1000)
                         };
 
                         var dataByObjectTypeJson = dataJson[dataObjectType];

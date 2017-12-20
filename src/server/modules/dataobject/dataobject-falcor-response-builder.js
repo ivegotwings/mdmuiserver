@@ -57,7 +57,7 @@ function _buildFieldsResponse(dataObject, reqData, baseJson, paths) {
     for (let dataObjectFieldKey of dataObjectFieldKeys) {
         if (dataObjectFieldKey !== "data") {
             var dataObjectFieldValue = dataObject[dataObjectFieldKey] !== undefined ? dataObject[dataObjectFieldKey] : {};
-            baseJson[dataObjectFieldKey] = prepareValueJson($atom(dataObjectFieldValue));
+            baseJson[dataObjectFieldKey] = prepareValueJson($atom(dataObjectFieldValue), reqData.cacheExpiryDuration);
 
             //build paths if requested
             if (reqData.buildPaths) {
@@ -117,7 +117,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                 values.push(val);
             }
 
-            var expires = undefined;
+            var expires = reqData.cacheExpiryDuration;
             if (attr.action && attr.action == "delete") {
                 expires = 0;
             }
@@ -146,7 +146,8 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                     if (!valContextJson) {
                         valContextJson = falcorUtil.getOrCreate(valContextsJson, valCtxKey, {});
                     }
-                    valContextJson['group'] = prepareValueJson($atom(attr.group));
+
+                    valContextJson['group'] = prepareValueJson($atom(attr.group), reqData.cacheExpiryDuration);
 
                     //build paths if requested
                     if (reqData.buildPaths) {
@@ -165,7 +166,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
             if (!selfValContextJson) {
                 selfValContextJson = falcorUtil.getOrCreate(valContextsJson, selfValCtxKey, {});
             }
-            selfValContextJson['properties'] = $atom(attr.properties);
+            selfValContextJson['properties'] = prepareValueJson($atom(attr.properties), reqData.cacheExpiryDuration);
 
             //build paths if requested
             if (reqData.buildPaths) {
@@ -181,7 +182,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                         if (!valContextJson) {
                             valContextJson = falcorUtil.getOrCreate(valContextsJson, valCtxKey, {});
                         }
-                        valContextJson['properties'] = prepareValueJson($atom(attr.properties));
+                        valContextJson['properties'] = prepareValueJson($atom(attr.properties), reqData.cacheExpiryDuration);
 
                         //build paths if requested
                         if (reqData.buildPaths) {
@@ -247,7 +248,7 @@ function _buildRelationshipsResponse(rels, reqData, currentDataContextJson, path
             }
 
             if (operation.toLowerCase() === "getrelidonly" || operation.toLowerCase() === "update" || operation.toLowerCase() === "create") {
-                relTypeJson['relIds'] = prepareValueJson($atom(relIds));
+                relTypeJson['relIds'] = prepareValueJson($atom(relIds), reqData.cacheExpiryDuration);
 
                 //build paths if requested
                 if (reqData.buildPaths) {
@@ -289,7 +290,7 @@ function _buildRelationshipDetailsResponse(enRel, reqData, relTypeKey, relsJson,
             }
         }
         else {
-            relJson[relFieldKey] = prepareValueJson($atom(enRel[relFieldKey]));
+            relJson[relFieldKey] = prepareValueJson($atom(enRel[relFieldKey]), reqData.cacheExpiryDuration);
 
             if (reqData.buildPaths) {
                 paths.push(mergePathSets(relBasePath, [relFieldKey]));
@@ -302,7 +303,7 @@ function _buildRelationshipDetailsResponse(enRel, reqData, relTypeKey, relsJson,
         var relDataObjectType = enRel.relTo.type || '';
 
         var dataObjectsByIdPath = mergePathSets(dataObjectsByIdBasePath, relDataObjectType, pathKeys.byIds);
-        relJson["relToObject"] = prepareValueJson($ref(mergePathSets(dataObjectsByIdPath, [relDataObjectId])));
+        relJson["relToObject"] = prepareValueJson($ref(mergePathSets(dataObjectsByIdPath, [relDataObjectId])), reqData.cacheExpiryDuration);
 
         if (reqData.buildPaths) {
             paths.push(mergePathSets(relBasePath, ["relToObject"]));
@@ -312,13 +313,13 @@ function _buildRelationshipDetailsResponse(enRel, reqData, relTypeKey, relsJson,
     return;
 }
 
-function _buildJsonDataResponse(jsonData, baseJson) {
+function _buildJsonDataResponse(jsonData, baseJson, reqData) {
     //console.log('reqAttrNames ', attrNames);
     if (isEmpty(jsonData)) {
         return;
     }
 
-    baseJson['jsonData'] = prepareValueJson($atom(jsonData));
+    baseJson['jsonData'] = prepareValueJson($atom(jsonData), reqData.cacheExpiryDuration);
 
     //console.log('json data response: ', JSON.stringify(response));
     return;
@@ -335,7 +336,7 @@ function _buildMappingsResponse(ctxItem, reqData, currentDataContextJson, paths,
         if (mapKey == "attributeMap" && !isEmpty(attrs)) {
             var attrMap = Object.keys(attrs);
             //console.log('attrs map ', JSON.stringify(attrMap));
-            mappingsJson['attributeMap'] = $atom(attrMap);
+            mappingsJson['attributeMap'] = prepareValueJson($atom(attrMap), reqData.cacheExpiryDuration);
 
             if (reqData.buildPaths) {
                 paths.push(mergePathSets(basePath, ['mappings', 'attributeMap']))
@@ -343,7 +344,7 @@ function _buildMappingsResponse(ctxItem, reqData, currentDataContextJson, paths,
         }
         else if (mapKey == "relationshipMap" && !isEmpty(rels)) {
             var relTypeMap = Object.keys(rels);
-            mappingsJson['relationshipMap'] = $atom(relTypeMap);
+            mappingsJson['relationshipMap'] = prepareValueJson($atom(relTypeMap), reqData.cacheExpiryDuration);
 
             if (reqData.buildPaths) {
                 paths.push(mergePathSets(basePath, ['mappings', 'attributeMap']))
@@ -487,7 +488,7 @@ function buildResponse(dataObject, reqData, paths) {
                 }
 
                 if (reqData.jsonData && !isEmpty(contextItem.jsonData)) {
-                    _buildJsonDataResponse(contextItem.jsonData, currentDataContextJson);
+                    _buildJsonDataResponse(contextItem.jsonData, currentDataContextJson, reqData);
 
                     if (reqData.buildPaths) {
                         paths.push(mergePathSets(currentContextBasePath, ['jsonData']))
@@ -506,7 +507,7 @@ function buildResponse(dataObject, reqData, paths) {
 
         if (reqData.operation == "getMappings" && arrayContains(reqData.mapKeys, "contextMap")) {
             var mappingsJson = dataJson['mappings'] = {};
-            mappingsJson['contextMap'] = $atom(contextMap);
+            mappingsJson['contextMap'] = prepareValueJson($atom(contextMap), reqData.cacheExpiryDuration);
 
             if (reqData.buildPaths) {
                 paths.push(mergePathSets(reqData.basePath, ['data', 'mappings', 'contextMap']));
@@ -571,7 +572,7 @@ function buildRefResponse(dataObject, reqData) {
 
             if(currContext.selfContext) {
                 //Add selfcontext response as $ref...
-                dataContextsJson[selfCtxKey] = prepareValueJson($ref(pathToContextItem));
+                dataContextsJson[selfCtxKey] = prepareValueJson($ref(pathToContextItem), reqData.cacheExpiryDuration);
             }
             else {
                 //Add requested context response as $ref...
@@ -579,7 +580,7 @@ function buildRefResponse(dataObject, reqData) {
                     var ctxKey = reqData.ctxKeys[i];
                     if(ctxKey != selfCtxKey) {
                         //Assumption: We cannot compare requested context key with the resulted context... Hence considering first key always... 
-                        dataContextsJson[ctxKey] = prepareValueJson($ref(pathToContextItem));
+                        dataContextsJson[ctxKey] = prepareValueJson($ref(pathToContextItem), reqData.cacheExpiryDuration);
                         break;
                     }
                 }

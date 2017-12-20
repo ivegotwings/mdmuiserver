@@ -1,6 +1,6 @@
+const createNamespace = require('cls-hooked').createNamespace;
 const contextService = require('request-context');
 const executionContext = require('./execution-context');
-const createNamespace = require('continuation-local-storage').createNamespace;
 const session = createNamespace('User Session');
 
 module.exports = function(app) {
@@ -13,7 +13,6 @@ module.exports = function(app) {
             executionContext.createCallerContext(req);
             next();
         });
-        
     });
 }
 
