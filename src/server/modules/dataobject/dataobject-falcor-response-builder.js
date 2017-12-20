@@ -104,8 +104,8 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                 var valCtxItem = falcorUtil.getOrCreate(valCtxItems, valCtxKey, {});
                 var values = falcorUtil.getOrCreate(valCtxItem, 'values', []);
 
-                // Needs to maintain two copies of valCtx in case of request with locale coalesce and without locale coalesce for entity get
-                // Ex. While updating any value update query will not have "localeCoalesce" flag inside it so that it will update only valCtx where localeCoalesce is not there and
+                // Need to maintain two copies of valCtx request - with locale coalesce and without locale coalesce for entity get
+                // This is needed because: While updating any value update query will not have "localeCoalesce" flag inside it, so on response of update it will cache only valCtx where localeCoalesce is not there and
                 // as soon as update happens it will go for get with "localeCoalesce" flag and will get old value not the updated value.
                 var localeCoalesceValCtxKey = falcorUtil.createCtxKey({ 'source': source, 'localeCoalesce': true, 'locale': locale });
                 var localeCoalesceValCtxItem = falcorUtil.getOrCreate(valCtxItems, localeCoalesceValCtxKey, {});
