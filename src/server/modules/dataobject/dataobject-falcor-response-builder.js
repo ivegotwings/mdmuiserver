@@ -93,6 +93,11 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
 
         var attributeJson = attributesJson[attrKey] = {};
         var valContextsJson = attributeJson['valContexts'] = {};
+        var attrExpires = undefined;
+
+        if (attr.properties && (attr.properties.contextCoalesce || attr.properties.instanceCoalesce)) {
+            attrExpires = -1000;
+        }
 
         if (attr.values) {
             var valCtxItems = {};
@@ -117,21 +122,29 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                 values.push(val);
             }
 
-            var expires = reqData.cacheExpiryDuration;
             if (attr.action && attr.action == "delete") {
-                expires = 0;
+                attrExpires = reqData.cacheExpiryDuration;
             }
 
             for (var valCtxKey in valCtxItems) {
                 var valCtxItem = valCtxItems[valCtxKey];
                 //console.log('valCtxItem.values', JSON.stringify(valCtxItem.values));
                 var valContextJson = {};
-                valContextJson['values'] = prepareValueJson($atom(valCtxItem.values), expires);
+                valContextJson['values'] = prepareValueJson($atom(valCtxItem.values), attrExpires);
                 valContextsJson[valCtxKey] = valContextJson;
 
                 //build paths if requested
                 if (reqData.buildPaths) {
                     paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', valCtxKey, 'values']));
+
+                    if (reqData.operation == "update" && attr.properties) {
+                        delete attr.properties.contextCoalesce;
+                        delete attr.properties.instanceCoalesce;
+
+                        valContextJson['properties'] = prepareValueJson($atom(attr.properties), attrExpires);
+                        paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', valCtxKey, 'properties']));
+                    }
+
                 }
             }
         }
@@ -182,7 +195,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                         if (!valContextJson) {
                             valContextJson = falcorUtil.getOrCreate(valContextsJson, valCtxKey, {});
                         }
-                        valContextJson['properties'] = prepareValueJson($atom(attr.properties), reqData.cacheExpiryDuration);
+                        valContextJson['properties'] = prepareValueJson($atom(attr.properties), attrExpires);
 
                         //build paths if requested
                         if (reqData.buildPaths) {
@@ -299,7 +312,7 @@ function _buildRelationshipDetailsResponse(enRel, reqData, relTypeKey, relsJson,
     }
 
     if (enRel && enRel.relTo) {
-        var relDataObjectId = enRel.relTo.id || -1; 
+        var relDataObjectId = enRel.relTo.id || -1;
         var relDataObjectType = enRel.relTo.type || '';
 
         var dataObjectsByIdPath = mergePathSets(dataObjectsByIdBasePath, relDataObjectType, pathKeys.byIds);
@@ -514,7 +527,7 @@ function buildResponse(dataObject, reqData, paths) {
             }
         }
     }
-    
+
     return dataObjectResponseJson;
 }
 
