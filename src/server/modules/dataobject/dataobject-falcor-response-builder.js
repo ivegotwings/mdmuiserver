@@ -100,13 +100,16 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                 var source = val.source || undefined;
                 var locale = val.locale || undefined;
 
-                var valCtxKey = falcorUtil.createCtxKey({ 'source': source, 'locale': locale });
+                var valCtxKey = falcorUtil.createCtxKey({ 'source': source, 'locale': locale }); //TODO: Here, source and locale are hard coded... How to find out val contexts keys from the flat list of values object..??
                 var valCtxItem = falcorUtil.getOrCreate(valCtxItems, valCtxKey, {});
                 var values = falcorUtil.getOrCreate(valCtxItem, 'values', []);
 
-                var localeCoalesValCtxKey = falcorUtil.createCtxKey({ 'source': source, 'localeCoalesce': true, 'locale': locale });
-                var localeCoalesceValCtxItem = falcorUtil.getOrCreate(valCtxItems, localeCoalesValCtxKey, {});
-                var localeCoalesValues = falcorUtil.getOrCreate(localeCoalesceValCtxItem, 'values', []);
+                // Needs to maintain two copies of valCtx in case of request with locale coalesce and without locale coalesce for entity get
+                // Ex. While updating any value update query will not have "localeCoalesce" flag inside it so that it will update only valCtx where localeCoalesce is not there and
+                // as soon as update happens it will go for get with "localeCoalesce" flag and will get old value not the updated value.
+                var localeCoalesceValCtxKey = falcorUtil.createCtxKey({ 'source': source, 'localeCoalesce': true, 'locale': locale });
+                var localeCoalesceValCtxItem = falcorUtil.getOrCreate(valCtxItems, localeCoalesceValCtxKey, {});
+                var localeCoalesceValues = falcorUtil.getOrCreate(localeCoalesceValCtxItem, 'values', []);
 
                 //RDF has started sending values in actual data type
                 //like boolean as true/false instead of 'true'/'false' and 0 instead of '0'
@@ -116,7 +119,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                     val.value = val.value.toString();
                 }
                 values.push(val);
-                localeCoalesValues.push(val);
+                localeCoalesceValues.push(val);
             }
 
             var expires = undefined;
