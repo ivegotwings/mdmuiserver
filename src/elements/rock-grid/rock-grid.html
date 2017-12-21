@@ -727,13 +727,15 @@ The following JSON object is a config sample which configures the grid in all ab
 									 sort-by="[[_isSortable(col)]]" icon="pebble-md-icons:Edit" class="pebble-md-icons" column-object="[[col]]" width="[[_getColWidth(col)]]">
 										<template>
 
-											<template is="dom-if" if="[[_isNestedAttribute(item, colIndex)]]">
-												<a slot="cell-slot-content" href="#" on-tap="_openNestedAttr" data="[[_getRowModelAndData(item, column.columnObject)]]">
-													<span> click here to see values ([[_getNetsedAtrributeValueCount(item, column.columnObject)]]) </span>
+											<template is="dom-if" if="[[_isNestedAttribute(column.columnObject)]]">
+												<a slot="cell-slot-content" href="#" on-tap="_openNestedAttr" data="[[column.columnObject]]">
+													<div class="cell tooltip-bottom" data-tooltip$="click here to see values">
+														<span> click here to see values ([[_getNetsedAtrributeValueCount(item, column.columnObject)]]) </span>
+													</div>
 												</a>
 											</template>
 
-											<template is="dom-if" if="[[!_isNestedAttribute(item, colIndex)]]">
+											<template is="dom-if" if="[[!_isNestedAttribute(column.columnObject)]]">
 												<template is="dom-if" if="[[_hasLinkTemplate(column.columnObject, item)]]">
 													<a slot="cell-slot-content" href$="[[_getLink(column.columnObject, item)]]">
 														<div class="cell tooltip-bottom" data-tooltip$="[[_columnValue(item, column.columnIndex)]]">
@@ -847,7 +849,7 @@ The following JSON object is a config sample which configures the grid in all ab
 			<pebble-dialog id="gridMsgDialog" dialog-title="Confirmation" show-ok show-cancel show-close-icon alert-box modal>
 				<p id="msgDialog"></p>
 			</pebble-dialog>
-		
+			
 			<pebble-dialog id="attributeDialog" dialog-title="Confirmation" show-ok show-cancel show-close-icon alert-box modal>
 				<div id="attrDialogContainer"></div>
 			</pebble-dialog>
@@ -2577,30 +2579,29 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 				},
 
-				_isNestedAttribute: function (item, colIndex) {
-					if (!_.isEmpty(item) && this.config.tabular.rows) {
-						var col = this.config.tabular.columns[colIndex];
-
-						if (!col.isRowHeader) {
-							var attrName = item.attributeName;
-							var attrModel = this.attributeModels[attrName];
-
-							if (attrModel && attrModel.properties.dataType == "nested") {
-								return true;
-							}
-						}
+				_isNestedAttribute: function (col) {
+					if(col && col.isNested) {
+						return true;
 					}
+
+					return false;
 				},
 
 				_getRowModelAndData: function (item, col) {
 					if (item) {
-						var attrName = item.attributeName;
+						var attrName = col.name;
 						var attrModel = this.attributeModels[attrName];
+
 						//debugger;
-						if (attrModel) {
+						if (attrModel && attrModel.group && attrModel.group.length > 0) {
+							var attrValue = DataTransformHelper.transformNestedAttributes({ "group": item[col.name] }, attrModel.group[0]);
+
+							var attributeObject = {
+								"value": attrValue
+							};
 							return {
 								"attrModel": attrModel,
-								"attr": item[col.header],
+								"attr": attributeObject,
 								"colHeader": col.header
 							};
 						}
@@ -2608,9 +2609,15 @@ The following JSON object is a config sample which configures the grid in all ab
 				},
 
 				_openNestedAttr: function (e) {
-					var data = e.currentTarget.data;
+					var parentRow = this._getParentRow(e.currentTarget);
+					var item;
+					if(parentRow) {
+						item = parentRow.item;
+					}
+					var col = e.currentTarget.data;
 					var attrDialog = this.$$('#attributeDialog');
-					if (attrDialog && data) {
+					if (attrDialog && col && item) {
+						var data = this._getRowModelAndData(item, col);
 						var attrModel = data.attrModel;
 						var rockComponent = customElements.get("rock-nested-attribute-grid");
 						var rockElement = new rockComponent();
@@ -2619,8 +2626,9 @@ The following JSON object is a config sample which configures the grid in all ab
 
 						rockElement.attributeModelObject = attrModel;
 						rockElement.attributeObject = data.attr;
-						rockElement.contextData = "";
-						rockElement.mode = "read";
+						rockElement.originalAttributeObject = data.attr;
+						rockElement.contextData = this.contextData;
+						rockElement.mode = "view";
 
 						var attrDialogContainer = attrDialog.querySelector('#attrDialogContainer');
 
