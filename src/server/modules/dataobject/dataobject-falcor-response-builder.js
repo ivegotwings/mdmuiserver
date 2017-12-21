@@ -96,7 +96,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
         var attrExpires = reqData.cacheExpiryDuration;
 
         if (attr.properties && (attr.properties.contextCoalesce || attr.properties.instanceCoalesce)) {
-            attrExpires = -1000;
+            attrExpires = -10000;
         }
 
         if (attr.values) {
