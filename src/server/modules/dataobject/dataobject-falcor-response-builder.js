@@ -95,6 +95,10 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
         var valContextsJson = attributeJson['valContexts'] = {};
         var attrExpires = reqData.cacheExpiryDuration;
 
+        // Need to come up with proper solution where system can cache coalesced data.
+        // As per discussion with Vishal and Jimmy right now system will not cache any coalesced data more then 10 seconds.
+        // Not as context coalesced structure is dynamic where falcor has to maintain different reference to avoid impact calculation +
+        // It has to do impact calculation when coalesced data path will get changed.
         if (attr.properties && (attr.properties.contextCoalesce || attr.properties.instanceCoalesce)) {
             attrExpires = -10000;
         }
@@ -142,6 +146,8 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                 if (reqData.buildPaths) {
                     paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', valCtxKey, 'values']));
 
+                    // In case of update if attr has context or instance coalesce property then remove these keys from attr.properties and reset properties atom.
+                    // It will provide proper updated data of source info to client.
                     if (reqData.operation == "update" && attr.properties) {
                         delete attr.properties.contextCoalesce;
                         delete attr.properties.instanceCoalesce;
