@@ -28,6 +28,7 @@
 <link rel="import" href="../rock-entity-type-model-lov/rock-entity-type-model-lov.html">
 
 <link rel="import" href="../rock-business-function-dialog/rock-business-function-dialog.html" />
+<link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
 
 <dom-module id="app-reference-discovery">
     <template>
@@ -190,6 +191,13 @@
                 #actionsButton {
                     margin-left: 10px
                 }
+
+                #refTypeMsg {
+                    top: 0;
+                    left: 30px;
+                    right: 30px;
+                    bottom: auto;
+                }
             </style>
         <rock-layout>
             <liquid-config-aggregate-get id="getEntityDiscoveryAppConfig" verbose operation="getbyids" request-id="req1" app-name="app-reference-discovery"
@@ -242,8 +250,6 @@
                             <bedrock-pubsub event-name="build-query" handler="_searchFiltersChanged"></bedrock-pubsub>
                         </div>
 
-                        <pebble-button class="btn btn-primary" button-text="Manage" on-tap="_onTapManage"></pebble-button>
-
                         <pebble-button id="actionsButton" button-icon="pebble-md-icons:actions" class="dropdownText dropdownIcon btn btn-actions dropdown-success"
                             button-text="Publish" on-tap="_onActionItemTap" hidden={{!publish}}></pebble-button>
                         <!-- <bedrock-pubsub event-name="pebble-button-action-click" handler="_onActionItemTap" target-id=""></bedrock-pubsub> -->
@@ -252,16 +258,22 @@
                 </div>
                 <div class="shrunk-content" slot="shrunk-content">
                 </div>
-            </rock-header>
-            <div class="layout horizontal contentContainer">
+            </rock-header>            
+            <div class="layout horizontal contentContainer">                
                 <div id="entityGridContainer" class$="[[_applyClass(_quickManageEnabled)]]">
+                    <div id="refTypeMsg" class="default-message" hidden$="[[_isTypesCriterionAvailable(_typeCriterion)]]"> Please select reference type </div>
                     <rock-entity-search-result id="entitySearchGrid"
                                              context-data="[[contextData]]"
                                              search-filters="[[_selectedSearchFilters]]"
-                                             types-Criterion="[[_typeCriterion]]"
+                                             types-Criterion="[[_getTypesCriterion(_typeCriterion)]]"
                                              search-query="[[_searchQuery]]"
+                                             process-with-dynamic-fields
+                                             dynamic-fields="[[_dynamicFields]]"
                                              current-record-size="{{_gridFullLength}}"></rock-entity-search-result>
                     <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="entityGrid"></bedrock-pubsub>
+                    <bedrock-pubsub event-name="grid-deselecting-item" handler="_onDeSelectingGridItem" target-id="entityGrid"></bedrock-pubsub>
+                    <bedrock-pubsub event-name="grid-refresh-items" handler="_onRefreshGrid" target-id="entityGrid"></bedrock-pubsub>
+                    <bedrock-pubsub event-name="quick-manage-event" handler="_onTapManage"></bedrock-pubsub>
                 </div>
                 <template is="dom-if" if="[[_quickManageEnabled]]">
                     <div>
@@ -270,9 +282,7 @@
                     <div class="quick-manage-container p-15">
                         <pebble-button icon="pebble-sm-icons:Add" class="btn btn-primary m-r-10" button-text="Add New" on-click="_onQuickManageAdd"></pebble-button>
                         <rock-entity-quick-manage id="entityQuickManage" show-Expand-Icon={{_showExpandIcon}} no-header context-data="[[contextData]]"
-                            current-index="{{_currentIndex}}" current-record-size="[[_gridFullLength]]" selected-entity="[[_selectedEntity]]"
-                            tab-config="{{getConfig('rock-entity-quick-manage', '', 'rock-tabs')}}" toolbar-config="{{getConfig('rock-entity-quick-manage', '', 'pebble-toolbar')}}"
-                            fixes="{{getConfig('rock-entity-quick-manage', '', 'rock-entity-tofix')}}"></rock-entity-quick-manage>
+                            current-index="{{_currentIndex}}" current-record-size="[[_gridFullLength]]" selected-entity="[[_selectedEntity]]"></rock-entity-quick-manage>
                         <bedrock-pubsub event-name="on-attribute-save" handler="_onAttributeSave"></bedrock-pubsub>
                         <bedrock-pubsub target-id="entityQuickManage" event-name="on-tap-previous" handler="_onClickPrevious"></bedrock-pubsub>
                         <bedrock-pubsub target-id="entityQuickManage" event-name="on-tap-next" handler="_onClickNext"></bedrock-pubsub>
@@ -294,7 +304,8 @@
                         type: Object,
                         value: function () {
                             return {};
-                        }
+                        },
+                        observer: "_onContextDataChange"
                     },
                     domain: {
                         type: String,
@@ -332,14 +343,6 @@
                     _multiSelect: {
                         type: Boolean,
                         value: false
-                    },
-                    _gridConfig: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        },
-                        computed: 'getConfig("rock-entity-search-result")',
-                        observer: '_onGridConfigChange'
                     },
                     _currentIndex: {
                         type: Number,
@@ -446,7 +449,8 @@
                 },
 
                 behaviors: [
-                    RUFBehaviors.AppBehavior
+                    RUFBehaviors.AppBehavior,
+                    RUFBehaviors.ComponentConfigBehavior
                 ],
 
                 ready: function () {
@@ -464,13 +468,25 @@
                 },
 
                 attached: function () {
-
                     //get saved search id from query string
                     if (DataHelper.getParamValue('searchtext')) {
                         this.shadowRoot.querySelector('#searchBar').query = this._searchQuery;
                     }
                     this._setGridHeight();
+                    this._initializeComponent();
+                },
 
+                _onContextDataChange: function() {
+                    if(!_.isEmpty(this.contextData)) {                        
+                        this.requestConfig('app-reference-discovery', this.contextData);
+                    }
+                },
+
+                onConfigLoaded: function(componentConfig) {
+                    if(componentConfig && componentConfig.config) {
+                        this._typeCriterion = componentConfig.config.defaultReferenceType; //brand
+                        this._prepareContext();
+                    }
                 },
 
                 _onActionItemTap: function (e, detail, sender) {
@@ -523,15 +539,8 @@
                     if (e.detail.components.hasOwnProperty('rock-re-publish')) {
                         this.publish = true
                     }
-                },
-                _onGridConfigChange: function () {
-                    if (this._gridConfig && !_.isEmpty(this._gridConfig)) {
-                        this._typeCriterion = this._gridConfig.dataRequest.typesCriterion[0];
-                    }
-                    //Loading the grid for the first time with default reference type
-                    this._prepareContext();
-                    this._initializeComponent();
-                },
+                },                
+
                 _initializeComponent: function () {
 
                     if (this.shadowRoot.querySelector("#referenceDataLov")) {
@@ -551,6 +560,8 @@
                         entitySearchFilterEl.refresh();
                     }
 
+                    this._quickManageEnabled = false;
+                    this._getSearchGrid().notifyResize();
                     var popover = this.shadowRoot.querySelector("#actionsPopover");
                     if (popover) {
                         popover.hide();
@@ -562,7 +573,6 @@
                         if (this._typeCriterion) {
                             this._mainTitle = this._typeCriterion;
                             this._selectedReferenceType = this._typeCriterion;
-                            this._gridConfig.dataRequest.typesCriterion = [this._typeCriterion];
                             var itemContext = {};
                             itemContext.type = this._typeCriterion;
                             itemContext.attributeNames = ["_ALL"];
@@ -596,31 +606,19 @@
                             var itemContext = ContextHelper.getFirstItemContext(this.contextData);
                             itemContext.attributeNames = attributeNames;
                             this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
-                            //this.updateContext(this.CONTEXT_TYPE_ITEM, [itemContext]);
 
-                            var columns = [];
+                            var columns = {};
                             for (var i = 0; i < attributeNames.length; i++) {
                                 var model = attributeModels[attributeNames[i]];
-                                columns.push({
+                                columns[model.name] = {
                                     "header": model.externalName,
                                     "name": model.name,
                                     "sortable": true
-                                });
+                                };
                             }
+                            
                             this._gridAttributes = attributeNames;
-                            this._gridConfig.dataRequest.attributes = this._gridAttributes;
-                            this._gridConfig.tabular.columns = columns;
-                            var grid = this._getSearchGrid();
-                            grid.attributeModels = {};
-                            grid.gridConfig = {};
-                            grid.gridConfig = this._gridConfig;
-                            if (this._quickManageEnabled) {
-                                if (this.shadowRoot.querySelector("#entityQuickManage")) {
-                                    this.shadowRoot.querySelector("#entityQuickManage").reload();
-                                }
-                            } else {
-                                this._refreshGrid();
-                            }
+                            this._dynamicFields = columns; //Fields are prepared based on reference type change
                         }
                     }
                 },
@@ -651,20 +649,36 @@
                     return ElementHelper.getElement(this, "#entitySearchGrid");
                 },
                 _onSelectingGridItem: function (e, detail, sender) {
-                    this._selectedEntity = detail.item;
-                    if (!_.isEmpty(this._selectedEntity)) {
-                        var itemContext = {
-                            'id': this._selectedEntity.id,
-                            'type': this._selectedEntity.type,
-                            'attributeNames': this._gridAttributes
-                        };
+                    if (this._quickManageEnabled) {
+                        this._selectedEntity = detail.item;
+                        if (!_.isEmpty(this._selectedEntity)) {
+                            var itemContext = {
+                                'id': this._selectedEntity.id,
+                                'type': this._selectedEntity.type,
+                                'attributeNames': this._gridAttributes
+                            };
 
-                        this.updateContext(ContextHelper.CONTEXT_TYPE_ITEM, [itemContext], { refresh: false });
+                            this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
 
-                        Polymer.Async.microTask.run(() => {
-                            this._currentIndex = this._getSearchGrid().getSelectedItemIndex();
-                        });
+                            this._getSearchGrid().clearSelection();
+                            Polymer.Async.microTask.run(() => {
+                                this._currentIndex = this._getSearchGrid().getSelectedItemIndex();
+                                this._refreshComponent();
+                            });
+                        }
                     }
+                },
+                _onDeSelectingGridItem: function () {
+                    if (this._quickManageEnabled) {
+                        this._selectedEntity = {};
+                    }
+                },
+                _onRefreshGrid: function() {
+                    if(this._quickManageEnabled) {
+                        this._quickManageEnabled = false;
+                        this._selectedEntity = {};
+                        this._getSearchGrid().notifyResize();
+                    } 
                 },
                 _onAttributeSave: function (e, detail, sender) {
                     //Reseting the context to load the updated grid                    
@@ -673,13 +687,11 @@
                         'type': this._selectedReferenceType,
                         'attributeNames': this._gridAttributes
                     };
-                    this.updateContext(ContextHelper.CONTEXT_TYPE_ITEM, [itemContext]);
+                    this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
 
                     //Changing the row style of the updated record
                     var searchGrid = this._getSearchGrid();
                     if (searchGrid) {
-                        searchGrid.reloadGrid();
-
                         var selectedRow = searchGrid.getSelectedGridRow();
                         if (selectedRow) {
                             selectedRow.style['font-style'] = 'italic';
@@ -711,7 +723,7 @@
                                     'type': this._selectedEntity.type,
                                     'attributeNames': this._gridAttributes
                                 };
-                                this.updateContext(ContextHelper.CONTEXT_TYPE_ITEM, [itemContext]);
+                                this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
 
                                 this._currentIndex = index;
                                 grid.clearSelection();
@@ -732,6 +744,8 @@
                                 }, 10);
                             }
                         }
+
+                        this._refreshComponent();                        
                     }
                 },
                 _isAllowedToScroll: function () {
@@ -819,17 +833,14 @@
                         grid.refresh();
                     }
                 },
-                _onContextChanged: function () {
-                    var contextData = this.contextData;
-                    this.contextData = {}; // To notify
-                    this.contextData = contextData;
-
-//                     if(!(e.detail.additionalInfo && e.detail.additionalInfo.refresh === false)) {
-//                         this._refreshGrid();
-//                     }
-
-                    if (this.shadowRoot.querySelector("#entityQuickManage")) {
-                        this.shadowRoot.querySelector("#entityQuickManage").reload();
+                _refreshComponent: function () {
+                    if (this._quickManageEnabled) {
+                        var quickManage = this.shadowRoot.querySelector("#entityQuickManage");
+                        if(quickManage) {
+                            quickManage.reload();
+                        }                        
+                    } else {
+                        this._refreshGrid();
                     }
                 },
 
@@ -865,17 +876,13 @@
                     this.set('_selectedSearchFilters', _selectedSearchFilters);
                     this._refreshGrid();
                 },
-                updateContext: function (contextType, contexts) {
-                    this.contextData[contextType] = contexts;
-                    this._onContextChanged();
-                },
                 _onQuickManageAdd: function () {
                     var itemContext = {
                         'id': "-1",
                         'type': this._selectedReferenceType,
                         'attributeNames': this._gridAttributes
                     };
-                    this.updateContext(ContextHelper.CONTEXT_TYPE_ITEM, [itemContext]);
+                    this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
 
                     this._getSearchGrid().clearSelection();
                 },
@@ -898,7 +905,7 @@
                                     'id': selectedItem.id,
                                     'type': selectedItem.type
                                 };
-                                this.updateContext(ContextHelper.CONTEXT_TYPE_ITEM, [itemContext]);
+                                this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
 
                                 grid.clearSelection(); //Clear current selection
                                 grid.selectItem(selectedItem); //Select item
@@ -945,7 +952,19 @@
                 _onDimensionsChanged: function (e) {
                     var newDimensions = e.detail.dimensions;
                     ContextHelper.updateContextData(this.contextData, newDimensions);
-                    this._onContextChanged();
+                    this._refreshComponent();
+                },
+                _isTypesCriterionAvailable: function (typeCriterion) {
+                    if(typeCriterion) {
+                        return true;
+                    }
+
+                    return false;
+                },
+                _getTypesCriterion: function(typeCriterion) {
+                    if(typeCriterion) {
+                        return [typeCriterion];
+                    }
                 }
             });
         })();
