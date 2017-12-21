@@ -97,6 +97,17 @@
                                 }
                             ]
                         };
+                    } else {
+                        if(ctxAttributes[attrKey].values && ctxAttributes[attrKey].values.length) {
+                            ctxAttributes[attrKey].values.forEach(function(item){
+                                if(_.isEmpty(item.properties)) {
+                                    item.properties = {};
+                                    item.properties.localeCoalescePath = "_DEEP_ASSIGN_DELETE_";
+                                } else if (item.properties && _.isEmpty(item.properties.localeCoalescePath))  {
+                                    item.properties.localeCoalescePath = "_DEEP_ASSIGN_DELETE_";
+                                }   
+                            }, this);
+                        }
                     }
                 }
                 
@@ -410,6 +421,7 @@
         };
 
         DataTransformHelper.createAttributeInstance = function (attributeJSON, valueContext) {
+            var attributeInstance = {};
             var attributeValues = [];
             delete attributeJSON.errors;
             if (Array.isArray(attributeJSON.value)) {
@@ -430,6 +442,10 @@
                         attributeValues.push(attributeValue);
                     }
                 }
+
+                attributeInstance = { "values": attributeValues };
+            } else if(Array.isArray(attributeJSON.group)) {
+                attributeInstance = { "group": attributeJSON.group };
             } else {
                 var attributeValue = { "value": attributeJSON.value };
 
@@ -445,10 +461,12 @@
                 }
 
                 attributeValues.push(attributeValue);
+
+                attributeInstance = { "values": attributeValues };
             }
             delete attributeJSON.action;
 
-            return { "values": attributeValues };
+            return attributeInstance;
         };
 
         DataTransformHelper._transformAttributesWithoutModels = function (attributes, valueContext) {
@@ -536,7 +554,7 @@
                             if (instanceCoalesce && instanceCoalesce.length) {
                                 instanceCoalesce = instanceCoalesce[0];
                                 if (instanceCoalesce.coalesceSourceName) {
-                                    contextCoalescePaths.push(instanceCoalesce.coalesceSourceName);
+                                    contextCoalescePaths.push(instanceCoalesce.coalesceSourceName + " (Global)");
                                 }
                             }
 
@@ -749,20 +767,35 @@
                                 if (key != "classification" && key != "taxonomy") {
                                     if (attributeModels[key]) {
                                         var val = undefined;
+                                        var group = undefined;
 
                                         if (attributeModels[key].isCollection) {
-                                            val = rowData[key].split("||");
+                                            if(attributeModels[key].dataType === "nested") {
+                                                group = rowData[key];
+                                            } else {
+                                                val = rowData[key].split("||");
+                                            }
                                         } else {
                                             val = rowData[key];
                                         }
 
-                                        var attribute = {
-                                            "name": key,
-                                            "value": val,
-                                            "source": firstValueContext.source,
-                                            "locale": firstValueContext.locale,
-                                            "selfContext": attributeModels[key].selfContext
-                                        };
+                                        
+
+                                        if(group) 
+                                            var attribute = {
+                                                "name": key,
+                                                "group": group,
+                                                "selfContext": attributeModels[key].selfContext
+                                            };
+                                        else 
+                                            var attribute = {
+                                                "name": key,
+                                                "value": val,
+                                                "source": firstValueContext.source,
+                                                "locale": firstValueContext.locale,
+                                                "selfContext": attributeModels[key].selfContext
+                                            };
+
 
                                         if (attribute.value === "delete" || (attribute.value instanceof Array && attribute.value[0] === "delete")) {
                                             attribute.action = "delete";
