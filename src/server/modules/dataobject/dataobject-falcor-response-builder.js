@@ -97,7 +97,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
 
         // Need to come up with proper solution where system can cache coalesced data.
         // As per discussion with Vishal and Jimmy right now system will not cache any coalesced data more then 10 seconds.
-        // Not as context coalesced structure is dynamic where falcor has to maintain different reference to avoid impact calculation +
+        // Because context coalesced structure is dynamic where falcor has to maintain different reference to avoid impact calculation +
         // It has to do impact calculation when coalesced data path will get changed.
         if (attr.properties && (attr.properties.contextCoalesce || attr.properties.instanceCoalesce)) {
             attrExpires = -10000;
