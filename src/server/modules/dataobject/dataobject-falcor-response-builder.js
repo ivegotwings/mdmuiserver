@@ -93,7 +93,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
 
         var attributeJson = attributesJson[attrKey] = {};
         var valContextsJson = attributeJson['valContexts'] = {};
-        var attrExpires = undefined;
+        var attrExpires = reqData.cacheExpiryDuration;
 
         if (attr.properties && (attr.properties.contextCoalesce || attr.properties.instanceCoalesce)) {
             attrExpires = -1000;
@@ -128,7 +128,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
             }
 
             if (attr.action && attr.action == "delete") {
-                attrExpires = reqData.cacheExpiryDuration;
+                attrExpires = 0;
             }
 
             for (var valCtxKey in valCtxItems) {
@@ -165,7 +165,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                         valContextJson = falcorUtil.getOrCreate(valContextsJson, valCtxKey, {});
                     }
 
-                    valContextJson['group'] = prepareValueJson($atom(attr.group), reqData.cacheExpiryDuration);
+                    valContextJson['group'] = prepareValueJson($atom(attr.group), attrExpires);
 
                     //build paths if requested
                     if (reqData.buildPaths) {
@@ -184,7 +184,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
             if (!selfValContextJson) {
                 selfValContextJson = falcorUtil.getOrCreate(valContextsJson, selfValCtxKey, {});
             }
-            selfValContextJson['properties'] = prepareValueJson($atom(attr.properties), reqData.cacheExpiryDuration);
+            selfValContextJson['properties'] = prepareValueJson($atom(attr.properties), attrExpires);
 
             //build paths if requested
             if (reqData.buildPaths) {
