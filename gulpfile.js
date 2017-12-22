@@ -148,10 +148,10 @@ function clientBuild(relativeBuildPath, bundle, isES5) {
         dependenciesStream = dependenciesStream
           //.pipe(gulpif("**/*.css", cssSlam()))
           .pipe(gulpif("**/*.html", minifyHTML()))
-          .pipe(gulpif("**/*.js", (babel({
+          .pipe(gulpif(['**/*.js', "!bower_components/pdfjs-dist/**/*.js", "!bower_components/mocha/mocha.js", "!bower_components/jsoneditor/dist/jsoneditor.min.js", "!bower_components/resize-observer-polyfill/**/*.js"], (babel({
               plugins: ["transform-class-properties"]
             }))))
-          .pipe(gulpif("**/*.js", uglify(uglifyOptions)))
+          .pipe(gulpif(["**/*.js", "!bower_components/resize-observer-polyfill/**/*.js"], uglify(uglifyOptions)))
       }
       
       sourcesStream = sourcesStream.pipe(sourcesStreamSplitter.rejoin());
@@ -187,7 +187,8 @@ function clientBuild(relativeBuildPath, bundle, isES5) {
         buildStream = buildStream.pipe(gulpif("**/*.html", crisper({
           scriptInHead: false, // true is default 
           onlySplit: false
-        })));
+        })))
+        .once('data', () => { console.log('Crisping resources... '); });
       }
 
       // Now let's generate the HTTP/2 Push Manifest
