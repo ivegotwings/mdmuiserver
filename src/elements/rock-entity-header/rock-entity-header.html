@@ -34,6 +34,9 @@
 
 <link rel="import" href="../rock-entity-tofix/rock-entity-tofix.html">
 <link rel="import" href="../rock-entity-thumbnail/rock-entity-thumbnail.html">
+<link rel="import" href="../rock-business-actions/rock-business-actions.html" />
+<link rel="import" href="../rock-entity-actions/rock-entity-actions.html">
+<link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
 
 <link rel="import" href="progress-icons.html">
 <!--
@@ -330,16 +333,15 @@ performed.
                     </div>
                
             <div id="buttonPanel" class="pull-right">
-                <bedrock-pubsub event-name="pebble-actions-action-click" handler="_onAssignActionTap" target-id=""></bedrock-pubsub>
-                <template is="dom-if" if="[[assignmentActionsConfig]]">
-                    <pebble-actions id="assignmentActions" readonly$="[[readonly]]" button-icon="pebble-md-icons:assignedactions" class="dropdownText dropdownIcon btn-actions dropdown-success m-r-5"
-                        button-text="Assignment Actions" actions-data="[[assignmentActionsConfig]]"></pebble-actions>
+                <template is="dom-if" if="[[businessActionsConfig.showActions]]">
+                    <rock-business-actions id="businessActions" context-data="[[contextData]]" button-text="[[businessActionsConfig.title]]" show-workflow-actions></rock-business-actions>
+                    <bedrock-pubsub event-name="business-actions-action-click" handler="_onAssignActionTap" target-id="businessActions"></bedrock-pubsub>
                 </template>
                 <pebble-popover id="tofixPopover" for="pebbleButton" horizontal-align="right" auto-fit-on-attach no-overlap>
                     <rock-entity-tofix data="[[toFixData]]"></rock-entity-tofix>
                 </pebble-popover>
-                <pebble-toolbar id="entityHeaderToolbar" readonly$="[[readonly]]" config-data="[[buttons]]"></pebble-toolbar>
-                <bedrock-pubsub event-name="toolbar-button-event" handler="_onToolbarEvent" target-id="entityHeaderToolbar"></bedrock-pubsub>
+                <rock-entity-actions id="entityActions" context-data="[[contextData]]"></rock-entity-actions>
+                <bedrock-pubsub event-name="rock-toolbar-button-event" handler="_onToolbarEvent" target-id="entityActions"></bedrock-pubsub>
                 <bedrock-pubsub event-name="tabs-change" handler="_onTabsChange"></bedrock-pubsub>
             </div>
         </div>
@@ -367,7 +369,8 @@ performed.
             },
             behaviors: [
                 RUFBehaviors.ComponentContextBehavior,
-                RUFBehaviors.UIBehavior
+                RUFBehaviors.UIBehavior, 
+                RUFBehaviors.ComponentConfigBehavior
             ],
             properties: {
                 /**
@@ -377,7 +380,8 @@ performed.
                     type: Object,
                     value: function () {
                         return {};
-                    }
+                    },
+                    observer: '_onContextDataChange'
                 },
                 /**
                  * If set as true , it indicates the component is in read only mode
@@ -393,13 +397,7 @@ performed.
                     type: Array,
                     value: []
                 },
-                /**
-                 * Indicates the buttons that gets displayed in the header section toolbar.
-                 */
-                buttons: {
-                    type: Object,
-                    value: {}
-                },
+                
                 /**
                  * Indicates the data of all missing or invalid fields, errors, and warnings of the loaded entity.
                  */
@@ -456,9 +454,11 @@ performed.
                 /**
                  * <b><i>Content development is under progress... </b></i>
                  */
-                assignmentActionsConfig: {
+                businessActionsConfig: {
                     type: Object,
-                    value: function () { return []; }
+                    value: function() { 
+                        return {}; 
+                    }
                 },
                 /**
                  * <b><i>Content development is under progress... </b></i>
@@ -544,20 +544,30 @@ performed.
             observers: [
                 '_setHeaderValuesAsPerConfig(_headerAttributeValues)'
             ],
-            /**
-             * <b><i>Content development is under progress... </b></i>
-             */
-            refresh: function (invalidateEntityCache = true) {
-                if (invalidateEntityCache) {
-                    //Invalidate entity cache
-                    var entity = this._getEntityObject();
-                    LiquidDataObjectUtils.invalidateDataObjectCache(entity);
-                }
 
-                this._startDataLoad();
-                this._setWorkflowActions();
-                this._refreshEntityThumbnail();
+            _onContextDataChange: function() {
+                if(!_.isEmpty(this.contextData)) {
+                    var context = DataHelper.cloneObject(this.contextData);
+                    //App specific
+                    var appName = ComponentHelper.getCurrentActiveAppName();
+                    if(appName) {
+                        context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                            "app": appName
+                        }];
+                    }
+                    
+                    this.requestConfig('rock-entity-header', context);
+                }
             },
+
+            onConfigLoaded: function(componentConfig) {
+                if(componentConfig && componentConfig.config) {
+                    this.headerConfig = DataHelper.convertObjectToArray(componentConfig.config.headerConfig);
+                    this.thumbnailConfig = componentConfig.config.thumbnailConfig;
+                    this.businessActionsConfig = componentConfig.config.businessActionsConfig;
+                }
+            },
+            
             _setHeaderValuesAsPerConfig: function () {
                 if (this._headerAttributeValues && this._headerAttributeValues.length > 0 && this._messageAttribute) {
                     for (var i = 0; i < this._headerAttributeValues.length; i++) {
@@ -628,8 +638,8 @@ performed.
                     }
 
                     //Add messageAttribute if not available in the request attributes list
-                    if (this.assignmentActionsConfig && this.assignmentActionsConfig.length > 0 && this.assignmentActionsConfig[0].messageAttribute) {
-                        this._messageAttribute = this.assignmentActionsConfig[0].messageAttribute;
+                    if (this.businessActionsConfig && this.businessActionsConfig.messageAttribute) {
+                        this._messageAttribute = this.businessActionsConfig.messageAttribute;
                         if (attributeNames.indexOf(this._messageAttribute) == -1) {
                             attributeNames.push(this._messageAttribute);
                         }
@@ -662,7 +672,7 @@ performed.
                     var clonedContextData = DataHelper.cloneObject(this.contextData);
                     var attributeNames = Object.keys(this._headerAttributeModels);
 
-                    if (clonedContextData && attributeNames.length > 0) {
+                    if (clonedContextData) {
                         //add attribute names in item context
                         var itemContext = this.getFirstItemContext();
                         itemContext.attributeNames = attributeNames;
@@ -701,11 +711,27 @@ performed.
                             }
                         });
 
+                        this._setMetadataAttributes(entity);
                         this.set("_headerAttributeValues", this._entityAttributes);
                         this.$.headerAttributes.render();
                     }
                 }
             },
+
+            _setMetadataAttributes: function(entity) {
+                if(this.headerConfig && this.headerConfig.length > 0) {
+                    for(var i = 0; i < this.headerConfig.length; i++) {
+                        if(this.headerConfig[i].isMetadataAttribute) {
+                            var attrObj = {
+                                "name": this.headerConfig[i].attributeName,
+                                "value": entity[this.headerConfig[i].attributeName]
+                            };
+                            this._entityAttributes.push(attrObj);
+                        }
+                    }
+                }
+            },
+
             _getAttributeLabel: function (attributeItem) {
                 var configItem = this._getConfigItem(this.headerConfig, attributeItem.name);
 
@@ -748,6 +774,10 @@ performed.
                 }
             },
             _getConfigItem: function (headerConfig, attributeName) {
+                if(!headerConfig) {
+                    return;
+                }
+
                 for (var i = 0; i < headerConfig.length; i++) {
                     if (headerConfig[i].attributeName == attributeName) {
                         return headerConfig[i];
@@ -1079,10 +1109,14 @@ performed.
             },
             _onTabsChange: function (event) {
                 if (event && event.detail) {
+                    var hideButton = false;
                     if (event.detail == 'summary'|| event.detail == 'entity-graph') {
-                        this.shadowRoot.querySelector('pebble-toolbar').toggleHideShowEdit(true);
-                    }else{
-                        this.shadowRoot.querySelector('pebble-toolbar').toggleHideShowEdit(false);
+                        hideButton = true;
+                    }
+
+                    var toolbar = this.shadowRoot.querySelector('#entityActions');
+                    if(toolbar) {
+                        toolbar.setAttributeToToolbarButton("edit", "hidden", hideButton);
                     }
                 }
             }
