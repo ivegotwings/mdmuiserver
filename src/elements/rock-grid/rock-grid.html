@@ -731,13 +731,15 @@ The following JSON object is a config sample which configures the grid in all ab
 									 sort-by="[[_isSortable(col)]]" icon="pebble-md-icons:Edit" class="pebble-md-icons" column-object="[[col]]" width="[[_getColWidth(col)]]">
 										<template>
 
-											<template is="dom-if" if="[[_isNestedAttribute(item, colIndex)]]">
-												<a slot="cell-slot-content" href="#" on-tap="_openNestedAttr" data="[[_getRowModelAndData(item, column.columnObject)]]">
-													<span> click here to see values ([[_getNetsedAtrributeValueCount(item, column.columnObject)]]) </span>
+											<template is="dom-if" if="[[_isNestedAttribute(column.columnObject)]]">
+												<a slot="cell-slot-content" href="#" on-tap="_openNestedAttr" data="[[column.columnObject]]">
+													<div class="cell tooltip-bottom" data-tooltip$="click here to see values">
+														<span> click here to see values ([[_getNetsedAtrributeValueCount(item, column.columnObject)]]) </span>
+													</div>
 												</a>
 											</template>
 
-											<template is="dom-if" if="[[!_isNestedAttribute(item, colIndex)]]">
+											<template is="dom-if" if="[[!_isNestedAttribute(column.columnObject)]]">
 												<template is="dom-if" if="[[_hasLinkTemplate(column.columnObject, item)]]">
 													<a slot="cell-slot-content" href$="[[_getLink(column.columnObject, item)]]">
 														<div class="cell tooltip-bottom" data-tooltip$="[[_columnValue(item, column.columnIndex)]]">
@@ -851,7 +853,7 @@ The following JSON object is a config sample which configures the grid in all ab
 			<pebble-dialog id="gridMsgDialog" dialog-title="Confirmation" show-ok show-cancel show-close-icon alert-box modal>
 				<p id="msgDialog"></p>
 			</pebble-dialog>
-		
+			
 			<pebble-dialog id="attributeDialog" dialog-title="Confirmation" show-ok show-cancel show-close-icon alert-box modal>
 				<div id="attrDialogContainer"></div>
 			</pebble-dialog>
@@ -1139,7 +1141,8 @@ The following JSON object is a config sample which configures the grid in all ab
 					'_setSelectionTitle(currentRecordSize,selectionInfo,selectedItems.*)',
 					'_setToolbarConfig(config.toolbarConfig, isWorkflowCriterion)',
 					'_prepareConfig(config, attributeModels)',
-					'_viewModeChanged(config.viewMode)'
+					'_viewModeChanged(config.viewMode)',
+					'_modeChange(config.mode)'
 				],
 				listeners: {
 					'selecting-item': '_onSelectingItem',
@@ -1228,7 +1231,7 @@ The following JSON object is a config sample which configures the grid in all ab
 							this._onRefresh(e, detail);
 							break;
 						case "edit":
-							this.changeToEditMode(e, detail);
+							this._modeChange('edit');
 							break;
 						case "bulkedit":
 							this._onBulkEdit(e, detail);
@@ -1333,14 +1336,6 @@ The following JSON object is a config sample which configures the grid in all ab
 							}
 							this.reRenderGrid();
 						}
-
-						//TODO:: This has been added for temporary for 24th April release
-						//When user adds new record since that is not part of current grid,
-						//change to edit mode is taking all current rock-attribute and start setting mode = edit for them.
-						//So because of that it's not behaving properly so making this temporary fix.
-						setTimeout(function () {
-							this.changeToEditMode();
-						}.bind(this), 500);
 					}
 				},
 
@@ -1362,27 +1357,17 @@ The following JSON object is a config sample which configures the grid in all ab
 					return false;
 				},
 				getControlIsDirty: function () {
-					var controlDirty = false;
-					var selectedItems = this.getSelectedItems();
-					if (selectedItems.length > 0) {
-						controlDirty = true;
-					}
+					var controlDirty = this.getSelectedItems().length > 0;
 
-					var editMode = false;
-					if (this.get('config.mode') == "edit") {
-						editMode = true;
-					}
+					var editMode = this.get('config.mode') === "edit";
+
 					var rockAttributeObj = Polymer.dom(this.root).querySelectorAll('rock-attribute');
 					var rockAttributeDirty = false;
 					if (rockAttributeObj && rockAttributeObj.getControlIsDirty) {
 						rockAttributeDirty = rockAttributeObj.getControlIsDirty();
 					}
 
-					if (controlDirty || rockAttributeDirty || editMode) {
-						return true;
-					}
-
-					return false;
+					return controlDirty || rockAttributeDirty || editMode;
 				},
 				refresh: function () {
 					this._onRefresh();
@@ -1700,7 +1685,7 @@ The following JSON object is a config sample which configures the grid in all ab
 					return statusEnabled && mode === 'edit';
 				},
 
-				changeToEditMode: function (e, detail) {
+				_changeToEditMode: function () {
 					this.set('config.mode', "edit");
 					if (this.config.viewMode != "Tabular") {
 						this.set('config.viewMode', "Tabular");
@@ -1710,27 +1695,30 @@ The following JSON object is a config sample which configures the grid in all ab
 						dropdown.disabled = true;
 					}
 					this._dataChanged();
+				},
+
+				_modeChange(mode) {
+					switch(mode) {
+						case 'edit':
+							this._changeToEditMode();
+							break;
+						case 'read':
+							this._changeToReadMode();
+							break;
+					}
+
 					var attrs = this.shadowRoot.querySelectorAll('rock-attribute');
-					for (var i = 0; i < attrs.length; i++) {
-						attrs[i].mode = "edit";
+					if (attrs && attrs.length) {
+						for (var i = 0, l = attrs.length; i < l; i++) {
+							attrs[i].mode = mode;
+						}
 					}
 				},
 				/**
 				  * <b><i>Content development is under progress... </b></i> 
 				  */
-				changeToReadMode: function () {
+				_changeToReadMode: function () {
 					this.set('config.mode', "read");
-					var dropdown = this.shadowRoot.querySelector("#viewMode");
-					if (dropdown) {
-						dropdown.disabled = false;
-					}
-					var attrs = this.shadowRoot.querySelectorAll('rock-attribute');
-					if (attrs && attrs.length) {
-						for (var i = 0; i < attrs.length; i++) {
-							attrs[i].mode = "read";
-						}
-					}
-
 					var data = this.data;
 					if (data && data.length) {
 						data.forEach(function (item) {
@@ -1745,6 +1733,9 @@ The following JSON object is a config sample which configures the grid in all ab
 						this.data = data;
 					}
 					this.reRenderGrid();
+				},
+				changeToReadMode() {
+					this._modeChange('read');
 				},
 				/**
 				  * <b><i>Content development is under progress... </b></i> 
@@ -2566,7 +2557,7 @@ The following JSON object is a config sample which configures the grid in all ab
 				},
 				_onRowDropEvent: function (e, detail) {
 					if (this.config.mode != "edit") {
-						this.changeToEditMode();
+						this._modeChange('edit');
 					}
 					this.dispatchEvent(new CustomEvent("row-drop-event-raised", { detail: detail, bubbles: true, composed: true }));
 				},
@@ -2596,30 +2587,29 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 				},
 
-				_isNestedAttribute: function (item, colIndex) {
-					if (!_.isEmpty(item) && this.config.tabular.rows) {
-						var col = this.config.tabular.columns[colIndex];
-
-						if (!col.isRowHeader) {
-							var attrName = item.attributeName;
-							var attrModel = this.attributeModels[attrName];
-
-							if (attrModel && attrModel.properties.dataType == "nested") {
-								return true;
-							}
-						}
+				_isNestedAttribute: function (col) {
+					if(col && col.isNested) {
+						return true;
 					}
+
+					return false;
 				},
 
 				_getRowModelAndData: function (item, col) {
 					if (item) {
-						var attrName = item.attributeName;
+						var attrName = col.name;
 						var attrModel = this.attributeModels[attrName];
+
 						//debugger;
-						if (attrModel) {
+						if (attrModel && attrModel.group && attrModel.group.length > 0) {
+							var attrValue = DataTransformHelper.transformNestedAttributes({ "group": item[col.name] }, attrModel.group[0]);
+
+							var attributeObject = {
+								"value": attrValue
+							};
 							return {
 								"attrModel": attrModel,
-								"attr": item[col.header],
+								"attr": attributeObject,
 								"colHeader": col.header
 							};
 						}
@@ -2627,9 +2617,15 @@ The following JSON object is a config sample which configures the grid in all ab
 				},
 
 				_openNestedAttr: function (e) {
-					var data = e.currentTarget.data;
+					var parentRow = this._getParentRow(e.currentTarget);
+					var item;
+					if(parentRow) {
+						item = parentRow.item;
+					}
+					var col = e.currentTarget.data;
 					var attrDialog = this.$$('#attributeDialog');
-					if (attrDialog && data) {
+					if (attrDialog && col && item) {
+						var data = this._getRowModelAndData(item, col);
 						var attrModel = data.attrModel;
 						var rockComponent = customElements.get("rock-nested-attribute-grid");
 						var rockElement = new rockComponent();
@@ -2638,8 +2634,9 @@ The following JSON object is a config sample which configures the grid in all ab
 
 						rockElement.attributeModelObject = attrModel;
 						rockElement.attributeObject = data.attr;
-						rockElement.contextData = "";
-						rockElement.mode = "read";
+						rockElement.originalAttributeObject = data.attr;
+						rockElement.contextData = this.contextData;
+						rockElement.mode = "view";
 
 						var attrDialogContainer = attrDialog.querySelector('#attrDialogContainer');
 
@@ -2671,7 +2668,7 @@ The following JSON object is a config sample which configures the grid in all ab
 				},
 				_onGlobalEdit: function () {
                     if(this.globalEdit){
-						this.changeToEditMode();
+						this._modeChange('edit');
 						this.globalEdit = false;
                     }
                 },
