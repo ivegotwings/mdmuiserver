@@ -226,19 +226,12 @@ It makes it easy to explore and switch between different views or functional asp
         </pebble-tab-group>
         <template is="dom-repeat" items="[[_calculatedTabItems]]" as="tabItemContent">
             <div id="content-[[tabItemContent.name]]" hidden class="tab-content"></div>
-            <template is="dom-if" if="[[tabItemContent]]">
-                <template is="dom-repeat" items="[[arrayItem(_calculatedTabItems.*, index, 'menuItems')]]" as="menuItemContent">
-                    <template is="dom-if" if="[[!_isDivider(menuItemContent)]]">
-                        <div id="content-[[tabItemContent.name]]-[[menuItemContent.name]]" class="tab-content" hidden></div>
-                    </template>
-                </template>
-            </template>
         </template>
         <bedrock-pubsub event-name="selection-changed" handler="_onSelectionChange" target-id=""></bedrock-pubsub>
     </template>
     <script>
-        // (function () {
-        //     'use strict';
+    (function () {
+        'use strict';
 
         Polymer({
             is: "rock-tabs",
@@ -502,7 +495,7 @@ It makes it easy to explore and switch between different views or functional asp
                 // Capturing selected tab configuration
                 var tabConfig = this.selectedTab = e.detail.item.tabConfig;
                 var menuItemConfig = e.detail.item.menuItemConfig;
-                var subTitle = tabConfig.subtitle == undefined ? "" : tabConfig.subtitle;
+                var subTitle = tabConfig.subtitle  || '';
 
                 //Capturing for Quick Manage, reload tab with this configuration
                 this._selectedTabConfig = {
@@ -562,25 +555,32 @@ It makes it easy to explore and switch between different views or functional asp
                 }
 
                 var viewName = config.name;
-                viewName = tabName ? tabName + '-' + viewName : viewName;
-                var contentElement = this.shadowRoot.querySelector("#content-" + viewName);
+
+                tabName = tabName || viewName;
+
+                if (this._currentTabName && this._currentTabName !== tabName) {
+                    this._hideView(this._currentTabName);
+                }
+
+                var contentElement = this.shadowRoot.querySelector(`#content-${tabName}`);
+
+                if(this.viewName && this.viewName !== viewName)
+                    ComponentHelper.clearNode(contentElement);
+
+                this.viewName = viewName;
 
                 if (config.component) {
-                    ComponentHelper.loadContent(contentElement, config.component, this);
-                    if (this._currentTabName && this._currentTabName != viewName) {
-                        this._hideView(this._currentTabName);
-                    }
-                    this._currentTabName = viewName;
-                    this._onReadonly();
-
-                    [...this.shadowRoot.querySelectorAll('.tab-content')]
-                        .forEach(tab => {
-                            if(tab.id.indexOf(tabName)!== -1)
-                                tab.setAttribute('hidden', '');
-                        });
-
-                    this._showView(viewName);
+                    //Timeout needs to postpone the rendering until tab-animation has finished
+                    //TODO should trigger loading bar here
+                    setTimeout(()=> {
+                        this._showView(viewName, contentElement);
+                        //TODO need to add loading from cache functionality
+                        ComponentHelper.loadContent(contentElement, config.component, this);
+                    }, 500);
                 }
+
+                this._currentTabName = tabName;
+                this._onReadonly();
 
                 if (config.errorLength) {
                     this._updateErrorVis(config.errorLength);
@@ -589,11 +589,13 @@ It makes it easy to explore and switch between different views or functional asp
                 }
             },
 
-            _showView: function (viewName) {
+            _showView: function (viewName, contentElement) {
                 if (viewName) {
                     this._tabChange(viewName);
-                    var contentView = this.shadowRoot.querySelector("#content-" + viewName);
+                    var contentView = contentElement || this.shadowRoot.querySelector("#content-" + viewName);
+                    
                     if (contentView) {
+                        ComponentHelper.clearNode(contentView);
                         contentView.removeAttribute("hidden");
                     }
                 }
@@ -603,10 +605,7 @@ It makes it easy to explore and switch between different views or functional asp
                 if (viewName) {
                     var contentView = this.shadowRoot.querySelector("#content-" + viewName);
                     if (contentView) {
-                        //no need to keep elements of the hidden tab, this creates huge dom tree and makes application slower over time.
-                        while (contentView.firstChild) {
-                            contentView.removeChild(contentView.firstChild);
-                        }
+                        ComponentHelper.clearNode(contentView);
                         contentView.setAttribute("hidden", "");
                     }
                 }
@@ -684,6 +683,9 @@ It makes it easy to explore and switch between different views or functional asp
             * Can be used to reload the current tab content.
             */
             reloadCurrentTab: function (isReloadByConfig) {
+                //TODO: investigate why this method triggers so many times on the initial page loading
+                //and attribute-summary page become blinking
+
                 //to reload the current selected tab after any changes to tabItemConfig
                 //no inputs to this method. Find out the current selected tab and call _loadContent()
                 if (!this.shadowRoot) {
@@ -877,6 +879,6 @@ It makes it easy to explore and switch between different views or functional asp
                 return tabMenuIndex;
             }
         });
-        // })();
+    })();
     </script>
 </dom-module>
