@@ -20,6 +20,9 @@ EntityCompositeModelGetService.prototype = {
     },
     _get: async function (request, serviceOperation) {
 
+        console.log("EntityCompositeModelGetService._get");
+        console.log(request);
+
         if (!this._validate(request)) {
             return;
         }
@@ -94,6 +97,9 @@ EntityCompositeModelGetService.prototype = {
     },
     _getEntityManageModelWithPermissions: async function (request, serviceUrl) {
         var entityManageModelGetRes = undefined;
+
+        console.log("_getEntityManageModelWithPermissions");
+        console.log(JSON.stringify(request, null, 2));
 
         var internalRequest = this._cloneAndPrepareRequestObject(request, ['entityManageModel']);
 

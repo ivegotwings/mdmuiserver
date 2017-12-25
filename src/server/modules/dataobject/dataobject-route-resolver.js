@@ -336,6 +336,10 @@ function createGetRequest(reqData) {
 }
 
 function _getService(dataObjectType) {
+
+    //console.log("_getService");
+    //console.log(dataObjectType);
+
     if (dataObjectType == 'entityCompositeModel') {
         return entityCompositeModelGetService;
     }
@@ -362,6 +366,9 @@ async function get(dataObjectIds, reqData) {
         var service = _getService(reqData.dataObjectType);
 
         var request = createGetRequest(reqData);
+
+        //console.log("dataobject-route-resolver.get");
+        //console.log(request.dataIndex);
 
         if ((request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel') || request.dataIndex == "entityData") {
             if (!isEmpty(request.params.query.contexts)) {
