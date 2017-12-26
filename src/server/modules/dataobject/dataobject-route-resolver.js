@@ -226,7 +226,7 @@ async function initiateSearch(callPath, args) {
     finally {
     }
 
-    //console.log(JSON.stringify(response));   
+    //console.log(JSON.stringify(response));
     return response;
 }
 
@@ -315,7 +315,7 @@ function createGetRequest(reqData) {
         if( contexts && contexts.length > 0) {
             filters.excludeNonContextual = true;
         }
-    } 
+    }
 
     if (!isEmpty(filters)) {
         query.filters = filters;
@@ -457,7 +457,7 @@ async function getByIds(pathSet, operation) {
     try {
 
         /*
-        */
+         */
         //console.log('---------------------' , operation, ' dataObjectsById call pathset requested:', pathSet, ' operation:', operation);
         var reqDataObjectTypes = pathSet.dataObjectTypes;
 
