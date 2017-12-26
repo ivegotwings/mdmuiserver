@@ -46,6 +46,8 @@ const entityCompositeModelGetService = new EntityCompositeModelGetService(option
 const configurationService = new ConfigurationService(options);
 const eventService = new EventService(options);
 
+const searchResultExpireTime = -30 * 60 * 1000;
+
 async function initiateSearch(callPath, args) {
     var response = [];
     var isCombinedQuerySearch = false;
@@ -125,6 +127,23 @@ async function initiateSearch(callPath, args) {
         if (service != eventService) {
             //console.log('request str', JSON.stringify(request, null, 4));
             delete request.params.fields; // while initiating search, we dont want any of the fields to be returned..all we want is resulted ids..
+
+            //Remove value contexts if there are no filters defined other than typesCriterion
+            //This is needed to improve the performance of search/get functionality
+            if(request.params.query && request.params.query.filters && request.params.query.valueContexts) {
+                var removeValueContexts = true;
+                var filters = request.params.query.filters;
+                for (var criterionKey in filters) {
+                    if(criterionKey != "typesCriterion" && !isEmpty(filters[criterionKey])) {
+                        removeValueContexts = false;
+                        break;
+                    }
+                }
+
+                if(removeValueContexts) {
+                    delete request.params.query.valueContexts;
+                }
+            }
         }
 
         var res = undefined;
@@ -158,7 +177,7 @@ async function initiateSearch(callPath, args) {
 
                         for (let additionalId of additionalIdsRequested) {
                             var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds];
-                            response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [additionalId]))));
+                            response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [additionalId])), searchResultExpireTime));
                         }
                     }
                 }
@@ -173,7 +192,7 @@ async function initiateSearch(callPath, args) {
                             if (additionalIdsRequested.indexOf(dataObject.id) < 0) {
                                 var dataObjectType = dataObject.type;
                                 var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds];
-                                response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [dataObject.id]))));
+                                response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [dataObject.id])), searchResultExpireTime));
                                 resultRecordSize++;
                             }
                         }
@@ -194,10 +213,11 @@ async function initiateSearch(callPath, args) {
                 }
             }
         }
-        response.push(mergeAndCreatePath(basePath, ["maxRecords"], $atom(maxRecordsSupported)));
-        response.push(mergeAndCreatePath(basePath, ["totalRecords"], $atom(totalRecords)));
-        response.push(mergeAndCreatePath(basePath, ["resultRecordSize"], $atom(resultRecordSize)));
-        response.push(mergeAndCreatePath(basePath, ["requestId"], $atom(requestId)));
+
+        response.push(mergeAndCreatePath(basePath, ["maxRecords"], $atom(maxRecordsSupported), searchResultExpireTime));
+        response.push(mergeAndCreatePath(basePath, ["totalRecords"], $atom(totalRecords), searchResultExpireTime));
+        response.push(mergeAndCreatePath(basePath, ["resultRecordSize"], $atom(resultRecordSize), searchResultExpireTime));
+        response.push(mergeAndCreatePath(basePath, ["requestId"], $atom(requestId), searchResultExpireTime));
         //response.push(mergeAndCreatePath(basePath, ["request"], $atom(request)));
     }
     catch (err) {
@@ -206,7 +226,7 @@ async function initiateSearch(callPath, args) {
     finally {
     }
 
-    //console.log(JSON.stringify(response));   
+    //console.log(JSON.stringify(response));
     return response;
 }
 
@@ -287,10 +307,6 @@ function createGetRequest(reqData) {
     }
 
     if (!isEmpty(valContexts)) {
-        for(let valContext of valContexts) {
-            valContext.localeCoalesce = true;
-        }
-        
         query.valueContexts = valContexts;
     }
 
@@ -299,7 +315,7 @@ function createGetRequest(reqData) {
         if( contexts && contexts.length > 0) {
             filters.excludeNonContextual = true;
         }
-    } 
+    }
 
     if (!isEmpty(filters)) {
         query.filters = filters;
@@ -347,9 +363,8 @@ async function get(dataObjectIds, reqData) {
 
         var request = createGetRequest(reqData);
 
-        if (request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel') {
+        if ((request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel') || request.dataIndex == "entityData") {
             if (!isEmpty(request.params.query.contexts)) {
-
                 isCoalesceGet = true;
             }
         }
@@ -390,6 +405,7 @@ async function get(dataObjectIds, reqData) {
 
         var dataIndexInfo = pathKeys.dataIndexInfo[request.dataIndex];
         var collectionName = dataIndexInfo.collectionName;
+        reqData.cacheExpiryDuration = dataIndexInfo.cacheExpiryDurationInMins ? -(dataIndexInfo.cacheExpiryDurationInMins * 60 * 1000) : -(60 * 60 * 1000);
 
         //console.log(dataIndexInfo);
         var dataObjectResponse = res ? res[dataIndexInfo.responseObjectName] : undefined;
@@ -441,7 +457,7 @@ async function getByIds(pathSet, operation) {
     try {
 
         /*
-        */
+         */
         //console.log('---------------------' , operation, ' dataObjectsById call pathset requested:', pathSet, ' operation:', operation);
         var reqDataObjectTypes = pathSet.dataObjectTypes;
 
@@ -533,6 +549,8 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
 
             if (dataOperationResult && !isEmpty(dataOperationResult)) {
                 var responsePath = pathKeys.dataIndexInfo[dataIndex].responseObjectName;
+                var cacheExpiryDurationInMins = pathKeys.dataIndexInfo[dataIndex].cacheExpiryDurationInMins;
+
                 var dataOperationResponse = dataOperationResult[responsePath];
                 if (dataOperationResponse && dataOperationResponse.status == 'success') {
                     if (dataObject) {
@@ -554,7 +572,8 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
                             'jsonData': true,
                             'operation': operation,
                             'buildPaths': true,
-                            'basePath': basePath
+                            'basePath': basePath,
+                            'cacheExpiryDuration': cacheExpiryDurationInMins ? -(cacheExpiryDurationInMins * 60 * 1000) : -(60 * 60 * 1000)
                         };
 
                         var dataByObjectTypeJson = dataJson[dataObjectType];

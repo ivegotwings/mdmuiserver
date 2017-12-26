@@ -4,26 +4,25 @@
 <link rel="import" href="../../../bower_components/polymer/lib/utils/async.html">
 
 <link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../bedrock-helpers/data-request-helper.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
-
-<link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
-<link rel="import" href="../pebble-icons/pebble-icons.html">
-<link rel="import" href="../pebble-accordion/pebble-accordion.html">
-<link rel="import" href="../pebble-spinner/pebble-spinner.html">
-
-
-<link rel="import" href="../rock-search-bar/rock-search-bar.html">
-<link rel="import" href="../rock-entity-search-filter/rock-entity-search-filter.html">
-<link rel="import" href="../rock-entity-search-grid/rock-entity-search-grid.html">
-<link rel="import" href="../rock-assets-search-grid/rock-assets-search-grid.html">
 
 <link rel="import" href="../liquid-rest/liquid-rest.html">
 <link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
 <link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
 
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-icons/pebble-icons.html">
+<link rel="import" href="../pebble-accordion/pebble-accordion.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
+
+<link rel="import" href="../rock-search-bar/rock-search-bar.html">
+<link rel="import" href="../rock-entity-search-filter/rock-entity-search-filter.html">
+<link rel="import" href="../rock-entity-search-grid/rock-entity-search-grid.html">
+<link rel="import" href="../rock-assets-search-grid/rock-assets-search-grid.html">
 
 <!--
  `rock-relationship-add` Represents an element that selects the assets or entities from the list of assets or entities and provides a link to the selected entity.
@@ -32,9 +31,6 @@
 <dom-module id="rock-relationship-add">
     <template>
         <style  include="bedrock-style-common">
-            .heading{
-                margin-top:-25px;
-            }
             :host{
                 --rock-grid-height:300px;
             }
@@ -69,7 +65,7 @@
                 width: 100%;
             }
         </style>
-        <h3 class="heading" align="center">[[heading]] </h3>
+        <h3 class="heading" align="center" hidden$=[[!_isheading()]]>[[heading]] </h3> 
         <div class="layout horizontal">
             <div class="flex">
                 <!-- search bar-->
@@ -89,6 +85,7 @@
                                        types-criterion="[[typesCriterion]]"  tags="{{tags}}"></rock-entity-search-filter>
             <bedrock-pubsub event-name="tag-item-added" handler="_showResetSearch"></bedrock-pubsub>
             <bedrock-pubsub event-name="tag-item-remove" handler="_showResetSearch"></bedrock-pubsub>
+            <bedrock-pubsub event-name="build-query" handler="_searchFiltersChanged"></bedrock-pubsub>
         </div>
         <template is="dom-if" if="{{_isAssetMode(mode)}}">
             <rock-assets-search-grid id="assetsSearchGrid"  context-data="[[contextData]]"  types-criterion="[[typesCriterion]]"  grid-config="[[config.assetGridConfig]]"
@@ -213,6 +210,13 @@
             ready:function () {
                 this.config=this.getParentAppConfig("rock-relationship-add");
             },
+            _isheading:function(){
+                 if(this.heading){
+                     return true;
+                 }else{
+                     return false;
+                 }
+            },
             _contextDataChanged:function () {
                 if(!_.isEmpty(this.contextData) && this.typesCriterion && this.typesCriterion.length) {
                     var itemContexts = [];
@@ -223,12 +227,7 @@
                         itemContexts.push(itemContext);
                     }
                     this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
-                    Polymer.Async.microTask.run(() => {
-                        var grid=this._getGrid();
-                        if(grid){
-                            grid.refresh();
-                        }
-                    });
+                    this._refreshGrid();
                 }
             },
             _onSearch: function (e, detail, sender) {
@@ -236,12 +235,7 @@
                     this._searchQuery = detail.query;
                 }
                 this._searchTimeStamp = new Date().toLocaleString();
-                Polymer.Async.microTask.run(() => {
-                    var grid=this._getGrid();
-                    if(grid){
-                        grid.refresh();
-                    }
-                });
+                this._refreshGrid();
             },
 
             //Rock search clear
@@ -252,14 +246,10 @@
                     rockSearchBar.searchText = "";
                 }
                 this._searchQuery = '';
+                this._selectedSearchFilters = [];
                 this.$.searchFilter.clearSearchFilters();
                 this._resetSearchEnabled = false;
-                Polymer.Async.microTask.run(() => {
-                    var grid=this._getGrid();
-                    if(grid){
-                        grid.refresh();
-                    }
-                });
+                this._refreshGrid();
             },
             _showResetSearch: function (e) {
                 var rockSearchBar = this.shadowRoot.querySelector('#searchBar');
@@ -430,8 +420,31 @@
                     this._createRelationshipsDown(selectedItems);
                 }
                 this._loading=true;
-            }
+            },
 
+            _searchFiltersChanged: function (e, detail) {
+                var tags = detail;
+                var _selectedSearchFilters = [];
+                if (tags && tags.length > 0) {
+                    for (let i = 0; i < tags.length; i++) {
+                        var tag = tags[i];
+                        var attrCond = {};
+                        attrCond[tag.name] = tag.value;
+                        _selectedSearchFilters.push(attrCond);
+                    }
+                }
+                this.set('_selectedSearchFilters', _selectedSearchFilters);
+                this._refreshGrid();
+            },
+
+            _refreshGrid: function() {
+                 Polymer.Async.microTask.run(() => {
+                    var grid=this._getGrid();
+                    if(grid){
+                        grid.refresh();
+                    }
+                });
+            }
 
         });
     </script>

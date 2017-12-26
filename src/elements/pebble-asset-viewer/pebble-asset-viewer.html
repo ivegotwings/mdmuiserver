@@ -1,29 +1,82 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-icon/pebble-icon.html">
+ <link rel="import" href="../../../bower_components/paper-fab/paper-fab.html">
+ <link rel="import" href="../../../bower_components/paper-tooltip/paper-tooltip.html">
 <dom-module id="pebble-asset-viewer">
     <template>
         <style include="bedrock-style-common">
             .asset-render{
                 height: 80vh;
+                position: relative;
+                padding-top: 40px;
+            }
+            #viewerContainer {
+                text-align: center;
+            }
+            .asset-render img{
+                max-width: 100%;
+            }
+            .overflow{
+                overflow-y: auto;
             }
             .video-extension-not-supported{
                 position:absolute;
                 left:40%;
                 top:50%;
             }
+            header{
+                position: fixed;
+                bottom: 10%;
+                z-index: 1;
+                left: 50%;
+                transform: translateX(-50%);
+            }
+            header paper-fab{
+                display: inline-block;
+                background: #cbcbcb;
+            }
+            header div{
+                display: inline-block;
+            }
+            .download{
+                position: absolute;
+                right: 0;
+                top: 0;
+                display: inline-block;
+                font-weight: 400;
+                line-height: 16px;
+                padding: 5px 10px;
+                height: 30px;
+                text-align: center;
+                border: 1px solid transparent;
+                font-size: var(--default-font-size, 14px);
+                border-radius: 3px;
+                text-transform: capitalize;
+                color: var(--button-text-color, #ffffff)!important;
+                background-color: var(--success-button-color, #09c021);
+                border-color: var(--success-button-color, #09c021);
+                text-decoration: none;
+                --pebble-icon: {
+                    fill: var(--button-text-color, #ffffff);                    
+                }
+            }
+            video::-webkit-media-controls-fullscreen-button {
+                display: none;
+            }
         </style>
         <div id="viewerContainer" class$="[[_computeClass(assetType)]]">
             <pebble-spinner active="[[_loading]]"></pebble-spinner>
             <template is="dom-if" if="[[isImageView(assetType)]]">
-                <a href="[[assetUrl]]">Download</a>  
-                <img class="modal-content" width="100%" src="[[assetUrl]]" height="100%" id="bigImage" sizing="contain" onload="[[_onAssetLoad]]"/>
-                
+                <template is="dom-if" if="[[!isPublicUrl]]">
+                    <a href="[[assetUrl]]" download class="download"><pebble-icon icon="pebble-icons:FileDownload" class="download-icon"></pebble-icon> Download</a> 
+                </template>
+                <img class="modal-content" src="[[assetUrl]]" id="bigImage" sizing="contain" onload="[[_onAssetLoad]]"/>
             </template>
             <template is="dom-if" if="[[isVideoView(assetType)]]">
                 <template is="dom-if" if="[[assetError]]">
                     <div class="video-extension-not-supported">
-                        <span>Video extension not supported</span>
-                        <a href="[[assetUrl]]">Download</a>
+                        <span>Video extension not supported. Click <a href="[[assetUrl]]">here</a> to Download</span>                        
                     </div>      
                 </template>
                 <template is="dom-if" if="[[!assetError]]">
@@ -31,16 +84,22 @@
                 </template>
             </template>
             <template is="dom-if" if="[[isDocumentView(assetType)]]">
-                <span>Document Preview Not Available!</span>
-                <a href="[[assetUrl]]">Download</a> 
+                <template is="dom-if" if="[[assetError]]">
+                    <span>Document preview not available. Click <a href="[[assetUrl]]">here</a> to Download</span>
+                </template>
+                <template is="dom-if" if="[[!assetError]]">
+                    <a href="[[assetUrl]]" class="download"><pebble-icon icon="pebble-icons:FileDownload" class="download-icon"></pebble-icon> Download</a> 
+                    <header>
+                        <paper-fab mini icon="arrow-back" action="previous" on-tap="_performDocumentAction"></paper-fab>
+                        <div>[[documentPage]]/[[documentPages]]</div>
+                        <paper-fab mini icon="arrow-forward" action="next" on-tap="_performDocumentAction"></paper-fab>
+                    </header>
+                </template>
             </template>
             <template is="dom-if" if="[[isAudioView(assetType)]]">
-                    <audio controls autoplay src="[[assetUrl]]" oncanplay="[[_onAssetLoad]]">
-                    </audio>
+                    <audio id="audioPlay" controls autoplay src="[[assetUrl]]" oncanplay="[[_onAssetLoad]]"></audio>
             </template>
         </div>
-            
-           
     </template>
     <script>
         (function () {
@@ -54,6 +113,9 @@
                         type: String
                     },
                     assetUrl: {
+                        type: String
+                    },
+                    assetExtension:{
                         type: String
                     },
                     _loading: {
@@ -72,7 +134,12 @@
                         type: Number,
                         notify: true
                     },
+                    isPublicUrl:{
+                        type: Boolean,
+                        value: false
+                    }
                 },
+                observers: ["_onAssetValuesChange(assetType, assetUrl, assetExtension)"],
                 _onAssetLoad: function () {
                     var viewer = this.__dataHost.parentModel;
                     viewer.set("_loading" , false);
@@ -99,6 +166,9 @@
                 },
                 isDocumentView: function (assetType) {
                     if(assetType == "document"){
+                        if(this.assetExtension != "pdf"){
+                            this.set("assetError" , true);
+                        }
                         return true;
                     }
                     return false;
@@ -109,13 +179,40 @@
                     }
                     return false;
                 },
-                _computeClass: function (assetType) {
-                    if(assetType == "image" || assetType == "video"){
-                        return "asset-render";
+                _onAssetValuesChange:function(assetType, assetUrl, assetExtension){
+                    if(assetType && assetUrl && assetExtension){
+                        
+                        if(this.assetType == "document" && this.assetExtension == "pdf"){
+                            var link = this.importHref("../../../bower_components/pdf-viewer/pdf-viewer.html", 
+                            function() {
+                                if(!this.shadowRoot.querySelector("pdf-viewer")){
+                                    var dynamicEl = document.createElement("pdf-viewer");
+                                    dynamicEl.setAttribute("id", "docViewer");
+                                    dynamicEl.setAttribute("src", this.assetUrl);
+                                    dynamicEl.setAttribute("page", this.documentPage);
+                                    dynamicEl.setAttribute("mode", "single");
+                                    dynamicEl.setAttribute("initial-zoom", "fit-width");
+                                    Polymer.dom(this.$.viewerContainer).appendChild(dynamicEl);
+                                }
+                            }
+                            );
+                        }
                     }
+    
+                },
+                _computeClass: function (assetType) {
+                    //compute class if no error is there
+                    if(!this.assetError){
+                        if(assetType == "image" || assetType == "video" || assetType == "document"){
+                            return "asset-render overflow";
+                        }
+                    }
+                    
                 },
                 _performDocumentAction: function (event) {
                     var document = this.shadowRoot.querySelector("#docViewer");
+                    this.set("documentPage",document.page);
+                    this.set("documentPages",document.pages);
                     var action = event.target.getAttribute("action")
                    
                     switch (action) {
@@ -143,6 +240,16 @@
                     }
                    
                    
+                },
+                onClose: function(){
+                    if(this.assetType == "audio"){
+                       var audio =  this.shadowRoot.querySelector("#audioPlay");
+                       audio.pause();
+                    }
+                    else if(this.assetType == "video"){
+                       var video =  this.shadowRoot.querySelector("#videoPlay");
+                       video.pause();
+                    }
                 }
             });
         })();

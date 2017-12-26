@@ -39,19 +39,27 @@
                 background-attachment: fixed;
                 background-position: center; 
             }
+            #pebbleModal{
+                text-align: left;
+            }
         </style>
         <liquid-rest id="getDownloadUrl" url="/data/binarystreamobjectservice/prepareDownload" method="POST" on-liquid-response="_onGetDownloadUrlResponse">
         </liquid-rest>
         <liquid-rest id="getThumbnail" url="/data/pass-through/binaryobjectservice/get" method="POST"  on-liquid-response="_onGetThumbnailResponse">
         </liquid-rest>
-        <pebble-image-viewer id="imageView" lazy-load alt="[[alt]]"  error="{{error}}" fade="[[fade]]" height="[[height]]"
-                             loaded="{{loaded}}" loading="{{loading}}" placeholder="[[placeholder]]" position="[[position]]"
-                             preload prevent-load="[[preventLoad]]" sizing="[[sizing]]" src="[[_src]]"
-                             width="[[width]]" active="{{active}}" asset-details="[[assetDetails]]">
-        </pebble-image-viewer>
-        <pebble-dialog id="pebbleModal" dialog-title="[[assetDetails.property_originalfilename]]" show-close-icon> 
-
-            <pebble-asset-viewer asset-type="[[assetType]]" asset-url="[[assetUrl]]"></pebble-asset-viewer>
+         <template is="dom-if" if="[[!_srcNotFound]]">
+            <pebble-image-viewer id="imageView" lazy-load alt="[[alt]]"  error="{{error}}" fade="[[fade]]" height="[[height]]"
+                                 loaded="{{loaded}}" loading="{{loading}}" placeholder="[[placeholder]]" position="[[position]]"
+                                 preload prevent-load="[[preventLoad]]" sizing="[[sizing]]" src="[[_src]]"
+                                 width="[[width]]" active="{{active}}" asset-details="[[assetDetails]]">
+            </pebble-image-viewer>
+        </template>
+        <template is="dom-if" if="[[_srcNotFound]]">
+            [[src]]
+        </template>
+        <pebble-dialog id="pebbleModal" on-tap="_onTapPopover" dialog-title="[[assetDetails.property_originalfilename]]" modal horizontal-align="auto" vertical-align="auto" show-close-icon no-cancel-on-outside-click
+        no-cancel-on-esc-key> 
+            <pebble-asset-viewer asset-type="[[assetType]]" asset-url="[[assetUrl]]" asset-extension="[[assetExtension]]"></pebble-asset-viewer>
         </pebble-dialog>
 
     </template>
@@ -270,15 +278,24 @@
                 },
                 assetUrl: {
                     type: String
+                },
+                assetExtension:{
+                    type: String
+                },
+                _srcNotFound: {
+                    type: Boolean,
+                    value: false
                 }
             },
             observers:[
                 "_generateGetThumbnailRequest(thumbnailId,active,src)"
             ],
             listeners: {
-                'enlarge-asset': '_onAssetEnlargeEvent'
+                'enlarge-asset': '_onAssetEnlargeEvent',
+                'asset-popover-closed': 'assetPopoverClosed'
             },
             _generateGetThumbnailRequest:function () {
+                this.set("_srcNotFound", false);
                 if(this.thumbnailId) {
                     this.set("_src",this.loadingThumbnailPath);
                     if(this.active) {
@@ -300,7 +317,15 @@
                         }
                     }
                 } else if(this.src){
-                    this.set("_src",this.src);
+                    //checks the source exist and set
+                    this._imageExists(this.src).then(function(response){
+                        if(response){
+                            this.set("_src",this.src);
+                        }
+                        else{
+                            this.set("_srcNotFound", true);
+                        }
+                    }.bind(this));
                 } else {
                     this.set("_src",this.noThumbnailImagePath);
                 }
@@ -346,7 +371,14 @@
                         this.set("_src", imgSrc);
                     } 
                     else if(this.src){
-                        this.set("_src",this.src);
+                        this._imageExists(this.src).then(function(response){
+                            if(response){
+                                this.set("_src",this.src);
+                            }
+                            else{
+                                this.set("_srcNotFound", true);
+                            }
+                        }.bind(this));
                     }
                     else {
                         //console.log('no thumbnail path ', this.noThumbnailImagePath);
@@ -355,10 +387,32 @@
                 }
                 
             },
+            _imageExists:function(image_url){
+
+                return new Promise(function(resolve, reject) {
+                    
+                    var img = new Image();
+                    img.onload = function(){
+                            resolve(true);  
+                    }.bind(this);
+                    img.onerror = function(){
+                            resolve(false);
+                    }.bind(this);
+                    img.src = image_url;
+                });
+
+            },
             _onAssetEnlargeEvent: function(event, eventDetails){
                 var imageDetail = eventDetails;
                 if(imageDetail){
                     if(imageDetail.name == "view-by-item"){
+                        //If item details are provided
+                        if(imageDetail.data.filetype){
+                            this.set("assetExtension", imageDetail.data.filetype);
+                        }
+                        else if(imageDetail.data.filenameextension){
+                            this.set("assetExtension", imageDetail.data.filenameextension);
+                        }
                         this.set("assetType", imageDetail.data.type);
                         var fileName = imageDetail.data.property_objectkey;
                         if (fileName) {
@@ -377,8 +431,12 @@
                         }
                     }
                     else{
+                        //if public asset provided(currently done for only images)
+                        this.set("assetExtension", "jpg");
                         this.set("assetType", "image");
                         this.set("assetUrl", imageDetail.data); 
+                        var assetViewer = this.shadowRoot.querySelector("pebble-asset-viewer");
+                        assetViewer.set("isPublicUrl",true);
                         var modal = this.$.pebbleModal;
                         modal.open(); 
                     }
@@ -406,6 +464,15 @@
                     }
                 }
             },
+            assetPopoverClosed: function (e) {
+                var pebbleAssetViewer = this.shadowRoot.querySelector("pebble-asset-viewer");
+                if(pebbleAssetViewer){
+                    pebbleAssetViewer.onClose();
+                }
+            },
+            _onTapPopover: function (event) {
+                event.stopPropagation();
+            }
         });
     </script>
 </dom-module>

@@ -37,7 +37,8 @@ It is responsible to "get" and "save" the attributes.
 
             .defaultButton {
                 position: absolute;
-                bottom: 0;
+                width: 100%;
+                bottom: -50px;
                 left: 50%;
                 -webkit-transform: translateX(-50%);
                 -moz-transform: translateX(-50%);
@@ -58,13 +59,6 @@ It is responsible to "get" and "save" the attributes.
                 z-index: 9999;
             }
 
-            pebble-dialog {
-                --dialog-component: {
-                    width: 400px;
-                    top: 20% !important;
-                }
-            }
-
             #errorsDialog {
                 --popup-header-color: var(--palette-pinkish-red, #ee204c);
             }
@@ -83,8 +77,7 @@ It is responsible to "get" and "save" the attributes.
                 <pebble-button id="ok" class="apply btn btn-success" button-text="Fix" on-tap="_fixServerErrors"></pebble-button>
             </div>
         </pebble-dialog>
-        <pebble-dialog id="cancelDialog" dialog-title="Confirmation" modal show-cancel show-ok no-cancel-on-outside-click no-cancel-on-esc-key
-            small>
+        <pebble-dialog id="cancelDialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click no-cancel-on-esc-key>
             <p>Are you sure you want to discard the unsaved changes.</p>
         </pebble-dialog>
         <bedrock-pubsub event-name="on-buttonok-clicked" handler="_revertAll" target-id="cancelDialog"></bedrock-pubsub>
@@ -96,14 +89,17 @@ It is responsible to "get" and "save" the attributes.
                              attribute-models="[[_attributeModels]]"
                              no-of-columns="[[noOfColumns]]"
                              mode="{{mode}}"
-                             attribute-messages="{{_attributeMessages}}"></rock-attribute-list>
-
+                             attribute-messages="{{_attributeMessages}}"
+                             attributes-chunk-length=20
+                             on-list-mode-changed="_onListModeChanged"
+                             ></rock-attribute-list>
         <liquid-entity-data-get name="attributeGetDataService"
                                 operation="getbyids"
                                 request-data="{{_attributeRequest}}"
                                 last-response="{{_attributeResponse}}"
                                 on-response="_onEntityDataGetReceived"
                                 on-error="_onEntityDataGetFailed"></liquid-entity-data-get>
+
 
         <liquid-entity-govern-data-get id="attributeGetMessageService" operation="getbyids" request-data={{_attributeMessageRequest}}
             on-response="_onAttributesMessageReceived" on-error="_onEntityGetFailed"></liquid-entity-govern-data-get>
@@ -333,6 +329,11 @@ It is responsible to "get" and "save" the attributes.
                     },
                     parentContainer: {
                         type: Object
+                    },
+                    globalEdit:{
+                        type:Boolean,
+                        notify:true,
+                        observer:'_onGlobalEdit'
                     }
                 },
                 behaviors: [
@@ -358,31 +359,15 @@ It is responsible to "get" and "save" the attributes.
                         return "defaultButton"
                     }
                 },
+                _onListModeChanged(e) {
+                    this._modeChanged(e.detail.mode);
+                },
                 _modeChanged: function (mode) {
-                    if (mode != undefined) {
-                        if (mode == 'edit') {
-                            if (this.functionalMode != "dataFunction") {
-                                if(this.parentContainer) {
-                                    var container = this.parentContainer.getBoundingClientRect();
-                                    var item = Polymer.dom(this).node.getBoundingClientRect();
-                                    var leftPositionInsideParentContainer = item.left - container.left;
-                                    //Calculating position of button-bar as a
-                                    //proportion of self element width and container width
-                                    var position = Math.floor((leftPositionInsideParentContainer + item.width / 2) / container.width * 100) + "%";
-                                    this.$.buttonContainer.style.left = position;
-                                    this.$.buttonContainer.style.width = item.width + "px";
-                                } else {
-                                    var width = Polymer.dom(this).clientWidth;
-                                this.$.buttonContainer.style.width = width + "px";
-                                }
-                            }
-                            this.$.buttonContainer.style.display = "inline-block";
-                            this.shadowRoot.querySelector("rock-attribute-list").style.paddingBottom = "120px";
-                        } else {
-                            this.$.buttonContainer.style.display = "none";
-                            this.shadowRoot.querySelector("rock-attribute-list").style.paddingBottom = "10px";
-                        }
-                    }
+                    if (!mode) return;
+
+                    this.mode = mode;
+
+                    this.$.buttonContainer.style.display = mode === 'edit' ? "inline-block": 'none';
                 },
                 _contextChanged: function (valueContexts) {
                     if (valueContexts != undefined) {
@@ -418,7 +403,6 @@ It is responsible to "get" and "save" the attributes.
                             clonedContextData[ContextHelper.CONTEXT_TYPE_VALUE].push(defaultLocaleValueContext);
                         }
                     }
-
                     return clonedContextData;
                 },
                 _onCompositeModelGetResponse: function (e) {
@@ -439,8 +423,10 @@ It is responsible to "get" and "save" the attributes.
                             if (entityId && entityId != "-1") {
                                 //add attribute names in item context
                                 itemContext.attributeNames = attributeNames;
-                                var contextData = this._getContextDataWithDefaultLocale();
-                                var req = DataRequestHelper.createEntityGetRequest(contextData, true);
+
+                                let contextData = this._getContextDataWithDefaultLocale();
+                                let useCoalesceFallback = DataTransformHelper.hasLocalizableAttributes(this._attributeModels);
+                                let req = DataRequestHelper.createEntityGetRequest(contextData, true, useCoalesceFallback);
 
                                 this.set("_attributeRequest", req);
 
@@ -449,11 +435,11 @@ It is responsible to "get" and "save" the attributes.
                                 delete messageReq.params.query.valueContexts;
 
                                 this.set("_attributeMessageRequest", messageReq);
-                                var liquidGovernGet = this.$.attributeGetMessageService;
+                                let liquidGovernGet = this.$.attributeGetMessageService;
                                 if (liquidGovernGet) {
                                     liquidGovernGet.generateRequest();
                                 }
-                                var liquidDataGet = this.shadowRoot.querySelector("[name=attributeGetDataService]");
+                                let liquidDataGet = this.shadowRoot.querySelector("[name=attributeGetDataService]");
                                 if (liquidDataGet) {
                                     liquidDataGet.generateRequest();
                                 }
@@ -911,6 +897,12 @@ It is responsible to "get" and "save" the attributes.
                     attrMessages = MessageHelper.getAttributeMessages(mergedAttributes, this._attributeModels, this.messageCodeMapping, this.localize);
 
                     return attrMessages;
+                },
+                _onGlobalEdit: function () {
+                    if(this.globalEdit){
+                        this.mode = "edit"
+                        this.globalEdit = false;
+                    }
                 }
             });
         })();

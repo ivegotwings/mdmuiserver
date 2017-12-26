@@ -1,7 +1,18 @@
-SERVICE_CONFIG = {
+var SERVICE_CONFIG = {
     "services": {
         "entityservice/get": {
             "url": "/entityappservice/get",
+            "mode": "online",
+            "timeout": 180000,
+            "offlineSettings": {
+                "operation": "get",
+                "requestPathToSelectDataFile": "params.query.filters.typesCriterion",
+                "requestPathToFilterData": "params.query.id",
+                "fieldToCompareInData": "id"
+            }
+        },
+        "entityservice/getcoalesce": {
+            "url": "/entityappservice/getcoalesce",
             "mode": "online",
             "timeout": 180000,
             "offlineSettings": {
@@ -310,3 +321,7 @@ SERVICE_CONFIG = {
         }
     }
 };
+
+module.exports = {
+    SERVICE_CONFIG: SERVICE_CONFIG
+}

@@ -10,6 +10,9 @@
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../bedrock-helpers/entity-helper.html">
 <link rel="import" href="../bedrock-helpers/context-helper.html">
+<link rel="import" href="../bedrock-helpers/attribute-helper.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
+
 
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 <link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
@@ -19,7 +22,6 @@
 
 <link rel="import" href="../pebble-file-upload/pebble-file-upload.html">
 <link rel="import" href="../pebble-dialog/pebble-dialog.html">
-<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
 <link rel="import" href="../pebble-icons/pebble-icons.html">
 <link rel="import" href="../pebble-icon/pebble-icon.html">
 <link rel="import" href="../pebble-image-viewer/pebble-image-viewer.html">
@@ -28,7 +30,6 @@
 <link rel="import" href="../pebble-button/pebble-button.html">
 
 <link rel="import" href="../rock-grid/rock-grid.html">
-<link rel="import" href="../bedrock-helpers/attribute-helper.html">
 <link rel="import" href="../rock-classification-tree/rock-classification-tree.html">
 <!--
 <b><i>Content development is under progress... </b></i>
@@ -57,7 +58,7 @@
             }
 
             #content-label {
-                box-shadow: 0 1px 7px 0 #c1cad4;
+                box-shadow: 0 1px 7px 0 var(--palette-cloudy-blue, #c1cad4);
                 padding: 15px;
                 margin: 10px;
             }
@@ -154,7 +155,7 @@
         <div id="content-mappings" hidden>
         </div>
         <div id="content-entities-grid" hidden>
-            <rock-grid id="entitiesGrid" data="{{_gridData}}" page-size="10" no-header></rock-grid>
+            <rock-grid id="entitiesGrid" page-size="10" context-data="[[contextData]]" attribute-models="[[_attributeModels]]" no-header></rock-grid>
             <span class="confirmSave">Please review the data above. Save process cannot be cancelled once started.</span>
         </div>
         <div id="content-actions" class="p-b-10" align="center" hidden>
@@ -164,6 +165,7 @@
         <bedrock-pubsub event-name="field-map-save" handler="_onFieldMappingsSave" target-id=""></bedrock-pubsub>
         <bedrock-pubsub event-name="field-map-cancel" handler="_onFieldMappingsCancel" target-id=""></bedrock-pubsub>
         <bedrock-pubsub event-name="field-map-skip" handler="_onFieldMappingsSkip" target-id=""></bedrock-pubsub>
+        <liquid-entity-data-get id="taxonomyGetDataService" operation="getbyids" request-data="{{_taxonomyRequest}}" on-response="_onTaxonomyResponse"></liquid-entity-data-get>
     </template>
     <script>
         (function () {
@@ -377,6 +379,10 @@
                     overridesOrder: {
                         type: Number,
                         value: 100
+                    },
+                    _taxonomyExtName: {
+                        type: String,
+                        value: ""
                     }
                 },
                 observers: [
@@ -399,8 +405,46 @@
                         var itemContext = this.getFirstItemContext();
                         var entityType = itemContext.type;
                         this._showView("entity-import");
+                        this._getTaxonomy();
                     }
                 },
+
+                 _getTaxonomy: function () {
+                    var contextData = DataHelper.cloneObject(this.contextData);
+                    var firstItemContext = ContextHelper.getFirstItemContext(contextData);
+                    if (firstItemContext) {
+                        firstItemContext.type = "taxonomy";
+                        firstItemContext.attributeNames = ["externalName"];
+                        firstItemContext.id = this.taxonomy;
+                        contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+                        var req = DataRequestHelper.createEntityGetRequest(contextData);
+                        delete req.params.options;
+                        this._taxonomyRequest = req;
+
+                        var taxonomyGetElement = this.$$("#taxonomyGetDataService");
+
+                        if (taxonomyGetElement) {
+                            taxonomyGetElement.generateRequest();
+                        }
+                    }
+                },
+
+                _onTaxonomyResponse: function (e) {
+                    if (e && e.detail && e.detail.response) {
+                        var res = e.detail.response;
+                        if (res && res.content && res.content.entities && res.content.entities.length) {
+                            var entity = res.content.entities[0];
+                            if (entity && entity.data) {
+                                var attributes = entity.data.attributes;
+
+                                if (attributes && attributes['externalName']) {
+                                    this._taxonomyExtName = attributes['externalName'].values && attributes['externalName'].values.length ? attributes['externalName'].values[0].value : undefined;
+                                }
+                            }
+                        }
+                    }
+                },
+
                 _showView: function (viewName) {
                     if (viewName) {
                         var contentView = this.shadowRoot.querySelector("#content-" + viewName);
@@ -544,29 +588,7 @@
                             this._hideButtons();
                             this._showView("label");
                             this._showView("entities-grid");
-                            this._entities = response.response.entities;
 
-                            var maxNoOfRows = this._gridConfig.tabular.settings.maxNoOfRows;
-                            if (maxNoOfRows && this._entities.length > maxNoOfRows) {
-                                this.showErrorToast("Preview of more than "+maxNoOfRows+" entities is not supported. Please review the file imported or contact your administrator.", 3000);
-                                this._loading = false;
-                                this._isDirty = false;
-                                return;
-                            }
-                            var attributeNames = EntityHelper.getAttributeNamesFromEntities(this._entities);
-                            if (attributeNames && attributeNames.length > 0) {
-                                var contexts = EntityHelper.getContextsFromEntities(this._entities);
-                                if (contexts && contexts.length > 0) {
-                                    this.set("contexts", contexts);
-                                }
-                                //setting contexts first and then attributeNames, because there is an observer on both
-                                //setting attributeNames first would send unnecessary request for model
-                                this.set("attributeNames", attributeNames);
-                            } else {
-                                this.showErrorToast("Unable to fetch attributes from excel. Please check excel file imported or contact your administrator.");
-                                this._loading = false;
-                                this._isDirty = false;
-                            }
                         } else if (this._currentCOPService == "process") {
                             this._onCOPProcessComplete();
                         }
@@ -661,8 +683,9 @@
                         entitiesGrid.attributeModels = {};
                         this._prepareEntityGridConfig();
                         entitiesGrid.config = this._gridConfig;
-                        this._prepareEntityGridData();
-                        entitiesGrid.data = this._gridData;
+                        
+                        entitiesGrid.data = this._prepareEntityGridData();
+                        entitiesGrid.attributeModels = this._attributeModels;
                         this._loading = false;
                         this._showView("actions");
                     }
@@ -676,7 +699,8 @@
                                 this._gridConfig.tabular.columns.push({
                                     "header": model.externalName,
                                     "name": model.name,
-                                    "sortable": true
+                                    "sortable": true,
+                                    "isNested": model.dataType === "nested" ? true : false
                                 });
                             }
                         }
@@ -693,6 +717,7 @@
                     }
                 },
                 _prepareEntityGridData: function () {
+                    var gridData = [];
                     for (var i = 0; i < this._entities.length; i++) {
                         var entity = this._entities[i];
                         var entityId = DataHelper.getRandomString();
@@ -714,9 +739,11 @@
                                 rowData["classification"] = ctx.classification;
                                 rowData["taxonomy"] = ctx.taxonomy;
                             }
-                            this._gridData.push(rowData);
+                            gridData.push(rowData);
                         }
                     }
+
+                    return gridData;
                 },
                 _onSaveTap: function (e) {
                     this._disableActions();
@@ -960,7 +987,7 @@
                         this._selectedCategories.forEach(function (category) {
                             var formattedClassification = category.valuePath.replace(/#@#/g, categoryPathSeperator);
                             contexts.push({
-                                "taxonomy": this.taxonomy,
+                                "taxonomy": this._taxonomyExtName,
                                 "classification": formattedClassification
                             });
                         }, this);

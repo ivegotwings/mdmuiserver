@@ -20,42 +20,48 @@ DataObjectFalcorUtil.getPathKeys = function () {
                 "collectionName": "entities",
                 "responseObjectName": "response",
                 "maxRecordsToReturn": 200,
-                "combinedQueryPageSize": 30000
+                "combinedQueryPageSize": 30000,
+                "cacheExpiryDurationInMins": 60
             },
             "entityGovernData": {
                 "name": "entityGovernData",
                 "collectionName": "entities",
                 "responseObjectName": "response",
                 "maxRecordsToReturn": 5000,
-                "combinedQueryPageSize": 30000
+                "combinedQueryPageSize": 30000,
+                "cacheExpiryDurationInMins": 60
             },
             "entityModel": {
                 "name": "entityModel",
                 "collectionName": "entityModels",
                 "responseObjectName": "response",
                 "maxRecordsToReturn": 2000,
-                "combinedQueryPageSize": 30000
+                "combinedQueryPageSize": 30000,
+                "cacheExpiryDurationInMins": 7200
             },
             "config": {
                 "name": "configObject",
                 "collectionName": "configObjects",
                 "responseObjectName": "response",
                 "maxRecordsToReturn": 100,
-                "combinedQueryPageSize": 30000
+                "combinedQueryPageSize": 30000,
+                "cacheExpiryDurationInMins": 7200
             },
             "eventData": {
                 "name": "event",
                 "collectionName": "events",
                 "responseObjectName": "response",
                 "maxRecordsToReturn": 500,
-                "combinedQueryPageSize": 30000
+                "combinedQueryPageSize": 30000,
+                "cacheExpiryDurationInMins": 30
             },
             "requestTracking": {
                 "name": "requestobject",
                 "collectionName": "requestObjects",
                 "responseObjectName": "response",
                 "maxRecordsToReturn": 200,
-                "combinedQueryPageSize": 30000
+                "combinedQueryPageSize": 30000,
+                "cacheExpiryDurationInMins": 30
             }
         }
     };

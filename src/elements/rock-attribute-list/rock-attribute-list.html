@@ -4,7 +4,6 @@
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
-<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-horizontal-divider/pebble-horizontal-divider.html">
@@ -20,7 +19,7 @@ It renders the list of attributes based on the specified parameters.
 -->
 <dom-module id="rock-attribute-list">
     <template>
-        <style include="bedrock-style-common">
+        <style include="bedrock-style-common bedrock-styles-scroll-bar">
             :host {
                 @apply --rock-attribute-list;
             }
@@ -30,8 +29,8 @@ It renders the list of attributes based on the specified parameters.
                 font-family: var(--default-font-family);
                 clear: both;
                 margin: 0px;
-                font-size: var(--font-size-md);
-                color: var(--title-text-color);
+                font-size: var(--font-size-md, 16px);
+                color: var(--title-text-color, #191e22);
             }
 
             .group-container {
@@ -41,7 +40,7 @@ It renders the list of attributes based on the specified parameters.
             .group-name-container {
                 clear: left;
                 @apply --layout-horizontal;
-                background: var( --palette-pale-grey-four);
+                background: var(--palette-pale-grey-four, #eff4f8);
                 padding: 6px;
                 border-radius: 3px;
             }
@@ -80,8 +79,19 @@ It renders the list of attributes based on the specified parameters.
                 width: 33%;
             }
 
+            .attribute-box-4 {
+                width: 24%;
+            }
+
             pebble-horizontal-divider {
-                border-top: 1px dotted var(--default-border-color);
+                border-top: 1px dotted var(--default-border-color, #c1cad4);
+            }
+
+            .content {
+                height: 100%;
+                padding-bottom: 25px;
+                overflow: auto;
+                @apply --rock-attribute-list-content;
             }
 
             paper-spinner-lite {
@@ -92,20 +102,22 @@ It renders the list of attributes based on the specified parameters.
             paper-spinner-lite[active] {
                 display: block;
             }
-        </style>
-        <template is="dom-if" if="displayedAttributesChunks.length">
-            <div class="attributesWrapper">
-                <template is="dom-repeat" items="[[displayedAttributesChunks]]" as="chunk" index-as="chunkIndex" targetFramerate="5">
-                    <template is="dom-repeat" items="[[chunk]]" as="attribute" index-as="attributeIndex">
-                        <template is="dom-if" if="[[_checkRenderGroupBar(attribute, 0)]]">
-                            <pebble-accordion header-text="[[groupName]]" default-icon="chevron-right" open-icon="expand-more">
-                                <div class="attribute-wrapper">
-                        </template>
 
-                        <div class$="[[_getAttributeClass(noOfColumns, attribute)]]" name$="[[attribute.name]]">
-                            <rock-attribute 
+        </style>
+        <div class="content">
+            <div class="attribute-list-container">
+                <template is="dom-if" if="displayedAttributesChunks.length">
+                    <template is="dom-repeat" items="[[displayedAttributesChunks]]" as="chunk" index-as="chunkIndex" targetFramerate="5">
+                        <template is="dom-repeat" items="[[chunk]]" as="attribute" index-as="attributeIndex">
+                            <template is="dom-if" if="[[_checkRenderGroupBar(attribute, 0)]]">
+                                <pebble-accordion header-text="[[groupName]]" default-icon="chevron-right" open-icon="expand-more">
+                                    <div class="attribute-wrapper">
+                            </template>
+    
+                            <div class$="[[_getAttributeClass(noOfColumns, attribute)]]" name$="[[attribute.name]]">
+                                <rock-attribute 
                                 context-data="[[contextData]]" 
-                                mode="{{mode}}" 
+                                mode="[[mode]]" 
                                 readonly$="[[readonly]]" 
                                 errors="{{attribute.errors}}" 
                                 server-errors="[[_getAttributeMessage(attribute,attributeMessages)]]"
@@ -116,21 +128,22 @@ It renders the list of attributes based on the specified parameters.
                                 on-attribute-value-changed="updateDependentAttributesAndResetErrors"
                                 show-delete-icon="[[showDeleteIcon]]" 
                                 dependent-attribute-objects="[[_getDependentAttributes(attribute)]]"
-                                dependent-attribute-model-objects="[[_getDependentAttributeModels(attribute)]]">
-                            </rock-attribute>
-                        </div>
-
-                        <template is="dom-if" if="[[_checkRenderGroupBar(attribute, 1)]]">
+                                dependent-attribute-model-objects="[[_getDependentAttributeModels(attribute)]]"
+                                on-attribute-mode-changed="_onModeChange">
+                                </rock-attribute>
                             </div>
-                            </pebble-accordion>
+    
+                            <template is="dom-if" if="[[_checkRenderGroupBar(attribute, 1)]]">
+                                </div>
+                                </pebble-accordion>
+                            </template>
+                            <bedrock-pubsub event-name="attribute-delete" handler="_ondeletingAttribute" target-id=""></bedrock-pubsub>
                         </template>
-                        <bedrock-pubsub event-name="attribute-delete" handler="_ondeletingAttribute" target-id=""></bedrock-pubsub>
                     </template>
                 </template>
             </div>
-        </template>
-        <paper-spinner-lite active="[[loading]]"></paper-spinner-lite>
-        <bedrock-pubsub event-name="tab-content-scroll" handler="_onTabContentScrollDebounce"></bedrock-pubsub>
+            <paper-spinner-lite active="[[loading]]"></paper-spinner-lite>
+        </div>
     </template>
     <script>
         (function () {
@@ -139,13 +152,28 @@ It renders the list of attributes based on the specified parameters.
                 is: 'rock-attribute-list',
                 created: function () {
                     this.displatedAttributesChunkIndex = 1;
-
-                    this.attributesChunkLength = 20;
+                    this.displayedAttributesChunks = [];
 
                     this.loading = true;
 
-                    this._onTabContentScrollDebounce = _.debounce(this._onTabContentScroll, 300);
+                    this._onScrollListDebounce = _.debounce(this._onScrollList.bind(this), 300);
                 },
+
+                attached() {
+                    if(this.scrollContainer)
+                        this.scrollContainer.addEventListener('scroll', this._onScrollListDebounce);
+                },
+
+                detached() {
+                    if(this.scrollContainer)
+                        this.scrollContainer.removeEventListener('scroll', this._onScrollListDebounce)
+                },
+
+                get scrollContainer() {
+                    const query = this.shadowRoot.querySelectorAll('.content');
+                    return query ? query[0] : null;
+                },
+
                 properties: {
                     /**
                       * <b><i>Content development is under progress... </b></i> 
@@ -255,6 +283,14 @@ It renders the list of attributes based on the specified parameters.
                     showDeleteIcon: {
                         type: Boolean,
                         value: false
+                    },
+                    attributesChunkLength: {
+                        type: Number,
+                        value: 0
+                    },
+                    _lazyLoad: {
+                        type: Boolean,
+                        value: false
                     }
                 },
                 behaviors: [
@@ -262,17 +298,70 @@ It renders the list of attributes based on the specified parameters.
                     RUFBehaviors.ComponentContextBehavior
                 ],
                 observers: [
-                    '_modeChanged(mode)',
-                    '_onAttributeValuesChange(attributeValues)'
+                    '_onAttributeValuesChange(attributeValues.*)'
                 ],
-                _onAttributeValuesChange: function (attributeValues) {
+
+                get hasScroll() {
+                    const { scrollHeight, offsetHeight } = this.scrollContainer;
+
+                    return scrollHeight > offsetHeight;
+                },
+
+                get isLoadFinished() {
+                    return this.displayedAttributesChunks.length === this.attributesChunks.length;
+                },
+
+                _onScrollList(activeContent) {
+                    if(!this._lazyLoad) return;
+
+                    const { scrollHeight, scrollTop, offsetHeight } = this.scrollContainer;
+
+                    const scrollDiff = scrollHeight - offsetHeight - scrollTop;
+
+                    const PRELOAD_HEIGHT = 100;
+
+                    if(this.isLoadFinished) {
+                        this.loading = false;
+                        return;
+                    }
+
+                    if (scrollDiff <= PRELOAD_HEIGHT)
+                        return this._loadMoreAttributes();
+                },
+
+                _loadMoreAttributes() {
+                    const itemsToPush = this.attributesChunks.slice(this.displatedAttributesChunkIndex, ++this.displatedAttributesChunkIndex);
+
+                    if (!itemsToPush.length) {
+                        this.loading = false;
+                        return;
+                    }
+
+                    this.loading = true;
+
+                    window.requestAnimationFrame(()=> {
+                        const displayedAttributesChunks = this.displayedAttributesChunks.concat(itemsToPush);
+                        this.set('displayedAttributesChunks', displayedAttributesChunks);
+                    });
+                },
+
+                _onAttributeValuesChange: function (changeRecord) {
                     this._previousViewName = "";
 
-                    if (!attributeValues.length) return;
+                    this.loading = true;
+
+                    const isValidPath = ['attributeValues', 'attributeValues.length'].indexOf(changeRecord.path) !== -1;
+
+                    if (!isValidPath || !this.attributeValues.length) {
+                        this.loading = false;
+                        return;
+                    }
+
+                    this._lazyLoad = !!this.attributesChunkLength;
 
                     this._calculateErrorLength(this.attributeValues);
-                    
-                    this.attributesChunks = attributeValues.reduce((res, item) => {
+                
+                    this.attributesChunks = this.attributeValues.reduce((res, item) => {
                         const chunkIndex = res.length;
 
                         const currentChunk = res[chunkIndex - 1];
@@ -285,26 +374,29 @@ It renders the list of attributes based on the specified parameters.
                         return res;
                     }, []);
 
-                    this.displayedAttributesChunks = this.attributesChunks.slice(0, this.displatedAttributesChunkIndex);
+                    if(!this._lazyLoad) {
+                        this.loading = false;
+                        this.set('displayedAttributesChunks', this.attributesChunks);
+                        return;
+                    }
 
-                    this.loading = this.displayedAttributesChunks.length !== this.attributesChunks.length;
-                },
-
-                _onTabContentScroll(e) {
-                    const itemsToPush = this.attributesChunks.slice(this.displatedAttributesChunkIndex, ++this.displatedAttributesChunkIndex);
+                    const displayedAttributesChunks = this.attributesChunks.slice(0, this.displatedAttributesChunkIndex);
                     
-                    if(!itemsToPush.length) {
+                    this.set('displayedAttributesChunks', displayedAttributesChunks);
+
+                    if(this.isLoadFinished) {
                         this.loading = false;
                         return;
                     }
 
-                    this.loading = true;
-
-                    this.async(()=> {
-                        this.displayedAttributesChunks = this.displayedAttributesChunks.concat(itemsToPush);
-                        Polymer.dom.flush();
-                    });
+                    //after rendering initial attributes need to check if container has scroll
+                    //in case it doesn't have, need to trigger loading next chunk manually
+                    setTimeout(()=> {
+                        if(!this.hasScroll)
+                            this._loadMoreAttributes();
+                    }, 0);
                 },
+                
                 _getAttributeClass: function (n, attribute) {
                     var model = this._getAttributeModel(this.attributeModels, attribute);
                     var displayType = model && model.displayType ? model.displayType.toLowerCase() : "";
@@ -466,17 +558,18 @@ It renders the list of attributes based on the specified parameters.
                         }
                     }
                 },
-                _modeChanged: function (mode) {
-                    if (mode != undefined) {
-                        var data = {
-                            "mode": mode,
-                            "node": this
-                        };
-                        this.dispatchEvent(new CustomEvent("bedrock-event", {detail:{
-                                name: "list-mode-changed",
-                                data: data
-                            }, bubbles:true, composed:true}));
-                    }
+                _onModeChange(e) {
+                    const mode = e.detail.mode;
+                    
+                    if(!mode) return;
+
+                    this.mode = mode;
+
+                    this.dispatchEvent(new CustomEvent("list-mode-changed", {
+                        detail: { mode }, 
+                        bubbles: true, 
+                        composed: true
+                    }));
                 },
                 /**
                  * Can be used to get the elements if they are dirty.
@@ -569,7 +662,7 @@ It renders the list of attributes based on the specified parameters.
                 },
                 _getDependentAttributeModels: function(currentAttribute) {
                     return DataHelper.getDependentAttributeModels(this.attributeModels, currentAttribute);
-                }
+                }                
             });
         })();
     </script>

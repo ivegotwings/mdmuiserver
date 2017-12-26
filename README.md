@@ -125,8 +125,8 @@ Use below url format to run main app:
     
 Use below url formats to view element's demo and API page:
      
-    http://localhost:5005/src/elements/{component-name}/
-    Example: http://localhost:5005/src/elements/pebble-textbox/
+    http://localhost:5005/src/elements/{component-name}/demo
+    Example: http://localhost:5005/src/elements/pebble-textbox/demo
 
 ## Build
   
@@ -392,8 +392,8 @@ Use below url format to run main app:
     
 Use below url formats to view element's demo and API page:
      
-    http://localhost:5005/src/elements/{component-name}/
-    Example: http://localhost:5005/src/elements/pebble-textbox/
+    http://localhost:5005/src/elements/{component-name}/demo
+    Example: http://localhost:5005/src/elements/pebble-textbox/demo
 
 This command serves the app at `http://localhost:8080` and provides basic URL
 routing for the app. 
