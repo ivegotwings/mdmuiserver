@@ -738,7 +738,6 @@ function _removeUnnecessaryProperties(reqObject) {
         }
 
         if(data.contexts) {
-            console.log("Contexts: ", JSON.stringify(data, null, 2))
             data.contexts.forEach(function(ctx){
                 if(ctx && ctx.attributes) {
                     _removePropertiesFromAttributes(ctx.attributes);
