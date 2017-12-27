@@ -89,8 +89,9 @@ It renders the list of attributes based on the specified parameters.
 
             .content {
                 height: 100%;
-                padding-bottom: 28px;
+                padding-bottom: 25px;
                 overflow: auto;
+                @apply --rock-attribute-list-content;
             }
 
             paper-spinner-lite {
@@ -116,7 +117,7 @@ It renders the list of attributes based on the specified parameters.
                             <div class$="[[_getAttributeClass(noOfColumns, attribute)]]" name$="[[attribute.name]]">
                                 <rock-attribute 
                                 context-data="[[contextData]]" 
-                                mode="{{mode}}" 
+                                mode="[[mode]]" 
                                 readonly$="[[readonly]]" 
                                 errors="{{attribute.errors}}" 
                                 server-errors="[[_getAttributeMessage(attribute,attributeMessages)]]"
@@ -127,7 +128,8 @@ It renders the list of attributes based on the specified parameters.
                                 on-attribute-value-changed="updateDependentAttributesAndResetErrors"
                                 show-delete-icon="[[showDeleteIcon]]" 
                                 dependent-attribute-objects="[[_getDependentAttributes(attribute)]]"
-                                dependent-attribute-model-objects="[[_getDependentAttributeModels(attribute)]]">
+                                dependent-attribute-model-objects="[[_getDependentAttributeModels(attribute)]]"
+                                on-attribute-mode-changed="_onModeChange">
                                 </rock-attribute>
                             </div>
     
@@ -296,7 +298,6 @@ It renders the list of attributes based on the specified parameters.
                     RUFBehaviors.ComponentContextBehavior
                 ],
                 observers: [
-                    '_modeChanged(mode)',
                     '_onAttributeValuesChange(attributeValues.*)'
                 ],
 
@@ -339,14 +340,19 @@ It renders the list of attributes based on the specified parameters.
                     this.loading = true;
 
                     window.requestAnimationFrame(()=> {
-                        this.displayedAttributesChunks = this.displayedAttributesChunks.concat(itemsToPush);
+                        const displayedAttributesChunks = this.displayedAttributesChunks.concat(itemsToPush);
+                        this.set('displayedAttributesChunks', displayedAttributesChunks);
                     });
                 },
 
-                _onAttributeValuesChange: function (attributeValues) {
+                _onAttributeValuesChange: function (changeRecord) {
                     this._previousViewName = "";
 
-                    if (attributeValues.path !== "attributeValues" && attributeValues.path !== "attributeValues.length") {
+                    this.loading = true;
+
+                    const isValidPath = ['attributeValues', 'attributeValues.length'].indexOf(changeRecord.path) !== -1;
+
+                    if (!isValidPath || !this.attributeValues.length) {
                         this.loading = false;
                         return;
                     }
@@ -370,16 +376,25 @@ It renders the list of attributes based on the specified parameters.
 
                     if(!this._lazyLoad) {
                         this.loading = false;
-                        this.set("displayedAttributesChunks", this.attributesChunks);
+                        this.set('displayedAttributesChunks', this.attributesChunks);
                         return;
                     }
 
-                    this.displayedAttributesChunks = this.attributesChunks.slice(0, this.displatedAttributesChunkIndex);
+                    const displayedAttributesChunks = this.attributesChunks.slice(0, this.displatedAttributesChunkIndex);
+                    
+                    this.set('displayedAttributesChunks', displayedAttributesChunks);
 
-                    if(this.isLoadFinished || this.hasScroll)
+                    if(this.isLoadFinished) {
                         this.loading = false;
-                    else
-                        this._loadMoreAttributes();
+                        return;
+                    }
+
+                    //after rendering initial attributes need to check if container has scroll
+                    //in case it doesn't have, need to trigger loading next chunk manually
+                    setTimeout(()=> {
+                        if(!this.hasScroll)
+                            this._loadMoreAttributes();
+                    }, 0);
                 },
                 
                 _getAttributeClass: function (n, attribute) {
@@ -543,17 +558,18 @@ It renders the list of attributes based on the specified parameters.
                         }
                     }
                 },
-                _modeChanged: function (mode) {
-                    if (mode != undefined) {
-                        var data = {
-                            "mode": mode,
-                            "node": this
-                        };
-                        this.dispatchEvent(new CustomEvent("bedrock-event", {detail:{
-                                name: "list-mode-changed",
-                                data: data
-                            }, bubbles:true, composed:true}));
-                    }
+                _onModeChange(e) {
+                    const mode = e.detail.mode;
+                    
+                    if(!mode) return;
+
+                    this.mode = mode;
+
+                    this.dispatchEvent(new CustomEvent("list-mode-changed", {
+                        detail: { mode }, 
+                        bubbles: true, 
+                        composed: true
+                    }));
                 },
                 /**
                  * Can be used to get the elements if they are dirty.

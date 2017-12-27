@@ -172,6 +172,7 @@
           if (attributes && attributes.length > 0) {
             var prefix = /^\*/i;
             var suffix = /^.+\*$/gm;
+            var selectedContext = ContextHelper.getDataContexts(this.contextData);
             for (var i = 0; i < attributes.length; i++) {
               var attribute = attributes[i];
               for (var attrName in attribute) {
@@ -217,16 +218,20 @@
                         if(operator) attrVal["operator"] = operator;
                         delete attrVal[key];
                       } else {
-                        if (displayType === "referencelist" || displayType === "textbox") {
-                          var valSplitByOr = val.split(' or ');
-                          var valSplitByAnd = val.split(' and ');
+                        if (displayType === "referencelist" || displayType === "textbox" || displayType === "numeric") {
+                          if(key === "equals") {
+                            var valSplitByOr = val.split(' or ');
+                            var valSplitByAnd = val.split(' and ');
 
-                          if(valSplitByAnd.length > 1) {
-                            attrVal["exacts"] = valSplitByAnd;
-                          } else {
-                            attrVal["exacts"] = valSplitByOr;
+                            if(valSplitByAnd.length > 1) {
+                              attrVal["exacts"] = valSplitByAnd;
+                              attrVal["operator"] = "_AND"
+                            } else {
+                              attrVal["exacts"] = valSplitByOr;
+                              attrVal["operator"] = "_OR"
+                            }
+                            delete attrVal[key];
                           }
-                          delete attrVal[key];
                         } else if (displayType === "boolean") {
                           attrVal["eq"] = containsStr;
                           delete attrVal[key];
@@ -234,12 +239,6 @@
                           attrVal["contains"] = containsStr;
                           attrVal["operator"] = operator;
                           delete attrVal[key];
-                        } else if (displayType === "numeric") {
-                          if (key === "equals") {
-                            attrVal["contains"] = containsStr;
-                            attrVal["operator"] = "_OR";
-                            delete attrVal[key];
-                          }
                         } else if (displayType === "datetime") {
                           if(key === "gte") {
                             attrVal[key] = moment(attrVal[key]).startOf("day").format("YYYY-MM-DDTHH:mm:ss.SSS-0500");
@@ -280,16 +279,30 @@
                         attrVal["valueContexts"] = [ valContext ];
                       }
                     }
-                    if(attrModel.selfContext) {
-                      var selectedContext = ContextHelper.getDataContexts(this.contextData);
 
-                      if(!_.isEmpty(selectedContext)) {
+                    if(!_.isEmpty(selectedContext)) {
+                      if(attrModel.selfContext) {
                         attrVal["nonContextual"] = true;
+                      } else {
+                        attrVal["contexts"] = selectedContext;
                       }
                     }
                   }
-                  attributes[i] = attribute;
+                } else {
+                  //TODO: Need to change. 
+                  // Temperory fix. When search filters have context specific attribute and context is removed/changed
+                  // from dimension selector, we don't get model for that attribute.
+                  // request attributes criterion will go with empty object for this attribute, request throws error.
+                  // To handle this, when attribute model not found, sending it as contains search for that attribute
+                  var attrVal = attribute[attrName];
+                  if(attrVal["equals"]) {
+                    attrVal["contains"] = attrVal["equals"];
+                    attrVal["type"] = "_STRING";
+                    delete attrVal["equals"];
+                  }
                 }
+
+                attributes[i] = attribute;
               }
             }
           }
