@@ -93,6 +93,15 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
 
         var attributeJson = attributesJson[attrKey] = {};
         var valContextsJson = attributeJson['valContexts'] = {};
+        var attrExpires = reqData.cacheExpiryDuration;
+
+        // Need to come up with proper solution where system can cache coalesced data.
+        // As per discussion with Vishal and Jimmy right now system will not cache any coalesced data more then 10 seconds.
+        // Because context coalesced structure is dynamic where falcor has to maintain different reference to avoid impact calculation +
+        // It has to do impact calculation when coalesced data path will get changed.
+        if (attr.properties && (attr.properties.contextCoalesce || attr.properties.instanceCoalesce)) {
+            attrExpires = -10000;
+        }
 
         if (attr.values) {
             var valCtxItems = {};
@@ -122,21 +131,31 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                 localeCoalesceValues.push(val);
             }
 
-            var expires = reqData.cacheExpiryDuration;
             if (attr.action && attr.action == "delete") {
-                expires = 0;
+                attrExpires = 0;
             }
 
             for (var valCtxKey in valCtxItems) {
                 var valCtxItem = valCtxItems[valCtxKey];
                 //console.log('valCtxItem.values', JSON.stringify(valCtxItem.values));
                 var valContextJson = {};
-                valContextJson['values'] = prepareValueJson($atom(valCtxItem.values), expires);
+                valContextJson['values'] = prepareValueJson($atom(valCtxItem.values), attrExpires);
                 valContextsJson[valCtxKey] = valContextJson;
 
                 //build paths if requested
                 if (reqData.buildPaths) {
                     paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', valCtxKey, 'values']));
+
+                    // In case of update if attr has context or instance coalesce property then remove these keys from attr.properties and reset properties atom.
+                    // It will provide proper updated data of source info to client.
+                    if (reqData.operation == "update" && attr.properties) {
+                        delete attr.properties.contextCoalesce;
+                        delete attr.properties.instanceCoalesce;
+
+                        valContextJson['properties'] = prepareValueJson($atom(attr.properties), attrExpires);
+                        paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', valCtxKey, 'properties']));
+                    }
+
                 }
             }
         }
@@ -152,7 +171,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                         valContextJson = falcorUtil.getOrCreate(valContextsJson, valCtxKey, {});
                     }
 
-                    valContextJson['group'] = prepareValueJson($atom(attr.group), reqData.cacheExpiryDuration);
+                    valContextJson['group'] = prepareValueJson($atom(attr.group), attrExpires);
 
                     //build paths if requested
                     if (reqData.buildPaths) {
@@ -171,7 +190,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
             if (!selfValContextJson) {
                 selfValContextJson = falcorUtil.getOrCreate(valContextsJson, selfValCtxKey, {});
             }
-            selfValContextJson['properties'] = prepareValueJson($atom(attr.properties), reqData.cacheExpiryDuration);
+            selfValContextJson['properties'] = prepareValueJson($atom(attr.properties), attrExpires);
 
             //build paths if requested
             if (reqData.buildPaths) {
@@ -187,7 +206,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                         if (!valContextJson) {
                             valContextJson = falcorUtil.getOrCreate(valContextsJson, valCtxKey, {});
                         }
-                        valContextJson['properties'] = prepareValueJson($atom(attr.properties), reqData.cacheExpiryDuration);
+                        valContextJson['properties'] = prepareValueJson($atom(attr.properties), attrExpires);
 
                         //build paths if requested
                         if (reqData.buildPaths) {
