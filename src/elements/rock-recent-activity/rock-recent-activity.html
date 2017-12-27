@@ -60,8 +60,8 @@ such as "to-do" and "to-fix" for an entity.
       .status-icon {
         background-color: var(--success-button-color, #09c021);
         border-radius: 50%;
-        width: 20px;
-        height: 20px;
+        width: 24px;
+        height: 24px;
         display: -ms-flex;
         display: inline-flex;
         display: -webkit-inline-flex;
@@ -114,7 +114,14 @@ such as "to-do" and "to-fix" for an entity.
       .activity-property {
         font-weight: bold;
       }
+
+      .default-message {
+        margin-right: 10px;
+      }
     </style>
+    <template is="dom-if" if="[[noRecord]]">
+      <div class="default-message">You don't have any entity history to view yet.</div>
+    </template>
     <div id="scrollingArea">
       <iron-list id="list" items="{{items}}" as="item" scroll-target="html" selection-enabled>
         <template>
@@ -128,9 +135,9 @@ such as "to-do" and "to-fix" for an entity.
               </div>
               <div class="time-stamp">
                 <div class="status-icon">
-                  <pebble-icon icon="icons:add" class="pebble-md-icons"></pebble-icon>
+                  <pebble-icon icon="{{_getIconName(item.action)}}" class="pebble-md-icons"></pebble-icon>
                 </div>
-                <span>[[item.sourceTimestamp]]</span>
+                <span>on [[item.sourceTimestamp]]</span>
               </div>
             </div>
           </div>
@@ -140,6 +147,7 @@ such as "to-do" and "to-fix" for an entity.
     <div class="loadingIndicator">
       <pebble-spinner active="[[loading]]"></pebble-spinner>
     </div>
+
     <iron-scroll-threshold id="scrollTheshold" on-lower-threshold="_loadMoreData" scroll-target="scrollingArea">
     </iron-scroll-threshold>
     <entity-history-datasource id="eventDataSource" request="[[request]]" event-list-data-source="{{dataSource}}" grid-data-formatter="{{_dataFormatter}}">
@@ -219,6 +227,10 @@ such as "to-do" and "to-fix" for an entity.
             type: Number,
             value: 10,
             notify: true
+          },
+          noRecord: {
+            type: Boolean,
+            value: false
           }
         },
         behaviors: [
@@ -265,7 +277,11 @@ such as "to-do" and "to-fix" for an entity.
                 if (event && event.internalObjId) {
                   externalName = attributeName[event.internalObjId];
                   externalName = externalName == undefined ? "" : externalName;
-                  event.Message = "<span class='userName'>User</span> changed the <span class='activity-property'>" + externalName + "</span> to " + event.value + " on";
+                  if (event.action == "delete") {
+                    event.Message = "<span class='userName'>" + event.user + "</span> removed <span class='activity-property'>" + externalName + "</span>";
+                  } else {
+                    event.Message = "<span class='userName'>" + event.user + "</span> changed <span class='activity-property'>" + externalName + "</span> to " + event.value;
+                  }
                 }
               }
             }
@@ -279,6 +295,7 @@ such as "to-do" and "to-fix" for an entity.
                 this.request = DataRequestHelper.createEntityEventGetRequest(this.contextData.ItemContexts[0].id)
               }
               this.loading = true;
+              this.noRecord = false;
               var success = this._success.bind(this);
               var error = this._error.bind(this);
               dataSource({
@@ -291,7 +308,7 @@ such as "to-do" and "to-fix" for an entity.
           }
         },
         _success: function (data) {
-          if (data) {
+          if (data && data.content && data.content.events && data.content.events.length > 0) {
             this.eventList = this._getEventList(data);
             if (this.attributekeyName.length > 0) {
               var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
@@ -303,6 +320,11 @@ such as "to-do" and "to-fix" for an entity.
               }
             } else {
               this._dataSuccess();
+            }
+          } else {
+            this.loading = false;
+            if (this.items.length == 0) {
+              this.noRecord = true;
             }
           }
         },
@@ -334,7 +356,7 @@ such as "to-do" and "to-fix" for an entity.
         },
         _getEventList: function (data) {
           var eventList = [];
-          var defaultAttribute = ['clientId', 'relatedRequestId', 'eventSubType', 'sourceTimestamp', 'entityType', 'entityId', 'eventType', 'entityAction', 'user'];
+          var defaultAttribute = ['clientId', 'relatedRequestId', 'eventSubType', 'entityType', 'entityId', 'eventType', 'entityAction'];
           var defaultRelationship = ['eventTarget'];
           if (DataHelper.isValidObjectPath(data, "content.events")) {
             var events = data.content.events;
@@ -356,7 +378,7 @@ such as "to-do" and "to-fix" for an entity.
               }
               if (DataHelper.isValidObjectPath(event, 'data.relationships')) {
                 var relatioships = event.data.relationships;
-                var relatioshipsEvent = this._relationshipEvent(event,relatioships, defaultRelationship)
+                var relatioshipsEvent = this._relationshipEvent(event, relatioships, defaultRelationship)
                 Array.prototype.push.apply(eventList, relatioshipsEvent);
               }
             }
@@ -368,16 +390,16 @@ such as "to-do" and "to-fix" for an entity.
           var eventObj = {}
           eventObj = {}
           eventObj.Type = 'entityAdd';
-          eventObj.action = 'Add';
-          if (DataHelper.isValidObjectPath(attributes, 'entityType.values.0.value')) {
-            eventObj.entityType = attributes.entityType.values[0].value;
-            eventObj.Message = "<span class='userName'>User</span> created this <span class='activity-property'>" + eventObj.entityType + "</span>";
+          eventObj.action = 'add';
+          if (DataHelper.isValidObjectPath(event, 'properties.modifiedBy')) {
+            eventObj.user = event.properties.modifiedBy;
           }
-          // if (DataHelper.isValidObjectPath(attributes, 'sourceTimestamp.values.0.value')) {
-          //   eventObj.sourceTimestamp = FormatHelper.convertFromISODateTime(attributes.sourceTimestamp.values[0].value, 'datetime');
-          // }
           if (DataHelper.isValidObjectPath(event, 'properties.modifiedDate')) {
             eventObj.sourceTimestamp = FormatHelper.convertFromISODateTime(event.properties.modifiedDate, 'datetime');
+          }
+          if (DataHelper.isValidObjectPath(attributes, 'entityType.values.0.value')) {
+            eventObj.entityType = attributes.entityType.values[0].value;
+            eventObj.Message = "<span class='userName'>" + eventObj.user + "</span> created this <span class='activity-property'>" + eventObj.entityType + "</span>";
           }
           attributeAddEventList.push(eventObj)
           return attributeAddEventList;
@@ -392,7 +414,7 @@ such as "to-do" and "to-fix" for an entity.
                 var attrObj = attributes[attribute]
                 eventObj = {}
                 eventObj.Type = 'attributeChange';
-                eventObj.action = 'Add';
+                eventObj.action = this._getActionType(attrObj);
                 eventObj.internalObjId = attribute;
                 if (attrObj && attrObj.values) {
                   var attributeValues = attrObj.values;
@@ -410,9 +432,9 @@ such as "to-do" and "to-fix" for an entity.
                 } else {
                   eventObj.value = "";
                 }
-                // if (DataHelper.isValidObjectPath(attributes, 'sourceTimestamp.values.0.value')) {
-                //   eventObj.sourceTimestamp = FormatHelper.convertFromISODateTime(attributes.sourceTimestamp.values[0].value, 'datetime');
-                // }
+                if (DataHelper.isValidObjectPath(event, 'properties.modifiedBy')) {
+                  eventObj.user = event.properties.modifiedBy;
+                }
                 if (DataHelper.isValidObjectPath(event, 'properties.modifiedDate')) {
                   eventObj.sourceTimestamp = FormatHelper.convertFromISODateTime(event.properties.modifiedDate, 'datetime');
                 }
@@ -425,7 +447,21 @@ such as "to-do" and "to-fix" for an entity.
           }
           return attributeUpdateEventList;
         },
-        _relationshipEvent: function (event,relatioships, defaultRelationship) {
+        _getActionType: function (eventsObject) {
+          var actionType = ""
+          if (DataHelper.isValidObjectPath(eventsObject, 'properties.changeType')) {
+            var changeType = eventsObject.properties.changeType;
+            if (changeType.startsWith('add')) {
+              actionType = "add";
+            } else if (changeType.startsWith('update')) {
+              actionType = "update";
+            } else if (changeType.startsWith('delete')) {
+              actionType = "delete";
+            }
+          }
+          return actionType;
+        },
+        _relationshipEvent: function (event, relatioships, defaultRelationship) {
           var relationshipEventList = [];
           var eventObj = {}
           for (var relationship in relatioships) {
@@ -437,14 +473,25 @@ such as "to-do" and "to-fix" for an entity.
                   if (relTorelationship && relTorelationship.relTo && relTorelationship.relTo.id) {
                     eventObj = {}
                     eventObj.Type = 'relationshipChange';
-                    eventObj.action = 'Add';
+                    eventObj.action = this._getActionType(relTorelationship);
                     eventObj.relationshipType = relationship;
                     eventObj.internalObjId = relTorelationship.relTo.id;
+                    eventObj.relToURL = "";
+                    if (relTorelationship.relTo.type) {
+                      eventObj.relToURL = location.href.split('?')[0] + "?id=" + eventObj.internalObjId + "&type=" + relTorelationship.relTo.type;
+                    }
+                    if (DataHelper.isValidObjectPath(event, 'properties.modifiedBy')) {
+                      eventObj.user = event.properties.modifiedBy;
+                    }
                     if (DataHelper.isValidObjectPath(event, 'properties.modifiedDate')) {
                       eventObj.sourceTimestamp = FormatHelper.convertFromISODateTime(event.properties.modifiedDate, 'datetime');
                     }
-                    eventObj.Message = "<span class='userName'>User</span> added <span class='activity-property'>" + eventObj.relationshipType + "</span> with <a href='#'>" + eventObj.internalObjId + "</a>";
-                    relationshipEventList.push(eventObj);
+                    if(eventObj.action == "delete"){
+                      eventObj.Message = "<span class='userName'>" + eventObj.user + "</span> removed <a href='" + eventObj.relToURL + "'>" + eventObj.internalObjId + "</a> from <span class='activity-property'>" + eventObj.relationshipType + "</span> relationship";
+                    }else{
+                      eventObj.Message = "<span class='userName'>" + eventObj.user + "</span> added relationship <span class='activity-property'>" + eventObj.relationshipType + "</span> with <a href='" + eventObj.relToURL + "'>" + eventObj.internalObjId + "</a>";
+                    }
+                      relationshipEventList.push(eventObj);
                   }
                 }
 
@@ -452,10 +499,25 @@ such as "to-do" and "to-fix" for an entity.
             }
           }
           return relationshipEventList;
-        },
+        }, 
         _error: function () {
           this.loading = false;
         },
+        _getIconName: function (action) {
+          var iconName="";
+          switch (action) {
+            case "add":
+              iconName = "icons:add";
+              break;
+            case "update":
+              iconName = "pebble-md-icons:Edit";
+              break;
+            case "delete":
+              iconName = "pebble-md-icons:Delete";
+              break;
+          }
+          return iconName;
+        }
       });
     })();
   </script>
