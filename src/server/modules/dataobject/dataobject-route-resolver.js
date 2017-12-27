@@ -337,9 +337,6 @@ function createGetRequest(reqData) {
 
 function _getService(dataObjectType) {
 
-    //console.log("_getService");
-    //console.log(dataObjectType);
-
     if (dataObjectType == 'entityCompositeModel') {
         return entityCompositeModelGetService;
     }
@@ -364,6 +361,11 @@ async function get(dataObjectIds, reqData) {
         var isNearestGet = false;
 
         var service = _getService(reqData.dataObjectType);
+
+
+        if(reqData.dataObjectType == 'entityCompositeModel'){
+            console.log("****", reqData);
+        }
 
         var request = createGetRequest(reqData);
 
