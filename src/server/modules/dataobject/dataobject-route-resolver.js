@@ -379,6 +379,8 @@ async function get(dataObjectIds, reqData) {
                     isNearestGet = true;
                 }
             }
+        }else if(reqData.dataObjectType == 'entitymanageevent') {
+            delete request.params.query.valueContexts;
         }
 
         //set the ids into request object..
