@@ -213,7 +213,7 @@ async function initiateSearch(callPath, args) {
                 }
             }
         }
-        
+
         response.push(mergeAndCreatePath(basePath, ["maxRecords"], $atom(maxRecordsSupported), searchResultExpireTime));
         response.push(mergeAndCreatePath(basePath, ["totalRecords"], $atom(totalRecords), searchResultExpireTime));
         response.push(mergeAndCreatePath(basePath, ["resultRecordSize"], $atom(resultRecordSize), searchResultExpireTime));
@@ -226,7 +226,7 @@ async function initiateSearch(callPath, args) {
     finally {
     }
 
-    //console.log(JSON.stringify(response));   
+    //console.log(JSON.stringify(response));
     return response;
 }
 
@@ -315,7 +315,7 @@ function createGetRequest(reqData) {
         if( contexts && contexts.length > 0) {
             filters.excludeNonContextual = true;
         }
-    } 
+    }
 
     if (!isEmpty(filters)) {
         query.filters = filters;
@@ -375,6 +375,8 @@ async function get(dataObjectIds, reqData) {
                     isNearestGet = true;
                 }
             }
+        }else if(reqData.dataObjectType == 'entitymanageevent') {
+            delete request.params.query.valueContexts;
         }
 
         //set the ids into request object..
@@ -457,7 +459,7 @@ async function getByIds(pathSet, operation) {
     try {
 
         /*
-        */
+         */
         //console.log('---------------------' , operation, ' dataObjectsById call pathset requested:', pathSet, ' operation:', operation);
         var reqDataObjectTypes = pathSet.dataObjectTypes;
 
@@ -521,7 +523,7 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
             //console.log('dataObject data', JSON.stringify(dataObject, null, 4));
 
             var apiRequestObj = { 'dataIndex': dataIndex, 'clientState': clientState };
-            apiRequestObj[dataIndexInfo.name] = dataObject;
+            apiRequestObj[dataIndexInfo.name] = falcorUtil.cloneObject(dataObject);
 
             //Added hotline to api request only when it is true
             if (clientState.hotline) {
@@ -531,6 +533,7 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
             delete clientState.hotline;
 
             if (dataObjectAction == "create" || dataObjectAction == "update") {
+                _removeUnnecessaryProperties(apiRequestObj);
                 _prependAuthorizationType(apiRequestObj);
             }
             //console.log('api request data for process dataObjects', JSON.stringify(apiRequestObj));
@@ -725,6 +728,36 @@ function _prependAuthorizationType(reqObject) {
         reqObject.params = {
             "authorizationType": "accommodate"
         };
+    }
+}
+
+function _removeUnnecessaryProperties(reqObject) {
+    if(reqObject && reqObject.entity && reqObject.entity.data) {
+        var data = reqObject.entity.data;
+
+        if(data.attributes) {
+            _removePropertiesFromAttributes(data.attributes);
+        }
+
+        if(data.contexts) {
+            data.contexts.forEach(function(ctx){
+                if(ctx && ctx.attributes) {
+                    _removePropertiesFromAttributes(ctx.attributes);
+                }
+            }, this);
+        }
+    }
+}
+
+function _removePropertiesFromAttributes(attributes) {
+    if(attributes) {
+        for(var attrKey in attributes) {
+            var attr = attributes[attrKey];
+            if(attr.properties) {
+                console.log("remove: ", JSON.stringify(attr, null, 2))
+                delete attr.properties
+            }
+        }
     }
 }
 

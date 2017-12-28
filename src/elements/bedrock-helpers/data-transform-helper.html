@@ -87,30 +87,11 @@
 
             if (firstDataContext) {
                 var ctxAttributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, firstDataContext);
-                var ctxAttrKeys = Object.keys(ctxAttributes);
-                for (var attrKey in mergedAttributes) {
-                    if (ctxAttrKeys.indexOf(attrKey) == -1) {
-                        mergedAttributes[attrKey].properties = {
-                            "contextCoalesce": [
-                                {
-                                    "self": "Self"
-                                }
-                            ]
-                        };
-                    } else {
-                        if(ctxAttributes[attrKey].values && ctxAttributes[attrKey].values.length) {
-                            ctxAttributes[attrKey].values.forEach(function(item){
-                                if(_.isEmpty(item.properties)) {
-                                    item.properties = {};
-                                    item.properties.localeCoalescePath = "_DEEP_ASSIGN_DELETE_";
-                                } else if (item.properties && _.isEmpty(item.properties.localeCoalescePath))  {
-                                    item.properties.localeCoalescePath = "_DEEP_ASSIGN_DELETE_";
-                                }   
-                            }, this);
-                        }
-                    }
-                }
-                
+
+                // RDF is not supporting coalesce between self context to other context.
+                // _prepareForSelfToContextCoalesce will do coalesce manually to link self context with other context.
+                DataTransformHelper._prepareForSelfToContextCoalesce(mergedAttributes, ctxAttributes);
+
                 if (!_.isEmpty(ctxAttributes)) {
                     mergedAttributes = DataMergeHelper.mergeAttributes(mergedAttributes, ctxAttributes, true);
                 }
@@ -160,6 +141,16 @@
             });
 
             return sortedAttributeModels;
+        };
+
+
+        DataTransformHelper.hasLocalizableAttributes = function (attributeModels) {
+            for (let key in attributeModels) {
+                if (attributeModels[key].properties && attributeModels[key].properties.isLocalizable) {
+                    return true;
+                }
+            }
+            return false;
         };
 
         DataTransformHelper._sortByDisplaySequence = function (modelArray) {
@@ -444,7 +435,7 @@
                 }
 
                 attributeInstance = { "values": attributeValues };
-            } else if(Array.isArray(attributeJSON.group)) {
+            } else if (Array.isArray(attributeJSON.group)) {
                 attributeInstance = { "group": attributeJSON.group };
             } else {
                 var attributeValue = { "value": attributeJSON.value };
@@ -465,6 +456,11 @@
                 attributeInstance = { "values": attributeValues };
             }
             delete attributeJSON.action;
+
+
+            if (attributeJSON.attrProperties) {
+                attributeInstance.properties = attributeJSON.attrProperties;
+            }
 
             return attributeInstance;
         };
@@ -531,7 +527,7 @@
                     if (attribute && attribute.values) {
                         attributeJSON = AttributeHelper.getCurrentValue(attribute.values, valueContext, attributeModel);
 
-                        if (attribute.properties && !_.isEmpty(dataContext)) {
+                        if (attributeJSON && attribute.properties && !_.isEmpty(dataContext)) {
                             var contextCoalescePaths = [];
                             var contextCoalesce = attribute.properties.contextCoalesce;
                             if (contextCoalesce && contextCoalesce.length) {
@@ -559,12 +555,16 @@
                             }
 
 
-                            if (attributeJSON && contextCoalescePaths && contextCoalescePaths.length) {
+                            if (contextCoalescePaths && contextCoalescePaths.length) {
                                 attributeJSON.contextCoalescePaths = contextCoalescePaths;
                             }
+
+                            // properties object should be sent to the server to update falcor cache in case of coalesced data.
+                            attributeJSON.attrProperties = attribute.properties;
                         }
 
                         var attributeRefIds = [];
+                        var localeCoalescePath = undefined;
                         for (var i = 0; i < attribute.values.length; i++) {
                             var attributeValue = attribute.values[i];
                             if (!DataHelper.isEmptyObject(attributeValue.properties)) {
@@ -574,11 +574,20 @@
                                     var referenceDataId = referenceData.replace(refEntityType + "/", "");
                                     attributeRefIds.push(referenceDataId);
                                 }
+
+                                if (attributeValue.properties.localeCoalescePath) {
+                                    localeCoalescePath = attributeValue.properties.localeCoalescePath;
+                                }
                             }
                         }
 
                         if (attributeJSON) {
                             attributeJSON.referenceDataId = attributeRefIds;
+
+                            if (!DataHelper.isEmptyObject(localeCoalescePath)) {
+                                attributeJSON.properties = attributeJSON.properties ? attributeJSON.properties : {};
+                                attributeJSON.properties.localeCoalescePath = localeCoalescePath;
+                            }
                         }
 
                         if (attributeJSON != undefined && attributeJSON.invalidValue) {
@@ -724,6 +733,9 @@
                 if (model.displayType.toLowerCase() == 'referencelist') {
                     model.referenceEntityTypes = DataTransformHelper._getEntityTypesForLov(model);
                 }
+                if (model.dataType !== "nested" && model.dataType !== "string") {
+                    model.properties.isLocalizable = false;
+                }
 
                 model.name = attributeName;
             }
@@ -770,7 +782,7 @@
                                         var group = undefined;
 
                                         if (attributeModels[key].isCollection) {
-                                            if(attributeModels[key].dataType === "nested") {
+                                            if (attributeModels[key].dataType === "nested") {
                                                 group = rowData[key];
                                             } else {
                                                 val = rowData[key].split("||");
@@ -779,15 +791,15 @@
                                             val = rowData[key];
                                         }
 
-                                        
 
-                                        if(group) 
+
+                                        if (group)
                                             var attribute = {
                                                 "name": key,
                                                 "group": group,
                                                 "selfContext": attributeModels[key].selfContext
                                             };
-                                        else 
+                                        else
                                             var attribute = {
                                                 "name": key,
                                                 "value": val,
@@ -1013,77 +1025,77 @@
                 }
             }
             return _scopes;
-        },
+        };
 
-            DataTransformHelper.transformEntitySchemaToLovSchema = function (entities, lovColumnNameValueCollection) {
-                // Note: We will go by the assumption that id or value field is going to be unique
-                //       if id or name is provided do not put it into attributes fields
+        DataTransformHelper.transformEntitySchemaToLovSchema = function (entities, lovColumnNameValueCollection) {
+            // Note: We will go by the assumption that id or value field is going to be unique
+            //       if id or name is provided do not put it into attributes fields
 
-                var formattedEntities = [];
+            var formattedEntities = [];
 
-                if (entities && entities.length) {
-                    var entitiesToBeRemoved = [];
+            if (entities && entities.length) {
+                var entitiesToBeRemoved = [];
 
-                    for (var i = 0; i < entities.length; i++) {
-                        if (typeof (entities[i]) == "object") {
-                            var formattedEntity = {};
+                for (var i = 0; i < entities.length; i++) {
+                    if (typeof (entities[i]) == "object") {
+                        var formattedEntity = {};
 
-                            Object.keys(lovColumnNameValueCollection).map(function (columnName) {
-                                var attributeValue;
+                        Object.keys(lovColumnNameValueCollection).map(function (columnName) {
+                            var attributeValue;
 
-                                if (lovColumnNameValueCollection[columnName] == "id") {
-                                    formattedEntity[columnName] = entities[i].id;
-                                } else if (lovColumnNameValueCollection[columnName] == "name") {
-                                    formattedEntity[columnName] = entities[i].name;
-                                } else if (columnName == "type") {
-                                    var entityTypes = lovColumnNameValueCollection[columnName];
+                            if (lovColumnNameValueCollection[columnName] == "id") {
+                                formattedEntity[columnName] = entities[i].id;
+                            } else if (lovColumnNameValueCollection[columnName] == "name") {
+                                formattedEntity[columnName] = entities[i].name;
+                            } else if (columnName == "type") {
+                                var entityTypes = lovColumnNameValueCollection[columnName];
 
-                                    if (typeof (entityTypes !== "undefined" && entityTypes instanceof Array)) {
-                                        for (j = 0; j < entityTypes.length; j++) {
-                                            if (entityTypes[j] === entities[i].type) {
-                                                formattedEntity[columnName] = entityTypes[j];
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    if (entities[i].data) {
-                                        var fieldPattern = lovColumnNameValueCollection[columnName];
-                                        if (typeof (fieldPattern) === "string" && !DataHelper.isEmptyObject(fieldPattern)) {
-                                            attributeValue = DataTransformHelper.getLovFieldPatternValue(entities[i], fieldPattern, columnName);
-                                        }
-                                        if (attributeValue) {
-                                            formattedEntity[columnName] = attributeValue;
+                                if (typeof (entityTypes !== "undefined" && entityTypes instanceof Array)) {
+                                    for (j = 0; j < entityTypes.length; j++) {
+                                        if (entityTypes[j] === entities[i].type) {
+                                            formattedEntity[columnName] = entityTypes[j];
                                         }
                                     }
                                 }
-
-                                if (columnName == "title" && lovColumnNameValueCollection[columnName] != "" && !formattedEntity[columnName]) {
-                                    formattedEntity[columnName] = entities[i].id + " - Title not found";
+                            } else {
+                                if (entities[i].data) {
+                                    var fieldPattern = lovColumnNameValueCollection[columnName];
+                                    if (typeof (fieldPattern) === "string" && !DataHelper.isEmptyObject(fieldPattern)) {
+                                        attributeValue = DataTransformHelper.getLovFieldPatternValue(entities[i], fieldPattern, columnName);
+                                    }
+                                    if (attributeValue) {
+                                        formattedEntity[columnName] = attributeValue;
+                                    }
                                 }
-                            });
-
-                            if (!_.isEmpty(formattedEntity)) {
-                                formattedEntities.push(formattedEntity);
                             }
-                        } else {
-                            //if the array has a bad item (non-entity, or entity with no data) then mark it for delete
-                            entitiesToBeRemoved.push(i);
+
+                            if (columnName == "title" && lovColumnNameValueCollection[columnName] != "" && !formattedEntity[columnName]) {
+                                formattedEntity[columnName] = entities[i].id + " - Title not found";
+                            }
+                        });
+
+                        if (!_.isEmpty(formattedEntity)) {
+                            formattedEntities.push(formattedEntity);
                         }
+                    } else {
+                        //if the array has a bad item (non-entity, or entity with no data) then mark it for delete
+                        entitiesToBeRemoved.push(i);
                     }
-
-                    // Make it Private
-                    entitiesToBeRemoved.forEach(function (entityToBeRemoved) {
-                        for (var i = 0; i < entities.length; i++) {
-                            if (entities[i].id === entityToBeRemoved) {
-                                var currentEntity = entities[i];
-                                entities.splice(currentEntity, 1);
-                            }
-                        }
-                    });
                 }
 
-                return formattedEntities;
-            };
+                // Make it Private
+                entitiesToBeRemoved.forEach(function (entityToBeRemoved) {
+                    for (var i = 0; i < entities.length; i++) {
+                        if (entities[i].id === entityToBeRemoved) {
+                            var currentEntity = entities[i];
+                            entities.splice(currentEntity, 1);
+                        }
+                    }
+                });
+            }
+
+            return formattedEntities;
+        };
 
         DataTransformHelper.transformEntityModelSchemaToLovSchema = function (entityModels, lovColumnNameValueCollection) {
             var formattedEntityModels = [];
@@ -1349,6 +1361,14 @@
                 // Attribute
                 var attribute = EntityHelper.getAttribute(entity, attributeName);
 
+                if (lovColumnName === "textColor") {
+                    return AttributeHelper.getValueCoalescePath(attribute, "localeCoalescePath") ? "#0bb2e8" : undefined;
+                }
+
+                if (lovColumnName === "fontStyle") {
+                    return AttributeHelper.getValueCoalescePath(attribute, "contextCoalescePath") ? "italic" : undefined;
+                }
+
                 if (attribute && attribute.values) {
                     if (contextData) {
                         var firstValueContext = ContextHelper.getFirstValueContext(contextData);
@@ -1372,7 +1392,88 @@
             }
 
             return attributeValue;
-        }
+        };
+
+        DataTransformHelper.transformEntityModelsToReferenceModels = function(entityModels) {
+            var referenceModels = {};
+            if (entityModels && entityModels.length > 0) {
+                for (let i = 0; i < entityModels.length; i++) {
+                    let model = entityModels[i];
+                    if (model.data && model.data.attributes &&
+                        !DataHelper.isEmptyObject(model.data.attributes) &&
+                        model.data.attributes instanceof Object) {
+                        for (let attributeName in model.data.attributes) {
+                            let attributeObject = model.data.attributes[attributeName];
+
+                            if (attributeObject &&
+                                attributeObject.properties &&
+                                attributeObject.properties.isExternalName &&
+                                !referenceModels[model.name]) {
+                                referenceModels[model.name] = {
+                                    "externalNameAttribute": attributeName
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return referenceModels;
+        };
+
+        DataTransformHelper._prepareForSelfToContextCoalesce = function(selfAttributes, contextualAttributes) {
+            if(selfAttributes && contextualAttributes) {
+                var ctxAttrKeys = Object.keys(contextualAttributes);
+                for (var attrKey in selfAttributes) {
+                    if (ctxAttrKeys.indexOf(attrKey) == -1) {
+                        selfAttributes[attrKey].properties = {
+                            "contextCoalesce": [
+                                {
+                                    "self": "Self"
+                                }
+                            ]
+                        };
+                    } else {
+                        if (selfAttributes[attrKey] && contextualAttributes[attrKey]) {
+                            var ctxValues = contextualAttributes[attrKey].values;
+                            if (ctxValues && ctxValues.length) {
+                                var localeCoalescedCtxValues = ctxValues.filter(item => item.properties && item.properties.localeCoalescePath);
+
+                                if (localeCoalescedCtxValues && localeCoalescedCtxValues.length) {
+                                    var selfValues = selfAttributes[attrKey].values;
+                                    if (selfValues && selfValues.length) {
+                                        var localeCoalescedSelfValues = selfValues.filter(item => item.properties && item.properties.localeCoalescePath);
+
+                                        if (localeCoalescedSelfValues && !localeCoalescedSelfValues.length) {
+                                            selfAttributes[attrKey].properties = {
+                                                "contextCoalesce": [
+                                                    {
+                                                        "self": "Self"
+                                                    }
+                                                ]
+                                            };
+
+                                            contextualAttributes[attrKey] = selfAttributes[attrKey];
+                                        }
+                                    }
+                                } else {
+                                    ctxValues.forEach(function (item) {
+                                        if (_.isEmpty(item.properties)) {
+                                            item.properties = {};
+                                            item.properties.localeCoalescePath = "_DEEP_ASSIGN_DELETE_";
+                                        } else if (item.properties && _.isEmpty(item.properties.localeCoalescePath)) {
+                                            item.properties.localeCoalescePath = "_DEEP_ASSIGN_DELETE_";
+                                        }
+                                    }, this);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+
     })();
 
 </script>
