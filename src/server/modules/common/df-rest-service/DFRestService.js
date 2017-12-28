@@ -6,7 +6,7 @@ const DFServiceBase = require('../service-base/DFServiceBase'),
     notificationUtil = require('../../../../shared/dataobject-notification-util'),
     moment = require('moment');
 
-require('./df-rest-service-config.js');
+var SERVICE_CONFIG = require('./df-rest-service-config.js').SERVICE_CONFIG;
 
 var offlineRestService = null;
 var notifyUtil = notificationUtil.DataObjectNotificationUtil;
@@ -62,7 +62,8 @@ var _updateRequestObject = function (request) {
         clientUrl = "http://" + callerContext.hostName + ":5005/api/notify";
     }
 
-    if (notifyUtil) {
+    if (notifyUtil && securityContext) {
+        //console.log('sec context to be updated ', JSON.stringify(securityContext));
         notifyUtil.updateRequestObjectForNotification(request, securityContext.headers.userId, timeStamp, clientUrl);
     }
 }
