@@ -1,0 +1,524 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/polymer/lib/elements/custom-style.html">
+<link rel="import" href="../../../bower_components/iron-list/iron-list.html">
+<link rel="import" href="../../../bower_components/iron-scroll-threshold/iron-scroll-threshold.html">
+<link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-icon/pebble-icon.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+<link rel="import" href="../rock-widget-panel/rock-widget-panel.html">
+<link rel="import" href="../pebble-echo-html/pebble-echo-html.html">
+<link rel="import" href="entity-history-datasource.html">
+
+
+
+<!--
+`<rock-entity-summary>` Represents an element that renders the widgets 
+such as "to-do" and "to-fix" for an entity.
+
+### Example
+
+    <template is="dom-bind" id="demo-app">				
+				<rock-entity-summary config="{{config}}"></rock-entity-summary>
+		</template>
+
+@group rock Elements
+@element rock-entity-summary
+@demo demo/index.html
+-->
+
+<dom-module id="rock-recent-activity">
+  <template>
+    <style include="bedrock-style-common bedrock-styles-scroll-bar"></style>
+    <style include="iron-flex"></style>
+    <style>
+      :host {
+        display: block;
+        padding: 0 0px 20px 10px;
+        position: relative;
+        --pebble-echo: {
+          font-size: var(--font-size-sm, 12px);
+        }
+        ;
+      }
+
+      .item-wrapper {
+        padding-bottom: 10px;
+        display: flex;
+      }
+
+      #scrollingArea {
+        height: var(--rock-grid-height, 400px);
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 3px;
+        @apply --grid-list-view-scrollingRegion;
+      }
+
+      .status-icon {
+        display: -ms-flex;
+        display: inline-flex;
+        display: -webkit-inline-flex;
+        vertical-align: top;
+        align-items: center;
+        justify-content: center;
+        margin-right: 6px;
+      }
+
+      .status-icon pebble-icon {
+        --pebble-icon: {
+          fill: var(--secondary-text-color, #727272);
+        }
+        .message {
+          font-size: var(--default-font-size, 14px);
+        }
+      }
+
+      .time-stamp {
+        padding: 10px 0;
+        color: var(--secondary-text-color, #727272);
+        font-size: var(--font-size-sm, 12px);
+      }
+
+      .item-img {
+        width: 30px;
+        height: 30px;
+        margin-right: 10px;
+        border-radius: 50%;
+        border: 2px solid var(--default-border-color, #c1cad4);
+        overflow: hidden;
+      }
+
+      .item-img img {
+        width: 100%;
+        border: 2px solid #fff;
+        border-radius: 50%;
+      }
+
+      .item-details {
+        width: calc(100% - 40px);
+        border-bottom: 1px solid var(--default-border-color, #c1cad4);
+      }
+
+      .userName {
+        color: var(--palette-cerulean, #036bc3);
+        font-weight: 600;
+      }
+
+      .activity-property {
+        font-weight: bold;
+      }
+
+      .default-message {
+        margin-right: 10px;
+      }
+    </style>
+    <template is="dom-if" if="[[noRecord]]">
+      <div class="default-message">No activities found.</div>
+    </template>
+    <div id="scrollingArea">
+      <iron-list id="list" items="{{items}}" as="item" scroll-target="html" selection-enabled>
+        <template>
+          <div class="item-wrapper">
+            <div class="item-img">
+              <img src="../src/images/no-photo.jpg" />
+            </div>
+            <div class="item-details">
+              <div>
+                <pebble-echo-html html="{{item.Message}}"></pebble-echo-html>
+              </div>
+              <div class="time-stamp">
+                <div class="status-icon">
+                  <pebble-icon icon="{{_getIconName(item.action)}}" class="pebble-md-icons"></pebble-icon>
+                </div>
+                <span>on [[item.sourceTimestamp]]</span>
+              </div>
+            </div>
+          </div>
+        </template>
+      </iron-list>
+    </div>
+    <div class="loadingIndicator">
+      <pebble-spinner active="[[loading]]"></pebble-spinner>
+    </div>
+
+    <iron-scroll-threshold id="scrollTheshold" on-lower-threshold="_loadMoreData" scroll-target="scrollingArea">
+    </iron-scroll-threshold>
+    <entity-history-datasource id="eventDataSource" request="[[request]]" context-data="[[contextData]]" event-list-data-source="{{dataSource}}" grid-data-formatter="{{_dataFormatter}}">
+    </entity-history-datasource>
+    <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{_attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse">
+    </liquid-entity-model-composite-get>
+
+  </template>
+  <script>
+    (function () {
+      'use strict';
+
+      Polymer({
+        is: 'rock-recent-activity',
+        properties: {
+          /**
+           * Specifies the widget-panel config used for the "summary" dashboard.
+           */
+          config: {
+            type: Object,
+            value: function () {
+              return {};
+            }
+          },
+          /**
+           * If set as true , it indicates the component is in read only mode
+           */
+          loading: {
+            type: Boolean,
+            value: false
+          },
+          /**
+          * <b><i>Content development is under progress... </b></i> 
+          */
+          contextData: {
+            type: Object,
+            value: function () {
+              return {};
+            }
+          },
+          /**
+            * <b><i>Content development is under progress... </b></i> 
+            */
+          items: {
+            type: Array,
+            value: function () {
+              return [];
+            }
+          },
+          attributekeyName: {
+            type: Array,
+            value: function () {
+              return [];
+            }
+          },
+          eventList: {
+            type: Array,
+            value: function () {
+              return [];
+            }
+          },
+          _attributeModelRequest: {
+            type: Object,
+            value: function () {
+              return {};
+            }
+          },
+          dataSource: {
+            type: Object,
+            value: function () {
+              return {};
+            }
+          },
+          request: {
+            type: Object,
+            value: function () {
+              return {};
+            }
+          },
+          page: {
+            type: Number,
+            value: 0,
+            notify: true
+          },
+          pageSize: {
+            type: Number,
+            value: 10,
+            notify: true
+          },
+          noRecord: {
+            type: Boolean,
+            value: false
+          }
+        },
+        behaviors: [
+          RUFBehaviors.ComponentContextBehavior
+        ],
+        observers: [
+          '_pageChanged(dataSource, page)'
+        ],
+        ready: function () {
+          this._setListHeight();
+        },
+        _setListHeight: function () {
+          if (this.getBoundingClientRect().y > 0) {
+            var scrollHeight = window.innerHeight - this.getBoundingClientRect().y - 20;
+            // 20 pebble tab margin bottom height;
+            this.updateStyles({
+              "--rock-grid-height": scrollHeight + "px"
+            });
+          }
+        },
+        _loadMoreData: function () {
+          this.page++;
+        },
+        _onCompositeModelGetResponse: function (event) {
+          if (DataHelper.isValidObjectPath(event, 'detail.response.content.entityModels.0.data.attributes')) {
+            var attributes = event.detail.response.content.entityModels[0].data.attributes;
+            var attributeName = {};
+            for (var attribute in attributes) {
+              if (attributes.hasOwnProperty(attribute)) {
+                var attrValue = attributes[attribute];
+                if (DataHelper.isValidObjectPath(attrValue, 'properties.externalName'))
+                  attributeName[attribute] = attrValue.properties.externalName;
+              }
+            }
+            for (var i = 0; i < this.eventList.length; i++) {
+              var event = this.eventList[i];
+              if (event.Type == 'attributeChange') {
+                var externalName = "";
+                if (event && event.internalObjId) {
+                  externalName = attributeName[event.internalObjId];
+                  externalName = externalName == undefined ? "" : externalName;
+                  if (event.action == "delete") {
+                    event.Message = "<span class='userName'>" + event.user + "</span> removed <span class='activity-property'>" + externalName + "</span>";
+                  } else {
+                    event.Message = "<span class='userName'>" + event.user + "</span> changed <span class='activity-property'>" + externalName + "</span> to " + event.value;
+                  }
+                }
+              }
+            }
+            this._dataSuccess();
+          }
+        },
+        _pageChanged: function (dataSource, currentPage) {
+          if (!(dataSource === undefined || currentPage === undefined)) {
+            if (typeof (dataSource) == 'function' && currentPage > 0) {
+              if (DataHelper.isValidObjectPath(this.contextData, 'ItemContexts.0.id')) {
+                this.request = DataRequestHelper.createEntityEventGetRequest(this.contextData.ItemContexts[0].id)
+              }
+              this.loading = true;
+              this.noRecord = false;
+              var success = this._success.bind(this);
+              var error = this._error.bind(this);
+              dataSource({
+                page: this.page,
+                pageSize: this.pageSize,
+                sortOrder: this.sortOrder,
+                "viewMode": "List"
+              }, success, error);
+            }
+          }
+        },
+        _success: function (data) {
+          if (data && data.content && data.content.events && data.content.events.length > 0) {
+            this.eventList = this._getEventList(data);
+            if (this.attributekeyName.length > 0) {
+              var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+              compositeModelGetRequest.params.fields.attributes = this.attributekeyName
+              this.set("_attributeModelRequest", compositeModelGetRequest);
+              var liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
+              if (liquidModelGet && compositeModelGetRequest) {
+                liquidModelGet.generateRequest();
+              }
+            } else {
+              this._dataSuccess();
+            }
+          } else {
+            this.loading = false;
+            if (this.items.length == 0) {
+              this.noRecord = true;
+            }
+          }
+        },
+        _dataSuccess: function () {
+          if (this.eventList.length > 0) {
+            for (var i = 0; i < this.eventList.length; i++) {
+              this.push('items', this.eventList[i]);
+            }
+            var lastVisibleIndex = this._lastVisibleIndex();
+            this.$.list.scrollToIndex(lastVisibleIndex);
+            this.$.scrollTheshold.clearTriggers();
+          }
+          this.loading = false;
+        },
+        _visibleItemsCount: function () {
+          var firstItemIndex = this.$.list._physicalStart;
+          var firstItemHeight = this.$.list._physicalSizes[firstItemIndex];
+          var viewportHeight = this.$.list._viewportHeight || this.$.list._viewportSize;
+          if (firstItemHeight && viewportHeight) {
+            var visibleItems = (viewportHeight - this._viewportTotalPadding) /
+              firstItemHeight;
+            return Math.floor(visibleItems);
+          }
+        },
+        _lastVisibleIndex: function () {
+          if (this._visibleItemsCount()) {
+            return this.$.list.firstVisibleIndex + this._visibleItemsCount() - 1;
+          }
+        },
+        _getEventList: function (data) {
+          var eventList = [];
+          var defaultAttribute = ['clientId', 'relatedRequestId', 'eventSubType', 'entityType', 'entityId', 'eventType', 'entityAction'];
+          var defaultRelationship = ['eventTarget'];
+          if (DataHelper.isValidObjectPath(data, "content.events")) {
+            var events = data.content.events;
+            for (var i = 0; i < events.length; i++) {
+              var event = events[i];
+              if (DataHelper.isValidObjectPath(event, 'data.attributes')) {
+                var attributes = event.data.attributes;
+                if (DataHelper.isValidObjectPath(attributes, 'eventType.values.0.value')) {
+                  var actionType = attributes.eventType.values[0].value;
+                  if (actionType == 'EntityAdd') {
+                    var attributeAddEvent = this._attributeAddEvent(event, attributes)
+                    Array.prototype.push.apply(eventList, attributeAddEvent);
+                  }
+                  else if (actionType == 'EntityUpdate') {
+                    var attributeUpdateEvent = this._attributeUpdateEvent(event, attributes, defaultAttribute)
+                    Array.prototype.push.apply(eventList, attributeUpdateEvent);
+                  }
+                }
+              }
+              if (DataHelper.isValidObjectPath(event, 'data.relationships')) {
+                var relatioships = event.data.relationships;
+                var relatioshipsEvent = this._relationshipEvent(event, relatioships, defaultRelationship)
+                Array.prototype.push.apply(eventList, relatioshipsEvent);
+              }
+            }
+          }
+          return eventList;
+        },
+        _attributeAddEvent: function (event, attributes) {
+          var attributeAddEventList = []
+          var eventObj = {}
+          eventObj = {}
+          eventObj.Type = 'entityAdd';
+          eventObj.action = 'add';
+          if (DataHelper.isValidObjectPath(event, 'properties.modifiedBy')) {
+            eventObj.user = event.properties.modifiedBy;
+          }
+          if (DataHelper.isValidObjectPath(event, 'properties.modifiedDate')) {
+            eventObj.sourceTimestamp = FormatHelper.convertFromISODateTime(event.properties.modifiedDate, 'datetime');
+          }
+          if (DataHelper.isValidObjectPath(attributes, 'entityType.values.0.value')) {
+            eventObj.entityType = attributes.entityType.values[0].value;
+            eventObj.Message = "<span class='userName'>" + eventObj.user + "</span> created this <span class='activity-property'>" + eventObj.entityType + "</span>";
+          }
+          attributeAddEventList.push(eventObj)
+          return attributeAddEventList;
+        },
+        _attributeUpdateEvent: function (event, attributes, defaultAttribute) {
+          var attributeUpdateEventList = [];
+          var eventObj = {};
+          for (var attribute in attributes) {
+            if (attributes.hasOwnProperty(attribute)) {
+              if (defaultAttribute.indexOf(attribute) < 0) {
+                this.attributekeyName.push(attribute);
+                var attrObj = attributes[attribute]
+                eventObj = {}
+                eventObj.Type = 'attributeChange';
+                eventObj.action = this._getActionType(attrObj);
+                eventObj.internalObjId = attribute;
+                if (attrObj && attrObj.values) {
+                  var attributeValues = attrObj.values;
+                  var attrValues = "";
+                  for (var k = 0; k < attributeValues.length; k++) {
+                    var attrbuteValue = attributeValues[k];
+                    if (attrbuteValue && attrbuteValue.value) {
+                      if (k > 0) {
+                        attrValues = attrValues + ',';
+                      }
+                      attrValues = attrValues + attrbuteValue.value
+                    }
+                  }
+                  eventObj.value = attrValues;
+                } else {
+                  eventObj.value = "";
+                }
+                if (DataHelper.isValidObjectPath(event, 'properties.modifiedBy')) {
+                  eventObj.user = event.properties.modifiedBy;
+                }
+                if (DataHelper.isValidObjectPath(event, 'properties.modifiedDate')) {
+                  eventObj.sourceTimestamp = FormatHelper.convertFromISODateTime(event.properties.modifiedDate, 'datetime');
+                }
+                if (DataHelper.isValidObjectPath(attributes, 'entityType.values.0.value')) {
+                  eventObj.entityType = attributes.entityType.values[0].value;
+                }
+                attributeUpdateEventList.push(eventObj);
+              }
+            }
+          }
+          return attributeUpdateEventList;
+        },
+        _getActionType: function (eventsObject) {
+          var actionType = ""
+          if (DataHelper.isValidObjectPath(eventsObject, 'properties.changeType')) {
+            var changeType = eventsObject.properties.changeType;
+            if (changeType.startsWith('add')) {
+              actionType = "add";
+            } else if (changeType.startsWith('update')) {
+              actionType = "update";
+            } else if (changeType.startsWith('delete')) {
+              actionType = "delete";
+            }
+          }
+          return actionType;
+        },
+        _relationshipEvent: function (event, relatioships, defaultRelationship) {
+          var relationshipEventList = [];
+          var eventObj = {}
+          for (var relationship in relatioships) {
+            if (relatioships.hasOwnProperty(relationship)) {
+              if (defaultRelationship.indexOf(relationship) < 0) {
+                var relationshipWith = relatioships[relationship];
+                for (var k = 0; k < relationshipWith.length; k++) {
+                  var relTorelationship = relationshipWith[k];
+                  if (relTorelationship && relTorelationship.relTo && relTorelationship.relTo.id) {
+                    eventObj = {}
+                    eventObj.Type = 'relationshipChange';
+                    eventObj.action = this._getActionType(relTorelationship);
+                    eventObj.relationshipType = relationship;
+                    eventObj.internalObjId = relTorelationship.relTo.id;
+                    eventObj.relToURL = "";
+                    if (relTorelationship.relTo.type) {
+                      eventObj.relToURL = location.href.split('?')[0] + "?id=" + eventObj.internalObjId + "&type=" + relTorelationship.relTo.type;
+                    }
+                    if (DataHelper.isValidObjectPath(event, 'properties.modifiedBy')) {
+                      eventObj.user = event.properties.modifiedBy;
+                    }
+                    if (DataHelper.isValidObjectPath(event, 'properties.modifiedDate')) {
+                      eventObj.sourceTimestamp = FormatHelper.convertFromISODateTime(event.properties.modifiedDate, 'datetime');
+                    }
+                    if(eventObj.action == "delete"){
+                      eventObj.Message = "<span class='userName'>" + eventObj.user + "</span> removed <a href='" + eventObj.relToURL + "'>" + eventObj.internalObjId + "</a> from <span class='activity-property'>" + eventObj.relationshipType + "</span> relationship";
+                    }else{
+                      eventObj.Message = "<span class='userName'>" + eventObj.user + "</span> added relationship <span class='activity-property'>" + eventObj.relationshipType + "</span> with <a href='" + eventObj.relToURL + "'>" + eventObj.internalObjId + "</a>";
+                    }
+                      relationshipEventList.push(eventObj);
+                  }
+                }
+
+              }
+            }
+          }
+          return relationshipEventList;
+        }, 
+        _error: function () {
+          this.loading = false;
+        },
+        _getIconName: function (action) {
+          var iconName="";
+          switch (action) {
+            case "add":
+              iconName = "pebble-md-icons:Add";
+              break;
+            case "update":
+              iconName = "pebble-md-icons:Edit";
+              break;
+            case "delete":
+              iconName = "pebble-md-icons:Delete";
+              break;
+          }
+          return iconName;
+        }
+      });
+    })();
+  </script>
+</dom-module>
