@@ -21,6 +21,7 @@ const DataObjectManageService = require('./DataObjectManageService');
 const ConfigurationService = require('./ConfigurationService');
 const EntityCompositeModelGetService = require('./EntityCompositeModelGetService');
 const EventService = require('../event-service/EventService');
+const EntityHistoryEventService = require('../event-service/EntityHistoryEventService');
 
 //falcor utilty functions' references
 const responseBuilder = require('./dataobject-falcor-response-builder');
@@ -45,6 +46,7 @@ const dataObjectManageService = new DataObjectManageService(options);
 const entityCompositeModelGetService = new EntityCompositeModelGetService(options);
 const configurationService = new ConfigurationService(options);
 const eventService = new EventService(options);
+const entityHistoryEventService = new EntityHistoryEventService(options);
 
 const searchResultExpireTime = -30 * 60 * 1000;
 
@@ -345,6 +347,9 @@ function _getService(dataObjectType) {
     else if (dataObjectType == "externalevent" || dataObjectType == "bulkoperationevent") {
         return eventService;
     }
+    else if (dataObjectType == "entitymanageevent") {
+        return entityHistoryEventService;
+    }
     else {
         return dataObjectManageService;
     }
@@ -375,8 +380,6 @@ async function get(dataObjectIds, reqData) {
                     isNearestGet = true;
                 }
             }
-        }else if(reqData.dataObjectType == 'entitymanageevent') {
-            delete request.params.query.valueContexts;
         }
 
         //set the ids into request object..
