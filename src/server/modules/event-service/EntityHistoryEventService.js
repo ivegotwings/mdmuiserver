@@ -14,10 +14,11 @@ const falcorUtil = require('../../../shared/dataobject-falcor-util');
 const pathKeys = falcorUtil.getPathKeys();
 
 EntityHistoryEventservice.prototype = {
-    get: async function (request) {
+    get: async function (requestObj) {
         var response = {};
 
         try {
+            request = falcorUtil.cloneObject(requestObj);
             if (request.params) {
                 if (request.params.query && request.params.query.filters) {
                     request.params.query.filters.typesCriterion = ["entitymanageevent"]
@@ -26,6 +27,15 @@ EntityHistoryEventservice.prototype = {
                 if (request.params.isSearchRequest) {
                     //This is for initiate search... make search call and return response
                     response = await this.post("eventservice/get", request);
+
+                    if (response && response.response && response.response.events) {
+                        var events = response.response.events;
+
+                        for (var i = 0; i < events.length; i++) {
+                            var event = events[i];
+                            event.type = "entityhistoryevent";
+                        }
+                    }
                 } else {
                     //This is for getbyids...
                     var valContexts = undefined;
@@ -47,7 +57,6 @@ EntityHistoryEventservice.prototype = {
                     response = await this.post("eventservice/get", request);
                     if (response && response.response && response.response.events) {
                         var events = response.response.events;
-                        // console.log('babu',urlModule.parse(request.headers))
                         var historyList = await this._generateHistoryData(events, valContexts, dataContexts);
 
                         response.response.events = historyList;
@@ -118,12 +127,15 @@ EntityHistoryEventservice.prototype = {
         }
 
         //Resolve all internal ids to external names...
+        var attributesKeyValue = {};
+        var relationshipKeyValue = {};
+        var userNamebyEmailKeyValue = {};
+        var entityTypeKeyValue = {};
+        
         if (internalIds.attributeList.length > 0) {
             var externalResponse = await this._fetchCurrentEntityManageModel(internalIds, valContexts, dataContexts);
 
             if(externalResponse) {
-                var attributesKeyValue = {};
-                var relationshipKeyValue = {};
                 this._getAttributeAndRelTypeExternalName(externalResponse, attributesKeyValue, relationshipKeyValue)
             }
         }
@@ -132,8 +144,8 @@ EntityHistoryEventservice.prototype = {
             var userDetailResponse = await this._fetchUserDetails(internalIds.userMailIdList, valContexts, dataContexts);
             if (this._isValidObjectPath(userDetailResponse, "response.entityModels")) {
                 var userList = userDetailResponse.response.entityModels;
-                if (userList.length > 0) {
-                    var userNamebyEmailKeyValue = this._getUserNamebyEmail(userList);
+                if (userList && userList.length > 0) {
+                    userNamebyEmailKeyValue = this._getUserNamebyEmail(userList);
                 }
             }
         }
@@ -142,8 +154,8 @@ EntityHistoryEventservice.prototype = {
             var entityTypeDetailResponse = await this._fetchEntityTypeDetails(internalIds.entityTypeList);
             if (this._isValidObjectPath(entityTypeDetailResponse, "response.entityModels")) {
                 var entityTypeList = entityTypeDetailResponse.response.entityModels;
-                if (entityTypeList.length > 0) {
-                    var entityTypeKeyValue = this._getEntityTypeName(entityTypeList);
+                if (entityTypeList && entityTypeList.length > 0) {
+                    entityTypeKeyValue = this._getEntityTypeName(entityTypeList);
                 }
             }
         }
@@ -385,7 +397,7 @@ EntityHistoryEventservice.prototype = {
 
     _populateHistoryRecord: function (event, modelObj, historyObj, internalIds) {
         historyObj.id = event.id;
-        historyObj.type = "entitymanageevent";
+        historyObj.type = "entityhistoryevent";
         var data = historyObj["data"] = {};
         var historyAttributes = data["attributes"] = {};
 
