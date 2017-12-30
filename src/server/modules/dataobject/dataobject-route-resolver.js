@@ -347,7 +347,7 @@ function _getService(dataObjectType) {
     else if (dataObjectType == "externalevent" || dataObjectType == "bulkoperationevent") {
         return eventService;
     }
-    else if (dataObjectType == "entitymanageevent") {
+    else if (dataObjectType == "entityhistoryevent") {
         return entityHistoryEventService;
     }
     else {
