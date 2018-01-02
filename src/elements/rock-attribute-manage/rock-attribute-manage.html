@@ -88,18 +88,29 @@ It is responsible to "get" and "save" the attributes.
                              attribute-values="[[_attributeValues]]"
                              attribute-models="[[_attributeModels]]"
                              no-of-columns="[[noOfColumns]]"
-                             mode="[[mode]]"
-                             attribute-messages="[[_attributeMessages]]"
+                             mode="{{mode}}"
+                             attribute-messages="{{_attributeMessages}}"
                              attributes-chunk-length=20
                              on-list-mode-changed="_onListModeChanged"
                              ></rock-attribute-list>
-        <liquid-entity-data-get name="attributeGetDataService" operation="getbyids" request-data="{{_attributeRequest}}" last-response="{{_attributeResponse}}"></liquid-entity-data-get>
+        <liquid-entity-data-get name="attributeGetDataService"
+                                operation="getbyids"
+                                request-data="{{_attributeRequest}}"
+                                last-response="{{_attributeResponse}}"
+                                on-response="_onEntityDataGetReceived"
+                                on-error="_onEntityDataGetFailed"></liquid-entity-data-get>
+
+
         <liquid-entity-govern-data-get id="attributeGetMessageService" operation="getbyids" request-data={{_attributeMessageRequest}}
             on-response="_onAttributesMessageReceived" on-error="_onEntityGetFailed"></liquid-entity-govern-data-get>
         <liquid-entity-data-save name="attributeSaveDataService" operation="[[_entityDataOperation]]" request-data="{{_saveRequest}}"
             last-response="{{_saveResponse}}" on-response="_onSaveResponse" on-error="_onSaveError"></liquid-entity-data-save>
-        <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{_attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse">
-        </liquid-entity-model-composite-get>
+
+        <liquid-entity-model-composite-get on-error="_onEntityModelCompositeGetFailed"
+                                           name="compositeAttributeModelGet"
+                                           request-data="{{_attributeModelRequest}}"
+                                           on-entity-model-composite-get-response="_onCompositeModelGetResponse"></liquid-entity-model-composite-get>
+
         <liquid-rest id="entityGovernService" url="/data/pass-through/entitygovernservice/validate" method="POST" request-data={{_entityGovernRequest}}
             on-liquid-response="_onEntityGovernResponse" on-liquid-error="_onEntityGovernFailed">
         </liquid-rest>
@@ -123,7 +134,9 @@ It is responsible to "get" and "save" the attributes.
                     this.logInfo("AttributeManageAttached");
                 },
                 ready: function () {
-                    this.messageCodeMapping = this.getParentAppConfig('rock-attribute-manage', '', 'messageCodeMapping');
+                    if(_.isEmpty(this.messageCodeMapping)) {
+                        this.messageCodeMapping = this.getParentAppConfig('rock-attribute-manage', '', 'messageCodeMapping');
+                    }
                     this.logInfo("AttributeManageReady");
                 },
                 properties: {
@@ -392,7 +405,6 @@ It is responsible to "get" and "save" the attributes.
                             clonedContextData[ContextHelper.CONTEXT_TYPE_VALUE].push(defaultLocaleValueContext);
                         }
                     }
-
                     return clonedContextData;
                 },
                 _onCompositeModelGetResponse: function (e) {
@@ -406,6 +418,8 @@ It is responsible to "get" and "save" the attributes.
 
                         this._attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
 
+                        var entityId = itemContext.id;
+
                         var attributeNames = Object.keys(this._attributeModels);
 
                         if (attributeNames.length > 0) {
@@ -413,8 +427,10 @@ It is responsible to "get" and "save" the attributes.
                             if (entityId && entityId != "-1") {
                                 //add attribute names in item context
                                 itemContext.attributeNames = attributeNames;
-                                var contextData = this._getContextDataWithDefaultLocale();
-                                var req = DataRequestHelper.createEntityGetRequest(contextData, true);
+
+                                let contextData = this._getContextDataWithDefaultLocale();
+                                let useCoalesceFallback = DataTransformHelper.hasLocalizableAttributes(this._attributeModels);
+                                let req = DataRequestHelper.createEntityGetRequest(contextData, true, useCoalesceFallback);
 
                                 this.set("_attributeRequest", req);
 
@@ -423,11 +439,11 @@ It is responsible to "get" and "save" the attributes.
                                 delete messageReq.params.query.valueContexts;
 
                                 this.set("_attributeMessageRequest", messageReq);
-                                var liquidGovernGet = this.$.attributeGetMessageService;
+                                let liquidGovernGet = this.$.attributeGetMessageService;
                                 if (liquidGovernGet) {
                                     liquidGovernGet.generateRequest();
                                 }
-                                var liquidDataGet = this.shadowRoot.querySelector("[name=attributeGetDataService]");
+                                let liquidDataGet = this.shadowRoot.querySelector("[name=attributeGetDataService]");
                                 if (liquidDataGet) {
                                     liquidDataGet.generateRequest();
                                 }
@@ -444,6 +460,7 @@ It is responsible to "get" and "save" the attributes.
                         }
                     }
                 },
+
                 _onAttributesMessageReceived: function (e) {
                     //TODO: Needs to check with Vishal.
                     this._attributeMessages = {};
@@ -731,6 +748,20 @@ It is responsible to "get" and "save" the attributes.
                 _onEntityGovernFailed: function (e) {
                     this.logWarning("AttributeManageGovernFail", e);
                     this.showErrorToast("There is a problem in validation service. Please contact administrator.");
+                },
+                _onEntityModelCompositeGetFailed: function (e) {
+                    this.logWarning("EntityModelCompositeGetFail", e);
+                    this.showErrorToast("There is a problem with entity data service (EntityModelCompositeGet). Please contact administrator.")
+                },
+                _onEntityDataGetFailed: function (e) {
+                    this.logWarning("EntityDataGetFailed", e);
+                    this.showErrorToast("There is a problem in entity data service. Received empty response. Please contact administrator.");
+                },
+                _onEntityDataGetReceived: function (e) {
+                    let {response} = e.detail;
+                    if (response.content && !response.content.entities.length ) {
+                        this._onEntityDataGetFailed(e);
+                    }
                 },
                 _skipServerErrors: function () {
                     var errorDialog = this.$.errorsDialog;
