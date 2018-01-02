@@ -1,37 +1,17 @@
 <link rel="import" href="../../../bower_components/polymer/polymer.html">
-<link rel="import" href="../../../bower_components/polymer/lib/utils/async.html">
 
-<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
-<link rel="import" href="../bedrock-helpers/data-helper.html">
-<link rel="import" href="../bedrock-helpers/data-request-helper.html">
-<link rel="import" href="../bedrock-helpers/entity-helper.html">
-<link rel="import" href="../bedrock-helpers/data-transform-helper.html">
-<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
-<link rel="import" href="../bedrock-helpers/entity-helper.html">
-<link rel="import" href="../bedrock-helpers/context-helper.html">
-<link rel="import" href="../bedrock-helpers/attribute-helper.html">
-<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
 
-
-<link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
-<link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../liquid-rest/liquid-rest.html">
-<link rel="import" href="../liquid-config-get/liquid-config-get.html">
-<link rel="import" href="../liquid-config-save/liquid-config-save.html">
 
 <link rel="import" href="../pebble-file-upload/pebble-file-upload.html">
-<link rel="import" href="../pebble-dialog/pebble-dialog.html">
 <link rel="import" href="../pebble-icons/pebble-icons.html">
 <link rel="import" href="../pebble-icon/pebble-icon.html">
-<link rel="import" href="../pebble-image-viewer/pebble-image-viewer.html">
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
-<link rel="import" href="../pebble-checkbox/pebble-checkbox.html">
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-popover/pebble-popover.html">
 
-<link rel="import" href="../rock-grid/rock-grid.html">
-<link rel="import" href="../rock-classification-tree/rock-classification-tree.html">
 <link rel="import" href="../rock-entity-type-model-lov/rock-entity-type-model-lov.html">
 <!--
 <b><i>Content development is under progress... </b></i>
@@ -106,10 +86,15 @@
                 font-size: 12px;
                 margin-left: 15%;
             }
+
+            .message-info {
+                font-size: 12px;
+                margin-left: 16%;
+            }
         </style>
 <pebble-spinner active="[[_loading]]"></pebble-spinner>
-
 <div id="content-entity-import">
+    <div hidden$="!_isMessageAvailable(_message)" class="message-info">[[_message]]</div>
     <div class="placeHolder p-10">
         <p class="title">
             <pebble-button id="actions" class="dropdownText btn dropdown-success m-r-5" button-text="{{_mainTitle}}" noink dropdown-icon
@@ -119,12 +104,20 @@
             </pebble-popover>
             <bedrock-pubsub event-name="entity-type-selection-changed" handler="_onReferenceDataChange" target-id="referenceDataLov"></bedrock-pubsub>
 
-            <a href="#" class="btn-link" on-tap="_exportDialogOpen">Download</a> existing Value Mappings or upload an existing
+            <a href="#" class="btn-link" on-tap="_onDownloadTap">Download</a> existing Value Mappings or upload an existing
             value mapping file
         </p>
         <!-- screen for import -->
         <pebble-file-upload id="fileUpload" allowed-file-types="[[allowedFileTypes]]"></pebble-file-upload>
         <bedrock-pubsub event-name="pebble-file-upload-success" handler="_onFileUploadSuccess" target-id="fileUpload"></bedrock-pubsub>
+
+        <!-- Liquid calls -->
+        <liquid-entity-data-get id="initiateSearchResult" operation="initiatesearch" request-data="[[request]]" on-error="_onSearchError"
+            on-response="_onInitiateSearchResponse">
+        </liquid-entity-data-get>
+
+        <liquid-rest id="copDownloadService" url="" method="POST" request-data={{_copDownloadRequest}} on-liquid-response="_onCOPDownloadSuccess"
+            on-liquid-error="_onCOPDownloadFailure"></liquid-rest>
     </div>
     <div class="preview-message-container">
         <span class="preview-message-info">* Previewing data can take some time.</span>
@@ -132,136 +125,426 @@
 </div>
 </template>
 <script>
-        (function () {
-            'use strict';
+    (function () {
+        'use strict';
 
-            Polymer({
-                is: "rock-manage-reference",
+        Polymer({
+            is: "rock-manage-reference",
 
-                properties: {
-                    appContextData: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-
-                    _copRequest: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
-
-
-                    _saveRequest: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
-
-                    _fileName: {
-                        type: String
-                    },
-                    _currentBatchNumber: {
-                        type: Number,
-                        value: 0
-                    },
-                    _batchSize: {
-                        type: Number,
-                        value: 10
-                    },
-                    _loading: {
-                        type: Boolean,
-                        value: false
-                    },
-                    _downloadInProgress: {
-                        type: Boolean,
-                        value: false
-                    },
-
-                    _currentAction: {
-                        type: String,
-                        value: "create"
-                    },
-                    _showPreview: {
-                        type: Boolean,
-                        value: false
-                    },
-                    _isDirty: {
-                        type: Boolean,
-                        value: false
-                    },
-                    _workAutomationId: {
-                        type: String
-                    },
-
-                    _currentCOPService: {
-                        type: String,
-                        value: "process"
-                    },
-                    /**
-                      * <b><i>Content development is under progress... </b></i> 
-                      */
-                    skipNext: {
-                        type: Boolean,
-                        value: false
-                    },
-                    /**
-                      * <b><i>Content development is under progress... </b></i> 
-                      */
-                    businessFunctionData: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
-                    allowedFileTypes: {
-                        type: Array,
-                        value: function () { return []; }
-                    },
-                    _fileDetails: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
-                    copContext: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
-                    domain: {
-                        type: String,
-                        value: "referenceData"
-                    },
-                    _multiSelect: {
-                        type: Boolean,
-                        value: false
-                    },
-                    _mainTitle: {
-                        type: String,
-                        value: "Select reference type"
+            properties: {
+                appContextData: {
+                    type: Object,
+                    value: function () {
+                        return {};
                     }
                 },
-                observers: [
-                ],
-                behaviors: [
-                    RUFBehaviors.UIBehavior,
-                    RUFBehaviors.ComponentContextBehavior
-                ],
 
-                _onActionsTap: function (e) {
-                    this.shadowRoot.querySelector('#actionsPopover').show();
+                _copRequest: {
+                    type: Object,
+                    value: function () { return {}; }
                 },
 
-                _onReferenceDataChange: function (e, detail, sender) {
-                    this._mainTitle = detail.data.id;
 
-                    var popover = this.shadowRoot.querySelector("#actionsPopover");
-                    if (popover) {
-                        popover.hide();
+                _saveRequest: {
+                    type: Object,
+                    value: function () { return {}; }
+                },
+
+                _fileName: {
+                    type: String
+                },
+                _currentBatchNumber: {
+                    type: Number,
+                    value: 0
+                },
+                _batchSize: {
+                    type: Number,
+                    value: 10
+                },
+                _loading: {
+                    type: Boolean,
+                    value: false
+                },
+                _downloadInProgress: {
+                    type: Boolean,
+                    value: false
+                },
+
+                _currentAction: {
+                    type: String,
+                    value: "create"
+                },
+                _showPreview: {
+                    type: Boolean,
+                    value: false
+                },
+                _isDirty: {
+                    type: Boolean,
+                    value: false
+                },
+                _workAutomationId: {
+                    type: String
+                },
+
+                _currentCOPService: {
+                    type: String,
+                    value: "process"
+                },
+                /**
+                  * <b><i>Content development is under progress... </b></i> 
+                  */
+                skipNext: {
+                    type: Boolean,
+                    value: false
+                },
+                /**
+                  * <b><i>Content development is under progress... </b></i> 
+                  */
+                businessFunctionData: {
+                    type: Object,
+                    value: function () { return {}; }
+                },
+                allowedFileTypes: {
+                    type: Array,
+                    value: function () { return []; }
+                },
+                _fileDetails: {
+                    type: Object,
+                    value: function () { return {}; }
+                },
+                copContext: {
+                    type: Object,
+                    value: function () { return {}; }
+                },
+                domain: {
+                    type: String,
+                    value: "referenceData"
+                },
+                _multiSelect: {
+                    type: Boolean,
+                    value: false
+                },
+                _mainTitle: {
+                    type: String,
+                    value: "Select reference type"
+                },
+                _referenceType: {
+                    type: String,
+                    value: null
+                },
+                request: {
+                    type: Object,
+                    value: function () {
+                        return {};
                     }
+                },
+                    _message: {
+                        type: String,
+                        value: ""
+                    }
+            },
+            observers: [
+            ],
+            behaviors: [
+                RUFBehaviors.UIBehavior,
+                RUFBehaviors.ComponentContextBehavior
+            ],
+
+            _onActionsTap: function (e) {
+                this.shadowRoot.querySelector('#actionsPopover').show();
+            },
+
+            _onReferenceDataChange: function (e, detail, sender) {
+                this._referenceType = detail.data.id;
+                this._mainTitle = detail.data.title || detail.data.id;
+
+                var popover = this.shadowRoot.querySelector("#actionsPopover");
+                if (popover) {
+                    popover.hide();
+                }
+            },
+
+            _onDownloadTap: function () {
+                if (!this._referenceType) {
+                    this.showErrorToast("Please select reference type.");
+                    return;
                 }
 
-                //Show a dropdown with complete reference list, similar to reference data dropdown
-                //On downlod click without selecting reference data show an error message to select the referenceType
-                //On triggering the process download all ther reference data 
-                //Upload the reference data
+                if (_.isEmpty(this.copContext)) {
+                    this.showErrorToast("COP context missing in the configuration, please verify.");
+                    return;
+                }
 
-            });
-        })();
-    </script>
+                var itemContext = {
+                    'type': this._referenceType
+                };
+                this.appContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+
+                //Prepare request
+                var request = DataRequestHelper.createEntityGetRequest(this.appContextData, true, true);
+                if (request && request.params) {
+                    request.params.options.from = 0;
+                    request.params.options.to = 1;
+                }
+
+                this.request = request;
+                var liquidInitiate = this.shadowRoot.querySelector("#initiateSearchResult");
+                if (liquidInitiate) {
+                    liquidInitiate.generateRequest();
+                }
+            },
+
+            _onInitiateSearchResponse: function (e, detail) {
+                if (detail && detail.response && detail.response.content) {
+                    var totalRecords = detail.response.content.totalRecords;
+                }
+
+                if (!totalRecords || totalRecords == 0) {
+                    this.showErrorToast("Reference data not available.");
+                    return;
+                }
+
+                var profileContexts = [];
+                profileContexts.push(this.copContext);
+                var attributes = ["_ALL"];
+                var message = "Downloading " + totalRecords + " references with all attributes";
+                this._setMsgAndSpinner(message, true);
+
+                // var refRequest = detail.request.requestData;
+                // delete detail.request.requestData.params.options;
+                // detail.request.requestData.fields = { "attributes": attributes };
+
+                //Prepare request
+                var req = {
+                    "clientState": {
+                        "notificationInfo": {
+                            "userId": DataHelper.getUserId()
+                        }
+                    },
+                    "params": {
+                        "fields": {
+                            "attributes": attributes,
+                            "relationships": [
+                                "_ALL"
+                            ]
+                        },
+                        "rsconnect": {
+                            "includeValidationData": true,
+                            "profilecontexts": profileContexts
+                        }
+                    }
+                };
+
+                req.params.rsconnect.profilecontexts[0].channel = "JOB";
+                req.params.query = detail.request.requestData.params.query;
+
+                req.fileName = "EntityData";
+                if(DataHelper.isHotlineModeEnabled()) {
+                    req.hotline = true;
+                }
+                this._copDownloadRequest = req;
+
+                var copDownloadLiquid = this.shadowRoot.querySelector("#copDownloadService");
+                if (copDownloadLiquid) {
+                    copDownloadLiquid.url = "/data/cop/downloadDataJob";
+                    copDownloadLiquid.timeout = 600000;
+                    copDownloadLiquid.generateRequest();
+                }
+            },
+
+            _onCOPDownloadSuccess: function (e) {
+                    this._setMsgAndSpinner("", false);
+                    if (e.detail && e.detail.response && e.detail.response.dataObjectOperationResponse) {
+                        var response = e.detail.response.dataObjectOperationResponse;
+                        var data = {};
+
+                        if (response.status.toLowerCase() == "success") {
+
+                            var taskId = response.dataObjects[0].properties.workAutomationId;
+                            data = {
+                                "messages": [
+                                    {
+                                        "message": "File download job started."
+                                    }
+                                ],
+                                "actions": [
+                                    {
+                                        "name": "closeFunction",
+                                        "text": "Take Me back to Where I started",
+                                        "action": { "name": "refresh-data" }
+                                    },
+                                    {
+                                        "name": "nextAction",
+                                        "text": "Take Me To Task Detail View",
+                                        "dataRoute": "task-detail",
+                                        "queryParams": { "id": taskId },
+                                        "action": { "name": "refresh-data" }
+                                    }
+                                ]
+                            };
+                        } else if (response.status.toLowerCase() == "error") {
+                            var error = response.statusDetail && response.statusDetail.message ? response.statusDetail.message : "";
+                            data = {
+                                "messages": [
+                                    {
+                                        "message": "Failed to start download entity data job. Please contact administrator: " + error
+                                    }
+                                ],
+                                "actions": [
+                                    {
+                                        "name": "closeFunction",
+                                        "text": "Take Me back to Where I started",
+                                        "action": { "name": "refresh-data" }
+                                    }
+                                ]
+                            };
+                        }
+
+                        this._gotToNextStep(data);
+                    }
+                },
+                _onCOPDownloadFailure: function (e) {
+                    this._setMsgAndSpinner("", false);
+                    if (e && e.detail && e.detail.response) {
+                        var error = DataHelper.validateAndGetMessage(e.detail.response);
+                        var data = {
+                            "messages": [
+                                {
+                                    "message": "Failed to start download entity data job. Please contact administrator: " + error
+                                }
+                            ],
+                            "actions": [
+                                {
+                                    "name": "closeFunction",
+                                    "text": "Take Me back to Where I started",
+                                    "action": { "name": "refresh-data" }
+                                }
+                            ]
+                        };
+
+                        this._gotToNextStep(data);
+                    }
+                },
+                _isMessageAvailable: function(message) {
+                    if(message) {
+                        return true;
+                    }
+
+                    return false;
+                },
+                _setMsgAndSpinner: function(msg, loading) {
+                    this._message = msg;
+                    this._loading = loading;
+                },
+                onFileUploadSuccess: function (e, detail, sender) {
+                    this._isDirty = true;
+                    this._loading = true;
+                    this.set("_fileName", detail.originalFileName);
+
+                    var fileDetails = {
+                        "file": detail.file,
+                        "fileName": detail.fileName,
+                        "originalFileName": detail.originalFileName
+                    };
+
+                    this.set("_fileDetails", fileDetails);
+
+                    this._currentCOPService = "process";
+                    var url = "/data/cop/process";
+
+                    this._generateCopRequest(url, this._fileDetails);
+
+                    this.async(function () {
+                        //Clear file upload
+                        this.$$('pebble-file-upload').reset();
+                    });
+                },
+                _generateCopRequest: function(url, fileDetails) {
+                    var formData = new FormData();
+                    formData.append("file", fileDetails.file);
+                    formData.append("fileName", fileDetails.fileName);
+
+                    var hotline = false;
+                    if(DataHelper.isHotlineModeEnabled()) {
+                        hotline = true;
+                    }
+
+                    var req = DataRequestHelper.createImportRequest(fileDetails, this.copContext, hotline);
+                    this._workAutomationId = DataHelper.generateUUID();
+                    req.dataObject.properties.workAutomationId = this._workAutomationId;
+
+                    formData.append("requestData", JSON.stringify(req));
+
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('POST', url, true);
+                    xhr.responseType = 'json';
+                    xhr.onload = function (e) {
+                        //Process triggred in async manner, so track the details through workAutomationId
+                        return;
+                    }.bind(this);
+                    xhr.send(formData);
+                    //After sending the form data show workAutomationId to user
+                    this._onCOPProcessComplete();
+                },
+                _onCOPSuccess: function (e) {
+                    var response = e.detail.response;
+                    var statusMessage = DataHelper.validateAndGetMessage(response);
+                    if (statusMessage == "") {
+                        var res = response.response;
+                        this._onCOPProcessComplete();
+                    } else {
+                        this.logWarning("UnexpectedCOP", "response", JSON.stringify(e.detail.response));
+                        this.showErrorToast(statusMessage + ". Please check the service or contact your administrator.");
+                        this._isDirty = false;
+                        this._loading = false;
+                    }
+                },
+                _onCOPFailure: function (e) {
+                    this.logWarning("COPTransformationFail", "response", JSON.stringify(e.detail));
+                    this.showErrorToast("Unable to transform excel to json. Please check the service or contact your administrator.");
+                    this._loading = false;
+                    this._isDirty = false;
+                },
+                _onCOPProcessComplete: function() {
+                    var data = {
+                        "messages": [
+                            {
+                                "message": "Entities will be created/updated using the uploaded file."
+                            },
+                            {
+                                "message": "You can view the status of the task " + this._workAutomationId + " in the Task Details"
+                            }
+                        ],
+                        "actions": [
+                            {
+                                "name": "closeFunction",
+                                "text": "Take Me back to Where I started",
+                                "action": { "name": "refresh-data" }
+                            },
+                            {
+                                "name": "gotoTaskDetails",
+                                "text": "Show me the task details",
+                                "dataRoute": "task-detail",
+                                "queryParams": {
+                                    "id": this._workAutomationId
+                                }
+                            }
+                        ]
+                    };
+                    this.businessFunctionData = data;
+                    ComponentHelper.getParentElement(this).businessFunctionData = data;
+                    var eventName = "onSave";
+                    var eventDetail = {
+                        name: eventName,
+                        data: { "skipNext": this.skipNext }
+                    };
+                    this._loading = false;
+                    this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                }
+
+            //Upload the reference data
+
+        });
+    })();
+</script>
 </dom-module>
