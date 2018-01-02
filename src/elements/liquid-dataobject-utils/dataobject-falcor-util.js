@@ -419,7 +419,7 @@ DataObjectFalcorUtil.mergeObjectsNoOverride = function (target, source, addMissi
         var targetObj = target[targetObjKey];
         var sourceObj = source[targetObjKey];
 
-        if (sourceObj) {
+        if (sourceObj && typeof sourceObj == "object") {
             targetObj = DataObjectFalcorUtil.deepAssign(targetObj, sourceObj);
         }
     }
