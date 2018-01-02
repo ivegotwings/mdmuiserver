@@ -21,6 +21,7 @@ const DataObjectManageService = require('./DataObjectManageService');
 const ConfigurationService = require('./ConfigurationService');
 const EntityCompositeModelGetService = require('./EntityCompositeModelGetService');
 const EventService = require('../event-service/EventService');
+const EntityHistoryEventService = require('../event-service/EntityHistoryEventService');
 
 //falcor utilty functions' references
 const responseBuilder = require('./dataobject-falcor-response-builder');
@@ -45,6 +46,7 @@ const dataObjectManageService = new DataObjectManageService(options);
 const entityCompositeModelGetService = new EntityCompositeModelGetService(options);
 const configurationService = new ConfigurationService(options);
 const eventService = new EventService(options);
+const entityHistoryEventService = new EntityHistoryEventService(options);
 
 const searchResultExpireTime = -30 * 60 * 1000;
 
@@ -336,6 +338,7 @@ function createGetRequest(reqData) {
 }
 
 function _getService(dataObjectType) {
+
     if (dataObjectType == 'entityCompositeModel') {
         return entityCompositeModelGetService;
     }
@@ -344,6 +347,9 @@ function _getService(dataObjectType) {
     }
     else if (dataObjectType == "externalevent" || dataObjectType == "bulkoperationevent") {
         return eventService;
+    }
+    else if (dataObjectType == "entityhistoryevent") {
+        return entityHistoryEventService;
     }
     else {
         return dataObjectManageService;
@@ -360,7 +366,6 @@ async function get(dataObjectIds, reqData) {
         var isNearestGet = false;
 
         var service = _getService(reqData.dataObjectType);
-
         var request = createGetRequest(reqData);
 
         if ((request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel') || request.dataIndex == "entityData") {
