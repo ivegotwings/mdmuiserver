@@ -15,7 +15,6 @@
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 <link rel="import" href="../liquid-rest/liquid-rest.html">
 <link rel="import" href="../liquid-dataobject-utils/liquid-dataobject-utils.html">
-<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
 
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
@@ -118,8 +117,6 @@ It is responsible to "get" and "save" the attributes.
         <liquid-rest id="entityMatchService" url="/data/pass-through/matchservice/search" method="POST" request-data={{_entityMatchRequest}}
             on-liquid-response="_onMatchSuccess" on-liquid-error="_onMatchFailure">
         </liquid-rest>
-        <liquid-entity-model-get id="getReferenceModels" operation="getbyids" request-data=[[_getRefModelsRequest]]
-            on-response="_onRefModelsReceived" on-error="_onRefModelsGetFailed"></liquid-entity-model-get>
         <template is="dom-if" if="[[_showNoAttributeMessage]]">
             <div align="center"> No attributes Found</div>
         </template>
@@ -339,13 +336,7 @@ It is responsible to "get" and "save" the attributes.
                         type:Boolean,
                         notify:true,
                         observer:'_onGlobalEdit'
-                    },
-                    _getRefModelsRequest: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
+                    }
                 },
                 behaviors: [
                     RUFBehaviors.UIBehavior,
@@ -427,86 +418,45 @@ It is responsible to "get" and "save" the attributes.
 
                         this._attributeModels = DataTransformHelper.transformAttributeModels(e.detail.response.content.entityModels[0], this.contextData);
 
-                        //get all referencetype attributes from compositemodel response to get referenceentitymanage model for each reference entity type
-                        var referenceEntityTypes = DataHelper.getAllReferenceEntityTypes(this._attributeModels);
+                        var entityId = itemContext.id;
 
-                        if(!DataHelper.isEmptyObject(referenceEntityTypes)) {
-                            this._generateGetReferenceModels(referenceEntityTypes);
-                        } else {
-                            this._generateGetAttributesRequest();
-                        }
-                    }
-                },
+                        var attributeNames = Object.keys(this._attributeModels);
 
-                _generateGetReferenceModels: function(refEntityTypes) {
-                    var req = DataRequestHelper.createGetManageModelRequest(refEntityTypes);
-                    this.set("_getRefModelsRequest", req);
+                        if (attributeNames.length > 0) {
 
-                    var refModelsGetLiquid = this.shadowRoot.querySelector("[id=getReferenceModels]");
-                    if(refModelsGetLiquid) {
-                        refModelsGetLiquid.generateRequest();
-                    }
-                },
+                            if (entityId && entityId != "-1") {
+                                //add attribute names in item context
+                                itemContext.attributeNames = attributeNames;
 
-                _onRefModelsReceived: function(e, detail) {
-                    var referenceModels = {};
-                    var responseContent = DataHelper.validateAndGetResponseContent(detail.response)
-                    if (responseContent) {
-                        var models = responseContent.entityModels;
-                        referenceModels = DataTransformHelper.transformEntityModelsToReferenceModels(models);
-                    }
+                                let contextData = this._getContextDataWithDefaultLocale();
+                                let useCoalesceFallback = DataTransformHelper.hasLocalizableAttributes(this._attributeModels);
+                                let req = DataRequestHelper.createEntityGetRequest(contextData, true, useCoalesceFallback);
 
-                    if(!DataHelper.isEmptyObject(referenceModels)) {
-                        DataHelper.updateReferenceTypeAttributeModels(this._attributeModels, referenceModels);
-                    }
+                                this.set("_attributeRequest", req);
 
-                    this._generateGetAttributesRequest();
-                },
+                                var messageReq = DataHelper.cloneObject(req);
 
-                _onRefModelsGetFailed: function(e) {
-                    this.logWarning("ReferenceManageModelGetFail", e);
-                },
+                                delete messageReq.params.query.valueContexts;
 
-                _generateGetAttributesRequest: function() {
-                    var itemContext = this.getFirstItemContext();
-                    var entityId = itemContext.id;
-
-                    var attributeNames = Object.keys(this._attributeModels);
-
-                    if (attributeNames.length > 0) {
-
-                        if (entityId && entityId != "-1") {
-                            //add attribute names in item context
-                            itemContext.attributeNames = attributeNames;
-
-                            let contextData = this._getContextDataWithDefaultLocale();
-                            let useCoalesceFallback = DataTransformHelper.hasLocalizableAttributes(this._attributeModels);
-                            let req = DataRequestHelper.createEntityGetRequest(contextData, true, useCoalesceFallback);
-
-                            this.set("_attributeRequest", req);
-
-                            var messageReq = DataHelper.cloneObject(req);
-
-                            delete messageReq.params.query.valueContexts;
-
-                            this.set("_attributeMessageRequest", messageReq);
-                            let liquidGovernGet = this.$.attributeGetMessageService;
-                            if (liquidGovernGet) {
-                                liquidGovernGet.generateRequest();
+                                this.set("_attributeMessageRequest", messageReq);
+                                let liquidGovernGet = this.$.attributeGetMessageService;
+                                if (liquidGovernGet) {
+                                    liquidGovernGet.generateRequest();
+                                }
+                                let liquidDataGet = this.shadowRoot.querySelector("[name=attributeGetDataService]");
+                                if (liquidDataGet) {
+                                    liquidDataGet.generateRequest();
+                                }
+                                this._showNoAttributeMessage = false;
+                            } else {
+                                var values = DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array", true);
+                                this._attributeValues = values;
+                                this.mode = 'edit';
                             }
-                            let liquidDataGet = this.shadowRoot.querySelector("[name=attributeGetDataService]");
-                            if (liquidDataGet) {
-                                liquidDataGet.generateRequest();
-                            }
-                            this._showNoAttributeMessage = false;
                         } else {
-                            var values = DataTransformHelper.transformAttributes({}, this._attributeModels, this.contextData, "array", true);
-                            this._attributeValues = values;
-                            this.mode = 'edit';
-                        }
-                    } else {
-                        if (this.functionalMode == "dataFunction") {
-                            this._showNoAttributeMessage = true;
+                            if (this.functionalMode == "dataFunction") {
+                                this._showNoAttributeMessage = true;
+                            }
                         }
                     }
                 },
