@@ -7,6 +7,8 @@
 
 <link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
+
+<link rel="import" href="reference-model-datasource.html">
 <!--
 <b><i>Content development is under progress... </b></i>
 
@@ -14,6 +16,8 @@
 -->
 <dom-module id="attribute-model-datasource">
     <template>
+        <reference-model-datasource id="referenceModelDataSource" reference-models="{{referenceModels}}"></reference-model-datasource>
+        <bedrock-pubsub event-name="reference-models-recieved" handler="_onRefModelsGet" target-id="referenceModelDataSource"></bedrock-pubsub>
         <liquid-entity-model-composite-get id="compositeModelGet" name="compositeAttributeModelGet" on-entity-model-composite-get-response="_onCompositeGetResponse"
             on-error="_onCompositeGetError" exclude-in-progress>
         </liquid-entity-model-composite-get>
@@ -81,6 +85,27 @@
                         return {};
                     }
                 },
+                _compositeModelresponse: {
+                    type: Object,
+                    value: function() {
+                        return {};
+                    }
+                },
+                _succesCallback: {
+                    type: Function
+                },
+                _errorCallback: {
+                    type: Function
+                },
+                referenceModels: {
+                    type: Object,
+                    value: function () { return {}; }
+                },
+                referenceModelsReady: {
+                    type: Boolean,
+                    value: false,
+                    notify: true
+                }
             },
 
             behaviors: [
@@ -92,10 +117,25 @@
             * <b><i>Content development is under progress... </b></i> 
             */
             ready: function () {
+                // var referenceModelDataSource = this.shadowRoot.querySelector("[id=referenceModelDataSource]");
+                // if(referenceModelDataSource) {
+                //     console.log("generating request for ref models: ", window.performance.now());
+                //     referenceModelDataSource.generateRequest();
+                // }
+
                 this._liquidInitSearchElement = this.$$('#liquidModelInitSearch');
                 this._liquidGetSearchElement = this.$$('#liquidModelGetResult');
                 this._liquidCompositeGetElement = this.$$('#compositeModelGet');
+                if(!_.isEmpty(this.mode)) {
+                    if(this.mode === "all") {
+                        this.rDataSource = this._dataSource.bind(this);
+                    }
+                }
+            },
 
+            _onRefModelsGet: function(e, detail) {
+                console.log("ref models recieved: ", window.performance.now());
+                this.set("referenceModelsReady", true);
                 if(!_.isEmpty(this.mode)) {
                     if(this.mode === "all") {
                         this.rDataSource = this._dataSource.bind(this);
@@ -109,6 +149,9 @@
             },
 
             _dataSource: function (options, success, error) {
+
+                this._succesCallback = success.bind(this);
+                this._errorCallback = error.bind(this);
 
                 if (_.isEmpty(this.request)) {
                     return;
@@ -208,33 +251,13 @@
                 this.isRequestInitiated = true;
             },
             _onGetSearchResponse: function (success, error) {
-                    if (typeof (this.rDataFormatter) == 'function') {
-                        if (this.searchResultResponse.status === "success") {
-                            if(this.schema == "lov") {
-                                success(this.rDataFormatter(this.searchResultResponse));
-                            } else if(this.schema == "grid") {
-                                if (this._lastPage < this._options.page) {
-
-                                    //this._requestForCompositeModel(this.searchResultResponse);
-                                    // Format ResponseData
-                                    var searchResults = this._formatResponse(this.searchResultResponse);
-                                    if (typeof (searchResults) == 'undefined') {
-                                        searchResults = [];
-                                    }
-
-                                    // UpdateCurrent RecordSize
-                                    this._updateCurrentRecordSize(this._options, searchResults, this._totalCount,this._resultRecordSize);
-
-                                    // Invoke Callback
-                                    success(searchResults);
-                                } else {
-                                    error();
-                                }
-                            }
-                        } else {
-                            error();
-                        }
+                if (typeof (this.rDataFormatter) == 'function') {
+                    if (this.searchResultResponse.status === "success") {
+                        this._updateReferenceEntityInfo(this.searchResultResponse);
+                    } else {
+                        error();
                     }
+                }
             },
             _onError: function (e) {
                 var response = e.detail.response; //need to check why this is response.response
@@ -267,7 +290,8 @@
                 var response = e.detail.response;
                 if (typeof (this.rDataFormatter) == 'function') {
                     if (response && response.status === "success") {
-                        this.rDataFormatter(response, e.detail.request.requestData);
+                        this._compositeModelresponse = e.detail;
+                        this._updateReferenceEntityInfo(response);
                     }
                 }
             },
@@ -275,6 +299,56 @@
             _onCompositeGetError: function (e) {
                 this.logError("AttributeModelsError",e);
             },
+
+            _updateReferenceEntityInfo: function(response) {
+                if(!_.isEmpty(this.referenceModels)) {
+                    if (response && response.content && !_.isEmpty(response.content.entityModels)) {
+                        if(this.mode === "all") { 
+                            DataHelper.updateReferenceTypeAttributeModels(response.content.entityModels, this.referenceModels);
+                        } else {
+                            DataHelper.updateReferenceTypeAttributeModels(response.content.entityModels[0].data.attributes, this.referenceModels);
+
+                            if(response.content.entityModels[0].contexts && response.content.entityModels[0].contexts.length > 0) {
+                                for(var i=0; i<response.content.entityModels[0].contexts.length; i++) {
+                                    var context = response.content.entityModels[0].contexts[i];
+                                    var specificCtxAttributeModels = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(response.content.entityModels[0], context);
+
+                                    DataHelper.updateReferenceTypeAttributeModels(specificCtxAttributeModels, this.referenceModels);
+                                }
+                            }
+                        }
+                    }
+                }
+                this._callSuccessCallback(response);
+            },
+
+            _callSuccessCallback: function(response) {
+                if(this.mode === "all") {
+                    if(this.schema == "lov") {
+                        this._succesCallback(this.rDataFormatter(response));
+                    } else if(this.schema == "grid") {
+                        if (this._lastPage < this._options.page) {
+
+                            //this._requestForCompositeModel(this.searchResultResponse);
+                            // Format ResponseData
+                            var searchResults = this._formatResponse(response);
+                            if (typeof (searchResults) == 'undefined') {
+                                searchResults = [];
+                            }
+
+                            // UpdateCurrent RecordSize
+                            this._updateCurrentRecordSize(this._options, searchResults, this._totalCount,this._resultRecordSize);
+
+                            // Invoke Callback
+                            this._succesCallback(searchResults);
+                        } else {
+                            this._errorCallback();
+                        }
+                    }
+                } else {
+                    this.rDataFormatter(response, this._compositeModelresponse.request.requestData);
+                }
+            }
         });
     </script>
 </dom-module>

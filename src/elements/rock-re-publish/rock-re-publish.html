@@ -95,7 +95,11 @@
                     _isPublished:{
                         type:Boolean,
                         value:false
-                    }
+                    },
+                    selectionMode: {
+                        type: String,
+                        value: "count"
+                    },
                 },
 
                 behaviors: [
@@ -116,23 +120,57 @@
                 _generateRePublishRequest: function () {                    
                     //Prepare request without entity
                     var req = DataRequestHelper.createRePublishRequest(this.profiles);
-                    if(req.params.query.filters.typesCriterion.length == 0){
-                        req.params.query.filters.typesCriterion = this.selectionQuery.filters.typesCriterion
+                    if(DataHelper.isValidObjectPath(req, 'params.query.filters.typesCriterion') && req.params.query.filters.typesCriterion.length == 0){
+                        if (DataHelper.isValidObjectPath(this.selectionQuery, 'filters.typesCriterion')) {
+                            req.params.query.filters.typesCriterion = this.selectionQuery.filters.typesCriterion;
+                        }else if(DataHelper.isValidObjectPath(this.selectionQuery, 'params.query.filters.typesCriterion')){
+                            req.params.query.filters.typesCriterion = this.selectionQuery.params.query.filters.typesCriterion;
+                        }
                     }
-                    //Add entities to the request
-                    var entities = [];
-                    for(var i = 0; i < this.selectedEntities.length; i++)
-                    {
-                        entities.push(this.selectedEntities[i].id);
+                    var profileContexts = [];
+                    if(this.profiles && this.profiles.length){
+                        var copContext = this.profiles[0].copContext;
+                        profileContexts.push(copContext);
                     }
-                    req["params"]["query"]["ids"] = entities;
-                    //Add hotline flag if hotline is enabled
+                    if (this.selectionMode == "query" && !_.isEmpty(this.selectionQuery)) {
+                        req = {
+                            "clientState": {
+                                "notificationInfo": {
+                                    "userId": DataHelper.getUserId()
+                                }
+                            },
+                            "params": {
+                                "fields": {
+                                    "relationships": [
+                                        "_ALL"
+                                    ]
+                                },
+                                "rsconnect": {
+                                    "includeValidationData": true,
+                                    "profilecontexts": profileContexts
+                                }
+                            }
+                        };
+                        if(this.selectionQuery.params && this.selectionQuery.params.isCombinedQuerySearch) {
+                            req.params.isCombinedQuerySearch = true;
+                            req.params.query = {};
+                            req.params.query.entity = this.selectionQuery.entity;
+                        } else {
+                            req.params.query = this.selectionQuery.params ? this.selectionQuery.params.query : this.selectionQuery;
+                        }
+                        req.fileName = "EntityData";
+                    }else if (this.selectionMode == "count" && this.selectedEntities.length){
+                        var entities = [];
+                        for(var i = 0; i < this.selectedEntities.length; i++)
+                        {
+                            entities.push(this.selectedEntities[i].id);
+                        }
+                        req["params"]["query"]["ids"] = entities;
+                    }
                     if(DataHelper.isHotlineModeEnabled()) {
                         req.hotline = true;
                     }
-
                     this.set("_rePublishRequest", req);
-
                     var liquidRePublish = this.shadowRoot.querySelector("#rePublish");
                     if (liquidRePublish) {
                         liquidRePublish.generateRequest();

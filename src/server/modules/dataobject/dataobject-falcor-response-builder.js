@@ -93,6 +93,15 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
 
         var attributeJson = attributesJson[attrKey] = {};
         var valContextsJson = attributeJson['valContexts'] = {};
+        var attrExpires = reqData.cacheExpiryDuration;
+
+        // Need to come up with proper solution where system can cache coalesced data.
+        // As per discussion with Vishal and Jimmy right now system will not cache any coalesced data more then 10 seconds.
+        // Because context coalesced structure is dynamic where falcor has to maintain different reference to avoid impact calculation +
+        // It has to do impact calculation when coalesced data path will get changed.
+        if (attr.properties && (attr.properties.contextCoalesce || attr.properties.instanceCoalesce)) {
+            attrExpires = -10000;
+        }
 
         if (attr.values) {
             var valCtxItems = {};
@@ -100,12 +109,16 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                 var source = val.source || undefined;
                 var locale = val.locale || undefined;
 
-                var valCtxItem = { 'source': source, 'locale': locale }; //TODO: Here, source and locale are hard coded... How to find out val contexts keys from the flat list of values object..??
-
-                var valCtxKey = falcorUtil.createCtxKey(valCtxItem);
-
+                var valCtxKey = falcorUtil.createCtxKey({ 'source': source, 'locale': locale }); //TODO: Here, source and locale are hard coded... How to find out val contexts keys from the flat list of values object..??
                 var valCtxItem = falcorUtil.getOrCreate(valCtxItems, valCtxKey, {});
                 var values = falcorUtil.getOrCreate(valCtxItem, 'values', []);
+
+                // Need to maintain two copies of valCtx request - with locale coalesce and without locale coalesce for entity get
+                // This is needed because: While updating any value update query will not have "localeCoalesce" flag inside it, so on response of update it will cache only valCtx where localeCoalesce is not there and
+                // as soon as update happens it will go for get with "localeCoalesce" flag and will get old value not the updated value.
+                var localeCoalesceValCtxKey = falcorUtil.createCtxKey({ 'source': source, 'localeCoalesce': true, 'locale': locale });
+                var localeCoalesceValCtxItem = falcorUtil.getOrCreate(valCtxItems, localeCoalesceValCtxKey, {});
+                var localeCoalesceValues = falcorUtil.getOrCreate(localeCoalesceValCtxItem, 'values', []);
 
                 //RDF has started sending values in actual data type
                 //like boolean as true/false instead of 'true'/'false' and 0 instead of '0'
@@ -115,23 +128,34 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                     val.value = val.value.toString();
                 }
                 values.push(val);
+                localeCoalesceValues.push(val);
             }
 
-            var expires = reqData.cacheExpiryDuration;
             if (attr.action && attr.action == "delete") {
-                expires = 0;
+                attrExpires = 0;
             }
 
             for (var valCtxKey in valCtxItems) {
                 var valCtxItem = valCtxItems[valCtxKey];
                 //console.log('valCtxItem.values', JSON.stringify(valCtxItem.values));
                 var valContextJson = {};
-                valContextJson['values'] = prepareValueJson($atom(valCtxItem.values), expires);
+                valContextJson['values'] = prepareValueJson($atom(valCtxItem.values), attrExpires);
                 valContextsJson[valCtxKey] = valContextJson;
 
                 //build paths if requested
                 if (reqData.buildPaths) {
                     paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', valCtxKey, 'values']));
+
+                    // In case of update if attr has context or instance coalesce property then remove these keys from attr.properties and reset properties atom.
+                    // It will provide proper updated data of source info to client.
+                    if (reqData.operation == "update" && attr.properties) {
+                        delete attr.properties.contextCoalesce;
+                        delete attr.properties.instanceCoalesce;
+
+                        valContextJson['properties'] = prepareValueJson($atom(attr.properties), attrExpires);
+                        paths.push(mergePathSets(basePath, ['attributes', attrKey, 'valContexts', valCtxKey, 'properties']));
+                    }
+
                 }
             }
         }
@@ -147,7 +171,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                         valContextJson = falcorUtil.getOrCreate(valContextsJson, valCtxKey, {});
                     }
 
-                    valContextJson['group'] = prepareValueJson($atom(attr.group), reqData.cacheExpiryDuration);
+                    valContextJson['group'] = prepareValueJson($atom(attr.group), attrExpires);
 
                     //build paths if requested
                     if (reqData.buildPaths) {
@@ -166,7 +190,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
             if (!selfValContextJson) {
                 selfValContextJson = falcorUtil.getOrCreate(valContextsJson, selfValCtxKey, {});
             }
-            selfValContextJson['properties'] = prepareValueJson($atom(attr.properties), reqData.cacheExpiryDuration);
+            selfValContextJson['properties'] = prepareValueJson($atom(attr.properties), attrExpires);
 
             //build paths if requested
             if (reqData.buildPaths) {
@@ -182,7 +206,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
                         if (!valContextJson) {
                             valContextJson = falcorUtil.getOrCreate(valContextsJson, valCtxKey, {});
                         }
-                        valContextJson['properties'] = prepareValueJson($atom(attr.properties), reqData.cacheExpiryDuration);
+                        valContextJson['properties'] = prepareValueJson($atom(attr.properties), attrExpires);
 
                         //build paths if requested
                         if (reqData.buildPaths) {
@@ -219,13 +243,13 @@ function _buildRelationshipsResponse(rels, reqData, currentDataContextJson, path
             var relsJson = {};
             var relIds = [];
 
-            if(originalRelIds && originalRelIds[relTypeKey]) {
+            if (originalRelIds && originalRelIds[relTypeKey]) {
                 relIds = originalRelIds[relTypeKey];
             }
 
             for (var relKey in relTypeData) {
                 var rel = relTypeData[relKey];
-                if(!rel.id) {
+                if (!rel.id) {
                     rel.id = falcorUtil.createRelUniqueId(relTypeKey, rel);
                 }
 
@@ -233,8 +257,8 @@ function _buildRelationshipsResponse(rels, reqData, currentDataContextJson, path
                     continue;
                 }
 
-                if(arrayContains(relIds, rel.id)) {
-                    if(rel.action == "delete") {
+                if (arrayContains(relIds, rel.id)) {
+                    if (rel.action == "delete") {
                         arrayRemove(relIds, rel.id);
                     }
                 }
@@ -299,7 +323,7 @@ function _buildRelationshipDetailsResponse(enRel, reqData, relTypeKey, relsJson,
     }
 
     if (enRel && enRel.relTo) {
-        var relDataObjectId = enRel.relTo.id || -1; 
+        var relDataObjectId = enRel.relTo.id || -1;
         var relDataObjectType = enRel.relTo.type || '';
 
         var dataObjectsByIdPath = mergePathSets(dataObjectsByIdBasePath, relDataObjectType, pathKeys.byIds);
@@ -514,7 +538,7 @@ function buildResponse(dataObject, reqData, paths) {
             }
         }
     }
-    
+
     return dataObjectResponseJson;
 }
 
@@ -570,7 +594,7 @@ function buildRefResponse(dataObject, reqData) {
 
             var pathToContextItem = mergePathSets(pathToContexts, [currentCtxKey])
 
-            if(currContext.selfContext) {
+            if (currContext.selfContext) {
                 //Add selfcontext response as $ref...
                 dataContextsJson[selfCtxKey] = prepareValueJson($ref(pathToContextItem), reqData.cacheExpiryDuration);
             }
@@ -578,7 +602,7 @@ function buildRefResponse(dataObject, reqData) {
                 //Add requested context response as $ref...
                 for (var i = 0; i < reqData.ctxKeys.length; i++) {
                     var ctxKey = reqData.ctxKeys[i];
-                    if(ctxKey != selfCtxKey) {
+                    if (ctxKey != selfCtxKey) {
                         //Assumption: We cannot compare requested context key with the resulted context... Hence considering first key always... 
                         dataContextsJson[ctxKey] = prepareValueJson($ref(pathToContextItem), reqData.cacheExpiryDuration);
                         break;
