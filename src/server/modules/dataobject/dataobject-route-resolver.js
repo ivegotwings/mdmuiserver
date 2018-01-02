@@ -338,6 +338,7 @@ function createGetRequest(reqData) {
 }
 
 function _getService(dataObjectType) {
+
     if (dataObjectType == 'entityCompositeModel') {
         return entityCompositeModelGetService;
     }
@@ -347,7 +348,7 @@ function _getService(dataObjectType) {
     else if (dataObjectType == "externalevent" || dataObjectType == "bulkoperationevent") {
         return eventService;
     }
-    else if (dataObjectType == "entitymanageevent") {
+    else if (dataObjectType == "entityhistoryevent") {
         return entityHistoryEventService;
     }
     else {
@@ -365,7 +366,6 @@ async function get(dataObjectIds, reqData) {
         var isNearestGet = false;
 
         var service = _getService(reqData.dataObjectType);
-
         var request = createGetRequest(reqData);
 
         if ((request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel') || request.dataIndex == "entityData") {
