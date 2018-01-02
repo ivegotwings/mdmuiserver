@@ -2,6 +2,8 @@
 <link rel="import" href="../../../bower_components/polymer/lib/elements/custom-style.html">
 <link rel="import" href="../../../bower_components/iron-list/iron-list.html">
 <link rel="import" href="../../../bower_components/iron-scroll-threshold/iron-scroll-threshold.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
 <link rel="import" href="../pebble-icon/pebble-icon.html">
@@ -110,7 +112,9 @@ such as "to-do" and "to-fix" for an entity.
       .activity-property {
         font-weight: bold;
       }
-
+      .attribute-value{
+        color:var(--success-color, #4caf50);
+      }
       .default-message {
         margin-right: 10px;
       }
@@ -127,13 +131,13 @@ such as "to-do" and "to-fix" for an entity.
             </div>
             <div class="item-details">
               <div>
-                <pebble-echo-html html="{{item.Message}}"></pebble-echo-html>
+                <pebble-echo-html html="{{item.message}}"></pebble-echo-html>
               </div>
               <div class="time-stamp">
                 <div class="status-icon">
                   <pebble-icon icon="{{_getIconName(item.action)}}" class="pebble-md-icons"></pebble-icon>
                 </div>
-                <span>on [[item.sourceTimestamp]]</span>
+                <span>on [[item.timeStamp]]</span>
               </div>
             </div>
           </div>
@@ -143,10 +147,10 @@ such as "to-do" and "to-fix" for an entity.
     <div class="loadingIndicator">
       <pebble-spinner active="[[loading]]"></pebble-spinner>
     </div>
-
+    <bedrock-pubsub event-name="entity-history-refresh" handler="_refresh"></bedrock-pubsub>
     <iron-scroll-threshold id="scrollTheshold" on-lower-threshold="_loadMoreData" scroll-target="scrollingArea">
     </iron-scroll-threshold>
-    <entity-history-datasource id="eventDataSource" request="[[request]]" context-data="[[contextData]]" event-list-data-source="{{dataSource}}" grid-data-formatter="{{_dataFormatter}}">
+    <entity-history-datasource id="eventDataSource" request="[[request]]" context-data="[[contextData]]" event-list-data-source="{{dataSource}}">
     </entity-history-datasource>
     <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{_attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse">
     </liquid-entity-model-composite-get>
@@ -239,6 +243,7 @@ such as "to-do" and "to-fix" for an entity.
           }
         },
         behaviors: [
+          RUFBehaviors.UIBehavior,
           RUFBehaviors.ComponentContextBehavior
         ],
         observers: [
@@ -250,7 +255,6 @@ such as "to-do" and "to-fix" for an entity.
         _setListHeight: function () {
           if (this.getBoundingClientRect().y > 0) {
             var scrollHeight = window.innerHeight - this.getBoundingClientRect().y - 20;
-            // 20 pebble tab margin bottom height;
             this.updateStyles({
               "--rock-grid-height": scrollHeight + "px"
             });
@@ -259,40 +263,15 @@ such as "to-do" and "to-fix" for an entity.
         _loadMoreData: function () {
           this.page++;
         },
-        _onCompositeModelGetResponse: function (event) {
-          if (DataHelper.isValidObjectPath(event, 'detail.response.content.entityModels.0.data.attributes')) {
-            var attributes = event.detail.response.content.entityModels[0].data.attributes;
-            var attributeName = {};
-            for (var attribute in attributes) {
-              if (attributes.hasOwnProperty(attribute)) {
-                var attrValue = attributes[attribute];
-                if (DataHelper.isValidObjectPath(attrValue, 'properties.externalName'))
-                  attributeName[attribute] = attrValue.properties.externalName;
-              }
-            }
-            for (var i = 0; i < this.eventList.length; i++) {
-              var event = this.eventList[i];
-              if (event.Type == 'attributeChange') {
-                var externalName = "";
-                if (event && event.internalObjId) {
-                  externalName = attributeName[event.internalObjId];
-                  externalName = externalName == undefined ? "" : externalName;
-                  if (event.action == "delete") {
-                    event.Message = "<span class='userName'>" + event.user + "</span> removed <span class='activity-property'>" + externalName + "</span>";
-                  } else {
-                    event.Message = "<span class='userName'>" + event.user + "</span> changed <span class='activity-property'>" + externalName + "</span> to " + event.value;
-                  }
-                }
-              }
-            }
-            this._dataSuccess();
-          }
+        _refresh:function(){
+          this.page = 0;
+          this.page = 1;
         },
         _pageChanged: function (dataSource, currentPage) {
           if (!(dataSource === undefined || currentPage === undefined)) {
             if (typeof (dataSource) == 'function' && currentPage > 0) {
               if (DataHelper.isValidObjectPath(this.contextData, 'ItemContexts.0.id')) {
-                this.request = DataRequestHelper.createEntityEventGetRequest(this.contextData.ItemContexts[0].id)
+                this.request = DataRequestHelper.createEntityEventGetRequest(this.contextData.ItemContexts[0].id);
               }
               this.loading = true;
               this.noRecord = false;
@@ -309,33 +288,71 @@ such as "to-do" and "to-fix" for an entity.
         },
         _success: function (data) {
           if (data && data.content && data.content.events && data.content.events.length > 0) {
-            this.eventList = this._getEventList(data);
-            if (this.attributekeyName.length > 0) {
-              var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
-              compositeModelGetRequest.params.fields.attributes = this.attributekeyName
-              this.set("_attributeModelRequest", compositeModelGetRequest);
-              var liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
-              if (liquidModelGet && compositeModelGetRequest) {
-                liquidModelGet.generateRequest();
+            var events = data.content.events;
+            var eventHistoryList = [];
+            for (var i = 0; i < events.length; i++) {
+              var event = events[i];
+              if (event) {
+                var attributes = event.data.attributes;
+                var timeStamp = "";
+                var messages = [];
+                var actions = [];
+
+                for (var attribute in attributes) {
+                  if (attributes.hasOwnProperty(attribute)) {
+                    var attrObj = attributes[attribute];
+                    if (attrObj && attrObj.values && attrObj.values.length > 0) {
+                      var valueObjs = attrObj.values;
+                      if (attribute == "timeStamp") {
+                        var value = valueObjs[0].value;
+                        timeStamp = FormatHelper.convertFromISODateTime(value, 'datetime');
+                      } else {
+                        var values = [];
+                        for (var j = 0; j < valueObjs.length; j++) {
+                          var valueObj = valueObjs[j];
+                          values.push(valueObj.value);
+                        }
+
+                        if(attribute == "action") {
+                          actions = values;
+                        } else if (attribute == "message") {
+                          messages = values;
+                        }
+                      }
+                    }
+                  }
+                }
+
+                for (var k = 0; k < messages.length; k++) {
+                  var message = messages[k];
+                  var action = actions[k];
+
+                  var eventHistoryObj = {}
+                  eventHistoryObj["eventType"] = event.eventType;
+                  eventHistoryObj["id"] = event.id;
+                  eventHistoryObj["type"] = event.type;
+                  eventHistoryObj["message"] = message;
+                  eventHistoryObj["action"] = action;
+                  eventHistoryObj["timeStamp"] = timeStamp;
+
+                  eventHistoryList.push(eventHistoryObj);
+                }
               }
-            } else {
-              this._dataSuccess();
+            }
+
+            if (eventHistoryList.length > 0) {
+              for (var i = 0; i < eventHistoryList.length; i++) {
+                this.push('items', eventHistoryList[i]);
+              }
+              this.loading = false;
+              var lastVisibleIndex = this._lastVisibleIndex();
+              this.$.list.scrollToIndex(lastVisibleIndex);
+              this.$.scrollTheshold.clearTriggers();
             }
           } else {
-            this.loading = false;
             if (this.items.length == 0) {
               this.noRecord = true;
             }
-          }
-        },
-        _dataSuccess: function () {
-          if (this.eventList.length > 0) {
-            for (var i = 0; i < this.eventList.length; i++) {
-              this.push('items', this.eventList[i]);
-            }
-            var lastVisibleIndex = this._lastVisibleIndex();
-            this.$.list.scrollToIndex(lastVisibleIndex);
-            this.$.scrollTheshold.clearTriggers();
           }
           this.loading = false;
         },
@@ -354,157 +371,11 @@ such as "to-do" and "to-fix" for an entity.
             return this.$.list.firstVisibleIndex + this._visibleItemsCount() - 1;
           }
         },
-        _getEventList: function (data) {
-          var eventList = [];
-          var defaultAttribute = ['clientId', 'relatedRequestId', 'eventSubType', 'entityType', 'entityId', 'eventType', 'entityAction'];
-          var defaultRelationship = ['eventTarget'];
-          if (DataHelper.isValidObjectPath(data, "content.events")) {
-            var events = data.content.events;
-            for (var i = 0; i < events.length; i++) {
-              var event = events[i];
-              if (DataHelper.isValidObjectPath(event, 'data.attributes')) {
-                var attributes = event.data.attributes;
-                if (DataHelper.isValidObjectPath(attributes, 'eventType.values.0.value')) {
-                  var actionType = attributes.eventType.values[0].value;
-                  if (actionType == 'EntityAdd') {
-                    var attributeAddEvent = this._attributeAddEvent(event, attributes)
-                    Array.prototype.push.apply(eventList, attributeAddEvent);
-                  }
-                  else if (actionType == 'EntityUpdate') {
-                    var attributeUpdateEvent = this._attributeUpdateEvent(event, attributes, defaultAttribute)
-                    Array.prototype.push.apply(eventList, attributeUpdateEvent);
-                  }
-                }
-              }
-              if (DataHelper.isValidObjectPath(event, 'data.relationships')) {
-                var relatioships = event.data.relationships;
-                var relatioshipsEvent = this._relationshipEvent(event, relatioships, defaultRelationship)
-                Array.prototype.push.apply(eventList, relatioshipsEvent);
-              }
-            }
-          }
-          return eventList;
-        },
-        _attributeAddEvent: function (event, attributes) {
-          var attributeAddEventList = []
-          var eventObj = {}
-          eventObj = {}
-          eventObj.Type = 'entityAdd';
-          eventObj.action = 'add';
-          if (DataHelper.isValidObjectPath(event, 'properties.modifiedBy')) {
-            eventObj.user = event.properties.modifiedBy;
-          }
-          if (DataHelper.isValidObjectPath(event, 'properties.modifiedDate')) {
-            eventObj.sourceTimestamp = FormatHelper.convertFromISODateTime(event.properties.modifiedDate, 'datetime');
-          }
-          if (DataHelper.isValidObjectPath(attributes, 'entityType.values.0.value')) {
-            eventObj.entityType = attributes.entityType.values[0].value;
-            eventObj.Message = "<span class='userName'>" + eventObj.user + "</span> created this <span class='activity-property'>" + eventObj.entityType + "</span>";
-          }
-          attributeAddEventList.push(eventObj)
-          return attributeAddEventList;
-        },
-        _attributeUpdateEvent: function (event, attributes, defaultAttribute) {
-          var attributeUpdateEventList = [];
-          var eventObj = {};
-          for (var attribute in attributes) {
-            if (attributes.hasOwnProperty(attribute)) {
-              if (defaultAttribute.indexOf(attribute) < 0) {
-                this.attributekeyName.push(attribute);
-                var attrObj = attributes[attribute]
-                eventObj = {}
-                eventObj.Type = 'attributeChange';
-                eventObj.action = this._getActionType(attrObj);
-                eventObj.internalObjId = attribute;
-                if (attrObj && attrObj.values) {
-                  var attributeValues = attrObj.values;
-                  var attrValues = "";
-                  for (var k = 0; k < attributeValues.length; k++) {
-                    var attrbuteValue = attributeValues[k];
-                    if (attrbuteValue && attrbuteValue.value) {
-                      if (k > 0) {
-                        attrValues = attrValues + ',';
-                      }
-                      attrValues = attrValues + attrbuteValue.value
-                    }
-                  }
-                  eventObj.value = attrValues;
-                } else {
-                  eventObj.value = "";
-                }
-                if (DataHelper.isValidObjectPath(event, 'properties.modifiedBy')) {
-                  eventObj.user = event.properties.modifiedBy;
-                }
-                if (DataHelper.isValidObjectPath(event, 'properties.modifiedDate')) {
-                  eventObj.sourceTimestamp = FormatHelper.convertFromISODateTime(event.properties.modifiedDate, 'datetime');
-                }
-                if (DataHelper.isValidObjectPath(attributes, 'entityType.values.0.value')) {
-                  eventObj.entityType = attributes.entityType.values[0].value;
-                }
-                attributeUpdateEventList.push(eventObj);
-              }
-            }
-          }
-          return attributeUpdateEventList;
-        },
-        _getActionType: function (eventsObject) {
-          var actionType = ""
-          if (DataHelper.isValidObjectPath(eventsObject, 'properties.changeType')) {
-            var changeType = eventsObject.properties.changeType;
-            if (changeType.startsWith('add')) {
-              actionType = "add";
-            } else if (changeType.startsWith('update')) {
-              actionType = "update";
-            } else if (changeType.startsWith('delete')) {
-              actionType = "delete";
-            }
-          }
-          return actionType;
-        },
-        _relationshipEvent: function (event, relatioships, defaultRelationship) {
-          var relationshipEventList = [];
-          var eventObj = {}
-          for (var relationship in relatioships) {
-            if (relatioships.hasOwnProperty(relationship)) {
-              if (defaultRelationship.indexOf(relationship) < 0) {
-                var relationshipWith = relatioships[relationship];
-                for (var k = 0; k < relationshipWith.length; k++) {
-                  var relTorelationship = relationshipWith[k];
-                  if (relTorelationship && relTorelationship.relTo && relTorelationship.relTo.id) {
-                    eventObj = {}
-                    eventObj.Type = 'relationshipChange';
-                    eventObj.action = this._getActionType(relTorelationship);
-                    eventObj.relationshipType = relationship;
-                    eventObj.internalObjId = relTorelationship.relTo.id;
-                    eventObj.relToURL = "";
-                    if (relTorelationship.relTo.type) {
-                      eventObj.relToURL = location.href.split('?')[0] + "?id=" + eventObj.internalObjId + "&type=" + relTorelationship.relTo.type;
-                    }
-                    if (DataHelper.isValidObjectPath(event, 'properties.modifiedBy')) {
-                      eventObj.user = event.properties.modifiedBy;
-                    }
-                    if (DataHelper.isValidObjectPath(event, 'properties.modifiedDate')) {
-                      eventObj.sourceTimestamp = FormatHelper.convertFromISODateTime(event.properties.modifiedDate, 'datetime');
-                    }
-                    if(eventObj.action == "delete"){
-                      eventObj.Message = "<span class='userName'>" + eventObj.user + "</span> removed <a href='" + eventObj.relToURL + "'>" + eventObj.internalObjId + "</a> from <span class='activity-property'>" + eventObj.relationshipType + "</span> relationship";
-                    }else{
-                      eventObj.Message = "<span class='userName'>" + eventObj.user + "</span> added relationship <span class='activity-property'>" + eventObj.relationshipType + "</span> with <a href='" + eventObj.relToURL + "'>" + eventObj.internalObjId + "</a>";
-                    }
-                      relationshipEventList.push(eventObj);
-                  }
-                }
-
-              }
-            }
-          }
-          return relationshipEventList;
-        }, 
         _error: function () {
           this.loading = false;
         },
         _getIconName: function (action) {
-          var iconName="";
+          var iconName = "";
           switch (action) {
             case "add":
               iconName = "pebble-md-icons:Add";
