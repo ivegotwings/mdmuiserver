@@ -12,11 +12,9 @@
 
         DataRequestHelper.createEntityModelCompositeGetRequest = function (contextData) {
             var contextData = DataHelper.cloneObject(contextData);//to avoid live reference change
-            var dataContexts = ContextHelper.getDataContexts(contextData);
-            var valContexts = ContextHelper.getValueContexts(contextData);
+
             var itemContexts = ContextHelper.getItemContexts(contextData);
 
-            var locale = valContexts && valContexts.length > 0 && valContexts[0].locale ? valContexts[0].locale : 'en-US';
             var typeName = itemContexts && itemContexts.length > 0 && itemContexts[0].type ? itemContexts[0].type : undefined;
             var domain = itemContexts && itemContexts.length > 0 && itemContexts[0].domain ? itemContexts[0].domain : undefined;
             var attributeNames = itemContexts && itemContexts.length > 0 && itemContexts[0].attributeNames ? itemContexts[0].attributeNames : undefined;
@@ -25,12 +23,11 @@
 
             if (!typeName) {
                 return undefined;
-            };
+            }
 
             var req = {
                 "params": {
                     "query": {
-                        "locale": locale,
                         "name": typeName,
                         "filters": {
                             "typesCriterion": [
@@ -48,11 +45,42 @@
             if (domain) {
                 req.params.query.domain = domain;
             }
-            if (!_.isEmpty(dataContexts) && !_.isEmpty(dataContexts[0])) {
-                req.params.query.contexts = dataContexts;
-            }
+
+            DataRequestHelper.addContextsToRequest(req, contextData);
 
             return req;
+        };
+
+        DataRequestHelper.addContextsToRequest = function (requestObject, contextData) {
+
+            console.log("addContextsToRequest", requestObject, contextData);
+
+            var dataContexts = ContextHelper.getDataContexts(contextData);
+            var valContexts = ContextHelper.getValueContexts(contextData);
+            var targetContexts = [{
+                "locale": DataHelper.getDefaultLocale()
+            }];
+
+            //in both cases (remove from the top)
+            if(DataHelper.getValue(requestObject, "params.query.locale")){
+                delete requestObject.params.query.locale;
+            }
+
+            //requestObject.params.query.contexts <- locale here for every of (dataContexts x valContexts.locale)
+            if (!_.isEmpty(dataContexts) && !_.isEmpty(dataContexts[0])) {
+                targetContexts = dataContexts.reduce((result, dataContext)=> {
+                                        (valContexts || []).forEach((valContext)=> {
+                                            let dataContextWithLocale = DataHelper.cloneObject(dataContext);
+                                            dataContextWithLocale.locale = valContext.locale;
+                                            result.push(dataContextWithLocale);
+                                        });
+                                    return result;
+                                }, []);
+            }
+
+            //requestObject.params.query.contexts if empty - create a new one with locale
+            //req.params.query.locale = valContexts && valContexts.length > 0 && valContexts[0].locale ? valContexts[0].locale : DataHelper.getDefaultLocale();
+            requestObject.params.query.contexts = targetContexts;
         };
 
         DataRequestHelper.createEntityGetRequest = function (contextData, addDefaultContext, allowCoalesceFallback) {
@@ -61,7 +89,7 @@
 
             if (!(itemContexts && itemContexts.length > 0)) {
                 return undefined;
-            };
+            }
 
             var dataContexts = ContextHelper.getDataContexts(contextData);
             var valueContexts = ContextHelper.getValueContexts(contextData);
@@ -827,6 +855,57 @@
             return req;
         };
 
+        DataRequestHelper.createEntityEventGetRequest = function (entityId) {
+            if (entityId) {
+                var req = {
+                    "params": {
+                        "query": {
+                            "filters": {
+                                "typesCriterion": [
+                                    "entityhistoryevent"
+                                ],
+                                "attributesCriterion": [
+                                    {
+                                        "entityId": {
+                                            "exact": entityId
+                                        }
+                                    },
+                                    {
+                                        "entityAction": {
+                                            "exact": "systemupdate",
+                                            "not": true
+                                        }
+                                    },
+                                    {
+                                        "eventType": {
+                                            "exact": "NoChange",
+                                            "not": true
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        "fields": {
+                            "attributes": [
+                                "message",
+                                "action",
+                                "timeStamp"
+                             ]
+                        },
+                        "sort": {
+                            "properties": [
+                                {
+                                    "modifiedDate": "_DESC",
+                                    "sortType": "_DATETIME"
+                                }
+                            ]
+                        }
+                    }
+                }
+                return req;
+            }
+        };
+
         DataRequestHelper.createProfileCreationRequest = function (profileId, baseProfile, service) {
             var ctxService = "";
             if (service == "transform") {
@@ -909,14 +988,14 @@
                     "action": "get",
                     "searchSequence": 2,
                     "searchQuery": entityDataReq.params
-                }
+                };
                 req.data.jsonData.searchQueries.push(entityDataSearchQuery);
             }
 
             if (!isBulkOperation) {
                 var combinedGetReq = {};
                 combinedGetReq.params = {};
-                combinedGetReq.params.isCombinedQuerySearch = true
+                combinedGetReq.params.isCombinedQuerySearch = true;
                 combinedGetReq.entity = req;
                 return combinedGetReq;
             } else {
@@ -995,7 +1074,43 @@
             };
 
             return req;
-        }
+        };
+
+        DataRequestHelper.createAttributesCriteria = function (searchText, titlePattern, subTitlePattern) {
+            if (typeof searchText != "undefined") {
+                var attributesCriterion = [];
+                var attributes = [];
+
+                if (typeof (titlePattern) !== 'undefined' && titlePattern !== "") {
+                    if (!attributes.includes(this.titlePattern)) {
+                        var titleFields = DataHelper.getAttributesBetweenCurlies(titlePattern);
+                        if (titleFields && titleFields instanceof Array) {
+                            attributes.push(...titleFields);
+                        }
+                    }
+                }
+
+                if (typeof (subTitlePattern) !== 'undefined' && subTitlePattern !== "") {
+                    if (!attributes.includes(subTitlePattern)) {
+                        var subTitleFields = DataHelper.getAttributesBetweenCurlies(subTitlePattern);
+                        if (subTitleFields && subTitleFields instanceof Array) {
+                            attributes.push(...subTitleFields);
+                        }
+                    }
+                }
+
+                if (attributes && attributes.length) {
+                    attributes.forEach(function (item) {
+                        var searchKey = new Object();
+                        var searchValue = new Object();
+                        searchValue.eq = '*' + searchText + '*';
+                        searchKey[item] = searchValue;
+                        attributesCriterion.push(searchKey);
+                    }, this);
+                }
+                return attributesCriterion
+            }
+        };
 
     })();
 </script>
