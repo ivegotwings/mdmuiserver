@@ -1,0 +1,277 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-lov-behavior/bedrock-lov-behavior.html">
+
+<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+
+<link rel="import" href="../rock-value-mappings-lov/value-mappings-model-datasource.html">
+
+<link rel="import" href="../pebble-lov/pebble-lov.html">
+
+<!--
+`<rock-value-mappings-lov> Represents a component that renders the attributes from manage models. 
+@demo demo/index.html
+-->
+
+<dom-module id="rock-value-mappings-lov">
+    <template>
+        <value-mappings-model-datasource id="entityModelDataSource" request="[[requestData]]" r-data-source="{{rDataSource}}" r-data-formatter="{{_dataFormatter}}"
+            keywords-criterion-builder="{{_keywordsCriterionBuilder}}" schema="lov">
+        </value-mappings-model-datasource>
+
+        <pebble-lov id="valueMappingsLov" select-all="[[selectAll]]" page-size="[[pageSize]]" multi-select="{{multiSelect}}" show-image="[[showImage]]"
+            show-color="[[showColor]]" no-sub-title show-action-buttons="[[showActionButtons]]" r-data-source="{{rDataSource}}"
+            items="[[items]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" on-selection-changed="_onSelectedItemChange"
+            on-lov-confirm-button-tap="_onLovConfirmButtonTapped" on-lov-close-button-tap="_onLovCloseButtonTapped">
+        </pebble-lov>
+    </template>
+    <script>
+        Polymer({
+            is: 'rock-value-mappings-lov',
+            properties: {
+                /**
+                  * <b><i>Content development is under progress... </b></i> 
+                  */
+                selectedItems: {
+                    type: Array,
+                    value: function () {
+                        return [];
+                    },
+                },
+                /**
+                  * <b><i>Content development is under progress... </b></i> 
+                  */
+                selectedItem: {
+                    type: Object,
+                    value: function () {
+                        return {}
+                    }
+                },
+                rDataSource: {
+                    type: Object,
+                    value: function () {
+                        return {}
+                    }
+                },
+                /**
+                  * <b><i>Content development is under progress... </b></i> 
+                  */
+                requestData: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+                /**
+                  * <b><i>Content development is under progress... </b></i> 
+                  */
+                domain: {
+                    type: String,
+                    value: null,
+                    observer: "_domainsChanged"
+                },
+                /**
+                  * <b><i>Content development is under progress... </b></i> 
+                  */
+                multiSelect: {
+                    type: Boolean,
+                    value: true
+                },
+
+                /**
+                  * <b><i>Content development is under progress... </b></i> 
+                  */
+                allowedEntityTypes: {
+                    type: Array,
+                    value: function () {
+                        return [];
+                    }
+                },
+                _dataFormatter: {
+                    notify: true,
+                    value: function () {
+                        return this._getValueMappingsFormattedData.bind(this);
+                    }
+                },
+                _keywordsCriterionBuilder: {
+                    notify: true,
+                    value: function () {
+                        return this._prepareKeywordsCriteria.bind(this);
+                    }
+                },
+                selectAll: {
+                    type: Boolean,
+                    value: false
+                },
+                pageSize: {
+                    type: Number,
+                    value: 30
+                },
+                showActionButtons: {
+                    type: Boolean,
+                    value: false
+                }
+            },
+            behaviors: [
+                RUFBehaviors.UIBehavior,
+                RUFBehaviors.LovBehavior
+            ],
+            /**
+              * <b><i>Content development is under progress... </b></i> 
+              */
+
+            _domainsChanged: function () {
+                this._getEntityManageModels();
+                this.resetData();
+            },
+            /**
+              * <b><i>Content development is under progress... </b></i> 
+              */
+            resetData: function () {
+                var lov = this.shadowRoot.querySelector("#valueMappingsLov");
+                if (lov) {
+                    lov.reset();
+                }
+            },
+            _onInitResponse: function _generateSearchRequest() {
+                this.shadowRoot.querySelector('#getEntitiesSearchResults').generateRequest();
+            },
+
+            _onError: function _onError() {
+                this.items = [];
+            },
+            _onSelectedItemChange: function (e) {
+                this.set("selectedItem", e.detail.item);
+                if (!_.isEmpty(this.selectedItem)) {
+                    var eventDetail = {
+                        data: this.selectedItem
+                    };
+                    this.fireBedrockEvent("value-mappings-selection-changed", eventDetail);
+                }
+            },
+            _getEntityManageModels: function () {
+                var contextData = {};
+                var itemContext = {
+                    "type": "entityManageModel"
+                };
+
+                //Prepare ids
+                var ids = [];
+                //if(this.domain) {
+                //domain specific entity types
+                //} else {
+                var entityTypes = this.appSetting('allowedEntityTypes');
+                for (var i = 0; i < entityTypes.length; i++) {
+                    ids.push(entityTypes[i] + "_entityManageModel");
+                }
+                //}
+
+                contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+
+                contextData[ContextHelper.CONTEXT_TYPE_VALUE] = [];
+                contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+                var req = DataRequestHelper.createEntityGetRequest(contextData);
+                delete req.params.options.maxRecords;
+                //Add ids
+                req.params.query.ids = ids;
+                //Model attributes
+                req.params.fields = {
+                    "attributes": ["_ALL"]
+                }
+
+                // req.params.sort = {
+                //     "properties": [{
+                //         "externalName": "_ASC",
+                //         "sortType": "_STRING"
+                //     }]
+                // };
+
+                this.set('requestData', req);
+            },
+
+            //Here LOV shows the item based on entityManageModel attribute properties
+            _getValueMappingsFormattedData: function (data) {
+                var entityModels = data.content.entityModels;
+                var filteredEntityTypes = [];
+                if (entityModels && entityModels.length) {
+                    for (var i = 0; i < entityModels.length; i++) {
+                        var entityModel = entityModels[i];
+                        if (entityModel.data && !_.isEmpty(entityModel.data.attributes)) {
+                            var modelAttributes = entityModel.data.attributes;
+                            for (var key in modelAttributes) {
+                                var attribute = modelAttributes[key];
+                                if (attribute && attribute.properties && attribute.properties.supportsValueMapping) {
+                                    var typeName = attribute.properties.valueMappingTypeName;
+                                    if (this._isSearchFound(typeName) && !this._isItemPresent(filteredEntityTypes, typeName)) {
+                                        filteredEntityTypes.push({
+                                            "title": typeName,
+                                            "id": typeName
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                return filteredEntityTypes;
+            },
+
+            _isItemPresent: function (items, id) {
+                var presentItem = items.find(function (item) {
+                    return item.id == id;
+                });
+                return !!presentItem;
+            },
+
+            _isSearchFound: function (typeName) {
+                if (!this._searchText) {
+                    return true;
+                }
+
+                if (typeName.indexOf(this._searchText) == -1) {
+                    return false;
+                }
+
+                return true;
+            },
+
+            //Keyword search won't work on attribute properties, 
+            //so explicitly do the filter while formatting
+            _prepareKeywordsCriteria: function (searchText) {
+                this._searchText = "";
+                if (searchText) {
+                    this._searchText = searchText.trim().toLowerCase();
+                }
+
+                // if (searchText) {
+                //     var keywordsCriterion = {};
+
+                //     keywordsCriterion.keywords = "*" + searchText + "*";
+                //     keywordsCriterion.operator = "_AND";
+                //     return keywordsCriterion;
+                // }
+            },
+            _onLovConfirmButtonTapped: function (event) {
+                var eventDetail = { name: "value-mappings-model-lov-confirm-button-tap" }
+                if (this.selectedItems.length > 0) {
+                    eventDetail["data"] = this.selectedItems;
+                }
+                /*else{
+                      var lov = this.shadowRoot.querySelector("#valueMappingsLov");
+                       eventDetail["data"] = lov.items;
+                 }*/
+                this.fireBedrockEvent(eventDetail.name, eventDetail);
+            },
+            _onLovCloseButtonTapped: function (event) {
+                var eventDetail = {
+                    data: this.id,
+                    name: "value-mappings-model-lov-close-button-tap"
+                }
+                this.fireBedrockEvent(eventDetail.name, eventDetail);
+            }
+        });
+
+    </script>
+</dom-module>

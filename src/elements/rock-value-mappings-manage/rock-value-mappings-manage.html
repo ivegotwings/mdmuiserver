@@ -1,0 +1,360 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+
+<link rel="import" href="../liquid-rest/liquid-rest.html">
+
+<link rel="import" href="../pebble-file-upload/pebble-file-upload.html">
+<link rel="import" href="../pebble-icons/pebble-icons.html">
+<link rel="import" href="../pebble-icon/pebble-icon.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-button/pebble-button.html">
+<link rel="import" href="../pebble-popover/pebble-popover.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+
+<link rel="import" href="../rock-value-mappings-lov/rock-value-mappings-lov.html">
+
+<!--
+<b><i>Content development is under progress... </b></i>
+
+@demo demo/index.html
+-->
+<dom-module id="rock-value-mappings-manage">
+    <template>
+        <style include="bedrock-style-common">
+            .placeHolder {
+                width: 880px;
+                margin: 0 auto;
+                font-size: 13px;
+                box-shadow: 0 0 10px 0 var(--cloudy-blue-color, #c1cad4);
+                position: relative;
+            }
+
+            .message-info {
+                font-size: 12px;
+                margin-left: 16%;
+            }
+
+            .value-mappings-export {
+                padding: 15px 0px 15px 0px;
+            }
+
+            pebble-file-upload {
+                --pebble-file-upload-zone: {
+                    height: 150px;
+                }
+            }
+
+            .value-mappings-title {
+                font-weight: var(--font-bold, bold);
+                color: var(--palette-dark, #1a2028);
+            }
+
+            #downloadButton {
+                margin-left: 5px;
+            }
+
+        </style>
+<pebble-spinner active="[[_loading]]"></pebble-spinner>
+<div id="content-entity-import">
+    <div hidden$="!_isMessageAvailable(_message)" class="message-info">[[_message]]</div>
+    <div class="placeHolder p-10">
+        <p class="value-mappings-title">Download existing Value Mappings</p>
+        <pebble-button id="actions" class="dropdownText btn btn-secondary m-r-5" button-text="{{_mainTitle}}" noink dropdown-icon
+            on-tap="_onActionsTap"></pebble-button>
+        <pebble-popover id="actionsPopover" for="actions" auto-fit-on-attach no-overlap horizontal-align="left">
+            <rock-value-mappings-lov multi-select="{{_multiSelect}}" domain="[[domain]]" id="valueMappingsLov"></rock-value-mappings-lov>
+        </pebble-popover>
+        <bedrock-pubsub event-name="value-mappings-selection-changed" handler="_onValueMappingsChange" target-id="valueMappingsLov"></bedrock-pubsub>
+        <pebble-button id="downloadButton" class="apply btn btn-success" button-text="Download" noink elevation="2" on-tap="_onDownloadTap"></pebble-button>
+
+        <!-- screen for import -->
+        <div class="value-mappings-export">
+            <p class="value-mappings-title">Drag and drop to upload Value Mappings file or Select</p>
+            <pebble-file-upload id="fileUpload" allowed-file-types="[[allowedFileTypes]]"></pebble-file-upload>
+            <bedrock-pubsub event-name="pebble-file-upload-success" handler="_onFileUploadSuccess" target-id="fileUpload"></bedrock-pubsub>
+        </div>
+    </div>
+
+</div>
+</template>
+<script>
+    (function () {
+        'use strict';
+
+        Polymer({
+            is: "rock-value-mappings-manage",
+
+            properties: {
+                appContextData: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+
+                _fileName: {
+                    type: String
+                },
+
+                _loading: {
+                    type: Boolean,
+                    value: false
+                },
+
+                _isDirty: {
+                    type: Boolean,
+                    value: false
+                },
+
+                _workAutomationId: {
+                    type: String
+                },
+
+                /**
+                  * <b><i>Content development is under progress... </b></i> 
+                  */
+                skipNext: {
+                    type: Boolean,
+                    value: false
+                },
+
+                /**
+                  * <b><i>Content development is under progress... </b></i> 
+                  */
+                businessFunctionData: {
+                    type: Object,
+                    value: function () { return {}; }
+                },
+
+                allowedFileTypes: {
+                    type: Array,
+                    value: function () { return []; }
+                },
+
+                _fileDetails: {
+                    type: Object,
+                    value: function () { return {}; }
+                },
+
+                copContext: {
+                    type: Object,
+                    value: function () { return {}; }
+                },
+
+                domain: {
+                    type: String,
+                    value: null
+                },
+
+                _multiSelect: {
+                    type: Boolean,
+                    value: false
+                },
+
+                _mainTitle: {
+                    type: String,
+                    value: "Select Value Mapping"
+                },
+
+                _valueMappingsType: {
+                    type: String,
+                    value: null
+                },
+
+                _message: {
+                    type: String,
+                    value: ""
+                }
+            },
+            observers: [
+            ],
+            behaviors: [
+                RUFBehaviors.UIBehavior,
+                RUFBehaviors.ComponentContextBehavior
+            ],
+
+            _onActionsTap: function (e) {
+                this.shadowRoot.querySelector('#actionsPopover').show();
+            },
+
+            _onValueMappingsChange: function (e, detail, sender) {
+                this._valueMappingsType = detail.data.id;
+                this._mainTitle = detail.data.title || detail.data.id;
+
+                var popover = this.shadowRoot.querySelector("#actionsPopover");
+                if (popover) {
+                    popover.hide();
+                }
+            },
+
+            _onDownloadTap: function () {
+                if (!this._valueMappingsType) {
+                    this.showErrorToast("Please select value mappings type.");
+                    return;
+                }
+
+                if (_.isEmpty(this.copContext)) {
+                    this.showErrorToast("COP context missing in the configuration, please verify.");
+                    return;
+                }
+
+                var profileContexts = [];
+                var copContext = DataHelper.cloneObject(this.copContext);
+                copContext.service = copContext.service.export;
+                profileContexts.push(copContext);
+                var message = "Downloading " + this._valueMappingsType + " started.";
+                this._setMsgAndSpinner(message, true);
+
+                var req = {
+                    "clientState": {
+                        "notificationInfo": {
+                            "userId": DataHelper.getUserId()
+                        }
+                    },
+                    "params": {
+                        "fields": {
+                            "attributes": ["_ALL"],
+                            "relationships": ["_ALL"]
+                        },
+                        "rsconnect": {
+                            "includeValidationData": true,
+                            "profilecontexts": profileContexts
+                        }
+                    }
+                };
+
+                req.params.rsconnect.profilecontexts[0].channel = "UI";
+                req.params.query = {
+                    "filters": {
+                        "typesCriterion": [
+                            this._valueMappingsType
+                        ]
+                    }
+                }
+
+                if (req) {
+                    req.fileName = "ValueMappingsData";
+                    if (DataHelper.isHotlineModeEnabled()) {
+                        req.hotline = true;
+                    }
+                    var _this = this;
+                    RUFUtilities.fileDownload("/data/cop/downloadDataExcel", {
+                        httpMethod: 'POST',
+                        data: { data: JSON.stringify(req) },
+                        successCallback: function (url) {
+                            this._setMsgAndSpinner("", false);
+                        }.bind(_this),
+                        failCallback: function (responseHtml, url, error) {
+                            this._setMsgAndSpinner("", false);
+                            this.showErrorToast("Failed to download value mappings template. Please contact administrator.");
+                        }.bind(_this)
+                    });
+                }
+            },
+
+            _isMessageAvailable: function (message) {
+                if (message) {
+                    return true;
+                }
+
+                return false;
+            },
+            _setMsgAndSpinner: function (msg, loading) {
+                this._message = msg;
+                this._loading = loading;
+            },
+            _onFileUploadSuccess: function (e, detail, sender) {
+                this._isDirty = true;
+                this._loading = true;
+                this.set("_fileName", detail.originalFileName);
+
+                var fileDetails = {
+                    "file": detail.file,
+                    "fileName": detail.fileName,
+                    "originalFileName": detail.originalFileName
+                };
+
+                this.set("_fileDetails", fileDetails);
+
+                var url = "/data/cop/process";
+
+                this._generateCopRequest(url, this._fileDetails);
+
+                this.async(function () {
+                    //Clear file upload
+                    this.$$('pebble-file-upload').reset();
+                });
+            },
+            _generateCopRequest: function (url, fileDetails) {
+                var formData = new FormData();
+                formData.append("file", fileDetails.file);
+                formData.append("fileName", fileDetails.fileName);
+
+                var hotline = false;
+                if (DataHelper.isHotlineModeEnabled()) {
+                    hotline = true;
+                }
+
+                var copContext = DataHelper.cloneObject(this.copContext);
+                copContext.service = copContext.service.import;
+                var req = DataRequestHelper.createImportRequest(fileDetails, copContext, hotline);
+                this._workAutomationId = DataHelper.generateUUID();
+                req.dataObject.properties.workAutomationId = this._workAutomationId;
+
+                formData.append("requestData", JSON.stringify(req));
+
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', url, true);
+                xhr.responseType = 'json';
+                xhr.onload = function (e) {
+                    //Process triggred in async manner, so track the details through workAutomationId
+                    return;
+                }.bind(this);
+                xhr.send(formData);
+                //After sending the form data show workAutomationId to user
+                this._onCOPProcessComplete();
+            },
+
+            _onCOPProcessComplete: function () {
+                var data = {
+                    "messages": [
+                        {
+                            "message": "Value Mappings will be created/updated using the uploaded file."
+                        },
+                        {
+                            "message": "You can view the status of the task " + this._workAutomationId + " in the Task Details"
+                        }
+                    ],
+                    "actions": [
+                        {
+                            "name": "closeFunction",
+                            "text": "Take Me back to Where I started",
+                            "action": { "name": "refresh-data" }
+                        },
+                        {
+                            "name": "gotoTaskDetails",
+                            "text": "Show me the task details",
+                            "dataRoute": "task-detail",
+                            "queryParams": {
+                                "id": this._workAutomationId
+                            }
+                        }
+                    ]
+                };
+                this.businessFunctionData = data;
+                ComponentHelper.getParentElement(this).businessFunctionData = data;
+                var eventName = "onSave";
+                var eventDetail = {
+                    name: eventName,
+                    data: { "skipNext": this.skipNext }
+                };
+                this._loading = false;
+                this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+            }
+        });
+    })();
+</script>
+</dom-module>

@@ -1,1 +1,0 @@
-rock-manage-reference
