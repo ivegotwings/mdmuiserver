@@ -757,7 +757,6 @@ function _removePropertiesFromAttributes(attributes) {
         for(var attrKey in attributes) {
             var attr = attributes[attrKey];
             if(attr.properties) {
-                console.log("remove: ", JSON.stringify(attr, null, 2))
                 delete attr.properties
             }
         }
