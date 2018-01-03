@@ -7,6 +7,8 @@
 <link rel="import" href="../bedrock-lov-behavior/bedrock-lov-behavior.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 
+<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+
 <link rel="import" href="../pebble-lov/pebble-lov.html">
 
 <link rel="import" href="../rock-grid-data-sources/attribute-model-datasource.html">
@@ -18,6 +20,8 @@
 
 <dom-module id="rock-attribute-model-lov">
     <template>
+        <liquid-entity-model-get id="getReferenceModels" operation="getbyids" request-data=[[_getRefModelsRequest]] on-response="_onRefModelsReceived"
+            on-error="_onRefModelsGetFailed"></liquid-entity-model-get>
         <attribute-model-datasource id="attributeModelDataSource" mode="[[mode]]" request="[[requestData]]" r-data-source="{{rDataSource}}"
             r-data-formatter="{{_dataFormatter}}" keywords-criterion-builder="{{_keywordsCriterionBuilder}}" schema="lov">
         </attribute-model-datasource>
@@ -137,6 +141,18 @@
                         return {}
                     }
                 },
+                _getRefModelsRequest: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+                _selectedItem: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                }
             },
 
             behaviors: [
@@ -156,7 +172,7 @@
                 this._keywordsCriterionBuilder = this._prepareKeywordsCriteria.bind(this);
                 this._prepareAttributeMaps();
 
-                this.logInfo("AttributeModelReady","id",this.idField,"requestData",JSON.stringify(this.requestData));
+                //this.logInfo("AttributeModelReady","id",this.idField,"requestData",JSON.stringify(this.requestData));
 
                 if(!_.isEmpty(this.mode)) {
                     if(this.mode === "all") {
@@ -339,16 +355,61 @@
                 }
             },
             _onLovSelectionChanged: function (event) {
-                var eventDetail = {
-                    data: event.detail.item
+                let item = event.detail.item;
+                this.set("_selectedItem", item);
+                
+                if(item.isReferenceType) {
+                    this._updateRefEntityInfo(item);
+                } else {
+                    this._fireSelectionChangedEvent(item);
+                }
+            },
+
+            refresh: function() {
+                this._getAttributeModels(this.contextData, this.sortDetails);
+            },
+
+            _fireSelectionChangedEvent: function(item) {
+                let eventDetail = {
+                    data: item
                 }
 
                 this.fireBedrockEvent("attribute-model-lov-selection-changed", eventDetail);
             },
 
-            refresh: function() {
-                this._getAttributeModels(this.contextData, this.sortDetails);
-            }
+            _updateRefEntityInfo: function(model) {
+                let refEntityType = DataHelper.getRefEntityType(model);
+
+                if(refEntityType) {
+                    let req = DataRequestHelper.createGetManageModelRequest([refEntityType]);
+
+                    this.set("_getRefModelsRequest", req);
+
+                    let refModelsGetLiquid = this.shadowRoot.querySelector("[id=getReferenceModels]");
+                    if (refModelsGetLiquid) {
+                        refModelsGetLiquid.generateRequest();
+                    }
+                }
+            },
+
+            _onRefModelsReceived: function (e, detail) {
+                var referenceModels = {};
+                var responseContent = DataHelper.validateAndGetResponseContent(detail.response)
+                if (responseContent && !_.isEmpty(responseContent.entityModels)) {
+                    var referenceModels = DataTransformHelper.transformEntityModelsToReferenceModels(responseContent.entityModels);
+
+                    if(!_.isEmpty(referenceModels)) {
+                        var item = DataHelper.cloneObject(this._selectedItem);
+                        DataHelper.updateRefEntityInfo(item, referenceModels);
+
+                        this._fireSelectionChangedEvent(item);
+                    }
+                }
+            },
+
+            _onRefModelsGetFailed: function(e) {
+                this.logWarning("ReferenceManageModelGetFail", e);
+            },
 
         });
     </script>

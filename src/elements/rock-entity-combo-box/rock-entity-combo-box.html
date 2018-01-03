@@ -6,6 +6,8 @@
 <link rel="import" href="../bedrock-helpers/element-helper.html">
 <link rel="import" href="../bedrock-lov-behavior/bedrock-lov-behavior.html">
 
+<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+
 <link rel="import" href="../pebble-combo-box/pebble-combo-box.html">
 
 <link rel="import" href="../rock-entity-lov/entity-lov-datasource.html">
@@ -19,6 +21,8 @@
 
 <dom-module id="rock-entity-combo-box">
     <template>
+        <liquid-entity-model-get id="getReferenceModels" operation="getbyids" request-data=[[_getRefModelsRequest]] on-response="_onRefModelsReceived"
+            on-error="_onRefModelsGetFailed"></liquid-entity-model-get>
         <entity-lov-datasource id="entityLovDataSource" request="[[requestData]]" r-data-source="{{rDataSource}}" r-data-formatter="{{_dataFormatter}}"
             attributes-criterion-builder="{{_attributesCriterionBuilder}}" keywords-criterion-builder="{{_keywordsCriterionBuilder}}"
             is-attribute-filter="{{_isAttributeFilter}}">
@@ -35,6 +39,8 @@
                           is-readonly=[[isReadonly]]
                           r-data-source="{{rDataSource}}"
                           image-source="{{imageSource}}"
+                          selected-values-color="[[selectedValuesColor]]"
+                          selected-values-font-style="[[selectedValuesFontStyle]]"
                           selected-ids="{{selectedIds}}"
                           selected-id="{{selectedId}}"
                           selected-values="{{selectedValues}}"
@@ -219,7 +225,31 @@
                     value: function () {
                         return {};
                     }
-                }
+                },
+                applyLocaleCoalescedStyle: {
+                    type: Boolean,
+                    value: false,
+                    reflectToAttribute: true
+                },
+                applyContextCoalescedStyle: {
+                    type: Boolean,
+                    value: false,
+                    reflectToAttribute: true
+                },
+                selectedValuesColor: {
+                    type: String,
+                    value: ""
+                },
+                selectedValuesFontStyle: {
+                    type: String,
+                    value: ""
+                },
+                _getRefModelsRequest: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
             },
 
             behaviors: [
@@ -228,14 +258,14 @@
             ],
 
             observers: [
-                '_prepareAttributes(idField,imageIdField, titlePattern, subTitlePattern, imageField, colorField, valueField, typeField, requestData)',
+                '_prepareAttributes(idField,imageIdField, titlePattern, subTitlePattern, imageField, colorField, valueField, typeField, requestData)'
             ],
             /**
              * <b><i>Content development is under progress... </b></i> 
              */
             ready: function () {
                 this._keywordsCriterionBuilder = this._prepareKeywordsCriteria.bind(this);
-                this._attributesCriterionBuilder = this._prepareAttributesCriteria.bind(this);
+                this._attributesCriterionBuilder = this._prepareAttributesCriteria.bind(this).bind(this);
                 this._dataFormatter = this._getAttributeFormattedData.bind(this);
             },
 
@@ -304,21 +334,91 @@
                         attributes.push(valueField);
                     }
                     this._lovColumnMap.value = this.valueField;
+                    if(this.applyLocaleCoalescedStyle) {
+                        this._lovColumnMap.textColor = this.valueField;
+                    }
+                    
+                    if(this.applyContextCoalescedStyle) {
+                        this._lovColumnMap.fontStyle = this.valueField;
+                    }
                 }
 
                 if (attributes.length == 0) {
                     this._attributes = defaultAttributes;
                 } else {
-                    if (!this.requestData || !this.requestData.params) {
-                        return;
-                    }
-                    // Todo.. This will not work in a scenario where request object is not initialized
-
-                    if (typeof (this.requestData.params.fields) === "undefined") {
-                        this.set('requestData.params.fields', {});
-                    }
-                    this.set('requestData.params.fields.attributes', attributes);
+                    this._attributes = attributes;
                 }
+
+                if(this._lovColumnMap.title && this._lovColumnMap.title !== "") {
+                    this._prepareRequest();
+                } else {
+                    this._setLovTitleField();
+                }
+
+            },
+
+            _setLovTitleField: function() {
+                var typesCriterion = [];
+                if(this.requestData && this.requestData.params && this.requestData.params.query && this.requestData.params.query.filters) {
+                    typesCriterion = this.requestData.params.query.filters.typesCriterion;
+                }
+
+                if(!DataHelper.isEmptyObject(typesCriterion)) {
+                   let req = DataRequestHelper.createGetManageModelRequest(typesCriterion);
+
+                   this.set("_getRefModelsRequest", req);
+
+                    let refModelsGetLiquid = this.shadowRoot.querySelector("[id=getReferenceModels]");
+                    if (refModelsGetLiquid) {
+                        refModelsGetLiquid.generateRequest();
+                    }
+                }
+            },
+
+            _onRefModelsReceived: function (e, detail) {
+                var referenceModels = {};
+                var responseContent = DataHelper.validateAndGetResponseContent(detail.response);
+                var externalNameAttributeName;
+                
+                if (responseContent && !_.isEmpty(responseContent.entityModels)) {
+                    externalNameAttributeName = DataHelper.getExternalNameAttributeFromModel(responseContent.entityModels[0]);
+                    
+                    if(externalNameAttributeName) {
+                        this._lovColumnMap.title = this._lovColumnMap.value = this.titlePattern = this.valueField = externalNameAttributeName;
+
+                        this._attributes.push(externalNameAttributeName);
+                    }
+                }
+
+                if(!externalNameAttributeName) {
+                    this._lovColumnMap.title = this._lovColumnMap.value = this.titlePattern = this.valueField = "{entity.name}";
+                }
+
+                if(this.applyLocaleCoalescedStyle) {
+                    this._lovColumnMap.textColor = this.valueField;
+                }
+                
+                if(this.applyContextCoalescedStyle) {
+                    this._lovColumnMap.fontStyle = this.valueField;
+                }
+
+                this._prepareRequest();
+            },
+
+            _onRefModelsGetFailed: function(e) {
+                this.logWarning("ReferenceManageModelGetFail", e);
+            },
+
+            _prepareRequest: function() {
+                if (!this.requestData || !this.requestData.params) {
+                    return;
+                }
+                // Todo.. This will not work in a scenario where request object is not initialized
+
+                if (typeof (this.requestData.params.fields) === "undefined") {
+                    this.set('requestData.params.fields', {});
+                }
+                this.set('requestData.params.fields.attributes', this._attributes);
 
                 if (!DataHelper.isEmptyObject(this._sortField) && this._sortField !== "name") {
                     var sortAttributes = [];
@@ -333,7 +433,6 @@
                     }
                     this.set('requestData.params.sort.attributes', sortAttributes);
                 }
-
             },
             _getAttributeFormattedData: function (data) {
                 var entities = [];
@@ -347,39 +446,7 @@
             },
 
             _prepareAttributesCriteria: function (searchText) {
-                if (searchText) {
-                    var attributesCriterion = [];
-                    var attributes = [];
-
-                    if (typeof (this.titlePattern) !== 'undefined' && this.titlePattern !== "") {
-                        if (!attributes.includes(this.titlePattern)) {
-                            var titleFields = DataHelper.getAttributesBetweenCurlies(this.titlePattern);
-                            if (titleFields && titleFields instanceof Array) {
-                                attributes.push(...titleFields);
-                            }
-                        }
-                    }
-
-                    if (typeof (this.subTitlePattern) !== 'undefined' && this.subTitlePattern !== "") {
-                        if (!attributes.includes(this.subTitlePattern)) {
-                            var subTitleFields = DataHelper.getAttributesBetweenCurlies(this.subTitlePattern);
-                            if (subTitleFields && subTitleFields instanceof Array) {
-                                attributes.push(...subTitleFields);
-                            }
-                        }
-                    }
-
-                    if (attributes && attributes.length) {
-                        attributes.forEach(function (item) {
-                            var searchKey = new Object();
-                            var searchValue = new Object();
-                            searchValue.eq = searchText ? '*' + searchText + '*' : '';
-                            searchKey[item] = searchValue;
-                            attributesCriterion.push(searchKey);
-                        }, this);
-                    }
-                    return attributesCriterion
-                }
+                return DataRequestHelper.createAttributesCriteria(searchText, this.titlePattern, this.subTitlePattern);
             },
 
             _prepareKeywordsCriteria: function (searchText) {
