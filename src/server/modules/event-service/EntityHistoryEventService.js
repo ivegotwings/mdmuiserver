@@ -87,7 +87,7 @@ EntityHistoryEventservice.prototype = {
     _generateHistoryData: async function (events, valContexts, dataContexts) {
         var historyList = [];
         var historyListToBeReturned = [];
-        var defaultAttribute = ['clientId', 'relatedRequestId', 'eventSubType', 'entityType', 'entityId', 'eventType', 'entityAction'];
+        var defaultAttribute = ['clientId', 'relatedRequestId', 'eventSubType', 'entityType', 'entityId', 'eventType', 'entityAction', 'taskId'];
         var defaultRelationship = ['eventTarget'];
         var internalIds = {};
         internalIds.attributeList = [];
@@ -131,7 +131,7 @@ EntityHistoryEventservice.prototype = {
         var relationshipKeyValue = {};
         var userNamebyEmailKeyValue = {};
         var entityTypeKeyValue = {};
-        
+
         if (internalIds.attributeList.length > 0) {
             var externalResponse = await this._fetchCurrentEntityManageModel(internalIds, valContexts, dataContexts);
 

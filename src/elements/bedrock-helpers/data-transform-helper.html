@@ -88,7 +88,7 @@
             if (firstDataContext) {
                 var ctxAttributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, firstDataContext);
 
-// RDF is not supporting coalesce between self context to other context.
+                // RDF is not supporting coalesce between self context to other context.
                 // _prepareForSelfToContextCoalesce will do coalesce manually to link self context with other context.
                 DataTransformHelper._prepareForSelfToContextCoalesce(mergedAttributes, ctxAttributes);
 
@@ -142,7 +142,6 @@
 
             return sortedAttributeModels;
         };
-
 
         DataTransformHelper.hasLocalizableAttributes = function (attributeModels) {
             for (let key in attributeModels) {
@@ -268,7 +267,7 @@
             return transformedEntities;
         };
 
-        DataTransformHelper.prepareEntityForAttributesSave = function (entity, attributesJSON, contextData, attributeModels) {
+        DataTransformHelper.prepareEntityForAttributesSave = function (entity, attributesJSON, contextData, attributeModels, contextModels) {
             var firstDataContext = ContextHelper.getFirstDataContext(contextData);
             var firstValueContext = ContextHelper.getFirstValueContext(contextData);
 
@@ -335,12 +334,15 @@
             }
 
             if (!_.isEmpty(firstContextAttributes)) {
-                //var entityContextItem = SharedUtils.DataObjectFalcorUtil.getCtxItem(entity.data.contexts, firstDataContext);
                 var newContexts = {};
                 var newCtxItem = {};
                 newCtxItem.context = firstDataContext;
                 newCtxItem.attributes = firstContextAttributes;
                 newData.contexts.push(newCtxItem);
+
+                if (contextModels && contextModels.length) {
+                    DataTransformHelper.prepareEntityForContextSave(newData, contextModels, attributeModels, contextData)
+                }
             }
 
             for (var entityDataField in entity) {
@@ -456,7 +458,6 @@
                 attributeInstance = { "values": attributeValues };
             }
             delete attributeJSON.action;
-            
 
             if (attributeJSON.attrProperties) {
                 attributeInstance.properties = attributeJSON.attrProperties;
@@ -613,8 +614,8 @@
                         var hasAttributes = false;
                         var childAttrNames = Object.keys(childAttributes);
                         for (var attributeName in childAttributeModels) {
-                            if (childAttrNames.find(name => name === attributeName) 
-                                    && !_.isEmpty(childAttributes[attributeName].values)) {
+                            if (childAttrNames.find(name => name === attributeName)
+                                && !_.isEmpty(childAttributes[attributeName].values)) {
                                 hasAttributes = true;
                                 break;
                             } else {
@@ -645,10 +646,10 @@
                                     childAttributeJson[attributeName]["properties"] = {};
                                     let localeCoalescePath = AttributeHelper.getLocaleCoalescePath(childAttr)
                                     let contextCoalescePaths = !_.isEmpty(dataContext) ? AttributeHelper.getContextCoalescePaths(childAttr) : [];
-                                    if(localeCoalescePath) {
+                                    if (localeCoalescePath) {
                                         childAttributeJson[attributeName]["properties"]["localeCoalescePath"] = localeCoalescePath;
                                     }
-                                    if(!_.isEmpty(contextCoalescePaths)) {
+                                    if (!_.isEmpty(contextCoalescePaths)) {
                                         childAttributeJson[attributeName]["contextCoalescePaths"] = contextCoalescePaths;
                                     }
                                 } else {
@@ -696,7 +697,7 @@
             for (var attributeName in attributeModelObjects) {
                 var model = attributeModelObjects[attributeName];
 
-                if(model.properties && model.properties.isReferenceType) {
+                if (model.properties && model.properties.isReferenceType) {
                     model.properties.isLocalizable = true;
                 }
 
@@ -782,22 +783,20 @@
                                             val = rowData[key];
                                         }
 
-                                        
-
-                                        if (group) 
+                                        if (group)
                                             var attribute = {
                                                 "name": key,
                                                 "group": group,
                                                 "selfContext": attributeModels[key].selfContext
                                             };
-                                        else 
-                                          var attribute = {
+                                        else
+                                            var attribute = {
                                                 "name": key,
                                                 "value": val,
                                                 "source": firstValueContext.source,
                                                 "locale": firstValueContext.locale,
                                                 "selfContext": attributeModels[key].selfContext
-                                        };
+                                            };
 
 
                                         if (attribute.value === "delete" || (attribute.value instanceof Array && attribute.value[0] === "delete")) {
@@ -1017,76 +1016,68 @@
             }
             return _scopes;
         };
-
-            DataTransformHelper.transformEntitySchemaToLovSchema = function (entities, lovColumnNameValueCollection) {
-                // Note: We will go by the assumption that id or value field is going to be unique
-                //       if id or name is provided do not put it into attributes fields
-
-                var formattedEntities = [];
-
-                if (entities && entities.length) {
-                    var entitiesToBeRemoved = [];
-
-                    for (var i = 0; i < entities.length; i++) {
-                        if (typeof (entities[i]) == "object") {
-                            var formattedEntity = {};
-
-                            Object.keys(lovColumnNameValueCollection).map(function (columnName) {
-                                var attributeValue;
-
-                                if (lovColumnNameValueCollection[columnName] == "id") {
-                                    formattedEntity[columnName] = entities[i].id;
-                                } else if (lovColumnNameValueCollection[columnName] == "name") {
-                                    formattedEntity[columnName] = entities[i].name;
-                                } else if (columnName == "type") {
-                                    var entityTypes = lovColumnNameValueCollection[columnName];
-
-                                    if (typeof (entityTypes !== "undefined" && entityTypes instanceof Array)) {
-                                        for (j = 0; j < entityTypes.length; j++) {
-                                            if (entityTypes[j] === entities[i].type) {
-                                                formattedEntity[columnName] = entityTypes[j];
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    if (entities[i].data) {
-                                        var fieldPattern = lovColumnNameValueCollection[columnName];
-                                        if (typeof (fieldPattern) === "string" && !DataHelper.isEmptyObject(fieldPattern)) {
-                                            attributeValue = DataTransformHelper.getLovFieldPatternValue(entities[i], fieldPattern, columnName);
-                                        }
-                                        if (attributeValue) {
-                                            formattedEntity[columnName] = attributeValue;
+        DataTransformHelper.lowerCaseFirstLetter = function(string) {
+            return string.charAt(0).toLowerCase() + string.slice(1);
+        };
+        DataTransformHelper.transformEntitySchemaToLovSchema = function (entities, lovColumnNameValueCollection) {
+            // Note: We will go by the assumption that id or value field is going to be unique
+            //       if id or name is provided do not put it into attributes fields
+            var formattedEntities = [];
+            if (entities && entities.length) {
+                var entitiesToBeRemoved = [];
+                for (var i = 0; i < entities.length; i++) {
+                    if (typeof (entities[i]) == "object") {
+                        var formattedEntity = {};
+                        Object.keys(lovColumnNameValueCollection).map(function (columnName) {
+                            var attributeValue;
+                            if (lovColumnNameValueCollection[columnName] == "id") {
+                                formattedEntity[columnName] = entities[i].id;
+                            } else if (lovColumnNameValueCollection[columnName] == "name") {
+                                formattedEntity[columnName] = DataTransformHelper.lowerCaseFirstLetter(entities[i].name);
+                            } else if (columnName == "type") {
+                                var entityTypes = lovColumnNameValueCollection[columnName];
+                                if (typeof (entityTypes !== "undefined" && entityTypes instanceof Array)) {
+                                    for (j = 0; j < entityTypes.length; j++) {
+                                        if (entityTypes[j] === entities[i].type) {
+                                            formattedEntity[columnName] = entityTypes[j];
                                         }
                                     }
                                 }
-
-                                if (columnName == "title" && lovColumnNameValueCollection[columnName] != "" && !formattedEntity[columnName]) {
-                                    formattedEntity[columnName] = entities[i].id + " - Title not found";
+                            } else {
+                                if (entities[i].data) {
+                                    var fieldPattern = lovColumnNameValueCollection[columnName];
+                                    if (typeof (fieldPattern) === "string" && !DataHelper.isEmptyObject(fieldPattern)) {
+                                        attributeValue = DataTransformHelper.getLovFieldPatternValue(entities[i], fieldPattern, columnName);
+                                    }
+                                    if (attributeValue) {
+                                        formattedEntity[columnName] = attributeValue;
+                                    }
                                 }
-                            });
-
-                            if (!_.isEmpty(formattedEntity)) {
-                                formattedEntities.push(formattedEntity);
                             }
-                        } else {
-                            //if the array has a bad item (non-entity, or entity with no data) then mark it for delete
-                            entitiesToBeRemoved.push(i);
+                            if (columnName == "title" && lovColumnNameValueCollection[columnName] != "" && !formattedEntity[columnName]) {
+                                formattedEntity[columnName] = entities[i].id + " - Title not found";
+                            }
+                        });
+                        if (!_.isEmpty(formattedEntity)) {
+                            formattedEntities.push(formattedEntity);
+                        }
+                    } else {
+                        //if the array has a bad item (non-entity, or entity with no data) then mark it for delete
+                        entitiesToBeRemoved.push(i);
+                    }
+                }
+                // Make it Private
+                entitiesToBeRemoved.forEach(function (entityToBeRemoved) {
+                    for (var i = 0; i < entities.length; i++) {
+                        if (entities[i].id === entityToBeRemoved) {
+                            var currentEntity = entities[i];
+                            entities.splice(currentEntity, 1);
                         }
                     }
-
-                    // Make it Private
-                    entitiesToBeRemoved.forEach(function (entityToBeRemoved) {
-                        for (var i = 0; i < entities.length; i++) {
-                            if (entities[i].id === entityToBeRemoved) {
-                                var currentEntity = entities[i];
-                                entities.splice(currentEntity, 1);
-                            }
-                        }
-                    });
-                }
-
-                return formattedEntities;
-            };
+                });
+            }
+            return formattedEntities;
+        };
 
         DataTransformHelper.transformEntityModelSchemaToLovSchema = function (entityModels, lovColumnNameValueCollection) {
             var formattedEntityModels = [];
@@ -1184,7 +1175,6 @@
             }
             return formattedEntities;
         };
-
 
         DataTransformHelper.transformAtributeModelsToLovSchema = function (attributeModels, lovColumnNameValueCollection) {
             var formattedAttributeModels = [];
@@ -1352,11 +1342,11 @@
                 // Attribute
                 var attribute = EntityHelper.getAttribute(entity, attributeName);
 
-                if(lovColumnName === "textColor") {
+                if (lovColumnName === "textColor") {
                     return AttributeHelper.getLocaleCoalescePath(attribute) ? "#0bb2e8" : undefined;
                 }
 
-                if(lovColumnName === "fontStyle") {
+                if (lovColumnName === "fontStyle") {
                     return !_.isEmpty(AttributeHelper.getContextCoalescePaths(attribute)) ? "italic" : undefined;
                 }
 
@@ -1385,7 +1375,7 @@
             return attributeValue;
         };
 
-        DataTransformHelper.transformEntityModelsToReferenceModels = function(entityModels) {
+        DataTransformHelper.transformEntityModelsToReferenceModels = function (entityModels) {
             var referenceModels = {};
             if (entityModels && entityModels.length > 0) {
                 for (let i = 0; i < entityModels.length; i++) {
@@ -1411,13 +1401,13 @@
 
             return referenceModels;
         };
-        
-        DataTransformHelper._prepareForSelfToContextCoalesce = function(selfAttributes, contextualAttributes) {
-            if(selfAttributes && contextualAttributes) {
+
+        DataTransformHelper._prepareForSelfToContextCoalesce = function (selfAttributes, contextualAttributes) {
+            if (selfAttributes && contextualAttributes) {
                 var ctxAttrKeys = Object.keys(contextualAttributes);
                 for (var attrKey in selfAttributes) {
                     if (ctxAttrKeys.indexOf(attrKey) == -1) {
-                        if(selfAttributes[attrKey] && selfAttributes[attrKey].group && selfAttributes[attrKey].group.length > 0) {
+                        if (selfAttributes[attrKey] && selfAttributes[attrKey].group && selfAttributes[attrKey].group.length > 0) {
                             // this is nested attribute
                             var childAttributes = selfAttributes[attrKey].group[0];
                             this._prepareForSelfToContextCoalesce(childAttributes, {});
@@ -1462,27 +1452,27 @@
                                         }
                                     }, this);
                                 }
-                            } else if(contextualAttributes[attrKey] && contextualAttributes[attrKey].group && contextualAttributes[attrKey].group.length > 0) {
+                            } else if (contextualAttributes[attrKey] && contextualAttributes[attrKey].group && contextualAttributes[attrKey].group.length > 0) {
                                 // this is a nested attribute.
                                 var ctxValueGroup = contextualAttributes[attrKey].group[0];
                                 var childCtxAttributes = ctxValueGroup;
 
                                 var childCtxAttrKeys = Object.keys(childCtxAttributes);
-                                var localeCoalescedCtxChildAttrs = childCtxAttrKeys.filter(function(attrName) {
+                                var localeCoalescedCtxChildAttrs = childCtxAttrKeys.filter(function (attrName) {
                                     var localeCoalescedCtxValues = ctxValueGroup[attrName].values.filter(item => item.properties && item.properties.localeCoalescePath);
-                                    if(localeCoalescedCtxValues && localeCoalescedCtxValues.length) {
+                                    if (localeCoalescedCtxValues && localeCoalescedCtxValues.length) {
                                         return attrName;
                                     }
                                 });
 
-                                if(localeCoalescedCtxChildAttrs && localeCoalescedCtxChildAttrs.length) {
+                                if (localeCoalescedCtxChildAttrs && localeCoalescedCtxChildAttrs.length) {
                                     var selfValueGroup = selfAttributes[attrKey].group[0];
                                     var childSelfAttributes = selfValueGroup;
 
                                     var childSelfAttrKeys = Object.keys(childSelfAttributes);
-                                    var localeCoalescedSelfChildAttrs = childSelfAttrKeys.filter(function(attrName) {
+                                    var localeCoalescedSelfChildAttrs = childSelfAttrKeys.filter(function (attrName) {
                                         var localeCoalescedSelfValues = selfValueGroup[attrName].values.filter(item => item.properties && item.properties.localeCoalescePath);
-                                        if(localeCoalescedSelfValues && localeCoalescedSelfValues.length) {
+                                        if (localeCoalescedSelfValues && localeCoalescedSelfValues.length) {
                                             return attrName;
                                         }
                                     });
@@ -1507,7 +1497,152 @@
             }
         };
 
+        DataTransformHelper.prepareEntityForContextSave = function (data, contextModels, attributeModels, contextData) {
+            var firstDataContext = ContextHelper.getFirstDataContext(contextData);
+            var contextModel = undefined;
+            var partialContextModels = [];
 
+            for (var i = 0; i < contextModels.length; i++) {
+                var ctxModelItem = contextModels[i];
+                if (ctxModelItem && ctxModelItem.context) {
+                    var dataContext = ctxModelItem.context;
+                    if (DataHelper.compareObjects(dataContext, firstDataContext)) {
+                        contextModel = ctxModelItem;
+                        break;
+                    } else {
+                        var numberOfExactMatch = 0;
+                        var isPartialMatch = false;
+                        if (Object.keys(dataContext).length == Object.keys(firstDataContext).length) {
+                            var dataCtxObjectKeys = Object.keys(dataContext);
+                            for (var j = 0; j < dataCtxObjectKeys.length; j++) {
+                                if (dataContext[dataCtxObjectKeys[j]]) {
+                                    if (firstDataContext[dataCtxObjectKeys[j]] == dataContext[dataCtxObjectKeys[j]]) {
+                                        numberOfExactMatch++;
+                                    } else if (dataContext[dataCtxObjectKeys[j]].toLowerCase() == "_all") {
+                                        isPartialMatch = true;
+                                    } else {
+                                        isPartialMatch = false;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (isPartialMatch) {
+                                partialContextModels.push({
+                                    "numberOfExactMatch": numberOfExactMatch,
+                                    "ctxModelItem": ctxModelItem
+                                });
+                            }
+                            if (partialContextModels && _.isEmpty(contextModel)) {
+                                if (partialContextModels.length == 1) {
+                                    contextModel = partialContextModels[0].ctxModelItem;
+                                } else {
+                                    var highestNumberOfMatch = 0;
+                                    partialContextModels.forEach(function (ctxModel) {
+                                        if (ctxModel.numberOfExactMatch > highestNumberOfMatch) {
+                                            highestNumberOfMatch = ctxModel.numberOfExactMatch;
+                                            contextModel = ctxModel.ctxModelItem;
+                                        }
+                                    }, this);
+                                }
+                            }
+
+                            if (contextModel) {
+                                var additionalContexts = contextModel.properties ? contextModel.properties.additionalcontexts : undefined;
+
+                                if (additionalContexts) {
+                                    var partialContext = {};
+                                    Object.keys(firstDataContext).forEach(function (ctxItem) {
+                                        if (additionalContexts.indexOf(ctxItem) < 0) {
+                                            partialContext[ctxItem] = firstDataContext[ctxItem];
+                                        }
+                                    }, this);
+
+                                    if (!_.isEmpty(partialContext)) {
+                                        var partialContextData = {
+                                            "context": partialContext,
+                                            "attributes": {}
+                                        }
+                                        if (data) {
+                                            if (data.attributes) {
+                                                partialContextData.attributes = data.attributes;
+                                                delete data.attributes;
+                                            }
+
+                                            if (data.contexts) {
+                                                var context = data.contexts[0];
+
+                                                if (context && context.attributes) {
+                                                    var attributes = context.attributes;
+                                                    DataTransformHelper.addRemoveAttributesBasedOnAdditionalContext(attributes, attributeModels, additionalContexts, partialContextData);
+                                                }
+                                            }
+
+                                            if (_.isEmpty(data.contexts)) {
+                                                data.contexts = [];
+                                            }
+                                            data.contexts.push(partialContextData);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return data;
+        };
+
+        DataTransformHelper.addRemoveAttributesBasedOnAdditionalContext = function (attributes, attributeModels, additionalContexts, partialContextData) {
+            if (attributes && attributeModels && additionalContexts) {
+                Object.keys(attributeModels).filter(function (attrKey) {
+                    var attrModel = attributeModels[attrKey];
+                    if (attrModel && attrModel.properties && attributes[attrModel.name]) {
+                        var properties = attrModel.properties;
+
+                        if (properties.instanceCoalesce) {
+
+                            if (!DataTransformHelper.isAdditionalContexts(additionalContexts, properties.instanceCoalesce, "instance")) {
+                                partialContextData.attributes[attrModel.name] = attributes[attrModel.name];
+                                delete attributes[attrModel.name];
+                            }
+                        }
+
+                        if (properties.contextCoalesce) {
+                            if (!DataTransformHelper.isAdditionalContexts(additionalContexts, properties.contextCoalesce, "context")) {
+                                partialContextData.attributes[attrModel.name] = attributes[attrModel.name];
+                                delete attributes[attrModel.name];
+                            }
+                        }
+                    }
+                }, this);
+            }
+        };
+
+        DataTransformHelper.isAdditionalContexts = function (additionalContexts, coalesceProperties, coalesceType) {
+            var isAdditionalContext = false;
+            if (additionalContexts && coalesceProperties) {
+                if (coalesceType == "instance") {
+                    if (additionalContexts.indexOf(coalesceProperties[0].coalesceSourceType) > -1) {
+                        isAdditionalContext = true;
+                    }
+                }
+
+                if (coalesceType == "context") {
+                    Object.keys(coalesceProperties[0]).forEach(function (ctx) {
+                        if (additionalContexts.indexOf(ctx) > -1) {
+                            isAdditionalContext = true;
+                        } else {
+                            if (!isAdditionalContext) {
+                                isAdditionalContext = false;
+                            }
+                        }
+                    }, this);
+                }
+            }
+            return isAdditionalContext;
+        };
     })();
 
 </script>
