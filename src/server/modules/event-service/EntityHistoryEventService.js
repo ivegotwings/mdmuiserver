@@ -46,7 +46,6 @@ EntityHistoryEventservice.prototype = {
                     }
                     if (request.params.query && request.params.query.contexts) {
                         dataContexts = falcorUtil.cloneObject(request.params.query.contexts);
-                        delete request.params.query.contexts;
                     }
 
                     if (request.params.fields) {
@@ -87,7 +86,7 @@ EntityHistoryEventservice.prototype = {
     _generateHistoryData: async function (events, valContexts, dataContexts) {
         var historyList = [];
         var historyListToBeReturned = [];
-        var defaultAttribute = ['clientId', 'relatedRequestId', 'eventSubType', 'entityType', 'entityId', 'eventType', 'entityAction'];
+        var defaultAttribute = ['clientId', 'relatedRequestId', 'eventSubType', 'entityType', 'entityId', 'eventType', 'entityAction', 'taskId'];
         var defaultRelationship = ['eventTarget'];
         var internalIds = {};
         internalIds.attributeList = [];
@@ -98,11 +97,29 @@ EntityHistoryEventservice.prototype = {
 
         for (var i = 0; i < events.length; i++) {
             var event = events[i];
+
+            //Note: When multiple updates happens at the same time, display updates in the order-
+            //context attributes, relationships, self attributes, entity create. 
+            //Hence adding updates in this order
+            if (this._isValidObjectPath(event, 'data.contexts.0.attributes')) {
+                var contextAttributes = event.data.contexts[0].attributes;
+                var contextAttributeUpdateHistoryEvent = this._createAttributeUpdateHistoryEvent(event, contextAttributes, defaultAttribute, internalIds)
+                Array.prototype.push.apply(historyList, contextAttributeUpdateHistoryEvent);
+            }
+
+            if (this._isValidObjectPath(event, 'data.relationships')) {
+                var relationships = event.data.relationships;
+                var relatioshipsHistoryEvent = this._createRelationshipHistoryEvent(event, relationships, defaultRelationship, internalIds)
+                Array.prototype.push.apply(historyList, relatioshipsHistoryEvent);
+            }
+
             if (this._isValidObjectPath(event, 'data.attributes')) {
                 var attributes = event.data.attributes;
+
                 if (i == 0 && this._isValidObjectPath(attributes, 'entityType.values.0.value')) {
                     internalIds.currentEntityType = attributes.entityType.values[0].value;
                 }
+
                 if (this._isValidObjectPath(attributes, 'eventType.values.0.value')) {
                     var actionType = attributes.eventType.values[0].value;
                     if (actionType == 'EntityAdd') {
@@ -118,12 +135,6 @@ EntityHistoryEventservice.prototype = {
                     }
                 }
             }
-
-            if (this._isValidObjectPath(event, 'data.relationships')) {
-                var relationships = event.data.relationships;
-                var relatioshipsHistoryEvent = this._createRelationshipHistoryEvent(event, relationships, defaultRelationship, internalIds)
-                Array.prototype.push.apply(historyList, relatioshipsHistoryEvent);
-            }
         }
 
         //Resolve all internal ids to external names...
@@ -131,7 +142,7 @@ EntityHistoryEventservice.prototype = {
         var relationshipKeyValue = {};
         var userNamebyEmailKeyValue = {};
         var entityTypeKeyValue = {};
-        
+
         if (internalIds.attributeList.length > 0) {
             var externalResponse = await this._fetchCurrentEntityManageModel(internalIds, valContexts, dataContexts);
 
@@ -301,7 +312,7 @@ EntityHistoryEventservice.prototype = {
                         var attributeValues = attrObj.values;
                         for (var k = 0; k < attributeValues.length; k++) {
                             var attrbuteValue = attributeValues[k];
-                            if (attrbuteValue && attrbuteValue.value) {
+                            if (attrbuteValue && attrbuteValue.value !== undefined) {
                                 if (k > 0) {
                                     attrValues = attrValues + ',';
                                 }
@@ -331,14 +342,15 @@ EntityHistoryEventservice.prototype = {
                         if (relTorelationship && relTorelationship.relTo && relTorelationship.relTo.id) {
                             internalIds.relationshipList.push(relationship);
                             var isRelAttributeUpdate = false;
+                            var relationshipChangeType = "";
                             if (this._isValidObjectPath(relTorelationship, 'properties.changeType')) {
-                                var changeType = relTorelationship.properties.changeType;
-                                if (changeType.toLowerCase().indexOf('attribute') !== -1) {
+                                relationshipChangeType = relTorelationship.properties.changeType;
+                                if (relationshipChangeType.toLowerCase().indexOf('attribute') !== -1) {
                                     isRelAttributeUpdate = true;
                                 }
                             }
 
-                            if(isRelAttributeUpdate && relTorelationship.attributes) {
+                            if((isRelAttributeUpdate || relTorelationship.attributes) && !relationshipChangeType.startsWith("deleteRelationship")) {
                                 var relAttributes = relTorelationship.attributes;
                                 for (var attribute in relAttributes) {
                                     if (relAttributes.hasOwnProperty(attribute)) {
@@ -356,10 +368,10 @@ EntityHistoryEventservice.prototype = {
                                         var attrValues = "";
                                         if (attrObj && attrObj.values) {
                                             var attributeValues = attrObj.values;
-                                            for (var k = 0; k < attributeValues.length; k++) {
-                                                var attrbuteValue = attributeValues[k];
-                                                if (attrbuteValue && attrbuteValue.value) {
-                                                    if (k > 0) {
+                                            for (var l = 0; l < attributeValues.length; l++) {
+                                                var attrbuteValue = attributeValues[l];
+                                                if (attrbuteValue && attrbuteValue.value !== undefined) {
+                                                    if (l > 0) {
                                                         attrValues = attrValues + ',';
                                                     }
                                                     attrValues = attrValues + attrbuteValue.value
@@ -371,7 +383,9 @@ EntityHistoryEventservice.prototype = {
                                         historyList.push(historyObj);
                                     }
                                 }
-                            } else {
+                            }
+                            
+                            if(!isRelAttributeUpdate){
                                 historyObj = {};
                                 this._populateHistoryRecord(event, relTorelationship, historyObj, internalIds);
 
