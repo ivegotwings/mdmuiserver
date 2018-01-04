@@ -408,12 +408,48 @@ DataObjectFalcorUtil.getOrCreate = function (obj, key, defaultVal) {
     return keyObj;
 };
 
-DataObjectFalcorUtil.mergeObjects = function (obj1, obj2) {
-    return Object.assign(obj1, obj2);
+DataObjectFalcorUtil.mergeObjects = function (target, source, addMissing = true) {
+   
+    if (!target) {
+        if (addMissing) {
+            target = {};
+        }
+        else {
+            return target;
+        }
+    }
+
+    if (!source) {
+        return target;
+    }
+
+    for (var targetObjKey in target) {
+        var targetObj = target[targetObjKey];
+        var sourceObj = source[targetObjKey];
+
+        if (sourceObj) {
+            //console.log('deep assign---- target:', JSON.stringify(targetObj), 'source:', JSON.stringify(sourceObj));
+            target[targetObjKey] = DataObjectFalcorUtil.deepAssign(targetObj, sourceObj);
+            //console.log('deep assign---- target result:', JSON.stringify(target[targetObjKey]));
+        }
+    }
+
+    if (addMissing) {
+        for (var sourceObjKey in source) {
+            var sourceObj = source[sourceObjKey];
+            var targetObj = target[sourceObjKey];
+
+            if (!targetObj) {
+                target[sourceObjKey] = sourceObj;
+            }
+        }
+    }
+
+    return target;
 };
 
 DataObjectFalcorUtil.mergeObjectsNoOverride = function (target, source, addMissing = false) {
-
+   
     if (!target) {
         if (addMissing) {
             target = {};
@@ -434,13 +470,13 @@ DataObjectFalcorUtil.mergeObjectsNoOverride = function (target, source, addMissi
         if (sourceObj) {
             //console.log('deep assign---- target:', JSON.stringify(targetObj), 'source:', JSON.stringify(sourceObj));
             targetObj = DataObjectFalcorUtil.deepAssign(targetObj, sourceObj);
+            //console.log('deep assign---- target result:', JSON.stringify(target[targetObjKey]));
         }
     }
 
     if (addMissing) {
         for (var sourceObjKey in source) {
             var sourceObj = source[sourceObjKey];
-
             var targetObj = target[sourceObjKey];
 
             if (!targetObj) {
@@ -676,6 +712,18 @@ DataObjectFalcorUtil.getNestedObject = function (obj, keys) {
 DataObjectFalcorUtil.isObject = function (item) {
     return (item && typeof item === 'object' && !Array.isArray(item));
 };
+
+DataObjectFalcorUtil.isValidObjectPath = function (base, path) {
+    var current = base;
+    var components = path.split(".");
+    for (var i = 0; i < components.length; i++) {
+        if ((typeof current !== "object") || (!components[i] in current)) {
+            return false;
+        }
+        current = current[components[i]];
+    }
+    return true;
+}
 
 DataObjectFalcorUtil.deepAssign = function (...objs) {
     if (objs.length < 2) {
