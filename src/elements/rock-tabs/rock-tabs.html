@@ -187,6 +187,14 @@ It makes it easy to explore and switch between different views or functional asp
                 padding-bottom: 20px;
                 padding-left: 20px;
             }
+
+            paper-spinner-lite {
+                display: block;
+                position: absolute;
+                left:50%;
+                margin-top: 20px;
+                transform: translate3d(50%, 0, 0);
+            }
         </style>
         <div id="menuProviders" hidden></div>
         <pebble-tab-group id$="{{id}}" selected="{{selectedTabIndex}}" on-iron-select="_onIronSelect" on-iron-deselect="_onIronDeselect"
@@ -224,9 +232,8 @@ It makes it easy to explore and switch between different views or functional asp
                 </pebble-tab>
             </template>
         </pebble-tab-group>
-        <template is="dom-repeat" items="[[_calculatedTabItems]]" as="tabItemContent">
-            <div id="content-[[tabItemContent.name]]" hidden class="tab-content"></div>
-        </template>
+        <paper-spinner-lite active="[[showLoadingSpinner]]"></paper-spinner-lite>
+        <div id="tab-content" hidden class="tab-content"></div>
         <bedrock-pubsub event-name="selection-changed" handler="_onSelectionChange" target-id=""></bedrock-pubsub>
     </template>
     <script>
@@ -312,6 +319,14 @@ It makes it easy to explore and switch between different views or functional asp
             behaviors: [
                 RUFBehaviors.UIBehavior
             ],
+            created() {
+                this.contentCacheMap = new Map();
+                this.showLoadingSpinner = false;
+            },
+
+            detached() {
+                this.contentCacheMap.clear();
+            },
 
             /*
              * Can be used to get the value of a badge for the `tab-name` that the user specified.
@@ -548,67 +563,50 @@ It makes it easy to explore and switch between different views or functional asp
                 }
             },
 
-            _loadContent: function (config, tabName) {
-                if(!config) {
-                    this.logWarning("TabConfig");
-                    return;                    
+            _loadContent: function (config, tabName, reload) {
+                if(!config || !config.component) {
+                    return this.logWarning("TabConfig");
                 }
 
-                var viewName = config.name;
+                this.showLoadingSpinner = true;
+
+                const viewName = config.name;
 
                 tabName = tabName || viewName;
 
-                if (this._currentTabName && this._currentTabName !== tabName) {
-                    this._hideView(this._currentTabName);
-                }
+                this._updateErrorVis(config.errorLength);
 
-                var contentElement = this.shadowRoot.querySelector(`#content-${tabName}`);
+                if(this.viewName === viewName && !reload) {
+                    this.showLoadingSpinner = false;
+                    return;
+                };
 
-                if(this.viewName && this.viewName !== viewName)
-                    ComponentHelper.clearNode(contentElement);
+                const contentElement = this.$['tab-content'];
+
+                ComponentHelper.displayNode(contentElement, false);
 
                 this.viewName = viewName;
-
-                if (config.component) {
-                    //Timeout needs to postpone the rendering until tab-animation has finished
-                    //TODO should trigger loading bar here
-                    setTimeout(()=> {
-                        this._showView(viewName, contentElement);
-                        //TODO need to add loading from cache functionality
-                        ComponentHelper.loadContent(contentElement, config.component, this);
-                    }, 500);
-                }
-
                 this._currentTabName = tabName;
-                this._onReadonly();
 
-                if (config.errorLength) {
-                    this._updateErrorVis(config.errorLength);
-                } else {
-                    this._updateErrorVis(0);
-                }
-            },
+                this._tabChange(viewName);
 
-            _showView: function (viewName, contentElement) {
-                if (viewName) {
-                    this._tabChange(viewName);
-                    var contentView = contentElement || this.shadowRoot.querySelector("#content-" + viewName);
-                    
-                    if (contentView) {
-                        ComponentHelper.clearNode(contentView);
-                        contentView.removeAttribute("hidden");
+                //Timeout needs to postpone the rendering until tab-animation has finished
+                setTimeout(()=> {
+                    const cachedContent = this.contentCacheMap.get(viewName);
+
+                    if(cachedContent && !reload) {
+                        ComponentHelper.clearNode(contentElement);
+                        contentElement.appendChild(cachedContent);
+                    } else {
+                        ComponentHelper.loadContent(contentElement, config.component, this, (content) => {
+                            content.readonly = this.readonly;
+                            this.contentCacheMap.set(viewName, content);
+                        });
                     }
-                }
-            },
 
-            _hideView: function (viewName) {
-                if (viewName) {
-                    var contentView = this.shadowRoot.querySelector("#content-" + viewName);
-                    if (contentView) {
-                        ComponentHelper.clearNode(contentView);
-                        contentView.setAttribute("hidden", "");
-                    }
-                }
+                    ComponentHelper.displayNode(contentElement, true);
+                    this.showLoadingSpinner = false;
+                }, 500);
             },
 
             _applyMargin: function (tabName, apply) {
@@ -683,9 +681,6 @@ It makes it easy to explore and switch between different views or functional asp
             * Can be used to reload the current tab content.
             */
             reloadCurrentTab: function (isReloadByConfig) {
-                //TODO: investigate why this method triggers so many times on the initial page loading
-                //and attribute-summary page become blinking
-
                 //to reload the current selected tab after any changes to tabItemConfig
                 //no inputs to this method. Find out the current selected tab and call _loadContent()
                 if (!this.shadowRoot) {
@@ -724,9 +719,9 @@ It makes it easy to explore and switch between different views or functional asp
                 }
 
                 if (currentTabConfig && currentTabMenuConfig) {
-                    this._loadContent(currentTabMenuConfig, currentTabConfig.name);
+                    this._loadContent(currentTabMenuConfig, currentTabConfig.name, true);
                 } else {
-                    this._loadContent(currentTabConfig, null);
+                    this._loadContent(currentTabConfig, null, true);
                 }
             },
             /**
@@ -735,26 +730,13 @@ It makes it easy to explore and switch between different views or functional asp
             reloadTabs: function () {
                 if (this.config && this.config.tabItems && this.config.tabItems.length > 0) {
                     var tabItems = DataHelper.cloneObject(this.config.tabItems);
+                    this.contentCacheMap.clear();
                     for (var i = 0; i < tabItems.length; i++) {
                         var tabItem = tabItems[i];
                         var tabName = tabItem.name;
-                        var contentElement = this.shadowRoot.querySelector('#content-' + tabName);
                         var contentTab = this.shadowRoot.querySelector('pebble-tab[id=' + tabName + ']');
                         if (contentTab) {
                             contentTab.tabConfig = tabItem;
-                        }
-                        if (contentElement && contentElement.firstChild) {
-                            Polymer.dom(contentElement).removeChild(contentElement.firstChild);
-                        }
-                        if (tabItem.menuItems && tabItem.menuItems.length > 0) {
-                            for (var j = 0; j < tabItem.menuItems.length; j++) {
-                                var meuItemName = tabItem.menuItems[j].name;
-                                var menuContentElement = this.shadowRoot.querySelector('#content-' + tabName + '-' +
-                                    meuItemName);
-                                if (menuContentElement && menuContentElement.firstChild) {
-                                    Polymer.dom(menuContentElement).removeChild(menuContentElement.firstChild);
-                                }
-                            }
                         }
                         this._fillMenuItems(tabItem);
                     }
@@ -795,13 +777,11 @@ It makes it easy to explore and switch between different views or functional asp
                 }
             },
 
-            _onReadonly: function () {
-                if (this._currentTabName) {
-                    var content = this.$$('#content-' + this._currentTabName);
-                    if (content && content.firstChild) {
-                        content.firstChild.readonly = this.readonly;
-                    }
-                }
+            _onReadonly() {
+                const tabView = this.$['tab-content'].firstChild;
+                
+                if(tabView)
+                    tabView.readonly = this.readonly;
             },
             _showWarning: function (event) {
                 if (!window.confirm(
@@ -822,7 +802,7 @@ It makes it easy to explore and switch between different views or functional asp
                     this._updateErrorVis(errorLength);
                 }
             },
-            _updateErrorVis: function (errorLength) {
+            _updateErrorVis: function (errorLength=0) {
                 var currentItem = this.shadowRoot.querySelector("#" + this.id).selectedItem;
                 var errorCircle = currentItem.shadowRoot.querySelector(".error-circle");
                 if (errorLength > 0) {
