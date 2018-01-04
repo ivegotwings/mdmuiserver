@@ -7,7 +7,7 @@
 <link rel="import" href="../bedrock-helpers/entity-helper.html">
 <link rel="import" href="../bedrock-helpers/attribute-helper.html">
 <link rel="import" href="../bedrock-helpers/element-helper.html">
-<link rel="import" href="../bedrock-style-manager/styles/bedrock-styles-scroll-bar.html"/>
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-styles-scroll-bar.html" />
 
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 
@@ -24,17 +24,21 @@
     <template>
         <style include="bedrock-style-common bedrock-styles-scroll-bar">
             #contextTree {
-                overflow-y:auto;
-                overflow-x:hidden;
+                overflow-y: auto;
+                overflow-x: hidden;
                 height: calc(100% - 30px);
             }
         </style>
         <liquid-entity-data-get id="initiateSearch" operation="initiatesearch" request-data="{{request}}" last-response="{{initiateSearchResponse}}"
             on-error="_onGetSearchError" on-response="_onInitiateSearchResponse" exclude-in-progress></liquid-entity-data-get>
         <liquid-entity-data-get id="getSearchResultDetail" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[initiateSearchResponse.content.requestId]]"
-                                last-response="{{getEntitySearchResultsResponse}}" on-error="_onGetSearchError" on-response="_onGetSearchResultDetailResponse" exclude-in-progress></liquid-entity-data-get>
-        <pebble-tree id="contextTree" leaf-node-only="[[leafNodeOnly]]" data="{{classifications}}" check-child-nodes default-child-depth="10" selected-items="{{_selectedItems}}" selected-item="{{_selectedItem}}"  multi-select="[[multiSelect]]"></pebble-tree>
-        <bedrock-pubsub event-name="tree-node-child-list-refreshed" handler="_childListRefreshed" ></bedrock-pubsub>
+            last-response="{{getEntitySearchResultsResponse}}" on-error="_onGetSearchError" on-response="_onGetSearchResultDetailResponse"
+            exclude-in-progress></liquid-entity-data-get>
+        <pebble-tree id="contextTree" leaf-node-only="[[leafNodeOnly]]" data="{{classifications}}" check-child-nodes default-child-depth="10"
+            selected-items="{{_selectedItems}}" selected-item="{{_selectedItem}}" multi-select="[[multiSelect]]"></pebble-tree>
+        <bedrock-pubsub event-name="tree-node-child-list-refreshed" handler="_childListRefreshed"></bedrock-pubsub>
+        <liquid-rest id="classificationModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_classificationModelRequest}}"
+            on-liquid-response="_onClassificationModelGetResponse"></liquid-rest>
     </template>
     <script>
         Polymer({
@@ -127,9 +131,16 @@
                 /**
                 * Specifies whether or not only leaf-node selection is enabled.
                 */
-                leafNodeOnly:{
-                    type:Boolean,
-                    value:false
+                leafNodeOnly: {
+                    type: Boolean,
+                    value: false
+                },
+
+                _classificationModelRequest: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
                 }
             },
 
@@ -161,13 +172,43 @@
                 this._selectedClassificationPaths = this.selectedClassifications;
                 this.selectedClassifications = [];
 
-                this.executeRequest();
+                this._getClassificationManageModel();
+            },
+
+            _getClassificationManageModel: function () {
+                this._classificationModelRequest = DataRequestHelper.createGetManageModelRequest(["classification"]);
+
+                var classificationModelGetElement = this.$$("#classificationModelGet");
+
+                if (classificationModelGetElement) {
+                    classificationModelGetElement.generateRequest();
+                }
+            },
+
+            _onClassificationModelGetResponse: function (e) {
+                var response = e.detail.response.response;
+
+                if (response && response.entityModels) {
+                    var entityModel = response.entityModels[0];
+                    var externalNameAndExternalNameAttr = AttributeHelper.getExternalNameAndExternalNameAttr(entityModel);
+
+                    if (externalNameAndExternalNameAttr && externalNameAndExternalNameAttr.externalNameAttr) {
+                        this._classificationExtNameAttr = externalNameAndExternalNameAttr.externalNameAttr;
+
+                        this.executeRequest();
+
+                    } else {
+                        this.showErrorToast("Attribute not found with isExternlName in classification entity manage model", 10000);
+                    }
+                } else {
+                    this.showErrorToast("Entity manage model not found for classification.", 10000);
+                }
             },
 
             executeRequest: function (parentClassificationId) {
                 var relEntityType = "classification";
                 var relType = "belongsto";
-                
+
                 if (!parentClassificationId) {
                     this.classifications = [];
                     this._currentNode = {};
@@ -175,24 +216,24 @@
                     this._currentIndex = 0;
                     parentClassificationId = this.taxonomy;
                     relEntityType = "taxonomy";
-                    relType = "belongstotaxonomy";                        
-                }   
-                
+                    relType = "belongstotaxonomy";
+                }
+
                 var contextData = DataHelper.cloneObject(this.contextData);
-                var itemContext = { "attributeNames": ["externalName"], "type": "classification" };
+                var itemContext = { "attributeNames": [this._classificationExtNameAttr], "type": "classification" };
 
                 var classificationCriteria = {};
                 classificationCriteria[relType] = { "relTo": { "id": parentClassificationId, "type": relEntityType } };
                 itemContext.relationshipsCriterion = [classificationCriteria];
-                
+
                 contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
                 contextData[ContextHelper.CONTEXT_TYPE_VALUE] = [];
                 contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
-                
+
                 var req = DataRequestHelper.createEntityGetRequest(contextData);
-                
+
                 delete req.params.options;
-                
+
                 this.set('request', req);
                 this.shadowRoot.querySelector("#initiateSearch").generateRequest();
             },
@@ -227,7 +268,7 @@
                     classification.value = classification.name;
                     classification.children = [];
                 }
-                
+
                 this._classificationsList = this._classificationsList.concat(classifications);
                 this._currentRecord += 20;
                 if (this._currentRecord < this._totalRecords) {

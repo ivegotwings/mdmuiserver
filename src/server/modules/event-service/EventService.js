@@ -673,6 +673,7 @@ Eventservice.prototype = {
         if(requestedAttributeCriteria) {
             var status = undefined;
             var taskType = "entity_import";
+            var taskTypeOperator = undefined;
             var userId = undefined;
             var integrationType = undefined;
 
@@ -681,6 +682,7 @@ Eventservice.prototype = {
                     status = requestedAttributeCriteria[i].eventSubType.eq;
                 } else if(requestedAttributeCriteria[i].taskType) {
                     taskType = requestedAttributeCriteria[i].taskType.contains;
+                    taskTypeOperator = requestedAttributeCriteria[i].taskType.operator;
                 } else if(requestedAttributeCriteria[i].userId) {
                     userId = requestedAttributeCriteria[i].userId.eq;
                 } else if(requestedAttributeCriteria[i].integrationType) {
@@ -696,10 +698,14 @@ Eventservice.prototype = {
                     "contains": taskType
                 }
             };
+
+            if(taskTypeOperator) {
+                taskTypeCriterion.taskType.operator = taskTypeOperator;
+            }
+
             attributesCriteria.push(taskTypeCriterion);
 
             if (status) {
-
                 //Add task status criterion...
                 var taskStatusCriterion = {
                     "status": {
@@ -1353,26 +1359,26 @@ Eventservice.prototype = {
         if (taskType) {
             switch (taskType.toLowerCase()) {
                 case "entity_import":
-                    taskType = "Entity data imports";
+                    taskType = "Entity Data Imports";
 
                     var integrationType = this._getAttributeValue(obj, "integrationType");
                     if (integrationType && integrationType.toLowerCase() == "system") {
-                        taskType = "System integrations - entity data imports";
+                        taskType = "System Integrations - Entity Data Imports";
                     }
                     break;
                 case "system_integrations_entity_import":
-                    taskType = "System integrations - entity data imports";
+                    taskType = "System Integrations - Entity Data Imports";
                     break;
                 case "entity_export":
-                    taskType = "Entity data exports";
+                    taskType = "Entity Data Exports";
 
                     var integrationType = this._getAttributeValue(obj, "integrationType");
                     if (integrationType && integrationType.toLowerCase() == "system") {
-                        taskType = "System integrations - entity data exports";
+                        taskType = "System Integrations - Entity Data Exports";
                     }
                     break;
                 case "system_integrations_entity_export":
-                    taskType = "System integrations - entity data exports";
+                    taskType = "System Integrations - Entity Data Exports";
                     break;
                 case "transitionworkflow":
                 case "transitionworkflow-query":
@@ -1392,8 +1398,17 @@ Eventservice.prototype = {
                 case "delete":
                 case "delete-query":
                 case "delete-multi-query":
-                        taskType = "Bulk Entity Delete";
-                        break;
+                    taskType = "Bulk Entity Delete";
+                    break;
+                case "ui_basedatamodel":
+                    taskType = "Base Data Model Imports"
+                    break;
+                case "ui_governancemodel":
+                    taskType = "Governance Model Imports"
+                    break;
+                case "ui_authorizationmodel":
+                    taskType = "Authorization Model Imports"
+                    break;
             }
         }
         else {

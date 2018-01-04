@@ -3,11 +3,13 @@
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-helpers/format-helper.html">
 <link rel="import" href="../bedrock-helpers/data-transform-helper.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
 
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../liquid-entity-data-save/liquid-entity-data-save.html">
+<link rel="import" href="../rock-grid-data-sources/entity-dimension-grid-datasource.html">
 
 <link rel="import" href="../pebble-checkbox/pebble-checkbox.html">
 <link rel="import" href="../pebble-accordion/pebble-accordion.html">
@@ -19,6 +21,9 @@
 <link rel="import" href="../rock-grid/rock-grid.html">
 <link rel="import" href="../rock-layout/rock-layout.html">
 <link rel="import" href="../rock-layout/rock-titlebar/rock-titlebar.html">
+<link rel="import" href="../rock-entity-lov/rock-entity-lov.html">
+<link rel="import" href="../rock-context-lov/rock-context-lov.html">
+<link rel="import" href="../rock-entity-model-lov/rock-entity-model-lov.html">
 
 <!--
 `rock-dimension-grid` Represents a component that displays the dimension value of the given attribute.
@@ -37,7 +42,7 @@ The user can view the past data but cannot modify it. However he/she can add or 
 
 <dom-module id="rock-dimension-grid">
   <template>
-    <style include="bedrock-style-common">
+    <style include="bedrock-styles-scroll-bar">
       :host {
         --pebble-grid-container: {
           margin-top:0px;
@@ -46,6 +51,9 @@ The user can view the past data but cannot modify it. However he/she can add or 
         --pebble-grid-container-header: {
           padding-right: 0;
           padding-left: 0;
+        };
+        --rock-grid-actions:{
+          display:none;
         }
       }
       #dimensionGridContainer {
@@ -88,40 +96,46 @@ The user can view the past data but cannot modify it. However he/she can add or 
     </style>
     <div id="dimensionGridContainer">
       <div id="dimensionFilters">
-        <template is="dom-repeat" items="[[dimensionConfigs]]" as="configDataItem" notify-dom-change>
+        <template is="dom-repeat" items="[[_updatedDimensionConfigs]]" as="configDataItem" notify-dom-change>
           <pebble-accordion header-text="[[configDataItem.title]]" default-icon="chevron-right" open-icon="expand-more">
-            <div class="header-content">
+            <!--div class="header-content">
               <pebble-checkbox id="[[configDataItem.id]]Chk" on-change="_onSelectAll"></pebble-checkbox>
-            </div>
-            <template id="[[configDataItem.id]]" is="dom-if" if="[[_compareRequestType(configDataItem.dataRequestType, 'entity')]]" notify-dom-change>
-              <rock-entity-lov id="[[configDataItem.id]]" config-data-item-id="[[configDataItem.id]]" id-field="[[configDataItem.dataMappings.id]]"
-                title-pattern="[[configDataItem.dataMappings.title]]" type-field="[[configDataItem.dataMappings.type]]" request-data="[[configDataItem.dataRequest]]"
+            </div-->
+            <template is="dom-if" if="[[_isContextLovType(configDataItem)]]">
+              <rock-context-lov id="[[configDataItem.id]]" entity-id="[[entityId]]" entity-type="[[entityType]]"
+                context-name="[[configDataItem.id]]" config-data-item-id="[[configDataItem.id]]" on-selection-changed="_onDimensionChange" 
+                multi-select no-sub-title></rock-context-lov>
+            </template>
+            <template is="dom-if" if="[[!_isContextLovType(configDataItem)]]">
+              <rock-entity-lov id="[[configDataItem.id]]" r-data="[[configDataItem]]" config-data-item-id="[[configDataItem.id]]" id-field="[[configDataItem.dataMappings.id]]"
+                title-pattern="[[configDataItem.dataMappings.title]]" request-data="[[configDataItem.dataRequest]]"
+                type-field="[[configDataItem.dataMappings.type]]" sort-field="[[configDataItem.dataMappings.sort]]" external-data-formatter="[[_entityExternalDataFormatter]]"
                 on-selection-changed="_onDimensionChange" multi-select no-sub-title></rock-entity-lov>
-            </template>
-            <template id="[[configDataItem.id]]" is="dom-if" if="[[_compareRequestType(configDataItem.dataRequestType, 'entity-model')]]"
-              notify-dom-change>
-              <rock-entity-model-lov id="[[configDataItem.id]]" config-data-item-id="[[configDataItem.id]]" id-field="[[configDataItem.dataMappings.id]]"
-                title-pattern="[[configDataItem.dataMappings.title]]" type-field="[[configDataItem.dataMappings.type]]" request-data="[[configDataItem.dataRequest]]"
-                on-selection-changed="_onDimensionChange" multi-select no-sub-title></rock-entity-model-lov>
-            </template>
+
+              </template>
           </pebble-accordion>
         </template>        
       </div>
       <div id="dimensionGrid">
-        <pebble-button icon="pebble-md-icons:actions" class="dropdownText dropdownIcon btn dropdown-success pull-right" menu-button
-          dropdown-icon button-text="Action" on-click=""></pebble-button>
+        <!--pebble-button icon="pebble-md-icons:actions" class="dropdownText dropdownIcon btn dropdown-success pull-right" menu-button
+          dropdown-icon button-text="Action" on-click=""></pebble-button-->
         <div class="clearfix"></div>
-        <rock-grid config="[[_gridConfig]]" page-size="10" attribute-models="[[gridAttributeModel]]"></rock-grid>
+        <rock-grid  config="[[_gridConfig]]" 
+                    page-size="{{totalCount}}" 
+                    attribute-models="[[gridAttributeModel]]" 
+                    total-count="{{totalCount}}"></rock-grid>
       </div>
       <div class="clearfix"></div>
     </div>
-    <div class="action-container m-t-10">
+    <!--div class="action-container m-t-10">
       <pebble-button class="btn btn-secondary m-r-10" button-text="Cancel" on-tap="_cancelAction" noink></pebble-button>
       <pebble-button class="btn btn-success" button-text="Save" on-tap="_saveAction" noink></pebble-button>
-    </div>
-    <liquid-entity-data-get verbose name="attributeGetDataService" operation="getbyids" request-data="{{_request}}" last-response="{{response}}"></liquid-entity-data-get>
-    <liquid-entity-data-save name="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" last-response="{{saveResponse}}"
-      on-response="_onSaveResponse"></liquid-entity-data-save>
+    </div-->
+    <entity-dimension-grid-datasource id="searchGridDatasource" context-data="[[contextData]]" value-contexts="{{_valueContexts}}" contexts="{{_contexts}}"
+        request="{{_request}}" r-data-source="{{rDataSource}}" total-count="{{totalCount}}"></entity-dimension-grid-datasource>
+    <liquid-entity-data-get verbose name="attributeGetDataService" operation="getbyids" request-data="{{_request}}" on-response="[[_onAttributesGetResponse]]"></liquid-entity-data-get>
+    <!--liquid-entity-data-save name="attributeSaveDataService" operation="update" request-data="{{_saveRequest}}" last-response="{{saveResponse}}"
+      on-response="_onSaveResponse"></liquid-entity-data-save-->
   </template>
   <script>
     (function () {
@@ -138,37 +152,6 @@ The user can view the past data but cannot modify it. However he/she can add or 
             notify: true,
             value: ""
           },
-
-          /*
-           * Indicates an array of locales for the dimension panel.
-           */
-          locales: {
-            type: Array,
-            value: function () {
-              return [];
-            }
-          },
-
-          /*
-           * Indicates an array of channels for the dimension panel.
-           */
-          channels: {
-            type: Array,
-            value: function () {
-              return [];
-            }
-          },
-
-          /*
-           * Indicates an array of "sources" for the dimension panel.
-           */
-          sources: {
-            type: Array,
-            value: function () {
-              return [];
-            }
-          },
-
           /*
            * Indicates an attribute model object of the given entity 
            * for which dimension values are rendered.
@@ -189,37 +172,51 @@ The user can view the past data but cannot modify it. However he/she can add or 
               return [];
             }
           },
-
-          /*
-           * Indicates current selected locales in dimension grid.
-           */
-          _selectedLocales: {
+          _updatedDimensionConfigs: {
             type: Array,
-            value: function () {
+            value: function() {
               return [];
             }
           },
-
-          /*
-           * Indicates current selected contexts in dimension grid.
-           */
-          _selectedChannels: {
-            type: Array,
-            value: function () {
-              return [];
+          rDataSource:{
+            type:Function
+          },
+          totalCount:{
+            type:Number,
+            value:100
+          },
+          entityId: {
+            type: String,
+            value: ""
+          },
+          entityType: {
+            type: String,
+            value: ""
+          },
+          _valueContexts:{
+              type:Array,
+              value:function(){
+                  return []
+              }
+          },
+          _contexts:{
+              type:Array,
+              value:function(){
+                  return []
+              }
+          },
+          _dataContextModelObjects:{
+            type:Object,
+            value: function(){
+              return {}
             }
           },
-
-          /*
-           * Indicates current selected sources in dimension grid.
-           */
-          _selectedSources: {
-            type: Array,
-            value: function () {
-              return [];
+          _valueContextModelObjects:{
+            type:Object,
+            value: function(){
+              return {}
             }
           },
-
           /*
            * Indicates request object based on current selected dimension objects.
            */
@@ -247,12 +244,6 @@ The user can view the past data but cannot modify it. However he/she can add or 
             }
           }
         },
-
-        observers: [
-          '_onSelectionChange(_selectedLocales, _selectedChannels, _selectedSources)',
-          '_entityGet(response)'
-        ],
-
         behaviors: [
           RUFBehaviors.UIBehavior,
           RUFBehaviors.ComponentContextBehavior
@@ -261,54 +252,195 @@ The user can view the past data but cannot modify it. However he/she can add or 
           * <b><i>Content development is under progress... </b></i> 
           */
         ready: function () {
-          this._setInitDimensions();
+          this.entityId = DataHelper.getParamValue('id');
+          this.entityType = DataHelper.getParamValue('type');
+
+          if(this.dimensionConfigs){
+              var arrayToObj = {}
+              for (let i = 0; i < this.dimensionConfigs.length; i++) {
+                const dimension = this.dimensionConfigs[i];
+                if(dimension){
+                  arrayToObj[dimension.id] = dimension;
+                  if(dimension.useContextModel){
+                    this._dataContextModelObjects[dimension.id] = dimension;
+                    this._dataContextModelObjects[dimension.id]["selectedItems"] = [];
+                  }
+                }
+              }
+          
+              if (!_.isEmpty(this.contextData) && !_.isEmpty(arrayToObj)) {
+                var dataContexts = this.getDataContexts();
+                var valueContexts = this.getValueContexts();
+
+                dataContexts.forEach(function(contextObj){
+                    var selectedItems = [];
+                    for (const contextKey in contextObj) {
+                      if (contextObj.hasOwnProperty(contextKey) && arrayToObj[contextKey]) {
+                          var _obj = {
+                            id:contextObj[contextKey],
+                            title:contextObj[contextKey],
+                            type:contextKey
+                          }
+                          if(this._dataContextModelObjects[contextKey]){
+                            this._dataContextModelObjects[contextKey]["selectedItems"].push(_obj);
+                          }else{
+                            this._dataContextModelObjects[contextKey] = arrayToObj[contextKey];
+                            this._dataContextModelObjects[contextKey]["selectedItems"] = [ _obj ];
+                          }
+                      }
+                    }
+                }.bind(this));
+                
+                valueContexts.forEach(function(valueContextObj){
+                    for (const valueContextKey in valueContextObj) {
+                      if (valueContextObj.hasOwnProperty(valueContextKey) && arrayToObj[valueContextKey]) {
+                          var _obj = {
+                            id:valueContextObj[valueContextKey],
+                            // title:valueContextObj[valueContextKey],
+                            type:valueContextKey
+                          }
+                          var reqData = {
+                              "params": {
+                                  "query": {
+                                      "filters": {
+                                          "typesCriterion": [valueContextKey]
+                                      }
+                                  }
+                              }
+                          };
+                          if(this._valueContextModelObjects[valueContextKey]){
+                            this._valueContextModelObjects[valueContextKey]["selectedItems"].push( _obj );
+                          }else{
+                            this._valueContextModelObjects[valueContextKey] = arrayToObj[valueContextKey];
+                            this._valueContextModelObjects[valueContextKey]["selectedItems"] = [ _obj ];
+                          }
+                          this._valueContextModelObjects[valueContextKey]["dataRequest"] = reqData;
+
+                          this._valueContextModelObjects[valueContextKey]["dataMappings"]["id"] = "id";
+                          this._valueContextModelObjects[valueContextKey]["dataMappings"]["title"] = "name";
+
+                          // this._valueContextModelObjects[valueContextKey]["selectedItem"] = this._valueContextModelObjects[valueContextKey]["selectedItems"][0];
+                      }
+                    }
+                }.bind(this));
+
+              }
+
+          }
+
+          this.set("_updatedDimensionConfigs", this.dimensionConfigs);
+
+          this._gridConfig = undefined;
+          this._gridConfig = this._getGridConfig();
+
+          var attrModels = {};
+          var modelObject = JSON.parse(this.attributeModelObject);
+          attrModels[modelObject.name] = modelObject;
+
+          this.gridAttributeModel = undefined;
+          this.gridAttributeModel = attrModels;
+     
+          
+        },
+        
+        attached:function(){
+          setTimeout(() => {
+            this._setDimensionSelection();
+            this._onSelectionChange();
+          }, 0)
         },
 
+        _isContextLovType: function(configContext){
+            if(this._dataContextModelObjects){
+              if(this._dataContextModelObjects[configContext.id]){
+                return true;
+              }
+            }
+            return false;
+        },
+        _entityExternalDataFormatter: function (data) {
+            if(data && data.length > 0){
+              data.forEach(function(element){
+                element.id = element.title;
+              }.bind(this))
+            }
+            return data;
+        },
+        
         _onDimensionChange: function (e) {
           if (e.currentTarget.selectedItems) {
-            var selectedItems = e.currentTarget.selectedItems;
-
-            if (e.currentTarget.id == "locale") {
-              this._selectedLocales = undefined;
-              this._selectedLocales = selectedItems;
-            } else if (e.currentTarget.id == "channel") {
-              this._selectedChannels = undefined;
-              this._selectedChannels = selectedItems;
-            } else if (e.currentTarget.id == "source") {
-              this._selectedSources = undefined;
-              this._selectedSources = selectedItems;
-            }
+            this._onSelectionChange();
           }
         },
 
         _onSelectionChange: function (_selectedLocales, _selectedChannels, _selectedSources) {
-          if (!(_selectedLocales === undefined || _selectedChannels === undefined || _selectedSources === undefined)) {
-            if (this.dataId) {
+          if (this.dataId) {
               var attributeNames = [];
               var valueContexts = [];
               var contexts = [];
               var typesCriterion = [];
+              var modelObject = JSON.parse(this.attributeModelObject);
+              attributeNames.push(modelObject.name);
 
-              attributeNames.push(this.attributeModelObject.name);
-              if (this._selectedLocales && this._selectedSources) {
-                this._selectedSources.forEach(function (sourceItem) {
-                  this._selectedLocales.forEach(function (localeItem) {
-                    valueContexts.push({
-                      "source": sourceItem.title,
-                      "locale": localeItem.title
-                    });
-                  }, this);
-                }, this);
+              //Find findMaxSelectedItems in value contexts
+              var maxSelectedItems = 0;
+              for (const valueContext in this._valueContextModelObjects) {
+                if(this._valueContextModelObjects[valueContext]){
+                  var selectedItems = this._valueContextModelObjects[valueContext].selectedItems;
+                  if(maxSelectedItems < selectedItems.length){
+                    maxSelectedItems = selectedItems.length;
+                  }
+                }
               }
+              //Create temp Object and push to array
+              for (let i = 0; i < maxSelectedItems; i++) {
+                valueContexts.push({});
+              }
+              for (const valueContext in this._valueContextModelObjects) {
+                if (this._valueContextModelObjects.hasOwnProperty(valueContext)) {
+                  var selectedItems = this._valueContextModelObjects[valueContext].selectedItems;
+                  for (let j = 0; j < valueContexts.length; j++) {
+                    for (let i = 0; i < selectedItems.length; i++) {
+                      if(selectedItems[j]){
+                        valueContexts[j][valueContext] =  selectedItems[j]["id"];
+                      }else{
+                        valueContexts[j][valueContext] =  selectedItems[i]["id"];
+                      }
+                    }
+                  }
+                }
+              }
+              this.set("_valueContexts", valueContexts);
 
-              if (this._selectedChannels) {
-                this._selectedChannels.forEach(function (contextItem) {
-                  contexts.push({
-                    "classification": "_ALL",
-                    "list": contextItem.title
-                  });
-                }, this);
+              //Find findMaxSelectedItems in data contexts
+              maxSelectedItems = 0;
+              for (const context in this._dataContextModelObjects) {
+                if(this._dataContextModelObjects[context]){
+                  var selectedItems = this._dataContextModelObjects[context].selectedItems;
+                  if(maxSelectedItems < selectedItems.length){
+                    maxSelectedItems = selectedItems.length;
+                  }
+                }
               }
+              //Create temp Object and push to array
+              for (let i = 0; i < maxSelectedItems; i++) {
+                contexts.push({});
+              }
+              for (const context in this._dataContextModelObjects) {
+                if (this._dataContextModelObjects.hasOwnProperty(context)) {
+                  var selectedItems = this._dataContextModelObjects[context].selectedItems;
+                  for (let j = 0; j < contexts.length; j++) {
+                    for (let i = 0; i < selectedItems.length; i++) {
+                      if(selectedItems[j]){
+                        contexts[j][context] =  selectedItems[j]["id"];
+                      }else{
+                        contexts[j][context] =  selectedItems[i]["id"];
+                      }
+                    }
+                  }
+                }
+              }
+              this.set("_contexts", contexts);
 
               var itemContext = this.getFirstItemContext();
 
@@ -316,40 +448,94 @@ The user can view the past data but cannot modify it. However he/she can add or 
                 typesCriterion.push(itemContext.type);
               }
 
-              //TODO: need to check how can we replace this request with request-helper.
-              // Here this component has it's own set of contexts.
-              //TODO: Overall comment for this is dimensions of this component's are working only on locale, source, channel. It has to br dynamic.
               var req = {
                 "params": {
                   "query": {
-                    "contexts": contexts,
-                    "valueContexts": valueContexts,
+                    // "contexts": contexts,
+                    // "valueContexts": valueContexts,
                     "filters": {
-                      "attributesCriterion": [],
-                      "typesCriterion": typesCriterion
-                    },
-                    "id": this.dataId
+                      "typesCriterion": [
+                        "entitymanageevent"
+                      ],
+                      "attributesCriterion": [
+                        {
+                          "entityId": {
+                            "exact": this.dataId
+                          }
+                        }
+                      ]
+              
+                    }
                   },
                   "fields": {
-                    "ctxTypes": [
-                      "properties"
-                    ],
                     "attributes": attributeNames
+                  },
+                  "sort": {
+                    "properties": [
+                      {
+                        "modifiedDate": "_DESC",
+                        "sortType": "_DATETIME"
+                      }
+                    ]
                   }
+
                 }
               };
 
               this._request = req;
+             this.rDataSource({page: 0, pageSize: this.totalCount, resetSearch:true}, this._onAttributesGetResponse.bind(this), this._onAttributesGetErrorResponse.bind(this))
+            }
+        },
+        _onAttributesGetResponse:function(res){
+            if (res && res.status && (res.status == "success")) {
+              var dimGrid = this.shadowRoot.querySelector('rock-grid');
+              var data = [];
+              var modelObject = JSON.parse(this.attributeModelObject);
+              var attrName = modelObject.name;
+              
+              if (res.content && res.content.events && res.content.events.length > 0) {
+                var events = res.content.events;
+                var columns = this._gridConfig.tabular.columns;
+                events.forEach(function (eventObj) {
+                    var _attribute = EntityHelper.getAttribute(eventObj, attrName);
+                    if(_attribute && _attribute.values){
+                      var firstValue = _attribute.values[0];
+                      var record = {};
+                      for (let i = 0; i < columns.length; i++) {
+                        const column = columns[i];
+                        var attrKey = column.name.toLowerCase();
+                        if(firstValue[attrKey]){
+                          record[column.name] = firstValue[attrKey];
+                        }
+                      }
+                      var attrValue = _attribute.values[0].value;
+                      if(_attribute.values.length > 1){
+                          for (let i = 1; i < _attribute.values.length; i++) {
+                            attrValue += ", " + _attribute.values[i].value;
+                          }
+                      }
+                      record[attrName] = attrValue;
+                      if(eventObj.properties && eventObj.properties.modifiedDate){
+                        record.Time = FormatHelper.convertFromISODateTime(eventObj.properties.modifiedDate, 'datetime');
+                      }
+                      data.push(record);
+                    }
+                })
 
-              var liquidGet = Polymer.dom(this).node.shadowRoot.querySelector('liquid-entity-data-get');
-
-              if (liquidGet && valueContexts.length > 0) {
-                liquidGet.generateRequest();
+                if (data) {
+                  var grid = this.shadowRoot.querySelector('rock-grid');
+                  grid.data = data;
+                  if (grid._getIronDataTable()) {
+                    grid._getIronDataTable()._sizeChanged(data.length, 0);
+                    grid.reRenderGrid();
+                  }
+                }
               }
             }
-          }
         },
+        _onAttributesGetErrorResponse: function(e){
 
+        },
         _onSelectAll: function (e) {
           if (e.currentTarget.id == 'localeChk') {
             var localeLov = Polymer.dom(this).node.shadowRoot.querySelector('rock-entity-model-lov[id="locale"]');
@@ -406,7 +592,8 @@ The user can view the past data but cannot modify it. However he/she can add or 
         _saveAction: function (e) {
           var attributesJSON = {};
           var grid = Polymer.dom(this).node.shadowRoot.querySelector('rock-grid');
-          var attrName = this.attributeModelObject.name;
+          var modelObject = JSON.parse(this.attributeModelObject);
+          var attrName = modelObject.name;
 
           if (grid) {
             var data = grid.data;
@@ -509,7 +696,8 @@ The user can view the past data but cannot modify it. However he/she can add or 
           if (this.response != undefined) {
             var dimGrid = Polymer.dom(this).node.shadowRoot.querySelector('rock-grid');
             var data = [];
-            var attrName = this.attributeModelObject.name;
+            var modelObject = JSON.parse(this.attributeModelObject);
+            var attrName = modelObject.name;
             var dimensions = {
               "locales": this._selectedLocales,
               "channels": this._selectedChannels,
@@ -519,7 +707,7 @@ The user can view the past data but cannot modify it. However he/she can add or 
             if (this.response && this.response.content && this.response.content.entities) {
               var entity = this.response.content.entities[0];
               if (entity) {
-                DataTransformHelper.transformEntityForDimensionGrid(entity, dimensions, this.attributeModelObject);
+                DataTransformHelper.transformEntityForDimensionGrid(entity, dimensions, modelObject);
                 var currentContexts = entity.data.contexts;
                 var selfAttributes = entity.data.attributes;
 
@@ -571,73 +759,6 @@ The user can view the past data but cannot modify it. However he/she can add or 
           }
         },
 
-        _initDimensionGrid: function () {
-          if (!_.isEmpty(this.contextData)) {
-            var dataContexts = this.getDataContexts();
-            var valueContexts = this.getValueContexts();
-
-            var locales = [];
-            var sources = [];
-            var channels = [];
-
-            var selectedLocales = [];
-            var selectedSources = [];
-            var selectedChannels = [];
-
-            if (!_.isEmpty(dataContexts)) {
-              channels = [...new Set(dataContexts.map((obj) => obj.channel))];
-            }
-
-            if (!_.isEmpty(valueContexts)) {
-              locales = [...new Set(valueContexts.map((obj) => obj.locale))];
-              sources = [...new Set(valueContexts.map((obj) => obj.source))];
-            }
-
-            if (!_.isEmpty(locales)) {
-              locales.forEach(function (locale) {
-                selectedLocales.push({
-                  "id": locale,
-                  "title": locale
-                });
-              }, this);
-            }
-
-            if (!_.isEmpty(channels)) {
-              channels.forEach(function (channel) {
-                selectedChannels.push({
-                  "id": channel,
-                  "title": channel
-                });
-              }, this);
-            }
-
-            if (!_.isEmpty(sources)) {
-              sources.forEach(function (source) {
-                selectedSources.push({
-                  "id": source,
-                  "title": source
-                });
-              }, this);
-            }
-
-            this._selectedLocales = selectedLocales;
-            this._selectedChannels = selectedChannels;
-            this._selectedSources = selectedSources;
-
-            this._gridConfig = undefined;
-            this._gridConfig = this._getGridConfig();
-
-            var attrModels = {};
-            var modelObject = JSON.parse(this.attributeModelObject);
-            attrModels[modelObject.name] = this.attributeModelObject;
-
-            this.gridAttributeModel = undefined;
-            this.gridAttributeModel = attrModels;
-
-            this._setDimensionSelection();
-          }
-        },
-
         _getIdsFromObject: function (arrayObject) {
           var ids = [];
           if (arrayObject) {
@@ -648,48 +769,26 @@ The user can view the past data but cannot modify it. However he/she can add or 
           return ids;
         },
 
-        _compareRequestType: function (dataRequestType, entityTypeInfo) {
-          return dataRequestType === entityTypeInfo;
-        },
-
-        _setInitDimensions: function () {
-          var repeat = Polymer.dom(this).node.shadowRoot.querySelector("dom-repeat");
-          if (repeat) {
-            repeat.addEventListener("dom-change", function (event) {
-              this._initDimensionGrid();
-            }.bind(this));
-          }
-        },
-
         _setDimensionSelection: function () {
-          var domIfs = this.$.dimensionFilters.querySelectorAll("dom-if");
-          if (domIfs) {
-            domIfs.forEach(function (domIf) {
-              domIf.addEventListener("dom-change", function (event) {
-                if (event.currentTarget.id == "locale") {
-                  var localeLov = Polymer.dom(this).node.shadowRoot.querySelector('rock-entity-model-lov[id="locale"]');
 
-                  if (localeLov) {
-                    localeLov.selectedItems = this._selectedLocales;
-                  }
-                }
-                else if (event.currentTarget.id == "source") {
-                  var sourceLov = Polymer.dom(this).node.shadowRoot.querySelector('rock-entity-model-lov[id="source"]');
-
-                  if (sourceLov) {
-                    sourceLov.selectedItems = this._selectedSources;
-                  }
-                }
-                else if (event.currentTarget.id == "channel") {
-                  var channelLov = Polymer.dom(this).node.shadowRoot.querySelector('rock-entity-lov[id="channel"]');
-
-                  if (localeLov) {
-                    channelLov.selectedItems = this._selectedChannels;
-                  }
-                }
-              }.bind(this));
-            }, this);
+          for (const dataContext in this._dataContextModelObjects) {
+            if (this._dataContextModelObjects.hasOwnProperty(dataContext)) {
+              var contextLovElement = this.shadowRoot.querySelector("#"+dataContext);
+              if(contextLovElement){
+                contextLovElement.selectedItems = this._dataContextModelObjects[dataContext].selectedItems;
+              }
+            }
           }
+
+          for (const valueContext in this._valueContextModelObjects) {
+            if (this._valueContextModelObjects.hasOwnProperty(valueContext)) {
+              var entityLovElement = this.shadowRoot.querySelector("#"+valueContext);
+              if(entityLovElement){
+                entityLovElement.selectedItems = this._valueContextModelObjects[valueContext].selectedItems;
+              }
+            }
+          }
+
         },
 
         _getGridConfig: function () {
@@ -697,11 +796,11 @@ The user can view the past data but cannot modify it. However he/she can add or 
 
           if (!_.isEmpty(config)) {
             var columns = config.tabular.columns;
-
+            var modelObject = JSON.parse(this.attributeModelObject);
             if (!_.isEmpty(columns)) {
               for (var i = 0; i < columns.length; i++) {
                 if (columns[i].header.toLowerCase() == "value") {
-                  columns[i].name = this.attributeModelObject.name;
+                  columns[i].name = modelObject.name;
                 }
               }
             }
