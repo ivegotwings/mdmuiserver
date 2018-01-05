@@ -113,7 +113,7 @@ ConfigurationService.prototype = {
 
         var configContextSettings = await this._getConfigContextSettings(tenant, isBase);
 
-        if(!isEmpty(configContextSettings)) {
+        if(isEmpty(configContextSettings)) {
             return mergedConfigObject;
         }
 
