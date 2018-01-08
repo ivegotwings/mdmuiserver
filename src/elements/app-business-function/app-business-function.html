@@ -7,6 +7,7 @@
 <link rel="import" href="../bedrock-helpers/context-helper.html">
 
 <link rel="import" href="../liquid-config-aggregate-get/liquid-config-aggregate-get.html">
+<link rel="import" href="../liquid-config-get/liquid-config-get.html" />
 
 <link rel="import" href="../pebble-icons/pebble-icons.html">
 <link rel="import" href="../pebble-actions/pebble-actions.html">
@@ -20,8 +21,8 @@
     <style include="bedrock-style-common"></style>
     <rock-layout>
       <div id="stepProviders"></div>
-      <liquid-config-aggregate-get id="getAppConfig" verbose operation="getbyids" request-id="req1" app-name="app-business-function"
-        context-data="[[contextData]]" on-config-get-response="_onApplicationConfigReceived"></liquid-config-aggregate-get>
+      <liquid-config-get id="initiateConfigSearch" operation="initiatesearch" request-data={{initiateConfigSearchRequestData}} last-response="{{initiateConfigSearchResponse}}" on-response="_onInitiateConfigSearchResponse"></liquid-config-get>
+      <liquid-config-get id="getConfigSearchDetails" operation="getsearchresultdetail" on-response="_onGetConfigSearchDetailsResponse"></liquid-config-get>
 
       <rock-titlebar slot="rock-titlebar" icon="pebble-md-icons:UserIcon" main-title="[[config.label]]" non-closable="[[config.nonClosable]]" non-minimizable="[[config.nonMinimizable]]"></rock-titlebar>
       <rock-wizard config="{{wizardConfig}}" shared-data="[[sharedData]]" on-first-step-cancelled="_onFirstStepCancelled" on-next-step="_onNextStep"
@@ -35,23 +36,27 @@
 
       Polymer({
         is: 'app-business-function',
-        attached: function () {
-          this._searchTimeStamp = new Date().toLocaleString();
-        },
         properties: {
           contextData: {
             type: Object,
             value: function() {
               return {};
             }
-          },
+          },          
           getConfig: {
             type: Function
           },
           config: {
             type: Object,
-            value: function () { return {}; },
-            computed: "getConfig(name)"
+            value: function () { return {}; }
+          },
+          entityType: {
+            type: String,
+            value: null
+          },
+          appName: {
+            type: String,
+            value: "app-business-function"
           }
         },
         behaviors: [
@@ -59,11 +64,11 @@
           RUFBehaviors.BusinessFunctionBehavior
         ],
         created: function () {
-          var entityType = DataHelper.getParamValue('type');
+          this.entityType = DataHelper.getParamValue('type');
 
-          if (entityType) {
+          if (this.entityType) {
             var itemContext = {
-              'type': entityType
+              'type': this.entityType
             };
 
             this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
@@ -77,19 +82,78 @@
           this.contextData[ContextHelper.CONTEXT_TYPE_USER] = [userContext];
         },
 
+        attached: function () {
+          this._searchTimeStamp = new Date().toLocaleString();
+
+          //Prepare collectionContext and trigger getconfig request
+          var collectionContext = {};
+
+          if (this.entityType) {
+            collectionContext.entityType = this.entityType;
+          }
+
+          if(this.roleId) {
+            collectionContext.role = this.roleId;
+          }
+
+          this.initiateConfigSearchRequestData = DataRequestHelper.getContextSepecificConfigRequest(this.appName, this.name, collectionContext);
+          var initiateConfigSearch = this.shadowRoot.querySelector("#initiateConfigSearch");
+          if(initiateConfigSearch) {
+            initiateConfigSearch.generateRequest();
+          }
+        },
+
+        _onInitiateConfigSearchResponse: function (e) {
+          var totalRecords = this.initiateConfigSearchResponse.content.totalRecords;
+          var options = { 'from': 0, 'to': totalRecords };
+          var searchResultId = this.initiateConfigSearchResponse.content.requestId;
+
+          var getConfigSearchDetails = this.shadowRoot.querySelector('#getConfigSearchDetails');
+          var reqData = this.initiateConfigSearchRequestData;
+          reqData.params.options = options;
+          getConfigSearchDetails.requestId = searchResultId;
+          getConfigSearchDetails.requestData = reqData;
+
+          getConfigSearchDetails.generateRequest();
+        },
+
+        _onGetConfigSearchDetailsResponse: function(e) {
+            var gridConfig = {};
+            if(e.detail.response &&
+              e.detail.response.status == "success" && 
+              DataHelper.isValidObjectPath(e, 'detail.response.content.configObjects.0.data.contexts.0.jsonData.config')) {
+                  var config = e.detail.response.content.configObjects[0].data.contexts[0].jsonData.config;
+                  //Add appContextData to the steps
+                  var contextData = DataHelper.cloneObject(this.contextData);
+                  contextData.appContexts = [{"appContext": this.appName}]; 
+                  if(config.steps && config.steps.length > 0) {
+                    for(var i = 0; i < config.steps.length; i++) {
+                      if(config.steps[i].component) {
+                        if(!config.steps[i].component.properties) {
+                          config.steps[i].component.properties = {};
+                        }
+
+                        config.steps[i].component.properties["app-context-data"] = contextData;
+                      }
+                    }
+                  }
+                  this.set('config', config);// set the configuration
+            }
+         },
+
          /**
          * Function to display the left nav info
-         */ 
+         */
           getAppCurrentStatus: function (customArgs) { 
             var titleStr = "";
             if(customArgs.title) {
               titleStr = customArgs.title;
-            }   
-            var queryParams = "";              
+            }
+            var queryParams = "";
             if(customArgs.queryParams && customArgs.queryParams.type){
               titleStr = titleStr + " : " + customArgs.queryParams.type;
               queryParams = customArgs.queryParams;
-            }            
+            }
             return {
                 title:titleStr,
                 subTitle: "Last Opened",
@@ -97,11 +161,7 @@
                 queryParams: queryParams
             };
         },
-        
-        _onApplicationConfigReceived: function (e) {
-          // this.logInfo("ConfigReceived","response",JSON.stringify(e, null, 2));
-          this.set('applicationConfig', e.detail);
-        },
+
         _onFirstStepCancelled: function () {
           ComponentHelper.closeCurrentApp();
         },
