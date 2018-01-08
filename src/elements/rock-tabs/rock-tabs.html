@@ -252,6 +252,20 @@ It makes it easy to explore and switch between different views or functional asp
                     notify: true
                 },
 
+                deferredRender: {
+                    type: Boolean,
+                    value: false
+                },
+
+                _isReadyToRender : { //flag that determines if the tabs can be rendered.
+                    type: Boolean,
+                    value: false           
+                },
+                
+                _renderOnTabSelection : {
+                    type: Boolean,
+                    value: false           
+                },               
                 /**
                  * If set as true , it indicates the component is in read only mode
                  */
@@ -270,6 +284,7 @@ It makes it easy to explore and switch between different views or functional asp
                         return {};
                     }
                 },
+
                 _calculatedTabItems: {
                     type: Array,
                     value: function () {
@@ -324,10 +339,16 @@ It makes it easy to explore and switch between different views or functional asp
             behaviors: [
                 RUFBehaviors.UIBehavior
             ],
-
             /*
              * Can be used to get the value of a badge for the `tab-name` that the user specified.
              */
+            attached: function () {
+                if (this.deferredRender)
+                    this._isReadyToRender = false;
+                else
+                    this._isReadyToRender = true;
+                },
+
             getTabByName: function (tabName) {
                 var pebbleTabGroup = this.shadowRoot.querySelector("#" + this.id);
                 if (pebbleTabGroup) {
@@ -398,7 +419,7 @@ It makes it easy to explore and switch between different views or functional asp
             },
 
             _configChanged: function (config) {
-                if (config != null && config != undefined) {
+                if (config != null && config != undefined && !(_.isEmpty(config))) {
                     if (config.tabItems) {
                         var tabItems = config.tabItems;
                         if (tabItems != null && tabItems != undefined && tabItems.length > 0) {
@@ -410,11 +431,10 @@ It makes it easy to explore and switch between different views or functional asp
                                 }
                             }
                         }
-
+                        
                         this._calculatedTabItems = DataHelper.cloneObject(tabItems);
                         for (var tabItemIndex in this._calculatedTabItems) {
                             var tabItem = this._calculatedTabItems[tabItemIndex];
-                            //fill menuitems auto
                             this._fillMenuItems(tabItem);
                         }
                     }
@@ -461,7 +481,6 @@ It makes it easy to explore and switch between different views or functional asp
             },
 
             _menuProviderCallback: function (tabItem, menuItems) {
-                //console.log("_menuProviderCallback tabItem.name: ", tabItem.name, " menuItems.length :", menuItems.length );
                 if (tabItem) {
                     this.set('_calculatedTabItems.' + tabItem.index, tabItem);
                     if (menuItems && menuItems.length > 0) {
@@ -528,11 +547,17 @@ It makes it easy to explore and switch between different views or functional asp
 
                 if (tabConfig && menuItemConfig) {
                     subTitle = menuItemConfig.title;
-                    this._loadContent(menuItemConfig, tabConfig.name);
+                    if(this._renderOnTabSelection){ //protects multiple render because of ironselect being executed on first render
+                        this.readyToRender(true);
+                        this._loadContent(menuItemConfig, tabConfig.name);
+                    }
                     this._resetSubTitles(tabConfig, subTitle);
                 } else {
                     if (!this.shadowRoot.querySelector("#" + this.id)._isMenuIconClicked) {
-                        this._loadContent(tabConfig);
+                        if(this._renderOnTabSelection){
+                            this.readyToRender(true);
+                            this._loadContent(tabConfig);
+                        }
                         this._resetSubTitles(tabConfig, subTitle);
                         this.selectedTabIndex = tabConfig.index;
                     }
@@ -572,11 +597,10 @@ It makes it easy to explore and switch between different views or functional asp
             },
 
             _loadContent: function (config, tabName) {
-                if(!config) {
+                if(!config || !this._isReadyToRender) {
                     this.logWarning("TabConfig");
                     return;                    
                 }
-
                 var viewName = config.name;
                 viewName = tabName ? tabName + '-' + viewName : viewName;
                 var contentElement = this.shadowRoot.querySelector("#content-" + viewName);
@@ -603,6 +627,9 @@ It makes it easy to explore and switch between different views or functional asp
                 } else {
                     this._updateErrorVis(0);
                 }
+                this._isReadyToRender = false; //disble the flag again every render call must have readytorender() executed beforehand
+                //enable iron select render only after the first render is complete.
+                this._renderOnTabSelection = true;
             },
 
             _showView: function (viewName) {
@@ -642,6 +669,10 @@ It makes it easy to explore and switch between different views or functional asp
                         }
                     }
                 }
+            },
+            
+            readyToRender: function(renderReady) {
+                this._isReadyToRender = renderReady;
             },
 
             refresh: function () {
@@ -710,7 +741,7 @@ It makes it easy to explore and switch between different views or functional asp
                 if (!currentElement) {
                     return;
                 }
-
+   
                 var currentItem = currentElement.selectedItem;
 
                 if (isReloadByConfig && this._selectedTabConfig.tabConfig) {
