@@ -341,12 +341,12 @@ DataObjectFalcorUtil.transformRelationshipsToExternal = function (relationships)
 
             if (rel.relToObject) {
                 var relToObject = rel.relToObject;
-                
+
                 if (relToObject.data) {
                     relToObject = DataObjectFalcorUtil.transformToExternal(relToObject);
                 }
-                
-                if(rel.relTo && relToObject.data) {
+
+                if (rel.relTo && relToObject.data) {
                     rel.relTo.data = relToObject.data;
                     rel.relTo.name = relToObject.name;
                     rel.relTo.version = relToObject.version;
@@ -355,7 +355,7 @@ DataObjectFalcorUtil.transformRelationshipsToExternal = function (relationships)
 
                 delete rel.relToObject;
             }
-            
+
             relsArray.push(rel);
         }
 
@@ -398,6 +398,43 @@ DataObjectFalcorUtil.getOrCreate = function (obj, key, defaultVal) {
 
 DataObjectFalcorUtil.mergeObjects = function (obj1, obj2) {
     return Object.assign(obj1, obj2);
+   
+    // if (!target) {
+    //     if (addMissing) {
+    //         target = {};
+    //     }
+    //     else {
+    //         return target;
+    //     }
+    // }
+
+    // if (!source) {
+    //     return target;
+    // }
+
+    // for (var targetObjKey in target) {
+    //     var targetObj = target[targetObjKey];
+    //     var sourceObj = source[targetObjKey];
+
+    //     if (sourceObj) {
+    //         //console.log('deep assign---- target:', JSON.stringify(targetObj), 'source:', JSON.stringify(sourceObj));
+    //         target[targetObjKey] = DataObjectFalcorUtil.deepAssign(targetObj, sourceObj);
+    //         //console.log('deep assign---- target result:', JSON.stringify(target[targetObjKey]));
+    //     }
+    // }
+
+    // if (addMissing) {
+    //     for (var sourceObjKey in source) {
+    //         var sourceObj = source[sourceObjKey];
+    //         var targetObj = target[sourceObjKey];
+
+    //         if (!targetObj) {
+    //             target[sourceObjKey] = sourceObj;
+    //         }
+    //     }
+    // }
+
+    // return target;
 };
 
 DataObjectFalcorUtil.mergeObjectsNoOverride = function (target, source, addMissing = false) {
@@ -419,7 +456,7 @@ DataObjectFalcorUtil.mergeObjectsNoOverride = function (target, source, addMissi
         var targetObj = target[targetObjKey];
         var sourceObj = source[targetObjKey];
 
-        if (sourceObj) {
+        if (sourceObj && typeof sourceObj == "object") {
             targetObj = DataObjectFalcorUtil.deepAssign(targetObj, sourceObj);
         }
     }
@@ -674,38 +711,45 @@ DataObjectFalcorUtil.deepAssign = function (...objs) {
         const source = objs[i];
         Object.keys(source).forEach(prop => {
             const value = source[prop];
-            if (DataObjectFalcorUtil.isObject(value)) {
-                if (target.hasOwnProperty(prop) && DataObjectFalcorUtil.isObject(target[prop])) {
-                    target[prop] = DataObjectFalcorUtil.deepAssign(target[prop], value);
-                } else {
-                    target[prop] = value;
-                }
-            } else if (Array.isArray(value)) {
-                if (target.hasOwnProperty(prop) && Array.isArray(target[prop])) {
-                    const targetArray = target[prop];
-                    value.forEach((sourceItem, itemIndex) => {
-                        if (itemIndex < targetArray.length) {
-                            const targetItem = targetArray[itemIndex];
-                            if (Object.is(targetItem, sourceItem)) {
-                                return;
-                            }
-
-                            if (DataObjectFalcorUtil.isObject(targetItem) && DataObjectFalcorUtil.isObject(sourceItem)) {
-                                targetArray[itemIndex] = DataObjectFalcorUtil.deepAssign(targetItem, sourceItem);
-                            } else if (Array.isArray(targetItem) && Array.isArray(sourceItem)) {
-                                targetArray[itemIndex] = DataObjectFalcorUtil.deepAssign(targetItem, sourceItem);
-                            } else {
-                                targetArray[itemIndex] = sourceItem;
-                            }
-                        } else {
-                            targetArray.push(sourceItem);
-                        }
-                    })
-                } else {
-                    target[prop] = value;
-                }
+            if (value == "_DEEP_ASSIGN_DELETE_") {
+                delete target[prop];
             } else {
-                target[prop] = value;
+                if (DataObjectFalcorUtil.isObject(value)) {
+                    if (target.hasOwnProperty(prop) && DataObjectFalcorUtil.isObject(target[prop])) {
+                        target[prop] = DataObjectFalcorUtil.deepAssign(target[prop], value);
+                    } else {
+                        target[prop] = {};
+                        target[prop] = DataObjectFalcorUtil.deepAssign(target[prop], value);
+
+                    }
+                } else if (Array.isArray(value)) {
+                    // TODO:: "_DEEP_ASSIGN_DELETE_" has to be discussed.
+                    if (target.hasOwnProperty(prop) && Array.isArray(target[prop])) {
+                        const targetArray = target[prop];
+                        value.forEach((sourceItem, itemIndex) => {
+                            if (itemIndex < targetArray.length) {
+                                const targetItem = targetArray[itemIndex];
+                                if (Object.is(targetItem, sourceItem)) {
+                                    return;
+                                }
+
+                                if (DataObjectFalcorUtil.isObject(targetItem) && DataObjectFalcorUtil.isObject(sourceItem)) {
+                                    targetArray[itemIndex] = DataObjectFalcorUtil.deepAssign(targetItem, sourceItem);
+                                } else if (Array.isArray(targetItem) && Array.isArray(sourceItem)) {
+                                    targetArray[itemIndex] = DataObjectFalcorUtil.deepAssign(targetItem, sourceItem);
+                                } else {
+                                    targetArray[itemIndex] = sourceItem;
+                                }
+                            } else {
+                                targetArray.push(sourceItem);
+                            }
+                        })
+                    } else {
+                        target[prop] = value;
+                    }
+                } else {
+                    target[prop] = value;
+                }
             }
         })
     }

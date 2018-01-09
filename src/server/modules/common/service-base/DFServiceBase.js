@@ -139,10 +139,16 @@ var DFServiceBase = function (options) {
                 headers["x-rdp-username"] = securityContext.headers.userName || "";
                 headers["x-rdp-useremail"] = securityContext.headers.userEmail || "";
                 headers["x-rdp-userroles"] =  JSON.stringify(userRoles);
-            }
+            }   
         }
 
-        headers["x-rdp-authtoken"] = cryptoJS.HmacSHA256(url.split('?')[1], securityContext.clientAuthKey).toString(cryptoJS.enc.Base64);
+        if(securityContext) {
+            headers["x-rdp-authtoken"] = cryptoJS.HmacSHA256(url.split('?')[1], securityContext.clientAuthKey).toString(cryptoJS.enc.Base64);
+        }
+        else {
+            console.log('req obejct for which sec context not found ', url, JSON.stringify(request));
+        }
+        
         return headers;
     }
 

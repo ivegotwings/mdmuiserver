@@ -1,4 +1,4 @@
-const getNamespace = require('continuation-local-storage').getNamespace;
+const getNamespace = require('cls-hooked').getNamespace;
 var urlModule = require('url');
 var config = require('config');
 
@@ -27,6 +27,7 @@ function createSecurityContext(req) {
         }
     };
    
+    //console.log('create security context with data :', JSON.stringify(securityContext));
     var session = getNamespace('User Session');
     session.set('securityContext', securityContext);
 }

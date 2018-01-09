@@ -1,4 +1,4 @@
-SERVICE_CONFIG = {
+var SERVICE_CONFIG = {
     "services": {
         "entityservice/get": {
             "url": "/entityappservice/get",
@@ -321,3 +321,7 @@ SERVICE_CONFIG = {
         }
     }
 };
+
+module.exports = {
+    SERVICE_CONFIG: SERVICE_CONFIG
+}

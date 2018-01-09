@@ -16,29 +16,25 @@
 <dom-module id="rock-nested-attribute-grid">
     <template>
         <style  include="bedrock-style-common">
-            .attribute-view-label {
-                font-size: var(--font-size-sm, 12px);
-                font-family: 'Roboto',Helvetica,Arial,sans-serif;
-                font-weight: normal;
-                font-style: normal;
-                font-stretch: normal;
-                line-height: 16px;
-                text-transform: uppercase;
-                color: var(--label-text-color);
-            }
             rock-grid {
                 --rock-grid-height: auto !important;
                 --data-table-container-position: relative;
+            }
+
+            .grid {
+                margin-top: 10px;
             }
         </style>
         <label class="attribute-view-label" hidden$="[[!label]]" aria-hidden="true">[[label]]
             <pebble-info-icon description-object="[[__getDescriptionValue()]]"></pebble-info-icon>
         </label>
         <template is="dom-if" if="[[_isEditMode(mode)]]">
-            <div class="button">
-                <pebble-button icon="pebble-sm-icons:Add" id="button_add" class="btn btn-primary m-r-10" button-text="Add"
-                    on-click="_onAddRowClick"></pebble-button>
-            </div>
+            <template is="dom-if" if="[[_isAttributeEditable(attributeModelObject)]]">
+                <div class="button">
+                    <pebble-button icon="pebble-sm-icons:Add" id="button_add" class="btn btn-primary m-r-10" button-text="Add"
+                        on-click="_onAddRowClick"></pebble-button>
+                </div>     
+            </template>
         </template>
         <div class="grid" hidden$="[[!_showGrid]]">
             <rock-grid id="attributesGrid"
@@ -50,6 +46,7 @@
                     context-data="[[contextData]]">
             </rock-grid>
             <bedrock-pubsub event-name="delete-item" handler="_onRowDelete" target-id="attributesGrid"></bedrock-pubsub>
+            <bedrock-pubsub event-name="refresh-grid" handler="_onRefreshGrid" target-id="attributesGrid"></bedrock-pubsub>
         </div>
     </template>
     <script>
@@ -241,8 +238,14 @@
                                         if(value[attrName].referenceDataId) {
                                             rowData[attrName + "_referenceDataId"] = value[attrName].referenceDataId;
                                         }
+                                        if(value[attrName].properties) {
+                                            rowData[attrName + "_properties"] = value[attrName].properties;
+                                        }
+                                        if(value[attrName].contextCoalescePaths) {
+                                            rowData[attrName + "_contextCoalescePaths"] = value[attrName].contextCoalescePaths;
+                                        }
                                     }
-                                    this._gridData.push(rowData);
+                                    if(!this._isRowEmpty(rowData))  this._gridData.push(rowData);
                                 }
                             }
                         }
@@ -259,19 +262,14 @@
                     this._isGridReady = true;
                 },
                 _modeChanged: function(mode) {
-                    var grid = this.shadowRoot.querySelector("#attributesGrid");
                     this._gridData = this._originalGridData ? DataHelper.cloneObject(this._originalGridData) : [];
-                    if(mode === "edit") {
-                        this.set("_showGrid", true);
-                        grid.changeToEditMode();
-                    } else if(mode === "view") {
-                        if(!_.isEmpty(this.attributeObject.value)) {
-                            this.set("_showGrid", true);
-                        } else {
-                            this.set("_showGrid", false);
-                        }
-                        grid.changeToReadMode();
-                    }
+                    
+                    const _showGrid = mode === 'edit' || (mode === 'view' && !_.isEmpty(this.attributeObject.value));
+
+                    this.set("_showGrid", _showGrid);
+
+                    const _gridMode = mode === 'view' ? 'read' : mode;
+                    this.set('_gridConfig.mode', _gridMode);
                 },
                 _gridDataChanged: function(_isGridDirty) {
                     if(_isGridDirty === true) {
@@ -399,6 +397,10 @@
                             var name = attrName.substring(0, attrName.indexOf("_"));
                             value[name]["referenceDataId"] = rowData[attrName];
                         }
+                        if(attrName.indexOf("selectedLocales") !== -1) {
+                            var name = attrName.substring(0, attrName.indexOf("_"));
+                            value[name]["selectedLocales"] = rowData[attrName];
+                        }
                     }
                 },
                 _onRowDelete: function(e, detail) {
@@ -406,6 +408,9 @@
                 },
                 _isEditMode: function(mode) {
                     return mode === "edit";
+                },
+                _isAttributeEditable: function (attributeModelObject) {
+                    return attributeModelObject.hasWritePermission && !attributeModelObject.readOnly;
                 },
                 _onAddRowClick: function(e) {
                     var length = this._gridData.length;
@@ -440,6 +445,11 @@
                         gridHeight = 200;
                     }
                     grid.updateStyles({"--rock-grid-height": gridHeight + 'px'});
+                },
+                _onRefreshGrid: function(e, detail) {
+                    var gridData = DataHelper.cloneObject(this._gridData);
+                    this._gridData = [];
+                    this._gridData = gridData;
                 }
             });
         })();

@@ -6,7 +6,7 @@ const OfflineServiceBase = require('../service-base/OfflineServiceBase'),
     requireDir = require('require-dir'),
     executionContext = require('../context-manager/execution-context');
 
-require('./df-rest-service-config.js');
+var SERVICE_CONFIG = require('./df-rest-service-config.js').SERVICE_CONFIG;
 
 var OfflineRestService = function (options) {
     OfflineServiceBase.call(this, options);

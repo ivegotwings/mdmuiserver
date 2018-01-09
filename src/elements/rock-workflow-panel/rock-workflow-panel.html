@@ -26,8 +26,13 @@
 
 <dom-module id="rock-workflow-panel">
     <template>
-        <style include="bedrock-style-common"></style>
+        <style include="bedrock-style-common bedrock-styles-scroll-bar"></style>
         <style>
+            #workflows-content{
+                height: var(--rock-grid-height, 400px);
+                overflow: auto;
+                -webkit-overflow-scrolling: touch;
+            }
             #workflow-stepper {
                 margin-top: 20px;
             }
@@ -137,7 +142,9 @@
             on-liquid-response="_onTransitionSuccess" on-liquid-error="_onTransitionFailure"></liquid-rest>
         <pebble-button id="invokeButton" disabled$="[[readonly]]" hidden raised class="iconButton btn btn-outline-primary m-r-5" button-text="Start Workflow"
             on-tap="_onInvokeWorkflow"></pebble-button>
+        <bedrock-pubsub event-name="workflow-refresh" handler="_refresh"></bedrock-pubsub>
         <div id="workflowPanelMessage" class="default-message"></div>               
+        <div id="workflows-content">             
         <template is="dom-if" if="[[_showWorkflow]]">
             <template id="workflowsTemplate" is="dom-repeat" items="[[_workflowsData]]" as="_workflowstepperData">
                 <pebble-accordion header-text="[[_workflowstepperData.workflowTitle]]" default-icon="chevron-right" open-icon="expand-more">
@@ -187,6 +194,7 @@
                 </pebble-accordion>
             </template>
         </template>
+    </div>
     </template>
     <script>
         (function () {
@@ -273,12 +281,32 @@
             * <b><i>Content development is under progress... </b></i> 
             */
                 refresh: function () {
-                    this._contextChanged(this.contextData);
+                        this._contextChanged(this.contextData);
+                },
+                _refresh:function(event){
+                    if(event){
+                        this.contextData = event.detail.contextData;
+                        this.refresh();
+                    }
+                },
+                ready: function () {
+                    this.refresh();   
+                                 
+                },
+                _setListHeight: function () {
+                if (this.getBoundingClientRect().y > 0) {
+                    var scrollHeight = window.innerHeight - this.getBoundingClientRect().y - 60;
+                        // 20 pebble tab margin bottom height;
+                        this.updateStyles({
+                        "--rock-grid-height": scrollHeight + "px"
+                        });
+                    }
                 },
                 _contextChanged: function (contextData) {
                     if (!_.isEmpty(this.contextData)) {
                         this.workflowMappingDefinitionRequest = DataRequestHelper.createWorkflowMappingGetRequest(this.contextData);
                         this.shadowRoot.querySelector('#getWorkflowMappingDefinition').generateRequest();
+                        
                     }
                 },
                 _onWfMappingsReceived: function(e) {
@@ -431,16 +459,17 @@
                                 workflowData.push(_stepperData);
                             }
                         }
-
                         this.set("_workflowsData", workflowData);
                         this.shadowRoot.querySelector("#workflowsTemplate").render();
                         //this._loading = false;
                         setTimeout(() =>{
                             var stepper = this.shadowRoot.querySelector("#workflow-stepper_" + workflowData[0].workflowId);
-                            var step = stepper.querySelector('pebble-step[opened]');
-                            if(step) {
-                                step.scrollIntoView(false);
-                            }
+                            if(stepper) {
+                                var step = stepper.querySelector('pebble-step[opened]');
+                                if(step) {
+                                    step.scrollIntoView();
+                                }
+                            }                           
                         }, 1000);//ToDo: need to figure out better way. As of now delay to let the stepper to load with workflow data properly.
                     }
                 },
@@ -895,6 +924,9 @@
                     return true;
                 },
                 _accordionTransitionEnd: function(e) {
+                    if(this._workflowsData && this._workflowsData.length > 1){
+                        this._setListHeight();  
+                    } 
                     if(this._workflowsData.length == 1 && e && e.detail) {
                         var isCollapsed = e.detail.isCollapsed;
                         var accordionEl = e.detail.accordion;
@@ -914,7 +946,7 @@
                             if(actionsDiv && sideBarHeight && sidebarContainer) {
                                 sidebarContainer.style.overflow = 'hidden';
                                 sidebar.updateStyles();
-                                actionsDiv.style.height = (sideBarHeight - 60) + 'px';
+                                actionsDiv.style.height = (sideBarHeight - 129) + 'px';
                                 accordionEl.updateStyles();
                             }
                         }

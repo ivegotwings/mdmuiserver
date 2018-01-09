@@ -19,30 +19,30 @@
       /**
         * Content is not appearing - Indicates key for the translation.If it is set to <b>true</b>, then it uses provided key when
         * the translation does not exist for that key.
-        */
+      */
       _models: {
         type: Object,
         value: {}
       },
-         /**
-           * Content is not appearing - Content development is under progress.
-           */
+      /**
+        * Content is not appearing - Content development is under progress.
+      */
       callCounters: {
+        type: Object,
+        value: function () {
+          return {};
+        }
+      },
+      cacheChangeDebouncers: {
         type: Object,
         value: function () {
           return {};
         }
       }
     },
-         /**
-           * Content is not appearing - Content development is under progress.
-           */
     getCallCounters: function () {
       return JSON.stringify(this.callCounters);
     },
-         /**
-           * Content is not appearing - Content development is under progress.
-           */
     updateCallCounters: function (operation) {
 
       if (this.callCounters === undefined) {
@@ -56,9 +56,6 @@
         this.callCounters[operation] = 1;
       }
     },
-         /**
-           * Content is not appearing - Content development is under progress.
-           */
     getModel: function (channelName) {
       if (!channelName) {
         throw "channelName is not provided";
@@ -90,18 +87,73 @@
       }
 
       var falcorDataSource = new falcor.HttpDataSource(channelConfig.path, { 'crossDomain': true, 'withCredentials': false, 'timeout': 180000 });
+
+      var cacheChangeEvent = undefined;
+
+      var dataStorageEnabled = localStorage.getItem("data-storage-enabled");
       
+      var offlineStoreEnabled = channelConfig.offlineStore && dataStorageEnabled == "true";
+    
+      if (offlineStoreEnabled) {
+        cacheChangeEvent = RUFBehaviors.DataChannel[channelConfig.cacheChangeCallback];
+      }
+      else {
+        localStorage.removeItem(channelName);
+      }
+
       var model = new falcor.Model({
         source: falcorDataSource,
         maxSize: channelConfig.maxSize,
-        collectRatio: channelConfig.collectRatio
+        collectRatio: channelConfig.collectRatio,
+        onChange: cacheChangeEvent
       });
 
       if (channelConfig.treatErrorsAsValues) {
         model.treatErrorsAsValues();
       }
 
+      if (offlineStoreEnabled) {
+        var cachedData = localStorage.getItem(channelName);
+        if (cachedData) {
+          model.setCache(JSON.parse(cachedData));
+        }
+      }
+
       return model;
+    },
+    onEntityDataChange: function () {
+      RUFBehaviors.DataChannel.onCacheChange('entityData', 5000);
+    },
+    onEntityGovernDataChange: function () {
+      RUFBehaviors.DataChannel.onCacheChange('entityGovernData', 10000);
+    },
+    onConfigChange: function () {
+      RUFBehaviors.DataChannel.onCacheChange('config', 20000);
+    },
+    onEntityModelChange: function () {
+      RUFBehaviors.DataChannel.onCacheChange('entityModel', 20000);
+    },
+    onEventDataChange: function () {
+      RUFBehaviors.DataChannel.onCacheChange('eventData', 30000);
+    },
+    onCacheChange: function (channelName, debounceDuration) {
+      if (!RUFBehaviors.DataChannel.cacheChangeDebouncers) {
+        RUFBehaviors.DataChannel.cacheChangeDebouncers = {};
+      }
+
+      var _debouncer = RUFBehaviors.DataChannel.cacheChangeDebouncers[channelName];
+      
+      _debouncer = Polymer.Debouncer.debounce(_debouncer, Polymer.Async.timeOut.after(debounceDuration), () => {
+        var cachedData = RUFBehaviors.DataChannel.getModel(channelName).getCache();
+        if (cachedData) {
+          localStorage.setItem(channelName, JSON.stringify(cachedData, function (key, value) {
+            if (key == "searchResults") {
+              return undefined;
+            }
+            return value;
+          }));
+        }
+      });
     },
     _getChannelConfig: function (channelName) {
       var allConfigs = this._getAllChannelConfigs();
@@ -119,31 +171,41 @@
             'path': '/data/entityData.json',
             'maxSize': 100000000,
             'collectRatio': 0.75,
-            'treatErrorsAsValues': false
+            'treatErrorsAsValues': false,
+            'offlineStore': false,
+            'cacheChangeCallback': 'onEntityDataChange'
           },
           'entityGovernData': {
             'path': '/data/entityGovernData.json',
             'maxSize': 100000000,
             'collectRatio': 0.75,
-            'treatErrorsAsValues': false
+            'treatErrorsAsValues': false,
+            'offlineStore': true,
+            'cacheChangeCallback': 'onEntityGovernDataChange'
           },
           'entityModel': {
             'path': '/data/entityModelData.json',
             'maxSize': 100000000,
             'collectRatio': 0.75,
-            'treatErrorsAsValues': false
+            'treatErrorsAsValues': false,
+            'offlineStore': false,
+            'cacheChangeCallback': 'onEntityModelChange'
           },
           'config': {
             'path': '/data/configData.json',
             'maxSize': 100000000,
             'collectRatio': 0.75,
-            'treatErrorsAsValues': false
+            'treatErrorsAsValues': false,
+            'offlineStore': true,
+            'cacheChangeCallback': 'onConfigChange'
           },
           'eventData': {
             'path': '/data/eventData.json',
             'maxSize': 100000000,
             'collectRatio': 0.75,
-            'treatErrorsAsValues': false
+            'treatErrorsAsValues': false,
+            'offlineStore': true,
+            'cacheChangeCallback': 'onEventDataChange'
           },
           'requestTracking': {
             'path': '/data/requestTracking.json',

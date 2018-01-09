@@ -9,7 +9,6 @@
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
 
-
 <link rel="import" href="../liquid-config-aggregate-get/liquid-config-aggregate-get.html">
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 <link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
@@ -17,8 +16,6 @@
 
 <link rel="import" href="../pebble-button/pebble-button.html">
 <link rel="import" href="../pebble-dialog/pebble-dialog.html">
-<link rel="import" href="../pebble-stepper/pebble-step.html">
-<link rel="import" href="../pebble-stepper/pebble-stepper.html">
 <link rel="import" href="../pebble-vertical-divider/pebble-vertical-divider.html">
 <link rel="import" href="../pebble-spinner/pebble-spinner.html">
 
@@ -29,9 +26,11 @@
 <link rel="import" href="../rock-layout/rock-sidebar/rock-sidebar.html">
 <link rel="import" href="../rock-tabs/rock-tabs.html">
 <link rel="import" href="../rock-entity-header/rock-entity-header.html">
+<link rel="import" href="../rock-entity-sidebar/rock-entity-sidebar.html">
 <link rel="import" href="../rock-dimension-grid/rock-dimension-grid.html">
-<link rel="import" href="../rock-workflow-panel/rock-workflow-panel.html">
 <link rel="import" href="../rock-business-function-dialog/rock-business-function-dialog.html">
+<link rel="import" href="../rock-entity-manage-elements/rock-entity-manage-elements.html">
+
 
 <dom-module id="app-entity-manage">
     <template>
@@ -111,7 +110,6 @@
             .content {
                 height: calc(100% - 6px);
             }
-
             /* Firefox specific fix for vertical scroll */
 
             @media all and (min--moz-device-pixel-ratio:0) and (min-resolution: 3e1dpcm) {
@@ -176,15 +174,16 @@
                 </div>
             </rock-header>
             <bedrock-pubsub event-name="refresh-entity-thumbnail" handler="_refreshEntityThumbnail"></bedrock-pubsub>
+            
             <rock-sidebar id="rockSideBar" position="right" slot="rock-sidebar" collapsable>
-                <div class="p-10">
-                    <rock-workflow-panel context-data="[[contextData]]" readonly$="[[readonly]]"></rock-workflow-panel>
-                </div>
+            <rock-entity-sidebar id="entityManageSidebar" context-data="[[contextData]]" config="{{getConfig('rock-entity-sidebar')}}"
+            ></rock-entity-sidebar> 
             </rock-sidebar>
+
             <div class="content">
                 <template is="dom-if" if="true" id="tabsTemplate">
                     <div class="tab-wrap">
-                        <rock-tabs id="rockTabs" config="{{getConfig('rock-tabs')}}" readonly$="[[readonly]]"></rock-tabs>
+                        <rock-tabs id="rockTabs" view-mode="{{viewMode}}" config="{{getConfig('rock-tabs')}}" readonly$="[[readonly]]" deferred-render></rock-tabs>
                     </div>
                     <bedrock-pubsub event-name="component-creating" handler="_onComponentCreating"></bedrock-pubsub>
                     <bedrock-pubsub on-bedrock-event-trigger-todo-action="summaryTodoTap"></bedrock-pubsub>
@@ -195,9 +194,8 @@
             </div>
             <pebble-dialog id="dimensionGridDialog" modal show-close-icon>
             </pebble-dialog>
-            <pebble-dialog id="confirmationDialog" dialog-title="Confirmation" modal show-cancel show-ok no-cancel-on-outside-click no-cancel-on-esc-key
-                small>
-                Are you sure you want to delete?
+            <pebble-dialog id="confirmationDialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click no-cancel-on-esc-key>
+                <p>Are you sure you want to delete?</p>
             </pebble-dialog>
         </rock-layout>
         <bedrock-pubsub event-name="dimension-selector-data-changed" handler="_onDimensionsChanged" target-id="dimensionSelector"></bedrock-pubsub>        
@@ -338,6 +336,10 @@
                     queryParams:{
                         type:String,
                         value:""
+                    },
+                    viewMode:{
+                        type:String,
+                        value:""
                     }
                 },
                 behaviors: [
@@ -365,9 +367,10 @@
                         'type': this._entityType
                     };
 
+                    this.viewMode = DataHelper.getParamValue('viewMode');
+                    
                     this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
-                },
-                
+                },        
                 refresh: function () {
                     var isDirty = false;
                     if (this.getIsDirty) {
@@ -384,8 +387,8 @@
                         this._reRenderOnDimensionChange();
                     }
                 },
-
-
+                ready: function () {
+                },
                 /**
                  * Function to display the left nav info
                  */
@@ -409,7 +412,6 @@
                         queryParams: this.queryParams
                     };
                 },
-
                 /**
                  * Function to get the left nav title
                  */
@@ -433,11 +435,7 @@
                 },
 
                 _onApplicationConfigReceived: function (e) {
-                    // this.logInfo("ConfigReceived","response",JSON.stringify(e, null, 2));
                     this.set('applicationConfig', e.detail);
-                    var temp = this.applicationConfig;
-                    this.applicationConfig = {}
-                    this.applicationConfig = temp;
                 },
                 _openContextManagement: function (taxonomy) {
                     this.shadowRoot.querySelector("#contextDialog").name = "extension-manage-" + taxonomy;
@@ -679,7 +677,6 @@
                         }
                     }
                 },
-
                 _triggerLinkAssets: function (relationshipTypeName) {
                     var liqRelModelGet = this.shadowRoot.querySelector("#compositeRelModelGet");
                     var request = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
@@ -691,7 +688,6 @@
                         liqRelModelGet.generateRequest();
                     }
                 },
-
                 _onRelationshipCompositeModelGetResponse: function (e, detail) {
                     var relationshipDetails = {};
                     if (detail && DataHelper.validateGetModelsResponse(detail.response)) {
@@ -733,7 +729,6 @@
                         this.showErrorToast("Relationship model missing. Please contact administrator.");
                     }
                 },
-
                 _triggerManageAttributes: function () {
                     var liqAttrModelGet = this.shadowRoot.querySelector("#compositeAttrModelGet");
                     var request = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
@@ -746,7 +741,6 @@
                         liqAttrModelGet.generateRequest();
                     }
                 },
-
                 _onAttributeCompositeModelGetResponse: function (e, detail) {
                     if (detail && DataHelper.validateGetModelsResponse(detail.response)) {
                         var groupAttributes = [];
@@ -769,7 +763,6 @@
                         this.showErrorToast("Attributes not available. Please contact administrator.");
                     }
                 },
-
                 _triggerManageRelationships: function (relationshipTypeName) {
                     var req = {
                         "params": {
@@ -789,7 +782,6 @@
                         relModelLiquid.generateRequest();
                     }
                 },
-
                 _onRelModelsReceived: function (e, detail) {
                     var responseContent = DataHelper.validateAndGetResponseContent(detail.response)
                     if (responseContent) {
@@ -799,11 +791,9 @@
                         }
                     }
                 },
-
                 _onCompositeModelGetError: function (e, detail) {
                     this.showErrorToast("Unable to perform the action now. Please contact administrator.");
                 },
-
                 _openLinkAssetsDialog: function (relationshipDetails) {
                     var rel = relationshipDetails.relType;
                     var typesCriterion = relationshipDetails.relatedEntityTypes;
@@ -824,7 +814,6 @@
                     dialog.open();
                     this._setDialogTitle(dialog);
                 },
-
                 _openManageAttributesDialog: function (label, attributeNames) {
                     var clonedContextData = DataHelper.cloneObject(this.contextData);
                     var itemContext = ContextHelper.getFirstItemContext(clonedContextData);
@@ -838,7 +827,6 @@
                     dialog.open();
                     this._setDialogTitle(dialog);
                 },
-
                 _openManageRelationshipsDialog: function (model) {
                     var clonedContextData = DataHelper.cloneObject(this.contextData);
                     var configContext = {
@@ -853,13 +841,11 @@
                     dialog.open();
                     this._setDialogTitle(dialog);
                 },
-
                 _setDialogTitle: function (dialog) {
                     if (this.todoActionDialogTitle) {
                         dialog.setTitle(this.todoActionDialogTitle);
                     }
                 },
-                
                 summaryTofixTap: function (e, detail, sender) {
                     alert("event triggered: " + detail.type + ' >> ' + detail.eventName + ' >> ' +
                         detail.label);
@@ -915,7 +901,9 @@
                 },
                 _refreshView: function () {
                     this._refreshRockEntityHeader();
-                    this._refreshWorkflowPanel();
+                    this._refreshRightSidePanel();
+                    
+                    
                     this.shadowRoot.querySelector('rock-tabs').reloadCurrentTab();
                 },
                 _refreshHeaderAndNavBars: function () {
@@ -1011,7 +999,7 @@
                 },
                 _reRenderOnDimensionChange: function () {
                     this._refreshRockEntityHeader();
-                    this._refreshWorkflowPanel();
+                    this._refreshRightSidePanel();
                     this._refreshTitleBar();
 
                     var valContexts = ContextHelper.getValueContexts(this.contextData);
@@ -1026,16 +1014,17 @@
                     }
 
                     this._debouncer = Polymer.Debouncer.debounce(this._debouncer, Polymer.Async.timeOut.after(30), () => {
-                        this.shadowRoot.querySelector('rock-tabs').reloadTabs();
+                        this.$$("rock-tabs").readyToRender(true);  //third party enables control
+                        this.shadowRoot.querySelector('rock-tabs').reloadTabs(); //now render call
                     });
                 },
                 _onWorkflowTransitionComplete: function (e) {
                     this._refreshRockEntityHeader();
-                    this._refreshWorkflowPanel();
+                    this._refreshRightSidePanel();
 
                 },
                 _onWorkflowAssignmentComplete: function (e) {
-                    this._refreshWorkflowPanel();
+                    this._refreshRightSidePanel();
                 },
                 _refreshRockEntityHeader: function (e) {
                     this._refreshTitleBar();
@@ -1048,11 +1037,12 @@
                     }
                     this._refreshEntityThumbnail();
                 },
-                _refreshWorkflowPanel: function () {
-                    var entityWorklflowPanelEl = Polymer.dom(this).node.shadowRoot.querySelector('rock-workflow-panel');
-                    if (entityWorklflowPanelEl && entityWorklflowPanelEl.refresh) {
-                        entityWorklflowPanelEl.refresh();
+                _refreshRightSidePanel: function (event) {
+                    var data={
+                        "contextData":this.contextData
                     }
+                    ComponentHelper.fireBedrockEvent("workflow-refresh", data, { ignoreId: true });
+                    ComponentHelper.fireBedrockEvent("entity-history-refresh", data, { ignoreId: true });
                 },
                 _clearDimensionGridDialog: function () {
                     var dialog = Polymer.dom(this).node.$.dimensionGridDialog;
@@ -1114,9 +1104,8 @@
                         //Refresh the current tab                                                     
                         var rockAttributeManageObj = this.$$("rock-tabs");                    
                         rockAttributeManageObj.refresh();
-                        //Refresh the workflowpanel
-                        var rockWorkflowPanelObj = this.$$("rock-workflow-panel");                    
-                        rockWorkflowPanelObj.refresh();                         
+                        //Refresh the Rightsidebar
+                        this._refreshRightSidePanel();                        
                     }
                 },
 
