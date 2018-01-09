@@ -211,7 +211,7 @@ ConfigurationService.prototype = {
 
         var configData = {};
 
-        var res = await this._fetchConfigObject(RDF_SERVICE_NAME + "/get", req);
+        var res = await this._fetchConfigObject(RDF_SERVICE_NAME + "/get", req, false);
 
         if(falcorUtil.isValidObjectPath(res, "response.configObjects.0.data.contexts.0.jsonData.config")) {
             configData = res.response.configObjects[0].data.contexts[0].jsonData.config;
