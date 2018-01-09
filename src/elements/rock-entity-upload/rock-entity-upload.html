@@ -95,7 +95,7 @@
                 height: 550px;
                 overflow: auto;
             }
-			
+
             .preview-message-container {
                 margin-top: 5px;
             }
@@ -119,8 +119,7 @@
             </div>
             <div class="placeHolder p-10">
                 <p class="title">
-                    <a href="#" class="btn-link" on-tap="_exportDialogOpen">Download</a> a system template or just upload
-                    an existing data file
+                    <a href="#" class="btn-link" on-tap="_exportDialogOpen">Download</a> a system template or just upload an existing data file
                 </p>
                 <!-- TODO -->
                 <!-- Currently pebble dialog is coming out of app and sitting on body so css has been added inline needs to resolve it with some proper way. -->
@@ -142,7 +141,7 @@
                 </pebble-dialog>
                 <!-- screen for import -->
                 <pebble-file-upload id="fileUpload" allowed-file-types="[[allowedFileTypes]]"></pebble-file-upload>
-                <bedrock-pubsub event-name="pebble-file-upload-success" handler="_onFileUploadSuccess" target-id="fileUpload" ></bedrock-pubsub>
+                <bedrock-pubsub event-name="pebble-file-upload-success" handler="_onFileUploadSuccess" target-id="fileUpload"></bedrock-pubsub>
             </div>
             <div class="preview-message-container">
                 <span class="preview-message-info">* Previewing data can take some time.</span>
@@ -150,7 +149,10 @@
         </div>
         <div id="content-label" hidden>
             <pebble-image-viewer alt="Product image." id="image-container" sizing="contain" src="/src/images/MicrosoftExcel50,100,500px/MicrosoftExcel_100.svg"></pebble-image-viewer>
-            <span class="import-log"><strong>[[_fileName]]</strong> uploaded <strong>[[_entities.length]]</strong> items with <strong>[[attributeNames.length]]</strong> attributes.</span>
+            <span class="import-log">
+                <strong>[[_fileName]]</strong> uploaded
+                <strong>[[_entities.length]]</strong> items with
+                <strong>[[attributeNames.length]]</strong> attributes.</span>
         </div>
         <div id="content-mappings" hidden>
         </div>
@@ -166,6 +168,8 @@
         <bedrock-pubsub event-name="field-map-cancel" handler="_onFieldMappingsCancel" target-id=""></bedrock-pubsub>
         <bedrock-pubsub event-name="field-map-skip" handler="_onFieldMappingsSkip" target-id=""></bedrock-pubsub>
         <liquid-entity-data-get id="taxonomyGetDataService" operation="getbyids" request-data="{{_taxonomyRequest}}" on-response="_onTaxonomyResponse"></liquid-entity-data-get>
+        <liquid-rest id="taxonomyModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_taxonomyModelRequest}}"
+            on-liquid-response="_onTaxonomyModelGetResponse"></liquid-rest>
     </template>
     <script>
         (function () {
@@ -374,13 +378,23 @@
                     },
                     copContext: {
                         type: Object,
-                        value: function() { return {}; }
+                        value: function () { return {}; }
                     },
                     overridesOrder: {
                         type: Number,
                         value: 100
                     },
                     _taxonomyExtName: {
+                        type: String,
+                        value: ""
+                    },
+                    _taxonomyModelRequest: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _taxonomyExtNameAttr: {
                         type: String,
                         value: ""
                     }
@@ -405,16 +419,44 @@
                         var itemContext = this.getFirstItemContext();
                         var entityType = itemContext.type;
                         this._showView("entity-import");
-                        this._getTaxonomy();
+                        this._getTaxonomyManageModel();
                     }
                 },
 
-                 _getTaxonomy: function () {
+                _getTaxonomyManageModel: function () {
+                    this._taxonomyModelRequest = DataRequestHelper.createGetManageModelRequest(["taxonomy"]);
+
+                    var taxonomyModelGetElement = this.$$("#taxonomyModelGet");
+
+                    if (taxonomyModelGetElement) {
+                        taxonomyModelGetElement.generateRequest();
+                    }
+                },
+
+                _onTaxonomyModelGetResponse: function (e) {
+                    var response = e.detail.response.response;
+
+                    if (response && response.entityModels) {
+                        var entityModel = response.entityModels[0];
+                        var externalNameAndExternalNameAttr = AttributeHelper.getExternalNameAndExternalNameAttr(entityModel);
+
+                        if (externalNameAndExternalNameAttr && externalNameAndExternalNameAttr.externalNameAttr) {
+                            this._taxonomyExtNameAttr = externalNameAndExternalNameAttr.externalNameAttr;
+                            this._getTaxonomy();
+                        } else {
+                            this.showErrorToast("Attribute not found with isExternlName in taxonomy entity manage model", 10000);
+                        }
+                    } else {
+                        this.showErrorToast("Entity manage model not found for taxonomy.", 10000);
+                    }
+                },
+
+                _getTaxonomy: function () {
                     var contextData = DataHelper.cloneObject(this.contextData);
                     var firstItemContext = ContextHelper.getFirstItemContext(contextData);
                     if (firstItemContext) {
                         firstItemContext.type = "taxonomy";
-                        firstItemContext.attributeNames = ["externalName"];
+                        firstItemContext.attributeNames = [this._taxonomyExtNameAttr];
                         firstItemContext.id = this.taxonomy;
                         contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
                         var req = DataRequestHelper.createEntityGetRequest(contextData);
@@ -437,8 +479,8 @@
                             if (entity && entity.data) {
                                 var attributes = entity.data.attributes;
 
-                                if (attributes && attributes['externalName']) {
-                                    this._taxonomyExtName = attributes['externalName'].values && attributes['externalName'].values.length ? attributes['externalName'].values[0].value : undefined;
+                                if (attributes && attributes[this._taxonomyExtNameAttr]) {
+                                    this._taxonomyExtName = attributes[this._taxonomyExtNameAttr].values && attributes[this._taxonomyExtNameAttr].values.length ? attributes[this._taxonomyExtNameAttr].values[0].value : undefined;
                                 }
                             }
                         }
@@ -494,23 +536,23 @@
                         this.$$('pebble-file-upload').reset();
                     });
                 },
-                _generateCopRequest: function(url, fileDetails) {
+                _generateCopRequest: function (url, fileDetails) {
                     var formData = new FormData();
                     formData.append("file", fileDetails.file);
                     formData.append("fileName", fileDetails.fileName);
 
                     var hotline = false;
-                    if(DataHelper.isHotlineModeEnabled()) {
+                    if (DataHelper.isHotlineModeEnabled()) {
                         hotline = true;
                     }
 
                     var req = DataRequestHelper.createImportRequest(fileDetails, this.copContext, hotline);
-                    if(this._currentCOPService == "process") {
+                    if (this._currentCOPService == "process") {
                         this._workAutomationId = DataHelper.generateUUID();
                         req.dataObject.properties.workAutomationId = this._workAutomationId;
                     }
 
-                    if(this._currentCOPService == "generateFieldMap") {
+                    if (this._currentCOPService == "generateFieldMap") {
                         req.binaryObject = req.dataObject;
                         delete req.dataObject;
                         req.binaryObject.properties.workAutomationId = this._workAutomationId;
@@ -523,7 +565,7 @@
                     xhr.responseType = 'json';
                     xhr.onload = function (e) {
                         //Process triggred in async manner, so track the details through workAutomationId
-                        if(this._currentCOPService == "process") {
+                        if (this._currentCOPService == "process") {
                             return;
                         }
 
@@ -543,7 +585,7 @@
                     }.bind(this);
                     xhr.send(formData);
                     //After sending the form data show workAutomationId to user
-                    if(this._currentCOPService == "process") {
+                    if (this._currentCOPService == "process") {
                         this._onCOPProcessComplete();
                     }
                 },
@@ -565,7 +607,7 @@
                             this._entities = res.entities;
                             var maxNoOfRows = this._gridConfig.tabular.settings.maxNoOfRows;
                             if (maxNoOfRows && this._entities.length > maxNoOfRows) {
-                                this.showErrorToast("Preview of more than "+maxNoOfRows+" entities is not supported. Please review the file imported or contact your administrator.", 3000);
+                                this.showErrorToast("Preview of more than " + maxNoOfRows + " entities is not supported. Please review the file imported or contact your administrator.", 3000);
                                 this._loading = false;
                                 this._isDirty = false;
                                 return;
@@ -605,7 +647,7 @@
                     this._loading = false;
                     this._isDirty = false;
                 },
-                _onCOPProcessComplete: function() {
+                _onCOPProcessComplete: function () {
                     var data = {
                         "messages": [
                             {
@@ -683,7 +725,7 @@
                         entitiesGrid.attributeModels = {};
                         this._prepareEntityGridConfig();
                         entitiesGrid.config = this._gridConfig;
-                        
+
                         entitiesGrid.data = this._prepareEntityGridData();
                         entitiesGrid.attributeModels = this._attributeModels;
                         this._loading = false;
@@ -820,7 +862,7 @@
                             "entities": batchEntities
                         };
 
-                        if(DataHelper.isHotlineModeEnabled()) {
+                        if (DataHelper.isHotlineModeEnabled()) {
                             this._saveRequest.hotline = true;
                         }
 
@@ -847,7 +889,7 @@
                             "entities": batchEntities
                         };
 
-                        if(DataHelper.isHotlineModeEnabled()) {
+                        if (DataHelper.isHotlineModeEnabled()) {
                             this._saveRequest.hotline = true;
                         }
 
@@ -1061,7 +1103,7 @@
                     this._hideView("entity-import");
                     this._loading = true;
                     this._customizeMappings = false;
-                    var url="";
+                    var url = "";
                     if (this._showPreview) {
                         this._currentCOPService = "transform";
                         url = "/data/cop/transform";
@@ -1080,7 +1122,7 @@
                     this._hideView("mappings");
                     this._hideView("entity-import");
                     this._loading = true;
-                     var url="";
+                    var url = "";
                     if (this._showPreview) {
                         this._currentCOPService = "transform";
                         url = "/data/cop/transform";

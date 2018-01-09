@@ -78,7 +78,9 @@
 
             //requestObject.params.query.contexts if empty - create a new one with locale
             //req.params.query.locale = valContexts && valContexts.length > 0 && valContexts[0].locale ? valContexts[0].locale : DataHelper.getDefaultLocale();
-            requestObject.params.query.contexts = targetContexts;
+
+            //Overrideing Ilya's changes for now beacause it's breaking modelCoalesce
+            requestObject.params.query.contexts = dataContexts;
         };
 
         DataRequestHelper.createEntityGetRequest = function (contextData, addDefaultContext, allowCoalesceFallback) {
@@ -173,6 +175,10 @@
                 for (var i = 0; i < req.params.query.valueContexts.length; i++) {
                     req.params.query.valueContexts[i].localeCoalesce = true;
                 }
+            }
+
+            if(addDefaultContext) {
+                DataRequestHelper.addDefaultContext(req);
             }
 
             return req;
@@ -860,7 +866,7 @@
                         "query": {
                             "filters": {
                                 "typesCriterion": [
-                                    "entitymanageevent"
+                                    "entityhistoryevent"
                                 ],
                                 "attributesCriterion": [
                                     {
@@ -873,17 +879,22 @@
                                             "exact": "systemupdate",
                                             "not": true
                                         }
+                                    },
+                                    {
+                                        "eventType": {
+                                            "exact": "NoChange",
+                                            "not": true
+                                        }
                                     }
                                 ]
                             }
                         },
                         "fields": {
                             "attributes": [
-                                "_ALL"
-                            ],
-                            "relationships": [
-                                "_ALL"
-                            ]
+                                "message",
+                                "action",
+                                "timeStamp"
+                             ]
                         },
                         "sort": {
                             "properties": [
@@ -1038,6 +1049,30 @@
             }
         };
 
+        DataRequestHelper.createContextModelGetRequest = function (entityType) {
+            var req = {};
+
+            if (entityType) {
+                var contextModelId = entityType + "_entityContextModel";
+                var req = {
+                    "params": {
+                        "query": {
+                            "id": contextModelId,
+                            "filters": {
+                                "typesCriterion": [
+                                    "entityContextModel"
+                                ]
+                            }
+                        },
+                        "fields": {
+                            "attributes": ["_ALL"]
+                        }
+                    }
+                };
+            }
+            return req;
+        };
+
         DataRequestHelper.createGetManageModelRequest = function(entityTypes) {
             var ids = [];
             for (let i = 0; i < entityTypes.length; i++) {
@@ -1067,7 +1102,72 @@
             };
 
             return req;
-        }
+        };
+
+        DataRequestHelper.createEntityContextGetRequest = function (entityId, entityType) {
+            var req = {}
+
+            if (entityId && entityType) {
+                req = {
+                    "params": {
+                        "query": {
+                            "id": entityId,
+                            "filters": {
+                                "typesCriterion": [
+                                    entityType
+                                ]
+                            }
+                        },
+                        "fields": {
+                            "attributes": ["_ALL"]
+                        }
+                    }
+                };
+            }
+
+            return req;
+        };
+
+        DataRequestHelper.createAttributesCriteria = function (searchText, titlePattern, subTitlePattern) {
+            var attributesCriterion = [];
+
+            if (!_.isEmpty(searchText)) {
+                var attributes = [];
+
+                if (typeof (titlePattern) !== 'undefined' && titlePattern !== "") {
+                    if (!attributes.includes(this.titlePattern)) {
+                        var titleFields = DataHelper.getAttributesBetweenCurlies(titlePattern);
+                        if(_.isEmpty(titleFields)){
+                            attributes.push(titlePattern);
+                        }
+                        else if (titleFields && titleFields instanceof Array) {
+                            attributes.push(...titleFields);
+                        }
+                    }
+                }
+
+                if (typeof (subTitlePattern) !== 'undefined' && subTitlePattern !== "") {
+                    if (!attributes.includes(subTitlePattern)) {
+                        var subTitleFields = DataHelper.getAttributesBetweenCurlies(subTitlePattern);
+                        if (subTitleFields && subTitleFields instanceof Array) {
+                            attributes.push(...subTitleFields);
+                        }
+                    }
+                }
+
+                if (attributes && attributes.length) {
+                    attributes.forEach(function (item) {
+                        var searchKey = new Object();
+                        var searchValue = new Object();
+                        searchValue.eq = '*' + searchText + '*';
+                        searchKey[item] = searchValue;
+                        attributesCriterion.push(searchKey);
+                    }, this);
+                }
+
+            }
+            return attributesCriterion;
+        };
 
     })();
 </script>
