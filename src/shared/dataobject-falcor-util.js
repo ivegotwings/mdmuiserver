@@ -353,12 +353,12 @@ DataObjectFalcorUtil.transformRelationshipsToExternal = function (relationships)
 
             if (rel.relToObject) {
                 var relToObject = rel.relToObject;
-                
+
                 if (relToObject.data) {
                     relToObject = DataObjectFalcorUtil.transformToExternal(relToObject);
                 }
-                
-                if(rel.relTo && relToObject.data) {
+
+                if (rel.relTo && relToObject.data) {
                     rel.relTo.data = relToObject.data;
                     rel.relTo.name = relToObject.name;
                     rel.relTo.version = relToObject.version;
@@ -367,7 +367,7 @@ DataObjectFalcorUtil.transformRelationshipsToExternal = function (relationships)
 
                 delete rel.relToObject;
             }
-            
+
             relsArray.push(rel);
         }
 
@@ -409,7 +409,7 @@ DataObjectFalcorUtil.getOrCreate = function (obj, key, defaultVal) {
 };
 
 DataObjectFalcorUtil.mergeObjects = function (target, source, addMissing = true) {
-   
+
     if (!target) {
         if (addMissing) {
             target = {};
@@ -449,7 +449,7 @@ DataObjectFalcorUtil.mergeObjects = function (target, source, addMissing = true)
 };
 
 DataObjectFalcorUtil.mergeObjectsNoOverride = function (target, source, addMissing = false) {
-   
+
     if (!target) {
         if (addMissing) {
             target = {};
@@ -731,46 +731,53 @@ DataObjectFalcorUtil.deepAssign = function (...objs) {
     }
 
     var target = objs[0];
-
     for (var i = 1; i < objs.length; i++) {
         var source = objs[i];
-        if(!DataObjectFalcorUtil.isObject(source) && !Array.isArray(source)) {
+        if (!DataObjectFalcorUtil.isObject(source) && !Array.isArray(source)) {
             target = source;
-        } else {
+        }
+        else {
             Object.keys(source).forEach(prop => {
-                const value = source[prop];
-                if (DataObjectFalcorUtil.isObject(value)) {
-                    if (target.hasOwnProperty(prop) && DataObjectFalcorUtil.isObject(target[prop])) {
-                        target[prop] = DataObjectFalcorUtil.deepAssign(target[prop], value);
-                    } else {
-                        target[prop] = value;
-                    }
-                } else if (Array.isArray(value)) {
-                    if (target.hasOwnProperty(prop) && Array.isArray(target[prop])) {
-                        const targetArray = target[prop];
-                        value.forEach((sourceItem, itemIndex) => {
-                            if (itemIndex < targetArray.length) {
-                                const targetItem = targetArray[itemIndex];
-                                if (Object.is(targetItem, sourceItem)) {
-                                    return;
-                                }
-    
-                                if (DataObjectFalcorUtil.isObject(targetItem) && DataObjectFalcorUtil.isObject(sourceItem)) {
-                                    targetArray[itemIndex] = DataObjectFalcorUtil.deepAssign(targetItem, sourceItem);
-                                } else if (Array.isArray(targetItem) && Array.isArray(sourceItem)) {
-                                    targetArray[itemIndex] = DataObjectFalcorUtil.deepAssign(targetItem, sourceItem);
-                                } else {
-                                    targetArray[itemIndex] = sourceItem;
-                                }
-                            } else {
-                                targetArray.push(sourceItem);
-                            }
-                        })
-                    } else {
-                        target[prop] = value;
-                    }
+                var value = source[prop];
+                if (value == "_DEEP_ASSIGN_DELETE_") {
+                    delete target[prop];
                 } else {
-                    target[prop] = value;
+                    if (DataObjectFalcorUtil.isObject(value)) {
+                        if (target.hasOwnProperty(prop) && DataObjectFalcorUtil.isObject(target[prop])) {
+                            target[prop] = DataObjectFalcorUtil.deepAssign(target[prop], value);
+                        } else {
+                            target[prop] = {};
+                            target[prop] = DataObjectFalcorUtil.deepAssign(target[prop], value);
+
+                        }
+                    } else if (Array.isArray(value)) {
+                        // TODO:: "_DEEP_ASSIGN_DELETE_" has to be discussed.
+                        if (target.hasOwnProperty(prop) && Array.isArray(target[prop])) {
+                            const targetArray = target[prop];
+                            value.forEach((sourceItem, itemIndex) => {
+                                if (itemIndex < targetArray.length) {
+                                    const targetItem = targetArray[itemIndex];
+                                    if (Object.is(targetItem, sourceItem)) {
+                                        return;
+                                    }
+
+                                    if (DataObjectFalcorUtil.isObject(targetItem) && DataObjectFalcorUtil.isObject(sourceItem)) {
+                                        targetArray[itemIndex] = DataObjectFalcorUtil.deepAssign(targetItem, sourceItem);
+                                    } else if (Array.isArray(targetItem) && Array.isArray(sourceItem)) {
+                                        targetArray[itemIndex] = DataObjectFalcorUtil.deepAssign(targetItem, sourceItem);
+                                    } else {
+                                        targetArray[itemIndex] = sourceItem;
+                                    }
+                                } else {
+                                    targetArray.push(sourceItem);
+                                }
+                            })
+                        } else {
+                            target[prop] = value;
+                        }
+                    } else {
+                        target[prop] = value;
+                    }
                 }
             });
         }
