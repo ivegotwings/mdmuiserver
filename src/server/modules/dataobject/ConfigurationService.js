@@ -64,17 +64,16 @@ ConfigurationService.prototype = {
         }
 
         var requestContext = request.params.query.contexts[0];
-        var component = requestContext.component;
-        var tenant = requestContext.tenant;
+        requestContext.tenant = requestContext.tenant == undefined || requestContext.tenant == DEFAULT_CONTEXT_KEY ? this.getTenantId() : requestContext.tenant;
 
-        var baseConfigId = component + "-base_uiConfig";
+        var baseConfigId = requestContext.component + "-base_uiConfig";
         var baseConfigRequest = {
             "params": {
                 "query": {
                     "id": baseConfigId,
                     "contexts": [
                         {
-                            "component": component
+                            "component": requestContext.component
                         }
                     ],
                     "filters": {
@@ -108,7 +107,6 @@ ConfigurationService.prototype = {
         return response;
     },
     _getAndMergeNearestConfig: async function (requestContext, mergedConfigObject, isBase) {
-        var component = requestContext.component;
         var tenant = requestContext.tenant;
 
         var configContextSettings = await this._getConfigContextSettings(tenant, isBase);
