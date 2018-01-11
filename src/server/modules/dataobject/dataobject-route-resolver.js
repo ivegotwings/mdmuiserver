@@ -613,6 +613,23 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
                     }
                 }
             }
+
+            if(reqData.operation == "update" && reqData.dataIndex == "entityData") {
+                var clonedDataByObjectTypeJson = falcorUtil.cloneObject(dataByObjectTypeJson);
+                var clonedPaths = falcorUtil.cloneObject(responsePaths);
+    
+                if(!(isEmpty(clonedDataByObjectTypeJson) && isEmpty(clonedPaths))) {
+                    var coalescedJsonData = rootJson['entityCoalescedData'] = {};
+                    coalescedJsonData[dataObject.type] = clonedDataByObjectTypeJson;
+
+                    clonedPaths.forEach(function(path){
+                        if(path && path[1]) {
+                            path[1] = "entityCoalescedData";
+                            response['paths'].push(path);
+                        }
+                    }, this);
+                } 
+            }
         }
     }
     catch (err) {
@@ -621,7 +638,7 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
     finally {
     }
 
-    //console.log(JSON.stringify(response, null, 4));
+    console.log(JSON.stringify(response, null, 4));
     return response;
 }
 

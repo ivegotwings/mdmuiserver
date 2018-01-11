@@ -12,9 +12,9 @@
 -->
 <dom-module id="entity-lov-datasource">
     <template>
-        <liquid-entity-data-get id="initGetEntitySearch" operation="initiatesearch" request-data="[[request]]" last-response="{{_initGetEntitySearchResponse}}"
+        <liquid-entity-data-get id="initGetEntitySearch" operation="initiatesearch" request-data="[[_request]]" last-response="{{_initGetEntitySearchResponse}}"
             on-error="_onGetSearchError" exclude-in-progress></liquid-entity-data-get>
-        <liquid-entity-data-get id="getEntitySearchResults" operation="getsearchresultdetail" request-data="[[request]]" request-id="[[_initGetEntitySearchResponse.content.requestId]]"
+        <liquid-entity-data-get id="getEntitySearchResults" operation="getsearchresultdetail" request-data="[[_request]]" request-id="[[_initGetEntitySearchResponse.content.requestId]]"
             last-response="{{getEntitySearchResultsResponse}}" on-error="_onGetSearchError" exclude-in-progress></liquid-entity-data-get>
     </template>
     <script>
@@ -49,6 +49,12 @@
                 rDataFormatter: {
                     type: Function,
                     notify: true
+                },
+                _request: {
+                    type: Object,
+                    value: function() {
+                        return {}
+                    }
                 }
             },
 
@@ -73,6 +79,8 @@
                     return;
                 }
 
+                this._request = DataHelper.cloneObject(this.request);
+
                 // Bind Reponse
                 if (!this.isResponseAttached) {
                     this._liquidInitSearchElement.addEventListener('response', this._onInitSearchResponse.bind(this));
@@ -86,38 +94,16 @@
                 //temporary code because RDF doesnt support OR search in attributesCriterion
                 //so if there are more than one attrs to search in, then use keyword search
                 var attributesCriterion;
-                var oldAttributesCriterion = this.request.params.query.filters.attributesCriterion;
-                delete this.request.params.query.filters.attributesCriterion;
-                delete this.request.params.query.filters.keywordsCriterion;
+                var oldAttributesCriterion = this._request.params.query.filters.attributesCriterion;
+                delete this._request.params.query.filters.attributesCriterion;
+                delete this._request.params.query.filters.keywordsCriterion;
 
                 if (this.attributesCriterionBuilder && this.attributesCriterionBuilder instanceof Function) {
                     attributesCriterion = this.attributesCriterionBuilder(data.filter);
-                    // oldAttributesCriterion.forEach(function (attrCriterion) {
-                    //     if (attrCriterion) {
-                    //         var keys = Object.keys(attrCriterion);
-
-                    //         if (keys && keys.length == 1) {
-                    //             var criterion = attrCriterion[keys[0]];
-                    //             var criterionKeys = Object.keys(criterion);
-                    //             if (criterionKeys && criterionKeys.length == 1 && criterionKeys[0] == "eq") {
-                    //                 // Do nothing
-                    //             } else {
-                    //                 attributesCriterion.push(attrCriterion);
-                    //             }
-                    //         }
-                    //     }
-                    // }, this);
                 }
-                if (this.isAttributeFilter) {
-                    //Single attribute, go for attribute criterion
-                    if (attributesCriterion && attributesCriterion.length == 1) {
-                        this.set("request.params.query.filters.attributesCriterion", attributesCriterion);
-                    }
 
-                    // More attributes, go for keyword criterion for OR condition
-                    if (attributesCriterion && attributesCriterion.length > 1) {
-                        this._setKeywordCriterion(data.filter);
-                    }
+                if (this.isAttributeFilter) {
+                    this.set("_request.params.query.filters.attributesCriterion", attributesCriterion);
                 } else {
                     this._setKeywordCriterion(data.filter);
                 }
@@ -137,9 +123,9 @@
                     "from": from,
                     "to": to
                 };
-                this.set("request.params.options", options);
+                this.set("_request.params.options", options);
 
-                // Initiate Request only for First Time.
+                // Initiate _request only for First Time.
                 if (!this.isRequestInitiated) {
                     this._liquidInitSearchElement.generateRequest();
                 } else {
@@ -153,24 +139,24 @@
                     keywordsCriterion = this.keywordsCriterionBuilder(filter);
                 }
 
-                delete this.request.params.query.filters.keywordsCriterion;
-                delete this.request.params.query.ids;
+                delete this._request.params.query.filters.keywordsCriterion;
+                delete this._request.params.query.ids;
                 if (keywordsCriterion) {
                     if (keywordsCriterion.isIdSearch) {
-                        this.set("request.params.query.ids", keywordsCriterion.ids);
+                        this.set("_request.params.query.ids", keywordsCriterion.ids);
                     } else {
-                        this.set("request.params.query.filters.keywordsCriterion", keywordsCriterion);
+                        this.set("_request.params.query.filters.keywordsCriterion", keywordsCriterion);
                     }
                 }
             },
             _setSortCriterion: function (sort) {
                 var sortCriterion;
-                delete this.request.params.sort;
+                delete this._request.params.sort;
                 if (this.sortCriterionBuilder && this.sortCriterionBuilder instanceof Function) {
                     sortCriterion = this.sortCriterionBuilder(sort);
                 }
                 if (sortCriterion) {
-                    this.set("request.params.sort", sortCriterion);
+                    this.set("_request.params.sort", sortCriterion);
                 }
             },
 
@@ -187,8 +173,8 @@
             },
 
             _onInitSearchResponse: function () {
-                this._lastRequest = DataHelper.cloneObject(this.request);
-                delete this.request.params.query.contexts;
+                this._lastRequest = DataHelper.cloneObject(this._request);
+                delete this._request.params.query.contexts;
                 this._liquidGetSearchElement.generateRequest();
                 this.isRequestInitiated = true;
             },

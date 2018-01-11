@@ -70,7 +70,7 @@ var DataObjectRouter = function (options) {
     DataObjectRouterBase.call(this, options);
     //Router create class method is not handing options passed on..this is bug in falcor
     //As workaround, we need to set related properties explicity to the router class..(for now only maxPaths)
-    this.maxPaths = options.maxPaths; 
+    this.maxPaths = options.maxPaths;
 };
 
 DataObjectRouter.prototype = Object.create(DataObjectRouterBase.prototype);
@@ -101,6 +101,10 @@ module.exports = function (app) {
             return new DataObjectRouter(routerOptions);
         }));
     app.use('/data/requestTracking.json',
+        falcorExpress.dataSourceRoute(function (req, res) {
+            return new DataObjectRouter(routerOptions);
+        }));
+    app.use('/data/entityCoalescedData.json',
         falcorExpress.dataSourceRoute(function (req, res) {
             return new DataObjectRouter(routerOptions);
         }));

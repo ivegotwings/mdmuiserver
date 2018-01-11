@@ -50,6 +50,14 @@ DataObjectFalcorUtil.getPathKeys = function () {
                 "collectionName": "requestObjects",
                 "responseObjectName": "response",
                 "maxRecordsToReturn": 25000
+            },
+            "entityCoalescedData": {
+                "name": "entity",
+                "collectionName": "entities",
+                "responseObjectName": "response",
+                "maxRecordToReturn": 200,
+                "combinedQueryPageSize": 30000,
+                "cacheExpiryDurationInMins": 60
             }
         }
     };
