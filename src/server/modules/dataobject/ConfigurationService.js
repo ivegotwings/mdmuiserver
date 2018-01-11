@@ -102,6 +102,9 @@ ConfigurationService.prototype = {
         finalConfigObject = await this._getAndMergeNearestConfig(requestContext, finalConfigObject, false);
         //console.log('final tenant coalesced config', JSON.stringify(finalConfigObject));
         
+        //Remove all nodes having key-value "visible:false"
+        falcorUtil.deepRemoveNodesByKeyVal(finalConfigObject, "visible", false);
+
         var response = {"response": {"status": "success", "configObjects": [finalConfigObject]}};
 
         //console.log('response data ', JSON.stringify(response));

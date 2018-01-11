@@ -624,11 +624,16 @@ DataObjectFalcorUtil.deepAssign = function (...objs) {
                 } else {
                     if (DataObjectFalcorUtil.isObject(value)) {
                         if (target.hasOwnProperty(prop) && DataObjectFalcorUtil.isObject(target[prop])) {
+                            // if (value.hasOwnProperty(DataObjectFalcorUtil.CONST_DELETE_KEY) && value[DataObjectFalcorUtil.CONST_DELETE_KEY] == false) {
+                            //     delete target[prop];
+                            // }
+                            // else {
+                            //     target[prop] = DataObjectFalcorUtil.deepAssign(target[prop], value);
+                            // }
                             target[prop] = DataObjectFalcorUtil.deepAssign(target[prop], value);
                         } else {
                             target[prop] = {};
                             target[prop] = DataObjectFalcorUtil.deepAssign(target[prop], value);
-
                         }
                     } else if (Array.isArray(value)) {
                         // TODO:: "_DEEP_ASSIGN_DELETE_" has to be discussed.
@@ -683,6 +688,19 @@ DataObjectFalcorUtil.mergePathSets = function () {
     var args = Array.prototype.splice.call(arguments, 0);
     var mergedPathSets = Array.prototype.concat.apply([], args);
     return mergedPathSets;
+};
+
+DataObjectFalcorUtil.deepRemoveNodesByKeyVal = function (obj, key, value) {
+    for (var prop in obj) {
+        if (typeof obj[prop] === 'object') {
+            if (obj[prop].hasOwnProperty(key) && obj[prop][key] == value) {
+                delete obj[prop];
+            }
+            else {
+                DataObjectFalcorUtil.deepRemoveNodesByKeyVal(obj[prop], key, value);
+            }
+        }
+    }
 };
 
 function isEmpty(obj) {
