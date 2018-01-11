@@ -106,8 +106,16 @@ EntityCompositeModelGetService.prototype = {
         var readWriteModelRes = await this.post(serviceUrl, internalRequest);
 
         const localeAuthorizationRequestObject = this._createLocaleBasedAuthorizationRequestObject(requestObject);
-        const localeAuthorizationRequestResult = await this.post(serviceUrl, localeAuthorizationRequestObject);
-        const localePermissions = this._getLocalePermissions(localeAuthorizationRequestResult);
+        let localePermissions;
+
+        if (localeAuthorizationRequestObject) {
+            const localeAuthorizationRequestResult = await this.post(serviceUrl, localeAuthorizationRequestObject);
+            localePermissions = this._getLocalePermissions(localeAuthorizationRequestResult);
+        } else {
+            //If there is no locale information
+            //this request should be processed as "by default"
+            localePermissions = this._getDefaultPermissions();
+        }
 
         if (readWriteModelRes && readWriteModelRes.response) {
             var readWriteModels = readWriteModelRes.response.entityModels;
@@ -154,11 +162,16 @@ EntityCompositeModelGetService.prototype = {
             };
         }
         //returning default
+        return this._getDefaultPermissions();
+    },
+
+    _getDefaultPermissions: function () {
         return {
             "readPermission": "true",
             "writePermission": "true"
         };
     },
+
     _manageModelWithNoWritePermission: function(readWriteModels){
         //write model is not available...
         //set all data objects as readonly in readWriteModels
@@ -170,28 +183,28 @@ EntityCompositeModelGetService.prototype = {
             }
         }
     },
-    _createLocaleBasedAuthorizationRequestObject: function(request){
+    _createLocaleBasedAuthorizationRequestObject: function (request) {
         //default locale
-        let localeId = "en-US";
-        if (request.params.query && request.params.query.contexts) {
+        var localeId;
+        if (request.params.query && request.params.query.contexts && request.params.query.contexts.length) {
             localeId = request.params.query.contexts[0].locale;
         }
-        return {
+        return localeId ? {
             "params": {
                 "query": {
                     "ids": [localeId + "_authorizationModel_" + this.getUserRole()],
-                    "filters" : {
+                    "filters": {
                         "typesCriterion": [
                             "authorizationModel"
                         ]
                     }
                 },
-                "fields" : {
-                    "attributes" : ["_ALL"],
+                "fields": {
+                    "attributes": ["_ALL"],
                     "relationships": ["_ALL"]
                 }
             }
-        }
+        } : null;
     },
     _mergeEntityManageModelsPermissions: function (readWriteModel, writeModel) {
         //Merge self attributes
