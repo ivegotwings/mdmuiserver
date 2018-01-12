@@ -303,47 +303,72 @@
                     if(this.changed) {
                         var grid = this.shadowRoot.querySelector("#attributesGrid");
                         var modifiedData = grid.getModifiedData();
+
                         if(modifiedData && modifiedData.length > 0) {
-                            var values = [];
                             for(var i=0; i<modifiedData.length; i++) {
                                 var rowData = modifiedData[i];
+
                                 var _status = rowData["_rowStatus"]["status"];
                                 var value = this.attributeObject.value.find(obj => obj.valueIdentifier.value === rowData.valueIdentifier && obj.action !== "delete");
                                 var deletedValue = this.attributeObject.value.find(obj => obj.valueIdentifier.value === rowData.valueIdentifier && obj.action === "delete");
                                 var originalVal = this.originalAttributeObject.value.find(obj => obj.valueIdentifier.value === rowData.valueIdentifier);
+
                                 if(this._isRowEmpty(rowData)) {
                                     if(value) {
+                                        /***means user cleared all child attributes in this row. Hence update status to "delete".***/
                                         _status = "delete";
                                     }
                                 } else {
-                                    if(!value) {
+                                    if(!value && !deletedValue) {
+                                        /***when new row added, we are just modifying grid data, not nested attribute object.
+                                         * Nested attribute object will be modified only when user enters some value in 
+                                         * one of the child attributes. This is to make sure we don't send any row with empty data to RDF for save.
+                                         * Here when "value" and "deletedValue" are undefined, means its a new row added, creating one empty row, pushing it to attribute object
+                                         * to update the data of this row later***/
                                         value = this._getNewValueObject(rowData);
                                         this.attributeObject.value.push(value);
                                     }
                                 }
-                                if(_status === "delete") {
-                                    var index = this.attributeObject.value.indexOf(value);
-                                    if(index !== -1) {
-                                        if(originalVal) {
-                                            this.attributeObject.value[index] = DataHelper.cloneObject(originalVal);
+
+                                if(value) {
+                                    if(_status === "delete") {
+                                        /***find the row with this value, replace it with original data and mark it as delete.
+                                         * If not replaced with original data, RDF cannot be able to delete the row***/
+                                        var index = this.attributeObject.value.indexOf(value);
+                                        if(index !== -1) {
+                                            if(deletedValue && value.valueIdentifier.value === deletedValue.valueIdentifier.value) {
+                                                /***if value and deleted value both are present, user has edited child attribute with
+                                                 * with isAttributeIdentifier flag first and then cleared all child attributes or marked 
+                                                 * it delete. In this case to avoid duplicating the rows to be deleted.***/
+                                                this.attributeObject.value.splice(index,1);
+                                            } else {
+                                                /***replace the row data with original row data before marking the row with delete.***/
+                                                this.attributeObject.value[index] = DataHelper.cloneObject(originalVal);
+                                                this.attributeObject.value[index]["action"] = "delete";
+                                            }
                                         }
-                                        this.attributeObject.value[index]["action"] = "delete";
-                                    }
-                                } else if(this._isIdentifierUpdated(rowData, originalVal) && !deletedValue) {
-                                    var index = this.attributeObject.value.indexOf(value);
-                                    if(index !== -1) {
-                                        if(originalVal) {
-                                            this.attributeObject.value[index] = DataHelper.cloneObject(originalVal);
+                                    } else if(this._isIdentifierUpdated(rowData, originalVal) && !deletedValue) {
+                                        /***if a child attribute with isAttributeIdentifier flag updated, we need to mark the 
+                                         * existing row as delete, create new row with new/modified data.***/
+                                        var index = this.attributeObject.value.indexOf(value);
+                                        if(index !== -1) {
+                                            if(originalVal) {
+                                                /***replace the row data with original row data before marking the row with delete.***/
+                                                this.attributeObject.value[index] = DataHelper.cloneObject(originalVal);
+                                            }
+                                            this.attributeObject.value[index]["action"] = "delete";
                                         }
-                                        this.attributeObject.value[index]["action"] = "delete";
-                                    }
-                                    
-                                    var valObj = this._getNewValueObject(rowData);
-                                    this._updateValueWithData(rowData, valObj);
-                                    this.attributeObject.value.push(valObj);
-                                } else {
-                                    if(value) {
-                                        this._updateValueWithData(rowData, value);
+                                        
+                                        /***creating one new empty row***/
+                                        var valObj = this._getNewValueObject(rowData);
+                                        /***updating new row with updated data***/
+                                        this._updateRowDataWithValue(rowData, valObj);
+                                        /***pushing it to attribute object***/
+                                        this.attributeObject.value.push(valObj);
+                                    } else {
+                                        /***Child attribute without isAttributeIdentifier flag updated, directly
+                                        * update the original row.***/
+                                        this._updateRowDataWithValue(rowData, value);
                                     }
                                 }
                             }
@@ -387,7 +412,7 @@
                     }
                     return false;
                 },
-                _updateValueWithData: function(rowData, value) {
+                _updateRowDataWithValue: function(rowData, value) {
                     for(var attrName in rowData) {
                         if(this._attributeModels[attrName]) {
                             value[attrName] = value[attrName] ? value[attrName]: {};
