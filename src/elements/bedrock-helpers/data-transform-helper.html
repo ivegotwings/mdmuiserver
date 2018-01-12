@@ -93,7 +93,10 @@
                 DataTransformHelper._prepareForSelfToContextCoalesce(mergedAttributes, ctxAttributes);
 
                 if (!_.isEmpty(ctxAttributes)) {
-                    mergedAttributes = DataMergeHelper.mergeAttributes(mergedAttributes, ctxAttributes, true);
+                    Object.keys(ctxAttributes).forEach((attrName) => {
+                        mergedAttributes[attrName] = DataHelper.cloneObject(ctxAttributes[attrName]);
+                    });
+                    //mergedAttributes = DataMergeHelper.mergeAttributes(mergedAttributes, ctxAttributes, true);
                 }
             }
 
@@ -312,6 +315,9 @@
                             }
                             attr.group.push(childAttributes);
                         }
+                        if (attributeJSON.attrProperties) {
+                            attr.properties = attributeJSON.attrProperties;
+                        }
                     }
                 } else {
                     attr = this.createAttributeInstance(attributeJSON, firstValueContext);
@@ -327,6 +333,8 @@
                     firstContextAttributes[attributeJSON.name] = attr;
                 }
             }
+
+            this._removeAttrsWithDeleteFlagAndContextCoalesce(firstContextAttributes, firstDataContext);
 
             var newEntity = {};
 
@@ -356,6 +364,51 @@
             newEntity["data"] = newData;
 
             return newEntity;
+        };
+
+        DataTransformHelper._removeAttrsWithDeleteFlagAndContextCoalesce = function(attributes, dataContext) {
+            /***if attribute has contextCoalescePaths in attrProperties and that path is 
+             * different from selected context, indicates that user has updated attribute on top 
+             * of overriden values. If attribute is to be deleted/there are any deleted rows, remove the attribute/deleted rows from
+             * attribute before sending for save***/
+            if(!_.isEmpty(attributes)) {
+                Object.keys(attributes).forEach((attrName) => {
+                    var attribute = attributes[attrName];
+                    var contextCoalescePaths = !_.isEmpty(dataContext) ? AttributeHelper.getContextCoalescePaths(attribute, dataContext) : [];
+
+                    if(!_.isEmpty(contextCoalescePaths)) {
+                        if(attribute.action === "delete") {
+                            delete attributes[attrName];
+                        } else if(attribute.group && attribute.group.length > 0) {
+                            this._deleteValuesFromValue(attribute.group);
+
+                            if(attribute.group.length === 0) {
+                                delete attributes[attrName];
+                            }
+                        } else if(attribute.values && attribute.values.length > 0) {
+                            this._deleteValuesFromValue(attribute.values);
+
+                            if(attribute.values.length === 0) {
+                                delete attributes[attrName];
+                            }
+                        }
+                    }
+                })
+            }
+        };
+
+        DataTransformHelper._deleteValuesFromValue = function(values) {
+            var valsToBeDeleted = values.filter(val => val.action === "delete");
+
+            if(!_.isEmpty(valsToBeDeleted)) {
+                for(let i=0; i<valsToBeDeleted.length; i++) {
+                    var valToDelete = valsToBeDeleted[i];
+                    var valIndex = values.indexOf(valToDelete);
+                    if(valIndex !== -1) {
+                        values.splice(valIndex, 1);
+                    }
+                }
+            }
         };
 
         DataTransformHelper._overrideLocale = function (attr, locale) {
@@ -677,7 +730,7 @@
                                     }
 
                                     childAttributeJson[attributeName]["properties"] = {};
-                                    let localeCoalescePath = AttributeHelper.getLocaleCoalescePath(childAttr)
+                                    let localeCoalescePath = AttributeHelper.getLocaleCoalescePath(childAttr);
                                     if (localeCoalescePath) {
                                         childAttributeJson[attributeName]["properties"]["localeCoalescePath"] = localeCoalescePath;
                                     }
@@ -1481,21 +1534,11 @@
                                             contextualAttributes[attrKey] = selfAttributes[attrKey];
                                         }
                                     }
-                                } else {
-                                    ctxValues.forEach(function (item) {
-                                        if (_.isEmpty(item.properties)) {
-                                            item.properties = {};
-                                            item.properties.localeCoalescePath = "_DEEP_ASSIGN_DELETE_";
-                                        } else if (item.properties && _.isEmpty(item.properties.localeCoalescePath)) {
-                                            item.properties.localeCoalescePath = "_DEEP_ASSIGN_DELETE_";
-                                        }
-                                    }, this);
                                 }
                             } else if (contextualAttributes[attrKey] && contextualAttributes[attrKey].group && contextualAttributes[attrKey].group.length > 0) {
                                 // this is a nested attribute.
                                 var localeCoalescedCtxChildAttrs  = contextualAttributes[attrKey].group.filter(function(ctxValueGroup) {
                                     var childCtxAttributes = ctxValueGroup;
-
                                     var childCtxAttrKeys = Object.keys(childCtxAttributes);
                                     var localeCoalescedCtxChildAttrKeys = childCtxAttrKeys.filter(function (attrName) {
                                         if(ctxValueGroup[attrName].values && ctxValueGroup[attrName].values instanceof Array) {
@@ -1505,15 +1548,14 @@
                                             }
                                         }
                                     });
-
-                                    return localeCoalescedCtxChildAttrKeys;
+                                    if(!_.isEmpty(localeCoalescedCtxChildAttrKeys)) {
+                                        return ctxValueGroup;
+                                    }
                                 });
-
                                 if (localeCoalescedCtxChildAttrs && localeCoalescedCtxChildAttrs.length) {
                                     if(selfAttributes[attrKey] && selfAttributes[attrKey].group && selfAttributes[attrKey].group.length > 0) {
                                         var localeCoalescedSelfChildAttrs = selfAttributes[attrKey].group.filter(function(selfValueGroup) {
                                             var childSelfAttributes = selfValueGroup;
-
                                             var childSelfAttrKeys = Object.keys(childSelfAttributes);
                                             var localeCoalescedSelfChildAttrKeys = childSelfAttrKeys.filter(function (attrName) {
                                                 if(selfValueGroup[attrName].values && selfValueGroup[attrName].values instanceof Array) {
@@ -1523,10 +1565,10 @@
                                                     }
                                                 }
                                             });
-
-                                            return localeCoalescedSelfChildAttrKeys;
+                                            if(!_.isEmpty(localeCoalescedSelfChildAttrKeys)) {
+                                                return selfValueGroup;
+                                            }
                                         });
-
                                         if (localeCoalescedSelfChildAttrs && !localeCoalescedSelfChildAttrs.length) {
                                             selfAttributes[attrKey].properties = {
                                                 "contextCoalesce": [
@@ -1535,7 +1577,6 @@
                                                     }
                                                 ]
                                             };
-
                                             contextualAttributes[attrKey] = selfAttributes[attrKey];
                                         }
                                     }
