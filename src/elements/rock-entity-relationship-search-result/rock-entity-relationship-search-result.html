@@ -14,53 +14,35 @@
 @demo demo/index.html
 -->
 <dom-module id="rock-entity-relationship-search-result">
-<template>
-    <style include="bedrock-style-common">
+    <template>
+        <style include="bedrock-style-common">
         #messageCard {
             text-align: center;
             padding: 15px;
             @apply --rock-relationship-manage-message-card;
         }
     </style>
-    <style></style>
-    <rock-business-function-dialog id="wfTransitionDialog" context-data="[[contextData]]"></rock-business-function-dialog>
-    <rock-business-function-dialog id="wfAssignmentDialog" context-data="[[contextData]]"></rock-business-function-dialog>
-    <template is="dom-if" if="{{_isRelGridConfigAvailable(relGridConfig)}}">
-        <template is="dom-if" if="{{!_isUpdirection(relationship)}}">
-            <rock-relationship-grid 
-                id="entityRelationshipGrid_[[relationship]]" 
-                readonly$="[[readonly]]" 
-                relationship="[[relationship]]"
-                add-relationship-mode="[[configContext.addRelationshipMode]]" 
-                relationship-type="[[configContext.relationshipType]]"
-                relationship-title="[[configContext.relationshipTitle]]" 
-                rel-req="[[requestObj]]" 
-                relationship-grid-config="[[relGridConfig]]"
-                page-size="[[pageSize]]" 
-                context-data="[[contextData]]" 
-                do-sync-validation$="[[doSyncValidation]]"             
-                functional-mode="[[functionalMode]]" 
-                type-thumbnail-mapping="[[_typeThumbnailMapping]]" 
-                global-edit="{{globalEdit}}">
-            </rock-relationship-grid>
-        </template>
-        <template is="dom-if" if="{{_isUpdirection(relationship)}}">
-            <rock-where-used-grid 
-                id="entityRelationshipGrid_[[relationship]]" 
-                readonly$="[[readonly]]" 
-                relationship="[[relationship]]"
-                relationship-title="[[configContext.relationshipTitle]]" 
-                rel-req="[[requestObj]]" 
-                relationship-grid-config="[[relGridConfig]]"
-                page-size="[[pageSize]]" 
-                context-data="[[contextData]]" 
-                do-sync-validation$="[[doSyncValidation]]"
-                global-edit="{{globalEdit}}">
-            </rock-where-used-grid>
-            <bedrock-pubsub event-name="govern-grid-action-click" handler="_onWorkflowActionTap" target-id="entityRelationshipGrid_[[relationship]]"></bedrock-pubsub>
-        </template>
+<style></style>
+<rock-business-function-dialog id="wfTransitionDialog" context-data="[[contextData]]"></rock-business-function-dialog>
+<rock-business-function-dialog id="wfAssignmentDialog" context-data="[[contextData]]"></rock-business-function-dialog>
+<template is="dom-if" if="{{_isRelGridConfigAvailable(relGridConfig)}}">
+    <template is="dom-if" if="{{!_isUpdirection(relationship)}}">
+        <rock-relationship-grid id="entityRelationshipGrid_[[relationship]]" readonly$="[[readonly]]" relationship="[[relationship]]"
+            add-relationship-mode="[[configContext.addRelationshipMode]]" relationship-type="[[configContext.relationshipType]]"
+            relationship-title="[[configContext.relationshipTitle]]" rel-req="[[requestObj]]" relationship-grid-config="[[relGridConfig]]"
+            page-size="[[pageSize]]" context-data="[[contextData]]" do-sync-validation$="[[doSyncValidation]]" functional-mode="[[functionalMode]]"
+            type-thumbnail-mapping="[[_typeThumbnailMapping]]" global-edit="{{globalEdit}}">
+        </rock-relationship-grid>
     </template>
-    <div id="messageCard" hidden="[[!_isMessageAvailable]]"></div>
+    <template is="dom-if" if="{{_isUpdirection(relationship)}}">
+        <rock-where-used-grid id="entityRelationshipGrid_[[relationship]]" readonly$="[[readonly]]" relationship="[[relationship]]"
+            relationship-title="[[configContext.relationshipTitle]]" rel-req="[[requestObj]]" relationship-grid-config="[[relGridConfig]]"
+            page-size="[[pageSize]]" context-data="[[contextData]]" do-sync-validation$="[[doSyncValidation]]" global-edit="{{globalEdit}}">
+        </rock-where-used-grid>
+        <bedrock-pubsub event-name="govern-grid-action-click" handler="_onWorkflowActionTap" target-id="entityRelationshipGrid_[[relationship]]"></bedrock-pubsub>
+    </template>
+</template>
+<div id="messageCard" hidden="[[!_isMessageAvailable]]"></div>
 </template>
 <script>
     class RockEntityRelationshipSearchResult
@@ -153,12 +135,11 @@
                         "app": appName
                     }];
                 }
-                
-                //to-do, verify is this rel context correct?
-                if(this.relationship) {
-                    context[ContextHelper.CONTEXT_TYPE_RELATIONSHIP] = [{
+
+                if (this.relationship) {
+                    context[ContextHelper.CONTEXT_TYPE_ITEM] = [{
                         "relationship": this.relationship
-                    }];    
+                    }];
                 }
 
                 this.requestConfig('rock-entity-relationship-search-result', context);
@@ -166,14 +147,69 @@
         }
         onConfigLoaded(componentConfig) {
             if (componentConfig && componentConfig.config) {
-                this._relConfig = componentConfig.config;
+                if (!_.isEmpty(this.configContext) && this.configContext.direction == "up") {
+                    var config = this._getConfigForUpDirection(componentConfig.config);
+                    if (!config) {
+                        return
+                    }
+
+                    this._relConfig = config;
+                } else {
+                    // //When entity type specific config needed on top of relType
+                    // var config = componentConfig.config;
+                    // if(!_.isEmpty(config.changeInFields)) {
+                    //     var itemContext = ContextHelper.getFirstItemContext(this.contextData);
+                    //     if(config.changeInFields[itemContext.type]) {
+                    //         config.gridConfig.itemConfig.fields = config.changeInFields[itemContext.type].fields;
+                    //     }
+                    // }
+
+                    this._relConfig = config;
+                }
                 this.initiateRelationshipManage();
             } else {
-                this._isMessageAvailable = true;
-                var messageDiv = this.$.messageCard;
-                if (messageDiv) {
-                    messageDiv.textContent = "Relationships are not configured for current entity type: " + this.configContext.relationshipTitle;
+                this._showMessage("Relationships are not configured for current entity type");
+                return;
+            }
+        }
+        _showMessage(message) {
+            this._isMessageAvailable = true;
+            var messageDiv = this.$.messageCard;
+            if (messageDiv) {
+                messageDiv.textContent = message + ": " + this.configContext.relationshipTitle;
+            }
+        }
+        _getConfigForUpDirection(config) {
+            if (!_.isEmpty(config.upDirectionConfig) &&
+                this.configContext.fromEntityType &&
+                config.upDirectionConfig[this.configContext.fromEntityType]) {
+                var upConfig = config.upDirectionConfig[this.configContext.fromEntityType];
+
+                config.gridConfig.title = upConfig.title;
+                config.gridConfig.itemConfig.fields = upConfig.fields;
+                config.addRelLovConfig.titlePattern = upConfig.lovTitlePattern;
+                config.fromEntityTypes = upConfig.fromEntityTypes;
+                config.direction = this.configContext.direction;
+
+                if(upConfig.viewMode) {
+                    config.gridConfig.viewMode = upConfig.viewMode;
                 }
+
+                if (upConfig.copyActionConfig) {
+                    config.copyActionConfig = upConfig.copyActionConfig;
+                } else {
+                    delete config.copyActionConfig;
+                }
+
+                if (upConfig.governDataConfig) {
+                    config.governDataConfig = upConfig.governDataConfig;
+                } else {
+                    delete config.governDataConfig;
+                }
+
+                return config;
+            } else {
+                this._showMessage("Relationships are not configured for current entity type");
                 return;
             }
         }
@@ -206,64 +242,65 @@
                                 }
                             }
                         }, this);
-                    } else { //Tile or List
-                        var itemConfig = gridConfig.itemConfig;
-                        relatedEntityAttributes.push(itemConfig.image);
-                        relatedEntityAttributes.push(itemConfig.thumbnailId);
-                        relatedEntityAttributes.push(itemConfig.title);
-                        relatedEntityAttributes.push(itemConfig.subtitle);
-                        relatedEntityAttributes.push(itemConfig.id);
-                        relatedEntityAttributes.push("property_objectkey");
-
-                        var fields = DataHelper.convertObjectToArray(gridConfig.itemConfig.fields);
-
-                        //Sort details
-                        var sortDetails = gridConfig.itemConfig.sort;
-                        if (sortDetails && sortDetails.default) {
-                            var sortDefaults = DataHelper.cloneObject(sortDetails.default);
-                            for (var i = 0; i < sortDefaults.length; i++) {
-                                if (!fields.find(obj => obj.name == sortDefaults[i].field)) {
-                                    sortDefaults[i].name = sortDefaults[i].field;
-                                    fields.push(sortDefaults[i]);
-                                }
-                            }
-                        }
-
-                        for (var i = 0; i < fields.length; i++) {
-                            if (fields[i].isRelationshipAttribute) {
-                                relationshipAttributes.push(fields[i].name);
-                            } else {
-                                relatedEntityAttributes.push(fields[i].name);
-                            }
-                        }
-
-                        if (!this._relationshipTypeAndAttributes) {
-                            this._relationshipTypeAndAttributes = {};
-                        }
                     }
+                } else { //Tile or List
+                    var itemConfig = gridConfig.itemConfig;
+                    relatedEntityAttributes.push(itemConfig.image);
+                    relatedEntityAttributes.push(itemConfig.thumbnailId);
+                    relatedEntityAttributes.push(itemConfig.title);
+                    relatedEntityAttributes.push(itemConfig.subtitle);
+                    relatedEntityAttributes.push(itemConfig.id);
+                    relatedEntityAttributes.push("property_objectkey");
 
-                    this._relationshipTypeAndAttributes = {
-                        'relationshipAttributes': relationshipAttributes,
-                        'relatedEntityAttributes': relatedEntityAttributes
-                    }
-                    this._relConfig.relationshipTypeAndAttributes = this._relationshipTypeAndAttributes;
+                    var fields = DataHelper.convertObjectToArray(gridConfig.itemConfig.fields);
 
-                    if (this._relConfig.itemConfig) {
-                        var columns = this._relConfig.itemConfig.fields;
-                        if (columns) {
-                            for (var key in columns) {
-                                if (columns[key].isRelatedEntityAttribute) {
-                                    columns[key].readOnly = true;
-                                }
+                    //Sort details
+                    var sortDetails = gridConfig.itemConfig.sort;
+                    if (sortDetails && sortDetails.default) {
+                        var sortDefaults = DataHelper.cloneObject(sortDetails.default);
+                        for (var i = 0; i < sortDefaults.length; i++) {
+                            if (!fields.find(obj => obj.name == sortDefaults[i].field)) {
+                                sortDefaults[i].name = sortDefaults[i].field;
+                                fields.push(sortDefaults[i]);
                             }
                         }
                     }
 
-                    this._prepareRequest();
-                    this._initiateRelationshipModelRequest(this.relationship, relationshipAttributes);
+                    for (var i = 0; i < fields.length; i++) {
+                        if (fields[i].isRelationshipAttribute) {
+                            relationshipAttributes.push(fields[i].name);
+                        } else {
+                            relatedEntityAttributes.push(fields[i].name);
+                        }
+                    }
+
+                    if (!this._relationshipTypeAndAttributes) {
+                        this._relationshipTypeAndAttributes = {};
+                    }
                 }
+
+                this._relationshipTypeAndAttributes = {
+                    'relationshipAttributes': relationshipAttributes,
+                    'relatedEntityAttributes': relatedEntityAttributes
+                }
+                this._relConfig.relationshipTypeAndAttributes = this._relationshipTypeAndAttributes;
+
+                if (this._relConfig.itemConfig) {
+                    var columns = this._relConfig.itemConfig.fields;
+                    if (columns) {
+                        for (var key in columns) {
+                            if (columns[key].isRelatedEntityAttribute) {
+                                columns[key].readOnly = true;
+                            }
+                        }
+                    }
+                }
+
+                this._prepareRequest();
+                this._initiateRelationshipModelRequest(this.relationship, relationshipAttributes);
             }
         }
+
         _prepareRequest() {
             this.requestObj = {};
             this.requestObj = DataRequestHelper.createEntityGetRequest(this.contextData);
@@ -372,11 +409,7 @@
                         }
                     }
                 } else {
-                    this._isMessageAvailable = true;
-                    var messageDiv = Polymer.dom(this).node.$.messageCard;
-                    if (messageDiv) {
-                        messageDiv.textContent = "Relationships are not configured for current entity type: " + this.configContext.relationshipTitle;
-                    }
+                    this._showMessage("Relationships are not configured for current entity type");
                 }
             }
         }
@@ -511,7 +544,7 @@
                 this._showAssignmentDialog(detail, action, selectionMode, selectionQuery, businessFunctionSelectedItems, wfDetails);
             } else if (detail.data.eventName == "action-wfTransitions") {
                 this._showTransitionDialog(detail, action, selectionMode, selectionQuery, businessFunctionSelectedItems, wfDetails);
-            }            
+            }
         }
         _isSelectedItemsValid(selectedItems) {
             var isValid = true;
@@ -539,7 +572,7 @@
                 "workflow-name": wfDetails.workflowName,
                 "workflow-activity-name": wfDetails.activityName
             };
-            assignmentDialog.open();            
+            assignmentDialog.open();
         }
         _showTransitionDialog(detail, action, selectionMode, selectionQuery, selectedItems, wfDetails) {
             var currentWorkflow = {
