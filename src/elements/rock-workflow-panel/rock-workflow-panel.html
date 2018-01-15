@@ -26,15 +26,24 @@
 
 <dom-module id="rock-workflow-panel">
     <template>
-        <style include="bedrock-style-common"></style>
+        <style include="bedrock-style-common bedrock-styles-scroll-bar"></style>
         <style>
+            :host {
+                --rock-workflow-input-container-label: {
+                  position: relative;
+                 };
+            }
             #workflow-stepper {
                 margin-top: 20px;
             }
             #workflow-description{
                 padding: 10px;
             }
-            
+            #workflows-content{
+                padding-top:20px;
+                height:calc(100% - 3px);
+                overflow-y:auto;
+            }
             .workflowtext {
                 font-family: var(--default-font-family, 'Roboto,Helvetica,Arial,sans-serif');
                 font-size: var(--font-size-sm, 12px);
@@ -115,9 +124,6 @@
                     overflow-y: auto;
                 }   
             }
-            .workflow-content{
-                padding-bottom: 20px;
-            }
             .step-description{
                 padding: 10 0px;
             }
@@ -137,7 +143,9 @@
             on-liquid-response="_onTransitionSuccess" on-liquid-error="_onTransitionFailure"></liquid-rest>
         <pebble-button id="invokeButton" disabled$="[[readonly]]" hidden raised class="iconButton btn btn-outline-primary m-r-5" button-text="Start Workflow"
             on-tap="_onInvokeWorkflow"></pebble-button>
+        <bedrock-pubsub event-name="workflow-refresh" handler="_refresh"></bedrock-pubsub>
         <div id="workflowPanelMessage" class="default-message"></div>               
+        <div id="workflows-content">             
         <template is="dom-if" if="[[_showWorkflow]]">
             <template id="workflowsTemplate" is="dom-repeat" items="[[_workflowsData]]" as="_workflowstepperData">
                 <pebble-accordion header-text="[[_workflowstepperData.workflowTitle]]" default-icon="chevron-right" open-icon="expand-more">
@@ -164,7 +172,7 @@
                                             <div id="action-details">
                                                 <pebble-image-viewer class="user-image" shape="circle" sizing="contain" src="/src/images/no-photo.jpg"></pebble-image-viewer>
                                                 <span class="user-details"><a class="user" href="#">[[item.stepDetails.assignedUser]]</a>[[item.stepDetails.details]]</span>
-                                                <a class="view-changes" href="#">View all changes &raquo;</a>
+                                                <a style="display: none;" class="view-changes" href="#">View all changes &raquo;</a>
                                             </div>
                                         </template>
                                         <template is="dom-if" if="[[_isCommentsEnabled(item)]]">
@@ -187,6 +195,7 @@
                 </pebble-accordion>
             </template>
         </template>
+    </div>
     </template>
     <script>
         (function () {
@@ -273,12 +282,23 @@
             * <b><i>Content development is under progress... </b></i> 
             */
                 refresh: function () {
-                    this._contextChanged(this.contextData);
+                        this._contextChanged(this.contextData);
+                },
+                _refresh:function(event){
+                    if(event){
+                        this.contextData = event.detail.contextData;
+                        this.refresh();
+                    }
+                },
+                ready: function () {
+                    this.refresh();   
+                                 
                 },
                 _contextChanged: function (contextData) {
                     if (!_.isEmpty(this.contextData)) {
                         this.workflowMappingDefinitionRequest = DataRequestHelper.createWorkflowMappingGetRequest(this.contextData);
                         this.shadowRoot.querySelector('#getWorkflowMappingDefinition').generateRequest();
+                        
                     }
                 },
                 _onWfMappingsReceived: function(e) {
@@ -431,16 +451,17 @@
                                 workflowData.push(_stepperData);
                             }
                         }
-
                         this.set("_workflowsData", workflowData);
                         this.shadowRoot.querySelector("#workflowsTemplate").render();
                         //this._loading = false;
                         setTimeout(() =>{
                             var stepper = this.shadowRoot.querySelector("#workflow-stepper_" + workflowData[0].workflowId);
-                            var step = stepper.querySelector('pebble-step[opened]');
-                            if(step) {
-                                step.scrollIntoView(false);
-                            }
+                            if(stepper) {
+                                var step = stepper.querySelector('pebble-step[opened]');
+                                if(step) {
+                                    step.scrollIntoView();
+                                }
+                            }                           
                         }, 1000);//ToDo: need to figure out better way. As of now delay to let the stepper to load with workflow data properly.
                     }
                 },
@@ -847,16 +868,17 @@
                     return false;
                 },
                 _isRequired: function (stepDetails) {
-                    if (stepDetails && stepDetails.actions && stepDetails.actions
+                    var required = false;
+                    if (stepDetails && stepDetails.actions
                         && stepDetails.actions.length && stepDetails.actions.length > 0) {
                         stepDetails.actions.forEach(function (action) {
-                            var commentsMode = AttributeHelper.getFirstAttributeValue(action.commentsMode);
-                            if (commentsMode != "Mandatory") {
-                                return false;
+                            if (action.commentsMode === "Mandatory") {
+                                required = true;
                             }
                         });
-                        return true;
                     }
+
+                    return required;
                 },
                 _getActionButtonClass: function (action) {
                     if (action) {
@@ -914,7 +936,7 @@
                             if(actionsDiv && sideBarHeight && sidebarContainer) {
                                 sidebarContainer.style.overflow = 'hidden';
                                 sidebar.updateStyles();
-                                actionsDiv.style.height = (sideBarHeight - 60) + 'px';
+                                actionsDiv.style.height = (sideBarHeight - 109) + 'px';
                                 accordionEl.updateStyles();
                             }
                         }

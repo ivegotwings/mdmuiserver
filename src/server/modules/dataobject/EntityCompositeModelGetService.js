@@ -92,10 +92,10 @@ EntityCompositeModelGetService.prototype = {
     _validate: function (reqData) {
         return true;
     },
-    _getEntityManageModelWithPermissions: async function (request, serviceUrl) {
+    _getEntityManageModelWithPermissions: async function (requestObject, serviceUrl) {
         var entityManageModelGetRes = undefined;
 
-        var internalRequest = this._cloneAndPrepareRequestObject(request, ['entityManageModel']);
+        var internalRequest = this._cloneAndPrepareRequestObject(requestObject, ['entityManageModel']);
 
         if(!internalRequest.params) {
             internalRequest['params'] = {};
@@ -105,48 +105,106 @@ EntityCompositeModelGetService.prototype = {
         internalRequest.params['intent'] = 'read';
         var readWriteModelRes = await this.post(serviceUrl, internalRequest);
 
-        if(readWriteModelRes && readWriteModelRes.response) {
+        const localeAuthorizationRequestObject = this._createLocaleBasedAuthorizationRequestObject(requestObject);
+        let localePermissions;
+
+        if (localeAuthorizationRequestObject) {
+            const localeAuthorizationRequestResult = await this.post(serviceUrl, localeAuthorizationRequestObject);
+            localePermissions = this._getLocalePermissions(localeAuthorizationRequestResult);
+        } else {
+            //If there is no locale information
+            //this request should be processed as "by default"
+            localePermissions = this._getDefaultPermissions();
+        }
+
+        if (readWriteModelRes && readWriteModelRes.response) {
             var readWriteModels = readWriteModelRes.response.entityModels;
-            if(readWriteModels && readWriteModels.length > 0) {
-                //Get entityManageModel with 'write' permission...
-                internalRequest.params['intent'] = 'write';
-                var writeModelRes = await this.post(serviceUrl, internalRequest);
-
-                if(writeModelRes && writeModelRes.response) {
-                    var writeModels = writeModelRes.response.entityModels;
-                    if(writeModels && writeModels.length > 0) {
-                        for (var i = 0; i < readWriteModels.length; i++) {
-                            var readWriteModel = readWriteModels[i];
-                            var writeModel = writeModels[i];
-
-                            if(readWriteModel && readWriteModel.data) {
-                                var writeModelData = {};
-                                if(writeModel && writeModel.data) {
-                                    writeModelData = writeModel.data;
+            if (readWriteModels && readWriteModels.length > 0) {
+                if (localePermissions.writePermission === "false" || !localePermissions.writePermission) {
+                    this._manageModelWithNoWritePermission(readWriteModels);
+                } else {
+                    //Get entityManageModel with 'write' permission..
+                    internalRequest.params['intent'] = 'write';
+                    var writeModelRes = await this.post(serviceUrl, internalRequest);
+                    if (writeModelRes && writeModelRes.response) {
+                        var writeModels = writeModelRes.response.entityModels;
+                        if (writeModels && writeModels.length > 0) {
+                            for (var i = 0; i < readWriteModels.length; i++) {
+                                var readWriteModel = readWriteModels[i];
+                                var writeModel = writeModels[i];
+                                if (readWriteModel && readWriteModel.data) {
+                                    var writeModelData = {};
+                                    if (writeModel && writeModel.data) {
+                                        writeModelData = writeModel.data;
+                                    }
+                                    this._mergeEntityManageModelsPermissions(readWriteModel.data, writeModelData);
                                 }
-
-                                this._mergeEntityManageModelsPermissions(readWriteModel.data, writeModelData);
                             }
-                        }
-                    } else {
-                        //write model is not available...
-                        //set all data objects as readonly in readWriteModels
-                        for (var i = 0; i < readWriteModels.length; i++) {
-                            var readWriteModel = readWriteModels[i];
-
-                            if(readWriteModel && readWriteModel.data) {
-                                var writeModelData = {};
-                                this._mergeEntityManageModelsPermissions(readWriteModel.data, writeModelData);
-                            }
+                        } else {
+                            this._manageModelWithNoWritePermission(readWriteModels);
                         }
                     }
                 }
             }
-
             entityManageModelGetRes = readWriteModelRes;
         }
+        return entityManageModelGetRes;
+    },
 
-        return entityManageModelGetRes
+    _getLocalePermissions: function (requestResult) {
+        if (requestResult.response &&
+            requestResult.response.entityModels &&
+            requestResult.response.entityModels[0]) {
+            const {readPermission, writePermission} = requestResult.response.entityModels[0].properties;
+            return {
+                readPermission,
+                writePermission
+            };
+        }
+        //returning default
+        return this._getDefaultPermissions();
+    },
+
+    _getDefaultPermissions: function () {
+        return {
+            "readPermission": "true",
+            "writePermission": "true"
+        };
+    },
+
+    _manageModelWithNoWritePermission: function(readWriteModels){
+        //write model is not available...
+        //set all data objects as readonly in readWriteModels
+        for (var i = 0; i < readWriteModels.length; i++) {
+            var readWriteModel = readWriteModels[i];
+            if (readWriteModel && readWriteModel.data) {
+                var writeModelData = {};
+                this._mergeEntityManageModelsPermissions(readWriteModel.data, writeModelData);
+            }
+        }
+    },
+    _createLocaleBasedAuthorizationRequestObject: function (request) {
+        //default locale
+        var localeId;
+        if (request.params.query && request.params.query.contexts && request.params.query.contexts.length) {
+            localeId = request.params.query.contexts[0].locale;
+        }
+        return localeId ? {
+            "params": {
+                "query": {
+                    "ids": [localeId + "_authorizationModel_" + this.getUserRole()],
+                    "filters": {
+                        "typesCriterion": [
+                            "authorizationModel"
+                        ]
+                    }
+                },
+                "fields": {
+                    "attributes": ["_ALL"],
+                    "relationships": ["_ALL"]
+                }
+            }
+        } : null;
     },
     _mergeEntityManageModelsPermissions: function (readWriteModel, writeModel) {
         //Merge self attributes

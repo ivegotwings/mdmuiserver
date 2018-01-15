@@ -1,0 +1,192 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-datasource-behavior/bedrock-datasource-behavior.html">
+<link rel="import" href="../bedrock-grid-datasource-behavior/bedrock-grid-datasource-behavior.html">
+<link rel="import" href="../liquid-event-get/liquid-event-get.html">
+<!--
+<b><i>Content development is under progress... </b></i>
+
+@demo demo/index.html
+-->
+
+<dom-module id="entity-history-datasource">
+    <template>
+        <liquid-event-get id="initGetEventSearch" operation="initiatesearch" request-data="{{request}}" last-response="{{_initGetEventSearchResponse}}"
+                                on-error="_onGetSearchError" exclude-in-progress></liquid-event-get>
+        <liquid-event-get id="getEventSearchResults" operation="getsearchresultdetail" request-data="{{request}}" request-id="[[_initGetEventSearchResponse.content.requestId]]"
+                                last-response="{{getEventSearchResultsResponse}}" on-error="_onGetSearchError" no-cache="true" exclude-in-progress></liquid-event-get>
+    </template>
+    <script>
+        Polymer({
+            is: 'entity-history-datasource',
+            properties: {
+                _liquidInitSearchElement: {
+                    type: Object,
+                    value: function () {
+                        return {}
+                    }
+                },
+
+                _liquidGetSearchElement: {
+                    type: Object,
+                    value: function () {
+                        return {}
+                    }
+                },
+
+                _isRequestInitiated: {
+                    type: Boolean,
+                    value: false
+                },
+                eventListDataSource: {
+                    type: Object,
+                    notify: true,
+                    reflectToAttribute: true
+                },
+                gridDataFormatter: {
+                        type: Function,
+                        notify: true
+                },
+                /**
+                 * <b><i>Content development is under progress... </b></i> 
+                */
+                contextData: {
+                    type: Object,
+                    value: function () {
+                    return {};
+                    }
+                },
+            },
+            behaviors: [
+                RUFBehaviors.DataSourceBehavior,
+                RUFBehaviors.GridDataSourceBehavior
+            ],
+          /**
+            * <b><i>Content development is under progress... </b></i> 
+            */
+            ready: function () {
+                this._liquidInitSearchElement = Polymer.dom(this).node.shadowRoot.querySelector(
+                    "liquid-event-get[id='initGetEventSearch']");
+                this._liquidGetSearchElement = Polymer.dom(this).node.shadowRoot.querySelector(
+                    "liquid-event-get[id='getEventSearchResults']");
+
+                this.eventListDataSource = this._dataSource.bind(this);
+            },
+
+            _dataSource: function (data, success, error) {
+
+                if (_.isEmpty(this.request)) {
+                    success([]);
+                    return;
+                }
+
+                DataHelper.oneTimeEvent(this._liquidInitSearchElement, 'response', this._onInitSearchResponse.bind(
+                    this));
+
+                DataHelper.oneTimeEvent(this._liquidGetSearchElement, 'response', this._onGetSearchResponse.bind(
+                    this, success, error));
+                this._error = error;
+
+                if (this._checkIfRequestChanged()) {
+                    this._isRequestInitiated = false;
+                    data.page = 1;
+                }
+
+                // Set Range
+                var from = data.page > 0 ? (data.page - 1) * data.pageSize : 0;
+                var to = data.page > 0 ? data.page * data.pageSize - 1 : 0;
+
+                var options = {
+                    "from": from,
+                    "to": to
+                };
+                this.set("request.params.options", options);
+
+                // Initiate Request only for First Time.
+                if (!this._isRequestInitiated) {
+                    this.request.params.isSearchRequest = true;
+                    this._liquidInitSearchElement.generateRequest();
+                } else {                    
+                    this._liquidGetSearchElement.generateRequest();
+                }
+            },
+          /**
+            * <b><i>Content development is under progress... </b></i> 
+            */
+            resetDataSource: function() {
+                this._isRequestInitiated = false;
+            },
+          /**
+            * <b><i>Content development is under progress... </b></i> 
+            */
+            reTriggerRequest: function(){
+                // Initiate Request only for First Time.
+                if (!this._isRequestInitiated) {
+                    this._liquidInitSearchElement.generateRequest();
+                } else {
+                    this._liquidGetSearchElement.generateRequest();
+                }
+            },
+
+            _onInitSearchResponse: function () {  
+                 if(this.contextData){
+                     var valueContexts = ContextHelper.getValueContexts(this.contextData);
+                     this.request.params.query.valueContexts = valueContexts;
+                     this.request.params.query.valueContexts.push({});  
+                 }   
+                this._lastRequest = DataHelper.cloneObject(this.request);
+                this._liquidGetSearchElement.generateRequest();
+                this._isRequestInitiated = true;            
+            },
+
+            _onGetSearchResponse: function (success, error) {                
+                    if (this.getEventSearchResultsResponse.status === "success") {
+                        var searchResults = this._formatResponse(this.getEventSearchResultsResponse);
+                        if(this._initGetEventSearchResponse && this._initGetEventSearchResponse.content && this._initGetEventSearchResponse.content.totalRecords){
+                            searchResults["totalRecords"] = this._initGetEventSearchResponse.content.totalRecords
+                        }                        
+                        success(searchResults);
+                    } else {
+                        error();
+                    }
+            },
+
+            _onGetSearchError: function () {
+                this._error();
+            },
+
+            _checkIfRequestChanged: function () {
+                var utils = SharedUtils.DataObjectFalcorUtil;
+                var requestFilterExists = false;
+                var lastRequestFilterExists = false;
+                if (this.request && this.request.params && this.request.params.query.filters) {
+                    requestFilterExists = true;
+                }
+                if (this._lastRequest && this._lastRequest.params && this._lastRequest.params.query.filters) {
+                    lastRequestFilterExists = true;
+                }
+                if (requestFilterExists != lastRequestFilterExists) {
+                    return true;
+                }
+                if (!utils.compareObjects(this.request.params.query.filters.keywordsCriterion, this._lastRequest
+                        .params.query.filters.keywordsCriterion)) {
+                    return true;
+                }
+                if (!utils.compareObjects(this.request.params.query.filters.typesCriterion, this._lastRequest
+                        .params.query.filters.typesCriterion)) {
+                    return true;
+                }
+                if (!utils.compareObjects(this.request.params.query.filters.attributesCriterion, this._lastRequest
+                        .params.query.filters.attributesCriterion)) {
+                    return true;
+                }
+                 if (!utils.compareObjects(this.request.params.sort, this._lastRequest
+                        .params.sort)) {
+                    return true;
+                }
+                return false;
+            }
+        });
+    </script>
+</dom-module>

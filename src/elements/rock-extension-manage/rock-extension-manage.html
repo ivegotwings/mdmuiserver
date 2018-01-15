@@ -63,6 +63,8 @@ It manages the current extensions and creates the new extensions.
         <liquid-rest id="contextLiquid" url="/data/pass-through/entityservice/getcontext" method="POST" request-data="{{requestData}}"
             on-liquid-response="_onResponseReceived" exclude-in-progress>
         </liquid-rest>
+        <liquid-rest id="taxonomyModelGet" url="/data/pass-through/entitymodelservice/get" method="POST" request-data="{{_taxonomyModelRequest}}"
+            on-liquid-response="_onTaxonomyModelGetResponse"></liquid-rest>
     </template>
     <script>
         (function () {
@@ -134,7 +136,19 @@ It manages the current extensions and creates the new extensions.
                         value: ""
                     },
 
+                    _taxonomyExtNameAttr: {
+                        type: String,
+                        value: ""
+                    },
+
                     _taxonomyRequest: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    _taxonomyModelRequest: {
                         type: Object,
                         value: function () {
                             return {};
@@ -160,7 +174,35 @@ It manages the current extensions and creates the new extensions.
                 _onContextOrTaxonomyChange: function () {
                     if (this.taxonomy && !_.isEmpty(this.contextData)) {
                         this._prepareGetContextRequest();
-                        this._getTaxonomy();
+                        this._getTaxonomyManageModel();
+                    }
+                },
+
+                _getTaxonomyManageModel: function () {
+                    this._taxonomyModelRequest = DataRequestHelper.createGetManageModelRequest(["taxonomy"]);
+
+                    var taxonomyModelGetElement = this.$$("#taxonomyModelGet");
+
+                    if (taxonomyModelGetElement) {
+                        taxonomyModelGetElement.generateRequest();
+                    }
+                },
+
+                _onTaxonomyModelGetResponse: function (e) {
+                    var response = e.detail.response.response;
+
+                    if (response && response.entityModels) {
+                        var entityModel = response.entityModels[0];
+                        var externalNameAndExternalNameAttr = AttributeHelper.getExternalNameAndExternalNameAttr(entityModel);
+
+                        if(externalNameAndExternalNameAttr && externalNameAndExternalNameAttr.externalNameAttr) {
+                            this._taxonomyExtNameAttr = externalNameAndExternalNameAttr.externalNameAttr;
+                            this._getTaxonomy();
+                        } else {
+                            this.showErrorToast("Attribute not found with isExternlName in taxonomy entity manage model", 10000);
+                        }
+                    } else {
+                        this.showErrorToast("Entity manage model not found for taxonomy.", 10000);
                     }
                 },
 
@@ -169,7 +211,7 @@ It manages the current extensions and creates the new extensions.
                     var firstItemContext = ContextHelper.getFirstItemContext(contextData);
                     if (firstItemContext) {
                         firstItemContext.type = "taxonomy";
-                        firstItemContext.attributeNames = ["externalName"];
+                        firstItemContext.attributeNames = [this._taxonomyExtNameAttr];
                         firstItemContext.id = this.taxonomy;
                         contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
                         var req = DataRequestHelper.createEntityGetRequest(contextData);
@@ -192,8 +234,8 @@ It manages the current extensions and creates the new extensions.
                             if (entity && entity.data) {
                                 var attributes = entity.data.attributes;
 
-                                if (attributes && attributes['externalName']) {
-                                    this._taxonomyExtName = attributes['externalName'].values && attributes['externalName'].values.length ? attributes['externalName'].values[0].value : undefined;
+                                if (attributes && attributes[this._taxonomyExtNameAttr]) {
+                                    this._taxonomyExtName = attributes[this._taxonomyExtNameAttr].values && attributes[this._taxonomyExtNameAttr].values.length ? attributes[this._taxonomyExtNameAttr].values[0].value : undefined;
                                 }
                             }
                         }

@@ -1,0 +1,412 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/polymer/lib/elements/custom-style.html">
+<link rel="import" href="../../../bower_components/iron-list/iron-list.html">
+<link rel="import" href="../../../bower_components/iron-scroll-threshold/iron-scroll-threshold.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
+<link rel="import" href="../pebble-spinner/pebble-spinner.html">
+<link rel="import" href="../pebble-icon/pebble-icon.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+<link rel="import" href="../rock-widget-panel/rock-widget-panel.html">
+<link rel="import" href="../pebble-echo-html/pebble-echo-html.html">
+<link rel="import" href="entity-history-datasource.html">
+
+
+
+<!--
+`<rock-entity-summary>` Represents an element that renders the widgets 
+such as "to-do" and "to-fix" for an entity.
+
+### Example
+
+    <template is="dom-bind" id="demo-app">				
+				<rock-entity-summary config="{{config}}"></rock-entity-summary>
+		</template>
+
+@group rock Elements
+@element rock-entity-summary
+@demo demo/index.html
+-->
+
+<dom-module id="rock-recent-activity">
+  <template>
+    <style include="bedrock-style-common bedrock-styles-scroll-bar"></style>
+    <style include="iron-flex"></style>
+    <style>
+      :host {
+        display: block;
+        padding: 20px 0px 0px 10px;
+        position: relative;
+        --pebble-echo: {
+          font-size: var(--font-size-sm, 12px);
+        }
+      }
+
+      .item-wrapper {
+        padding-bottom: 10px;
+        display: flex;
+      }
+
+      #scrollingArea {
+        height: var(--rock-grid-height, 400px);
+        overflow-y: auto;
+        overflow-x:hidden;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 3px;
+        @apply --grid-list-view-scrollingRegion;
+      }
+
+      .status-icon {
+        display: -ms-flex;
+        display: inline-flex;
+        display: -webkit-inline-flex;
+        vertical-align: top;
+        align-items: center;
+        justify-content: center;
+        margin-right: 6px;
+        position: relative;
+        z-index: 0;
+      }
+
+      .status-icon pebble-icon {
+        --pebble-icon: {
+          fill: var(--secondary-text-color, #727272);
+        }
+        .message {
+          font-size: var(--default-font-size, 14px);
+        }
+      }
+
+      .time-stamp {
+        padding: 10px 0;
+        color: var(--secondary-text-color, #727272);
+        font-size: var(--font-size-sm, 12px);
+      }
+
+      .item-img {
+        width: 30px;
+        height: 30px;
+        margin-right: 10px;
+        border-radius: 50%;
+        border: 2px solid var(--default-border-color, #c1cad4);
+        overflow: hidden;
+      }
+
+      .item-img img {
+        width: 100%;
+        border: 2px solid #fff;
+        border-radius: 50%;
+      }
+
+      .item-details {
+        width: calc(100% - 40px);
+        border-bottom: 1px solid var(--default-border-color, #c1cad4);
+      }
+      .item-wrapper-container:last-child .item-details{
+        border-bottom:0px;
+      }
+      .userName {
+        color: var(--palette-cerulean, #036bc3);
+        font-weight: 600;
+      }
+
+      .activity-property {
+        font-weight: bold;
+      }
+      .attribute-value{
+        color:var(--success-color, #4caf50);
+        font-weight: bold;
+      }
+      .default-message {
+        margin-right: 10px;
+      }
+    </style>
+    <template is="dom-if" if="[[noRecord]]">
+      <div class="default-message">No activities found.</div>
+    </template>
+    <div id="scrollingArea">
+      <iron-list id="list" items="{{items}}" as="item" scroll-target="html" selection-enabled>
+        <template>
+          <div class="item-wrapper-container">
+          <div class="item-wrapper">
+            <div class="item-img">
+              <img src="../src/images/no-photo.jpg" />
+            </div>
+            <div class="item-details">
+              <div>
+                <pebble-echo-html html="{{item.message}}"></pebble-echo-html>
+              </div>
+              <div class="time-stamp">
+                <div class="status-icon">
+                  <pebble-icon icon="{{_getIconName(item.action)}}" class="pebble-md-icons"></pebble-icon>
+                </div>
+                <span>on [[item.timeStamp]]</span>
+              </div>
+            </div>
+          </div>
+          <div class="clearfix"></div>
+          </div>
+        </template>
+      </iron-list>
+    </div>
+    <div class="loadingIndicator">
+      <pebble-spinner active="[[loading]]"></pebble-spinner>
+    </div>
+    <bedrock-pubsub event-name="entity-history-refresh" handler="_refresh"></bedrock-pubsub>
+    <iron-scroll-threshold id="scrollTheshold" on-lower-threshold="_loadMoreData" scroll-target="scrollingArea">
+    </iron-scroll-threshold>
+    <entity-history-datasource id="eventDataSource" request="[[request]]" context-data="[[contextData]]" event-list-data-source="{{dataSource}}">
+    </entity-history-datasource>
+    <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{_attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse">
+    </liquid-entity-model-composite-get>
+
+  </template>
+  <script>
+    (function () {
+      'use strict';
+
+      Polymer({
+        is: 'rock-recent-activity',
+        properties: {
+          /**
+           * Specifies the widget-panel config used for the "summary" dashboard.
+           */
+          config: {
+            type: Object,
+            value: function () {
+              return {};
+            }
+          },
+          /**
+           * If set as true , it indicates the component is in read only mode
+           */
+          loading: {
+            type: Boolean,
+            value: false
+          },
+          /**
+          * <b><i>Content development is under progress... </b></i> 
+          */
+          contextData: {
+            type: Object,
+            value: function () {
+              return {};
+            }
+          },
+          /**
+            * <b><i>Content development is under progress... </b></i> 
+            */
+          items: {
+            type: Array,
+            value: function () {
+              return [];
+            }
+          },
+          attributekeyName: {
+            type: Array,
+            value: function () {
+              return [];
+            }
+          },
+          eventList: {
+            type: Array,
+            value: function () {
+              return [];
+            }
+          },
+          _attributeModelRequest: {
+            type: Object,
+            value: function () {
+              return {};
+            }
+          },
+          dataSource: {
+            type: Object,
+            value: function () {
+              return {};
+            }
+          },
+          request: {
+            type: Object,
+            value: function () {
+              return {};
+            }
+          },
+          page: {
+            type: Number,
+            value: 0,
+            notify: true
+          },
+          pageSize: {
+            type: Number,
+            value: 10,
+            notify: true
+          },
+          noRecord: {
+            type: Boolean,
+            value: false
+          }
+        },
+        behaviors: [
+          RUFBehaviors.UIBehavior,
+          RUFBehaviors.ComponentContextBehavior
+        ],
+        observers: [
+          '_pageChanged(dataSource, page)'
+        ],
+        _setListHeight: function () {
+          if (this.getBoundingClientRect().y > 0) {
+            var scrollHeight = window.innerHeight - this.getBoundingClientRect().y - 45;
+            this.updateStyles({
+              "--rock-grid-height": scrollHeight + "px"
+            }); 
+          }
+        },
+        _loadMoreData: function () {
+          this.page++;
+        },
+        _refresh: function () {
+          var eventDataSource = this.shadowRoot.querySelector("#eventDataSource");
+          if (eventDataSource) {
+            eventDataSource.resetDataSource();
+          }
+          this.items = [];
+          this.page = 0;
+          this.page = 1;
+        },
+        _pageChanged: function (dataSource, currentPage) {
+          if (!(dataSource === undefined || currentPage === undefined)) {
+            if (typeof (dataSource) == 'function' && currentPage > 0) {
+              if(currentPage == 1){
+                this._setListHeight();
+              }
+              if (DataHelper.isValidObjectPath(this.contextData, 'ItemContexts.0.id')) {
+                this.request = DataRequestHelper.createEntityEventGetRequest(this.contextData.ItemContexts[0].id);
+
+                var dataContexts = ContextHelper.getDataContexts(this.contextData);
+                this.request.params.query.contexts = dataContexts;
+              }
+              
+              this.loading = true;
+              this.noRecord = false;
+              var success = this._success.bind(this);
+              var error = this._error.bind(this);
+              dataSource({
+                page: this.page,
+                pageSize: this.pageSize,
+                sortOrder: this.sortOrder,
+                "viewMode": "List"
+              }, success, error);
+            }
+          }
+        },
+        _success: function (data) {
+          if (data && data.content && data.content.events && data.content.events.length > 0) {
+            var events = data.content.events;
+            var eventHistoryList = [];
+            for (var i = 0; i < events.length; i++) {
+              var event = events[i];
+              if (event) {
+                var attributes = event.data.attributes;
+                var timeStamp = "";
+                var messages = [];
+                var actions = [];
+
+                for (var attribute in attributes) {
+                  if (attributes.hasOwnProperty(attribute)) {
+                    var attrObj = attributes[attribute];
+                    if (attrObj && attrObj.values && attrObj.values.length > 0) {
+                      var valueObjs = attrObj.values;
+                      if (attribute == "timeStamp") {
+                        var value = valueObjs[0].value;
+                        timeStamp = FormatHelper.convertFromISODateTimeToClientFormat(value, 'datetime');
+                      } else {
+                        var values = [];
+                        for (var j = 0; j < valueObjs.length; j++) {
+                          var valueObj = valueObjs[j];
+                          values.push(valueObj.value);
+                        }
+
+                        if(attribute == "action") {
+                          actions = values;
+                        } else if (attribute == "message") {
+                          messages = values;
+                        }
+                      }
+                    }
+                  }
+                }
+
+                for (var k = 0; k < messages.length; k++) {
+                  var message = messages[k];
+                  var action = actions[k];
+
+                  var eventHistoryObj = {}
+                  eventHistoryObj["eventType"] = event.eventType;
+                  eventHistoryObj["id"] = event.id;
+                  eventHistoryObj["type"] = event.type;
+                  eventHistoryObj["message"] = message;
+                  eventHistoryObj["action"] = action;
+                  eventHistoryObj["timeStamp"] = timeStamp;
+
+                  eventHistoryList.push(eventHistoryObj);
+                }
+              }
+            }
+
+            if (eventHistoryList.length > 0) {
+              for (var i = 0; i < eventHistoryList.length; i++) {
+                this.push('items', eventHistoryList[i]);
+              }
+              this.loading = false;
+              var lastVisibleIndex = this._lastVisibleIndex();
+              this.$.list.scrollToIndex(lastVisibleIndex);
+              this.$.scrollTheshold.clearTriggers();
+            }
+          } else {
+            if (this.items.length == 0) {
+              this.noRecord = true;
+            }
+          }
+          this.loading = false;
+        },
+        _visibleItemsCount: function () {
+          var firstItemIndex = this.$.list._physicalStart;
+          var firstItemHeight = this.$.list._physicalSizes[firstItemIndex];
+          var viewportHeight = this.$.list._viewportHeight || this.$.list._viewportSize;
+          if (firstItemHeight && viewportHeight) {
+            var visibleItems = (viewportHeight - this._viewportTotalPadding) /
+              firstItemHeight;
+            return Math.floor(visibleItems);
+          }
+        },
+        _lastVisibleIndex: function () {
+          if (this._visibleItemsCount()) {
+            return this.$.list.firstVisibleIndex + this._visibleItemsCount() - 1;
+          }
+        },
+        _error: function () {
+          this.loading = false;
+        },
+        _getIconName: function (action) {
+          var iconName = "";
+          switch (action) {
+            case "add":
+              iconName = "pebble-md-icons:Add";
+              break;
+            case "update":
+              iconName = "pebble-md-icons:Edit";
+              break;
+            case "delete":
+              iconName = "pebble-md-icons:Delete";
+              break;
+          }
+          return iconName;
+        }
+      });
+    })();
+  </script>
+</dom-module>
