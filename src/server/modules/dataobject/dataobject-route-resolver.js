@@ -61,9 +61,18 @@ async function initiateSearch(callPath, args) {
         var requestId = uuidV1(),
             request = args[0],
             dataIndex = callPath[1],
+            dataSubIndex = undefined,
             basePath = [pathKeys.root, dataIndex, pathKeys.searchResults, requestId];
 
         var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
+
+
+        if (!isEmpty(dataIndexInfo.dataSubIndexInfo)) {
+            dataSubIndex = callPath[2];
+
+            dataIndexInfo = dataIndexInfo.dataSubIndexInfo[dataSubIndex];
+            basePath = [pathKeys.root, dataIndex, dataSubIndex, pathKeys.searchResults, requestId]
+        }
         request.dataIndex = dataIndex;
 
         var operation = request.operation || "search";
@@ -132,17 +141,17 @@ async function initiateSearch(callPath, args) {
 
             //Remove value contexts if there are no filters defined other than typesCriterion
             //This is needed to improve the performance of search/get functionality
-            if(request.params.query && request.params.query.filters && request.params.query.valueContexts) {
+            if (request.params.query && request.params.query.filters && request.params.query.valueContexts) {
                 var removeValueContexts = true;
                 var filters = request.params.query.filters;
                 for (var criterionKey in filters) {
-                    if(criterionKey != "typesCriterion" && !isEmpty(filters[criterionKey])) {
+                    if (criterionKey != "typesCriterion" && !isEmpty(filters[criterionKey])) {
                         removeValueContexts = false;
                         break;
                     }
                 }
 
-                if(removeValueContexts) {
+                if (removeValueContexts) {
                     delete request.params.query.valueContexts;
                 }
             }
@@ -193,7 +202,7 @@ async function initiateSearch(callPath, args) {
                         if (dataObject.id !== undefined) {
                             if (additionalIdsRequested.indexOf(dataObject.id) < 0) {
                                 var dataObjectType = dataObject.type;
-                                var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds];
+                                var dataObjectsByIdPath = !isEmpty(dataSubIndex) ? [pathKeys.root, dataIndex, dataSubIndex, dataObjectType, pathKeys.byIds] : [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds];
                                 response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [dataObject.id])), searchResultExpireTime));
                                 resultRecordSize++;
                             }
@@ -241,6 +250,13 @@ async function getSearchResultDetail(pathSet) {
     //console.log(requestId);
     var dataIndex = pathSet[1],
         basePath = [pathKeys.root, dataIndex];
+
+    var dataIndexInfo = pathKeys[dataIndex];
+
+    if (!isEmpty(dataIndexInfo.dataSubIndexInfo)) {
+        var dataSubIndex = pathSet[2];
+        basePath = [pathKeys.root, dataIndex, dataSubIndex]
+    }
 
     response.push(mergeAndCreatePath(basePath, [pathKeys.searchResults, requestId], $error('search result is expired. Retry the search operation.')));
 
@@ -314,7 +330,7 @@ function createGetRequest(reqData) {
 
     if (reqData.dataIndex == "config") {
         fields.jsonData = true;
-        if( contexts && contexts.length > 0) {
+        if (contexts && contexts.length > 0) {
             filters.excludeNonContextual = true;
         }
     }
@@ -331,6 +347,7 @@ function createGetRequest(reqData) {
 
     var request = {
         dataIndex: reqData.dataIndex,
+        dataSubIndex: reqData.dataSubIndex,
         params: params
     };
 
@@ -368,7 +385,7 @@ async function get(dataObjectIds, reqData) {
         var service = _getService(reqData.dataObjectType);
         var request = createGetRequest(reqData);
 
-        if ((request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel') || request.dataIndex == "entityData") {
+        if ((request.dataIndex == "entityModel" && reqData.dataObjectType == 'entityCompositeModel') || (request.dataIndex == "entityData" && !isEmpty(request.dataSubIndex) && request.dataSubIndex == "coalescedData")) {
             if (!isEmpty(request.params.query.contexts)) {
                 isCoalesceGet = true;
             }
@@ -409,10 +426,15 @@ async function get(dataObjectIds, reqData) {
         //console.log('get res from api ', JSON.stringify(res, null, 4));
 
         var dataIndexInfo = pathKeys.dataIndexInfo[request.dataIndex];
+
+        if (!isEmpty(dataIndexInfo.dataSubIndexInfo)) {
+            dataIndexInfo = dataIndexInfo.dataSubIndexInfo[request.dataSubIndex];
+        }
+
         var collectionName = dataIndexInfo.collectionName;
         reqData.cacheExpiryDuration = dataIndexInfo.cacheExpiryDurationInMins ? -(dataIndexInfo.cacheExpiryDurationInMins * 60 * 1000) : -(60 * 60 * 1000);
 
-        //console.log(dataIndexInfo);
+
         var dataObjectResponse = res ? res[dataIndexInfo.responseObjectName] : undefined;
 
         if (dataObjectResponse && dataObjectResponse.status == "success") {
@@ -468,6 +490,7 @@ async function getByIds(pathSet, operation) {
 
         const reqData = {
             'dataIndex': pathSet.dataIndexes[0],
+            'dataSubIndex': pathSet.dataSubIndexes === undefined ? [] : pathSet.dataSubIndexes[0],
             'dataObjectIds': pathSet.dataObjectIds,
             'dataObjectFields': pathSet.dataObjectFields === undefined ? [] : pathSet.dataObjectFields,
             'ctxKeys': pathSet.ctxKeys === undefined ? [] : pathSet.ctxKeys,
@@ -487,6 +510,11 @@ async function getByIds(pathSet, operation) {
         var rootJson = jsonGraphResponse[pathKeys.root] = {};
         var dataJson = rootJson[reqData.dataIndex] = {};
 
+        if (!isEmpty(reqData.dataSubIndex)) {
+            var indexJSON = rootJson[reqData.dataIndex] = {};
+            dataJson = indexJSON[reqData.dataSubIndex] = {};
+        }
+
         // system flow supports only 1 type at time for bulk get..this is needed to make sure we have specialized code flow for the given data object types
         for (let dataObjectType of reqDataObjectTypes) {
             reqData.dataObjectType = dataObjectType;
@@ -505,16 +533,25 @@ async function getByIds(pathSet, operation) {
     return response;
 }
 
-async function processData(dataIndex, dataObjects, dataObjectAction, operation, clientState) {
+async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectAction, operation, clientState) {
     //console.log(dataObjectAction, operation);
     var response = {};
     try {
         var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
 
+        if (!isEmpty(dataIndexInfo.dataSubIndexInfo) && !isEmpty(dataSubIndex)) {
+            dataIndexInfo = dataIndexInfo.dataSubIndexInfo[dataSubIndex];
+        }
+
         var responsePaths = [];
         var jsonGraphResponse = response['jsonGraph'] = {};
         var rootJson = jsonGraphResponse[pathKeys.root] = {};
         var dataJson = rootJson[dataIndex] = {};
+
+        if (!isEmpty(dataSubIndex)) {
+            rootJson[dataIndex] = {};
+            dataJson = rootJson[dataIndex][dataSubIndex] = {};
+        }
 
         for (var dataObjectId in dataObjects) {
             var dataObject = dataObjects[dataObjectId];
@@ -554,18 +591,20 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
             //console.log('dataObject api UPDATE raw response', JSON.stringify(dataOperationResult, null, 4));
 
             if (dataOperationResult && !isEmpty(dataOperationResult)) {
-                var responsePath = pathKeys.dataIndexInfo[dataIndex].responseObjectName;
-                var cacheExpiryDurationInMins = pathKeys.dataIndexInfo[dataIndex].cacheExpiryDurationInMins;
+                var responsePath = dataIndexInfo.responseObjectName;
+                var cacheExpiryDurationInMins = dataIndexInfo.cacheExpiryDurationInMins;
 
                 var dataOperationResponse = dataOperationResult[responsePath];
                 if (dataOperationResponse && dataOperationResponse.status == 'success') {
                     if (dataObject) {
 
                         var dataObjectType = dataObject.type;
-                        var basePath = [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds, dataObjectId];
+                        var basePath = !isEmpty(dataSubIndex) ? [pathKeys.root, dataIndex, dataSubIndex, dataObjectType, pathKeys.byIds, dataObjectId] : [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds, dataObjectId];
+
 
                         var reqData = {
                             'dataIndex': dataIndex,
+                            'dataSubIndex': dataSubIndex,
                             'dataObjectType': CONST_ALL,
                             'dataObjectFields': [CONST_ALL],
                             'attrNames': [CONST_ALL],
@@ -595,7 +634,7 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
 
                         var dataObjectResponseJson = buildResponse(dataObject, reqData, responsePaths);
                         byIdsJson[dataObjectId] = dataObjectResponseJson;
-
+                        console.log(JSON.stringify(dataObject, null, 4));
                         response['paths'] = responsePaths;
                     }
                 }
@@ -614,21 +653,35 @@ async function processData(dataIndex, dataObjects, dataObjectAction, operation, 
                 }
             }
 
-            if(reqData.operation == "update" && reqData.dataIndex == "entityData") {
+            if (operation == "update" && dataIndex == "entityData") {
                 var clonedDataByObjectTypeJson = falcorUtil.cloneObject(dataByObjectTypeJson);
                 var clonedPaths = falcorUtil.cloneObject(responsePaths);
-    
-                if(!(isEmpty(clonedDataByObjectTypeJson) && isEmpty(clonedPaths))) {
-                    var coalescedJsonData = rootJson['entityCoalescedData'] = {};
+
+                if (!(isEmpty(clonedDataByObjectTypeJson) && isEmpty(clonedPaths))) {
+                    var coalescedJsonData = rootJson['coalescedData'] = {};
+
+                    if (!isEmpty(dataSubIndex)) {
+                        coalescedJsonData = rootJson[dataIndex]['coalescedData'] = {};
+
+                        clonedPaths.forEach(function (path) {
+                            if (path && path[2]) {
+                                path[2] = "coalescedData";
+                                response['paths'].push(path);
+                            }
+                        }, this);
+                    } else {
+                        clonedPaths.forEach(function (path) {
+                            if (path && path[1]) {
+                                path[1] = "coalescedData";
+                                response['paths'].push(path);
+                            }
+                        }, this);
+                    }
+
                     coalescedJsonData[dataObject.type] = clonedDataByObjectTypeJson;
 
-                    clonedPaths.forEach(function(path){
-                        if(path && path[1]) {
-                            path[1] = "entityCoalescedData";
-                            response['paths'].push(path);
-                        }
-                    }, this);
-                } 
+
+                }
             }
         }
     }
@@ -649,8 +702,9 @@ async function create(callPath, args, operation) {
     try {
         var jsonEnvelope = args[0];
         var dataIndex = callPath.dataIndexes[0];
+        var dataSubIndex = !isEmpty(callPath.dataSubIndexes) ? callPath.dataSubIndexes[0] : undefined;
         var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
-        var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
+        var dataObjects = dataSubIndex ? jsonEnvelope.json[pathKeys.root][dataIndex][dataSubIndex][dataObjectType][pathKeys.byIds] : jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
         var clientState = jsonEnvelope.json.clientState;
         var dataObjectIds = Object.keys(dataObjects);
         //console.log(dataObjects);
@@ -671,7 +725,7 @@ async function create(callPath, args, operation) {
             }
         }
 
-        response = processData(dataIndex, dataObjects, "create", operation, clientState);
+        response = processData(dataIndex, dataSubIndex, dataObjects, "create", operation, clientState);
     }
     catch (err) {
         response = buildErrorResponse(err, "Failed to submit create request.");
@@ -689,11 +743,12 @@ async function update(callPath, args, operation) {
     try {
         var jsonEnvelope = args[0];
         var dataIndex = callPath.dataIndexes[0];
+        var dataSubIndex = !isEmpty(callPath.dataSubIndexes) ? callPath.dataSubIndexes[0] : undefined;
         var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
-        var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
+        var dataObjects = dataSubIndex ? jsonEnvelope.json[pathKeys.root][dataIndex][dataSubIndex][dataObjectType][pathKeys.byIds] : jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
         var clientState = jsonEnvelope.json.clientState;
 
-        response = processData(dataIndex, dataObjects, "update", operation, clientState);
+        response = processData(dataIndex, dataSubIndex, dataObjects, "update", operation, clientState);
     }
     catch (err) {
         response = buildErrorResponse(err, "Failed to submit update request.");
@@ -711,11 +766,12 @@ async function deleteDataObjects(callPath, args, operation) {
     try {
         var jsonEnvelope = args[0];
         var dataIndex = callPath.dataIndexes[0];
+        var dataSubIndex = !isEmpty(callPath.dataSubIndexes) ? callPath.dataSubIndexes[0] : undefined;
         var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
-        var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
+        var dataObjects = dataSubIndex ? jsonEnvelope.json[pathKeys.root][dataIndex][dataSubIndex][dataObjectType][pathKeys.byIds] : jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
         var clientState = jsonEnvelope.json.clientState;
 
-        response = processData(dataIndex, dataObjects, "delete", operation, clientState);
+        response = processData(dataIndex, dataSubIndex, dataObjects, "delete", operation, clientState);
     }
     catch (err) {
         response = buildErrorResponse(err, "Failed to submit delete request.");
@@ -752,16 +808,16 @@ function _prependAuthorizationType(reqObject) {
 }
 
 function _removeUnnecessaryProperties(reqObject) {
-    if(reqObject && reqObject.entity && reqObject.entity.data) {
+    if (reqObject && reqObject.entity && reqObject.entity.data) {
         var data = reqObject.entity.data;
 
-        if(data.attributes) {
+        if (data.attributes) {
             _removePropertiesFromAttributes(data.attributes);
         }
 
-        if(data.contexts) {
-            data.contexts.forEach(function(ctx){
-                if(ctx && ctx.attributes) {
+        if (data.contexts) {
+            data.contexts.forEach(function (ctx) {
+                if (ctx && ctx.attributes) {
                     _removePropertiesFromAttributes(ctx.attributes);
                 }
             }, this);
@@ -770,10 +826,10 @@ function _removeUnnecessaryProperties(reqObject) {
 }
 
 function _removePropertiesFromAttributes(attributes) {
-    if(attributes) {
-        for(var attrKey in attributes) {
+    if (attributes) {
+        for (var attrKey in attributes) {
             var attr = attributes[attrKey];
-            if(attr.properties) {
+            if (attr.properties) {
                 delete attr.properties
             }
         }

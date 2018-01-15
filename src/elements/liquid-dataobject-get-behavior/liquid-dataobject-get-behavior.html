@@ -15,23 +15,27 @@
     /** @polymerBehavior RUFBehaviors.LiquidDataObjectGetBehavior */
     RUFBehaviors.LiquidDataObjectGetBehaviorImpl = {
         //behaviors: [RUFBehaviors.LiquidBehavior],
-          /**
-            * Content is not appearing - Content development is under progress. 
-            */
+        /**
+          * Content is not appearing - Content development is under progress. 
+          */
         attached: function () {
         },
-          /**
-            * Content is not appearing - Content development is under progress. 
-            */
+        /**
+          * Content is not appearing - Content development is under progress. 
+          */
         ready: function () {
         },
         properties: {
-          /**
-            * Content is not appearing - Content development is under progress. 
-            */
+            /**
+              * Content is not appearing - Content development is under progress. 
+              */
             dataIndex: {
                 type: String,
                 value: 'Unknown'
+            },
+            dataSubIndex: {
+                type: String,
+                vaue: 'Unknown'
             },
             _pathKeys: {
                 type: Object,
@@ -77,16 +81,25 @@
             var op = request.operation;
             var pathKeys = this._pathKeys;
             var dataIndex = this.dataIndex;
+            var dataSubIndex = this.dataSubIndex;
             var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
 
+            if(!_.isEmpty(dataIndexInfo.dataSubIndexInfo)) {
+                dataIndexInfo = dataIndexInfo.dataSubIndexInfo[dataSubIndex];
+            }
+
             if (op === 'initiatesearch' || op === "initiatesearchandgetcount") {
-                var resSearchResultId = Object.keys(rawResponsePkg.json[pathKeys.root][dataIndex][pathKeys.searchResults])[0];
-                return this._formatInitiateSearchResponse(rawResponsePkg.json[pathKeys.root][dataIndex][pathKeys.searchResults][resSearchResultId]);
+                var resSearchResults = !_.isEmpty(this.dataSubIndex) ? rawResponsePkg.json[pathKeys.root][dataIndex][dataSubIndex][pathKeys.searchResults] : rawResponsePkg.json[pathKeys.root][dataIndex][pathKeys.searchResults];
+
+                if (!_.isEmpty(resSearchResults)) {
+                    var resSearchResultId = Object.keys(resSearchResults)[0];
+                    return this._formatInitiateSearchResponse(resSearchResults[resSearchResultId]);
+                }
             }
             else if (op === 'getsearchresultdetail' || op === 'searchandget') {
                 var formattedDataObjects = [];
                 if (rawResponsePkg != undefined && rawResponsePkg.json && rawResponsePkg.json[pathKeys.root]) {
-                    var dataObjects = this._getDataObjects(rawResponsePkg, dataIndex, request);
+                    var dataObjects = this._getDataObjects(rawResponsePkg, dataIndex, this.dataSubIndex, request);
                     formattedDataObjects = this._formatData(dataIndex, dataObjects);
                 }
 
@@ -97,13 +110,13 @@
             else if (op === 'getbyids') {
                 var formattedDataObjects = [];
                 if (rawResponsePkg !== undefined && rawResponsePkg.json && rawResponsePkg.json[pathKeys.root]) {
-                    var dataObjects = this._getDataObjects(rawResponsePkg, dataIndex, request);
+                    var dataObjects = this._getDataObjects(rawResponsePkg, dataIndex, this.dataSubIndex, request);
                     formattedDataObjects = this._formatData(dataIndex, dataObjects);
 
-                    if(formattedDataObjects && this._relIdsCountOfRelGetRequest && !_.isEmpty(this._relIdsCountOfRelGetRequest)) {
+                    if (formattedDataObjects && this._relIdsCountOfRelGetRequest && !_.isEmpty(this._relIdsCountOfRelGetRequest)) {
                         for (let dataObject of formattedDataObjects) {
                             var relTotalCounts = this._relIdsCountOfRelGetRequest[dataObject.id];
-                            if(!_.isEmpty(relTotalCounts)) {
+                            if (!_.isEmpty(relTotalCounts)) {
                                 dataObject["relationshipsTotalCount"] = relTotalCounts;
                             }
                         }
@@ -137,7 +150,7 @@
                 return false;
             }
 
-            if(requestData.params.isCombinedQuerySearch) {
+            if (requestData.params.isCombinedQuerySearch) {
                 // Todo.. Do VALIDATION
                 return true;
             }
@@ -340,11 +353,13 @@
         },
         _callInitiateSearch: function (model, reqData) {
             var pathKeys = this._pathKeys;
-            return model.call([pathKeys.root, this.dataIndex, pathKeys.searchResults, 'create'], [reqData], [], []);
+            var functionPath = !_.isEmpty(this.dataSubIndex) ? [pathKeys.root, this.dataIndex, this.dataSubIndex, pathKeys.searchResults, 'create'] : [pathKeys.root, this.dataIndex, pathKeys.searchResults, 'create'];
+
+            return model.call(functionPath, [reqData], [], []);
         },
         _callInitiateSearchAndGetCount: function (model, reqData) {
-            if(reqData) {
-                reqData.operation = "initiatesearchandgetcount";    
+            if (reqData) {
+                reqData.operation = "initiatesearchandgetcount";
             }
 
             var pathKeys = this._pathKeys;
@@ -366,6 +381,7 @@
 
             var pathKeys = this._pathKeys;
             var dataIndex = this.dataIndex;
+            var dataSubIndex = this.dataSubIndex;
             var resultSizeResponse = this._callSearchResultSizeGet(model, reqId);
 
             resultSizeResponse.then(function (resultSizePkg) {
@@ -373,7 +389,11 @@
                     return {};
                 }
 
-                resultSize = resultSizePkg.json[pathKeys.root][dataIndex][pathKeys.searchResults][reqId].resultRecordSize;
+                if (!_.isEmpty(dataSubIndex)) {
+                    resultSize = resultSizePkg.json[pathKeys.root][dataIndex][dataSubIndex][pathKeys.searchResults][reqId].resultRecordSize;
+                } else {
+                    resultSize = resultSizePkg.json[pathKeys.root][dataIndex][pathKeys.searchResults][reqId].resultRecordSize;                    
+                }
 
                 var from = reqData.params.options && reqData.params.options.from !== undefined ? reqData.params.options.from : 0;
                 var to = reqData.params.options && reqData.params.options.to !== undefined ? reqData.params.options.to : resultSize - 1;
@@ -392,7 +412,7 @@
                 var to1 = (to + 1) < resultSize ? to : resultSize - 1;
 
                 if (from != -1) {
-                    var searchResultPath = [pathKeys.root, dataIndex, pathKeys.searchResults, reqId, pathKeys.searchResultItems, [{ 'from': from, 'to': to1 }]];
+                    var searchResultPath = !_.isEmpty(dataSubIndex) ? [pathKeys.root, dataIndex, dataSubIndex, pathKeys.searchResults, reqId, pathKeys.searchResultItems, [{ 'from': from, 'to': to1 }]] : [pathKeys.root, dataIndex, pathKeys.searchResults, reqId, pathKeys.searchResultItems, [{ 'from': from, 'to': to1 }]];
                     var getByIdsResponse = self._callGetByIds(model, request, searchResultPath);
                     return self._handleModelResponse(request, getByIdsResponse);
                 }
@@ -441,11 +461,17 @@
         },
         _callSearchResultSizeGet: function (model, reqId, reqData) {
             var pathKeys = this._pathKeys;
-            return model.get([pathKeys.root, this.dataIndex, pathKeys.searchResults, reqId, 'resultRecordSize']);
+
+            var functionPath = !_.isEmpty(this.dataSubIndex) ? [pathKeys.root, this.dataIndex, this.dataSubIndex, pathKeys.searchResults, reqId, 'resultRecordSize'] : [pathKeys.root, this.dataIndex, pathKeys.searchResults, reqId, 'resultRecordSize'];
+
+            return model.get(functionPath);
         },
         _callSearchResultDataObjectIdsGet: function (model, reqId, from, to) {
             var pathKeys = this._pathKeys;
-            return model.get([pathKeys.root, this.dataIndex, pathKeys.searchResults, reqId, pathKeys.searchResultItems, [{ 'from': from, 'to': to }]]);
+
+            var functionPath = !_.isEmpty(this.dataSubIndex) ? [pathKeys.root, this.dataIndex, this.dataSubIndex, pathKeys.searchResults, reqId, pathKeys.searchResultItems, [{ 'from': from, 'to': to }]] : [pathKeys.root, this.dataIndex, pathKeys.searchResults, reqId, pathKeys.searchResultItems, [{ 'from': from, 'to': to }]]
+
+            return model.get(functionPath);
         },
         _callGetRelationships: function (model, paths, request, basePath, ctxKeys, valCtxKeys, relTypes, dataObjectFields) {
             var reqData = request.requestData;
@@ -556,7 +582,7 @@
 
             if (responsePkg) {
 
-                var dataObjects = this._getDataObjects(responsePkg, this.dataIndex, request);
+                var dataObjects = this._getDataObjects(responsePkg, this.dataIndex, this.dataSubIndex, request);
 
                 for (var dataObjectIdIdx in dataObjects) {
                     var resDataObject = dataObjects[dataObjectIdIdx];
@@ -626,15 +652,15 @@
                 else if (reqData.params && reqData.params.query && (reqData.params.query.name || reqData.params.query.names)) {
                     if (reqData.params.query.filters && reqData.params.query.filters.typesCriterion) {
                         var types = reqData.params.query.filters.typesCriterion;
-                        if(reqData.params.query.name) {
+                        if (reqData.params.query.name) {
                             for (var i = 0; i < types.length; i++) {
                                 var type = types[i];
                                 var smartId = reqData.params.query.name + "_" + type;
                                 dataObjectIds.push(smartId);
                             }
-                        } else if(reqData.params.query.names) {
+                        } else if (reqData.params.query.names) {
                             for (var i = 0; i < types.length; i++) {
-                                for(var j=0; j<reqData.params.query.names.length; j++) {
+                                for (var j = 0; j < reqData.params.query.names.length; j++) {
                                     var type = types[i];
                                     var smartId = reqData.params.query.names[j] + "_" + type;
                                     dataObjectIds.push(smartId);
@@ -650,7 +676,12 @@
             }
 
             var dataObjectTypes = this._getDataObjectTypes(reqData);
-            basePath = basePath === undefined ? [this._pathKeys.root, this.dataIndex, dataObjectTypes, this._pathKeys.byIds, dataObjectIds] : basePath;
+
+            if (!_.isEmpty(this.dataSubIndex)) {
+                basePath = basePath === undefined ? [this._pathKeys.root, this.dataIndex, this.dataSubIndex, dataObjectTypes, this._pathKeys.byIds, dataObjectIds] : basePath;
+            } else {
+                basePath = basePath === undefined ? [this._pathKeys.root, this.dataIndex, dataObjectTypes, this._pathKeys.byIds, dataObjectIds] : basePath;
+            }
 
             return basePath;
         },
@@ -717,7 +748,7 @@
             var relFieldsPath = [['id', 'direction', 'operation', 'source', 'properties', 'relTo', 'relToObject']];
 
             if (relIdsResponsePkg !== undefined) {
-                var resDataObjects = self._getDataObjects(relIdsResponsePkg, self.dataIndex, request);
+                var resDataObjects = self._getDataObjects(relIdsResponsePkg, self.dataIndex, self.dataSubIndex, request);
 
                 for (var dataObjectIdIdx in resDataObjects) {
                     var resDataObject = resDataObjects[dataObjectIdIdx];
@@ -734,7 +765,7 @@
 
                             //Keep relIds total count in order to return with the final response...
                             var relCountObject = this._relIdsCountOfRelGetRequest[dataObjectIdIdx];
-                            if(!relCountObject) {
+                            if (!relCountObject) {
                                 relCountObject = this._relIdsCountOfRelGetRequest[dataObjectIdIdx] = {};
                             }
                             relCountObject[relType] = relIds.length;
@@ -800,10 +831,17 @@
 
             return dataObjectTypes;
         },
-        _getDataObjects: function (rawResponsePkg, dataIndex, request) {
+        _getDataObjects: function (rawResponsePkg, dataIndex, dataSubIndex, request) {
             var pathKeys = this._pathKeys;
             var dataObjects = {};
-            var dataByIndex = rawResponsePkg.json[pathKeys.root][this.dataIndex];
+            var dataByIndex = undefined;
+
+            if (!_.isEmpty(dataSubIndex)) {
+                dataByIndex = rawResponsePkg.json[pathKeys.root][dataIndex][dataSubIndex];
+            } else {
+                dataByIndex = rawResponsePkg.json[pathKeys.root][dataIndex];
+            }
+
             if (dataByIndex) {
                 if (request && (request.operation === 'getsearchresultdetail' || request.operation === 'searchandget')) {
                     dataObjects = dataByIndex[pathKeys.searchResults][request.requestId][pathKeys.searchResultItems];

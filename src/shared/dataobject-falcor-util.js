@@ -16,12 +16,24 @@ DataObjectFalcorUtil.getPathKeys = function () {
         "searchResultItems": "items",
         "dataIndexInfo": {
             "entityData": {
-                "name": "entity",
-                "collectionName": "entities",
-                "responseObjectName": "response",
-                "maxRecordsToReturn": 200,
-                "combinedQueryPageSize": 30000,
-                "cacheExpiryDurationInMins": 60
+                "dataSubIndexInfo": {
+                    "data": {
+                        "name": "entity",
+                        "collectionName": "entities",
+                        "responseObjectName": "response",
+                        "maxRecordsToReturn": 200,
+                        "combinedQueryPageSize": 30000,
+                        "cacheExpiryDurationInMins": 60
+                    },
+                    "coalescedData": {
+                        "name": "entity",
+                        "collectionName": "entities",
+                        "responseObjectName": "response",
+                        "maxRecordsToReturn": 200,
+                        "combinedQueryPageSize": 30000,
+                        "cacheExpiryDurationInMins": 60
+                    }
+                }
             },
             "entityGovernData": {
                 "name": "entityGovernData",
@@ -62,14 +74,6 @@ DataObjectFalcorUtil.getPathKeys = function () {
                 "maxRecordsToReturn": 200,
                 "combinedQueryPageSize": 30000,
                 "cacheExpiryDurationInMins": 30
-            },
-            "entityCoalescedData": {
-                "name": "entity",
-                "collectionName": "entities",
-                "responseObjectName": "response",
-                "maxRecordsToReturn": 200,
-                "combinedQueryPageSize": 30000,
-                "cacheExpiryDurationInMins": 60
             }
         }
     };
@@ -361,12 +365,12 @@ DataObjectFalcorUtil.transformRelationshipsToExternal = function (relationships)
 
             if (rel.relToObject) {
                 var relToObject = rel.relToObject;
-                
+
                 if (relToObject.data) {
                     relToObject = DataObjectFalcorUtil.transformToExternal(relToObject);
                 }
-                
-                if(rel.relTo && relToObject.data) {
+
+                if (rel.relTo && relToObject.data) {
                     rel.relTo.data = relToObject.data;
                     rel.relTo.name = relToObject.name;
                     rel.relTo.version = relToObject.version;
@@ -375,7 +379,7 @@ DataObjectFalcorUtil.transformRelationshipsToExternal = function (relationships)
 
                 delete rel.relToObject;
             }
-            
+
             relsArray.push(rel);
         }
 
@@ -417,7 +421,7 @@ DataObjectFalcorUtil.getOrCreate = function (obj, key, defaultVal) {
 };
 
 DataObjectFalcorUtil.mergeObjects = function (target, source, addMissing = true) {
-   
+
     if (!target) {
         if (addMissing) {
             target = {};
@@ -457,7 +461,7 @@ DataObjectFalcorUtil.mergeObjects = function (target, source, addMissing = true)
 };
 
 DataObjectFalcorUtil.mergeObjectsNoOverride = function (target, source, addMissing = false) {
-   
+
     if (!target) {
         if (addMissing) {
             target = {};
@@ -742,7 +746,7 @@ DataObjectFalcorUtil.deepAssign = function (...objs) {
 
     for (var i = 1; i < objs.length; i++) {
         var source = objs[i];
-        if(!DataObjectFalcorUtil.isObject(source) && !Array.isArray(source)) {
+        if (!DataObjectFalcorUtil.isObject(source) && !Array.isArray(source)) {
             target = source;
         } else {
             Object.keys(source).forEach(prop => {
@@ -762,7 +766,7 @@ DataObjectFalcorUtil.deepAssign = function (...objs) {
                                 if (Object.is(targetItem, sourceItem)) {
                                     return;
                                 }
-    
+
                                 if (DataObjectFalcorUtil.isObject(targetItem) && DataObjectFalcorUtil.isObject(sourceItem)) {
                                     targetArray[itemIndex] = DataObjectFalcorUtil.deepAssign(targetItem, sourceItem);
                                 } else if (Array.isArray(targetItem) && Array.isArray(sourceItem)) {

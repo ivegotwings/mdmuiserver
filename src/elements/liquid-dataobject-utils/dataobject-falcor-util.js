@@ -16,10 +16,20 @@ DataObjectFalcorUtil.getPathKeys = function () {
         "searchResultItems": "items",
         "dataIndexInfo": {
             "entityData": {
-                "name": "entity",
-                "collectionName": "entities",
-                "responseObjectName": "response",
-                "maxRecordsToReturn": 200
+                "dataSubIndexInfo": {
+                    "data": {
+                        "name": "entity",
+                        "collectionName": "entities",
+                        "responseObjectName": "response",
+                        "maxRecordsToReturn": 200
+                    },
+                    "coalescedData": {
+                        "name": "entity",
+                        "collectionName": "entities",
+                        "responseObjectName": "response",
+                        "maxRecordsToReturn": 200
+                    }
+                }
             },
             "entityGovernData": {
                 "name": "entityGovernData",
@@ -50,14 +60,6 @@ DataObjectFalcorUtil.getPathKeys = function () {
                 "collectionName": "requestObjects",
                 "responseObjectName": "response",
                 "maxRecordsToReturn": 25000
-            },
-            "entityCoalescedData": {
-                "name": "entity",
-                "collectionName": "entities",
-                "responseObjectName": "response",
-                "maxRecordToReturn": 200,
-                "combinedQueryPageSize": 30000,
-                "cacheExpiryDurationInMins": 60
             }
         }
     };
