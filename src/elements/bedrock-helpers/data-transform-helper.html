@@ -93,7 +93,10 @@
                 DataTransformHelper._prepareForSelfToContextCoalesce(mergedAttributes, ctxAttributes);
 
                 if (!_.isEmpty(ctxAttributes)) {
-                    mergedAttributes = DataMergeHelper.mergeAttributes(mergedAttributes, ctxAttributes, true);
+                    Object.keys(ctxAttributes).forEach((attrName) => {
+                        mergedAttributes[attrName] = DataHelper.cloneObject(ctxAttributes[attrName]);
+                    });
+                    //mergedAttributes = DataMergeHelper.mergeAttributes(mergedAttributes, ctxAttributes, true);
                 }
             }
 
@@ -312,6 +315,9 @@
                             }
                             attr.group.push(childAttributes);
                         }
+                        if (attributeJSON.attrProperties) {
+                            attr.properties = attributeJSON.attrProperties;
+                        }
                     }
                 } else {
                     attr = this.createAttributeInstance(attributeJSON, firstValueContext);
@@ -327,6 +333,8 @@
                     firstContextAttributes[attributeJSON.name] = attr;
                 }
             }
+
+            this._removeAttrsWithDeleteFlagAndContextCoalesce(firstContextAttributes, firstDataContext);
 
             var newEntity = {};
 
@@ -356,6 +364,51 @@
             newEntity["data"] = newData;
 
             return newEntity;
+        };
+
+        DataTransformHelper._removeAttrsWithDeleteFlagAndContextCoalesce = function(attributes, dataContext) {
+            /***if attribute has contextCoalescePaths in attrProperties and that path is 
+             * different from selected context, indicates that user has updated attribute on top 
+             * of overriden values. If attribute is to be deleted/there are any deleted rows, remove the attribute/deleted rows from
+             * attribute before sending for save***/
+            if(!_.isEmpty(attributes)) {
+                Object.keys(attributes).forEach((attrName) => {
+                    var attribute = attributes[attrName];
+                    var contextCoalescePaths = !_.isEmpty(dataContext) ? AttributeHelper.getContextCoalescePaths(attribute, dataContext) : [];
+
+                    if(!_.isEmpty(contextCoalescePaths)) {
+                        if(attribute.action === "delete") {
+                            delete attributes[attrName];
+                        } else if(attribute.group && attribute.group.length > 0) {
+                            this._removeValuesToBeDeleted(attribute.group);
+
+                            if(attribute.group.length === 0) {
+                                delete attributes[attrName];
+                            }
+                        } else if(attribute.values && attribute.values.length > 0) {
+                            this._removeValuesToBeDeleted(attribute.values);
+
+                            if(attribute.values.length === 0) {
+                                delete attributes[attrName];
+                            }
+                        }
+                    }
+                })
+            }
+        };
+
+        DataTransformHelper._removeValuesToBeDeleted = function(values) {
+            var valsToBeDeleted = values.filter(val => val.action === "delete");
+
+            if(!_.isEmpty(valsToBeDeleted)) {
+                for(let i=0; i<valsToBeDeleted.length; i++) {
+                    var valToDelete = valsToBeDeleted[i];
+                    var valIndex = values.indexOf(valToDelete);
+                    if(valIndex !== -1) {
+                        values.splice(valIndex, 1);
+                    }
+                }
+            }
         };
 
         DataTransformHelper._overrideLocale = function (attr, locale) {
@@ -545,17 +598,6 @@
                     if (attribute && attribute.values) {
                         attributeJSON = AttributeHelper.getCurrentValue(attribute.values, valueContext, attributeModel);
 
-                        if (attributeJSON && attribute.properties && !_.isEmpty(dataContext)) {
-                            var contextCoalescePaths = AttributeHelper.getContextCoalescePaths(attribute, dataContext);
-
-                            if (contextCoalescePaths && contextCoalescePaths.length) {
-                                attributeJSON.contextCoalescePaths = contextCoalescePaths;
-                            }
-
-                            // properties object should be sent to the server to update falcor cache in case of coalesced data.
-                            attributeJSON.attrProperties = attribute.properties;
-                        }
-
                         var attributeRefIds = [];
                         var selectedLocales = [];
                         var localeCoalescePath = undefined;
@@ -573,13 +615,13 @@
 
                                 if(attributeModel.isReferenceType) {
                                     var selectedLocale = valueContext.locale;
-                                    if(!_.isEmpty(localeCoalescePath)) {
-                                        var fallbackLocale = AttributeHelper.getFallbackLocale(localeCoalescePath);
+                                    
+                                    var fallbackLocale = DataHelper.getFallbackLocaleFromCoalescePath(localeCoalescePath);
 
-                                        if(fallbackLocale) {
-                                            selectedLocale = fallbackLocale;
-                                        }
+                                    if(fallbackLocale) {
+                                        selectedLocale = fallbackLocale;
                                     }
+                                    
                                     selectedLocales.push(selectedLocale);
                                 }
                             }
@@ -610,6 +652,17 @@
                         this._overrideByDefaultLocaleValue(attributes, attributeModel, attributeJSON);
                     }
 
+                    if (!_.isEmpty(attributeJSON) && attribute && attribute.properties && !_.isEmpty(dataContext)) {
+                        var contextCoalescePaths = AttributeHelper.getContextCoalescePaths(attribute, dataContext);
+
+                        if (contextCoalescePaths && contextCoalescePaths.length) {
+                            attributeJSON.contextCoalescePaths = contextCoalescePaths;
+                        }
+
+                        // properties object should be sent to the server to update falcor cache in case of coalesced data.
+                        attributeJSON.attrProperties = attribute.properties;
+                    }
+
                     if (attributeJSON && !DataHelper.isEmptyObject(attributeJSON.properties)) {
                         if (attributeJSON.properties.referenceData) {
                             var refEntityType = attributeModel.referenceEntityTypes && attributeModel.referenceEntityTypes.length > 0 ? attributeModel.referenceEntityTypes[0] : "";
@@ -638,8 +691,10 @@
                 var value = [];
 
                 if (attribute && attribute.group && attribute.group.length > 0) {
+                    var contextCoalescePaths = !_.isEmpty(dataContext) ? AttributeHelper.getContextCoalescePaths(attribute, dataContext) : [];
                     for (var i = 0; i < attribute.group.length; i++) {
                         var childAttributes = attribute.group[i];
+                        var localeCoalescePath = childAttributes.properties && childAttributes.properties.localeCoalescePath ? childAttributes.properties.localeCoalescePath : undefined;
                         delete childAttributes.id;
                         var childAttributeJson = {};
 
@@ -676,8 +731,6 @@
                                     }
 
                                     childAttributeJson[attributeName]["properties"] = {};
-                                    let localeCoalescePath = AttributeHelper.getLocaleCoalescePath(childAttr)
-                                    let contextCoalescePaths = !_.isEmpty(dataContext) ? AttributeHelper.getContextCoalescePaths(childAttr) : [];
                                     if (localeCoalescePath) {
                                         childAttributeJson[attributeName]["properties"]["localeCoalescePath"] = localeCoalescePath;
                                     }
@@ -729,15 +782,15 @@
             for (var attributeName in attributeModelObjects) {
                 var model = attributeModelObjects[attributeName];
 
-                if (model.properties && model.properties.isReferenceType) {
+                model.isNestedChild = isNestedChild;
+
+                if (model.properties && (model.properties.isReferenceType || model.properties.dataType === "nested" || model.isNestedChild)) {
                     model.properties.isLocalizable = true;
                 }
 
                 for (var prop in model.properties) {
                     model[prop] = model.properties[prop];
                 }
-
-                model.isNestedChild = isNestedChild;
 
                 if (model.dataType === "nested" && model.group && model.group.length > 0) {
                     var childAttributeModels = model.group[0];
@@ -1387,11 +1440,10 @@
                     var localeCoalescePath = AttributeHelper.getLocaleCoalescePath(attribute);
                     var locale = firstValueContext ? firstValueContext.locale : "";
 
-                    if(!_.isEmpty(localeCoalescePath)) {
-                        var fallbackLocale = AttributeHelper.getFallbackLocale(localeCoalescePath);
-                        if(fallbackLocale) {
-                            locale = fallbackLocale;
-                        }
+
+                    var fallbackLocale = DataHelper.getFallbackLocaleFromCoalescePath(localeCoalescePath);
+                    if(fallbackLocale) {
+                        locale = fallbackLocale;
                     }
 
                     return locale;
@@ -1451,13 +1503,6 @@
                 var ctxAttrKeys = Object.keys(contextualAttributes);
                 for (var attrKey in selfAttributes) {
                     if (ctxAttrKeys.indexOf(attrKey) == -1) {
-                        if (selfAttributes[attrKey] && selfAttributes[attrKey].group && selfAttributes[attrKey].group.length > 0) {
-                            // this is nested attribute
-                            for (let i = 0; i < selfAttributes[attrKey].group.length; i++) {
-                                var childAttributes = selfAttributes[attrKey].group[i];
-                                this._prepareForSelfToContextCoalesce(childAttributes, {});
-                            }
-                        }
                         selfAttributes[attrKey].properties = {
                             "contextCoalesce": [
                                 {
@@ -1488,55 +1533,30 @@
                                             contextualAttributes[attrKey] = selfAttributes[attrKey];
                                         }
                                     }
-                                } else {
-                                    ctxValues.forEach(function (item) {
-                                        if (_.isEmpty(item.properties)) {
-                                            item.properties = {};
-                                            item.properties.localeCoalescePath = "_DEEP_ASSIGN_DELETE_";
-                                        } else if (item.properties && _.isEmpty(item.properties.localeCoalescePath)) {
-                                            item.properties.localeCoalescePath = "_DEEP_ASSIGN_DELETE_";
-                                        }
-                                    }, this);
                                 }
                             } else if (contextualAttributes[attrKey] && contextualAttributes[attrKey].group && contextualAttributes[attrKey].group.length > 0) {
                                 // this is a nested attribute.
-                                for (let i = 0; i < contextualAttributes[attrKey].group.length; i++) {
-                                    var ctxValueGroup = contextualAttributes[attrKey].group[i];
-                                    var childCtxAttributes = ctxValueGroup;
-
-                                    var childCtxAttrKeys = Object.keys(childCtxAttributes);
-                                    var localeCoalescedCtxChildAttrs = childCtxAttrKeys.filter(function (attrName) {
-                                        var localeCoalescedCtxValues = ctxValueGroup[attrName].values.filter(item => item.properties && item.properties.localeCoalescePath);
-                                        if (localeCoalescedCtxValues && localeCoalescedCtxValues.length) {
-                                            return attrName;
-                                        }
-                                    });
-
-                                    if (localeCoalescedCtxChildAttrs && localeCoalescedCtxChildAttrs.length) {
-                                        var selfValueGroup = selfAttributes[attrKey].group[i];
-                                        var childSelfAttributes = selfValueGroup;
-
-                                        if (childSelfAttributes) {
-                                            var childSelfAttrKeys = Object.keys(childSelfAttributes);
-                                            var localeCoalescedSelfChildAttrs = childSelfAttrKeys.filter(function (attrName) {
-                                                var localeCoalescedSelfValues = selfValueGroup[attrName].values.filter(item => item.properties && item.properties.localeCoalescePath);
-                                                if (localeCoalescedSelfValues && localeCoalescedSelfValues.length) {
-                                                    return attrName;
-                                                }
-                                            });
-
-                                            if (localeCoalescedSelfChildAttrs && !localeCoalescedSelfChildAttrs.length) {
-                                                selfAttributes[attrKey].properties = {
-                                                    "contextCoalesce": [
-                                                        {
-                                                            "self": "Self"
-                                                        }
-                                                    ]
-                                                };
-
-                                                this._prepareForSelfToContextCoalesce(childSelfAttributes, {});
-                                                contextualAttributes[attrKey].group[i] = selfAttributes[attrKey].group[i];
+                                var localeCoalescedCtxRows  = contextualAttributes[attrKey].group.filter(function(ctxValueGroup) {
+                                    if(ctxValueGroup.properties && ctxValueGroup.properties.localeCoalescePath) {
+                                        return ctxValueGroup;
+                                    }
+                                });
+                                if (localeCoalescedCtxRows && localeCoalescedCtxRows.length) {
+                                    if(selfAttributes[attrKey] && selfAttributes[attrKey].group && selfAttributes[attrKey].group.length > 0) {
+                                        var localeCoalescedSelfChildRows = selfAttributes[attrKey].group.filter(function(selfValueGroup) {
+                                            if(selfValueGroup.properties && selfValueGroup.properties.localeCoalescePath) {
+                                                return selfValueGroup;
                                             }
+                                        });
+                                        if (localeCoalescedSelfChildRows && !localeCoalescedSelfChildRows.length) {
+                                            selfAttributes[attrKey].properties = {
+                                                "contextCoalesce": [
+                                                    {
+                                                        "self": "Self"
+                                                    }
+                                                ]
+                                            };
+                                            contextualAttributes[attrKey] = selfAttributes[attrKey];
                                         }
                                     }
                                 }

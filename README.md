@@ -51,17 +51,13 @@ Provide node name as local system name. Example: <<MACHINE-NAME>>.riversand.com.
    }, 
    
    ```
-   
- 3. In ui-platform codebase, update your **socket.io** config.js files to update as  https://<<MACHINE-NAME>>.riversand.com. This is required to make socket.io work. Here is sample:  
- 
-    ```
-    {
-        "notificationManager" : {
-            "url": "https://MACHINE-NAME.riversand.com"
-        }
-     },
-     
-     ```
+
+## Setup DNS
+Update **root**\Windows\System32\etc\drivers\hosts file:
+
+```
+    127.0.0.1       <<MACHINE-NAME>>.riversand.com
+```
     
 ## Run Nginx, auth-service and ui-platform app:
 
