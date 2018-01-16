@@ -1,5 +1,10 @@
 <link rel="import" href="../../../bower_components/polymer/polymer-element.html">
 
+<link rel="import" href="../bedrock-helpers/attribute-helper.html">
+<link rel="import" href="../bedrock-helpers/context-helper.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/entity-helper.html">
+
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 
 <link rel="import" href="../rock-layout/rock-titlebar/rock-titlebar.html">
@@ -150,8 +155,7 @@
         }
 
         refreshTitleBar() {
-            var titlebar = this.shadowRoot.querySelector('rock-titlebar');
-            var config = titlebar.config;
+            var config = this._titlebarConfig;
             if (config) {
                 var attributeNames = new Array();
                 if (config.titleAttribute != "") {
@@ -165,7 +169,7 @@
                         var itemContext = this.contextData.ItemContexts[0];
                         //add attribute names in item context
                         itemContext.attributeNames = attributeNames;
-                        var req = DataRequestHelper.createEntityGetRequest(this.contextData);
+                        var req = DataRequestHelper.createEntityGetRequest(this.contextData, true, true);
                         this.set("titleAttributeRequest", req);
                         var liquidDataGet = this.shadowRoot.querySelector("[name=attributeGetDataServiceForTitleBar]");
                         if (liquidDataGet) {
@@ -186,33 +190,23 @@
                 var entity = titleAttributeResponse.content.entities[0];
 
                 if (entity) {
-                    var attributesWithoutModel = DataTransformHelper.transformAttributes(entity, undefined, this.contextData, "array", false);
-                    this.setTitleBar(entity, attributesWithoutModel);
+                    this.setTitleBar(entity);
                 }
             }
         }
 
-        setTitleBar(entity, values) {
+        setTitleBar(entity) {
             var titlebar = this.shadowRoot.querySelector('rock-titlebar');
-            var mainTitle = "";
-            var subTitle = "";
             var config = this._titlebarConfig;
 
-            mainTitle = entity.id;
-            subTitle = entity.type;
+            let titleAttribute = !_.isEmpty(config.titleAttribute) ? EntityHelper.getAttribute(entity, config.titleAttribute) : undefined;
+            let subtitleAttribute = !_.isEmpty(config.subtitleAttribute) ? EntityHelper.getAttribute(entity, config.subtitleAttribute) : undefined;
+            
+            let mainTitle = this._getTitlebarValueFromAttribute(titleAttribute);
+            let subTitle = this._getTitlebarValueFromAttribute(subtitleAttribute);
 
-            for (var i = 0; i < values.length; i++) {
-                var value = values[i];
-                if (value.name == config.titleAttribute) {
-                    mainTitle = value.value !== "" ? value.value : mainTitle;
-                }
-                if (value.name == config.subtitleAttribute) {
-                    subTitle = value.value !== "" ? value.value : subTitle;
-                }
-                if (mainTitle != "" && subTitle != "") {
-                    break;
-                }
-            }
+            mainTitle = mainTitle ? mainTitle : entity.id;
+            subTitle = subTitle ? subTitle : entity.type;
 
             if (!mainTitle || mainTitle == "") {
                 mainTitle = "No Title";
@@ -227,7 +221,25 @@
             //after setting the title raise an event
             this.fireBedrockEvent('on-set-titlebar', { "mainTitle": this.mainTitle });
         }
+        
+        _getTitlebarValueFromAttribute (attribute) {
+            var firstValueContext = ContextHelper.getFirstValueContext(this.contextData);
+            var defaultValCtx = DataHelper.getDefaultValContext();
+            var value = undefined;
 
+            if(attribute && attribute.values) {
+                var currentValues = AttributeHelper.getAttributeValues(attribute.values, firstValueContext);
+                if(_.isEmpty(currentValues)) {
+                    currentValues = AttributeHelper.getAttributeValues(attribute.values, defaultValCtx);
+                }
+                if(!_.isEmpty(currentValues)) {
+                    value = currentValues[0];
+                }
+            }
+            
+            return value;
+        }
+ 
         _onDimensionsChanged(e) {
             this.fireBedrockEvent('dimension-selector-data-changed', e.detail);
         }
