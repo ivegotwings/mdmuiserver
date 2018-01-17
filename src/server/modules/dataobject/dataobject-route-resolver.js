@@ -634,7 +634,6 @@ async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectActio
 
                         var dataObjectResponseJson = buildResponse(dataObject, reqData, responsePaths);
                         byIdsJson[dataObjectId] = dataObjectResponseJson;
-                        console.log(JSON.stringify(dataObject, null, 4));
                         response['paths'] = responsePaths;
                     }
                 }
