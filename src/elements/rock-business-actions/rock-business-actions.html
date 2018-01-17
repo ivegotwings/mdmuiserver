@@ -31,10 +31,6 @@
         <rock-business-function-dialog id="wfAssignmentDialog" context-data="[[contextData]]"></rock-business-function-dialog>
         <rock-business-function-dialog id="rePublishDialog" context-data="[[contextData]]"></rock-business-function-dialog>
 
-        <liquid-entity-model-get id="getWorkflowMappingDefinition" operation="getbyids" request-id="req1" request-data={{workflowMappingDefinitionRequest}}
-            on-response="_onWfMappingsReceived" on-error="_onMappingsGetFailed"></liquid-entity-model-get>
-        <liquid-entity-govern-data-get id="entityGetRunningInstance" operation="getbyids" request-id="req2" request-data={{runningInstanceRequest}}
-            on-response="_onRunningInstanceReceived" on-error="_onRunningInstanceGetFailed"></liquid-entity-govern-data-get>
         <liquid-entity-model-get id="entityGetWorkflowDefinition" operation="getbyids" request-id="req1" request-data={{workflowDefinitionRequest}}
             on-response="_onDefinitionReceived" on-error="_onDefinitionGetFailed"></liquid-entity-model-get>
         <liquid-rest id="entityWfAssignment" url="/data/pass-through/entitygovernservice/workflowChangeAssignment" method="POST"
@@ -78,14 +74,6 @@
                         type: Boolean,
                         value: false
                     },
-                    workflowMappingDefinitionRequest: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
-                    runningInstanceRequest: {
-                        type: Object,
-                        value: function () { return {}; }
-                    },
                     workflowDefinitionRequest: {
                         type: Object,
                         value: function () { return {}; }
@@ -119,11 +107,12 @@
                         type: Array,
                         value: function () { return []; }
                     },
-                    _runtimeInstanceEntity: {
+                    workflowInfo: {
                         type: Object,
                         value: function () {
                             return {};
-                        }
+                        },
+                        observer: "_onWorkflowInfoChange"
                     }
                 }
             }
@@ -175,12 +164,13 @@
                         }
 
                         this.businessActions = actionGroups;
-
-                        //Is single entity process then based on workflow current step assignment, disable the other
-                        if (this.isSingleEntityProcess) {
-                            this._setWorkflowActions();
-                        }
                     }
+                }
+            }
+
+            _onWorkflowInfoChange() {
+                if (this.isSingleEntityProcess && !_.isEmpty(this.workflowInfo)) {
+                    this._toggleActionItems();
                 }
             }
 
@@ -330,65 +320,15 @@
                 assignmentDialog.open();
             }
 
-            _setWorkflowActions() {
-                if (!_.isEmpty(this.contextData)) {
-                    this.workflowMappingDefinitionRequest = DataRequestHelper.createWorkflowMappingGetRequest(this.contextData);
-                    this.shadowRoot.querySelector('#getWorkflowMappingDefinition').generateRequest();
-                }
-            }
-
-            _onWfMappingsReceived(e) {
-                var response = e.detail.response;
-                if (response) {
-                    var mappingModels = response.content && response.content.entityModels ? response.content.entityModels : [];
-                    if (mappingModels.length > 0) {
-                        var wfDefinitionMappingModel = mappingModels.find(obj => obj.type == "workflowDefinitionMapping");
-                        var wfRelationships = DataMergeHelper.mergeWorkflowMappings(wfDefinitionMappingModel, this.contextData);
-                        var mappedWorkflowNames = DataHelper.getRelToNames(wfRelationships.hasWorkflowsDefined);
-                        this.set("_mappedWorkflowNames", mappedWorkflowNames);
-                        var itemContext = this.getFirstItemContext();
-                        itemContext.workflowNames = this._mappedWorkflowNames;
-
-                        this.runningInstanceRequest = DataRequestHelper.createWorkflowRuntimeInstanceGetRequest(this.contextData);
-                        this.shadowRoot.querySelector('#entityGetRunningInstance').generateRequest();
-                    }
-                }
-            }
-
-            _onMappingsGetFailed(e) {
-                this.logWarning("WorkFlowMappingError", "response", JSON.stringify(e.detail));
-                this.showErrorToast("Failed to get workflow mappings. Please contact administrator.");
-            }
-
-            _onRunningInstanceReceived(e) {
-
-                if (e.detail.response) {
-                    var runtimeInstanceEntities = e.detail.response && e.detail.response.content && e.detail.response.content.entities
-                        ? e.detail.response.content.entities : [];
-
-                    if (runtimeInstanceEntities.length > 0) {
-                        //console.log('runtime instance entities ', JSON.stringify(runtimeInstanceEntities, null, 2));
-
-                        this._runtimeInstanceEntity = runtimeInstanceEntities[0];
-                        this._toggleActionItems(this._runtimeInstanceEntity);
-                    }
-                }
-            }
-
-            _onRunningInstanceGetFailed(e) {
-                this.logWarning("WorkFlowStatusError", "response", JSON.stringify(e.detail));
-                this.showErrorToast("Failed to get workflow status. Please contact administrator.");
-            }
-
-            _toggleActionItems(runtimeInstanceEntity) {
+            _toggleActionItems() {
                 var assignmentActions = this.shadowRoot.querySelector("#actionsButton");
                 if (assignmentActions) {
                     var items = assignmentActions.getActionItems();
                     var userContext = ContextHelper.getFirstUserContext(this.contextData);
                     var assignedUser;
 
-                    if (DataHelper.isValidObjectPath(runtimeInstanceEntity, "data.contexts.0.attributes.activities.group.0.assignedUser")) {
-                        assignedUser = AttributeHelper.getFirstAttributeValue(runtimeInstanceEntity.data.contexts[0].attributes.activities.group[0].assignedUser);
+                    if (DataHelper.isValidObjectPath(this.workflowInfo, "data.contexts.0.attributes.activities.group.0.assignedUser")) {
+                        assignedUser = AttributeHelper.getFirstAttributeValue(this.workflowInfo.data.contexts[0].attributes.activities.group[0].assignedUser);
                     }
 
                     //Default enable both
@@ -439,6 +379,12 @@
                         this.fireBedrockEvent("on-context-manage-tap", detail, { ignoreId: true });
                         return;
                     }
+
+                    if (_.isEmpty(this.workflowInfo)) {
+                        this.showErrorToast("Workflow details not available, cannot perform the operation now.");
+                        return;
+                    }
+
                     if (detail.data.eventName == "action-takeTask") {
                         this._currentWorkflowAction = "take";
                     }
@@ -446,12 +392,12 @@
                         this._currentWorkflowAction = "release";
                     }
 
-                    if (this._runtimeInstanceEntity && this._runtimeInstanceEntity.data) {
+                    if (this.workflowInfo && this.workflowInfo.data) {
                         var foundWorkflowNames = [];
                         var runningInstances = [];
 
                         //Note: Here, workflow runtime data would be always in the context of workflow so no need to check for data.attributes
-                        var contexts = this._runtimeInstanceEntity.data && this._runtimeInstanceEntity.data.contexts ? this._runtimeInstanceEntity.data.contexts : [];
+                        var contexts = this.workflowInfo.data && this.workflowInfo.data.contexts ? this.workflowInfo.data.contexts : [];
 
                         for (var i = 0; i < contexts.length; i++) {
                             var currContextItem = contexts[i];
@@ -670,15 +616,10 @@
             }
 
             refresh(invalidateEntityCache = true) {
-
                 if (invalidateEntityCache) {
                     //Invalidate entity cache
                     var entity = this._getEntityObject();
                     LiquidDataObjectUtils.invalidateDataObjectCache(entity);
-                }
-
-                if (this.isSingleEntityProcess) {
-                    this.shadowRoot.querySelector('#entityGetRunningInstance').generateRequest();
                 }
             }
         }
