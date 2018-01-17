@@ -13,6 +13,7 @@
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/component-helper.html">
 
 <link rel="import" href="data-table-column.html">
 <link rel="import" href="data-table-column-sort.html">
@@ -43,6 +44,14 @@
         --pebble-data-table-row: {
           align-items: center;
         };
+        --text-collection-container: {
+           min-height: 21px;
+           margin-top: 0px;
+         };
+         
+         --tags-container: {
+           min-height: 21px;
+         };
       }
 
       :host([loading]) {
@@ -195,7 +204,7 @@
     <div id="container">
       <div id="header">
         <data-table-row header slot="header">
-          <data-table-cell slot="data-table-cell-slot" class="check-filter" hidden$="[[!multiSelection]]">
+          <data-table-cell slot="data-table-cell-slot" class="check-filter" hidden$="[[!enableMultiSelection]]">
             <template is="dom-if" if="[[!disableSelectAll]]">
               <data-table-checkbox header on-tap="_toggleSelectAll" slot="cell-slot-content" checked="[[_isSelectAllChecked(selectedItems.length, selectedItems.inverted, size)]]"
                 indeterminate="[[_isSelectAllIndeterminate(selectedItems.length, size)]]"></data-table-checkbox>
@@ -232,7 +241,7 @@
             <data-table-row class$="{{_computePrimaryClass(item)}}" row-drag-drop-enabled="[[rowDragDropEnabled]]" before-bind="[[beforeRowBind]]" even$="[[!_isEven(index)]]"
               expanded="[[_isExpanded(item, _expandedItems, _expandedItems.*)]]" index="[[index]]" item="[[item]]" tabindex="-1"
               selected="[[_isSelected(item, selectedItems, selectedItems.*)]]">
-              <data-table-checkbox slot="data-table-checkbox-slot" hidden$="[[!multiSelection]]" tabindex="0" checked="[[_isSelected(item, selectedItems, selectedItems.*)]]"
+              <data-table-checkbox slot="data-table-checkbox-slot" hidden$="[[!enableMultiSelection]]" tabindex="0" checked="[[_isSelected(item, selectedItems, selectedItems.*)]]"
                 on-tap="_onCheckBoxTap"></data-table-checkbox>
 
               <template is="dom-if" if="[[_isRowFrozen(index)]]">
@@ -401,6 +410,11 @@
         multiSelection: {
           type: Boolean,
           value: false
+        },
+
+        enableMultiSelection:{
+          type:Boolean,
+          valye:false
         },
         /**
          * When `true`, All items cannot be selected at once, 
@@ -624,6 +638,9 @@
       behaviors: [
         RUFBehaviors.UIBehavior
       ],
+      created() {
+        this._onWheel = this._onWheel.bind(this);
+      },
 
       attached: function () {
         this._observer = new Polymer.FlattenedNodesObserver(this, function (info) {
@@ -661,9 +678,14 @@
 
         }.bind(this));
 
-        this.addEventListener('wheel', this._onWheel.bind(this), {passive: true});
+        this.addEventListener('wheel', this._onWheel, {passive: true});
         this.scrollTarget = this;
       },
+
+      detached() {
+        this.removeEventListener('wheel', this._onWheel, {passive: true});
+      },
+
       notifyResize:function(){
         this.$.list.notifyResize();
       },
@@ -1046,6 +1068,7 @@
           this._addLoadingPage(page);
 
           var success = function (items, size) {
+            
             this.push('_cachedPages', page);
 
             if (size !== undefined) {
@@ -1084,6 +1107,13 @@
             });
 
             this._removeLoadingPage(page);
+            
+            if(this.multiSelection && this._cachedItems && this._cachedItems.length) {
+              this.enableMultiSelection = true;
+            } else {
+              this.enableMultiSelection = false;
+            }
+
           }.bind(this);
 
           var err = function () {
@@ -1476,9 +1506,10 @@
         this.dispatchEvent(new CustomEvent("row-drop-event", { detail: detail, bubbles: true, composed: true }));
       },
       _emptyChildNode:function(){
-        var ulNode = this.shadowRoot.querySelector('#rowTracker ul')
-        while (ulNode.hasChildNodes()) {
-          ulNode.removeChild(ulNode.lastChild);
+        var ulNode = this.shadowRoot.querySelector('#rowTracker ul');
+        
+        if(ulNode){
+          ComponentHeloper.clearNode(ulNode);
         }
       },
       _onDragStarted: function(e) {

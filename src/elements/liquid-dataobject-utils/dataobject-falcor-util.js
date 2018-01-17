@@ -16,10 +16,20 @@ DataObjectFalcorUtil.getPathKeys = function () {
         "searchResultItems": "items",
         "dataIndexInfo": {
             "entityData": {
-                "name": "entity",
-                "collectionName": "entities",
-                "responseObjectName": "response",
-                "maxRecordsToReturn": 200
+                "dataSubIndexInfo": {
+                    "data": {
+                        "name": "entity",
+                        "collectionName": "entities",
+                        "responseObjectName": "response",
+                        "maxRecordsToReturn": 200
+                    },
+                    "coalescedData": {
+                        "name": "entity",
+                        "collectionName": "entities",
+                        "responseObjectName": "response",
+                        "maxRecordsToReturn": 200
+                    }
+                }
             },
             "entityGovernData": {
                 "name": "entityGovernData",

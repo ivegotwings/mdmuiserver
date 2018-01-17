@@ -347,7 +347,9 @@ The following JSON object is a sample of data which binds the grid.
         <div id="relContainer_[[relationship]]"  >
           <pebble-accordion header-text="[[relationshipGridConfig.gridConfig.title]]" default-icon="chevron-right" open-icon="expand-more">
             <span slot="header-actions">
-              <pebble-info-icon description-object="[[relationshipGridConfig.gridConfig]]"></pebble-info-icon>
+              <template is="dom-if" if="[[relationshipGridConfig.gridConfig]]">
+                <pebble-info-icon description-object="[[relationshipGridConfig.gridConfig]]"></pebble-info-icon>
+              </template>
             </span>
             <div class="relation-name-container">
               <template is="dom-if" if="[[relationshipGridConfig.gridConfig.hasWritePermission]]">
@@ -373,12 +375,13 @@ The following JSON object is a sample of data which binds the grid.
 
               <rock-grid id$="[[relationship]]" readonly$="[[readonly]]" context-data="[[contextData]]" r-data-source="{{rDataSource}}" r-data-source-id="datasource_[[relationship]]" config="{{relationshipGridConfig.gridConfig}}"
                          attribute-models="[[_getRelationshipAttributeModels(relationship)]]" grid-data-size="{{size}}" current-record-size="{{currentRecordSize}}" max-configured-count="[[maxConfiguredCount]]"
-                         row-drag-drop-enabled="[[_getRowDragDropEnabled()]]" global-edit="{{globalEdit}}" on-row-drop-event-raised="_onRowDropEventRaised"result-record-size="{{resultRecordSize}}" total-count="{{totalCount}}" page-size="20"></rock-grid>
+                         row-drag-drop-enabled="[[_getRowDragDropEnabled()]]" on-row-drop-event-raised="_onRowDropEventRaised"result-record-size="{{resultRecordSize}}" total-count="{{totalCount}}" page-size="20"></rock-grid>
               <bedrock-pubsub event-name="grid-selecting-item" handler="_onSelectingGridItem" target-id="[[relationship]]"></bedrock-pubsub>
               <bedrock-pubsub event-name="download-original-asset" handler="_onOriginalAssetDownloadAction" target-id="[[relationship]]"></bedrock-pubsub>
               <bedrock-pubsub event-name="delete-item" handler="_onDeleteEntityRelationshipAction" target-id="[[relationship]]"></bedrock-pubsub>
               <bedrock-pubsub target-id="[[relationship]]" event-name="on-grid-msg-dialog-ok" handler="_onRevertDialogOk"></bedrock-pubsub>
               <bedrock-pubsub event-name="grid-bulk-edit-items" handler="_onBulkEdit" target-id="[[relationship]]"></bedrock-pubsub>
+              <bedrock-pubsub event-name="grid-bulk-relationship-edit-items" handler="_onBulkRelationshipEdit" target-id="[[relationship]]"></bedrock-pubsub>
               <bedrock-pubsub event-name="grid-custom-toolbar-event" handler="_onCustomToolbarEvent" target-id="[[relationship]]"></bedrock-pubsub>
               <div id="buttonContainer" align="center" hidden>
                 <pebble-button id="cancel" class="button btn btn-secondary m-r-10" button-text="Cancel" on-tap="_revertAll" elevation=1 raised></pebble-button>
@@ -425,7 +428,7 @@ The following JSON object is a sample of data which binds the grid.
         </ul>
         <p>Do you want to fix the errors or continue?</p>
         <div class="buttons">
-          <pebble-button dialog-confirm class="btn btn-success" button-text="Fix"></pebble-button>
+          <pebble-button dialog-confirm class="btn btn-success" button-text="Fix" on-tap="_fixErrors" ></pebble-button>
           <pebble-button dialog-confirm class="btn btn-secondary" on-tap="_skipErrors" button-text="Skip & Continue"></pebble-button>
         </div>
       </pebble-dialog>
@@ -442,6 +445,8 @@ The following JSON object is a sample of data which binds the grid.
       <p id="msgDialog"></p>
     </pebble-dialog>
     <bedrock-pubsub target-id="gridMsgDialog" event-name="on-buttonok-clicked" handler="_onDialogOk"></bedrock-pubsub>
+    <bedrock-pubsub event-name="global-edit" handler="_onGlobalEdit"></bedrock-pubsub>
+    
     <rock-business-function-dialog id="entityEditDialog"></rock-business-function-dialog>
   </template>
   <script>
@@ -545,7 +550,7 @@ The following JSON object is a sample of data which binds the grid.
           maxConfiguredCount: {
               type: Number,
               value: function () {
-                  return DataObjectFalcorUtil.getPathKeys().dataIndexInfo.entityData.maxRecordsToReturn;
+                  return DataObjectFalcorUtil.getPathKeys().dataIndexInfo.entityData.dataSubIndexInfo.data.maxRecordsToReturn;
               }
           },
           /**
@@ -1034,6 +1039,7 @@ The following JSON object is a sample of data which binds the grid.
                     document.execCommand("Copy");
                     this.set("_clipboardTooltip", "Copied!");
                     this.shadowRoot.removeChild(tempTextArea);
+                    tempTextArea = null;
                   }
                 
               } else {
@@ -1430,7 +1436,18 @@ The following JSON object is a sample of data which binds the grid.
           this.showErrorToast("There is a problem in validation service. Please contact administrator.");
         },
         _skipErrors: function () {
+          var errorDialog = this.shadowRoot.querySelector('#errorsDialog');
+          if (errorDialog) {
+            errorDialog.close();
+          }
+             
           this._saveEntity();
+        },
+        _fixErrors: function () {
+          var errorDialog = this.shadowRoot.querySelector('#errorsDialog');
+          if (errorDialog) {
+            errorDialog.close();
+          }
         },
         _saveEntity: function () {
           var liquidSave = this.shadowRoot.querySelector("[name=attributeSaveDataService]");
@@ -1771,6 +1788,7 @@ The following JSON object is a sample of data which binds the grid.
                       document.body.appendChild(a);
                       a.click();
                       document.body.removeChild(a);
+                      a = null;
                     }
                   }
                 }
@@ -1869,7 +1887,41 @@ The following JSON object is a sample of data which binds the grid.
               grid.updateGridData(data,detail);
            }
         },
-        _onBulkEdit: function (e, detail) {
+        _onBulkEdit: function (e, detail) {   
+          var grid = this._getRelationshipGrid();
+          var selectedItems = grid.getSelectedItems();
+          var selectionMode = grid.getSelectionMode();
+          var selectionQuery = grid.getSelectedItemsAsQuery();
+          if (selectedItems && selectedItems.length && this.contextData) {
+              var itemContexts = [];
+              var currentRel = this.relationship;
+              var originalEntity = this.dataObject[currentRel];
+              var itemContext = {};
+              itemContext = {"type": originalEntity.type};
+              itemContexts.push(itemContext);
+
+              var clonedContextData = DataHelper.cloneObject(this.contextData);
+              clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
+              clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+              var entityEditDialog = this.shadowRoot.querySelector("#entityEditDialog");
+              entityEditDialog.name = "rock-entity-bulk-edit";
+              entityEditDialog.configName = "wizardConfig";
+              entityEditDialog.sharedData = {
+                  "context-data": clonedContextData,
+                  "workflow-criterion": this.workflowCriterion,
+                  "selection-query": selectionQuery,
+                  "selection-mode": selectionMode,
+                  "selected-entities": selectedItems,
+                  "edit-attributes-only": true,
+                  "edit-relationship-attributes-only": false
+              };
+              entityEditDialog.open();
+          } else {
+              this.showInformationToast("Please select at least one entity from grid to edit.");
+          }
+        },
+        
+        _onBulkRelationshipEdit: function(e, detail){
           var grid = this._getRelationshipGrid();
           var selectedItems = grid.getSelectedItems();
           var selectionMode = grid.getSelectionMode();
@@ -1917,7 +1969,13 @@ The following JSON object is a sample of data which binds the grid.
             entityEditDialog.open();
           } else {
             this.showInformationToast("Please select at least one entity from grid to edit.");
-          }
+          }          
+        },
+
+        _onGlobalEdit(e) {
+          const relGrid = this.$$(`rock-grid`);
+
+          relGrid.changeToEditMode();
         }
       });
     })();
