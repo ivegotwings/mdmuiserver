@@ -23,6 +23,7 @@
 <link rel="import" href="../rock-entity-quick-manage-elements/rock-entity-quick-manage-elements.html">
 
 <link rel="import" href="../rock-tabs/rock-tabs.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 
 <!--
 <b><i>Content development is under progress... </b></i>
@@ -127,7 +128,7 @@
                 color: var(--primary-icon-color, #75808b);
             }
         </style>   
-        <div id="quick-manage-header" hidden$="[[!_entityId]]">
+        <div id="quick-manage-header" hidden$="[[!_isEntityAvailable(selectedEntity)]]">
             <div class="first-row layout horizontal">
                 <template is="dom-if" if="[[!noHeader]]">
                     <div>
@@ -150,7 +151,7 @@
                 </div>
             </div>
         </div>
-        <template is="dom-if" if="[[_entityId]]">
+        <template is="dom-if" if="[[_isEntityAvailable(selectedEntity)]]">
             <div id="quick-manage-entity">
                 <bedrock-pubsub event-name="error-length-changed" handler="_errorLengthChanged"></bedrock-pubsub>
                     <rock-tabs id="rockTabs" readonly$="[[readonly]]" config="{{tabConfig}}">
@@ -158,7 +159,7 @@
                 <bedrock-pubsub event-name="component-creating" handler="_onComponentCreating"></bedrock-pubsub>
             </div>
         </template>
-        <div class="default-message" hidden$="[[_entityId]]">
+        <div class="default-message" hidden$="[[_isEntityAvailable(selectedEntity)]]">
             <span>[[_errorMessage]]</span>
         </div>
     </template>
@@ -283,19 +284,71 @@
                     _errorMessage: {
                         type: String,
                         value: "Loading..."
+                    },
+                    //When QM is for relationship
+                    relationship: {
+                        type: String
                     }
                 },
 
                 behaviors: [
                     RUFBehaviors.UIBehavior,
-                    RUFBehaviors.ComponentContextBehavior
+                    RUFBehaviors.ComponentContextBehavior,
+                    RUFBehaviors.ComponentConfigBehavior
                 ],
-                /**
-                  * <b><i>Content development is under progress... </b></i> 
-                  */
-                attached: function () {
-                    this.reload();
+
+                observers: [
+                    '_onContextDataChange(contextData)'
+                ],
+
+                _onContextDataChange: function() {
+                    if(!_.isEmpty(this.contextData)) {
+                        var context = DataHelper.cloneObject(this.contextData);
+                        //App specific
+                        var appName = ComponentHelper.getCurrentActiveAppName();
+                        if(appName) {
+                            context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                                "app": appName
+                            }];
+                        }
+
+                        var config = "rock-entity-quick-manage";
+                        if(this._isRelMode(this.dataObjectType)) {
+                            if(this.relationship) {
+                                context[ContextHelper.CONTEXT_TYPE_ITEM] = [{
+                                    "relationship": this.relationship
+                                }];
+                            }
+                            config = "rock-entity-relationship-quick-manage";
+                        }
+
+                        this.requestConfig(config, context);
+                    }
                 },
+
+                onConfigLoaded: function(componentConfig) {
+                    if(componentConfig && componentConfig.config) {
+                        //set tabConfig                        
+                        var tabConfig = componentConfig.config.tabConfig;
+
+                        //Should come from configuration, delete it once nearest get is enabled (Enable below stmt for reference-discovery testing)
+                        //tabConfig.tabItems.attributes.component.properties["config-context"].attributeNames = ["_ALL"];
+
+                        tabConfig.tabItems = DataHelper.convertObjectToArray(tabConfig.tabItems);
+                        this.tabConfig = tabConfig;
+
+                        //set toolbarConfig
+                        var toolbarConfig = componentConfig.config.toolbarConfig;
+                        var buttonItems = DataHelper.convertObjectToArray(toolbarConfig.buttonItems);
+                        for(var i = 0; i < buttonItems.length; i++) {
+                            buttonItems[i].buttons = DataHelper.convertObjectToArray(buttonItems[i].buttons);
+                        }
+                        this.toolbarConfig = {"buttonItems": buttonItems};
+
+                        this.reload();
+                    }
+                },
+
                 /**
                   * <b><i>Content development is under progress... </b></i> 
                   */
@@ -462,7 +515,7 @@
                     if (this.selectedEntity && this.selectedEntity.attributes && this.tabConfig.tabItems) {
                         var configContext = this.tabConfig.tabItems[0].component.properties[
                             "config-context"];
-                        if (configContext) {
+                        if (!_.isEmpty(configContext)) {
                             var arrtName = this.tabConfig.tabItems[0].component.properties[
                                 "config-context"].attributeNames[
                                 0];
@@ -476,6 +529,16 @@
                 refresh: function (){
                     this._refreshEvent();
 
+                },
+                _isEntityAvailable: function(selectedEntity) {
+                    if(!_.isEmpty(selectedEntity)) {
+                        return true;
+                    }
+
+                    return false;
+                },
+                _isRelMode:function () {
+                    return this.dataObjectType == "relationship";
                 }
             });
         })();
