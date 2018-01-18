@@ -437,7 +437,7 @@ async function get(dataObjectIds, reqData) {
         var dataObjectResponse = res && dataIndexInfo && dataIndexInfo.responseObjectName ? res[dataIndexInfo.responseObjectName] : undefined;
 
         if (dataObjectResponse && dataObjectResponse.status == "success") {
-            var dataObjects = dataIndexInfo && dataIndexInfo.collectionName && dataObjectResponse ? dataObjectResponse[dataIndexInfo.collectionName] : undefined;
+            var dataObjects = dataIndexInfo && dataIndexInfo.collectionName ? dataObjectResponse[dataIndexInfo.collectionName] : undefined;
 
             if (dataObjects !== undefined) {
                 var byIdsJson = response[pathKeys.byIds] = {};
