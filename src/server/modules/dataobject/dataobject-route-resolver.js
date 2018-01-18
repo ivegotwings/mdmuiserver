@@ -690,7 +690,7 @@ async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectActio
     finally {
     }
 
-    console.log(JSON.stringify(response, null, 4));
+    //console.log(JSON.stringify(response, null, 4));
     return response;
 }
 
