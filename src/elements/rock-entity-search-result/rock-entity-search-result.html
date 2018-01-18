@@ -20,15 +20,17 @@
 <link rel="import" href="../rock-grid-data-sources/entity-search-grid-datasource.html">
 <link rel="import" href="../rock-business-function-dialog/rock-business-function-dialog.html">
 <link rel="import" href="../rock-govern-data-grid/rock-govern-data-grid.html">
+<link rel="import" href="../rock-entity-search-result-actions/rock-entity-search-result-actions.html">
+<link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
 
 <!--
-`rock-entity-search-grid` Represents a component that renders the entities in the grid.
+`rock-entity-search-result` Represents a component that renders the entities in the grid.
 It filters the data as per filter criteria.
 
 @demo demo/index.html
 -->
 
-<dom-module id="rock-entity-search-grid">
+<dom-module id="rock-entity-search-result">
     <template>
         <style>
             pebble-toggle-button {
@@ -90,16 +92,38 @@ It filters the data as per filter criteria.
                 <pebble-toggle-button class="toggle-button" noink checked="{{_loadGovernData}}">Govern Data</pebble-toggle-button>
             </template>
             <template is="dom-if" if="[[!_loadGovernData]]">
-                <entity-search-grid-datasource id="searchGridDatasource" context-data="[[contextData]]" request="{{request}}" r-data-source="{{rDataSource}}"
-                    r-data-formatter="{{rDataFormatter}}" buffer-record-size="{{size}}" current-record-size="{{currentRecordSize}}"
-                    result-record-size="{{resultRecordSize}}" total-count="{{totalCount}}" attribute-models="{{attributeModels}}"
-                    is-combined-get="[[_isCombinedGetReq]]" apply-context-coalesce="[[applyContextCoalesce]]"></entity-search-grid-datasource>
 
-                <rock-grid hidden$="[[_loadGovernData]]" id="entityGrid" r-data-source="{{rDataSource}}" r-data-source-id="searchGridDatasource"
-                    result-record-size="{{resultRecordSize}}" current-record-size="{{currentRecordSize}}" config="[[gridConfig]]"
-                    grid-data-size="{{size}}" attribute-models="{{attributeModels}}" page-size="[[pageSize]]" selected-item="{{selectedItem}}"
-                    selected-items="{{selectedItems}}" total-count="{{totalCount}}" max-configured-count="[[maxConfiguredCount]]"
-                    apply-locale-coalesce-style="[[applyLocaleCoalesce]]" selection-enabled></rock-grid>
+                <entity-search-grid-datasource id="searchGridDatasource"
+                                               context-data="[[contextData]]"
+                                               request="{{request}}"
+                                               r-data-source="{{rDataSource}}"
+                                               r-data-formatter="{{rDataFormatter}}"
+                                               buffer-record-size="{{size}}"
+                                               current-record-size="{{currentRecordSize}}"
+                                               result-record-size="{{resultRecordSize}}"
+                                               total-count="{{totalCount}}"
+                                               attribute-models="{{attributeModels}}"
+                                               is-combined-get="[[_isCombinedGetReq]]" 
+                                               apply-context-coalesce="[[applyContextCoalesce]]"></entity-search-grid-datasource>
+
+                <rock-grid hidden$="[[_loadGovernData]]"
+                           id="entityGrid"
+                           r-data-source="{{rDataSource}}"
+                           r-data-source-id="searchGridDatasource"
+                           result-record-size="{{resultRecordSize}}"
+                           current-record-size="{{currentRecordSize}}"
+                           config="[[gridConfig]]"
+                           grid-data-size="{{size}}"
+                           attribute-models="{{attributeModels}}"
+                           page-size="[[pageSize]]"
+                           selected-item="{{selectedItem}}"
+                           selected-items="{{selectedItems}}"
+                           total-count="{{totalCount}}"
+                           max-configured-count="[[maxConfiguredCount]]"
+                           apply-locale-coalesce-style="[[applyLocaleCoalesceStyle]]"
+                           selection-enabled>
+                    <rock-entity-search-result-actions slot="toolbar" id="gridActions" context-data="[[contextData]]"></rock-entity-search-result-actions>
+                </rock-grid>
 
             </template>
             <template is="dom-if" if="[[_loadGovernData]]">
@@ -118,10 +142,10 @@ It filters the data as per filter criteria.
         </pebble-dialog>
         <bedrock-pubsub event-name="on-buttonok-clicked" handler="_onBulkDelete" target-id="confirmationDialog"></bedrock-pubsub>
 
-        <rock-business-function-dialog id="entityUploadDialog"></rock-business-function-dialog>
-        <rock-business-function-dialog id="entityDownloadDialog"></rock-business-function-dialog>
-        <rock-business-function-dialog id="entityEditDialog"></rock-business-function-dialog>
-        <rock-business-function-dialog id="entityDeleteDialog"></rock-business-function-dialog>
+        <rock-business-function-dialog id="entityUploadDialog" context-data="[[contextData]]"></rock-business-function-dialog>
+        <rock-business-function-dialog id="entityDownloadDialog" context-data="[[contextData]]"></rock-business-function-dialog>
+        <rock-business-function-dialog id="entityEditDialog" context-data="[[contextData]]"></rock-business-function-dialog>
+        <rock-business-function-dialog id="entityDeleteDialog" context-data="[[contextData]]"></rock-business-function-dialog>
         <bedrock-pubsub on-bedrock-event-route-changed="_onRouteChange"></bedrock-pubsub>
     </template>
 
@@ -130,7 +154,7 @@ It filters the data as per filter criteria.
             'use strict';
 
             Polymer({
-                is: 'rock-entity-search-grid',
+                is: 'rock-entity-search-result',
                 properties: {
                     /**
                      * Indicates the request object that is passed to the data element to retrieve the attribute model data.
@@ -149,6 +173,9 @@ It filters the data as per filter criteria.
                         value: function () {
                             return {};
                         }
+                    },
+                    domain:{
+                        type:String
                     },
                     /**
                      * Specifies the configuration object that is passed to the grid.
@@ -384,7 +411,17 @@ It filters the data as per filter criteria.
                         type: Boolean,
                         value: false
                     },
-
+                    dynamicFields: {
+                        type: Object,
+                        value: function() {
+                            return {};
+                        }
+                    },
+                    processWithDynamicFields: {
+                        type: Boolean,
+                        value: false
+                    },
+                    
                     applyLocaleCoalesce: {
                         type: Boolean,
                         value: false
@@ -396,9 +433,14 @@ It filters the data as per filter criteria.
                     }
                 },
 
+                observers: [
+                    '_onContextDataChange(contextData.*, dynamicFields)'
+                ],
+
                 behaviors: [
                     RUFBehaviors.UIBehavior,
-                    RUFBehaviors.ComponentContextBehavior
+                    RUFBehaviors.ComponentContextBehavior,
+                    RUFBehaviors.ComponentConfigBehavior
                 ],
 
                 attached: function () {
@@ -406,6 +448,54 @@ It filters the data as per filter criteria.
                         this._isViewLoaded = true;
                     });
                 },
+
+                _onContextDataChange: function() {
+                    if(this.processWithDynamicFields && _.isEmpty(this.dynamicFields)) {
+                        return;
+                    }
+
+                    if(!_.isEmpty(this.contextData)) {
+                        var context = DataHelper.cloneObject(this.contextData);
+                        //App specific
+                        var appName = ComponentHelper.getCurrentActiveAppName();
+                        if(appName) {
+                            context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                                "app": appName
+                            }];
+                        }
+
+                        if(this.domain) {
+                            context[ContextHelper.CONTEXT_TYPE_DOMAIN] = [{
+                                "domain": this.domain
+                            }];
+                        }
+
+                        this.requestConfig('rock-entity-search-result', context);
+                    }
+                },
+
+                onConfigLoaded: function(componentConfig) {
+                    if(componentConfig && componentConfig.config) {
+                        var gridConfig = componentConfig.config.gridConfig;
+                        if(!_.isEmpty(this.dynamicFields)) {
+                            Object.keys(this.dynamicFields).forEach(key => {
+                                
+                                this.dynamicFields[key].visible = "true";
+                                
+                                });
+                            gridConfig.itemConfig.fields = this.dynamicFields;
+                            gridConfig.schemaType = "attribute"; //Should come from configuration, delete it once nearest get is enabled
+                        }
+
+                        this.set('gridConfig', gridConfig);
+                        this.set('governAttributesCriterion', componentConfig.config.governAttributesCriterion);
+                        this.set('governDataConfig', componentConfig.config.governDataConfig);
+
+                        this.attributeModels = {};
+                        this.refresh();
+                    }
+                },
+
                 /**
                  * <b><i>Content development is under progress... </b></i> 
                  */
@@ -459,15 +549,17 @@ It filters the data as per filter criteria.
                     }
                 },
 
-                /**
-                 * For entity discovery & task details, this grid resize shoud happen when show/close download bar
-                 */
-                _onRouteChange: function (e) {
-                    if (DataHelper.isValidObjectPath(e, "detail.route.path") &&
-                        (e.detail.route.path.indexOf('/entity-discovery') != -1 ||
-                            e.detail.route.path.indexOf('/reference-discovery') != -1 ||
-                            e.detail.route.path.indexOf('/task-detail') != -1)) {
-                        this.notifyResize();
+               /**
+                * For entity discovery & task details, this grid resize shoud happen when show/close download bar
+                */
+                _onRouteChange: function(e) {
+                    if(DataHelper.isValidObjectPath(e, "detail.route.path") &&
+                    (   
+                        e.detail.route.path.indexOf('/entity-discovery') != -1 || 
+                        e.detail.route.path.indexOf('/task-detail') != -1 ||
+                        e.detail.route.path.indexOf('/reference-discovery') != -1 ||
+                        e.detail.route.path.indexOf('/asset-discovery') != -1)) {
+                            this.notifyResize();
                     }
                 },
 
@@ -579,12 +671,8 @@ It filters the data as per filter criteria.
                     //     return;
                     // }
 
-                    if (!gridConfig.dataRequest) {
-                        return;
-                    }
-
-                    var attributeNames = gridConfig.dataRequest.attributes;
-                    var typesCriterion = gridConfig.dataRequest.typesCriterion;
+                    var attributeNames = this._getAttributesFromConfig();
+                    var typesCriterion = this.typesCriterion;;
                     var firstEntityType = undefined;
 
                     if (typesCriterion && typesCriterion.length > 0) {
@@ -631,11 +719,11 @@ It filters the data as per filter criteria.
                     if (data && data.content) {
                         var entities = data.content.entities;
                         if (entities && entities.length > 0) {
-                            if (this.gridConfig.viewMode == "Tabular") {
-                                formattedEntities = DataTransformHelper.transformEntitiesToGridFormat(entities, this.attributeModels, this.contextData, this.gridConfig.tabular.columns);
-                            } else {
-                                var attributes = this.gridConfig.dataRequest.attributes;
-                                if (attributes.indexOf("type") == -1) {
+                            if(this.gridConfig.viewMode=="Tabular") {
+                                formattedEntities = DataTransformHelper.transformEntitiesToGridFormat(entities, this.attributeModels, this.contextData, this._getGridColumns());
+                            }else{
+                                var attributes = this._getAttributesFromConfig();
+                                if(attributes.indexOf("type")==-1){
                                     attributes.push("type");
                                 }
                                 formattedEntities = DataTransformHelper.transformEntitiesToSimpleSchema(entities, attributes, this.attributeModels);
@@ -659,6 +747,23 @@ It filters the data as per filter criteria.
                     }
 
                     return formattedEntities;
+                },
+
+                _getGridColumns: function() {
+                    if(this.gridConfig && this.gridConfig.tabular && this.gridConfig.tabular.columns) {
+                        return this.gridConfig.tabular.columns;
+                    }
+                    var columns = [];
+                    if(DataHelper.isValidObjectPath(this.gridConfig, 'itemConfig.fields')) {
+                        columns = DataHelper.convertObjectToArray(this.gridConfig.itemConfig.fields);
+                    }
+                    return columns;
+                },
+
+                _getAttributesFromConfig: function() {
+                    return this._getGridColumns().map(function(column) {
+                        return column.name;
+                    });
                 },
 
                 // Remove unsupported filters which were added for tags
@@ -736,7 +841,7 @@ It filters the data as per filter criteria.
                     if (!itemContexts && itemContexts.length) {
                         return;
                     }
-                    var attributeNames = this.gridConfig.dataRequest.attributes;
+                    var attributeNames = this._getAttributesFromConfig();
                     for (var i in itemContexts) {
                         itemContexts[i].attributeNames = attributeNames;
                     }
@@ -824,7 +929,7 @@ It filters the data as per filter criteria.
                     if (selectedItems && selectedItems.length && this.contextData) {
                         var selectedItemsCount = selectionMode == "query" ? this.totalCount : selectedItems.length;
                         var entityDownloadDialog = this.shadowRoot.querySelector("#entityDownloadDialog");
-                        entityDownloadDialog.name = "rock-entity-download";
+                        entityDownloadDialog.name = "rock-wizard-entity-download";
                         entityDownloadDialog.sharedData = {
                             "context-data": this.contextData,
                             "selection-query": selectionQuery,
@@ -838,9 +943,9 @@ It filters the data as per filter criteria.
                     }
                 },
                 _onUpload: function (e, detail) {
-                    var dialog = this.shadowRoot.querySelector("#entityUploadDialog");
-                    if (dialog) {
-                        dialog.name = "rock-entity-upload";
+                    var dialog=this.shadowRoot.querySelector("#entityUploadDialog");
+                    if(dialog){
+                        dialog.name = "rock-wizard-entity-upload";
                         dialog.sharedData = { "context-data": this.contextData };
                         dialog.open();
                     }
@@ -864,7 +969,7 @@ It filters the data as per filter criteria.
                         clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
                         clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
                         var entityEditDialog = this.shadowRoot.querySelector("#entityEditDialog");
-                        entityEditDialog.name = "rock-entity-bulk-edit";
+                        entityEditDialog.name = "rock-wizard-entity-bulk-edit";
                         entityEditDialog.configName = "wizardConfig";
                         entityEditDialog.sharedData = {
                             "context-data": clonedContextData,

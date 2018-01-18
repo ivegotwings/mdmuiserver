@@ -24,11 +24,11 @@
 <link rel="import" href="../pebble-icons/pebble-icons.html">
 <link rel="import" href="../pebble-icon/pebble-icon-updated.html">
 <link rel="import" href="../pebble-popover/pebble-popover.html">
-<link rel="import" href="../pebble-toolbar/pebble-toolbar.html">
 
 <link rel="import" href="../rock-attribute/rock-attribute.html">
 <link rel="import" href="../rock-nested-attribute-grid/rock-nested-attribute-grid.html">
 <link rel="import" href="../rock-entity-tofix/rock-entity-tofix.html">
+<link rel="import" href="../rock-toolbar-default-actions/rock-toolbar-default-actions.html">
 
 <link rel="import" href="grid-list-view.html">
 <link rel="import" href="grid-tile-view.html">
@@ -687,9 +687,12 @@ The following JSON object is a config sample which configures the grid in all ab
 					<paper-tooltip for="title" position="bottom" animation-delay="0">[[title]][[selectionTitle]]</paper-tooltip>
 					<div id="selection-title">[[selectionTitle]]</div>
 					<div class="grid-actions row layout-middle">
-						<!-- Start pebble-toolbar -->
-						<pebble-toolbar id="gridToolbar" readonly$="[[readonly]]" config-data="[[_toolbarConfig]]"></pebble-toolbar>
-						<bedrock-pubsub event-name="toolbar-button-event" handler="_onToolbarEvent" target-id="gridToolbar"></bedrock-pubsub>
+						<!-- Toolbar slot -->
+						<slot slot="toolbar" name="toolbar"></slot>
+						<template is="dom-if" if="[[_isToolbarSlotEmpty()]]">
+							<rock-toolbar-default-actions id="gridActions" context-data="[[contextData]]"></rock-toolbar-default-actions>
+						</template>
+						<bedrock-pubsub event-name="rock-toolbar-button-event" handler="_onToolbarEvent" target-id="gridActions"></bedrock-pubsub>
 						<pebble-vertical-divider class="m-l-5 m-r-5"></pebble-vertical-divider>
 						<paper-dropdown-menu id="viewMode" label="{{config.viewMode}}" no-label-float class="tooltip-bottom" data-tooltip="View Mode">
 							<paper-listbox slot="dropdown-content" class="dropdown-content" attr-for-selected="value" selected="{{config.viewMode}}">
@@ -710,10 +713,10 @@ The following JSON object is a config sample which configures the grid in all ab
 					<template is="dom-if" if="[[_configPresent('tabular')]]">
 						<pebble-data-table id="pebbleDataTable" min-filter-length="[[minFilterLength]]" advance-selection-options="[[config.advanceSelectionOptions]]"
 						 advance-selection-enabled="[[config.advanceSelectionEnabled]]" selection-info="{{selectionInfo}}" page-size="[[pageSize]]"
-						 size="[[gridDataSize]]" selection-enabled="[[selectionEnabled]]" multi-selection="[[config.tabular.settings.isMultiSelect]]"
+						 size="[[gridDataSize]]" selection-enabled="[[selectionEnabled]]" multi-selection="[[config.itemConfig.isMultiSelect]]"
 						 r-data-source="[[rDataSource]]" items="[[data]]" selected-item="{{selectedItem}}" selected-items="{{selectedItems}}"
-						 sort-order="{{sortOrder}}" disable-select-all="[[config.tabular.settings.disableSelectAll]]" on-row-dbl-clicked="_rowDblClicked"
-						 rows="[[config.tabular.rows]]" on-row-drop-event="_onRowDropEvent" row-drag-drop-enabled="[[rowDragDropEnabled]]">
+						 sort-order="{{sortOrder}}" disable-select-all="[[config.itemConfig.disableSelectAll]]" on-row-dbl-clicked="_rowDblClicked"
+						 rows="[[config.itemConfig.rows]]" on-row-drop-event="_onRowDropEvent" row-drag-drop-enabled="[[rowDragDropEnabled]]">
 
 							<data-table-column slot="column-slot" name="Actions" width="60px" flex="0" hidden$="[[!_hasActions(config.mode)]]">
 								<template>
@@ -731,119 +734,127 @@ The following JSON object is a config sample which configures the grid in all ab
 								</template>
 							</data-table-column>
 							<template is="dom-if" if="[[config.readOnly]]" restamp>
-								<template is="dom-repeat" items="[[config.tabular.columns]]" as="col" index-as="colIndex">
+								<template is="dom-repeat" items="[[_fields]]" as="col" index-as="colIndex">
+									<template is="dom-if" if="[[col.visible]]">
 
-										<template is="dom-if" if="{{_isIconColumn(col)}}">
-											<data-table-column slot="column-slot" flex="0" width="40px" name="[[col.header]]" column-index="{{colIndex}}" filter-by="[[_isFilterEnabled(col)]]"
-												sort-by="[[_isSortable(col)]]" icon="pebble-md-icons:Edit" class="pebble-md-icons" column-object="[[col]]" width="[[_getColWidth(col)]]">
-												<template>
+											<template is="dom-if" if="{{_isIconColumn(col)}}">
+													<data-table-column slot="column-slot" flex="0" width="40px" name="[[col.header]]" column-index="{{colIndex}}" filter-by="[[_isFilterEnabled(col)]]"
+														sort-by="[[_isSortable(col)]]" icon="pebble-md-icons:Edit" class="pebble-md-icons" column-object="[[col]]" width="[[_getColWidth(col)]]">
+														<template>
+															<template is="dom-if" if="[[_hasLinkTemplate(column.columnObject, item)]]">
+																<template is="dom-if" if="[[_hasIcon(column.columnObject, item)]]">
+																	<a slot="cell-slot-content" href$="[[_getLink(column.columnObject, item)]]">
+																		<div class="cell tooltip-bottom" data-tooltip$="[[_columnIconTooltip(item, column.columnIndex)]]">
+																			<pebble-icon icon="[[_columnIcon(item, column.columnIndex)]]" class="download-icon"></pebble-icon>
+																		</div>
+																	</a>													
+																</template>		
+															</template>
+														</template>
+													</data-table-column>
+												</template>
+												<template is="dom-if" if="{{!_isIconColumn(col)}}">		
+										<data-table-column slot="column-slot" name="[[col.header]]" column-index="{{colIndex}}" filter-by="[[_isFilterEnabled(col)]]"
+										sort-by="[[_isSortable(col)]]" icon="pebble-md-icons:Edit" class="pebble-md-icons" column-object="[[col]]" width="[[_getColWidth(col)]]">
+											<template>
+
+												<template is="dom-if" if="[[_isNestedAttribute(column.columnObject)]]">
+													<a slot="cell-slot-content" href="#" on-tap="_openNestedAttr" data="[[column.columnObject]]">
+														<div class="cell tooltip-bottom" data-tooltip$="click here to see values">
+															<span> click here to see values ([[_getNetsedAtrributeValueCount(item, column.columnObject)]]) </span>
+														</div>
+													</a>
+												</template>
+
+												<template is="dom-if" if="[[!_isNestedAttribute(column.columnObject)]]">
 													<template is="dom-if" if="[[_hasLinkTemplate(column.columnObject, item)]]">
+														<a slot="cell-slot-content" href$="[[_getLink(column.columnObject, item)]]">
+															<div class="cell tooltip-bottom" data-tooltip$="[[_columnValue(item, column.columnIndex)]]">
+																<span class$="[[_getCellClassValue(item, column.columnIndex)]]">[[_columnValue(item, column.columnIndex)]]</span>
+															</div>
+														</a>
 														<template is="dom-if" if="[[_hasIcon(column.columnObject, item)]]">
 															<a slot="cell-slot-content" href$="[[_getLink(column.columnObject, item)]]">
 																<div class="cell tooltip-bottom" data-tooltip$="[[_columnIconTooltip(item, column.columnIndex)]]">
 																	<pebble-icon-updated icon="[[_columnIcon(item, column.columnIndex)]]" class="pebble-icon-size-16 download-icon"></pebble-icon-updated>
 																</div>
 															</a>													
-														</template>		
+														</template>													
 													</template>
-												</template>
-											</data-table-column>
-										</template>
+													
 
-									
-										<template is="dom-if" if="{{!_isIconColumn(col)}}">
-											<data-table-column slot="column-slot" name="[[col.header]]" column-index="{{colIndex}}" filter-by="[[_isFilterEnabled(col)]]"
-											sort-by="[[_isSortable(col)]]" icon="pebble-md-icons:Edit" class="pebble-md-icons" column-object="[[col]]" width="[[_getColWidth(col)]]">
-												<template>
-													<template is="dom-if" if="[[_isNestedAttribute(column.columnObject)]]">
-														<a slot="cell-slot-content" href="#" on-tap="_openNestedAttr" data="[[column.columnObject]]">
-															<div class="cell tooltip-bottom" data-tooltip$="click here to see values">
-																<span> click here to see values ([[_getNetsedAtrributeValueCount(item, column.columnObject)]]) </span>
-															</div>
-														</a>
-													</template>
-
-													<template is="dom-if" if="[[!_isNestedAttribute(column.columnObject)]]">
-														<template is="dom-if" if="[[_hasLinkTemplate(column.columnObject, item)]]">
-															<a slot="cell-slot-content" href$="[[_getLink(column.columnObject, item)]]">
-																<div class="cell tooltip-bottom" data-tooltip$="[[_columnValue(item, column.columnIndex)]]">
-																	<span class$="[[_getCellClassValue(item, column.columnIndex)]]">[[_columnValue(item, column.columnIndex)]]</span>
+													<template is="dom-if" if="[[!_hasLinkTemplate(column.columnObject, item)]]">
+															<!--Thumbnail and src will be computed and passed and rockimage viewer takes care of the value -->
+															<template is="dom-if" if="[[_hasImage(column.columnObject, item)]]">
+																<div slot="cell-slot-content" class="cell tooltip-bottom" data-tooltip$="[[_columnValue(item, column.columnIndex)]]">
+																	<rock-image-viewer class="image-container" sizing="contain" src="[[_columnValue(item, column.columnIndex)]]" thumbnail-id="[[_columnValue(item, column.columnIndex)]]" asset-details="[[_getAssetDetails(item)]]">
+																	</rock-image-viewer>
 																</div>
-															</a>																											
-														</template>
-														
-
-														<template is="dom-if" if="[[!_hasLinkTemplate(column.columnObject, item)]]">
-																<!--Thumbnail and src will be computed and passed and rockimage viewer takes care of the value -->
-																<template is="dom-if" if="[[_hasImage(column.columnObject, item)]]">
-																	<div slot="cell-slot-content" class="cell tooltip-bottom" data-tooltip$="[[_columnValue(item, column.columnIndex)]]">
-																		<rock-image-viewer class="image-container" sizing="contain" src="[[_columnValue(item, column.columnIndex)]]" thumbnail-id="[[_columnValue(item, column.columnIndex)]]" asset-details="[[_getAssetDetails(item)]]">
-																		</rock-image-viewer>
+															</template>
+															<template is="dom-if" if="[[!_hasImage(column.columnObject, item)]]">
+																	<div slot="cell-slot-content" class="tooltip-bottom" data-tooltip$="[[_columnValue(item, column.columnIndex)]]">
+																		<span class$="[[_getCellClassValue(item, column.columnIndex)]]">[[_columnValue(item, column.columnIndex)]]</span>
 																	</div>
-																</template>
-																<template is="dom-if" if="[[!_hasImage(column.columnObject, item)]]">
-																		<div slot="cell-slot-content" class="tooltip-bottom" data-tooltip$="[[_columnValue(item, column.columnIndex)]]">
-																			<span class$="[[_getCellClassValue(item, column.columnIndex)]]">[[_columnValue(item, column.columnIndex)]]</span>
-																		</div>
-																</template>
-														</template>
+															</template>
 													</template>
 												</template>
-											</data-table-column>
-										
+											</template>
+										</data-table-column>
 										</template>
-									
+									</template>
 								</template>
 							</template>
 							<template is="dom-if" if="[[!config.readOnly]]" restamp>
-								<template is="dom-repeat" items="[[config.tabular.columns]]" as="col" index-as="colIndex">
-									<data-table-column model-object="{{_getAttributeModelObject(col)}}" slot="column-slot" name="[[col.header]]" column-index="{{colIndex}}"
-									 filter-by="[[_isFilterEnabled(col)]]" sort-by="[[_isSortable(col)]]" icon="pebble-md-icons:Edit" class="pebble-md-icons"
-									 column-object="[[col]]" width="[[_getColWidth(col)]]">
-										<template>
+								<template is="dom-repeat" items="[[_fields]]" as="col" index-as="colIndex">
+									<template is="dom-if" if="[[col.visible]]">
+										<data-table-column model-object="{{_getAttributeModelObject(col)}}" slot="column-slot" name="[[col.header]]" column-index="{{colIndex}}"
+										filter-by="[[_isFilterEnabled(col)]]" sort-by="[[_isSortable(col)]]" icon="pebble-md-icons:Edit" class="pebble-md-icons"
+										column-object="[[col]]" width="[[_getColWidth(col)]]">
+											<template>
 
-											<template is="dom-if" if="[[_hasLinkTemplate(column.columnObject, item)]]">
-												<a href$="[[_getLink(column.columnObject, item)]]" slot="cell-slot-content">
-													<template is="dom-if" if="[[!column.columnObject.readOnly]]">
-														<rock-attribute index="[[index]]" context-data="[[contextData]]" item="[[item]]" row-index$="[[index]]" column-index$="[[column.columnIndex]]"
-														 functional-mode="grid" id="row[[index]]col[[column.columnIndex]]" class="attribute" mode="[[config.mode]]"
-														 attribute-model-object="[[column.modelObject]]" attribute-object="[[_getAttributeObject(item, column.modelObject, column.columnIndex, index)]]"
-														 dependent-attribute-model-objects="[[_getDependentAttributeModels(column.modelObject)]]" dependent-attribute-objects="[[_getDependentAttributes(item, column.modelObject, index)]]"
-														 on-attribute-value-changed="_updateValue"></rock-attribute>
-													</template>
-													<template is="dom-if" if="[[column.columnObject.readOnly]]">
-														<div data-tooltip$="[[_columnValue(item, column.columnIndex)]]" class="tooltip-bottom">
-															<span class$="[[_getCellClassValue(item, column.columnIndex)]]">[[_columnValue(item, column.columnIndex)]]</span>
-														</div>
-													</template>
-												</a>
-											</template>
-											<template is="dom-if" if="[[!_hasLinkTemplate(column.columnObject, item)]]">
-												<template is="dom-if" if="[[!column.columnObject.readOnly]]">
-													<rock-attribute slot="cell-slot-content" index="[[index]]" context-data="[[contextData]]" item="[[item]]" row-index$="[[index]]"
-													 column-index$="[[column.columnIndex]]" functional-mode="grid" id="row[[index]]col[[column.columnIndex]]" class="attribute"
-													 mode="[[config.mode]]" attribute-model-object="[[column.modelObject]]" attribute-object="[[_getAttributeObject(item, column.modelObject, column.columnIndex, index)]]"
-													 dependent-attribute-model-objects="[[_getDependentAttributeModels(column.modelObject)]]" dependent-attribute-objects="[[_getDependentAttributes(item, column.modelObject, index)]]"
-													 on-attribute-value-changed="_updateValue"></rock-attribute>
-												</template>
-												<template is="dom-if" if="[[column.columnObject.readOnly]]">
-														<!--Thumbnail and src will be computed and passed and rockimage viewer takes care of the value -->
-														<template is="dom-if" if="[[_hasImage(column.columnObject, item)]]">
-															<div slot="cell-slot-content" class="cell tooltip-bottom" data-tooltip$="[[_columnValue(item, column.columnIndex)]]">
-																<rock-image-viewer class="image-container" sizing="contain" src="[[_columnValue(item, column.columnIndex)]]" thumbnail-id="[[_columnValue(item, column.columnIndex)]]" asset-details="[[_getAssetDetails(item)]]">
-																</rock-image-viewer>
+												<template is="dom-if" if="[[_hasLinkTemplate(column.columnObject, item)]]">
+													<a href$="[[_getLink(column.columnObject, item)]]" slot="cell-slot-content">
+														<template is="dom-if" if="[[!column.columnObject.readOnly]]">
+															<rock-attribute index="[[index]]" context-data="[[contextData]]" item="[[item]]" row-index$="[[index]]" column-index$="[[column.columnIndex]]"
+															functional-mode="grid" id="row[[index]]col[[column.columnIndex]]" class="attribute" mode="[[config.mode]]"
+															attribute-model-object="[[column.modelObject]]" attribute-object="[[_getAttributeObject(item, column.modelObject, column.columnIndex, index)]]"
+															dependent-attribute-model-objects="[[_getDependentAttributeModels(column.modelObject)]]" dependent-attribute-objects="[[_getDependentAttributes(item, column.modelObject, index)]]"
+															on-attribute-value-changed="_updateValue"></rock-attribute>
+														</template>
+														<template is="dom-if" if="[[column.columnObject.readOnly]]">
+															<div data-tooltip$="[[_columnValue(item, column.columnIndex)]]" class="tooltip-bottom">
+																<span class$="[[_getCellClassValue(item, column.columnIndex)]]">[[_columnValue(item, column.columnIndex)]]</span>
 															</div>
 														</template>
-														<template is="dom-if" if="[[!_hasImage(column.columnObject, item)]]">
-																<div slot="cell-slot-content" class="tooltip-bottom" data-tooltip$="[[_columnValue(item, column.columnIndex)]]">
-																	<span class$="[[_getCellClassValue(item, column.columnIndex)]]">[[_columnValue(item, column.columnIndex)]]</span>
-																</div>
-														</template>
+													</a>
 												</template>
-											</template>
+												<template is="dom-if" if="[[!_hasLinkTemplate(column.columnObject, item)]]">
+													<template is="dom-if" if="[[!column.columnObject.readOnly]]">
+														<rock-attribute slot="cell-slot-content" index="[[index]]" context-data="[[contextData]]" item="[[item]]" row-index$="[[index]]"
+														column-index$="[[column.columnIndex]]" functional-mode="grid" id="row[[index]]col[[column.columnIndex]]" class="attribute"
+														mode="[[config.mode]]" attribute-model-object="[[column.modelObject]]" attribute-object="[[_getAttributeObject(item, column.modelObject, column.columnIndex, index)]]"
+														dependent-attribute-model-objects="[[_getDependentAttributeModels(column.modelObject)]]" dependent-attribute-objects="[[_getDependentAttributes(item, column.modelObject, index)]]"
+														on-attribute-value-changed="_updateValue"></rock-attribute>
+													</template>
+													<template is="dom-if" if="[[column.columnObject.readOnly]]">
+															<!--Thumbnail and src will be computed and passed and rockimage viewer takes care of the value -->
+															<template is="dom-if" if="[[_hasImage(column.columnObject, item)]]">
+																<div slot="cell-slot-content" class="cell tooltip-bottom" data-tooltip$="[[_columnValue(item, column.columnIndex)]]">
+																	<rock-image-viewer class="image-container" sizing="contain" src="[[_columnValue(item, column.columnIndex)]]" thumbnail-id="[[_columnValue(item, column.columnIndex)]]" asset-details="[[_getAssetDetails(item)]]">
+																	</rock-image-viewer>
+																</div>
+															</template>
+															<template is="dom-if" if="[[!_hasImage(column.columnObject, item)]]">
+																	<div slot="cell-slot-content" class="tooltip-bottom" data-tooltip$="[[_columnValue(item, column.columnIndex)]]">
+																		<span class$="[[_getCellClassValue(item, column.columnIndex)]]">[[_columnValue(item, column.columnIndex)]]</span>
+																	</div>
+															</template>
+													</template>
+												</template>
 
-										</template>
-									</data-table-column>
+											</template>
+										</data-table-column>
+									</template>
 								</template>
 							</template>
 						</pebble-data-table>
@@ -858,10 +869,10 @@ The following JSON object is a config sample which configures the grid in all ab
 				<template is="dom-if" if="{{_isTileMode(config.viewMode)}}" restamp>
 					<div hidden="[[_configPresent('tile')]]" class="msg default-message"> Config not present for Tile view of the grid.</div>
 					<template is="dom-if" if="[[_configPresent('tile')]]">
-						<grid-tile-view show-select-all="[[config.tile.settings.isMultiSelect]]" result-record-size="{{resultRecordSize}}" attribute-model-object="[[attributeModels]]"
+						<grid-tile-view show-select-all="[[config.itemConfig.isMultiSelect]]" result-record-size="{{resultRecordSize}}" attribute-model-object="[[attributeModels]]"
 						 id="gridTileView" advance-selection-options="[[config.advanceSelectionOptions]]" advance-selection-enabled="[[config.advanceSelectionEnabled]]"
-						 items="[[data]]" grid-tile-data-source="{{rDataSource}}" page-size="[[pageSize]]" multi-selection="{{config.tile.settings.isMultiSelect}}"
-						 selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" tile-items="{{config.tile.tileItems}}" actions="{{config.tile.settings.actions}}"
+						 items="[[data]]" grid-tile-data-source="{{rDataSource}}" page-size="[[pageSize]]" multi-selection="{{config.itemConfig.isMultiSelect}}"
+						 selected-item="{{selectedItem}}" selected-items="{{selectedItems}}" tile-items="{{config.itemConfig}}" actions="{{_getArrayFromObject(config.viewConfig.tile.settings.actions)}}"
 						 selection-info="{{selectionInfo}}">
 						</grid-tile-view>
 					</template>
@@ -871,8 +882,8 @@ The following JSON object is a config sample which configures the grid in all ab
 					<template is="dom-if" if="[[_configPresent('list')]]">
 						<grid-list-view id="gridListView" attribute-model-object="[[attributeModels]]" advance-selection-options="[[config.advanceSelectionOptions]]"
 						 advance-selection-enabled="[[config.advanceSelectionEnabled]]" items="[[data]]" grid-list-data-source="{{rDataSource}}"
-						 page-size="[[pageSize]]" multi-selection="{{config.list.settings.isMultiSelect}}" selected-item="{{selectedItem}}"
-						 selected-items="{{selectedItems}}" schema-type="{{config.schemaType}}" list-items="{{config.list.listItems}}" actions="{{config.list.settings.actions}}"
+						 page-size="[[pageSize]]" multi-selection="{{config.itemConfig.isMultiSelect}}" selected-item="{{selectedItem}}"
+						 selected-items="{{selectedItems}}" schema-type="{{config.schemaType}}" list-items="{{config.itemConfig}}" actions="{{_getArrayFromObject(config.viewConfig.list.settings.actions)}}"
 						 selection-info="{{selectionInfo}}"></grid-list-view>
 					</template>
 				</template>
@@ -1137,18 +1148,19 @@ The following JSON object is a config sample which configures the grid in all ab
 						type: Number,
 						value: 2
 					},
-					_toolbarConfig: {
-						type: Object,
-						value: function () {
-							return {};
-						}
-					},
 					isWorkflowCriterion: {
 						type: Boolean,
 						value: false
 					},
 					rowDragDropEnabled: {
 						type: Boolean
+					},
+					_fields: {
+						type: Array,
+						value: function() {
+							return [];
+						},
+						computed: '_getArrayFromObject(config.itemConfig.fields)'
 					},
 					applyLocaleCoalesceStyle: {
 						type: Boolean,
@@ -1162,7 +1174,6 @@ The following JSON object is a config sample which configures the grid in all ab
 					'_calculatePageRange(currentRecordSize, pageSize,resultRecordSize)',
 					'_computeTitle(config, data, currentRecordSize, sortOrder,resultRecordSize,rDataSource,config.viewMode, config.*)',
 					'_setSelectionTitle(currentRecordSize,selectionInfo,selectedItems.*)',
-					'_setToolbarConfig(config.toolbarConfig, isWorkflowCriterion)',
 					'_prepareConfig(config, attributeModels)',
 					'_viewModeChanged(config.viewMode)',
 					'_modeChange(config.mode)'
@@ -1196,55 +1207,16 @@ The following JSON object is a config sample which configures the grid in all ab
 				},
 				//On selection info change, set the delete button
 				_onSelectionInfoChange: function () {
-					if ((this.selectionInfo && this.selectionInfo.mode == "query") || this.isWorkflowCriterion) {
-						//Hide the toolbar button
-						this._setToolbarDeleteAttr("disabled", true);
-						return;
+					var disable = false;
+					if ((this.selectionInfo && this.selectionInfo.mode == "query")) {
+						disable = true;
 					}
 
-					//Enable the toolbar button
-					this._setToolbarDeleteAttr("disabled", false);
-				},
-				// Change the configuration on workflow criterion - Hide delete
-				_setToolbarConfig: function () {
-					if (!this.config) {
-						return;
-					}
-
-					if (this.isWorkflowCriterion) {
-						var toolbarConfig = DataHelper.cloneObject(this.config.toolbarConfig);
-						//Hide button
-						var buttons = toolbarConfig.buttonItems[0].buttons;
-						for (var i = 0; i < buttons.length; i++) {
-							if (buttons[i].name == "bulkdelete") {
-								buttons[i].visible = false;
-								break;
-							}
-						}
-
-						this._toolbarConfig = toolbarConfig;
-						return;
-					}
-
-					this._toolbarConfig = this.config.toolbarConfig;
-				},
-				_setToolbarDeleteAttr: function (attribute, addAttr) {
-					var toolBar = this.shadowRoot.querySelector("#gridToolbar");
-
-					if (!toolBar) {
-						return;
-					} else {
-						var deleteButton = toolBar.shadowRoot.querySelector("pebble-button#bulkdelete");
-						if (!deleteButton) {
-							return;
-						}
-					}
-
-					if (addAttr) {
-						deleteButton.setAttribute(attribute, "");
-					} else {
-						deleteButton.removeAttribute(attribute);
-					}
+					//set Enable/Disable the toolbar button
+					var gridActionsEl = this._getToolbar();
+					if(gridActionsEl) {
+						gridActionsEl.setAttributeToToolbarButton("bulkdelete", "disabled", disable);
+ 					}
 				},
 				_onToolbarEvent: function (e, detail) {
 					var event = detail.name;
@@ -1274,6 +1246,9 @@ The following JSON object is a config sample which configures the grid in all ab
 						case "bulkdelete":
 							this._onBulkDelete(e, detail);
 							break;
+						case "quickmanage": // Fire event and capture the event where needed
+							this.fireBedrockEvent("quick-manage-event", detail, { ignoreId: true });
+							break;
 						case "pagerange": // Just display, so no functionality here
 							break;
 						default:
@@ -1295,12 +1270,10 @@ The following JSON object is a config sample which configures the grid in all ab
 					this.editInline(0);
 				},
 				_prepareConfig: function (config, attributeModel) {
-					if (config && attributeModel) {
-						if (config.tabular && config.tabular.columns) {
-							config.tabular.columns.forEach(function (column) {
-								column.headerDescription = this._extractHeaderDescription(column);
-							}.bind(this));
-						}
+					if (this._fields && this._fields.length > 0 && attributeModel) {
+						this._fields.forEach(function (column) {
+							column.headerDescription = this._extractHeaderDescription(column);
+						}.bind(this));
 					}
 				},
 				_extractHeaderDescription: function (column) {
@@ -1384,6 +1357,12 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 
 					return false;
+				},
+				_isIconColumn: function (col){	
+					if(col.icon && col.icon!="") {
+						return true;
+					}				
+					return false;					
 				},
 				getControlIsDirty: function () {
 					var controlDirty = this.getSelectedItems().length > 0;
@@ -1848,12 +1827,12 @@ The following JSON object is a config sample which configures the grid in all ab
 							}
 
 							if (config.titleTemplates.compareEntitiesTitle) {
-								var entityColumns = config.tabular.columns.filter(function (item) {
+								var entityColumns = this._fields.filter(function (item) {
 									if (!item.isRowHeader) {
 										return item;
 									}
 								});
-								status = config.titleTemplates.compareEntitiesTitle.replace("{noOfEntities}", entityColumns.length).replace("{noOfAttributes}", config.tabular.rows.length);
+								status = config.titleTemplates.compareEntitiesTitle.replace("{noOfEntities}", entityColumns.length).replace("{noOfAttributes}", config.itemConfig.rows.length);
 							}
 						}
 
@@ -1876,15 +1855,43 @@ The following JSON object is a config sample which configures the grid in all ab
 						}
 
 						//Set range to pebble-toolbar
-						if (this.shadowRoot.querySelector('pebble-toolbar') && this.shadowRoot.querySelector('pebble-toolbar').shadowRoot.querySelector('pebble-button#pageRange')) {
-							this.shadowRoot.querySelector('pebble-toolbar').shadowRoot.querySelector('pebble-button#pageRange').buttonText = this._pageRange;
+						var gridActionsEl = this._getToolbar();
+						if(gridActionsEl) {
+							gridActionsEl.setPageRange(this._pageRange);
 						}
 					}
 				},
+				_getToolbar: function() {
+					//Finding element under slot
+					var gridActionsEl = this._getSlotNode("gridActions");
+					//Find default toolbar
+					if(!gridActionsEl) {
+						gridActionsEl = this.shadowRoot.querySelector("#gridActions");
+					}
+					return gridActionsEl;
+				},
+				_getSlotNode: function(id) {
+					var slotNodes = Polymer.FlattenedNodesObserver.getFlattenedNodes(this).filter(n => n.nodeType === Node.ELEMENT_NODE);
+					var slotNode;
+					for(var i = 0; i < slotNodes.length; i++) {
+						if(slotNodes[i].getAttribute("id") == id) {
+							slotNode = slotNodes[i];
+							break;
+						}
+					}
+					return slotNode;
+				},
+				_isToolbarSlotEmpty: function() {
+					var gridActionsEl = this._getSlotNode("gridActions");
+					if(gridActionsEl) {
+						return false;
+					}
+					return true;
+				},
 				_columnValue: function (gridData, index) {
 					var cellData;
-					var columnName = this.config.tabular.columns[index].name;
-					var defaultValue = this.config.tabular.columns[index].defaultValue;
+					var columnName = this._fields[index].name;
+					var defaultValue = this._fields[index].defaultValue;
 					
 					if (this.config.schemaType == undefined || this.config.schemaType == "simple" || this.config.schemaType ==
 						"colModel") {
@@ -1905,10 +1912,9 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 					return cellData;
 				},
-
 				_columnIcon: function (gridData, index) {
 					var cellData;
-					var icon = this.config.tabular.columns[index].icon;
+					var icon = this._fields[index].icon;
 					if (this.config.schemaType == "attribute"){
 						if(icon){
 							cellData = icon;
@@ -1920,7 +1926,7 @@ The following JSON object is a config sample which configures the grid in all ab
 
 				_columnIconTooltip: function (gridData, index) {
 					var cellData;
-					var iconTooltip = this.config.tabular.columns[index].iconTooltip;
+					var iconTooltip = this._fields[index].iconTooltip;
 					if (this.config.schemaType == "attribute"){
 						if(iconTooltip){
 							cellData = iconTooltip;
@@ -1991,7 +1997,7 @@ The following JSON object is a config sample which configures the grid in all ab
 						"name": currentAttributeModelObject.name,
 						"value": this._columnValue(item, columnIndex)
 					};
-					var columnName = this.config.tabular.columns[columnIndex].name;
+					var columnName = this._fields[columnIndex].name;
 					if (this.config.schemaType == "attribute" && item.attributes && item.attributes.hasOwnProperty(columnName)) {
 						if(item.attributes[columnName].referenceDataId) {
 							attributeObject["referenceDataId"] = item.attributes[columnName].referenceDataId;
@@ -2014,19 +2020,13 @@ The following JSON object is a config sample which configures the grid in all ab
 							attributeObject["contextCoalescePaths"] = item[columnName + "_contextCoalescePaths"];
 						}
 					}
-					if (this.config.tabular.columns.length == columnIndex + 1) {
+					if (this._fields.length == columnIndex + 1) {
 						Polymer.Async.microTask.run(() => {
 							this._updateError(item, index);
 						});
 					}
 
 					return attributeObject;
-				},
-				_isIconColumn: function (col){	
-					if(col.icon && col.icon!="") {
-						return true;
-					}				
-					return false;					
 				},
 				_isFilterEnabled: function (col) {
 					return col.filterable ? col.name : undefined;
@@ -2044,6 +2044,7 @@ The following JSON object is a config sample which configures the grid in all ab
 				},
 				_onRefresh: function (e, detail) {
 					this.reRenderGrid();
+					this.fireBedrockEvent("grid-refresh-items");
 				},
 				_onBulkEdit: function (e) {
 					this.fireBedrockEvent("grid-bulk-edit-items");
@@ -2087,7 +2088,8 @@ The following JSON object is a config sample which configures the grid in all ab
 					this.dispatchEvent(new CustomEvent('editMode', { bubbles: true, composed: true }));
 				},
 				_actionValue: function (index) {
-					var action = this.config.tabular.settings.actions[index];
+					var actions = this._getArrayFromObject(this.config.viewConfig.tabular.settings.actions);
+					var action = actions[index];
 					var icon = action.icon;
 					if (!icon) {
 						if (action.name == 'delete') {
@@ -2104,7 +2106,7 @@ The following JSON object is a config sample which configures the grid in all ab
 					var columnIndex = typeof e.target.column === 'undefined' ? e.target.__dataHost.column.columnIndex : e.target.column.columnIndex;
 					var item = e.target.item;
 					var value = e.detail.value;
-					var columnName = this.config.tabular.columns[columnIndex].name;
+					var columnName = this._fields[columnIndex].name;
 					var row = this._getParentRow(e.currentTarget);
 					var status = "";
 					var referenceDataId = e.detail.referenceDataId ? e.detail.referenceDataId : undefined;
@@ -2195,7 +2197,8 @@ The following JSON object is a config sample which configures the grid in all ab
 					return DataHelper.getDependentAttributesOfAttribute(allAttributeElements, currentAttribute);
 				},
 				_fireActionEvent: function (e) {
-					var action = this.config.tabular.settings.actions[e.currentTarget.actionIndex];
+					var actions = this._getArrayFromObject(this.config.viewConfig.tabular.settings.actions);
+					var action = actions[e.currentTarget.actionIndex];
 					var eventName = action.eventName;
 					if (!eventName) {
 						if (action.name == 'delete') {
@@ -2230,7 +2233,8 @@ The following JSON object is a config sample which configures the grid in all ab
 					}
 				},
 				_hasActions: function (mode) {
-					if (this.config && this.config.tabular && this.config.tabular.settings && this.config.tabular.settings.actions && this.config.tabular.settings.actions.length > 0 && mode === "edit") {
+					if (DataHelper.isValidObjectPath(this.config, 'viewConfig.tabular.settings.actions')  && 
+					    !_.isEmpty(this.config.viewConfig.tabular.settings.actions) && mode === "edit") {
 						return true;
 					}
 					return false;
@@ -2238,8 +2242,8 @@ The following JSON object is a config sample which configures the grid in all ab
 				_actions: function () {
 					var actions = undefined;
 
-					if (this.config.tabular.settings) {
-						var actions = this.config.tabular.settings.actions;
+					if (this.config.viewConfig.tabular.settings) {
+						var actions = this._getArrayFromObject(this.config.viewConfig.tabular.settings.actions);
 
 						if (this.config.hasWritePermission != undefined && !this.config.hasWritePermission) {
 							for (var action in actions) {
@@ -2254,12 +2258,12 @@ The following JSON object is a config sample which configures the grid in all ab
 				},
 				_updateError: function (item, index) {
 					var errors = [];
-					for (var i = 0; i < this.config.tabular.columns.length; i++) {
+					for (var i = 0; i < this._fields.length; i++) {
 						var attr = this.shadowRoot.querySelector("#row" + index + "col" + i);
 						if (attr && attr.errors.length > 0) {
 							var errorObj = {};
-							errorObj.name = this.config.tabular.columns[i].name;
-							errorObj.externalName = this.config.tabular.columns[i].header;
+							errorObj.name = this._fields[i].name;
+							errorObj.externalName = this._fields[i].header;
 							errorObj.type = "error";
 							errorObj.message = attr.errors;
 							errorObj.index = index;
@@ -2290,7 +2294,7 @@ The following JSON object is a config sample which configures the grid in all ab
 				},
 				// Can be used to change the mode of a row to the edit mode.
 				editInline: function (index) {
-					for (var i = 0; i < this.config.tabular.columns.length; i++) {
+					for (var i = 0; i < this._fields.length; i++) {
 						var attr = this.shadowRoot.querySelector("#row" + index + "col" + i);
 						if (attr) {
 							attr.mode = 'edit';
@@ -2299,7 +2303,7 @@ The following JSON object is a config sample which configures the grid in all ab
 				},
 				// Can be used to change the mode of a row to the read mode.
 				changeRowToViewMode: function (index) {
-					for (var i = 0; i < this.config.tabular.columns.length; i++) {
+					for (var i = 0; i < this._fields.length; i++) {
 						var attr = this.shadowRoot.querySelector("#row" + index + "col" + i);
 						if (attr) {
 							attr.mode = 'read';
@@ -2410,7 +2414,7 @@ The following JSON object is a config sample which configures the grid in all ab
 									return encodeURIComponent(item.type);
 								}
 
-								var colModels = _this.config.tabular.columns;
+								var colModels = _this._fields;
 								var index = -1;
 								for (var i = 0; i < colModels.length; i++) {
 									if (colModels[i].name == attrName) {
@@ -2638,7 +2642,7 @@ The following JSON object is a config sample which configures the grid in all ab
 					var dependentAttributeModels = DataHelper.getDependentAttributeModels(this.attributeModels, currentAttributeModel);
 					var dependentAttributeValues = [];
 
-					var gridColumns = this.config.tabular.columns;
+					var gridColumns = this._fields;
 					if (gridColumns && gridColumns.length && dependentAttributeModels && dependentAttributeModels.length) {
 						for (let i = 0; i < dependentAttributeModels.length; i++) {
 
@@ -2667,15 +2671,18 @@ The following JSON object is a config sample which configures the grid in all ab
 							return;
 						}
 						var item = detail.item;
-						if (DataHelper.isValidObjectPath(this.config, 'tabular.settings.linkTemplate')) {
-							var link = this._getLink(this.config.tabular.settings, item);
+						if (this.config && this.config.itemConfig && this.config.itemConfig.linkTemplate) {
+							var link = this._getLink(this.config.itemConfig, item);
 							window.history.pushState("", "", link);
 							window.dispatchEvent(new CustomEvent('location-changed'));
 						}
 					}
 				},
 				_configPresent: function (type) {
-					return !(this.config[type] === undefined);
+					if(this.config && this.config.viewConfig && this.config.viewConfig[type]) {
+						return true;
+					}
+					return false;
 				},
 				_viewModeChanged: function () {
 					if(this.config &&  this.config.viewMode){
@@ -2776,7 +2783,7 @@ The following JSON object is a config sample which configures the grid in all ab
 				},
 				_getCellClassValue: function (gridRowData, columnIndex) {
 					if (this.applyLocaleCoalesceStyle) {
-						let attributeName = this.config.tabular.columns[columnIndex].name;
+						let attributeName = this._fields[columnIndex].name;
 						if (attributeName && this._isLocalizbale(attributeName) && this._hasLocaleCoalescePath(gridRowData, attributeName)) {
 							return "fallback-value";
 						}
@@ -2794,6 +2801,9 @@ The following JSON object is a config sample which configures the grid in all ab
 						   gridRowData.attributes[columnName] &&
 						   gridRowData.attributes[columnName].properties &&
 						   gridRowData.attributes[columnName].properties.localeCoalescePath;
+				},
+				_getArrayFromObject: function(obj) {
+					return DataHelper.convertObjectToArray(obj);
 				}
 			});
 		})();

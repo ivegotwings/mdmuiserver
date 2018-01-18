@@ -17,6 +17,7 @@
 <link rel="import" href="../rock-search-bar/rock-search-bar.html">
 <link rel="import" href="../rock-grid/rock-grid.html">
 <link rel="import" href="event-list-datasource.html">
+<link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
 
 <!--
 `<rock-task-list>`
@@ -119,7 +120,7 @@
         </div>
         <event-list-datasource id="eventDataSource" request="[[request]]" event-list-data-source="{{dataSource}}" grid-data-formatter="{{_dataFormatter}}">
         </event-list-datasource>
-        <rock-grid id="importlistGrid" no-header config="{{config}}" page-size="50" r-data-source="{{dataSource}}" data-source-id$="eventDataSource"></rock-grid>
+        <rock-grid id="importlistGrid" no-header config="{{gridConfig}}" page-size="50" r-data-source="{{dataSource}}" data-source-id$="eventDataSource"></rock-grid>
     </template>
 
     <script>
@@ -255,6 +256,12 @@
                             return {};
                         }
                     },
+                    gridConfig: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
                     /**
                      * <b><i>Content development is under progress... </b></i> 
                      */
@@ -302,20 +309,35 @@
                     }
                 },
                 behaviors: [
-                    RUFBehaviors.UIBehavior
+                    RUFBehaviors.UIBehavior,
+                    RUFBehaviors.ComponentConfigBehavior
                 ],
                 /**
                  * <b><i>Content development is under progress... </b></i> 
                  */
                 ready: function () {
                     this._dataFormatter = this._getEventFormattedData.bind(this);
-                    this.config = this.getParentAppConfig('rock-task-list')
                 },
 
-                observers: ['_contextDataChanged(contextData,config)'],
+                observers: ['_contextDataChanged(contextData)'],
 
-                _contextDataChanged: function (contextData, config) {
-                    if (!_.isEmpty(contextData) && !_.isEmpty(config)) {
+                _contextDataChanged: function (contextData) {
+                    if (!_.isEmpty(contextData)){
+                        var context = DataHelper.cloneObject(this.contextData);
+                        //App specific
+                        var appName = ComponentHelper.getCurrentActiveAppName();
+                        if(appName) {
+                            context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                                "app": appName
+                            }];
+                        }
+                        this.requestConfig('rock-task-list', context);
+                    }
+                    
+                },
+                onConfigLoaded: function (componentConfig) {
+                    if(componentConfig && componentConfig.config) {
+                        this.config=componentConfig.config;
                         this._setEventRequest();
                     }
                 },
@@ -372,9 +394,9 @@
                     if(this.selectedEventType != "ASSET_IMPORT_RECORD") {
                         req.params.fields.attributes.push("isSummaryFromTaskProcessor");
                     }
-
+                    
                     this.set("request", req);
-
+                    this.set("gridConfig",this.config.gridConfig);
                     this.shadowRoot.querySelector("#importlistGrid").reloadListData();
                 },
                 _addEventTypeCriterion: function (attributesCriterion) {
@@ -516,7 +538,7 @@
                     }
                 },
                 _getEventFormattedData: function (data) {
-                    var attributeNames = this._getAttributeNamesFromListConfig(this.config);
+                    var attributeNames = this._getAttributeNamesFromListConfig(this.config.gridConfig);
 
                     if (data && data.content) {
                         var events = data.content.events;
@@ -566,7 +588,7 @@
                     return events;
                 },
                 _getAttributeNamesFromListConfig: function (config) {
-                    var listItems = config.list.listItems;
+                    var listItems = config.itemConfig;
                     var attributeNames = [];
                     attributeNames.push(listItems.image);
                     attributeNames.push(listItems.title);

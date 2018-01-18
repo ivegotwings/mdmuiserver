@@ -11,6 +11,8 @@
 <link rel="import" href="../pebble-icons/pebble-icons.html">
 <link rel="import" href="../pebble-icon/pebble-icon.html">
 
+<link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
+
 <!--
 `rock-disclaimer` Represents an element that renders the disclaimer for an App.
 @demo demo/index.html
@@ -20,20 +22,21 @@
     <template>
         <style include="bedrock-style-common"></style>
         <app-localstorage-document id="disclaimerStorage" key="disclaimer" data="{{_disclaimerObject}}" session-only="true"></app-localstorage-document>
-        
-        <pebble-dialog id="disclaimerDialog" modal alert-box vertical-offset="150" horizontal-align="auto" vertical-align="auto" 
-            no-cancel-on-outside-click no-cancel-on-esc-key>
-            <div>
-                <span>
-                    <pebble-icon icon="{{_currentMessage.icon}}"></pebble-icon>
-                </span>
-                <span>{{_currentMessage.message}}</span>
-            </div>
-            <div class="buttons-right" align="right">
-                <pebble-button id="deny" class="close btn btn-secondary m-r-5" button-text="{{_currentMessage.denyButtonLabel}}" on-tap="_denied" ></pebble-button>
-                <pebble-button id="accept" class="apply btn btn-success" button-text="{{_currentMessage.acceptButtonLabel}}" on-tap="_accepted" ></pebble-button>
-            </div>
-        </pebble-dialog>
+        <template is="dom-if" if="[[_isDisclaimerNeeded(messages)]]">
+            <pebble-dialog id="disclaimerDialog" modal alert-box vertical-offset="150" horizontal-align="auto" vertical-align="auto" 
+                no-cancel-on-outside-click no-cancel-on-esc-key>
+                <div>
+                    <span>
+                        <pebble-icon icon="{{_currentMessage.icon}}"></pebble-icon>
+                    </span>
+                    <span>{{_currentMessage.message}}</span>
+                </div>
+                <div class="buttons-right" align="right">
+                    <pebble-button id="deny" class="close btn btn-secondary m-r-5" button-text="{{_currentMessage.denyButtonLabel}}" on-tap="_denied" ></pebble-button>
+                    <pebble-button id="accept" class="apply btn btn-success" button-text="{{_currentMessage.acceptButtonLabel}}" on-tap="_accepted" ></pebble-button>
+                </div>
+            </pebble-dialog>
+        </template>
         <bedrock-pubsub on-bedrock-event-user-logout="_clearSession"></bedrock-pubsub>
     </template>
 
@@ -50,7 +53,8 @@
                         type:Array,
                         value:function(){
                             return [];
-                        }
+                        },
+                        notify: true
                     },
                     userDetails: {
                         type: Object,
@@ -78,6 +82,29 @@
                         value:function(){
                             return {};
                         }
+                    },
+                    contextData:{
+                        type:Object,
+                        observer:"_onContextDataChange"
+                    }
+                },
+                behaviors: [RUFBehaviors.ComponentConfigBehavior],
+                _onContextDataChange: function(){
+                    if(!_.isEmpty(this.contextData)){
+                        var context = DataHelper.cloneObject(this.contextData);
+                        var appName = ComponentHelper.getCurrentActiveAppName();
+                        if(appName) {
+                            context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                                "app": appName
+                            }];
+                        }
+                        this.requestConfig("rock-disclaimer", context);
+                    }
+                },
+                onConfigLoaded: function (componentConfig) {
+                    if(componentConfig && componentConfig.config) {
+                        var disclaimers = DataHelper.convertObjectToArray(componentConfig.config.disclaimers);
+                        this.messages = disclaimers;
                     }
                 },
                 _onUserDetailsChange: function(){
@@ -109,14 +136,14 @@
                         this._currentMessage = this.messages[_messageId];
                     }
                     //setting title
-                    this.$.disclaimerDialog.set('dialogTitle', this._currentMessage.title);
-                    this.$.disclaimerDialog.open();
+                    this.shadowRoot.querySelector("#disclaimerDialog").set('dialogTitle', this._currentMessage.title);
+                    this.shadowRoot.querySelector("#disclaimerDialog").open();
                 },
                 _accepted:function(){
                     var disclaimerObj =JSON.parse(this._disclaimerObject);
                     disclaimerObj.agreed = true;
                     this._disclaimerObject =JSON.stringify(disclaimerObj);
-                    this.$.disclaimerDialog.close();
+                    this.shadowRoot.querySelector("#disclaimerDialog").close();
                 },
                 _denied:function(){
                     if(this._currentMessageId < this.messages.length-1)
@@ -129,6 +156,12 @@
                 },
                 _clearSession:function(){
                     this.$.disclaimerStorage.destroy();
+                },
+                _isDisclaimerNeeded:function(){
+                    if(this.messages && this.messages.length > 0){
+                        return true;
+                    }
+                    return false;
                 }
             });
         })();

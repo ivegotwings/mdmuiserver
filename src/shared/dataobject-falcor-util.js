@@ -91,126 +91,6 @@ DataObjectFalcorUtil.createSelfCtxKey = function () {
     return DataObjectFalcorUtil.createCtxKey(DataObjectFalcorUtil.getSelfCtx());
 };
 
-DataObjectFalcorUtil.boxDataObject = function (dataObject, boxOp) {
-    var modDataObject = {};
-
-    for (var dataObjectFieldKey in dataObject) {
-        if (dataObjectFieldKey === "data") {
-            if (dataObject && dataObject.data) {
-                var data = dataObejct.data;
-                var modData = {};
-
-                if (data.attributes) {
-                    modData.attributes = DataObjectFalcorUtil.boxAttributesData(data.attributes, boxOp);
-                }
-
-                if (data.relationships) {
-                    modData.relationships = DataObjectFalcorUtil.boxRelationshipsData(data.relationships, boxOp);
-                }
-
-                if (data.properties) {
-                    modData.properties = boxOp(data.properties);
-                }
-
-                if (data.contexts) {
-                    var modContexts = [];
-                    for (var i = 0; i < data.contexts.length; i++) {
-                        var ctxItem = data.contexts[i];
-                        var modAttrs = DataObjectFalcorUtil.boxAttributesData(ctxItem.attributes, boxOp);
-                        var modRelationships = DataObjectFalcorUtil.boxRelationshipsData(ctxItem.relationships, boxOp);
-                        var modProperties = boxOp(ctxItem.properties);
-
-                        modContexts.push({ "context": ctxItem.context, "attributes": modAttrs, "relationships": modRelationships, "properties": modProperties });
-                    }
-
-                    modData.contexts = modContexts;
-                }
-
-                modDataObject.data = modData;
-            }
-        }
-        else {
-            if (!isEmpty(dataObject[dataObjectFieldKey])) {
-                modDataObject[dataObjectFieldKey] = boxOp(dataObject[dataObjectFieldKey]);
-            }
-        }
-    }
-
-    //console.log('boxedDataObject ', modDataObject);
-    return modDataObject;
-};
-
-DataObjectFalcorUtil.boxAttributesData = function (attrs, boxOp) {
-    if (!attrs) {
-        return;
-    }
-
-    var modAttrs = {};
-
-    for (var attrId in attrs) {
-        var modAttr = DataObjectFalcorUtil.cloneObject(attrs[attrId]);
-
-        for (var valIndex in modAttr.values) {
-            var val = modAttr.values[valIndex];
-
-            if (val && val.name !== undefined) {
-                delete val.name; // if name is coming as field inside val
-            }
-        }
-
-        modAttr.values = boxOp(modAttr.values);
-
-        if (modAttr.properties) {
-            modAttr.properties = boxOp(modAttr.properties);
-        }
-
-        modAttrs[attrId] = modAttr;
-    }
-
-    return modAttrs;
-};
-
-DataObjectFalcorUtil.boxRelationshipsData = function (relationships, boxOp) {
-    if (!relationships) {
-        return;
-    }
-
-    var modRelationships = {};
-
-    for (var relTypeIdx in relationships) {
-        var modRelTypeObj = DataObjectFalcorUtil.cloneObject(relationships[relTypeIdx]);
-
-        for (var relId in modRelTypeObj) {
-            var rel = modRelTypeObj[relId];
-
-            for (var relObjKey in rel) {
-                if (relObjKey === "attributes") {
-                    rel[relObjKey] = DataObjectFalcorUtil.boxAttributesData(rel[relObjKey], boxOp);
-                }
-                else {
-                    rel[relObjKey] = boxOp(rel[relObjKey]);
-                }
-            }
-        }
-
-        modRelationships[relTypeIdx] = modRelTypeObj;
-    }
-
-    return modRelationships;
-};
-
-DataObjectFalcorUtil.boxJsonObject = function (obj) {
-    return { '$type': "atom", 'value': obj };
-};
-
-DataObjectFalcorUtil.unboxJsonObject = function (obj) {
-    if (obj && obj.$type) {
-        return obj.value;
-    } else {
-        return obj;
-    }
-};
-
 DataObjectFalcorUtil.transformToExternal = function (dataObject) {
 
     //console.log('transform dataObject input:', JSON.stringify(dataObject, null, 4));
@@ -743,46 +623,58 @@ DataObjectFalcorUtil.deepAssign = function (...objs) {
     }
 
     var target = objs[0];
-
     for (var i = 1; i < objs.length; i++) {
         var source = objs[i];
         if (!DataObjectFalcorUtil.isObject(source) && !Array.isArray(source)) {
             target = source;
-        } else {
+        }
+        else {
             Object.keys(source).forEach(prop => {
-                const value = source[prop];
-                if (DataObjectFalcorUtil.isObject(value)) {
-                    if (target.hasOwnProperty(prop) && DataObjectFalcorUtil.isObject(target[prop])) {
-                        target[prop] = DataObjectFalcorUtil.deepAssign(target[prop], value);
-                    } else {
-                        target[prop] = value;
-                    }
-                } else if (Array.isArray(value)) {
-                    if (target.hasOwnProperty(prop) && Array.isArray(target[prop])) {
-                        const targetArray = target[prop];
-                        value.forEach((sourceItem, itemIndex) => {
-                            if (itemIndex < targetArray.length) {
-                                const targetItem = targetArray[itemIndex];
-                                if (Object.is(targetItem, sourceItem)) {
-                                    return;
-                                }
-
-                                if (DataObjectFalcorUtil.isObject(targetItem) && DataObjectFalcorUtil.isObject(sourceItem)) {
-                                    targetArray[itemIndex] = DataObjectFalcorUtil.deepAssign(targetItem, sourceItem);
-                                } else if (Array.isArray(targetItem) && Array.isArray(sourceItem)) {
-                                    targetArray[itemIndex] = DataObjectFalcorUtil.deepAssign(targetItem, sourceItem);
-                                } else {
-                                    targetArray[itemIndex] = sourceItem;
-                                }
-                            } else {
-                                targetArray.push(sourceItem);
-                            }
-                        })
-                    } else {
-                        target[prop] = value;
-                    }
+                var value = source[prop];
+                if (value == "_DEEP_ASSIGN_DELETE_") {
+                    delete target[prop];
                 } else {
-                    target[prop] = value;
+                    if (DataObjectFalcorUtil.isObject(value)) {
+                        if (target.hasOwnProperty(prop) && DataObjectFalcorUtil.isObject(target[prop])) {
+                            // if (value.hasOwnProperty(DataObjectFalcorUtil.CONST_DELETE_KEY) && value[DataObjectFalcorUtil.CONST_DELETE_KEY] == false) {
+                            //     delete target[prop];
+                            // }
+                            // else {
+                            //     target[prop] = DataObjectFalcorUtil.deepAssign(target[prop], value);
+                            // }
+                            target[prop] = DataObjectFalcorUtil.deepAssign(target[prop], value);
+                        } else {
+                            target[prop] = {};
+                            target[prop] = DataObjectFalcorUtil.deepAssign(target[prop], value);
+                        }
+                    } else if (Array.isArray(value)) {
+                        // TODO:: "_DEEP_ASSIGN_DELETE_" has to be discussed.
+                        if (target.hasOwnProperty(prop) && Array.isArray(target[prop])) {
+                            const targetArray = target[prop];
+                            value.forEach((sourceItem, itemIndex) => {
+                                if (itemIndex < targetArray.length) {
+                                    const targetItem = targetArray[itemIndex];
+                                    if (Object.is(targetItem, sourceItem)) {
+                                        return;
+                                    }
+
+                                    if (DataObjectFalcorUtil.isObject(targetItem) && DataObjectFalcorUtil.isObject(sourceItem)) {
+                                        targetArray[itemIndex] = DataObjectFalcorUtil.deepAssign(targetItem, sourceItem);
+                                    } else if (Array.isArray(targetItem) && Array.isArray(sourceItem)) {
+                                        targetArray[itemIndex] = DataObjectFalcorUtil.deepAssign(targetItem, sourceItem);
+                                    } else {
+                                        targetArray[itemIndex] = sourceItem;
+                                    }
+                                } else {
+                                    targetArray.push(sourceItem);
+                                }
+                            })
+                        } else {
+                            target[prop] = value;
+                        }
+                    } else {
+                        target[prop] = value;
+                    }
                 }
             });
         }
@@ -808,6 +700,19 @@ DataObjectFalcorUtil.mergePathSets = function () {
     var args = Array.prototype.splice.call(arguments, 0);
     var mergedPathSets = Array.prototype.concat.apply([], args);
     return mergedPathSets;
+};
+
+DataObjectFalcorUtil.deepRemoveNodesByKeyVal = function (obj, key, value) {
+    for (var prop in obj) {
+        if (typeof obj[prop] === 'object') {
+            if (obj[prop].hasOwnProperty(key) && obj[prop][key] == value) {
+                delete obj[prop];
+            }
+            else {
+                DataObjectFalcorUtil.deepRemoveNodesByKeyVal(obj[prop], key, value);
+            }
+        }
+    }
 };
 
 function isEmpty(obj) {
