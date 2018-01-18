@@ -431,14 +431,13 @@ async function get(dataObjectIds, reqData) {
             dataIndexInfo = dataIndexInfo.dataSubIndexInfo[request.dataSubIndex];
         }
 
-        var collectionName = dataIndexInfo.collectionName;
-        reqData.cacheExpiryDuration = dataIndexInfo.cacheExpiryDurationInMins ? -(dataIndexInfo.cacheExpiryDurationInMins * 60 * 1000) : -(60 * 60 * 1000);
+        reqData.cacheExpiryDuration = dataIndexInfo && dataIndexInfo.cacheExpiryDurationInMins ? -(dataIndexInfo.cacheExpiryDurationInMins * 60 * 1000) : -(60 * 60 * 1000);
 
 
-        var dataObjectResponse = res ? res[dataIndexInfo.responseObjectName] : undefined;
+        var dataObjectResponse = res && dataIndexInfo && dataIndexInfo.responseObjectName ? res[dataIndexInfo.responseObjectName] : undefined;
 
         if (dataObjectResponse && dataObjectResponse.status == "success") {
-            var dataObjects = dataObjectResponse[collectionName];
+            var dataObjects = dataIndexInfo && dataIndexInfo.collectionName && dataObjectResponse ? dataObjectResponse[dataIndexInfo.collectionName] : undefined;
 
             if (dataObjects !== undefined) {
                 var byIdsJson = response[pathKeys.byIds] = {};
