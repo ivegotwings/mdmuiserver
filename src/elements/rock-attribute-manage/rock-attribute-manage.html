@@ -113,9 +113,12 @@ It is responsible to "get" and "save" the attributes.
         </div>
         <liquid-rest id="contextModelGet" url="/data/pass-through/entitymodelservice/getcontext" method="POST" request-data="{{_contextModelGetReq}}"
             on-liquid-response="_onContextModelGetResponse" on-liquid-error="_onContextModelGetFailed"></liquid-rest>
-        
+
+        <liquid-entity-data-get name="relatedEntityGet" operation="getbyids" on-response="_relatedEntityGetResponse" exclude-in-progress></liquid-entity-data-get>
+
         <bedrock-pubsub event-name="global-edit" handler="_onGlobalEdit"></bedrock-pubsub>
-        </template>
+        <bedrock-pubsub event-name="source-info-open" handler="_onSourceInfoOpen"></bedrock-pubsub>
+    </template>
     <script>
         (function () {
             'use strict';
@@ -123,12 +126,6 @@ It is responsible to "get" and "save" the attributes.
                 is: 'rock-attribute-manage',
                 attached: function () {
                     this.logInfo("AttributeManageAttached");
-                },
-                ready: function () {
-                    if(_.isEmpty(this.messageCodeMapping)) {
-                        this.messageCodeMapping = this.getParentAppConfig('rock-attribute-manage', '', 'messageCodeMapping');
-                    }
-                    this.logInfo("AttributeManageReady");
                 },
                 properties: {
                     /**
@@ -332,6 +329,20 @@ It is responsible to "get" and "save" the attributes.
                     _contextModelGetReq: {
                         type: Object,
                         value: function () { return {}; }
+                    },
+
+                    applyLocaleCoalesce: {
+                        type: Boolean,
+                        value: false
+                    },
+
+                    applyContextCoalesce: {
+                        type: Boolean,
+                        value: false
+                    },
+                    
+                    _relatedEntityGetResponse: {
+                        type: Object
                     }
                 },
                 behaviors: [
@@ -426,7 +437,7 @@ It is responsible to "get" and "save" the attributes.
                                 itemContext.attributeNames = attributeNames;
 
                                 let contextData = this._getContextDataWithDefaultLocale();
-                                let useCoalesceFallback = DataTransformHelper.hasLocalizableAttributes(this._attributeModels);
+                                let useCoalesceFallback = this.applyLocaleCoalesce ? DataTransformHelper.hasLocalizableAttributes(this._attributeModels) : undefined;
                                 let req = DataRequestHelper.createEntityGetRequest(contextData, false, useCoalesceFallback);
                                 this._contextModelGetReq = DataRequestHelper.createContextModelGetRequest(itemContext.type);
 
@@ -448,6 +459,9 @@ It is responsible to "get" and "save" the attributes.
                                 }
                                 let liquidDataGet = this.shadowRoot.querySelector("[name=attributeGetDataService]");
                                 if (liquidDataGet) {
+                                    if(this.applyContextCoalesce) {
+                                        liquidDataGet.useDataCoalesce = true;
+                                    }
                                     liquidDataGet.generateRequest();
                                 }
                                 this._showNoAttributeMessage = false;
@@ -492,7 +506,6 @@ It is responsible to "get" and "save" the attributes.
 
                             if (entity) {
                                 attributes = DataTransformHelper.transformAttributes(entity, this._attributeModels, this.contextData, "array", true);
-                                //Removed the code for rock-title bar
                             }
                         }
                         this._attributeValues = attributes;
@@ -598,8 +611,8 @@ It is responsible to "get" and "save" the attributes.
                     }
                     return attributesJSON;
                 },
-                _isEmptyValue: function(value) {
-                    if(typeof(value) === "string") {
+                _isEmptyValue: function (value) {
+                    if (typeof (value) === "string") {
                         return value === "" || value.trim().length === 0;
                     } else {
                         return _.isEmpty(value);
@@ -913,7 +926,7 @@ It is responsible to "get" and "save" the attributes.
 
                     return attrMessages;
                 },
-                _onGlobalEdit:function(e){
+                _onGlobalEdit: function (e) {
                     this.mode = "edit";
                 },
                 _onContextModelGetResponse: function (e) {
@@ -930,6 +943,39 @@ It is responsible to "get" and "save" the attributes.
 
                 _onContextModelGetFailed: function (e) {
                     // Error msg . . .
+                },
+
+                _onSourceInfoOpen: function (e) {
+                    var data = e.detail.data;
+                    var callback = e.detail.callback;
+                    var relatedEntityGetElement = this.$$("[name=relatedEntityGet]");
+
+                    this._relatedEntityGetResponse = function (e) {
+                        if(e.detail && e.detail.response && e.detail.response.content) {
+                            var entities = e.detail.response.content.entities;
+
+                            if(!_.isEmpty(entities)) {
+                                callback(entities[0]);
+                            }
+                        }
+                    }
+
+                    if (!_.isEmpty(data) && relatedEntityGetElement) {
+                        var req = {
+                            "params": {
+                                "query": {
+                                    "id": data.id,
+                                    "filters": {
+                                        "typesCriterion": [
+                                            data.type
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                        relatedEntityGetElement.requestData = req;
+                        relatedEntityGetElement.generateRequest();
+                    }
                 }
             });
         })();

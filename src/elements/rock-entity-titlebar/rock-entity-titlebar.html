@@ -1,0 +1,249 @@
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
+
+<link rel="import" href="../bedrock-helpers/attribute-helper.html">
+<link rel="import" href="../bedrock-helpers/context-helper.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/entity-helper.html">
+
+<link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
+
+<link rel="import" href="../rock-layout/rock-titlebar/rock-titlebar.html">
+<link rel="import" href="../rock-dimension-selector/rock-dimension-selector.html">
+
+<link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+
+<!--
+@group rock Elements
+@element rock-entity-titlebar
+@demo demo/index.html
+-->
+<dom-module id="rock-entity-titlebar">
+    <template>
+        <style include="bedrock-style-common">
+            rock-titlebar {
+                color: var(--pagetitle-text-color, #034c89);
+                font-weight: var(--font-bold, bold);
+            }
+
+            rock-dimension-selector {
+                margin-right: 10px;
+                --dimesion-selector-container-popover: {
+                    width: 70px;
+                };
+                --dimesion-selector-source-popover: {
+                    width: 55px;
+                };
+                --dimesion-selector-date-dropdown: {
+                    width: 60px;
+                };
+                --dimesion-selector-locale-popover: {
+                    width: 65px;
+                };
+            }
+
+            #dimensionContainer {
+                align-self: center;
+                -webkit-align-self: center;
+                width: 100%;
+            }
+        </style>
+        <style>
+        </style>
+        <rock-titlebar icon="dashboard" main-title="[[mainTitle]]" sub-title="[[subTitle]]" config="[[_titlebarConfig]]"
+            non-minimizable="[[appConfig.nonMinimizable]]" non-closable="[[appConfig.nonClosable]]">
+            <div id="dimensionContainer" align="right">
+                <rock-dimension-selector id="dimensionSelector" entity-id="[[_entityId]]" entity-type="[[_entityType]]" app-name="[[appName]]" context-data="[[contextData]]"></rock-dimension-selector>
+            </div>
+        </rock-titlebar>
+        <liquid-entity-data-get name="attributeGetDataServiceForTitleBar" operation="getbyids" request-data="{{titleAttributeRequest}}"
+            on-response="_onTitleAttributesGetResponse"></liquid-entity-data-get>
+        <bedrock-pubsub event-name="dimension-selector-data-changed" handler="_onDimensionsChanged" target-id="dimensionSelector"></bedrock-pubsub>
+    </template>
+<script>
+    class RockEntityTitlebar
+        extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior, RUFBehaviors.ComponentContextBehavior, RUFBehaviors.ComponentConfigBehavior], Polymer.Element) {
+        static get is() { return 'rock-entity-titlebar' }
+        ready() {
+            super.ready();
+        }
+        static get properties() {
+            return {
+                contextData: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    },
+                    observer: '_onContextDataChange'
+                },
+                appConfig: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+                appName: {
+                    type: String,
+                    value: null
+                },
+                _entityId: {
+                    type: String,
+                    value: null
+                },
+                _entityType: {
+                    type: String,
+                    value: null
+                },
+                mainTitle: {
+                    type: String,
+                    value: null
+                },
+                subTitle: {
+                    type: String,
+                    value: null
+                },
+                _titlebarConfig: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                },
+                titleAttributeRequest: {
+                    type: Object,
+                    value: function () {
+                        return {};
+                    }
+                }
+            }
+        }
+        /**
+        *
+        */
+        connectedCallback() {
+            super.connectedCallback();
+        }
+        /**
+        *
+        */
+        disconnectedCallback() {
+            super.disconnectedCallback();
+        }
+        _onContextDataChange() {
+            if (!_.isEmpty(this.contextData)) {
+                var context = DataHelper.cloneObject(this.contextData);
+                //App specific
+                var appName = ComponentHelper.getCurrentActiveAppName();
+                if (appName) {
+                    context[ContextHelper.CONTEXT_TYPE_APP] = [{
+                        "app": appName
+                    }];
+                }
+
+                this.requestConfig('rock-entity-titlebar', context);
+            }
+        }
+        onConfigLoaded(componentConfig) {
+            if (componentConfig && componentConfig.config) {
+                this._titlebarConfig = componentConfig.config;
+
+                if(this.contextData && this.contextData.ItemContexts && this.contextData.ItemContexts.length) {
+                    var entity = this.contextData.ItemContexts[0];
+                    this._entityId = entity.id;
+                    this._entityType = entity.type;
+                }
+            }
+        }
+
+        refreshTitleBar() {
+            var config = this._titlebarConfig;
+            if (config) {
+                var attributeNames = new Array();
+                if (config.titleAttribute != "") {
+                    attributeNames.push(config.titleAttribute);
+                }
+                if (config.subtitleAttribute != "") {
+                    attributeNames.push(config.subtitleAttribute);
+                }
+                if (attributeNames.length > 0) {
+                    if (this.contextData && this.contextData.ItemContexts && this.contextData.ItemContexts.length > 0) {
+                        var itemContext = this.contextData.ItemContexts[0];
+                        //add attribute names in item context
+                        itemContext.attributeNames = attributeNames;
+                        var req = DataRequestHelper.createEntityGetRequest(this.contextData, true, true);
+                        this.set("titleAttributeRequest", req);
+                        var liquidDataGet = this.shadowRoot.querySelector("[name=attributeGetDataServiceForTitleBar]");
+                        if (liquidDataGet) {
+                            liquidDataGet.generateRequest();
+                        }
+                    }
+                }
+            }
+        }
+
+        _onTitleAttributesGetResponse(e) {
+            var titleAttributeResponse = e.detail.response;
+            this.logInfo("EntityTitleAttributeResponse", "response", JSON.stringify(titleAttributeResponse, null, 2));
+
+            var attributesData = [];
+            if (DataHelper.validateGetEntitiesResponse(titleAttributeResponse)) {
+
+                var entity = titleAttributeResponse.content.entities[0];
+
+                if (entity) {
+                    this.setTitleBar(entity);
+                }
+            }
+        }
+
+        setTitleBar(entity) {
+            var titlebar = this.shadowRoot.querySelector('rock-titlebar');
+            var config = this._titlebarConfig;
+
+            let titleAttribute = !_.isEmpty(config.titleAttribute) ? EntityHelper.getAttribute(entity, config.titleAttribute) : undefined;
+            let subtitleAttribute = !_.isEmpty(config.subtitleAttribute) ? EntityHelper.getAttribute(entity, config.subtitleAttribute) : undefined;
+            
+            let mainTitle = this._getTitlebarValueFromAttribute(titleAttribute);
+            let subTitle = this._getTitlebarValueFromAttribute(subtitleAttribute);
+
+            mainTitle = mainTitle ? mainTitle : entity.id;
+            subTitle = subTitle ? subTitle : entity.type;
+
+            if (!mainTitle || mainTitle == "") {
+                mainTitle = "No Title";
+            }
+            if (!subTitle || subTitle == "") {
+                subTitle = "No Sub-Title";
+            }
+
+            this.mainTitle = mainTitle;
+            this.subTitle = subTitle;
+
+            //after setting the title raise an event
+            this.fireBedrockEvent('on-set-titlebar', { "mainTitle": this.mainTitle });
+        }
+        
+        _getTitlebarValueFromAttribute (attribute) {
+            var firstValueContext = ContextHelper.getFirstValueContext(this.contextData);
+            var defaultValCtx = DataHelper.getDefaultValContext();
+            var value = undefined;
+
+            if(attribute && attribute.values) {
+                var currentValues = AttributeHelper.getAttributeValues(attribute.values, firstValueContext);
+                if(_.isEmpty(currentValues)) {
+                    currentValues = AttributeHelper.getAttributeValues(attribute.values, defaultValCtx);
+                }
+                if(!_.isEmpty(currentValues)) {
+                    value = currentValues[0];
+                }
+            }
+            
+            return value;
+        }
+ 
+        _onDimensionsChanged(e) {
+            this.fireBedrockEvent('dimension-selector-data-changed', e.detail);
+        }
+    }
+    customElements.define(RockEntityTitlebar.is, RockEntityTitlebar);
+</script>
+</dom-module>
