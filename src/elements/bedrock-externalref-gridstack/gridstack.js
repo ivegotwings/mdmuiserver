@@ -55,7 +55,6 @@
             } else {
                 style.appendChild(document.createTextNode(''));
             }
-            //document.getElementsByTagName('head')[0].appendChild(style);
             container.before(style);
             return style.sheet;
         },
