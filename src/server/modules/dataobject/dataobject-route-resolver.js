@@ -547,7 +547,7 @@ async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectActio
             dataIndexInfo = dataIndexInfo.dataSubIndexInfo[dataSubIndex];
         }
 
-        var responsePaths = [];
+        
         var jsonGraphResponse = response['jsonGraph'] = {};
         var rootJson = jsonGraphResponse[pathKeys.root] = {};
         var dataJson = rootJson[dataIndex] = {};
@@ -558,6 +558,7 @@ async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectActio
         }
 
         for (var dataObjectId in dataObjects) {
+            var responsePaths = [];
             var dataObject = dataObjects[dataObjectId];
             formatDataObjectForSave(dataObject);
 
@@ -638,7 +639,12 @@ async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectActio
 
                         var dataObjectResponseJson = buildResponse(dataObject, reqData, responsePaths);
                         byIdsJson[dataObjectId] = dataObjectResponseJson;
-                        response['paths'] = responsePaths;
+
+                        if(!response.paths) {                          
+                            response['paths'] = [];
+                        }
+
+                        Array.prototype.push.apply(response.paths, responsePaths);
                     }
                 }
                 else if (dataOperationResponse && dataOperationResponse.status == 'error') {
