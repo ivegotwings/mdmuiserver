@@ -24,6 +24,7 @@
 <link rel="import" href="../rock-entity-lov/rock-entity-lov.html">
 <link rel="import" href="../rock-context-lov/rock-context-lov.html">
 <link rel="import" href="../rock-entity-model-lov/rock-entity-model-lov.html">
+<link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
 
 <!--
 `rock-dimension-grid` Represents a component that displays the dimension value of the given attribute.
@@ -97,7 +98,7 @@ The user can view the past data but cannot modify it. However he/she can add or 
     <div id="dimensionGridContainer">
       <div id="dimensionFilters">
         <template is="dom-repeat" items="[[_updatedDimensionConfigs]]" as="configDataItem" notify-dom-change>
-          <pebble-accordion header-text="[[configDataItem.title]]" default-icon="chevron-right" open-icon="expand-more">
+          <pebble-accordion header-text="[[configDataItem.title]]" default-icon="pebble-icon:RightArrow" open-icon="pebble-icon:Expand">
             <!--div class="header-content">
               <pebble-checkbox id="[[configDataItem.id]]Chk" on-change="_onSelectAll"></pebble-checkbox>
             </div-->
@@ -144,6 +145,13 @@ The user can view the past data but cannot modify it. However he/she can add or 
       Polymer({
         is: 'rock-dimension-grid',
         properties: {
+          contextData: {
+            type: Object,
+            value: function() {
+              return {};
+            },
+            observer: "_onContextDataChange"
+          },
           /*
            * Indicates an identifier for an entity.
            */
@@ -246,12 +254,32 @@ The user can view the past data but cannot modify it. However he/she can add or 
         },
         behaviors: [
           RUFBehaviors.UIBehavior,
-          RUFBehaviors.ComponentContextBehavior
+          RUFBehaviors.ComponentContextBehavior,
+          RUFBehaviors.ComponentConfigBehavior
         ],
+
+        _onContextDataChange: function() {
+          var context = DataHelper.cloneObject(this.contextData);
+          context[ContextHelper.CONTEXT_TYPE_APP] = [{
+            "app": this.appName
+          }];
+
+          if (!_.isEmpty(context)) {
+            this.requestConfig('rock-dimension-grid', context);
+          }
+        },
+
+        onConfigLoaded: function(componentConfig) {
+            if(componentConfig && componentConfig.config) {
+              this._gridConfig = componentConfig.config.gridConfig;
+              this.triggerSetup();
+            }
+        },
+
         /**
           * <b><i>Content development is under progress... </b></i> 
           */
-        ready: function () {
+        triggerSetup: function () {
           this.entityId = DataHelper.getParamValue('id');
           this.entityType = DataHelper.getParamValue('type');
 
@@ -332,8 +360,15 @@ The user can view the past data but cannot modify it. However he/she can add or 
 
           this.set("_updatedDimensionConfigs", this.dimensionConfigs);
 
-          this._gridConfig = undefined;
-          this._gridConfig = this._getGridConfig();
+          var fields = this._gridConfig.itemConfig.fields;
+          var modelObject = JSON.parse(this.attributeModelObject);
+          if (!_.isEmpty(fields)) {
+            for (var key in fields) {
+              if (fields[key].header.toLowerCase() == "value") {
+                fields[key].name = modelObject.name;
+              }
+            }
+          }
 
           var attrModels = {};
           var modelObject = JSON.parse(this.attributeModelObject);
@@ -341,11 +376,7 @@ The user can view the past data but cannot modify it. However he/she can add or 
 
           this.gridAttributeModel = undefined;
           this.gridAttributeModel = attrModels;
-     
-          
-        },
-        
-        attached:function(){
+
           setTimeout(() => {
             this._setDimensionSelection();
             this._onSelectionChange();
@@ -511,10 +542,10 @@ The user can view the past data but cannot modify it. However he/she can add or 
               var modelObject = JSON.parse(this.attributeModelObject);
               var relationshipName = modelObject.relationshipName;
               var attrName = modelObject.name;
-              
+
               if (res.content && res.content.events && res.content.events.length > 0) {
                 var events = res.content.events;
-                var columns = this._gridConfig.tabular.columns;
+                var columns = DataHelper.convertObjectToArray(this._gridConfig.itemConfig.fields);
                 events.forEach(function (eventObj) {
                     var _attribute;
                     if(relationshipName){
