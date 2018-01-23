@@ -428,7 +428,11 @@ async function get(dataObjectIds, reqData) {
         var dataIndexInfo = pathKeys.dataIndexInfo[request.dataIndex];
 
         if (!isEmpty(dataIndexInfo.dataSubIndexInfo)) {
-            dataIndexInfo = dataIndexInfo.dataSubIndexInfo[request.dataSubIndex];
+            if(isEmpty(request.dataSubIndex)) {
+                dataIndexInfo = dataIndexInfo.dataSubIndexInfo["data"];
+            } else {
+                dataIndexInfo = dataIndexInfo.dataSubIndexInfo[request.dataSubIndex];
+            }
         }
 
         var collectionName = dataIndexInfo.collectionName;
