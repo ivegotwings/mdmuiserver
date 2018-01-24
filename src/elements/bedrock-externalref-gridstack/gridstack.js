@@ -1297,9 +1297,9 @@
         if (typeof id != 'undefined') { el.attr('data-gs-id', id); }
         // this.container.append(el);
         this._prepareElement(el, true);
-        this._triggerAddEvent();
-        this._updateContainerHeight();
-        this._triggerChangeEvent(true);
+        // this._triggerAddEvent();
+        // this._updateContainerHeight();
+        // this._triggerChangeEvent(true);
 
         return el;
     };
