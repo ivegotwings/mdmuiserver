@@ -90,7 +90,7 @@ ConfigurationService.prototype = {
         //console.log('base config request', JSON.stringify(baseConfigRequest, null, 2));
 
         //Get entity manage model with permissions...
-        var getLatest = true;
+        var getLatest = false;
         var baseConfigResponse = await this._fetchConfigObject(RDF_SERVICE_NAME + "/get", baseConfigRequest, getLatest);
 
         var finalConfigObject = baseConfigResponse.response.configObjects[0];
@@ -289,7 +289,7 @@ ConfigurationService.prototype = {
     _fetchConfigObject: async function (serviceUrl, request, getLatest = true) {
         var res = {};
 
-        if (!getLatest) {
+        if (getLatest) {
             res = await this.post(serviceUrl, request);
         }
         else {
@@ -298,13 +298,15 @@ ConfigurationService.prototype = {
             var generatedId = this._createConfigId(requestedContext);
             var cacheKey = "".concat("id:", requestedConfigId, "|contextKey:", generatedId);
 
+            //console.log('cacheKey: ', cacheKey);
+
             if (cacheKey != "id:_BYCONTEXT|contextKey:_NOCONTEXT") {
-                res = localConfigCache[cacheKey];
+                res = falcorUtil.cloneObject(localConfigCache[cacheKey]);
             }
 
             if (isEmpty(res)) {
                 res = await this.post(serviceUrl, request);
-                localConfigCache[cacheKey] = res;
+                localConfigCache[cacheKey] = falcorUtil.cloneObject(res);
             }
         }
 
