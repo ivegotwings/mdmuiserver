@@ -9,10 +9,12 @@ var mergeUtil = require('../../../shared/dataobject-merge-util');
 
 const arrayRemove = require('../common/utils/array-remove'),
     arrayContains = require('../common/utils/array-contains'),
-    isEmpty = require('../common/utils/isEmpty');
+    isEmpty = require('../common/utils/isEmpty'),
+    BaseConfigService = require('./BaseConfigService');
 
 var ConfigurationService = function (options) {
     DFRestService.call(this, options);
+    this.baseConfigService = new BaseConfigService(options);
 };
 
 const RDF_SERVICE_NAME = "configurationservice";
@@ -89,9 +91,12 @@ ConfigurationService.prototype = {
 
         //console.log('base config request', JSON.stringify(baseConfigRequest, null, 2));
 
+        var baseConfigResponse = await this.baseConfigService.get(RDF_SERVICE_NAME + "/get", baseConfigRequest);
+        // console.log('baseConfigResponse --> ', JSON.stringify(baseConfigResponse))
         //Get entity manage model with permissions...
         var getLatest = false;
-        var baseConfigResponse = await this._fetchConfigObject(RDF_SERVICE_NAME + "/get", baseConfigRequest, getLatest);
+        // var baseConfigResponse = await this._fetchConfigObject(RDF_SERVICE_NAME + "/get", baseConfigRequest, getLatest);
+        // console.log('base config response --> ', JSON.stringify(baseConfigResponse));
 
         var finalConfigObject = baseConfigResponse.response.configObjects[0];
         //console.log('base config', JSON.stringify(finalConfigObject));
