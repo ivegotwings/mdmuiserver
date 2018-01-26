@@ -5,6 +5,7 @@
 <link rel="import" href="../bedrock-helpers/context-helper.html">
 <link rel="import" href="../bedrock-helpers/data-request-helper.html">
 <link rel="import" href="../bedrock-helpers/data-transform-helper.html">
+<link rel="import" href="../bedrock-helpers/liquid-response-helper.html">
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 
@@ -48,6 +49,7 @@
             <bedrock-pubsub event-name="grid-custom-toolbar-event" handler="_onCustomToolbarEvent" target-id="entityGrid"></bedrock-pubsub>
             <bedrock-pubsub event-name="download-original-asset" handler="_onOriginalAssetDownloadAction" target-id="entityGrid"></bedrock-pubsub>
             <bedrock-pubsub event-name="grid-bulk-delete-items" handler="_showConfirmationDialog" target-id="entityGrid"></bedrock-pubsub>
+            <bedrock-pubsub event-name="grid-bulk-edit-items" handler="_onBulkEdit" target-id="entityGrid"></bedrock-pubsub>
         </template>
 
         <pebble-dialog id="confirmationDialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click no-cancel-on-esc-key>
@@ -58,6 +60,7 @@
         <rock-business-function-dialog id="entityUploadDialog" context-data="[[contextData]]"></rock-business-function-dialog>
         <rock-business-function-dialog id="entityDownloadDialog" context-data="[[contextData]]"></rock-business-function-dialog>
         <rock-business-function-dialog id="entityDeleteDialog" context-data="[[contextData]]"></rock-business-function-dialog>
+		<rock-business-function-dialog id="entityEditDialog" context-data="[[contextData]]"></rock-business-function-dialog>
     </template>
 
     <script>
@@ -670,29 +673,13 @@
                     }
                 },
                 _onGetDownloadUrlResponse: function (e) {
-                    if (e.detail && e.detail.response && e.detail.response.response) {
-                        var response = e.detail.response.response;
-                        if (response.status.toLowerCase() == "success") {
-                            var binaryStreamObjects = response.binaryStreamObjects;
-                            if (binaryStreamObjects) {
-                                for (var i = 0; i < binaryStreamObjects.length; i++) {
-                                    if (binaryStreamObjects[i].data) {
-                                        var downloadURL = binaryStreamObjects[i].data.properties.downloadURL;
-                                        if (downloadURL) {
-                                            var a = document.createElement('a');
-                                            a.href = downloadURL;
-                                            a.download = "";
-                                            a.style.display = 'none';
-                                            document.body.appendChild(a);
-                                            a.click();
-                                            document.body.removeChild(a);
-                                            a = null;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    const a = document.createElement('a');
+                    a.download = "";
+                
+                    LiquidResponseHelper.downloadURLResponseMapper(e, downloadURL => {
+                        a.href = downloadURL;
+                        a.click();
+                    });
                 },
                 _onUpload: function () {
                     this.shadowRoot.querySelector("#entityUploadDialog").name = "rock-entity-upload";
@@ -732,7 +719,41 @@
                 },
                 getSelectionMode: function () {
                     return this._getEntityGrid().getSelectionMode();
-                }
+                },
+                _onBulkEdit: function (e, detail) {
+                    var selectedItems = this.getSelectedItems();
+                    var selectionMode = this.getSelectionMode();
+                    var selectionQuery = this.getSelectedItemsAsQuery();
+                    if (selectedItems && selectedItems.length && this.contextData) {
+                        var itemContexts = [];
+                        if (this.typesCriterion && this.typesCriterion.length) {
+                            for (var i = 0; i < this.typesCriterion.length; i++) {
+                                var type = this.typesCriterion[i];
+                                if (!(itemContexts.find(obj => obj.type === type))) {
+                                    var itemContext = { "type": type };
+                                    itemContexts.push(itemContext);
+                                }
+                            }
+                        }
+                        var clonedContextData = DataHelper.cloneObject(this.contextData);
+                        clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
+                        clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+                        var entityEditDialog = this.shadowRoot.querySelector("#entityEditDialog");
+                        entityEditDialog.name = "rock-entity-bulk-edit";
+                        entityEditDialog.configName = "wizardConfig";
+                        entityEditDialog.sharedData = {
+                            "context-data": clonedContextData,
+                            "workflow-criterion": this.workflowCriterion,
+                            "selection-query": selectionQuery,
+                            "selection-mode": selectionMode,
+                            "selected-entities": selectedItems,
+                            "edit-attributes-only": true
+                        };
+                        entityEditDialog.open();
+                    } else {
+                        this.showInformationToast("Please select at least one entity from grid to edit.");
+                    }
+                },
             });
         })();
     </script>

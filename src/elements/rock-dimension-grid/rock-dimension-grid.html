@@ -24,6 +24,7 @@
 <link rel="import" href="../rock-entity-lov/rock-entity-lov.html">
 <link rel="import" href="../rock-context-lov/rock-context-lov.html">
 <link rel="import" href="../rock-entity-model-lov/rock-entity-model-lov.html">
+<link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
 
 <!--
 `rock-dimension-grid` Represents a component that displays the dimension value of the given attribute.
@@ -97,7 +98,7 @@ The user can view the past data but cannot modify it. However he/she can add or 
     <div id="dimensionGridContainer">
       <div id="dimensionFilters">
         <template is="dom-repeat" items="[[_updatedDimensionConfigs]]" as="configDataItem" notify-dom-change>
-          <pebble-accordion header-text="[[configDataItem.title]]" default-icon="chevron-right" open-icon="expand-more">
+          <pebble-accordion header-text="[[configDataItem.title]]" default-icon="pebble-icon:RightArrow" open-icon="pebble-icon:Expand">
             <!--div class="header-content">
               <pebble-checkbox id="[[configDataItem.id]]Chk" on-change="_onSelectAll"></pebble-checkbox>
             </div-->
@@ -144,6 +145,13 @@ The user can view the past data but cannot modify it. However he/she can add or 
       Polymer({
         is: 'rock-dimension-grid',
         properties: {
+          contextData: {
+            type: Object,
+            value: function() {
+              return {};
+            },
+            observer: "_onContextDataChange"
+          },
           /*
            * Indicates an identifier for an entity.
            */
@@ -246,12 +254,32 @@ The user can view the past data but cannot modify it. However he/she can add or 
         },
         behaviors: [
           RUFBehaviors.UIBehavior,
-          RUFBehaviors.ComponentContextBehavior
+          RUFBehaviors.ComponentContextBehavior,
+          RUFBehaviors.ComponentConfigBehavior
         ],
+
+        _onContextDataChange: function() {
+          var context = DataHelper.cloneObject(this.contextData);
+          context[ContextHelper.CONTEXT_TYPE_APP] = [{
+            "app": this.appName
+          }];
+
+          if (!_.isEmpty(context)) {
+            this.requestConfig('rock-dimension-grid', context);
+          }
+        },
+
+        onConfigLoaded: function(componentConfig) {
+            if(componentConfig && componentConfig.config) {
+              this._gridConfig = componentConfig.config.gridConfig;
+              this.triggerSetup();
+            }
+        },
+
         /**
           * <b><i>Content development is under progress... </b></i> 
           */
-        ready: function () {
+        triggerSetup: function () {
           this.entityId = DataHelper.getParamValue('id');
           this.entityType = DataHelper.getParamValue('type');
 
@@ -332,8 +360,15 @@ The user can view the past data but cannot modify it. However he/she can add or 
 
           this.set("_updatedDimensionConfigs", this.dimensionConfigs);
 
-          this._gridConfig = undefined;
-          this._gridConfig = this._getGridConfig();
+          var fields = this._gridConfig.itemConfig.fields;
+          var modelObject = JSON.parse(this.attributeModelObject);
+          if (!_.isEmpty(fields)) {
+            for (var key in fields) {
+              if (fields[key].header.toLowerCase() == "value") {
+                fields[key].name = modelObject.name;
+              }
+            }
+          }
 
           var attrModels = {};
           var modelObject = JSON.parse(this.attributeModelObject);
@@ -341,11 +376,7 @@ The user can view the past data but cannot modify it. However he/she can add or 
 
           this.gridAttributeModel = undefined;
           this.gridAttributeModel = attrModels;
-     
-          
-        },
-        
-        attached:function(){
+
           setTimeout(() => {
             this._setDimensionSelection();
             this._onSelectionChange();
@@ -377,7 +408,7 @@ The user can view the past data but cannot modify it. However he/she can add or 
           }
         },
 
-        _onSelectionChange: function (_selectedLocales, _selectedChannels, _selectedSources) {
+        _onSelectionChange: function () {
           if (this.dataId) {
               var attributeNames = [];
               var valueContexts = [];
@@ -511,10 +542,10 @@ The user can view the past data but cannot modify it. However he/she can add or 
               var modelObject = JSON.parse(this.attributeModelObject);
               var relationshipName = modelObject.relationshipName;
               var attrName = modelObject.name;
-              
+
               if (res.content && res.content.events && res.content.events.length > 0) {
                 var events = res.content.events;
-                var columns = this._gridConfig.tabular.columns;
+                var columns = DataHelper.convertObjectToArray(this._gridConfig.itemConfig.fields);
                 events.forEach(function (eventObj) {
                     var _attribute;
                     if(relationshipName){
@@ -551,7 +582,15 @@ The user can view the past data but cannot modify it. However he/she can add or 
                       temporalDivElement.innerHTML = attrValue;
                       record[attrName] = temporalDivElement.textContent || temporalDivElement.innerText || "";
                       temporalDivElement = null;
-
+                      
+                      if(_attribute.properties){
+                         if(_attribute.properties.changeType){
+                           var changeType = _attribute.properties.changeType;
+                           if(changeType == "deleteAttributeValuesFromContext"){
+                             record[attrName] = "";
+                           }
+                         }
+                      }
                       if(eventObj.properties && eventObj.properties.modifiedDate){
                         record.Time = FormatHelper.convertFromISODateTimeToClientFormat(eventObj.properties.modifiedDate, 'datetime');
                       }
@@ -571,46 +610,38 @@ The user can view the past data but cannot modify it. However he/she can add or 
             }
         },
         _onAttributesGetErrorResponse: function(e){
-
+          console.error(e);
         },
         _onSelectAll: function (e) {
-          if (e.currentTarget.id == 'localeChk') {
-            var localeLov = Polymer.dom(this).node.shadowRoot.querySelector('rock-entity-model-lov[id="locale"]');
-            localeLov.selectedItems = undefined;
-            this._selectedLocales = undefined;
-            if (e.currentTarget.checked) {
-              var items = this._getAllItemsOfLov(localeLov);
-              localeLov.selectedItems = items;
-              this._selectedLocales = items;
-            } else {
-              localeLov.selectedItems = [];
-              this._selectedLocales = [];
-            }
-          } else if (e.currentTarget.id == 'sourceChk') {
-            var sourceLov = Polymer.dom(this).node.shadowRoot.querySelector('rock-entity-model-lov[id="source"]');
-            sourceLov.selectedItems = undefined;
-            this._selectedSources = undefined;
-            if (e.currentTarget.checked) {
-              var items = this._getAllItemsOfLov(sourceLov);
-              sourceLov.selectedItems = items;
-              this._selectedSources = items;
-            } else {
-              sourceLov.selectedItems = [];
-              this._selectedSources = [];
-            }
-          } else if (e.currentTarget.id == 'channelChk') {
-            var channelLov = Polymer.dom(this).node.shadowRoot.querySelector('rock-entity-lov[id="channel"]');
-            channelLov.selectedItems = undefined;
-            this._selectedChannels = undefined;
-            if (e.currentTarget.checked) {
-              var items = this._getAllItemsOfLov(channelLov);
-              channelLov.selectedItems = items;
-              this._selectedChannels = items;
-            } else {
-              channelLov.selectedItems = [];
-              this._selectedChannels = [];
-            }
+          const target = e.currentTarget;
+          
+          const entityType = target.id;
+          
+          let nodeId;
+          let objectKey;
+          
+          switch(entityType) {
+            case 'localeChk':
+              nodeId = 'locale';
+              objectKey = '_selectedLocales';
+              break;
+            case 'sourceChk':
+              nodeId = 'source';
+              objectKey = '_selectedSources';
+              break;
+            case 'channelChk':
+              nodeId = 'channel';
+              objectKey = '_selectedChannels';
+              break;
+            default:
+              throw new Error(`Unsupported entity type: ${entityType}`);
           }
+
+          const node = Polymer.dom(this).node.shadowRoot.querySelector(`rock-entity-model-lov[id=${nodeId}]`);
+
+          node.selectedItems = target.checked ? this._getAllItemsOfLov(node): [];
+
+          this[objectKey] = node.selectedItems;
         },
 
         _getAllItemsOfLov: function (lovElement) {
