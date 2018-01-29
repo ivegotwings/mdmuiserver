@@ -143,7 +143,7 @@ function clientBuild(relativeBuildPath, bundle, isES5) {
           .pipe(gulpif("**/*.js", (babel({
               plugins: ["transform-class-properties"]
             }))))
-        .pipe(gulpif("**/*.js", uglify(uglifyOptions)))    
+          .pipe(gulpif("**/*.js", uglify(uglifyOptions)))    
 
         dependenciesStream = dependenciesStream
           //.pipe(gulpif("**/*.css", cssSlam()))
@@ -151,7 +151,7 @@ function clientBuild(relativeBuildPath, bundle, isES5) {
           .pipe(gulpif(['**/*.js', "!bower_components/pdfjs-dist/**/*.js", "!bower_components/mocha/mocha.js", "!bower_components/jsoneditor/dist/jsoneditor.min.js", "!bower_components/resize-observer-polyfill/**/*.js"], (babel({
               plugins: ["transform-class-properties"]
             }))))
-         .pipe(gulpif(["**/*.js", "!bower_components/resize-observer-polyfill/**/*.js"], uglify(uglifyOptions)))
+          .pipe(gulpif(["**/*.js", "!bower_components/resize-observer-polyfill/**/*.js"], uglify(uglifyOptions)))
       }
       
       sourcesStream = sourcesStream.pipe(sourcesStreamSplitter.rejoin());
@@ -175,7 +175,7 @@ function clientBuild(relativeBuildPath, bundle, isES5) {
             stripComments: true,
             // Merge shared dependencies into a single bundle when
             // they have at least three dependents
-            strategy: generateShellOnlyMergeStrategy(polymerJson.shell, 1),
+            strategy: generateShellOnlyMergeStrategy(polymerJson.shell, 3),
             // Shared bundles will be named:
             // `shared/bundle_1.html`, `shared/bundle_2.html`, etc...
             urlMapper: polyBundler.generateCountingSharedBundleUrlMapper('src/shared-bundles/bundle_')
@@ -185,7 +185,7 @@ function clientBuild(relativeBuildPath, bundle, isES5) {
         waitFor(buildStream);
 
         buildStream = buildStream.pipe(gulpif("**/*.html", crisper({
-          scriptInHead: true, // true is default 
+          scriptInHead: false, // true is default 
           onlySplit: false
         })))
         .once('data', () => { console.log('Crisping resources... '); });
