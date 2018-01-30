@@ -92,10 +92,6 @@ ConfigurationService.prototype = {
         //console.log('base config request', JSON.stringify(baseConfigRequest, null, 2));
 
         var baseConfigResponse = await this.baseConfigService.get(RDF_SERVICE_NAME + "/get", baseConfigRequest);
-        // console.log('baseConfigResponse --> ', JSON.stringify(baseConfigResponse))
-        //Get entity manage model with permissions...
-        var getLatest = false;
-        // var baseConfigResponse = await this._fetchConfigObject(RDF_SERVICE_NAME + "/get", baseConfigRequest, getLatest);
         // console.log('base config response --> ', JSON.stringify(baseConfigResponse));
 
         var finalConfigObject = baseConfigResponse.response.configObjects[0];

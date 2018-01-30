@@ -17,15 +17,17 @@ var localConfigCache = {};
 BaseConfigService.prototype = {
     get: async function (url, baseConfigRequest) {
         var serviceConfig = SERVICE_CONFIG.services[url];
+        var tenant = this.getTenantId();
 
         var mode = "online";
         if (serviceConfig && serviceConfig.baseConfigMode && serviceConfig.baseConfigMode == "offline") {
             mode = "offline";
         }
         var fileId = baseConfigRequest.params.query.id;
+        var cacheKey = tenant + "_" + fileId;
 
-        if (localConfigCache[fileId]) {
-            return falcorUtil.cloneObject(localConfigCache[fileId]);
+        if (localConfigCache[cacheKey]) {
+            return falcorUtil.cloneObject(localConfigCache[cacheKey]);
         }
 
         var baseConfigResponse;
@@ -35,7 +37,7 @@ BaseConfigService.prototype = {
             baseConfigResponse = await this.post(url, baseConfigRequest);
         }
 
-        localConfigCache[fileId] = falcorUtil.cloneObject(baseConfigResponse);
+        localConfigCache[cacheKey] = falcorUtil.cloneObject(baseConfigResponse);
 
         return baseConfigResponse;
     },
