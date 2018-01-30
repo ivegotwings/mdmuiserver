@@ -355,11 +355,10 @@ The following JSON object is a sample of data which binds the grid.
             </span>
             <div class="relation-name-container">
               <template is="dom-if" if="[[relationshipGridConfig.gridConfig.hasWritePermission]]">
-                <pebble-button class="btn btn-primary m-r-20 quick-manage" button-text="Quick Manage" relationship="[[relationship]]" on-tap="_onTapQuickManage"></pebble-button>
                 <template is="dom-if" if="[[relationshipGridConfig.copyActionConfig]]">
                   <pebble-button class="btn btn-primary m-r-10 tooltip-bottom" id="copy_btn" data-tooltip$="[[_clipboardTooltip]]"  button-text="Copy ID(s)" on-tap="_onTapCopyAction" on-mouseout="_onMouseoutCopyAction"></pebble-button>
                 </template>
-                <pebble-button icon="pebble-sm-icons:Add" disabled$="[[readonly]]" id="button_[[relationship]]" relationship="[[relationship]]" class="btn btn-primary m-r-10 auto-width addbutton" button-text="Add"
+                <pebble-button icon="pebble-icon:Add" disabled$="[[readonly]]" id="button_[[relationship]]" relationship="[[relationship]]" class="btn btn-primary m-r-10 auto-width addbutton" button-text="Add"
                 on-tap="_onAddRelClick"></pebble-button>
               </template>
               <pebble-popover for$="button_[[relationship]]" vertical-align="auto" horizontal-align="auto" no-overlap>
@@ -450,7 +449,8 @@ The following JSON object is a sample of data which binds the grid.
     </pebble-dialog>
     <bedrock-pubsub target-id="gridMsgDialog" event-name="on-buttonok-clicked" handler="_onDialogOk"></bedrock-pubsub>
     <bedrock-pubsub event-name="global-edit" handler="_onGlobalEdit"></bedrock-pubsub>
-    <rock-business-function-dialog id="entityEditDialog" context-data="[[contextData]]"></rock-business-function-dialog>
+    <bedrock-pubsub event-name="quick-manage-event" handler="_onTapQuickManage"></bedrock-pubsub>
+    <rock-business-function-dialog id="entityEditDialog"></rock-business-function-dialog>
   </template>
   <script>
     (function () {
@@ -1428,15 +1428,17 @@ The following JSON object is a sample of data which binds the grid.
                 var relationshipType = i;
                 var relTitle = this._getRelationshipTypeTitle(relationshipType);
                 var relationshipMessages = MessageHelper.getRelationshipMessages(relationships[i], this.messageCodeMapping, this.localize);
-                var relAttributes = relationships[i][0].attributes;
-                var attrModels = this._getRelationshipAttributeModels(relationshipType);
-                var relationshipObj = {
-                  "relTitle": relTitle,
-                  "relMessage": relationshipMessages[0],
-                  "relAttributes": relAttributes,
-                  "attrModels": attrModels
-                };
-                relMessages[relationshipType] = relationshipObj;
+                if (relationshipMessages && relationshipMessages.length > 0) {
+                  var relAttributes = relationships[i][0].attributes;
+                  var attrModels = this._getRelationshipAttributeModels(relationshipType);
+                  var relationshipObj = {
+                    "relTitle": relTitle,
+                    "relMessage": relationshipMessages[0],
+                    "relAttributes": relAttributes,
+                    "attrModels": attrModels
+                  };
+                  relMessages[relationshipType] = relationshipObj;
+                }
               }
             }
             if (!_.isEmpty(relMessages)) {
@@ -1900,16 +1902,12 @@ The following JSON object is a sample of data which binds the grid.
           if (!_.isEmpty(selectionQuery) && selectedItems && selectedItems.length && this.contextData) {
               selectionQuery.filters = {};
               var selectedItemTypes = selectedItems.map(item => item.type).filter((value, index, self) => self.indexOf(value) === index);
-              selectionQuery.filters["typesCriterion"]= selectedItemTypes; 
-              var itemContexts = [];              
-              var itemContext = {};
-              itemContext = {"type": selectedItemTypes};
-              itemContexts.push(itemContext);
+              selectionQuery.filters["typesCriterion"]= selectedItemTypes;
+
               var clonedContextData = DataHelper.cloneObject(this.contextData);
-              clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
-              clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+              clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [{"type": selectedItemTypes[0]}];
               var entityEditDialog = this.shadowRoot.querySelector("#entityEditDialog");
-              entityEditDialog.name = "rock-entity-bulk-edit";
+              entityEditDialog.name = "rock-wizard-entity-bulk-edit";
               entityEditDialog.configName = "wizardConfig";
               entityEditDialog.sharedData = {
                   "context-data": clonedContextData,
@@ -1920,6 +1918,7 @@ The following JSON object is a sample of data which binds the grid.
                   "edit-attributes-only": true,
                   "edit-relationship-attributes-only": false
               };
+              entityEditDialog.contextData = clonedContextData;
               entityEditDialog.open();
           } else {
               this.showInformationToast("Please select at least one entity from grid to edit.");
@@ -1957,9 +1956,8 @@ The following JSON object is a sample of data which binds the grid.
             selectionQuery.filters.typesCriterion = typesCriterion; //Based on relationship entityType
             var clonedContextData = DataHelper.cloneObject(this.contextData);
             clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
-            clonedContextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
             var entityEditDialog = this.shadowRoot.querySelector("#entityEditDialog");
-            entityEditDialog.name = "rock-entity-bulk-edit";
+            entityEditDialog.name = "rock-wizard-entity-bulk-edit";
             entityEditDialog.configName = "wizardConfig";
             entityEditDialog.sharedData = {
               "context-data": clonedContextData,
@@ -1971,6 +1969,7 @@ The following JSON object is a sample of data which binds the grid.
               "edit-attributes-only": false,
               "edit-relationship-attributes-only": true
             };
+            entityEditDialog.contextData = clonedContextData;
             entityEditDialog.open();
           } else {
             this.showInformationToast("Please select at least one entity from grid to edit.");
