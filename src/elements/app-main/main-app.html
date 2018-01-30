@@ -1,8 +1,12 @@
 <!-- <link rel="import" href="../../../bower_components/polymer/polymer.html">
 <!-- <link rel="import" href="../../../bower_components/shadycss/apply-shim.html"> -->
 <!-- <link rel="import" href="../../../bower_components/polymer/lib/elements/custom-style.html"> -->
+
+<!-- <link rel="import" href="../../../bower_components/polymer/lib/elements/custom-style.html"> -->
+
 <link rel="import" href="../../../bower_components/app-route/app-route.html">
 <link rel="import" href="../../../bower_components/app-route/app-location.html">
+<link rel="import" href="../../../bower_components/app-layout/app-header-layout/app-header-layout.html">
 <!--<link rel="import" href="../../../bower_components/app-layout/app-drawer/app-drawer.html">
 <link rel="import" href="../../../bower_components/app-layout/app-scroll-effects/app-scroll-effects.html">
 <link rel="import" href="../../../bower_components/app-layout/app-header/app-header.html">
@@ -65,6 +69,8 @@
 
 <link rel="import" href="../rock-business-function-elements/rock-business-function-elements.html">
 <link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
+<link rel="import" href="../bedrock-style-manager/bedrock-style-theme-provider.html">
+
 
 <!-- <link rel="import" href="../app-common/app-common.html"> -->
 
@@ -100,6 +106,8 @@ var Globals = Globals || {};
 Globals.requestCount = 0;
 Globals.responseCount = 0;
 
+pages= ["dashboard", "entity-discovery", "asset-discovery", "reference-discovery", "system-healthcheck"];
+
 </script>
 
 <!--
@@ -110,10 +118,22 @@ Main os app for riversand ui framework
 -->
 <dom-module id="main-app">
     <template>
-        <custom-style>
-                <style include="bedrock-styles-variables bedrock-style-common"> </style>
-        </custom-style>
+        <style include="bedrock-styles-variables bedrock-style-common">
+            app-header-layout {
+                    z-index: inherit !important;
+                }
 
+                app-header-layout {
+                    --layout-vertical: {
+                        @apply --layout;
+                        -ms-flex-direction: column;
+                        -webkit-flex-direction: column;
+                        flex-direction: column;
+                        z-index: inherit !important;
+                    }
+                }
+            </style>
+        <bedrock-style-theme-provider></bedrock-style-theme-provider>
         <app-location id="tenantRoute" route="{{route}}"></app-location>
         <app-route route="{{route}}" pattern="/:tenant" data="{{baseRouteData}}" query-params="{{tenantRouteQueryParams}}" tail="{{pageRoute}}"></app-route>
         <app-route route="{{pageRoute}}" pattern="/:page" data="{{routeData}}" query-params="{{queryParams}}" tail="{{subRoute}}"></app-route>
@@ -127,12 +147,15 @@ Main os app for riversand ui framework
         <liquid-dataobject-preload id="liquidDataObjectPreLoad" on-preload-request-tracker-change="_onRequestTrackerChange" on-dataobject-preload-completed="_onPreloadCompleted"
         on-error="_onPreloadCompleted" pre-load-config="{}"></liquid-dataobject-preload>
         <template is="dom-if" if="[[isAuthenticated]]">
-            <app-common route="{{routeData}}" tenant-id="{{tenantId}}" context-data="[[contextData]]" user-details="{{_userDetails}}" page="{{page}}" query-params="{{queryParams}}" context-data="[[contextData]]" menu-items="{{menuItems}}" active-items="{{activeItems}}"></app-common>
+            <app-header-layout>
+                <app-common tenant-logo="{{tenantLogo}}" tenant-logo-text="{{tenantLogoText}}" main-logo="{{mainLogo}}" route="{{routeData}}" tenant-id="{{tenantId}}" context-data="[[contextData]]" user-details="{{_userDetails}}" page="{{page}}" query-params="{{queryParams}}" context-data="[[contextData]]" menu-items="{{menuItems}}" active-items="{{activeItems}}"></app-common>
+                <div id="middle-container">
+                        <rock-content-view-manager id="contentViewManager" on-open="onViewOpen" on-opened="onViewOpened" on-close="onViewClose" on-minimize="_onViewMinimize"></rock-content-view-manager>
+                </div>
+            </app-header-layout>
             <rock-app-repository context-data="[[contextData]]" app-repository="{{appRepository}}"></rock-app-repository>
         </template>
-        <div id="middle-container">
-            <rock-content-view-manager id="contentViewManager" on-open="onViewOpen" on-opened="onViewOpened" on-close="onViewClose" on-minimize="_onViewMinimize"></rock-content-view-manager>
-        </div>
+
     </template>
     <script>
         function isEmpty(obj) {
@@ -160,15 +183,14 @@ Main os app for riversand ui framework
                     //this._userDetails = undefined;
                     this._userDetails = userDetail;
                     this._onUserDetailsChange();
-                    this.page = 'dashboard';
-                    this.changePageRoutePath('dashboard');
-                    //RUFUtilities.Logger.trace("Authentication successful");
-                    //RUFUtilities.Logger.info("Preload started");
-                    Polymer.RenderStatus.afterNextRender(this, () => {
-                        Polymer.Async.timeOut.after(10).run(() => {
-                            Polymer.importHref(Polymer.ResolveUrl.resolveUrl('../../src/elements/app-common/app-common.html'),null,null,true);
-                        });
-                    });
+                    var pageurl =  location.href.substring(location.href.lastIndexOf('/') + 1, location.href.length);
+                    if(pages.indexOf(pageurl) !== -1) {
+                        this.page = pageurl;
+                        this.changePageRoutePath(pageurl);
+                    } else {
+                        this.page = 'dashboard';
+                        this.changePageRoutePath('dashboard');
+                    }
                 }
             },
             properties: {
@@ -416,7 +438,7 @@ Main os app for riversand ui framework
                 if (componentConfig && componentConfig.config) {
                     var globalSettings = componentConfig.config;
                     this.initGlobalSettings(globalSettings);
-                    //this._renderTenantLogo(globalSettings.themeSettings);
+                    this._renderTenantLogo(globalSettings.themeSettings);
                     var themeProvider = this.shadowRoot.querySelector("bedrock-style-theme-provider");
                     if(themeProvider){
                         themeProvider.initiateTheme(globalSettings.themeSettings);
@@ -507,6 +529,14 @@ Main os app for riversand ui framework
                         this.push("activeItems", activeItem);
                     }
                 }
+                var cElement = customElements.get('app-common');
+                if (!cElement) {
+                    Polymer.RenderStatus.afterNextRender(this, () => {
+                        Polymer.Async.timeOut.after(1000).run(() => {
+                            Polymer.importHref(Polymer.ResolveUrl.resolveUrl('../../src/elements/app-common/app-common.html'),null,null,true);
+                        });
+                    });
+                }
             },
             onViewClose: function (e, customArgs) {
                 var viewIndex;
@@ -581,15 +611,6 @@ Main os app for riversand ui framework
                         var contentViewManager = this.shadowRoot.querySelector('#contentViewManager');
                         if (contentViewManager) {
                             contentViewManager.openView(page, this.appRepository[page], this.queryParams, this.openAction);
-                            var navMenu = this.shadowRoot.querySelector('#navMenu');
-                            if (navMenu && navMenu._collapseExpandDrawer) {
-                                //Do not collapse the drawer when close item is clicked
-                                if (navMenu.doNotCollapse) {
-                                    navMenu.doNotCollapse = false;
-                                    return;
-                                }
-                                this._collapseExpandDrawer(true);
-                            }
                         }
                     }
                     this.dispatchEvent(new CustomEvent('bedrock-event', {
@@ -603,27 +624,6 @@ Main os app for riversand ui framework
                         composed: true
                     }));
                 });
-            },
-            _collapseExpandDrawer: function (collapsed) {
-                var drawer = this.shadowRoot.querySelector('#drawerLayout');
-                var navMenu = this.shadowRoot.querySelector('#navMenu');
-
-                if (drawer && navMenu) {
-                    //ToDo: remove hard coded style and use class toggle
-                    if (!collapsed && drawer.style.width == "45px") {
-                        drawer.setAttribute("menu-expanded", "");
-                        navMenu._isMenuOpened = true;
-                        drawer.style.width = "266px";
-                        drawer.$.contentContainer.style.width = "266px";
-                    }
-                    else {
-                        navMenu._collapseSubMenu();
-                        drawer.removeAttribute("menu-expanded");
-                        navMenu._isMenuOpened = false;
-                        drawer.style.width = "45px";
-                        drawer.$.contentContainer.style.width = "45px";
-                    }
-                }
             },
             _onUserStoreGetResponse: function (e) {
                 //console.log('Received configs ', JSON.stringify(e, null, 2));
@@ -642,8 +642,6 @@ Main os app for riversand ui framework
                     if (preloadElement) {
                         preloadElement.tenantLogoText = this.tenantLogoText;
                     }
-
-                    this.shadowRoot.querySelector("#headerLayout").removeAttribute("visibility-hidden");
 
                 } else {
                     alert("Configuration not found for User:" + this._userDetails.userName);
@@ -694,19 +692,7 @@ Main os app for riversand ui framework
                 if (preloadElement) {
                     preloadElement.active = false;
                 }
-                this._appViewOpened = true;
-                // document.querySelector("main-app").removeAttribute("visibility-hidden");
-
-                // //drawerLayout is coming null when preload is completed
-                // setTimeout(() => {
-                //     var drawerLayout = this.shadowRoot.querySelector("#drawerLayout");
-                //     if (drawerLayout) {
-                //         drawerLayout.removeAttribute("visibility-hidden");
-                //         //open only when drawer layout is available
-                //         this._appViewOpened = true;
-                //      }   
-                // }, 0);
-                
+                this._appViewOpened = true;        
             },
             _onViewMinimize: function (e, customArgs) {
                 this._updateActiveItemsAppStatus(customArgs);
