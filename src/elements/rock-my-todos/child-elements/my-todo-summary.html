@@ -348,11 +348,9 @@
                             }
                         }
 
-                        var contexts = [
-                            {
-                                "workflow": this.myTodo.workflowName
-                            }
-                        ];
+                        var contexts = [{
+                            "workflow": this.myTodo.workflowName
+                        }];
 
                         var options = {
                             "contexts": contexts,
@@ -360,12 +358,14 @@
                             "userId": userId,
                             "workflowActivityName": this.myTodo.workflowData.wfActivityName,
                             "excludeNonContextual": true
-                        }
+                        };
+
                         var req = DataRequestHelper.createGovernGetRequest(options);
                         this._governDataRequest = req;
                         governDataLiquid.generateRequest();
                     } else {
                         this.showErrorToast("Types criterion is undefied or empty for govern get.");
+                        this._setTaskCounterLoaderVisibility(false);
                     }
                 }
 
@@ -385,9 +385,13 @@
                         }
                     }
 
-                    this.shadowRoot.querySelector('#taskCountLoading').hidden = true;
-                    this.shadowRoot.querySelector('#taskCount').hidden = false;
+                    this._setTaskCounterLoaderVisibility(true);
                 }
+            },
+
+            _setTaskCounterLoaderVisibility: function (isVisible) {
+                this.shadowRoot.querySelector('#taskCountLoading').hidden = !isVisible;
+                this.shadowRoot.querySelector('#taskCount').hidden = isVisible;
             },
 
             _onGovernDataError: function (e) {
@@ -632,6 +636,11 @@
                         }
                         var attributes = ["businessConditions", "status", "activities"];
                         var passedBCOptions={};
+                        var governGetLiquid = document.createElement('liquid-entity-govern-data-get');
+
+                        governGetLiquid.addEventListener('response', this._getBusinessConditionCountResponse.bind(this));
+                        governGetLiquid.addEventListener('error', this._getBusinessConditionCountFailed);
+                        
                         this._businessConditionMappings.forEach(function (businessCondition) {
                             if (businessCondition && businessCondition.data) {
                                 var options = {
@@ -646,26 +655,22 @@
                                 passedBCOptions=options;
                                 var req = DataRequestHelper.createGovernGetRequest(options);
                                 if (!_.isEmpty(req)) {
-                                    var governGetLiquid = document.createElement('liquid-entity-govern-data-get');
                                     governGetLiquid.id = businessCondition.data.bcId;
                                     governGetLiquid.operation = 'initiatesearchandgetcount';
                                     governGetLiquid.requestData = req;
                                     governGetLiquid.excludeInProgress = true;
-                                    governGetLiquid.addEventListener('response', this._getBusinessConditionCountResponse.bind(this));
-                                    governGetLiquid.addEventListener('error', this._getBusinessConditionCountFailed);
                                     governGetLiquid.generateRequest();
-                                    governGetLiquid = null;
                                 }
                             }
                         }, this);
                         delete  passedBCOptions.businessConditionName;
-                        this._getPassedBusinessConditionsCount(passedBCOptions,this._businessConditionMappings);
+                        this._getPassedBusinessConditionsCount(governGetLiquid, passedBCOptions,this._businessConditionMappings);
                     } else {
                         this.logError("TypesCriterionEmptyError");
                     }
                 }
             },
-            _getPassedBusinessConditionsCount:function (options,businessConditionMappings) {
+            _getPassedBusinessConditionsCount:function (governGetLiquid, options,businessConditionMappings) {
                 var bcIds=businessConditionMappings.map(function (businessCondition) {
                    return businessCondition.data.bcId
                 });
@@ -673,15 +678,12 @@
                 options.passedBusinessConditions=true;
                 var req = DataRequestHelper.createGovernGetRequest(options);
                 if (!_.isEmpty(req)) {
-                    var governGetLiquid = document.createElement('liquid-entity-govern-data-get');
                     governGetLiquid.id = "passedBCGovernLiquid";
                     governGetLiquid.operation = 'initiatesearchandgetcount';
                     governGetLiquid.requestData = req;
                     governGetLiquid.excludeInProgress = true;
                     governGetLiquid.addEventListener('response', this._onGetPassedBusinessConditionsCountResponse.bind(this));
-                    governGetLiquid.addEventListener('error', this._getBusinessConditionCountFailed);
                     governGetLiquid.generateRequest();
-                    governGetLiquid = null;
                 }
             },
             _addCountToBCButton:function (response,businessConditionButton) {
@@ -717,7 +719,7 @@
                 }
             },
 
-            __getBusinessConditionCountFailed: function (e) {
+            _getBusinessConditionCountFailed: function (e) {
                 this.showErrorToast(e.detail.response.reason);
             },
 

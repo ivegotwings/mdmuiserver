@@ -9,10 +9,12 @@ var mergeUtil = require('../../../shared/dataobject-merge-util');
 
 const arrayRemove = require('../common/utils/array-remove'),
     arrayContains = require('../common/utils/array-contains'),
-    isEmpty = require('../common/utils/isEmpty');
+    isEmpty = require('../common/utils/isEmpty'),
+    BaseConfigService = require('./BaseConfigService');
 
 var ConfigurationService = function (options) {
     DFRestService.call(this, options);
+    this.baseConfigService = new BaseConfigService(options);
 };
 
 const RDF_SERVICE_NAME = "configurationservice";
@@ -89,9 +91,8 @@ ConfigurationService.prototype = {
 
         //console.log('base config request', JSON.stringify(baseConfigRequest, null, 2));
 
-        //Get entity manage model with permissions...
-        var getLatest = true;
-        var baseConfigResponse = await this._fetchConfigObject(RDF_SERVICE_NAME + "/get", baseConfigRequest, getLatest);
+        var baseConfigResponse = await this.baseConfigService.get(RDF_SERVICE_NAME + "/get", baseConfigRequest);
+        // console.log('base config response --> ', JSON.stringify(baseConfigResponse));
 
         var finalConfigObject = baseConfigResponse.response.configObjects[0];
         //console.log('base config', JSON.stringify(finalConfigObject));
@@ -289,7 +290,7 @@ ConfigurationService.prototype = {
     _fetchConfigObject: async function (serviceUrl, request, getLatest = true) {
         var res = {};
 
-        if (!getLatest) {
+        if (getLatest) {
             res = await this.post(serviceUrl, request);
         }
         else {
@@ -298,13 +299,15 @@ ConfigurationService.prototype = {
             var generatedId = this._createConfigId(requestedContext);
             var cacheKey = "".concat("id:", requestedConfigId, "|contextKey:", generatedId);
 
+            //console.log('cacheKey: ', cacheKey);
+
             if (cacheKey != "id:_BYCONTEXT|contextKey:_NOCONTEXT") {
-                res = localConfigCache[cacheKey];
+                res = falcorUtil.cloneObject(localConfigCache[cacheKey]);
             }
 
             if (isEmpty(res)) {
                 res = await this.post(serviceUrl, request);
-                localConfigCache[cacheKey] = res;
+                localConfigCache[cacheKey] = falcorUtil.cloneObject(res);
             }
         }
 

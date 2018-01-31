@@ -99,7 +99,7 @@
             }
 
             #dimensionGridContent {
-                height: 80%;
+                height: 85vh;
             }
 
             rock-layout {
@@ -145,8 +145,6 @@
                     <bedrock-pubsub event-name="dimension-grid-open" handler="onDimensionGridOpen"></bedrock-pubsub>
                 </template>
             </div>
-            <pebble-dialog id="dimensionGridDialog" modal show-close-icon>
-            </pebble-dialog>
             <pebble-dialog id="confirmationDialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click no-cancel-on-esc-key>
                 <p>Are you sure you want to delete?</p>
             </pebble-dialog>
@@ -161,8 +159,9 @@
         <rock-business-function-dialog id="entityDownloadDialog" context-data="[[contextData]]"></rock-business-function-dialog>
         <rock-business-function-dialog id="rePublishDialog" context-data="[[contextData]]"></rock-business-function-dialog>
         <rock-business-function-dialog id="addRelDialog" name="rock-wizard-entity-relationship-add" context-data="[[contextData]]"></rock-business-function-dialog>
-        <rock-business-function-dialog id="manageAttributesDialog" name="bf-attributes-manage" context-data="[[contextData]]"></rock-business-function-dialog>
-        <rock-business-function-dialog id="manageRelationshipsDialog" name="bf-relationships-manage" context-data="[[contextData]]"></rock-business-function-dialog>
+        <rock-business-function-dialog id="manageAttributesDialog" name="rock-wizard-attribute-manage" context-data="[[contextData]]"></rock-business-function-dialog>
+        <rock-business-function-dialog id="manageRelationshipsDialog" name="rock-wizard-relationship-manage" context-data="[[contextData]]"></rock-business-function-dialog>
+        <rock-business-function-dialog id="dimensionGridDialog" name="rock-wizard-dimension-grid" context-data="[[contextData]]" hide-stepper="true"></rock-business-function-dialog>
         <bedrock-pubsub event-name="refresh-classification" handler="_refreshDimensionSelector" target-id="contextDialog"></bedrock-pubsub>
         <bedrock-pubsub event-name="govern-complete" handler="_onGovernComplete"></bedrock-pubsub>
         <liquid-rest id="entityDeleteLiquidRest" url="/data/pass-through/entityappservice/delete" method="POST" request-data={{deleteRequest}}
@@ -791,32 +790,26 @@
                 onDimensionGridOpen: function (e, detail, sender) {
                     var dialog = Polymer.dom(this).node.$.dimensionGridDialog;
 
+                    var entityTitlebar = Polymer.dom(this).node.shadowRoot.querySelector("#entityTitlebar");
+                    if(entityTitlebar) {
+                        var dimensionSelectorConfig = entityTitlebar.getDimensionSelectorConfig();
+                        var selectedDimensions = entityTitlebar.getSelectedDimensions();
+                    }
+
                     if (dialog) {
-                        this._clearDimensionGridDialog();
-                        this.$.dimensionGridDialog.dialogTitle = "Detailed Dimensional Edit for : " +
-                            detail.data.externalName;
-
-                        var dimensionGridContainer = document.createElement('div');
-                        dimensionGridContainer.setAttribute('id', 'dimensionGridContent');
-
-                        var component = {
-                            "name": "rock-dimension-grid",
-                            "path": "/../../src/elements/rock-dimension-grid/rock-dimension-grid.html",
-                            "properties": {
-                                "dimension-configs": this.dimensionSelectorConfig["details"],
-                                "attribute-model-object": detail.data,
-                                "locales": this.dimensions["locales"],
-                                "sources": this.dimensions["sources"],
-                                "contexts": this.dimensions["contexts"],
-                                "data-id": DataHelper.getParamValue('id'),
-                                "data-context": Polymer.dom(this).node.shadowRoot.querySelector('rock-dimension-selector[id="dimensionSelector"]').getSelectedDimensions(),
-                                "context-data": this.contextData
-                            }
+                        dialog.sharedData = {
+                            "dimension-configs": dimensionSelectorConfig,
+                            "attribute-model-object": detail.data,
+                            "data-id": DataHelper.getParamValue('id'),
+                            "data-context": selectedDimensions
                         };
-                        ComponentHelper.loadContent(dimensionGridContainer, component, this);
 
-                        dialog.appendChild(dimensionGridContainer);
                         dialog.open();
+
+                        Polymer.Async.microTask.run(() => {
+                            var dialogTitle = "Detailed Dimensional Edit for : " + detail.data.externalName;
+                            dialog.setTitle(dialogTitle);
+                        });
                     }
                 },
                 buttonOkClicked: function (event) {
@@ -928,27 +921,20 @@
                 _clearDimensionGridDialog: function () {
                     var dialog = Polymer.dom(this).node.$.dimensionGridDialog;
                     if (dialog) {
-                        var childContent = dialog.firstElementChild;
-                        if (childContent) {
-                            dialog.removeChild(childContent);
-                            childContent = null;
-                        }
+                        ComponentHelper.removeNode(dialog.firstElementChild);
                     }
                 },
                 _openEntityUploadBF: function (e, detail) {
-                    this.shadowRoot.querySelector("#entityUploadDialog").name = "rock-wizard-entity-upload";
-                    this.shadowRoot.querySelector("#entityUploadDialog").sharedData = { "context-data": this.contextData };
-                    this.shadowRoot.querySelector("#entityUploadDialog").open();
+                    const uploadDialog = this.shadowRoot.querySelector("#entityUploadDialog");
+                    
+                    uploadDialog.name = "rock-wizard-entity-upload";
+                    uploadDialog.sharedData = { "context-data": this.contextData };
+                    uploadDialog.open();
                 },
                 _refreshEntityThumbnail: function () {
-                    var header = this.shadowRoot.querySelector("#entityManageHeader");
-                    if (header) {
-                        var entityHeader = this.shadowRoot.querySelector("rock-entity-header");
-                        if(entityHeader){
-                            var thumbnailConfig = entityHeader.thumbnailConfig;
-                            header.thumbnailConfig = undefined;
-                            header.thumbnailConfig = thumbnailConfig;
-                        }
+                    var entityHeader = this.shadowRoot.querySelector("rock-entity-header");
+                    if (entityHeader) {
+                        entityHeader.refreshThumbnail();
                     }
                 },
                 _refreshActiveMenuItems: function () {

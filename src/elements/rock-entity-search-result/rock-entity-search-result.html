@@ -5,6 +5,7 @@
 <link rel="import" href="../bedrock-helpers/data-helper.html">
 <link rel="import" href="../bedrock-helpers/context-helper.html">
 <link rel="import" href="../bedrock-helpers/data-request-helper.html">
+<link rel="import" href="../bedrock-helpers/liquid-response-helper.html">
 <link rel="import" href="../bedrock-helpers/data-transform-helper.html">
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 
@@ -87,6 +88,8 @@ It filters the data as per filter criteria.
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <liquid-entity-model-composite-get name="compositeAttributeModelGet" request-data="{{attributeModelRequest}}" on-entity-model-composite-get-response="_onCompositeModelGetResponse">
         </liquid-entity-model-composite-get>
+        <liquid-rest id="getDownloadUrl" url="/data/binarystreamobjectservice/prepareDownload" method="POST" on-liquid-response="_onGetDownloadUrlResponse">
+        </liquid-rest>
         <template is="dom-if" if="[[_isWorkflowRequest(_loadGrid, _loadWithoutWorkflow)]]">
             <template is="dom-if" if="[[_showToggle()]]">
                 <pebble-toggle-button class="toggle-button" noink checked="{{_loadGovernData}}">Govern Data</pebble-toggle-button>
@@ -121,8 +124,9 @@ It filters the data as per filter criteria.
                            total-count="{{totalCount}}"
                            max-configured-count="[[maxConfiguredCount]]"
                            apply-locale-coalesce-style="[[applyLocaleCoalesceStyle]]"
+                           domain="[[domain]]"
                            selection-enabled>
-                    <rock-entity-search-result-actions slot="toolbar" id="gridActions" context-data="[[contextData]]"></rock-entity-search-result-actions>
+                    <rock-entity-search-result-actions slot="toolbar" id="gridActions" context-data="[[contextData]]" domain="[[domain]]"></rock-entity-search-result-actions>
                 </rock-grid>
 
             </template>
@@ -130,10 +134,12 @@ It filters the data as per filter criteria.
                 <rock-govern-data-grid id="governGrid" context-data="[[contextData]]" request="[[request]]" entity-name-attribute="[[governDataConfig.entityNameAttribute]]">
                 </rock-govern-data-grid>
             </template>
+            <bedrock-pubsub event-name="grid-custom-toolbar-event" handler="_onCustomToolbarEvent" target-id="entityGrid"></bedrock-pubsub>
             <bedrock-pubsub event-name="grid-download-item" handler="_onDownload" target-id="entityGrid"></bedrock-pubsub>
             <bedrock-pubsub event-name="grid-upload-item" handler="_onUpload" target-id="entityGrid"></bedrock-pubsub>
             <bedrock-pubsub event-name="grid-bulk-edit-items" handler="_onBulkEdit" target-id="entityGrid"></bedrock-pubsub>
             <bedrock-pubsub event-name="grid-bulk-delete-items" handler="_showConfirmationDialog" target-id="entityGrid"></bedrock-pubsub>
+            <bedrock-pubsub event-name="download-original-asset" handler="_onOriginalAssetDownloadAction" target-id="entityGrid"></bedrock-pubsub>
         </template>
 
         <pebble-dialog id="confirmationDialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click
@@ -421,7 +427,7 @@ It filters the data as per filter criteria.
                         type: Boolean,
                         value: false
                     },
-                    
+
                     applyLocaleCoalesce: {
                         type: Boolean,
                         value: false
@@ -470,6 +476,25 @@ It filters the data as per filter criteria.
                             }];
                         }
 
+                        //Delete ItemContexts if more than one entity type is selected
+                        if(context.ItemContexts && context.ItemContexts.length > 1) {
+                            var types = [];
+                            context.ItemContexts.forEach(function(itemContext) {
+                                if(itemContext.type) {
+                                    types.push(itemContext.type)
+                                }
+                            })
+                            types = [...new Set(types)]; //unique types
+
+                            if(types.length > 1) {
+                                delete context.ItemContexts;
+                            } else {
+                                context.ItemContexts = [{
+                                    "type": types[0]
+                                }]
+                            }
+                        }
+
                         this.requestConfig('rock-entity-search-result', context);
                     }
                 },
@@ -479,10 +504,8 @@ It filters the data as per filter criteria.
                         var gridConfig = componentConfig.config.gridConfig;
                         if(!_.isEmpty(this.dynamicFields)) {
                             Object.keys(this.dynamicFields).forEach(key => {
-                                
                                 this.dynamicFields[key].visible = "true";
-                                
-                                });
+                            });
                             gridConfig.itemConfig.fields = this.dynamicFields;
                             gridConfig.schemaType = "attribute"; //Should come from configuration, delete it once nearest get is enabled
                         }
@@ -726,6 +749,7 @@ It filters the data as per filter criteria.
                                 if(attributes.indexOf("type")==-1){
                                     attributes.push("type");
                                 }
+                                this._updateAttributesForDomain(attributes);
                                 formattedEntities = DataTransformHelper.transformEntitiesToSimpleSchema(entities, attributes, this.attributeModels);
                                 for (var i = 0; i < formattedEntities.length; i++) {
                                     var type = formattedEntities[i].type;
@@ -842,8 +866,28 @@ It filters the data as per filter criteria.
                         return;
                     }
                     var attributeNames = this._getAttributesFromConfig();
+                    this._updateAttributesForDomain(attributeNames);
                     for (var i in itemContexts) {
                         itemContexts[i].attributeNames = attributeNames;
+                    }
+                },
+
+                _updateAttributesForDomain: function(attributes) {
+                    if(this.domain == "digitalAsset") {
+                        if(this.gridConfig.itemConfig) {
+                            attributes.push(this.gridConfig.itemConfig.image);
+                            attributes.push(this.gridConfig.itemConfig.title);
+                            attributes.push(this.gridConfig.itemConfig.id);
+                            attributes.push(this.gridConfig.itemConfig.subtitle);
+                        }
+
+                        //Required attributes for assets
+                        attributes.push("type");
+                        attributes.push("filenameextension");
+                        attributes.push("thumbnailid");
+                        attributes.push("property_objectkey");
+
+                        attributes = [...new Set(attributes)]; //unique types
                     }
                 },
 
@@ -990,8 +1034,6 @@ It filters the data as per filter criteria.
                         this.showInformationToast("Please select at least one entity from grid to delete.");
                         return;
                     }
-
-                    this._deleteComponentName = detail.componentName;
                     this.shadowRoot.querySelector("#confirmationDialog").open();
                 },
                 _onBulkDelete: function () {
@@ -1007,7 +1049,7 @@ It filters the data as per filter criteria.
 
                     if (this.contextData) {
                         var entityDeleteDialog = this.shadowRoot.querySelector("#entityDeleteDialog");
-                        entityDeleteDialog.name = this._deleteComponentName;
+                        entityDeleteDialog.name = "rock-wizard-entity-delete";
                         entityDeleteDialog.sharedData = {
                             "context-data": this.contextData,
                             "selection-query": selectionQuery,
@@ -1081,6 +1123,77 @@ It filters the data as per filter criteria.
                             }
                         }
                     }
+                },
+
+                _onOriginalAssetDownloadAction: function (e, detail) {
+                    if (detail) {
+                        var fileName = detail.property_objectkey;
+                        if (fileName) {
+                            this._generateOriginalAssetsDownloadRequest([fileName]);
+                        }
+                    }
+                },
+
+                _onCustomToolbarEvent: function (e, detail) {
+                    if (detail && detail.name == "originalAssetDownload") {
+                        this._originalAssetsDownload();
+                    }
+                },
+
+                _originalAssetsDownload: function () {
+                    var rockGrid = Polymer.dom(this).node.shadowRoot.querySelector('rock-grid');
+                    var selectedItems = rockGrid.getSelectedItems();
+                    if (selectedItems && selectedItems.length) {
+                        if (selectedItems.length > 5) {
+                            this.showInformationToast("Simultaneous download of maximum 5 assets are allowed.");
+                            return;
+                        }
+                        var objectKeys = [];
+                        selectedItems.forEach(function (item) {
+                            if (item && item.property_objectkey) {
+                                objectKeys.push(item.property_objectkey)
+                            }
+                        }, this);
+                        if (objectKeys.length) {
+                            this._generateOriginalAssetsDownloadRequest(objectKeys);
+                        }
+                    } else {
+                        this.showInformationToast("Please select at least one asset from grid to download.");
+                    }
+                },
+
+                _generateOriginalAssetsDownloadRequest: function (objectkeys) {
+                    var binaryStreamObjects = [];
+                    objectkeys.forEach(function (item) {
+                        if (item) {
+                            binaryStreamObjects.push(
+                                {
+                                    "binaryStreamObject":
+                                    {
+                                        "id": item,
+                                        "type": "binarystreamobject",
+                                        "data": {}
+                                    }
+                                }
+                            )
+                        }
+                    }, this);
+                    var req = binaryStreamObjects;
+                    var downloadUrlLiquid = this.shadowRoot.querySelector("#getDownloadUrl");
+                    if (downloadUrlLiquid) {
+                        downloadUrlLiquid.requestData = req;
+                        downloadUrlLiquid.generateRequest();
+                    }
+                },
+
+                _onGetDownloadUrlResponse: function (e) {
+                    const a = document.createElement('a');
+                    a.download = "";
+                    
+                    LiquidResponseHelper.downloadURLResponseMapper(e, downloadURL => {
+                        a.href = downloadURL;
+                        a.click();
+                    });
                 }
             });
         })();

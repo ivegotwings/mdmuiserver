@@ -428,17 +428,20 @@ async function get(dataObjectIds, reqData) {
         var dataIndexInfo = pathKeys.dataIndexInfo[request.dataIndex];
 
         if (!isEmpty(dataIndexInfo.dataSubIndexInfo)) {
-            dataIndexInfo = dataIndexInfo.dataSubIndexInfo[request.dataSubIndex];
+            if(isEmpty(request.dataSubIndex)) {
+                dataIndexInfo = dataIndexInfo.dataSubIndexInfo["data"];
+            } else {
+                dataIndexInfo = dataIndexInfo.dataSubIndexInfo[request.dataSubIndex];
+            }
         }
 
-        var collectionName = dataIndexInfo.collectionName;
-        reqData.cacheExpiryDuration = dataIndexInfo.cacheExpiryDurationInMins ? -(dataIndexInfo.cacheExpiryDurationInMins * 60 * 1000) : -(60 * 60 * 1000);
+        reqData.cacheExpiryDuration = dataIndexInfo && dataIndexInfo.cacheExpiryDurationInMins ? -(dataIndexInfo.cacheExpiryDurationInMins * 60 * 1000) : -(60 * 60 * 1000);
 
 
-        var dataObjectResponse = res ? res[dataIndexInfo.responseObjectName] : undefined;
+        var dataObjectResponse = res && dataIndexInfo && dataIndexInfo.responseObjectName ? res[dataIndexInfo.responseObjectName] : undefined;
 
         if (dataObjectResponse && dataObjectResponse.status == "success") {
-            var dataObjects = dataObjectResponse[collectionName];
+            var dataObjects = dataIndexInfo && dataIndexInfo.collectionName ? dataObjectResponse[dataIndexInfo.collectionName] : undefined;
 
             if (dataObjects !== undefined) {
                 var byIdsJson = response[pathKeys.byIds] = {};
@@ -543,7 +546,7 @@ async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectActio
             dataIndexInfo = dataIndexInfo.dataSubIndexInfo[dataSubIndex];
         }
 
-        var responsePaths = [];
+        
         var jsonGraphResponse = response['jsonGraph'] = {};
         var rootJson = jsonGraphResponse[pathKeys.root] = {};
         var dataJson = rootJson[dataIndex] = {};
@@ -554,6 +557,7 @@ async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectActio
         }
 
         for (var dataObjectId in dataObjects) {
+            var responsePaths = [];
             var dataObject = dataObjects[dataObjectId];
             formatDataObjectForSave(dataObject);
 
@@ -634,7 +638,12 @@ async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectActio
 
                         var dataObjectResponseJson = buildResponse(dataObject, reqData, responsePaths);
                         byIdsJson[dataObjectId] = dataObjectResponseJson;
-                        response['paths'] = responsePaths;
+
+                        if(!response.paths) {                          
+                            response['paths'] = [];
+                        }
+
+                        Array.prototype.push.apply(response.paths, responsePaths);
                     }
                 }
                 else if (dataOperationResponse && dataOperationResponse.status == 'error') {
