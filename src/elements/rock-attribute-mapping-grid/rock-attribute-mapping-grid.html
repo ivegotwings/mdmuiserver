@@ -189,6 +189,9 @@
                         <div id="iconDiv" slot="cell-slot-content">
                             <pebble-icon-updated class="dropdown-icon pebble-icon-size-10" id="txtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:Down" on-tap="_showAttributesLOV"></pebble-icon-updated>
                         </div>
+                        <div id="buttonDiv" slot="cell-slot-content">
+                            <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="btnValueMappings_[[index]]" button-text="Value Mapping" raised on-tap="_onTapValueMapping" data-args$="[[item.attributeModel.id]]" disabled$="[[!_isValueMappingsAvailable(item.attributeModel, _entityManageModelAttributes)]]"></pebble-button>
+                        </div>
                     </template>
                 </data-table-column>
             </pebble-data-table>
@@ -205,6 +208,9 @@
         </div>
         <liquid-entity-model-get name="liquidAttributeModelGet" operation="getbyids" request-data={{attributeModelRequest}} 
             on-response="_onAttributeModelGetResponse" on-error="_onError"
+         ></liquid-entity-model-get>
+         <liquid-entity-model-get name="liquidEntityManageModelGet" operation="getbyids" request-data={{entityManageModelRequest}} 
+            on-response="_onEntityManageModelGetResponse" on-error="_onEntityManageModelGetError"
          ></liquid-entity-model-get>
     </template>
     <script>
@@ -276,6 +282,12 @@
                     copContext: {
                         type: Object,
                         value: function() { return {}; }
+                    },
+                    _entityManageModelAttributes: {
+                        type: Object,
+                        value: function() {
+                            return {};
+                        }
                     }
                 },
                 observers: [
@@ -462,6 +474,7 @@
                                     row.item["rowModified"] = true;
                                     attributeTxtbox.value = detail.data.title;
                                     attributeTxtbox.title = detail.data.title;
+                                    this._setValueMappings(detail.data, rowId);
                                 }
                             }
                         }
@@ -810,6 +823,98 @@
                         return false;
                     }
                     return true;
+                },
+                _setValueMappings: function(attrModel, rowId) {
+                    var isValueMappingAvailable = this._isValueMappingsAvailable(attrModel);
+                    var btnValueMapping = this.root.querySelector("#btnValueMappings_" + rowId);
+                    if(!btnValueMapping) {
+                        btnValueMapping = this.shadowRoot.querySelector("#btnValueMappings_" + rowId);
+                    }
+
+                    if(btnValueMapping) {
+                        if(isValueMappingAvailable) {
+                            btnValueMapping.removeAttribute("disabled");
+                            btnValueMapping.setAttribute("data-args", attrModel.id);
+                        } else {
+                            btnValueMapping.setAttribute("disabled", "");
+                            btnValueMapping.setAttribute("data-args", "");
+                        }
+                    }
+                },
+                _isValueMappingsAvailable: function(attrModel) {
+                    if(_.isEmpty(attrModel)) {
+                        return;
+                    }
+
+                    if(_.isEmpty(this._entityManageModelAttributes)) {
+                        if(!this._entityManageModelRequested) {
+                            this._getEntityManageModel();
+                            this._entityManageModelRequested = true;
+                        }
+                    }
+
+                    var entityModelAttribute = this._entityManageModelAttributes[attrModel.id];
+                    if(entityModelAttribute && 
+                       entityModelAttribute.properties && 
+                       entityModelAttribute.properties.supportsValueMapping) {
+                        return entityModelAttribute.properties.supportsValueMapping;
+                    }
+
+                    return false;
+                },
+                _getEntityManageModel: function() {
+                    var modelGetRequest = {
+                        "params": {
+                            "query": {
+                                "filters": {
+                                    "typesCriterion": [
+                                        "entityManageModel"
+                                    ]
+                                }
+                            },
+                            "fields": {
+                                "attributes": ["_ALL"]
+                            }
+                        }
+                    };
+                    var ids = [];
+                    ids.push(this.getFirstItemContext().type + "_entityManageModel");
+
+                    modelGetRequest.params.query.ids = ids;
+                    this.set("entityManageModelRequest", modelGetRequest);
+
+                    var liquidModelGet = this.shadowRoot.querySelector("[name=liquidEntityManageModelGet]");
+                    if (liquidModelGet) {
+                        liquidModelGet.generateRequest();
+                    }
+                },
+                _onEntityManageModelGetResponse: function(e, detail) {
+                    if(detail && DataHelper.isValidObjectPath(detail, "response.content.entityModels.0.data.attributes")) {
+                        this._entityManageModelAttributes = detail.response.content.entityModels[0].data.attributes;
+                    }
+                    this._entityManageModelRequested = false;
+                },
+                _onEntityManageModelGetError: function(e, detail) {
+                    this._entityManageModelRequested = false;
+                    this.logError("Entity manage model get error", detail);
+                },
+                _onTapValueMapping: function(e, detail) {
+                    var valueMappingAttribute = e.currentTarget.getAttribute('data-args');
+
+                    if(valueMappingAttribute && !_.isEmpty(this._entityManageModelAttributes)) {
+                        var entityModelAttribute = this._entityManageModelAttributes[valueMappingAttribute];
+                        if(entityModelAttribute && 
+                           entityModelAttribute.properties && 
+                           entityModelAttribute.properties.supportsValueMapping) {
+                           //Value Mappings object will be input to ValueMappings component 
+                           var valueMappings = {
+                               "attribute": valueMappingAttribute,
+                               "supportsValueMapping": entityModelAttribute.properties.supportsValueMapping,
+                               "valueMappingContext": entityModelAttribute.properties.valueMappingContext,
+                               "valueMappingTypeName": entityModelAttribute.properties.valueMappingTypeName
+                           }
+                        }
+                    }
                 }
             });
         })();
