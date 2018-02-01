@@ -85,23 +85,23 @@
                 mergedAttributes = DataMergeHelper.mergeAttributes(mergedAttributes, entity.data.attributes, true);
             }
 
+            var sortedAttributeModels = attributeModels;
+            if (applySort) {
+                sortedAttributeModels = this.sortAttributeModels(attributeModels);
+            }
+
             if (firstDataContext) {
                 var ctxAttributes = SharedUtils.DataObjectFalcorUtil.getAttributesByCtx(entity, firstDataContext);
 
                 // RDF is not supporting coalesce between self context to other context.
                 // _prepareForSelfToContextCoalesce will do coalesce manually to link self context with other context.
-                DataTransformHelper._prepareForSelfToContextCoalesce(mergedAttributes, ctxAttributes);
+                DataTransformHelper._prepareForSelfToContextCoalesce(mergedAttributes, ctxAttributes, sortedAttributeModels);
 
                 if (!_.isEmpty(ctxAttributes)) {
                     Object.keys(ctxAttributes).forEach((attrName) => {
                         mergedAttributes[attrName] = DataHelper.cloneObject(ctxAttributes[attrName]);
                     });
                 }
-            }
-
-            var sortedAttributeModels = attributeModels;
-            if (applySort) {
-                sortedAttributeModels = this.sortAttributeModels(attributeModels);
             }
 
             var transformedAttributes;
@@ -656,16 +656,12 @@
                         }
                     } else if (attributeModel.dataType === "nested" && attributeModel.group && attributeModel.group.length > 0) {
                         var childAttributeModels = attributeModel.group[0];
-                        var attrValues = DataTransformHelper.transformNestedAttributes(attribute, childAttributeModels, false, dataContext);
+                        var attrValues = DataTransformHelper.transformNestedAttributes(attribute, childAttributeModels, false, dataContext, valueContext);
                         if (!_.isEmpty(attrValues)) {
                             attributeJSON["value"] = attrValues;
                             attributeJSON.osid = attrValues[0].osid;
                             attributeJSON.ostype = attrValues[0].ostype;
                         }
-                    }
-
-                    if (attributeModel.properties && !attributeModel.properties.isLocalizable) {
-                        this._overrideByDefaultLocaleValue(attributes, attributeModel, attributeJSON);
                     }
 
                     if (!_.isEmpty(attributeJSON) && attribute && attribute.properties && !_.isEmpty(dataContext)) {
@@ -692,6 +688,10 @@
                         attributeJSON = AttributeHelper.getEmptyValue(valueContext, attributeModel);
                     }
 
+                    if (attributeModel.properties && !attributeModel.properties.isLocalizable) {
+                        this._overrideByDefaultLocaleValue(attributes, attributeModel, attributeJSON);
+                    }
+
                     attributeJSON.selfContext = attributeModel.selfContext;
                     attributeJSON.name = attributeModel.name;
 
@@ -702,14 +702,20 @@
             return transformedAttributes;
         };
 
-        DataTransformHelper.transformNestedAttributes = function (attribute, childAttributeModels, returnEmptyRecord, dataContext) {
+        DataTransformHelper.transformNestedAttributes = function (attribute, childAttributeModels, returnEmptyRecord, dataContext, valueContext) {
             if (!_.isEmpty(childAttributeModels)) {
                 var value = [];
+                var defaultValCtx = DataHelper.getDefaultValContext();
+                if(_.isEmpty(valueContext)) {
+                    valueContext = defaultValCtx;
+                }
 
-                if (attribute && attribute.group && attribute.group.length > 0) {
+                var currentLocaleGroup = attribute && attribute.group && attribute.group.length > 0 ? attribute.group.filter(item => item.locale === valueContext.locale) : [];
+
+                if (!_.isEmpty(currentLocaleGroup)) {
                     var contextCoalescePaths = !_.isEmpty(dataContext) ? AttributeHelper.getContextCoalescePaths(attribute, dataContext) : [];
-                    for (var i = 0; i < attribute.group.length; i++) {
-                        var childAttributes = attribute.group[i];
+                    for (var i = 0; i < currentLocaleGroup.length; i++) {
+                        var childAttributes = currentLocaleGroup[i];
                         var localeCoalescePath = childAttributes.properties && childAttributes.properties.localeCoalescePath ? childAttributes.properties.localeCoalescePath : undefined;
                         delete childAttributes.id;
                         var childAttributeJson = {};
@@ -731,9 +737,12 @@
                                 var childAttr = childAttributes[attributeName];
                                 childAttributeJson[attributeName] = {};
 
-                                if (childAttr) {
-                                    var attrVal = AttributeHelper.getFirstAttributeValue(childAttr);
-                                    childAttributeJson[attributeName]["value"] = attrVal;
+                                if (childAttr && childAttr.values) {
+                                    var attrVal = AttributeHelper.getCurrentValue(childAttr.values, valueContext, childAttrModel);
+                                    if(!attrVal) {
+                                        attrVal = AttributeHelper.getCurrentValue(childAttr.values, defaultValCtx, childAttrModel);
+                                    }
+                                    childAttributeJson[attributeName] = attrVal;
                                     if (childAttrModel.displayType === "referencelist") {
                                         var refEntityType = childAttrModel.referenceEntityTypes && childAttrModel.referenceEntityTypes.length > 0 ? childAttrModel.referenceEntityTypes[0] : "";
                                         childAttributeJson[attributeName]["referenceEntityType"] = refEntityType;
@@ -1520,7 +1529,7 @@
             return referenceModels;
         };
 
-        DataTransformHelper._prepareForSelfToContextCoalesce = function (selfAttributes, contextualAttributes) {
+        DataTransformHelper._prepareForSelfToContextCoalesce = function (selfAttributes, contextualAttributes, attributeModels) {
             if (selfAttributes && contextualAttributes) {
                 var ctxAttrKeys = Object.keys(contextualAttributes);
                 for (var attrKey in selfAttributes) {
@@ -1533,7 +1542,7 @@
                             ]
                         };
                     } else {
-                        if (selfAttributes[attrKey] && contextualAttributes[attrKey]) {
+                        if (selfAttributes[attrKey] && contextualAttributes[attrKey] && attributeModels && attributeModels[attrKey] && attributeModels[attrKey].isLocalizable) {
                             var ctxValues = contextualAttributes[attrKey].values;
                             if (ctxValues && ctxValues.length) {
                                 var localeCoalescedCtxValues = ctxValues.filter(item => item.properties && item.properties.localeCoalescePath);
@@ -1542,6 +1551,17 @@
                                     var selfValues = selfAttributes[attrKey].values;
                                     if (selfValues && selfValues.length) {
                                         var localeCoalescedSelfValues = selfValues.filter(item => item.properties && item.properties.localeCoalescePath);
+
+                                        if(localeCoalescedSelfValues.length) {
+                                            let selfLocaleCoalescePath = AttributeHelper.getLocaleCoalescePath(selfAttributes[attrKey]);
+                                            let ctxLocaleCoalescePath = AttributeHelper.getLocaleCoalescePath(contextualAttributes[attrKey]);
+                                            var selfFallbackPaths = DataHelper.getFallbackPathsFromCoalescePath(selfLocaleCoalescePath);
+                                            var ctxFallbackPaths = DataHelper.getFallbackPathsFromCoalescePath(ctxLocaleCoalescePath);
+
+                                            if(ctxFallbackPaths.length > selfFallbackPaths.length) {
+                                                localeCoalescedSelfValues = [];
+                                            }
+                                        }
 
                                         if (localeCoalescedSelfValues && !localeCoalescedSelfValues.length) {
                                             selfAttributes[attrKey].properties = {
