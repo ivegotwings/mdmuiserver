@@ -522,6 +522,9 @@ async function getByIds(pathSet, operation) {
         for (let dataObjectType of reqDataObjectTypes) {
             reqData.dataObjectType = dataObjectType;
             var dataByObjectTypeJson = await get(reqData.dataObjectIds, reqData);
+            if(reqData.dataIndex == "config") {
+                console.log(""+dataObjectType+": - ", JSON.stringify(dataByObjectTypeJson, null, 2));
+            }
             dataJson[dataObjectType] = dataByObjectTypeJson;
         }
     }
@@ -532,7 +535,7 @@ async function getByIds(pathSet, operation) {
     finally {
     }
 
-    //console.log('getByIds response ', JSON.stringify(response, null, 4));
+    console.log('getByIds response ', JSON.stringify(response, null, 4));
     return response;
 }
 

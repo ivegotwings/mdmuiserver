@@ -111,7 +111,7 @@ function _buildAttributesResponse(attrs, attrNames, reqData, currentDataContextJ
 
                 var valCtxKey = falcorUtil.createCtxKey({ 'source': source, 'locale': locale }); //TODO: Here, source and locale are hard coded... How to find out val contexts keys from the flat list of values object..??
                 var valCtxItem = falcorUtil.getOrCreate(valCtxItems, valCtxKey, {});
-                var values = falcorUtil.getOrCreate(valCtxItem, 'values', []);
+                var values = falcorUtil.getOrCreate(valCtxItem, 'z', []);
 
                 // Need to maintain two copies of valCtx request - with locale coalesce and without locale coalesce for entity get
                 // This is needed because: While updating any value update query will not have "localeCoalesce" flag inside it, so on response of update it will cache only valCtx where localeCoalesce is not there and
@@ -582,7 +582,7 @@ function buildRefResponse(dataObject, reqData) {
 
     var dataJson = dataObjectResponseJson['data'] = {};
     var dataContextsJson = dataJson['contexts'] = {};
-    var pathToContexts = [pathKeys.root, reqData.dataIndex, reqData.dataObjectType, pathKeys.byIds, dataObject.id, 'data', 'contexts'];
+    var pathToContexts = [pathKeys.root, reqData.dataIndex, reqData.dataSubIndex, reqData.dataObjectType, pathKeys.byIds, dataObject.id, 'data', 'contexts'];
 
     var data = dataObject.data;
     if (data && data.contexts) {
