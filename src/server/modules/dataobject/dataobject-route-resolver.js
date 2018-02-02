@@ -61,18 +61,16 @@ async function initiateSearch(callPath, args) {
         var requestId = uuidV1(),
             request = args[0],
             dataIndex = callPath[1],
-            dataSubIndex = undefined,
-            basePath = [pathKeys.root, dataIndex, pathKeys.searchResults, requestId];
+            dataSubIndex = callPath[2],
+            basePath = [pathKeys.root, dataIndex, dataSubIndex, pathKeys.searchResults, requestId];
 
         var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
 
 
         if (!isEmpty(dataIndexInfo.dataSubIndexInfo)) {
-            dataSubIndex = callPath[2];
-
             dataIndexInfo = dataIndexInfo.dataSubIndexInfo[dataSubIndex];
-            basePath = [pathKeys.root, dataIndex, dataSubIndex, pathKeys.searchResults, requestId]
         }
+
         request.dataIndex = dataIndex;
 
         var operation = request.operation || "search";
@@ -202,7 +200,7 @@ async function initiateSearch(callPath, args) {
                         if (dataObject.id !== undefined) {
                             if (additionalIdsRequested.indexOf(dataObject.id) < 0) {
                                 var dataObjectType = dataObject.type;
-                                var dataObjectsByIdPath = !isEmpty(dataSubIndex) ? [pathKeys.root, dataIndex, dataSubIndex, dataObjectType, pathKeys.byIds] : [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds];
+                                var dataObjectsByIdPath = [pathKeys.root, dataIndex, dataSubIndex, dataObjectType, pathKeys.byIds];
                                 response.push(mergeAndCreatePath(basePath, [pathKeys.searchResultItems, index++], $ref(mergePathSets(dataObjectsByIdPath, [dataObject.id])), searchResultExpireTime));
                                 resultRecordSize++;
                             }
@@ -249,14 +247,8 @@ async function getSearchResultDetail(pathSet) {
     var requestId = pathSet.requestIds[0];
     //console.log(requestId);
     var dataIndex = pathSet[1],
-        basePath = [pathKeys.root, dataIndex];
-
-    var dataIndexInfo = pathKeys[dataIndex];
-
-    if (!isEmpty(dataIndexInfo.dataSubIndexInfo)) {
-        var dataSubIndex = pathSet[2];
-        basePath = [pathKeys.root, dataIndex, dataSubIndex]
-    }
+        dataSubIndex = pathSet[2],
+        basePath = [pathKeys.root, dataIndex, dataSubIndex];
 
     response.push(mergeAndCreatePath(basePath, [pathKeys.searchResults, requestId], $error('search result is expired. Retry the search operation.')));
 
@@ -511,12 +503,8 @@ async function getByIds(pathSet, operation) {
 
         var jsonGraphResponse = response['jsonGraph'] = {};
         var rootJson = jsonGraphResponse[pathKeys.root] = {};
-        var dataJson = rootJson[reqData.dataIndex] = {};
-
-        if (!isEmpty(reqData.dataSubIndex)) {
-            var indexJSON = rootJson[reqData.dataIndex] = {};
-            dataJson = indexJSON[reqData.dataSubIndex] = {};
-        }
+        var indexJSON = rootJson[reqData.dataIndex] = {};
+        var dataJson = indexJSON[reqData.dataSubIndex] = {};
 
         // system flow supports only 1 type at time for bulk get..this is needed to make sure we have specialized code flow for the given data object types
         for (let dataObjectType of reqDataObjectTypes) {
@@ -552,12 +540,8 @@ async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectActio
         
         var jsonGraphResponse = response['jsonGraph'] = {};
         var rootJson = jsonGraphResponse[pathKeys.root] = {};
-        var dataJson = rootJson[dataIndex] = {};
-
-        if (!isEmpty(dataSubIndex)) {
-            rootJson[dataIndex] = {};
-            dataJson = rootJson[dataIndex][dataSubIndex] = {};
-        }
+        rootJson[dataIndex] = {};
+        var dataJson = rootJson[dataIndex][dataSubIndex] = {};
 
         for (var dataObjectId in dataObjects) {
             var responsePaths = [];
@@ -606,7 +590,7 @@ async function processData(dataIndex, dataSubIndex, dataObjects, dataObjectActio
                     if (dataObject) {
 
                         var dataObjectType = dataObject.type;
-                        var basePath = !isEmpty(dataSubIndex) ? [pathKeys.root, dataIndex, dataSubIndex, dataObjectType, pathKeys.byIds, dataObjectId] : [pathKeys.root, dataIndex, dataObjectType, pathKeys.byIds, dataObjectId];
+                        var basePath = [pathKeys.root, dataIndex, dataSubIndex, dataObjectType, pathKeys.byIds, dataObjectId];
 
 
                         var reqData = {
@@ -713,9 +697,9 @@ async function create(callPath, args, operation) {
     try {
         var jsonEnvelope = args[0];
         var dataIndex = callPath.dataIndexes[0];
-        var dataSubIndex = !isEmpty(callPath.dataSubIndexes) ? callPath.dataSubIndexes[0] : undefined;
+        var dataSubIndex = callPath.dataSubIndexes[0];
         var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
-        var dataObjects = dataSubIndex ? jsonEnvelope.json[pathKeys.root][dataIndex][dataSubIndex][dataObjectType][pathKeys.byIds] : jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
+        var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataSubIndex][dataObjectType][pathKeys.byIds];
         var clientState = jsonEnvelope.json.clientState;
         var dataObjectIds = Object.keys(dataObjects);
         //console.log(dataObjects);
@@ -754,9 +738,9 @@ async function update(callPath, args, operation) {
     try {
         var jsonEnvelope = args[0];
         var dataIndex = callPath.dataIndexes[0];
-        var dataSubIndex = !isEmpty(callPath.dataSubIndexes) ? callPath.dataSubIndexes[0] : undefined;
+        var dataSubIndex = callPath.dataSubIndexes[0];
         var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
-        var dataObjects = dataSubIndex ? jsonEnvelope.json[pathKeys.root][dataIndex][dataSubIndex][dataObjectType][pathKeys.byIds] : jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
+        var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataSubIndex][dataObjectType][pathKeys.byIds];
         var clientState = jsonEnvelope.json.clientState;
 
         response = processData(dataIndex, dataSubIndex, dataObjects, "update", operation, clientState);
@@ -777,9 +761,9 @@ async function deleteDataObjects(callPath, args, operation) {
     try {
         var jsonEnvelope = args[0];
         var dataIndex = callPath.dataIndexes[0];
-        var dataSubIndex = !isEmpty(callPath.dataSubIndexes) ? callPath.dataSubIndexes[0] : undefined;
+        var dataSubIndex = callPath.dataSubIndexes[0];
         var dataObjectType = callPath.dataObjectTypes[0]; //TODO: need to support for bulk..
-        var dataObjects = dataSubIndex ? jsonEnvelope.json[pathKeys.root][dataIndex][dataSubIndex][dataObjectType][pathKeys.byIds] : jsonEnvelope.json[pathKeys.root][dataIndex][dataObjectType][pathKeys.byIds];
+        var dataObjects = jsonEnvelope.json[pathKeys.root][dataIndex][dataSubIndex][dataObjectType][pathKeys.byIds];
         var clientState = jsonEnvelope.json.clientState;
 
         response = processData(dataIndex, dataSubIndex, dataObjects, "delete", operation, clientState);
