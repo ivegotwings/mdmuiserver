@@ -43,6 +43,8 @@ BaseConfigService.prototype = {
     },
     _getOfflineBaseConfig: async function (url, fileId) {
         var fileName = fileId.replace("-base_uiConfig", "") + ".json";
+        fileName = fileName.replace("sys_", "");
+        
         var baseConfigFilePath = path.join(process.cwd(), "../customer-seed-tenant-base/999-New-ui-config-WIP/00-base/" + fileName);
         var file = require(baseConfigFilePath);
         var configObjects = file.configObjects ? file.configObjects : [];
