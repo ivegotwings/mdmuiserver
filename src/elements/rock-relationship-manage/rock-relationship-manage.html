@@ -66,18 +66,24 @@ It renders the list of attributes based on the specified relationship type.
         </style>
       <rock-business-function-dialog id="wfTransitionDialog" context-data="[[contextData]]"></rock-business-function-dialog>
       <rock-business-function-dialog id="wfAssignmentDialog" context-data="[[contextData]]"></rock-business-function-dialog>
-      <template is="dom-repeat" items="{{relationshipTypeList}}" as="relationship" index-as="colIndex" notify-dom-change>
-        <rock-entity-relationship-search-result
-            id="entityRelationshipSearchResult_[[relationship]]"
-            readonly$="[[readonly]]"
-            relationship="[[relationship]]"
-            config-context="[[configContext]]"
-            page-size="100"
-            context-data="[[contextData]]"
-            do-sync-validation$="[[doSyncValidation]]"
-            functional-mode="[[functionalMode]]">
-        </rock-entity-relationship-search-result>
-      </template>
+      <div class="content">
+            <template is="dom-if" if="displayedRelationshipTypeListChunks.length">
+                <template is="dom-repeat" items="[[displayedRelationshipTypeListChunks]]" as="relationshipTypeList">
+                    <template is="dom-repeat" items="{{relationshipTypeList}}" as="relationship">
+                        <rock-entity-relationship-search-result
+                            id="entityRelationshipSearchResult_[[relationship]]"
+                            readonly$="[[readonly]]"
+                            relationship="[[relationship]]"
+                            config-context="[[configContext]]"
+                            page-size="100"
+                            context-data="[[contextData]]"
+                            do-sync-validation$="[[doSyncValidation]]"
+                            functional-mode="[[functionalMode]]">
+                        </rock-entity-relationship-search-result>
+                    </template>
+                </template>
+            </template>
+      </div>
       <div id="messageCard" hidden="[[!_isMessageAvailable]]">
       </div>
     </template>
@@ -136,7 +142,11 @@ It renders the list of attributes based on the specified relationship type.
                     doSyncValidation: {
                         type: Boolean,
                         value: true
-                    }
+                    },
+                    relationshipChunkLength: {
+                        type: Number,
+                        value: 5
+                    },
                 },
 
                 observers: [
@@ -147,21 +157,120 @@ It renders the list of attributes based on the specified relationship type.
                     RUFBehaviors.ComponentContextBehavior
                 ],
 
-                _onConfigContextChange: function() {
-                    if (this.configContext.relationshipTypeName ) {
-                        this.relationshipTypeList = [this.configContext.relationshipTypeName];
+                created() {
+                    this.relationshipTypeList = [];
+                    this.relationshipTypeListChunks = [];
+                    this.displayedRelationshipTypeListChunks = [];
+                    this.displayedRelationshipTypeListChunksIndex = 1;
+
+                    this._onScrollListDebounce = _.debounce(this._onScrollList.bind(this), 300);
+                },
+
+                attached() {
+                    if(this.scrollContainer)
+                        this.scrollContainer.addEventListener('scroll', this._onScrollListDebounce);
+                },
+
+                detached() {
+                    if(this.scrollContainer)
+                        this.scrollContainer.removeEventListener('scroll', this._onScrollListDebounce)
+                },
+
+                get scrollContainer() {
+                    const query = this.shadowRoot.querySelectorAll('.content');
+                    return query ? query[0] : null;
+                },
+
+                get hasScroll() {
+                    const { scrollHeight, offsetHeight } = this.scrollContainer;
+
+                    return scrollHeight > offsetHeight;
+                },
+
+                get isLoadFinished() {
+                    return this.displayedRelationshipTypeListChunks.length === this.relationshipTypeListChunks.length;
+                },
+
+                _onScrollList() {
+                    if(!this._lazyLoad) return;
+
+                    const { scrollHeight, scrollTop, offsetHeight } = this.scrollContainer;
+
+                    const scrollDiff = scrollHeight - offsetHeight - scrollTop;
+
+                    const PRELOAD_HEIGHT = 100;
+
+                    if(this.isLoadFinished) {
+                        this.loading = false;
                         return;
                     }
-                    
-                    if(this.configContext.relationshipNames && this.configContext.relationshipNames.length) {
-                        this.relationshipTypeList = this.configContext.relationshipNames;
-                    } else {
+
+                    if (scrollDiff <= PRELOAD_HEIGHT)
+                        return this._loadMoreAttributes();
+                },
+
+                _loadMoreAttributes() {
+                    const itemsToPush = this.relationshipTypeListChunks.slice(this.displayedRelationshipTypeListChunksIndex, ++this.displayedRelationshipTypeListChunksIndex);
+
+                    if (!itemsToPush.length) {
+                        this.loading = false;
+                        return;
+                    }
+
+                    this.loading = true;
+
+                    window.requestAnimationFrame(()=> {
+                        const displayedRelationshipTypeListChunks = this.displayedRelationshipTypeListChunks.concat(itemsToPush);
+                        this.set('displayedRelationshipTypeListChunks', displayedRelationshipTypeListChunks);
+                    });
+                },
+
+                _onConfigContextChange: function() {
+                    const {
+                        relationshipTypeName,
+                        relationshipNames
+                    } = this.configContext;
+
+                    const relationshipTypeList = relationshipTypeName ? [relationshipTypeName] : relationshipNames;
+
+                    if(!relationshipTypeList.length) {
                         this._isMessageAvailable = true;
                         var messageDiv = this.$.messageCard;
                         if (messageDiv) {
                             messageDiv.textContent = "No Default Relationship is configured. Please select a relationship from the menu.";
                         }
+                        return;
                     }
+
+                    this.relationshipTypeListChunks = relationshipTypeList.reduce((res, item) => {
+                        const chunkIndex = res.length;
+
+                        const currentChunk = res[chunkIndex - 1];
+
+                        if (chunkIndex && currentChunk && currentChunk.length < this.relationshipChunkLength)
+                            currentChunk.push(item);
+                        else
+                            res.push([item]);
+
+                        return res;
+                    }, []);
+
+
+                    const displayedRelationshipTypeListChunks = this.relationshipTypeListChunks.slice(0, this.displayedRelationshipTypeListChunksIndex);
+                    
+                    this.set('displayedRelationshipTypeListChunks', displayedRelationshipTypeListChunks);
+
+                    if(this.isLoadFinished) {
+                        this.loading = false;
+                        return;
+                    }
+
+                    //after rendering initial attributes need to check if container has scroll
+                    //in case it doesn't have, need to trigger loading next chunk manually
+                    setTimeout(()=> {
+                        if(!this.hasScroll)
+                            this._loadMoreAttributes();
+                    }, 0);
                 },
                 
                 getIsDirty: function () {
