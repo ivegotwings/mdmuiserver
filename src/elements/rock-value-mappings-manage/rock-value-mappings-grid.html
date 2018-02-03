@@ -131,19 +131,24 @@
             pebble-data-table data-table-row data-table-cell {
                 padding: 0 0 0 10px!important;
             }
+
+            #gridManage {
+                text-align: right;
+                margin-right: 10px;
+            }
         </style>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <div id="gridManage">
-            <!--Add || Delete || Modify-->
-            <pebble-button class="action-button btn btn-secondary m-r-5" id="add" button-text="Add" raised on-tap="_onAddTap"></pebble-button>
-            <pebble-button class="action-button btn btn-secondary m-r-5" id="delete" button-text="Delete" raised on-tap="_onDeleteTap"></pebble-button>
+            <pebble-button class="iconButton m-r-5" title="Add" id="add" icon="pebble-icon:Add" raised on-tap="_onAddTap"></pebble-button>
+            <pebble-button class="iconButton m-r-5" title="Delete" id="delete" icon="pebble-icon:Delete" raised on-tap="_onDeleteTap"></pebble-button>
         </div>
         <div id="grid-container">
             <!-- <template is="dom-if" if="[[_isDataAvailable(_gridData)]]"> -->
             <pebble-data-table id="mapping-grid" items="{{_gridData}}" multi-selection>
                 <data-table-column slot="column-slot" name="Given Value">
                     <template>
-                        <pebble-textbox slot="cell-slot-content" class="column-text" id="givenValue[[index]]" value="{{item.givenValue}}" title="{{item.givenValue}}"></pebble-textbox>
+                        <pebble-textbox slot="cell-slot-content" class="column-text" id="given-value_[[index]]" row-id="[[index]]" value="{{item.givenValue}}"
+                            title="{{item.givenValue}}" on-change="_onGivenValueChange"></pebble-textbox>
                     </template>
                 </data-table-column>
                 <data-table-column slot="column-slot" name="Governed Value">
@@ -256,6 +261,13 @@
                                 }
                             }
                         }
+                    },
+
+                    _deletedMappings: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
                     }
                 },
                 observers: [
@@ -356,7 +368,7 @@
                     }
                 },
 
-                _onReferenceSelection: function () {
+                _onReferenceSelection: function (e, detail) {
                     var lov = this.shadowRoot.querySelector("#rockReferenceLov");
                     if (lov) {
                         var rowId = lov.currentRowId;
@@ -369,7 +381,10 @@
                                 var row = this._getParentRow(governTxtbox)
                                 if (row) {
                                     row.item.attributeModel = detail.data;
-                                    row.item["rowModified"] = true;
+                                    if (row.item["action"] != "new") {
+                                        row.item["action"] = "updated";
+                                    }
+                                    row.item["governedValue"] = detail.data.title;
                                     governTxtbox.value = detail.data.title;
                                     governTxtbox.title = detail.data.title;
                                 }
@@ -388,29 +403,70 @@
                         "givenValue": "",
                         "governedValue": "",
                         "source": "ui",
-                        "action": "added"
+                        "action": "new"
                     });
                 },
 
-                _onDeleteTap: function() {
+                _onDeleteTap: function () {
                     var grid = this.shadowRoot.querySelector("#mapping-grid");
-                    if(grid) {
+                    if (grid) {
                         var selectedItems = grid.getSelectedItems();
-                        if(selectedItems.length == 0) {
-                            //Show message if needed
+                        if (selectedItems.length == 0) {
+                            //Show message if needed - Please select an item for delete
                             return;
                         }
                         var gridData = [];
-                        for(var i = 0; i < this._gridData.length; i++) {
-                            if(selectedItems.indexOf(this._gridData[i].givenValue) == -1) {
+                        for (var i = 0; i < this._gridData.length; i++) {
+                            var isDelete = false;
+                            for (var j = 0; j < selectedItems.length; j++) {
+                                if (this._gridData[i].givenValue.toLowerCase() == selectedItems[j].givenValue.toLowerCase()) {
+                                    isDelete = true;
+                                    break;
+                                }
+                            }
+
+                            if (!isDelete) {
                                 gridData.push(this._gridData[i]);
+                            } else {
+                                if (this._gridData[i].action != "new") {
+                                    this._gridData[i].action = "deleted";
+                                    this._deletedMappings.push(this._gridData[i]);
+                                }
                             }
                         }
 
                         this.set("_gridData", gridData);
                     }
-                }
+                },
 
+                _getParentRow: function (element) {
+                    if (element) {
+                        if (element.is == "data-table-row") {
+                            return element;
+                        } else {
+                            return this._getParentRow(element.parentNode);
+                        }
+                    }
+                    return undefined;
+                },
+
+                _onGivenValueChange: function (e, detail) {
+                    var rowId = e.currentTarget.rowId;
+                    if (rowId >= 0) {
+                        var givenTxtbox = this.root.querySelector("#given-value_" + rowId);
+                        if (!givenTxtbox) {
+                            givenTxtbox = this.shadowRoot.querySelector("#given-value_" + rowId);
+                        }
+                        if (givenTxtbox) {
+                            var row = this._getParentRow(givenTxtbox)
+                            if (row) {
+                                if (row.item["action"] != "new") {
+                                    row.item["action"] = "updated";
+                                }
+                            }
+                        }
+                    }
+                }
             });
         })();
     </script>
