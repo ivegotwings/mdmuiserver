@@ -114,6 +114,78 @@ COPService.prototype = {
         //console.log('generateFieldMapRequest: ', JSON.stringify(generateFieldMapRequest, null, 2));
         return await this.post(generateFieldMapURL, generateFieldMapRequest);
     },
+    getHeaderFields: async function (request) {
+        var getHeaderFieldsURL = "copservice/getHeaderFields";
+        var validationResult = this._validateRequest(request);
+        if (!validationResult) {
+            return {
+                "entityOperationResponse": {
+                    "status": "Error",
+                    "statusDetail": {
+                        "code": "RSUI0000",
+                        "message": "Incorrect request for COP get header fields.",
+                        "messageType": "Error"
+                    }
+                }
+            };
+        }
+
+        var fileName = request.body.fileName;
+        var files = request.files;
+
+        var getHeaderFieldsRequest = JSON.parse(request.body.requestData);
+        getHeaderFieldsRequest.binaryObject.id = uuidV1();
+        getHeaderFieldsRequest.binaryObject.data.blob = this._getFileContent(fileName, files);
+        return await this.post(getHeaderFieldsURL, getHeaderFieldsRequest);
+    },
+    getMappings: async function (request) {
+        var getMappingsURL = "copservice/getMappings";
+        var validationResult = this._validateRequest(request);
+        if (!validationResult) {
+            return {
+                "entityOperationResponse": {
+                    "status": "Error",
+                    "statusDetail": {
+                        "code": "RSUI0000",
+                        "message": "Incorrect request for COP get mappings.",
+                        "messageType": "Error"
+                    }
+                }
+            };
+        }
+
+        var fileName = request.body.fileName;
+        var files = request.files;
+
+        var getMappingsRequest = JSON.parse(request.body.requestData);
+        getMappingsRequest.binaryObject.id = uuidV1();
+        getMappingsRequest.binaryObject.data.blob = this._getFileContent(fileName, files);
+        return await this.post(getMappingsURL, getMappingsRequest);
+    },
+    saveMappings: async function (request) {
+        var saveMappingsURL = "copservice/saveMappings";
+        var validationResult = this._validateRequest(request);
+        if (!validationResult) {
+            return {
+                "entityOperationResponse": {
+                    "status": "Error",
+                    "statusDetail": {
+                        "code": "RSUI0000",
+                        "message": "Incorrect request for COP save mappings.",
+                        "messageType": "Error"
+                    }
+                }
+            };
+        }
+
+        var fileName = request.body.fileName;
+        var files = request.files;
+
+        var saveMappingsRequest = JSON.parse(request.body.requestData);
+        saveMappingsRequest.binaryObject.id = uuidV1();
+        saveMappingsRequest.binaryObject.data.blob = this._getFileContent(fileName, files);
+        return await this.post(saveMappingsURL, saveMappingsRequest);
+    },
     downloadModelExcel: async function (request, response) {
         var downloadModelURL = "copservice/downloadModelExcel";
         var timeStamp = Date.now();
