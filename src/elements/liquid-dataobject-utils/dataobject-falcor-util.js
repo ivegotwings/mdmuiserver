@@ -32,37 +32,58 @@ DataObjectFalcorUtil.getPathKeys = function () {
                 }
             },
             "entityGovernData": {
-                "name": "entityGovernData",
-                "collectionName": "entities",
-                "responseObjectName": "response",
-                "maxRecordsToReturn": 2000
+                "dataSubIndexInfo": {
+                    "entityGovernData": {
+                        "name": "entityGovernData",
+                        "collectionName": "entities",
+                        "responseObjectName": "response",
+                        "maxRecordsToReturn": 2000
+                    }
+                }
             },
             "entityModel": {
-                "name": "entityModel",
-                "collectionName": "entityModels",
-                "responseObjectName": "response",
-                "maxRecordsToReturn": 2000
+                "dataSubIndexInfo": {
+                    "entityModel": {
+                        "name": "entityModel",
+                        "collectionName": "entityModels",
+                        "responseObjectName": "response",
+                        "maxRecordsToReturn": 2000
+                    }
+                }
             },
             "config": {
-                "name": "configObject",
-                "collectionName": "configObjects",
-                "responseObjectName": "response",
-                "maxRecordsToReturn": 100
+                "dataSubIndexInfo": {
+                    "config": {
+                        "name": "configObject",
+                        "collectionName": "configObjects",
+                        "responseObjectName": "response",
+                        "maxRecordsToReturn": 100
+                    }
+                }
             },
             "eventData": {
-                "name": "event",
-                "collectionName": "events",
-                "responseObjectName": "response",
-                "maxRecordsToReturn": 500
+                "dataSubIndexInfo": {
+                    "eventData": {
+                        "name": "event",
+                        "collectionName": "events",
+                        "responseObjectName": "response",
+                        "maxRecordsToReturn": 500
+                    }
+                }
             },
             "requestTracking": {
-                "name": "requestobject",
-                "collectionName": "requestObjects",
-                "responseObjectName": "response",
-                "maxRecordsToReturn": 25000
+                "dataSubIndexInfo": {
+                    "requestTracking": {
+                        "name": "requestobject",
+                        "collectionName": "requestObjects",
+                        "responseObjectName": "response",
+                        "maxRecordsToReturn": 25000
+                    }
+                }
             }
         }
     };
+
 };
 
 const pathKeys = DataObjectFalcorUtil.getPathKeys();
