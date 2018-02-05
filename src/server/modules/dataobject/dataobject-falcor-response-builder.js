@@ -597,7 +597,7 @@ function buildRefResponse(dataObject, reqData) {
 
     var dataJson = dataObjectResponseJson['data'] = {};
     var dataContextsJson = dataJson['contexts'] = {};
-    var pathToContexts = [pathKeys.root, reqData.dataIndex, reqData.dataObjectType, pathKeys.byIds, dataObject.id, 'data', 'contexts'];
+    var pathToContexts = [pathKeys.root, reqData.dataIndex, reqData.dataSubIndex, reqData.dataObjectType, pathKeys.byIds, dataObject.id, 'data', 'contexts'];
 
     var data = dataObject.data;
     if (data && data.contexts) {
