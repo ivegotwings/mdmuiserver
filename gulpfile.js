@@ -108,7 +108,7 @@ function serverBuild(buildPath) {
   });
 }
 
-function clientBuild(relativeBuildPath, bundle, isES5) {
+function clientBuild(relativeBuildPath, bundle, isES5, isDev) {
   return new Promise((resolve, reject) => {
 
     const polymerProject = new polymerBuild.PolymerProject(polymerJson);
@@ -136,22 +136,22 @@ function clientBuild(relativeBuildPath, bundle, isES5) {
         dependenciesStream = dependenciesStream.pipe(gulpif(['**/*.js',"!bower_components/pdfjs-dist/**/*.js", "!bower_components/mocha/mocha.js", "!bower_components/jsoneditor/dist/jsoneditor.min.js", "!bower_components/resize-observer-polyfill/**/*.js"], babel({'presets': [['es2015', {'modules': false, 'compact': false, 'allowReturnOutsideFunction': true}]]})));
       }
 
-      if(bundle) {
-        sourcesStream = sourcesStream
-          //.pipe(gulpif("**/*.css", cssSlam()))
+      if(bundle) {          
+        if (!isDev) {
+          sourcesStream = sourcesStream
           .pipe(gulpif("**/*.html", minifyHTML()))
           .pipe(gulpif("**/*.js", (babel({
-              plugins: ["transform-class-properties"]
+            plugins: ["transform-class-properties"]
             }))))
           .pipe(gulpif("**/*.js", uglify(uglifyOptions)))    
 
-        dependenciesStream = dependenciesStream
-          //.pipe(gulpif("**/*.css", cssSlam()))
-          .pipe(gulpif("**/*.html", minifyHTML()))
-          .pipe(gulpif(['**/*.js', "!bower_components/pdfjs-dist/**/*.js", "!bower_components/mocha/mocha.js", "!bower_components/jsoneditor/dist/jsoneditor.min.js", "!bower_components/resize-observer-polyfill/**/*.js"], (babel({
+          dependenciesStream = dependenciesStream
+            .pipe(gulpif("**/*.html", minifyHTML()))
+            .pipe(gulpif(['**/*.js', "!bower_components/pdfjs-dist/**/*.js", "!bower_components/mocha/mocha.js", "!bower_components/jsoneditor/dist/jsoneditor.min.js", "!bower_components/resize-observer-polyfill/**/*.js"], (babel({
               plugins: ["transform-class-properties"]
-            }))))
-          .pipe(gulpif(["**/*.js", "!bower_components/resize-observer-polyfill/**/*.js"], uglify(uglifyOptions)))
+             }))))
+            .pipe(gulpif(["**/*.js", "!bower_components/resize-observer-polyfill/**/*.js"], uglify(uglifyOptions)))
+        }
       }
       
       sourcesStream = sourcesStream.pipe(sourcesStreamSplitter.rejoin());
@@ -178,7 +178,7 @@ function clientBuild(relativeBuildPath, bundle, isES5) {
             strategy: generateShellOnlyMergeStrategy(polymerJson.shell, 3),
             // Shared bundles will be named:
             // `shared/bundle_1.html`, `shared/bundle_2.html`, etc...
-            urlMapper: polyBundler.generateCountingSharedBundleUrlMapper('src/shared-bundles/bundle_')
+            urlMapper: polyBundler.generateCountingSharedBundleUrlMapper('src/elements/shared-bundles/bundle_')
           }))
           .once('data', () => { console.log('Bundling resources... '); });
 
@@ -279,9 +279,15 @@ gulp.task('prod-server-build', function () {
 
 gulp.task('prod-es6-bundled-build', function () {
   return Promise.all([
-    clientBuild(es6BundledPath, true, false)
+    clientBuild(es6BundledPath, true, false, false)
   ]);
 });
+
+gulp.task('dev-es6-bundled-build', function(){
+  return Promise.all([
+    clientBuild(es6BundledPath, true, false, true)
+  ]);  
+})
 
 gulp.task('prod-es6-unbundled-build', function () {
   return Promise.all([
@@ -309,6 +315,7 @@ gulp.task('copy-node-modules', function () {
 });
 
 gulp.task('prod-client-build', gulp.series('prod-es5-bundled-build', 'prod-es6-bundled-build', 'prod-es6-unbundled-build'));
+gulp.task('dev-client-build', gulp.series('prod-es5-bundled-build', 'dev-es6-bundled-build', 'prod-es6-unbundled-build'));
 gulp.task('default', gulp.series('prod-delete', 'prod-server-build', 'prod-es6-bundled-build', 'prod-es6-unbundled-build', 'prod-build-wrap-up'));
 
 //gulp.task('default', gulp.series('prod-delete', 'prod-server-build', 'prod-es5-bundled-build', 'prod-es6-bundled-build', 'prod-build-wrap-up'));
