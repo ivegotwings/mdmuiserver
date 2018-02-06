@@ -6,13 +6,14 @@
 <link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../bedrock-helpers/component-helper.html">
+<link rel="import" href="../bedrock-query-builder-behavior/bedrock-query-builder-behavior.html">
 
 <link rel="import" href="../liquid-rest/liquid-rest.html">
 <link rel="import" href="../liquid-entity-model-composite-get/liquid-entity-model-composite-get.html">
 
 <link rel="import" href="../pebble-actions/pebble-actions.html">
 <link rel="import" href="../pebble-button/pebble-button.html">
-<link rel="import" href="../pebble-icon/pebble-icon-updated.html">
+<link rel="import" href="../pebble-icon/pebble-icon.html">
 <link rel="import" href="../pebble-popover/pebble-popover.html">
 <link rel="import" href="../pebble-vertical-divider/pebble-vertical-divider.html">
 
@@ -26,6 +27,7 @@
 <link rel="import" href="../rock-entity-search-filter/rock-entity-search-filter.html" />
 <link rel="import" href="../rock-entity-quick-manage/rock-entity-quick-manage.html" />
 <link rel="import" href="../rock-entity-type-model-lov/rock-entity-type-model-lov.html">
+<link rel="import" href="../rock-search-query-parser/rock-search-query-parser.html" />
 
 <link rel="import" href="../rock-business-function-dialog/rock-business-function-dialog.html" />
 <link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
@@ -222,7 +224,7 @@
                                 types-criterion="[[_typesCriterion]]" tags="{{tags}}"></rock-entity-search-filter>
                             <bedrock-pubsub event-name="tag-item-added" handler="_showResetSearch"></bedrock-pubsub>
                             <bedrock-pubsub event-name="tag-item-remove" handler="_showResetSearch"></bedrock-pubsub>
-                            <bedrock-pubsub event-name="build-query" handler="_searchFiltersChanged"></bedrock-pubsub>
+                            <bedrock-pubsub event-name="build-query" handler="_buildQueryString"></bedrock-pubsub>
                         </div>
 
                         <pebble-button id="actionsButton" button-icon="pebble-icon:Actions" class="dropdownText dropdownIcon btn btn-actions dropdown-success"
@@ -236,11 +238,11 @@
             </rock-header>            
             <div class="layout horizontal contentContainer">                
                 <div id="entityGridContainer" class$="[[_applyClass(_quickManageEnabled)]]">
-                    <div id="refTypeMsg" class="default-message" hidden$="[[_isTypesCriterionAvailable(_typeCriterion)]]"> Please select reference type </div>
+                    <div id="refTypeMsg" class="default-message" hidden$="[[_isTypesCriterionAvailable(_typesCriterion)]]"> Please select reference type </div>
                     <rock-entity-search-result id="entitySearchGrid"
                                              context-data="[[contextData]]"
                                              search-filters="[[_selectedSearchFilters]]"
-                                             types-Criterion="[[_getTypesCriterion(_typeCriterion)]]"
+                                             types-Criterion="[[_typesCriterion]]"
                                              search-query="[[_searchQuery]]"
                                              process-with-dynamic-fields
                                              dynamic-fields="[[_dynamicFields]]"
@@ -266,6 +268,8 @@
             </div>
         </rock-layout>
         <bedrock-pubsub event-name="dimension-selector-data-changed" handler="_onDimensionsChanged" target-id="dimensionSelector"></bedrock-pubsub>
+        <rock-search-query-parser id="queryParser" context-data="[[contextData]]"></rock-search-query-parser>
+         <bedrock-pubsub id="parser-event" event-name="on-search-filters" handler="_onSearchFiltersChange" target-id="queryParser"></bedrock-pubsub>
 
     </template>
     <script>
@@ -385,10 +389,11 @@
                             return [];
                         }
                     },
-                    _typeCriterion: {
-                        type: String,
-                        value: ""
-
+                    _typesCriterion: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
                     },
                     _resetSearchEnabled: {
                         type: Boolean,
@@ -418,18 +423,43 @@
                     _quickManageEnabled: {
                         type: Boolean,
                         value: false
+                    },
+                    inputQueryString:{
+                         type: String,
+                         value: ""
+                    },
+                   _attributeListArray: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+                    _searchBarElement: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+                    _entitySearchFilterElement: {
+                        type: Object,
+                        value: function () {
+                        return {};
+                        }
                     }
                 },
 
                 behaviors: [
+                    RUFBehaviors.QueryBuilderBehavior,
                     RUFBehaviors.AppBehavior,
                     RUFBehaviors.ComponentConfigBehavior
                 ],
 
                 ready: function () {
-                    this.shadowRoot.querySelector("#searchBar").searchInput = [];
+                    if(this._searchBarElement) {
+                        this._searchBarElement.searchInput = [];
+                    }
                     //get saved search id from query string
-                    this._searchQuery = DataHelper.getParamValue('searchtext');
+                    this._searchQuery = DataHelper.getParamValue('searchtext') || "";
                 },
 
                 created: function () {
@@ -442,12 +472,12 @@
                 },
 
                 attached: function () {
+                    this._initializeComponent();
                     //get saved search id from query string
-                    if (DataHelper.getParamValue('searchtext')) {
-                        this.shadowRoot.querySelector('#searchBar').query = this._searchQuery;
+                    if (!DataHelper.isEmptyObject(this._searchQuery) && this._searchBarElement) {
+                        this._searchBarElement.query = this._searchQuery;
                     }
                     this._setGridHeight();
-                    this._initializeComponent();
                 },
 
                 _onContextDataChange: function() {
@@ -467,10 +497,11 @@
 
                 onConfigLoaded: function(componentConfig) {
                     if(componentConfig && componentConfig.config) {
-                        this._typeCriterion = componentConfig.config.defaultReferenceType;
+                        this._typesCriterion = [componentConfig.config.defaultReferenceType];
                         this.publish = componentConfig.config.showPublish;
+                        this._buildQueryString();
                     }
-                    this._prepareContext();
+                    //this._prepareContext();
                 },
 
                 _onActionItemTap: function (e, detail, sender) {
@@ -527,18 +558,28 @@
                     if (this.shadowRoot.querySelector("#entitySearchGrid")) {
                         this._searchGridElement = this.shadowRoot.querySelector("#entitySearchGrid");
                     }
+
+                    if (this.shadowRoot.querySelector("#searchBar")) {
+                        this._searchBarElement = this.shadowRoot.querySelector("#searchBar");
+                    }
+
+                    if (this.shadowRoot.querySelector("#searchFilter")) {
+                        this._entitySearchFilterElement = this.shadowRoot.querySelector("#searchFilter");
+                    }
                 },
                 _onReferenceDataChange: function (e, detail, sender) {
                     var selectedItem = detail.data.id;
-                    this.set("_typeCriterion", selectedItem);
-                    this._prepareContext();
-                    var entitySearchFilterEl = this.shadowRoot.querySelector('[id=searchFilter]');
-                    if (entitySearchFilterEl && entitySearchFilterEl.refresh) {
-                        entitySearchFilterEl.refresh();
-                    }
-
-                    this._quickManageEnabled = false;
-                    this._getSearchGrid().notifyResize();
+                    this.set("_typesCriterion", [selectedItem]);
+                    /***
+                     * TODO: Need to discuss this. There is/are existing attribute filter(s), when reference entity
+                     * type changed, what should we do with the existing attribute filter tag(s). Keep them or remove?
+                     * For now removing the existing filters.
+                     * */
+                    this._selectedSearchFilters = [];
+                    this._entitySearchFilterElement.clearSearchFilters();
+                    //this._prepareContext();
+                    this._buildQueryString();
+                    
                     var popover = this.shadowRoot.querySelector("#actionsPopover");
                     if (popover) {
                         popover.hide();
@@ -547,11 +588,11 @@
 
                 _prepareContext: function () {
                     if (!_.isEmpty(this.contextData)) {
-                        if (this._typeCriterion) {
-                            this._mainTitle = this._typeCriterion;
-                            this._selectedReferenceType = this._typeCriterion;
+                        if (this._typesCriterion) {
+                            this._mainTitle = this._typesCriterion[0];
+                            this._selectedReferenceType = this._typesCriterion[0];
                             var itemContext = {};
-                            itemContext.type = this._typeCriterion;
+                            itemContext.type = this._typesCriterion[0];
                             itemContext.attributeNames = ["_ALL"];
                             this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
                             var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
@@ -602,32 +643,27 @@
                 _onSearch: function (e, detail, sender) {
                     if (!_.isEmpty(detail)) {
                         this._searchQuery = detail.query;
-                        //TODO: Temperory fix to show keyword in search bar. Will be removed once advanced search implemented here
-                        let searchBarElement = this.shadowRoot.querySelector("#searchBar");
-                        if(searchBarElement) {
-                            searchBarElement.setAttribute("placeholder",detail.query);
-                        }
-                        this._refreshGrid();
+                        this._buildQueryString();
                     }
                 },
                 _resetSearch: function () {
                     this._searchQuery = '';
                     this.tags = [];
 
-
-                    var rockSearchBar = this.shadowRoot.querySelector('#searchBar');
-                    if (rockSearchBar) {
-                        rockSearchBar.query = "";
-                        rockSearchBar.searchText = "";
+                    if (this._searchBarElement) {
+                        this._searchBarElement.query = "";
+                        this._searchBarElement.searchText = "";
                         //TODO: Temperory fix to show keyword in search bar. Will be removed once advanced search implemented here
-                        rockSearchBar.setAttribute("placeholder","Enter Search text");
+                        this._searchBarElement.setAttribute("placeholder","Enter Search text");
                     }
 
+                    this.inputQueryString = "";
                     this._selectedSearchFilters = [];
-                    this.$.searchFilter.clearSearchFilters();
+                    this._entitySearchFilterElement.clearSearchFilters();
 
                     this._resetSearchEnabled = false;
-                    this._refreshGrid();
+                    //this._refreshGrid();
+                    this._buildQueryString();
                 },
                 _getSearchGrid: function () {
                     return ElementHelper.getElement(this, "#entitySearchGrid");
@@ -741,73 +777,6 @@
 
                     return false;
                 },
-                _getElement: function (element) {
-                    if (element == "rockEntitySearchFilter") {
-                        if (!this._rockEntitySearchFilter) {
-                            this._rockEntitySearchFilter = this.shadowRoot.querySelector("#searchFilter");
-                        }
-
-                        return this._rockEntitySearchFilter
-                    } else if (element == "rockSearchFilter") {
-                        if (!this._rockSearchFilter) {
-                            var entitySearchFilter = this._getElement("rockEntitySearchFilter");
-                            if (entitySearchFilter && entitySearchFilter.shadowRoot) {
-                                this._rockSearchFilter = entitySearchFilter.shadowRoot.querySelector(
-                                    "rock-search-filter");
-                            }
-                        }
-                        return this._rockSearchFilter;
-                    }
-                },
-                _populateHeaderControls: function (savedSearch) {
-                    if (savedSearch) {
-                        // search input info
-                        var searchBarElement = this.shadowRoot.querySelector("#searchBar");
-                        if (searchBarElement) {
-                            searchBarElement.query = savedSearch.searchQuery;
-                        }
-
-                        // search filter info
-                        var searchFilter = this.shadowRoot.querySelector("#searchFilter");
-                        if (searchFilter) {
-                            searchFilter.tags = savedSearch.searchTags ? savedSearch.searchTags : [];
-
-                            this._selectedSearchFilters = [];
-                            if (!_.isEmpty(searchFilter.tags)) {
-                                for (var i = 0; i < searchFilter.tags.length; i++) {
-                                    var attr = {};
-                                    attr[searchFilter.tags[i].name] = searchFilter.tags[i].value;
-                                    this.push('_selectedSearchFilters', attr);
-                                }
-                            }
-                        }
-
-                        // dimensionselector info
-                        var dimensionSelector = this.$.dimensionSelector;
-                        if (dimensionSelector) {
-                            dimensionSelector.selectedDimensions = savedSearch.dimensions;
-                            dimensionSelector.shadowRoot.querySelector('rock-entity-lov').refershTemplate();
-                        }
-
-                        var _savedSearchButton = this.shadowRoot.querySelector("#savedSearchButton");
-                        if (_savedSearchButton) {
-                            _savedSearchButton.buttonText = savedSearch.name;
-                        }
-                        this._searchQuery = savedSearch.searchQuery;
-
-                    }
-                },
-                /* Not used anywhere
-                _searchResponseChanged: function (_searchResponse) {
-                    if (!_searchResponse || !_searchResponse.content || _searchResponse.content.totalRecords ==
-                        0) {
-                        this._searchResultResponse = {
-                            "content": {
-                                "entities": {}
-                            }
-                        };
-                    }
-                },*/
                 _onActionsTap: function (e) {
                     this.shadowRoot.querySelector('#actionsPopover').show();
                 },
@@ -829,36 +798,24 @@
                 },
 
                 _showResetSearch: function (e) {
-                    var rockSearchBar = this.shadowRoot.querySelector('#searchBar');
-                    var rockSearchFilter = this._getElement('rockSearchFilter');
+                    var rockSearchFilter = undefined;
+                    if(!_.isEmpty(this._entitySearchFilterElement)) {
+                        rockSearchFilter = this._entitySearchFilterElement.$$("rock-search-filter");
+                    }
                     var query = '';
                     var tags = [];
 
-                    if (rockSearchBar) {
-                        query = rockSearchBar.query;
+                    if (!_.isEmpty(this._searchBarElement)) {
+                        query = this._searchBarElement.query;
                     }
 
                     if (rockSearchFilter) {
                         tags = rockSearchFilter.tags;
                     }
 
-                    if (!_.isEmpty(query) || tags.length > 0) {
+                    if (!_.isEmpty(query) || tags.length > 0 || this.inputQueryString!="") {
                         this._resetSearchEnabled = true;
                     }
-                },
-                _searchFiltersChanged: function (e, detail) {
-                    var tags = detail;
-                    var _selectedSearchFilters = [];
-                    if (tags && tags.length > 0) {
-                        for (let i = 0; i < tags.length; i++) {
-                            var tag = tags[i];
-                            var attrCond = {};
-                            attrCond[tag.name] = tag.value;
-                            _selectedSearchFilters.push(attrCond);
-                        }
-                    }
-                    this.set('_selectedSearchFilters', _selectedSearchFilters);
-                    this._refreshGrid();
                 },
                 _onQuickManageAdd: function () {
                     var itemContext = {
@@ -938,18 +895,102 @@
                     ContextHelper.updateContextData(this.contextData, newDimensions);
                     this._refreshComponent();
                 },
-                _isTypesCriterionAvailable: function (typeCriterion) {
-                    if(typeCriterion) {
+                _isTypesCriterionAvailable: function (typesCriterion) {
+                    if(!_.isEmpty(typesCriterion)) {
                         return true;
                     }
 
                     return false;
                 },
-                _getTypesCriterion: function(typeCriterion) {
-                    if(typeCriterion) {
-                        return [typeCriterion];
+                _buildQueryString: function(e, detail){
+                    //Closing the quick manage to enable search if it is opened when search query is built
+                    if (this._quickManageEnabled) {
+                        this._onTapManage();
                     }
-                }
+                    var queryBuilder = this.shadowRoot.querySelector("#queryBuilder");
+                    var queryBuilderData = {};
+                    if(queryBuilder){
+                        queryBuilderData = queryBuilder.getQueryBuilderData();
+                    }  
+                    //User has input some keyword search criteria
+                    var keywordSearchStr = "";
+                    if(this._searchQuery){
+                        keywordSearchStr = this._searchQuery;
+                    }
+                    
+                    var attributeListArray = new Array();
+                    if(detail) {
+                        var attributeList = detail;
+                        
+                        for(var i=0;i<attributeList.length;i++){
+                            let newItem = {
+                                name : attributeList[i].longName,
+                                value : (attributeList[i].displayValue).replace(/"|'/g,""),
+                                attributeModel : attributeList[i].options
+                            } 
+                            attributeListArray.push(newItem);  
+                        }
+                        this.set("_attributeListArray", attributeListArray);
+                    }
+                    //this binding not working it returns null
+                    //hardbinding directly to behavior                   
+                    var queryString =  RUFBehaviors.QueryBuilderBehavior.buildQuery(this._typesCriterion,this._attributeListArray,queryBuilderData,false,keywordSearchStr);
+                    //this binding not working it returns null
+                    //hardbinding directly to behavior
+                    var parsableString =  RUFBehaviors.QueryBuilderBehavior.buildQuery(this._typesCriterion,this._attributeListArray,queryBuilderData,true,keywordSearchStr);
+                                        
+                    this._displayQuery(queryString, parsableString);
+                    this._parseQuery(parsableString);
+                },
+                /**
+                * Function to display the query on the search bar
+                */
+                _displayQuery: function (queryStr, parsableQueryStr) {
+                    this.inputQueryString = queryStr;
+                    
+                    if(this._searchBarElement) {
+                        this._searchBarElement.searchInput = [];
+                        if (queryStr) {
+                            this._searchBarElement.query = this._searchQuery;
+                            this._searchBarElement.searchText = this._searchQuery;
+                            this._searchBarElement.setAttribute("placeholder","");
+                            this._searchBarElement.setAttribute("placeholder",queryStr);
+                        }
+                        if(parsableQueryStr) {
+                            this._searchBarElement.internalQuery = parsableQueryStr;
+                        } 
+                    }
+                    
+                    this._showResetSearch(); 
+                },
+                /**
+                * Function to parse the query
+                */
+                _parseQuery: function(query) {
+                    var parserPubsub = this.shadowRoot.querySelector("[id=parser-event]");
+                    var queryParser = this.shadowRoot.querySelector("[id=queryParser]");
+                    if(parserPubsub) {
+                        parserPubsub.registerEvent();
+                    }
+                    if(queryParser) {
+                        queryParser.parseQueryToFilters(query);
+                    }
+                },
+                _onSearchFiltersChange: function (e, detail) {
+                    this._updateProperties(detail);
+                },
+                _updateProperties: function(searchFilters) {
+                    var typesCriterion = searchFilters.typesCriterion;
+                    var selectedSearchFilters = searchFilters.attributesCriterion;
+                    var searchQuery = searchFilters.searchQuery ? searchFilters.searchQuery : "";
+                    this.set("_typesCriterion", typesCriterion);
+                    this.set("_selectedSearchFilters", selectedSearchFilters);
+                    this.set("_searchQuery", searchQuery);
+                    if(this._entitySearchFilterElement && this._entitySearchFilterElement.refresh) {
+                        this._entitySearchFilterElement.refresh();
+                    }
+                    this._prepareContext();
+                },
             });
         })();
     </script>

@@ -750,7 +750,7 @@ Eventservice.prototype = {
             }]
         };
 
-        var dataIndexInfo = pathKeys.dataIndexInfo["requestTracking"];
+        var dataIndexInfo = pathKeys.dataIndexInfo["requestTracking"].dataSubIndexInfo["requestTracking"];
         req.params.options = {
             "maxRecords": dataIndexInfo.maxRecordsToReturn
         }
