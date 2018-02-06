@@ -136,22 +136,20 @@ function clientBuild(relativeBuildPath, bundle, isES5, isDev) {
         dependenciesStream = dependenciesStream.pipe(gulpif(['**/*.js',"!bower_components/pdfjs-dist/**/*.js", "!bower_components/mocha/mocha.js", "!bower_components/jsoneditor/dist/jsoneditor.min.js", "!bower_components/resize-observer-polyfill/**/*.js"], babel({'presets': [['es2015', {'modules': false, 'compact': false, 'allowReturnOutsideFunction': true}]]})));
       }
 
-      if(bundle) {          
-        if (!isDev) {
-          sourcesStream = sourcesStream
+      if(bundle && !isDev) {          
+        sourcesStream = sourcesStream
+        .pipe(gulpif("**/*.html", minifyHTML()))
+        .pipe(gulpif("**/*.js", (babel({
+          plugins: ["transform-class-properties"]
+          }))))
+        .pipe(gulpif("**/*.js", uglify(uglifyOptions)))    
+
+        dependenciesStream = dependenciesStream
           .pipe(gulpif("**/*.html", minifyHTML()))
-          .pipe(gulpif("**/*.js", (babel({
+          .pipe(gulpif(['**/*.js', "!bower_components/pdfjs-dist/**/*.js", "!bower_components/mocha/mocha.js", "!bower_components/jsoneditor/dist/jsoneditor.min.js", "!bower_components/resize-observer-polyfill/**/*.js"], (babel({
             plugins: ["transform-class-properties"]
             }))))
-          .pipe(gulpif("**/*.js", uglify(uglifyOptions)))    
-
-          dependenciesStream = dependenciesStream
-            .pipe(gulpif("**/*.html", minifyHTML()))
-            .pipe(gulpif(['**/*.js', "!bower_components/pdfjs-dist/**/*.js", "!bower_components/mocha/mocha.js", "!bower_components/jsoneditor/dist/jsoneditor.min.js", "!bower_components/resize-observer-polyfill/**/*.js"], (babel({
-              plugins: ["transform-class-properties"]
-             }))))
-            .pipe(gulpif(["**/*.js", "!bower_components/resize-observer-polyfill/**/*.js"], uglify(uglifyOptions)))
-        }
+          .pipe(gulpif(["**/*.js", "!bower_components/resize-observer-polyfill/**/*.js"], uglify(uglifyOptions)))
       }
       
       sourcesStream = sourcesStream.pipe(sourcesStreamSplitter.rejoin());
@@ -315,7 +313,7 @@ gulp.task('copy-node-modules', function () {
 });
 
 gulp.task('prod-client-build', gulp.series('prod-es5-bundled-build', 'prod-es6-bundled-build', 'prod-es6-unbundled-build'));
-gulp.task('dev-client-build', gulp.series('prod-es5-bundled-build', 'dev-es6-bundled-build', 'prod-es6-unbundled-build'));
+gulp.task('dev-build', gulp.series('prod-delete', 'prod-server-build', 'prod-es5-bundled-build', 'dev-es6-bundled-build', 'prod-es6-unbundled-build'));
 gulp.task('default', gulp.series('prod-delete', 'prod-server-build', 'prod-es6-bundled-build', 'prod-es6-unbundled-build', 'prod-build-wrap-up'));
 
 //gulp.task('default', gulp.series('prod-delete', 'prod-server-build', 'prod-es5-bundled-build', 'prod-es6-bundled-build', 'prod-build-wrap-up'));
