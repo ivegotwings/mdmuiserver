@@ -133,7 +133,7 @@ function clientBuild(relativeBuildPath, bundle, isES5) {
       if (isES5) {
         console.log('Transpiling javascripts to ES5... ');
         sourcesStream = sourcesStream.pipe(gulpif('**/*.js', babel({ 'presets': [['es2015', { 'modules': false, 'compact': false, 'allowReturnOutsideFunction': true }]] })));
-        dependenciesStream = dependenciesStream.pipe(gulpif(['**/*.js', "!bower_components/pdfjs-dist/**/*.js", "!bower_components/mocha/mocha.js", "!bower_components/jsoneditor/dist/jsoneditor.min.js", "!bower_components/resize-observer-polyfill/**/*.js"], babel({'presets': [['es2015', {'modules': false, 'compact': false, 'allowReturnOutsideFunction': true}]]})));
+        dependenciesStream = dependenciesStream.pipe(gulpif(['**/*.js',"!bower_components/pdfjs-dist/**/*.js", "!bower_components/mocha/mocha.js", "!bower_components/jsoneditor/dist/jsoneditor.min.js", "!bower_components/resize-observer-polyfill/**/*.js"], babel({'presets': [['es2015', {'modules': false, 'compact': false, 'allowReturnOutsideFunction': true}]]})));
       }
 
       if(bundle) {
