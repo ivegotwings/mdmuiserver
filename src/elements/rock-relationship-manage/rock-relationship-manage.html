@@ -66,26 +66,25 @@ It renders the list of attributes based on the specified relationship type.
         </style>
       <rock-business-function-dialog id="wfTransitionDialog" context-data="[[contextData]]"></rock-business-function-dialog>
       <rock-business-function-dialog id="wfAssignmentDialog" context-data="[[contextData]]"></rock-business-function-dialog>
-      <div class="content">
-            <template is="dom-if" if="displayedRelationshipTypeListChunks.length">
-                <template is="dom-repeat" items="[[displayedRelationshipTypeListChunks]]" as="relationshipTypeList">
-                    <template is="dom-repeat" items="{{relationshipTypeList}}" as="relationship">
-                        <rock-entity-relationship-search-result
-                            id="entityRelationshipSearchResult_[[relationship]]"
-                            readonly$="[[readonly]]"
-                            relationship="[[relationship]]"
-                            config-context="[[configContext]]"
-                            page-size="100"
-                            context-data="[[contextData]]"
-                            do-sync-validation$="[[doSyncValidation]]"
-                            functional-mode="[[functionalMode]]">
-                        </rock-entity-relationship-search-result>
-                    </template>
+        <template is="dom-if" if="displayedRelationshipTypeListChunks.length">
+            <template is="dom-repeat" items="[[displayedRelationshipTypeListChunks]]" as="relationshipTypeList" index-as="chunkIndex">
+                <template is="dom-repeat" items="{{relationshipTypeList}}" as="relationship" index-as="relationshipIndex">
+                    <rock-entity-relationship-search-result
+                        id="entityRelationshipSearchResult_[[relationship]]"
+                        readonly$="[[readonly]]"
+                        relationship="[[relationship]]"
+                        config-context="[[configContext]]"
+                        page-size="100"
+                        context-data="[[contextData]]"
+                        do-sync-validation$="[[doSyncValidation]]"
+                        functional-mode="[[functionalMode]]">
+                    </rock-entity-relationship-search-result>
                 </template>
             </template>
-      </div>
+        </template>
       <div id="messageCard" hidden="[[!_isMessageAvailable]]">
       </div>
+      <bedrock-pubsub event-name="load-more-relationships" handler="_onLoadMoreRelationshipsDebounced"></bedrock-pubsub>
     </template>
     <script>
         (function () {
@@ -129,12 +128,6 @@ It renders the list of attributes based on the specified relationship type.
                         type: String,
                         value: "default"
                     },
-                    relationshipTypeList:{
-                        type:Array,
-                        value: function () {
-                            return [];
-                        }
-                    },
                     globalEdit:{
                         type:Boolean,
                         notify:true
@@ -145,7 +138,7 @@ It renders the list of attributes based on the specified relationship type.
                     },
                     relationshipChunkLength: {
                         type: Number,
-                        value: 5
+                        value: 3
                     },
                 },
 
@@ -158,66 +151,23 @@ It renders the list of attributes based on the specified relationship type.
                 ],
 
                 created() {
-                    this.relationshipTypeList = [];
                     this.relationshipTypeListChunks = [];
                     this.displayedRelationshipTypeListChunks = [];
                     this.displayedRelationshipTypeListChunksIndex = 1;
 
-                    this._onScrollListDebounce = _.debounce(this._onScrollList.bind(this), 300);
-                },
-
-                attached() {
-                    if(this.scrollContainer)
-                        this.scrollContainer.addEventListener('scroll', this._onScrollListDebounce);
-                },
-
-                detached() {
-                    if(this.scrollContainer)
-                        this.scrollContainer.removeEventListener('scroll', this._onScrollListDebounce)
-                },
-
-                get scrollContainer() {
-                    const query = this.shadowRoot.querySelectorAll('.content');
-                    return query ? query[0] : null;
-                },
-
-                get hasScroll() {
-                    const { scrollHeight, offsetHeight } = this.scrollContainer;
-
-                    return scrollHeight > offsetHeight;
+                    this._onLoadMoreRelationshipsDebounced = _.debounce(this._onLoadMoreRelationships.bind(this), 300);
                 },
 
                 get isLoadFinished() {
                     return this.displayedRelationshipTypeListChunks.length === this.relationshipTypeListChunks.length;
                 },
 
-                _onScrollList() {
-                    if(!this._lazyLoad) return;
-
-                    const { scrollHeight, scrollTop, offsetHeight } = this.scrollContainer;
-
-                    const scrollDiff = scrollHeight - offsetHeight - scrollTop;
-
-                    const PRELOAD_HEIGHT = 100;
-
-                    if(this.isLoadFinished) {
-                        this.loading = false;
-                        return;
-                    }
-
-                    if (scrollDiff <= PRELOAD_HEIGHT)
-                        return this._loadMoreAttributes();
-                },
-
-                _loadMoreAttributes() {
+                _onLoadMoreRelationships() {
+                    if(this.isLoadFinished) return;
+                    
                     const itemsToPush = this.relationshipTypeListChunks.slice(this.displayedRelationshipTypeListChunksIndex, ++this.displayedRelationshipTypeListChunksIndex);
 
-                    if (!itemsToPush.length) {
-                        this.loading = false;
-                        return;
-                    }
-
-                    this.loading = true;
+                    if (!itemsToPush.length) return;
 
                     window.requestAnimationFrame(()=> {
                         const displayedRelationshipTypeListChunks = this.displayedRelationshipTypeListChunks.concat(itemsToPush);
@@ -242,7 +192,7 @@ It renders the list of attributes based on the specified relationship type.
                         return;
                     }
 
-                    this.relationshipTypeListChunks = relationshipTypeList.reduce((res, item) => {
+                    this.relationshipTypeListChunks = relationshipTypeList.reduce((res, item, i) => {
                         const chunkIndex = res.length;
 
                         const currentChunk = res[chunkIndex - 1];
@@ -255,22 +205,7 @@ It renders the list of attributes based on the specified relationship type.
                         return res;
                     }, []);
 
-
-                    const displayedRelationshipTypeListChunks = this.relationshipTypeListChunks.slice(0, this.displayedRelationshipTypeListChunksIndex);
-                    
-                    this.set('displayedRelationshipTypeListChunks', displayedRelationshipTypeListChunks);
-
-                    if(this.isLoadFinished) {
-                        this.loading = false;
-                        return;
-                    }
-
-                    //after rendering initial attributes need to check if container has scroll
-                    //in case it doesn't have, need to trigger loading next chunk manually
-                    setTimeout(()=> {
-                        if(!this.hasScroll)
-                            this._loadMoreAttributes();
-                    }, 0);
+                    this.displayedRelationshipTypeListChunks = this.relationshipTypeListChunks.slice(0, this.displayedRelationshipTypeListChunksIndex);
                 },
                 
                 getIsDirty: function () {
