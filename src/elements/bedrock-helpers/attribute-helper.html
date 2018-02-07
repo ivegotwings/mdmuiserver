@@ -51,13 +51,14 @@
             }
 
             var value;
+            var currentLocale = valueContext ? valueContext.locale : undefined;
             if (values) {
                 for (var i = 0; i < values.length; i++) {
                     var currentValue = values[i];
-                    if (!currentValue.action && currentValue.action !== "delete") {
+                    if (!currentValue.action && currentValue.action !== "delete" && currentValue.locale === currentLocale) {
                         value = DataHelper.cloneObject(currentValue);
+                        break;
                     }
-                    break;
                 }
             }
 
@@ -77,12 +78,13 @@
             }
 
             var _values = [];
+            var currentLocale = valueContext ? valueContext.locale : undefined;
 
             if (values) {
                 for (var i = 0; i < values.length; i++) {
                     var currentValue = values[i];
 
-                    if (!currentValue.action && currentValue.action !== "delete") {
+                    if (!currentValue.action && currentValue.action !== "delete" && currentValue.locale === currentLocale) {
                         if (Array.isArray(currentValue.value)) {
                             //When save, already array, then no change
                             _values = _values.concat(currentValue.value);
@@ -165,7 +167,14 @@
                         }
                     }
                 } else {
-                    val = attribute.values && attribute.values.length ? attribute.values[0].value : '';
+                    val = "";
+                    if(attribute.values && attribute.values.length) {
+                        if(attribute.values[0].action == "delete") {
+                            val = "delete"
+                        } else {
+                            val = attribute.values[0].value
+                        }
+                    }
                 }
             }
             return val;
@@ -193,11 +202,36 @@
         };
 
         AttributeHelper.getLocaleCoalescePath = function (attribute) {
-            if (attribute && attribute.values && attribute.values.length > 0) {
-                var firstValue = attribute.values[0];
-                if (firstValue && !_.isEmpty(firstValue.properties) && !_.isEmpty(firstValue.properties.localeCoalescePath)) {
-                    return firstValue.properties.localeCoalescePath;
+            if(attribute) {
+                var clonedAttribute = DataHelper.cloneObject(attribute);
+
+                if(clonedAttribute.values && clonedAttribute.values.length > 0) {
+                    return AttributeHelper.getLocaleCoalescePathFromValues(clonedAttribute.values);
+                } else if(clonedAttribute.group && clonedAttribute.group.length > 0) {
+                    return AttributeHelper.getLocaleCoalescePathFromValues(clonedAttribute.group);
                 }
+            }
+
+            return undefined;
+        };
+
+        AttributeHelper.getLocaleCoalescePathFromValues = function(values) {
+            var firstValue = undefined;
+            if(values.length > 1) {
+                values.sort(function (a, b) {
+                    let aCoalescePaths = a.properties ? DataHelper.getFallbackPathsFromCoalescePath(a.properties.localeCoalescePath) : [];
+                    let bCoalescePaths = b.properties ? DataHelper.getFallbackPathsFromCoalescePath(b.properties.localeCoalescePath) : [];
+
+                    return b.length - a.length;
+                });
+
+                firstValue = values.find(val => !_.isEmpty(val.properties) && !_.isEmpty(val.properties.localeCoalescePath));
+            } else {
+                firstValue = values[0];
+            }
+
+            if (firstValue && firstValue.properties && firstValue.properties.localeCoalescePath) {
+                return firstValue.properties.localeCoalescePath;
             }
 
             return undefined;

@@ -68,7 +68,7 @@ ConfigurationService.prototype = {
         var requestContext = request.params.query.contexts[0];
         requestContext.tenant = requestContext.tenant == undefined || requestContext.tenant == DEFAULT_CONTEXT_KEY ? this.getTenantId() : requestContext.tenant;
 
-        var baseConfigId = requestContext.component + "-base_uiConfig";
+        var baseConfigId = "sys_" + requestContext.component + "-base_uiConfig";
         var baseConfigRequest = {
             "params": {
                 "query": {
@@ -92,11 +92,7 @@ ConfigurationService.prototype = {
         //console.log('base config request', JSON.stringify(baseConfigRequest, null, 2));
 
         var baseConfigResponse = await this.baseConfigService.get(RDF_SERVICE_NAME + "/get", baseConfigRequest);
-        // console.log('baseConfigResponse --> ', JSON.stringify(baseConfigResponse))
-        //Get entity manage model with permissions...
-        var getLatest = false;
-        // var baseConfigResponse = await this._fetchConfigObject(RDF_SERVICE_NAME + "/get", baseConfigRequest, getLatest);
-        // console.log('base config response --> ', JSON.stringify(baseConfigResponse));
+        //console.log('base config get response ', JSON.stringify(baseConfigResponse));
 
         var finalConfigObject = baseConfigResponse.response.configObjects[0];
         //console.log('base config', JSON.stringify(finalConfigObject));
@@ -214,7 +210,7 @@ ConfigurationService.prototype = {
             req.params.query.contexts[0].tenant = tenant;
         }
         else {
-            configId = req.params.query.id = "config-context-settings-base_uiConfig";
+            configId = req.params.query.id = "sys_config-context-settings-base_uiConfig";
         }
 
         var configData = {};

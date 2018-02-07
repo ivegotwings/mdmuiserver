@@ -70,10 +70,6 @@
 				margin-top: auto;
 			}
 
-			pebble-icon {
-				padding-right: 10px;
-			}
-
 			.divider {
 				width: 2%;
 				height: auto;
@@ -112,11 +108,11 @@
 
 		<div class="attribute-split-screen-container">
 			<div id="split-screen-container" class="attribute-split-screen-title-container">
-				<template is="dom-if" if="[[_showContextTitles]]">
+				<template is="dom-if" if="[[_contexts.length]]">
 					<div class="dimension" style$="[[_getStyle(noOfScreens)]]">
 						<template is="dom-repeat" items="[[_contexts]]" as="context">
 							<div id="sourceDimensionValueContainer" class$="[[_getDimensionTitleClass(noOfScreens)]]">
-								<pebble-icon icon="pebble-md-icons:Language"></pebble-icon>
+								<pebble-icon icon="pebble-icon:Language" class="pebble-icon-size-16 m-r-10"></pebble-icon>
 								[[context.value]]
 							</div>
 						</template>
@@ -126,13 +122,14 @@
 					</div> -->
 				</template>
 			</div>
-			<template is="dom-if" if="[[_showContexts]]">
-				<template is="dom-repeat" items="[[_contexts]]" as="context">
-					<div class$="[[_getAttributeListClass(noOfScreens)]]">
+			<template is="dom-if" if="[[_contexts.length]]">
+				<template is="dom-repeat" items="[[_contexts]]" as="context" initial-count="1">
+					<div class$="[[_getAttributeListClass()]]">
 						<div class="attribute-manage-container">
-							<rock-attribute-manage parent-container="[[_getParentElement()]]" readonly$="[[readonly]]" show-group-name mode="[[mode]]"
-							 context-data="[[_getContextData(context)]]" config-context="[[configContext]]" no-of-columns="[[noOfColumns]]" allow-save-on-error$="[[allowSaveOnError]]"
-							 do-sync-validation$="[[doSyncValidation]]" apply-context-coalesce="[[applyContextCoalesce]]" apply-locale-coalesce="[[applyLocaleCoalesce]]">
+							<rock-attribute-manage readonly$="[[readonly]]" show-group-name mode="[[mode]]"
+							context-data="[[_getContextData(context)]]" config-context="[[configContext]]" no-of-columns="[[noOfColumns]]" allow-save-on-error$="[[allowSaveOnError]]"
+							do-sync-validation$="[[doSyncValidation]]" apply-context-coalesce="[[applyContextCoalesce]]" apply-locale-coalesce="[[applyLocaleCoalesce]]"
+							attributes-chunk-length="[[attributesChunkLength]]">
 							</rock-attribute-manage>
 						</div>
 						<div class="divider" style$="[[_getStyle(noOfScreens)]]" align="right">
@@ -140,6 +137,8 @@
 						</div>
 					</div>
 				</template>
+
+				<bedrock-pubsub event-name="global-edit" handler="_onGlobalEdit"></bedrock-pubsub>
 			</template>
 		</div>
 	</template>
@@ -205,6 +204,11 @@
 					type: Number,
 					value: 0
 				},
+
+				attributesChunkLength: {
+					type: Number,
+					value: 20
+				},
 				/**
 				 * Indicates the number of columns in which the attributes are rendered. Possible values are
 				 * one, two, and three.
@@ -243,16 +247,6 @@
 					value: function () {
 						return [];
 					}
-				},
-
-				_showContexts: {
-					type: Boolean,
-					value: false
-				},
-
-				_showContextTitles: {
-					type: Boolean,
-					value: false
 				},
 
 				/**
@@ -304,38 +298,34 @@
 					return "";
 				}
 			},
-			_getAttributeListClass: function (n) {
-				return "attribute-list attribute-list-" + n;
+			_getAttributeListClass() {
+				return `attribute-list attribute-list-${this.noOfScreens}`;
 			},
 			_getDimensionTitleClass: function (n) {
 				return "attribute-list attribute-list-" + n;
 			},
 			_computeScreens: function (contextData, configContext) {
-				if (!(_.isEmpty(contextData) || _.isEmpty(configContext))) {
-					var valContexts = this.getValueContexts();
-					var dataContexts = this.getDataContexts();
+				if (_.isEmpty(contextData) || _.isEmpty(configContext)) return;
+				
+				var valContexts = this.getValueContexts();
+				var dataContexts = this.getDataContexts();
 
-					var allContexts = {};
-					this._prepareFlatContext(valContexts, allContexts, "value");
-					this._prepareFlatContext(dataContexts, allContexts, "data");
+				var allContexts = {};
+				this._prepareFlatContext(valContexts, allContexts, "value");
+				this._prepareFlatContext(dataContexts, allContexts, "data");
 
-					this._contexts = [];
-					this.noOfScreens = 1;
+				const _contexts = Object.keys(allContexts).reduce((res, key, i) => {
+					const ctx = allContexts[key];
 
-					Object.keys(allContexts).forEach(function (item) {
-						if (allContexts[item] && allContexts[item].length > 1) {
-							this.push('_contexts', ...allContexts[item]);
-							this.noOfScreens = allContexts[item].length;
-						}
-					}, this);
+					if(ctx.length > 1) res.push(...ctx);
 
-					if (this._contexts && this._contexts.length == 0) {
-						this._contexts.push(allContexts[Object.keys(allContexts)[0]]);
-					}
+					return res;
+				}, []);
 
-					this._showContexts = true;
-					this._showContextTitles = true;
-				}
+				this._contexts = _contexts.length ? _contexts : allContexts[Object.keys(allContexts)[0]];
+				this.noOfScreens = this._contexts.length;
+
+				this.attributesChunkLength = this._contexts.length > 1 ? 10 : this.attributesChunkLength;
 			},
 			_computeColumns: function (noOfScreens) {
 				if (noOfScreens > 1) {
@@ -346,103 +336,103 @@
 			},
 			_isHidden: function (item) {
 				var index = this.locales.indexOf(item);
-				if (index == this.noOfScreens - 1) {
-					return true;
-				}
-				return false;
+
+				return index === (this.noOfScreens - 1);
 			},
 			_onActionsTap: function () {
 				alert("actions tapped");
 			},
 			_getContextData(context) {
 				var ctxData = {};
-				var dataContexts = DataHelper.cloneObject(this.getDataContexts());
-				var valContexts = DataHelper.cloneObject(this.getValueContexts());
+				
 				var itemContext = DataHelper.cloneObject(this.getFirstItemContext());
 
-				if (itemContext) {
-					itemContext.attributeNames = this.configContext.attributeNames;
-					ctxData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
-					ctxData[ContextHelper.CONTEXT_TYPE_VALUE] = [];
-					ctxData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+				if (!itemContext) return ctxData;
 
-					if (context.type == "value") {
-						ctxData[ContextHelper.CONTEXT_TYPE_DATA] = dataContexts;
+				var dataContexts = DataHelper.cloneObject(this.getDataContexts());
+				var valContexts = DataHelper.cloneObject(this.getValueContexts());
+				
+				itemContext.attributeNames = this.configContext.attributeNames;
+				ctxData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+				ctxData[ContextHelper.CONTEXT_TYPE_VALUE] = [];
+				ctxData[ContextHelper.CONTEXT_TYPE_DATA] = [];
 
-						if (valContexts && valContexts.length) {
-							valContexts.forEach(function (valCtx) {
-								if (valCtx[context.name] == context.value) {
-									ctxData[ContextHelper.CONTEXT_TYPE_VALUE].push(valCtx);
-								}
-							}, this);
-						}
-					} else if (context.type == "data") {
-						ctxData[ContextHelper.CONTEXT_TYPE_VALUE] = valContexts;
+				if (context.type == "value") {
+					ctxData[ContextHelper.CONTEXT_TYPE_DATA] = dataContexts;
 
-						if (dataContexts && dataContexts.length) {
-							dataContexts.forEach(function (dataCtx) {
-								if (dataCtx[context.name] == context.value) {
-									ctxData[ContextHelper.CONTEXT_TYPE_DATA].push(dataCtx);
-								}
-							}, this);
-						}
-					} else {
-						ctxData[ContextHelper.CONTEXT_TYPE_DATA] = dataContexts;
-						ctxData[ContextHelper.CONTEXT_TYPE_VALUE] = valContexts;
+					if (valContexts && valContexts.length) {
+						valContexts.forEach(function (valCtx) {
+							if (valCtx[context.name] == context.value) {
+								ctxData[ContextHelper.CONTEXT_TYPE_VALUE].push(valCtx);
+							}
+						});
 					}
+				} else if (context.type == "data") {
+					ctxData[ContextHelper.CONTEXT_TYPE_VALUE] = valContexts;
+
+					if (dataContexts && dataContexts.length) {
+						dataContexts.forEach(function (dataCtx) {
+							if (dataCtx[context.name] == context.value) {
+								ctxData[ContextHelper.CONTEXT_TYPE_DATA].push(dataCtx);
+							}
+						});
+					}
+				} else {
+					ctxData[ContextHelper.CONTEXT_TYPE_DATA] = dataContexts;
+					ctxData[ContextHelper.CONTEXT_TYPE_VALUE] = valContexts;
 				}
 
 				return ctxData;
 			},
 			_prepareFlatContext: function (contexts, formattedContext, contextType) {
-				if (contexts && contexts.length) {
-					contexts.forEach(function (dataCtx) {
-						Object.keys(dataCtx).forEach(function (item) {
-							if (!_.contains(Object.keys(formattedContext), item)) {
-								formattedContext[item] = []
-							}
+				if (!contexts || !contexts.length) return;
+				
+				contexts.forEach(dataCtx => Object.keys(dataCtx).forEach(item => {
+					const contextValue = dataCtx[item];
 
-							if (!_.isEmpty(dataCtx[item])) {
-								if (!this._isContextExist(formattedContext[item], dataCtx[item])) {
-									formattedContext[item].push(
-										{
-											"type": contextType,
-											"name": item,
-											"value": dataCtx[item]
-										}
-									);
-								}
-							}
-						}, this);
-					}, this);
-				}
+					let formattedContextItem = formattedContext[item];
+
+					if (!formattedContextItem) {
+						formattedContextItem = formattedContext[item] = [];
+					}
+
+					const _isContextExist = this._isContextExist(formattedContextItem, contextValue);
+
+					if (!contextValue || _isContextExist) return;
+					
+					formattedContextItem.push({
+						"type": contextType,
+						"name": item,
+						"value": contextValue
+					});
+				}));
 			},
 			_isContextExist: function (contexts, context) {
-				if (contexts && contexts.length && context) {
-					var filteredContexts = contexts.filter(function (ctx) {
-						if (ctx.value == context) {
-							return ctx;
-						}
-					});
-
-					if (filteredContexts && filteredContexts.length) {
-						return true;
-					}
-				}
-
-				return false;
+				if (!contexts || !context) return false;
+				
+				return !!contexts.filter(ctx => ctx.value == context).length;
 			},
-			_getParentElement: function () {
-				return this.$["split-screen-container"];
-			},
+
 			_onGlobalEdit: function (e) {
-				if (e && e.detail) {
-					var rockAttributeManageList = this.shadowRoot.querySelectorAll("rock-attribute-manage");
-					if (rockAttributeManageList.length > 0) {
-						for (i = 0; i < rockAttributeManageList.length; i++) {
-							var rockAttributeManage = rockAttributeManageList[i];
-							rockAttributeManage.globalEdit = true;
+				if (!e || !e.detail) return;
+				
+        var attrsWritePermissions = [];
+				var rockAttributeManageList = this.shadowRoot.querySelectorAll("rock-attribute-manage");
+
+				if (rockAttributeManageList.length > 0) {
+					for (var i = 0; i < rockAttributeManageList.length; i++) {
+						var rockAttributeManage = rockAttributeManageList[i];
+
+						if (rockAttributeManage.areAttributesEditable) {
+              rockAttributeManage.globalEdit = true;
 						}
+
+            attrsWritePermissions.push(rockAttributeManage.areAttributesEditable);
+					}
+
+					// if no attributes are editable
+					if (!attrsWritePermissions.some(function (attr) { return attr === true; })) {
+						 this.showWarningToast("No editable attributes available");
 					}
 				}
 			}
