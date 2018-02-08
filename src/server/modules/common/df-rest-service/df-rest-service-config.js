@@ -39,7 +39,7 @@ var SERVICE_CONFIG = {
             "mode": "online",
             "timeout": 360000
         },
-        "entityappservice/getrelatedentity": {
+        "entityappservice/getrelated": {
             "url": "/entityappservice/getrelated",
             "mode": "online",
             "timeout": 360000

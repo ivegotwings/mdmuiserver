@@ -166,7 +166,7 @@ async function initiateSearch(callPath, args) {
             res = await service.getCombined(request);
         } else if(isRelatedEntitySearch) {
             //console.log('request raw str', JSON.stringify(request, null, 4));
-            res = await service.getRelatedEntities(request);
+            res = await service.getRelated(request);
             //console.log('response raw str', JSON.stringify(res, null, 4));
         } else {
             res = await service.get(request);
