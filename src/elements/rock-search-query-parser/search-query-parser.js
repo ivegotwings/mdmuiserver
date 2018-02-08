@@ -187,7 +187,7 @@ queryParser.parse = function (string, options, mappings) {
 
 };
 
-queryParser.parseQuery = function (string, followPreference) {
+queryParser.parseQuery = function (string, followPreference, isSubQuery) {
     var keywordIndices = queryParser.getKeywordIndices(string, queryParser.options.keywords);
 
     if(keywordIndices.length > 0) {
@@ -198,7 +198,7 @@ queryParser.parseQuery = function (string, followPreference) {
         var keyValuesFromIndices = queryParser.getKeyValuesFromIndices(string, keywordIndices);
         
         if(!queryParser.isEmptyObject(keyValuesFromIndices)) {
-            var keysWithSplitValuesByKeywords = queryParser.splitValuesByKeywords(keyValuesFromIndices, queryParser.options.attributeKeywords);
+            var keysWithSplitValuesByKeywords = queryParser.splitValuesByKeywords(keyValuesFromIndices, queryParser.options.attributeKeywords, isSubQuery);
 
             if(!queryParser.isEmptyObject(keysWithSplitValuesByKeywords)) {
                 var keysWithSplitValuesByOperators = queryParser.splitValuesByOperators(keysWithSplitValuesByKeywords, queryParser.options.operators, queryParser.mappings);
@@ -272,7 +272,7 @@ queryParser.getKeyValuesFromIndices = function(string, indices) {
     return keyValues;
 };
 
-queryParser.splitValuesByKeywords = function(keyValues, keywords) {
+queryParser.splitValuesByKeywords = function(keyValues, keywords, isSubQuery) {
     var keys = Object.keys(keyValues);
 
     var valuesSplitByKeywords = {};
@@ -287,13 +287,16 @@ queryParser.splitValuesByKeywords = function(keyValues, keywords) {
             var valueList;
             if(key === "having") {
                 // send the value for parsing
-                valueList = [queryParser.parseQuery(value)];
+                valueList = [queryParser.parseQuery(value, false, true)];
             } else if(key === "pending") {
                 valueList = value.split(" ");
             } else if(key === "extraText") {
                 extraText = value;
             } else if(key === "_ANY") {
                 valueList = [value];
+            } else if(isSubQuery && key === "show") {
+                let val = keys[i] + " " + value;
+                valueList = [queryParser.parseQuery(val)];
             } else {
                 valueList = value.split(regex).map(function(item) {
                     return item.replace(/'|"/g, '').trim();
@@ -371,8 +374,11 @@ queryParser.getFinalQuery = function(parsedQuery) {
         var entityAttributes = parsedQuery.with && parsedQuery.with.length > 0 ? parsedQuery.with : undefined;
         var relationshipName = parsedQuery.having && parsedQuery.having[0] && Object.keys(parsedQuery.having[0]) && Object.keys(parsedQuery.having[0]).length > 0 ? Object.keys(parsedQuery.having[0])[0] : undefined;
         var relationshipAttributes;
-        if(relationshipName) {
-            relationshipAttributes = parsedQuery.having[0][relationshipName].length >0 && parsedQuery.having[0][relationshipName][0] && parsedQuery.having[0][relationshipName][0].with.length > 0 ? parsedQuery.having[0][relationshipName][0].with : undefined;
+        var relatedEntityQuery;
+        if(relationshipName && parsedQuery.having[0][relationshipName] && parsedQuery.having[0][relationshipName].length >0 && parsedQuery.having[0][relationshipName][0]) {
+            let relData = parsedQuery.having[0][relationshipName][0];
+            relationshipAttributes = relData.with && relData.with.length > 0 ? relData.with : undefined;
+            relatedEntityQuery = relData.show && relData.show.length > 0 ? queryParser.getFinalQuery(relData.show[0]) : undefined;
         }
         var workflowName = parsedQuery.pending && parsedQuery.pending.length > 0 ? parsedQuery.pending[0] : undefined;
         var workflowActivityName = parsedQuery.pending && parsedQuery.pending.length > 0 ? parsedQuery.pending[1] : undefined;
@@ -390,6 +396,9 @@ queryParser.getFinalQuery = function(parsedQuery) {
             var entityRelationships = {
                 "relationshipName": relationshipName,
                 "attributes": relationshipAttributes
+            }
+            if(relatedEntityQuery) {
+                entityRelationships.relatedEntityData = relatedEntityQuery.entityData;
             }
             finalQuery.entityRelationships = entityRelationships;
         }

@@ -66,20 +66,25 @@ It renders the list of attributes based on the specified relationship type.
         </style>
       <rock-business-function-dialog id="wfTransitionDialog" context-data="[[contextData]]"></rock-business-function-dialog>
       <rock-business-function-dialog id="wfAssignmentDialog" context-data="[[contextData]]"></rock-business-function-dialog>
-      <template is="dom-repeat" items="{{relationshipTypeList}}" as="relationship" index-as="colIndex" notify-dom-change>
-        <rock-entity-relationship-search-result
-            id="entityRelationshipSearchResult_[[relationship]]"
-            readonly$="[[readonly]]"
-            relationship="[[relationship]]"
-            config-context="[[configContext]]"
-            page-size="100"
-            context-data="[[contextData]]"
-            do-sync-validation$="[[doSyncValidation]]"
-            functional-mode="[[functionalMode]]">
-        </rock-entity-relationship-search-result>
-      </template>
+        <template is="dom-if" if="displayedRelationshipTypeListChunks.length">
+            <template is="dom-repeat" items="[[displayedRelationshipTypeListChunks]]" as="relationshipTypeList">
+                <template is="dom-repeat" items="{{relationshipTypeList}}" as="relationship">
+                    <rock-entity-relationship-search-result
+                        id="entityRelationshipSearchResult_[[relationship]]"
+                        readonly$="[[readonly]]"
+                        relationship="[[relationship]]"
+                        config-context="[[configContext]]"
+                        page-size="100"
+                        context-data="[[contextData]]"
+                        do-sync-validation$="[[doSyncValidation]]"
+                        functional-mode="[[functionalMode]]">
+                    </rock-entity-relationship-search-result>
+                </template>
+            </template>
+        </template>
       <div id="messageCard" hidden="[[!_isMessageAvailable]]">
       </div>
+      <bedrock-pubsub event-name="load-more-relationships" handler="_onLoadMoreRelationshipsDebounced"></bedrock-pubsub>
     </template>
     <script>
         (function () {
@@ -123,12 +128,6 @@ It renders the list of attributes based on the specified relationship type.
                         type: String,
                         value: "default"
                     },
-                    relationshipTypeList:{
-                        type:Array,
-                        value: function () {
-                            return [];
-                        }
-                    },
                     globalEdit:{
                         type:Boolean,
                         notify:true
@@ -136,7 +135,11 @@ It renders the list of attributes based on the specified relationship type.
                     doSyncValidation: {
                         type: Boolean,
                         value: true
-                    }
+                    },
+                    relationshipChunkLength: {
+                        type: Number,
+                        value: 3
+                    },
                 },
 
                 observers: [
@@ -147,21 +150,63 @@ It renders the list of attributes based on the specified relationship type.
                     RUFBehaviors.ComponentContextBehavior
                 ],
 
-                _onConfigContextChange: function() {
-                    if (this.configContext.relationshipTypeName ) {
-                        this.relationshipTypeList = [this.configContext.relationshipTypeName];
-                        return;
-                    }
+                created() {
+                    this.relationshipTypeListChunks = [];
+                    this.displayedRelationshipTypeListChunks = [];
+                    this.displayedRelationshipTypeListChunksIndex = 1;
+
+                    this._onLoadMoreRelationshipsDebounced = _.debounce(this._onLoadMoreRelationships.bind(this), 300);
+                },
+
+                get isLoadFinished() {
+                    return this.displayedRelationshipTypeListChunks.length === this.relationshipTypeListChunks.length;
+                },
+
+                _onLoadMoreRelationships() {
+                    if(this.isLoadFinished) return;
                     
-                    if(this.configContext.relationshipNames && this.configContext.relationshipNames.length) {
-                        this.relationshipTypeList = this.configContext.relationshipNames;
-                    } else {
+                    const itemsToPush = this.relationshipTypeListChunks.slice(this.displayedRelationshipTypeListChunksIndex, ++this.displayedRelationshipTypeListChunksIndex);
+
+                    if (!itemsToPush.length) return;
+
+                    window.requestAnimationFrame(()=> {
+                        this.displayedRelationshipTypeListChunks = this.displayedRelationshipTypeListChunks.concat(itemsToPush);;
+                    });
+                },
+
+                _onConfigContextChange: function() {
+                    const {
+                        relationshipTypeName,
+                        relationshipNames
+                    } = this.configContext;
+
+                    const relationshipTypeList = relationshipTypeName ? [relationshipTypeName] : relationshipNames;
+
+                    if(!relationshipTypeList.length) {
                         this._isMessageAvailable = true;
                         var messageDiv = this.$.messageCard;
                         if (messageDiv) {
                             messageDiv.textContent = "No Default Relationship is configured. Please select a relationship from the menu.";
                         }
+                        return;
                     }
+
+                    Polymer.Async.microTask.run(() => {
+                        this.relationshipTypeListChunks = relationshipTypeList.reduce((res, item, i) => {
+                            const chunkIndex = res.length;
+
+                            const currentChunk = res[chunkIndex - 1];
+
+                            if (chunkIndex && currentChunk && currentChunk.length < this.relationshipChunkLength)
+                                currentChunk.push(item);
+                            else
+                                res.push([item]);
+
+                            return res;
+                        }, []);
+
+                        this.displayedRelationshipTypeListChunks = this.relationshipTypeListChunks.slice(0, this.displayedRelationshipTypeListChunksIndex);
+                    });
                 },
                 
                 getIsDirty: function () {
