@@ -53,6 +53,7 @@ const searchResultExpireTime = -30 * 60 * 1000;
 async function initiateSearch(callPath, args) {
     var response = [];
     var isCombinedQuerySearch = false;
+    var isRelatedEntitySearch = false;
 
     try {
 
@@ -115,6 +116,11 @@ async function initiateSearch(callPath, args) {
                     }
                 }
             } else {
+                if(request.params.isRelatedEntitySearch) {
+                    isRelatedEntitySearch = true;
+                    delete request.params.isRelatedEntitySearch;
+                }
+
                 var options = falcorUtil.getOrCreate(request.params, 'options', {});
                 options.maxRecords = maxRecordsSupported;
             }
@@ -158,6 +164,10 @@ async function initiateSearch(callPath, args) {
         var res = undefined;
         if (isCombinedQuerySearch) {
             res = await service.getCombined(request);
+        } else if(isRelatedEntitySearch) {
+            //console.log('request raw str', JSON.stringify(request, null, 4));
+            res = await service.getRelated(request);
+            //console.log('response raw str', JSON.stringify(res, null, 4));
         } else {
             res = await service.get(request);
         }
@@ -503,8 +513,8 @@ async function getByIds(pathSet, operation) {
 
         var jsonGraphResponse = response['jsonGraph'] = {};
         var rootJson = jsonGraphResponse[pathKeys.root] = {};
-        var indexJSON = rootJson[reqData.dataIndex] = {};
-        var dataJson = indexJSON[reqData.dataSubIndex] = {};
+            var indexJSON = rootJson[reqData.dataIndex] = {};
+            var dataJson = indexJSON[reqData.dataSubIndex] = {};
 
         // system flow supports only 1 type at time for bulk get..this is needed to make sure we have specialized code flow for the given data object types
         for (let dataObjectType of reqDataObjectTypes) {
