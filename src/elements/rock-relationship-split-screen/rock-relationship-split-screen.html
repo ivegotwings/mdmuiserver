@@ -21,6 +21,12 @@
 <dom-module id="rock-relationship-split-screen">
 	<template>
 		<style include="bedrock-style-common">
+			:host {
+				display: block;
+				height: 100%;
+				overflow: auto;
+			}
+
 			.relationship-grid {
 				/*display: inline-flex;
 				display: -webkit-inline-flex;
@@ -58,12 +64,13 @@
 				margin-top: auto;
 			}
 			
-			pebble-icon-updated {
+			pebble-icon {
 				padding-right:10px;
 			}
 			
 			.relationshipGrid {
 				width: 100%;
+				height:100%;
 			}
 			.splitscreenContainerTitle .relationship-grid{
 				padding-left: 20px;
@@ -83,18 +90,19 @@
 				border: 0px;
 				min-height: 0px;
 			}
-			
+
 			.splitscreenContainer, .splitscreenContainerTitle{
 				display: flex;
 				flex-flow: row;
 			}
+			
 		</style>
 
 		<div class="splitscreenContainerTitle">		
 			<template is="dom-if" if="[[_showSourceTitles]]">
 				<template is="dom-repeat" items="[[_sources]]" as="source">
-					<div id="sourceDimensionValueContainer" class$="[[_getRelationshipListClass(noOfScreens)]]">
-						<pebble-icon-updated icon="pebble-icon:Language"></pebble-icon-updated>
+					<div id="sourceDimensionValueContainer" class$="[[_getRelationshipListClass()]]">
+						<pebble-icon icon="pebble-icon:Language"></pebble-icon>
 						[[source]]
 					</div>
 				</template>
@@ -103,10 +111,10 @@
 				</div>-->
 			</template>
 		
-			<template is="dom-if" if="[[_showLocaleTitles]]">
+			<template is="dom-if" if="[[_showLocales]]">
 				<template is="dom-repeat" items="[[_locales]]" as="locale">
-					<div id="localeDimensionValueContainer" class$="[[_getRelationshipListClass(noOfScreens)]]">
-						<pebble-icon-updated icon="pebble-icon:Language"></pebble-icon-updated>
+					<div id="localeDimensionValueContainer" class$="[[_getRelationshipListClass()]]">
+						<pebble-icon icon="pebble-icon:Language"></pebble-icon>
 						[[locale]]
 					</div>
 					<div class="clearfix"></div>
@@ -116,14 +124,14 @@
 				</div>-->
 			</template>
 		</div>
-		<div class="splitscreenContainer">
+		<div class="splitscreenContainer full-height">
 			<template is="dom-if" if="[[_showSources]]">
 				<template is="dom-repeat" items="[[_sources]]" as="source">
-					<div class$="[[_getRelationshipListClass(noOfScreens)]]">
+					<div class$="[[_getRelationshipListClass()]]">
 						<div class="relationshipGrid">
 							<rock-relationship-manage mode="[[mode]]" context-data="[[_getContextData(source, '')]]" config-context="[[configContext]]" no-of-columns="[[noOfColumns]]" do-sync-validation$="[[doSyncValidation]]"></rock-relationship-manage>
 						</div>
-						<div class="divider" style$="[[_getStyle(noOfScreens)]]" align="right">
+						<div class="divider" style$="[[_getStyle()]]" align="right">
 						</div>
 					</div>
 				</template>
@@ -132,11 +140,11 @@
 			<template is="dom-if" if="[[_showLocales]]">
 				<template is="dom-repeat" items="[[_locales]]" as="locale">
 					<div class="clearfix"></div>
-					<div class$="[[_getRelationshipListClass(noOfScreens)]]">
+					<div class$="[[_getRelationshipListClass()]]">
 						<div class="relationshipGrid">
-							<rock-relationship-manage mode="[[mode]]" context-data="[[_getContextData('', locale)]]" config-context="[[configContext]]" no-of-columns="[[noOfColumns]]" do-sync-validation$="[[doSyncValidation]]"></rock-relationship-manage>
+								<rock-relationship-manage mode="[[mode]]" context-data="[[_getContextData('', locale)]]" config-context="[[configContext]]" no-of-columns="[[noOfColumns]]" do-sync-validation$="[[doSyncValidation]]"></rock-relationship-manage>
 						</div>
-						<div class="divider" style$="[[_getStyle(noOfScreens)]]" align="right">
+						<div class="divider" style$="[[_getStyle()]]" align="right">
 						</div>
 					</div>
 				</template>
@@ -153,6 +161,7 @@
 				if (this.verbose){
 					this.logInfo("SplitScreenCreated");
 				}
+				this._onScrollDebounce = _.debounce(this._onScroll.bind(this), 300);
 			},
 			/**
              * If set as true , it indicates the component is in read only mode
@@ -166,6 +175,24 @@
             */
 			attached: function () {
 				this.logInfo("SplitScreenAttached");
+
+				this.addEventListener('scroll', this._onScrollDebounce);
+			},
+
+			_onScroll(e) {
+				const { scrollHeight, scrollTop, offsetHeight } = this;
+
+				const scrollDiff = scrollHeight - offsetHeight - scrollTop;
+
+				const PRELOAD_HEIGHT = 200;
+
+				if (scrollDiff <= PRELOAD_HEIGHT) {
+					this._fireLoadMoreRelationships();
+				}
+			},
+
+			_fireLoadMoreRelationships() {
+				ComponentHelper.fireBedrockEvent("load-more-relationships", null, { ignoreId: true });
 			},
           /**
             * <b><i>Content development is under progress... </b></i> 
@@ -252,25 +279,20 @@
 					value: false
 				},
 
-				_showSources: {
-					type: Boolean,
-					value: false
-				},
+				_showSources: {		
+ 					type: Boolean,		
+ 					value: false		
+ 				},		
 
-				_showSourceTitles: {
-					type: Boolean,
-					value: false
-				},
-
-				_showLocales: {
-					type: Boolean,
-					value: false
-				},
-
-				_showLocaleTitles: {
-					type: Boolean,
-					value: false
-				},
+ 				_showSourceTitles: {		
+ 					type: Boolean,		
+ 					value: false		
+ 				},		
+ 		
+ 				_showLocales: {		
+ 					type: Boolean,		
+ 					value: false		
+ 				},		
 				/**
 				 * Specifies whether or not to write the logs.
 				 */
@@ -317,85 +339,49 @@
 				var relManage = this.$$("rock-relationship-manage");
 				relManage.refresh();
 			},
-
-			_getStyle: function (n) {
-				if (n == 1) {
-					return "display: none";
-				} else {
-					return "";
-				}
-			},
-			_getRelationshipListClass: function (n) {
-				return "relationship-grid relationship-grid-" + n;
+			_getRelationshipListClass: function () {
+				return "relationship-grid full-height relationship-grid-" + this.noOfScreens;
 			},
 			_computeScreens: function (contextData, configContext) {
-				if (!_.isEmpty(contextData) && configContext != undefined) {
-					var valContexts = this.getValueContexts();
+				if (_.isEmpty(contextData) || !configContext) return;
+				
+				var valContexts = this.getValueContexts();
 
-					if (valContexts && valContexts.length) {
+				if(!valContexts || !valContexts.length) return;
 
-						var sources = [];
-						var locales = [];
+				const { sources, locales } = valContexts.reduce((result, ctx)=> {
+					const { sources, locales } = result;
+					
+					if(sources.indexOf(ctx.source) === -1)
+						sources.push(ctx.source);
 
-						valContexts.forEach(function (valCtx) {
-							if (!_.contains(sources, valCtx.source)) {
-								sources.push(valCtx.source);
-							}
-							if (!_.contains(locales, valCtx.locale)) {
-								locales.push(valCtx.locale);
-							}
-						}, this);
+					if(locales.indexOf(ctx.locale) === -1)
+						locales.push(ctx.locale);
 
-						this._sources = [];
-						this.push('_sources', ...sources);
+					return result;
+				}, {sources: [], locales: []});
 
-						this._locales = [];
-						this.push('_locales', ...locales);
-												
-						this.noOfScreens = 1;
-						
-						if (sources && sources.length > 1) {
-							this._showSources = true;
+				this._sources = sources;
+				this._locales = locales;
 
-							this._showLocales = !this._showSources;
-							this._showSourceTitles = this._showSources;
-							this.noOfScreens = sources.length;
-							return true;
-						}
+				const isEnoughSources = sources.length > 1;
 
-						if (locales && locales.length > 1) {
-							this._showLocales = true;
-							this._showSources = !this._showLocales;
-
-							this._showLocaleTitles = this._showLocales;
-							this.noOfScreens = locales.length;
-							return true;
-						}
-					}
-				}
-
-				this._showSources = true;
+				this.noOfScreens = Math.max(sources.length, locales.length, 1);
+				
+				this._showLocales = !isEnoughSources && locales.length > 1;
+				this._showSources = !this._showLocales;
+				this._showSourcesTitle = isEnoughSources;
 			},
-			_computeColumns: function (noOfScreens) {
-				if (noOfScreens > 1) {
-					return 1;
-				} else {
-					return this.noOfColumns;
-				}
+			_computeColumns: function () {
+				return this.noOfScreens > 1 ? 1 : this.noOfColumns;
 			},
-			_getStyle: function (n) {
-				if (n == 1) {
-					return "display: none";
-				} else {
-					return "";
-				}
+			_getStyle: function () {
+				return this.noOfScreens == 1 ? 'display: none' : '';
 			},
 			_isHidden: function (item) {
 				var index = this.locales.indexOf(item);
-				if (index == this.noOfScreens - 1) {
-					return true;
-				}
-				return false;
+
+				return index == (this.noOfScreens - 1)
 			},
 			_onActionsTap: function () {
 				alert("actions tapped");
@@ -419,14 +405,14 @@
 								if (valCtx.source == source) {
 									ctxData[ContextHelper.CONTEXT_TYPE_VALUE].push(valCtx);
 								}
-							}, this);
+							});
 						}
 					} else if (locale) {
 						valContexts.forEach(function (valCtx) {
 							if (valCtx.locale == locale) {
 								ctxData[ContextHelper.CONTEXT_TYPE_VALUE].push(valCtx);
 							}
-						}, this);
+						});
 					} else {
 						ctxData[ContextHelper.CONTEXT_TYPE_VALUE] = valContexts;
 					}

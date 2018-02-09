@@ -1,6 +1,8 @@
 <link rel="import" href="../../../bower_components/polymer/polymer-element.html">
 
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html" />
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-styles-scroll-bar.html" />
 
 <link rel="import" href="../bedrock-app-context-behavior/bedrock-app-context-behavior.html">
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
@@ -17,16 +19,33 @@
 <link rel="import" href="../pebble-textbox/pebble-textbox.html">
 <link rel="import" href="../pebble-lov/pebble-lov.html">
 <link rel="import" href="../pebble-data-table/pebble-data-table.html">
-<link rel="import" href="../pebble-datetime-picker/pebble-datetime-picker-overlay.html">
 
 <link rel="import" href="../rock-attribute-model-lov/rock-attribute-model-lov.html">
 <link rel="import" href="../rock-entity-type-model-lov/rock-entity-type-model-lov.html">
 
 <link rel="import" href="../rock-entity-lov/rock-entity-lov.html">
+<link rel="import" href="../rock-attribute-filter-popover/rock-attribute-filter-popover.html">
 
 <dom-module id="rock-query-builder">
   <template>
-    <style include="bedrock-style-common">
+    <style include="bedrock-style-common bedrock-styles-scroll-bar">
+        .queryBuilderContainer {
+            position: absolute;
+            width: 580px;
+            top: 32px;
+            right: 0;
+            border-radius: 3px;
+            box-shadow: 0 0 var(--popup-box-shadow-size,8px) 0 var(--popup-box-shadow,#8A98A3);               
+            background-color: #fff;
+            padding: 15px;
+            height: 434px;
+            overflow-y: auto;
+        }      
+        .queryBuilderContainer paper-card {
+            width: 100%;
+            max-height: 490px;
+            box-shadow: none;
+        }     
         .queryHeading {
             border-bottom: 1px solid var(--default-border-color, #c1cad4);
             padding: 10px 0;
@@ -47,9 +66,10 @@
         }
         .relationshipGridContainer {
             border-radius: 3px;
-            width: 95%;
+            width: 100%;
             margin: 10px auto 0 auto;
             box-shadow: 0 0 var(--popup-box-shadow-size,8px) 0 var(--popup-box-shadow,#8A98A3);
+            padding-bottom: 15px;
         }
         .actionButtons {
             text-align: center;
@@ -57,7 +77,24 @@
         }
         #attributesSearchGrid {
             --rock-grid-height: 60px;
+        } 
+        pebble-textbox {
+            --paper-input-container: {
+                padding-top: 0px;
+                padding-right: 0px;
+                padding-bottom: 0px;
+                padding-left: 0px;
+                position: relative;
+            }
         }        
+        #inputDiv  pebble-textbox {
+            --pebble-textbox-paper-input-style : {  
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;                  
+                width: 90%;
+            }
+        }               
         pebble-data-table data-table-row[header] {
            display: none;
         } 
@@ -76,7 +113,7 @@
             background-color: var(--palette-white, #ffffff) !important;
         }
         pebble-data-table {
-            max-height: 100px;
+            max-height: 75px;
             --pebble-data-table-header : {
                  display: none;
             }           
@@ -100,63 +137,11 @@
         data-table-cell #inputDiv {
             width: 100%;
         }
-        pebble-textbox {
-            --paper-input-container: {
-                padding-top: 0px;
-                padding-right: 0px;
-                padding-bottom: 0px;
-                padding-left: 0px;
-                position: relative;
-            }
-        }        
-        #inputDiv  pebble-textbox {
-            --pebble-textbox-paper-input-style : {  
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;                  
-                width: 90%;
-            }
-        }               
-        pebble-textarea {
-            --autogrowtextarea:{
-                min-height: 30px !important;
-            }
-            --pebble-textarea:{
-                width: 260px;               
-            }
-        }
-        .dialogOptions paper-radio-button {
-            display: block;
-        }
-        paper-radio-group paper-radio-button{
-            --paper-radio-button-unchecked-color: var(--radio-button-border, #026bc3);
-            --paper-radio-button-checked-color: var(--radio-button-selected, #026bc3);
-        }
-        .input-content::slotted(input), .input-content::slotted(textarea), .input-content::slotted(iron-autogrow-textarea),
-        .input-content::slotted(.paper-input-input) {
-            font-size: var(--default-font-size, 14px);
-        }
-        
-        pebble-textbox-collection {
-            --tags-container: {
-                min-height: 0px;
-                margin-right: 0px;
-            }
-            --text-collection-container: {
-                min-height: 0px;
-                margin-top: 0px;
-            }
-        }
-
         #entityTypeFilterButton {
             --paper-button-text: {
                 max-width: 74px;
             }  
-        }
-        #filterPopover{
-            padding-right:10px;
-            padding-left:10px;
-        }
+        }        
         .queryHeadingReset {
             position: absolute;
             right: 0px;
@@ -172,30 +157,44 @@
                 height: 18px;
             }
         }
-    </style>   
-    
-    <!-- Entity Type search -->       
-    <div>
-        <pebble-button id="entityTypeFilterButton" icon="pebble-icon:Filter" button-text="{{selectedEntityTypeNames}}" title="{{selectedEntityTypeNames}}" dropdown-icon="" noink="" class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" is-ruf-component="" target-id="productSearchPopover" on-tap="_openLov"></pebble-button>
-        <pebble-popover id="productSearchPopover" for="entityTypeFilterButton" vertical-align="auto" horizontal-align="auto">
-            <rock-entity-type-model-lov id="entityTypeLov" domain="[[domain]]" select-all="true" allowed-entity-types="{{allowedEntityTypes}}" selected-items="{{selectedEntityTypes}}"></rock-entity-type-model-lov>    
-            <div class="PebbleButtonPadding text-center m-t-10">
-              <pebble-button class="btn btn-secondary m-r-5" target-id="productSearchPopover" on-tap="_closeLov" raised elevation="1" button-text="Close"></pebble-button>
-              <pebble-button class="btn btn-success" button-text="Apply" raised elevation="1" on-tap="_onSelectedEntityTypesChange" target-id="entityTypeLov"></pebble-button>
-            </div>
-        </pebble-popover>
-    </div>
+        .relEntityContainer {
+            padding: 10px;
+            border-radius: 3px;
+            width: 94%;
+            margin: 10px auto 0 auto;
+            box-shadow: 0 0 var(--popup-box-shadow-size,8px) 0 var(--popup-box-shadow,#8A98A3);
+            display: none;
+        }
 
-    <template is="dom-if" if="{{_enableAttributeList}}">
-            <!-- Attributes search - supports multiple attributes -->
-            <div class="queryHeading">
-                <pebble-button icon="pebble-icon:AddFill" class="queryHeadingButton" target-id="attribute-grid" on-tap="_onAddRowClick" button-text="WITH"></pebble-button>                   
-            </div>            
-            <div class="attributeGridContainer">
-                <pebble-data-table id="attribute-grid" items="{{attributeGridData}}">
+        .card-content {
+            padding: 0px;
+        }
+    </style>   
+        <div class="queryBuilderContainer">
+        <paper-card>
+            <div class="card-content">
+
+                <!-- Entity Type search -->
+                <pebble-button id="entityTypeFilterButton" icon="pebble-icon:Filter" button-text="{{selectedEntityTypeNames}}" title="{{selectedEntityTypeNames}}" dropdown-icon="" noink="" class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" is-ruf-component="" target-id="productSearchPopover" on-tap="_openLov"></pebble-button>
+                <pebble-popover id="productSearchPopover" for="entityTypeFilterButton" vertical-align="auto" horizontal-align="auto">
+                    <rock-entity-type-model-lov id="entityTypeLov" domain="[[domain]]" select-all="true" allowed-entity-types="{{allowedEntityTypes}}" selected-items="{{selectedEntityTypes}}"></rock-entity-type-model-lov>    
+                    <div class="PebbleButtonPadding text-center m-t-10">
+                        <pebble-button class="btn btn-secondary m-r-5" target-id="productSearchPopover" on-tap="_closeLov" raised elevation="1" button-text="Close"></pebble-button>
+                        <pebble-button class="btn btn-success" button-text="Apply" raised elevation="1" on-tap="_onSelectedEntityTypesChange" target-id="entityTypeLov"></pebble-button>
+                    </div>
+                </pebble-popover>
+
+                <!-- Attribute Search -->
+                <template is="dom-if" if="{{_enableAttributeList}}">
+                    <!-- Attributes search - supports multiple attributes -->
+                    <div class="queryHeading">
+                        <pebble-button icon="pebble-icon:AddFill" class="queryHeadingButton" target-id="attribute-grid" on-tap="_onAddRowClick" button-text="WITH"></pebble-button>                   
+                    </div>            
+                    <div class="attributeGridContainer">
+                        <pebble-data-table id="attribute-grid" items="{{attributeGridData}}">
                         <data-table-column slot="column-slot" flex="0" class="first">
                             <template>
-                                <pebble-icon-updated slot="cell-slot-content" icon="pebble-icon:Delete" target-id="attribute-grid" class="pebble-icon-size-16" on-tap="_onDeleteRowClick"></pebble-icon-updated>                        
+                                <pebble-icon slot="cell-slot-content" icon="pebble-icon:Delete" target-id="attribute-grid" class="pebble-icon-size-16" on-tap="_onDeleteRowClick"></pebble-icon>                        
                             </template>
                         </data-table-column>
                         <data-table-column slot="column-slot">
@@ -204,7 +203,7 @@
                                     <pebble-textbox readonly id="attributes-text_[[index]]" row-id="[[index]]" value="{{item.name}}" no-label-float="true"></pebble-textbox>
                                 </div>
                                 <div id="iconDiv" slot="cell-slot-content">
-                                    <pebble-icon-updated class="dropdown-icon pebble-icon-size-10" id="txtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:Down" on-tap="_openAttributeModelLov"></pebble-icon-updated>
+                                    <pebble-icon class="dropdown-icon pebble-icon-size-10" id="txtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:Down" on-tap="_openAttributeModelLov"></pebble-icon>
                                 </div>                         
                             </template>                        
                         </data-table-column>
@@ -214,219 +213,184 @@
                                     <pebble-textbox readonly id="attributes-value_[[index]]" row-id="[[index]]" value="{{item.value}}" no-label-float="true"></pebble-textbox>
                                 </div>
                                 <div id="iconDiv" slot="cell-slot-content">
-                                    <pebble-icon-updated class="dropdown-icon pebble-icon-size-10" id="txtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:Down" on-tap="_onOpenFilterPopover"></pebble-icon-updated>
+                                    <pebble-icon class="dropdown-icon pebble-icon-size-10" id="txtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:Down"   on-tap="_onOpenFilterPopover"></pebble-icon>
                                 </div>                         
                             </template>  
                         </data-table-column>
-                </pebble-data-table>
-                <bedrock-pubsub event-name="attribute-model-lov-selection-changed" handler="_onAttributeSelection" target-id="attributeModelLov"></bedrock-pubsub>
-                <pebble-popover id="attributesPopover" for="" no-overlap vertical-align="auto" horizontal-align="auto">
-                    <rock-attribute-model-lov id="attributeModelLov" mode="mapped" context-data="{{_contextData}}" no-sub-title id-field="name" title-pattern="externalName"
-                    type-field="[]" sort-details="[[filtersConfig]]"></rock-attribute-model-lov>
-                </pebble-popover>
-        </template>
-
-                <!-- Filter popover starts here -->         
-                <pebble-popover id="filterPopover" for="" no-overlap vertical-align="auto" horizontal-align="auto">
-                    <template is="dom-if" if="{{_showTagModifier('textbox',currentFilterObj.displayType)}}">
-                        <pebble-textbox-collection id="textCollection" values="{{txtBoxCollection}}" no-popover textbox-label="Enter more values here to search" show-seperator seperator="or"></pebble-textbox-collection>
-                        <div class="PebbleButtonPadding text-center m-t-15">
-                        <pebble-button class="btn btn-secondary m-r-5" target-id="filterPopover" on-tap="_closeLov" raised elevation="1" button-text="Close"></pebble-button>
-                        <pebble-button class="btn btn-success" button-text="Apply" raised elevation="1" on-tap="_onUpdateValue"></pebble-button> 
-                        <div class="clearfix"></div>
-                        </div>
-                    </template>
-                    <template is="dom-if" if="{{_showTagModifier('textarea',currentFilterObj.displayType)}}">
-                        <pebble-textarea class="input" label="Enter text here" value="{{txtAreaInput}}"></pebble-textarea>
-                        <div class="PebbleButtonPadding text-center m-t-15">
-                        <pebble-button class="btn btn-secondary m-r-5" target-id="filterPopover" on-tap="_closeLov" raised elevation="1" button-text="Close"></pebble-button>
-                        <pebble-button class="btn btn-success" button-text="Apply" raised elevation="1" on-tap="_onUpdateValue"></pebble-button> 
-                        <div class="clearfix"></div>
-                        </div> 
-                    </template>
-                    <template is="dom-if" if="{{_showTagModifier('richtexteditor',currentFilterObj.displayType)}}">
-                        <pebble-textarea class="input" label="Enter text here" value="{{txtAreaInput}}"></pebble-textarea>
-                        <div class="PebbleButtonPadding text-center m-t-15">
-                        <pebble-button class="btn btn-secondary m-r-5" target-id="filterPopover" on-tap="_closeLov" raised elevation="1" button-text="Close"></pebble-button>
-                        <pebble-button class="btn btn-success" button-text="Apply" raised elevation="1" on-tap="_onUpdateValue"></pebble-button> 
-                        <div class="clearfix"></div>
-                        </div>
-                    </template>
-                    <template is="dom-if" if="{{_showTagModifier('referencelist',currentFilterObj.displayType)}}">
-                        <rock-entity-lov id="rockEntityLov" multi-select show-action-buttons selected-items="{{_selectedItems}}"></rock-entity-lov>
-                    </template>
-                    <template is="dom-if" if="{{_showTagModifier('boolean',currentFilterObj.displayType)}}">
-                        <pebble-boolean class="text-center" id="booleanDisplay" value="{{booleanvalue}}" required></pebble-boolean>
-                        <div class="PebbleButtonPadding text-center m-t-15">
-                        <pebble-button class="btn btn-secondary m-r-5" target-id="filterPopover" on-tap="_closeLov" raised elevation="1" button-text="Close"></pebble-button>
-                        <pebble-button class="btn btn-success" button-text="Apply" raised elevation="1" on-tap="_onUpdateValue"></pebble-button>
-                        </div> 
-                    </template>
-                    <template is="dom-if" if="{{_showTagModifier('numeric',currentFilterObj.displayType)}}">
-                    <paper-radio-group aria-labelledby="{{longName}}" class="dialogOptions" on-paper-radio-group-changed="_onRadioGroupChange">
-                    <paper-radio-button name="range">
-                        <div class="colspan-2 pull-left">
-                        <pebble-textbox label="Min" prevent-invalid-input allowed-pattern="[0-9.]" invalid="{{numericMinInvalid}}" show-error input-data-type="[[currentFilterObj.dataType]]"
-                            value="{{gte}}">
-                        </pebble-textbox>
-                        </div>
-                        <div class="colspan-2 pull-left">
-                        <pebble-textbox label="Max" prevent-invalid-input allowed-pattern="[0-9.]" invalid="{{numericMaxInvalid}}" show-error input-data-type="[[currentFilterObj.dataType]]"
-                            value="{{lte}}">
-                        </pebble-textbox>
-                        </div>
-                        <div class="clearfix"></div>
-                    </paper-radio-button>
-                    <paper-radio-button name="equalToData">
-                        <div class="col-90 pull-left">
-                        <pebble-textbox-collection id="textNumericCollection" values="{{_tagsNumericCollection}}" no-popover textbox-label="Enter more values here to search" show-seperator seperator="or" allowed-pattern="[0-9.]"></pebble-textbox-collection>
-                        </div>
-                        <div class="clearfix"></div>
-                    </paper-radio-button>
-                    </paper-radio-group>
-                    <div class="PebbleButtonPadding text-center">
-                    <pebble-button class="btn btn-secondary m-r-5" target-id="filterPopover" on-tap="_closeLov" raised elevation="1" button-text="Close"></pebble-button>
-                    <pebble-button class="btn btn-success" button-text="Apply" raised elevation="1" on-tap="_onUpdateValue" disabled="{{_updateDisable}}"></pebble-button>
+                        </pebble-data-table>
+                        <bedrock-pubsub event-name="attribute-model-lov-selection-changed" handler="_onAttributeSelection" target-id="attributeModelLov"></bedrock-pubsub>
+                        <pebble-popover id="attributesPopover" for="" no-overlap vertical-align="auto" horizontal-align="auto">
+                        <rock-attribute-model-lov id="attributeModelLov" mode="mapped" context-data="{{_contextData}}" no-sub-title id-field="name" title-pattern="externalName"
+                        type-field="[]" sort-details="[[filtersConfig]]"></rock-attribute-model-lov>
+                        </pebble-popover>                      
                     </div>
                 </template>
+
+                <!-- filter options -->
+                <rock-attribute-filter-popover id="rockfilter"></rock-attribute-filter-popover>
+                <bedrock-pubsub event-name="on-filter-update" handler="onUpdateFilter" target-id="rockfilter"></bedrock-pubsub>
+
+
+                <!-- Relationship search
+                - Relationship attributes
+                - Relationships (nested)
+                - WF search within relationships -->
+                <div class="queryHeading">
+                    <pebble-button class="queryHeadingButton m-b-5" on-tap="" button-text="HAVING"></pebble-button> <br/>
+                    <pebble-button id="relationshipButton" button-text="{{selectedRelationshipName}}" title="{{selectedRelationshipName}}" dropdown-icon="" noink="" class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" is-ruf-component="" target-id="relationshipPopover" on-tap="_openRelationshipModelLov"></pebble-button>
+                    <liquid-entity-model-composite-get id="liquidModelGet" request-data={{relationshipRequest}} on-entity-model-composite-get-response="_onModelReceived" on-error="_onModelGetFailed" exclude-in-progress></liquid-entity-model-composite-get>        
+                    <pebble-popover id="relationshipPopover" for="relationshipButton" vertical-align="auto" horizontal-align="auto">
+                        <pebble-lov id="relationshipModelLov" on-selection-changed="_onRelationshipLovSelectionChanged" selected-item="{{selectedRelationship}}"></pebble-lov>    
+                    </pebble-popover>
+                    <div class="queryHeadingReset">
+                        <pebble-button class="btn-link" on-tap="_onResetRelationship" button-text="Reset"></pebble-button>                   
+                    </div>    
+                </div>
+
+            <div class="relationshipGridContainer">
+                    <div class="queryHeading">
+                        <pebble-button icon="pebble-icon:AddFill" class="queryHeadingButton m-l-10" target-id="relationship-grid" on-tap="_onAddRowClick" button-text="WITH"></pebble-button> 
+                        <div class="queryHeadingReset m-r-10">
+                            <pebble-button class="btn-link" on-tap="_onResetRelationshipGrid" button-text="Reset"></pebble-button>                   
+                        </div>                   
+                    </div>
+                    <div class="p-10">
+                        <pebble-data-table id="relationship-grid" items="{{relationshipGridData}}">
+                            <data-table-column slot="column-slot" flex="0">
+                            <template>
+                                <pebble-icon slot="cell-slot-content" icon="pebble-icon:Delete" target-id="relationship-grid" class="pebble-icon-size-16" on-tap="_onDeleteRowClick"></pebble-icon>                        
+                            </template>
+                            </data-table-column>
+                            <data-table-column slot="column-slot">
+                            <template>
+                                <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
+                                    <pebble-textbox readonly id="relationship-text_[[index]]" row-id="[[index]]" value="{{item.name}}" no-label-float="true"></pebble-textbox>
+                                </div>
+                                <div id="iconDiv" slot="cell-slot-content">
+                                    <pebble-icon class="dropdown-icon pebble-icon-size-10" id="rtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:Down" on-tap="_openRelationshipAttributeModelLov"></pebble-icon>
+                                </div>                         
+                            </template>                        
+                            </data-table-column>
+                            <data-table-column slot="column-slot">
+                            <template>
+                                <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
+                                    <pebble-textbox readonly id="relationship-value_[[index]]" row-id="[[index]]" value="{{item.value}}" no-label-float="true"></pebble-textbox>
+                                </div>
+                                <div id="iconDiv" slot="cell-slot-content">
+                                    <pebble-icon class="dropdown-icon pebble-icon-size-10" id="rtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:Down" target-row-name="relationship-value_" on-tap="_onOpenFilterPopover"></pebble-icon>
+                                </div>                                                
+                            </template>  
+                            </data-table-column>
+                        </pebble-data-table>
+                    </div>
+                    <pebble-popover id="relAttributesPopover" for="" no-overlap vertical-align="auto" horizontal-align="auto">
+                        <pebble-lov id="relAttributeModelLov" on-selection-changed="_onRelAttributeLovSelectionChanged"></pebble-lov>
+                    </pebble-popover>
+                                               
+            <!-- Related Entity search
+                - Related Entity attributes -->                     
+            <div class="relEntityContainer">
+                <liquid-entity-model-composite-get id="liquidRelEntityAttributeGet" request-data="{{relEntityAttributeRequest}}" on-response="_onRelEntityAttributeGetReceived" on-error="_onRelEntityAttributeGetFailed" exclude-in-progress></liquid-entity-model-composite-get>
+                <pebble-button id="relEntityButton" button-text="{{selectedRelEntityName}}" title="{{selectedRelEntityName}}" dropdown-icon="" noink="" class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" disabled is-ruf-component=""></pebble-button>
+                
+                <div class="queryHeading">
+                    <pebble-button icon="pebble-icon:AddFill" class="queryHeadingButton m-l-10" target-id="relEntity-grid" on-tap="_onAddRowClick" button-text="WITH"></pebble-button> 
+                    <div class="queryHeadingReset m-r-10">
+                        <pebble-button class="btn-link" on-tap="_onResetRelEntityGrid" button-text="Reset"></pebble-button>                   
+                    </div>                   
+                </div>
+                <div class="p-10">
+                    <pebble-data-table id="relEntity-grid" items="{{relEntityGridData}}">
+                        <data-table-column slot="column-slot" flex="0">
+                            <template>
+                                <pebble-icon slot="cell-slot-content" icon="pebble-icon:Delete" target-id="relEntity-grid" class="pebble-icon-size-16" on-tap="_onDeleteRowClick"></pebble-icon>                        
+                            </template>
+                        </data-table-column>
+                        <data-table-column slot="column-slot">
+                            <template>
+                                <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
+                                    <pebble-textbox readonly id="relEntity-text_[[index]]" row-id="[[index]]" value="{{item.name}}" no-label-float="true"></pebble-textbox>
+                                </div>
+                                <div id="iconDiv" slot="cell-slot-content">
+                                    <pebble-icon class="dropdown-icon pebble-icon-size-10" id="rtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:Down" on-tap="_openRelEntityAttributeModelLov"></pebble-icon>
+                                </div>                         
+                            </template>                        
+                        </data-table-column>
+                        <data-table-column slot="column-slot">
+                            <template>
+                                <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
+                                    <pebble-textbox readonly id="relEntity-value_[[index]]" row-id="[[index]]" value="{{item.value}}" no-label-float="true"></pebble-textbox>
+                                </div>
+                                <div id="iconDiv" slot="cell-slot-content">
+                                    <pebble-icon class="dropdown-icon pebble-icon-size-10" id="rtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:Down" target-row-name="relEntity-value_" on-tap="_onOpenFilterPopover"></pebble-icon>
+                                </div>                                                
+                            </template>  
+                        </data-table-column>
+                    </pebble-data-table>
+                </div>
+                <pebble-popover id="relEntityAttributesPopover" for="" no-overlap vertical-align="auto" horizontal-align="auto">
+                    <pebble-lov id="relEntityAttributeModelLov" on-selection-changed="_onRelEntityAttributeLovSelectionChanged"></pebble-lov>
                 </pebble-popover>
-                <bedrock-pubsub event-name="on-popover-close" handler="_onFilterPopoverClose" target-id="filterPopover"></bedrock-pubsub>
-                <bedrock-pubsub event-name="entity-lov-confirm-button-tap" handler="_onLOVConfirmTap" target-id="rockEntityLov"></bedrock-pubsub>
-                <bedrock-pubsub event-name="entity-lov-close-button-tap" handler="_onLOVCloseTap" target-id="rockEntityLov"></bedrock-pubsub>
-            
-                <!-- Already overlay, so out of popover -->
-                <pebble-datetime-picker-overlay id="rangepicker" for="" picker-type="daterange" show-ranges heading-format="ddd, MMM DD YYYY"
-                start-date-text="{{displaygte}}" end-date-text="{{displaylte}}" start-date-value="{{gte}}" end-date-value="{{lte}}"
-                on-date-range-selected="_onUpdateValue">
-                </pebble-datetime-picker-overlay>
-                <!-- Filter popover ends here -->        
             </div>
-
-    <!-- Relationship search
-        - Relationship attributes
-        - Relationships (nested)
-        - WF search within relationships -->
-    <div class="queryHeading">
-        <pebble-button class="queryHeadingButton m-b-5" on-tap="" button-text="HAVING"></pebble-button> <br/>
-        <pebble-button id="relationshipButton" button-text="{{selectedRelationshipName}}" title="{{selectedRelationshipName}}" dropdown-icon="" noink="" class="dropdownText dropdownIcon btn dropdown-primary dropdown-trigger" is-ruf-component="" target-id="relationshipPopover" on-tap="_openRelationshipModelLov"></pebble-button>
-        
-        <liquid-entity-model-composite-get id="liquidModelGet" request-data={{relationshipRequest}} on-entity-model-composite-get-response="_onModelReceived"
-            on-error="_onModelGetFailed" exclude-in-progress>
-        </liquid-entity-model-composite-get>        
-        <pebble-popover id="relationshipPopover" for="relationshipButton" vertical-align="auto" horizontal-align="auto">
-            <pebble-lov id="relationshipModelLov" on-selection-changed="_onRelationshipLovSelectionChanged" selected-item="{{selectedRelationship}}"></pebble-lov>    
-        </pebble-popover>
-        <div class="queryHeadingReset">
-            <pebble-button class="btn-link" on-tap="_onResetRelationship" button-text="Reset"></pebble-button>                   
-        </div>    
-    </div>
-
-    <div class="relationshipGridContainer">
-        <div class="queryHeading">
-            <pebble-button icon="pebble-icon:AddFill" class="queryHeadingButton m-l-10" target-id="relationship-grid" on-tap="_onAddRowClick" button-text="WITH"></pebble-button> 
-            <div class="queryHeadingReset m-r-10">
-                <pebble-button class="btn-link" on-tap="_onResetRelationshipGrid" button-text="Reset"></pebble-button>                   
-            </div>                   
         </div>
+
+        <!-- WF search -->
+        <!--<template is="dom-if" if="[[_isWorkflowSearchEnabled(workflowName)]]">-->
+        <div class="workflowGridContainer">
+        <div class="queryHeading">
+            <pebble-button class="queryHeadingButton" target-id="workflow-grid" button-text="PENDING"></pebble-button>
+            <div class="queryHeadingReset">
+                <pebble-button class="btn-link" on-tap="_onResetWorkflowGrid" button-text="Reset"></pebble-button>                   
+            </div>
+        </div>       
+
         <div class="p-10">
-        <pebble-data-table id="relationship-grid" items="{{relationshipGridData}}">
-                <data-table-column slot="column-slot" flex="0">
+            <pebble-data-table id="workflow-grid" items="{{workflowGridData}}">                   
+                <data-table-column slot="column-slot">
                     <template>
-                        <pebble-icon-updated slot="cell-slot-content" icon="pebble-icon:Delete" target-id="relationship-grid" class="pebble-icon-size-16" on-tap="_onDeleteRowClick"></pebble-icon-updated>                        
+                        <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
+                            <pebble-textbox readonly id="workflow-text_[[index]]" row-id="[[index]]" value="{{item.name}}" no-label-float="true"></pebble-textbox>
+                        </div>
+                        <div id="iconDiv" slot="cell-slot-content">
+                            <pebble-icon class="dropdown-icon pebble-icon-size-10" id="wtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:Down" on-tap="_openWorkflowModelLov"></pebble-icon>
+                        </div>
                     </template>
                 </data-table-column>
                 <data-table-column slot="column-slot">
                     <template>
                         <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
-                            <pebble-textbox readonly id="relationship-text_[[index]]" row-id="[[index]]" value="{{item.name}}" no-label-float="true"></pebble-textbox>
+                            <pebble-textbox readonly id="workflow-value_[[index]]" row-id="[[index]]" value="{{item.value}}" no-label-float="true"></pebble-textbox>
                         </div>
                         <div id="iconDiv" slot="cell-slot-content">
-                            <pebble-icon-updated class="dropdown-icon pebble-icon-size-10" id="rtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:Down" on-tap="_openRelationshipAttributeModelLov"></pebble-icon-updated>
-                        </div>                         
-                    </template>                        
-                </data-table-column>
-                 <data-table-column slot="column-slot">
-                    <template>
-                       <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
-                            <pebble-textbox readonly id="relationship-value_[[index]]" row-id="[[index]]" value="{{item.value}}" no-label-float="true"></pebble-textbox>
+                            <pebble-icon class="dropdown-icon pebble-icon-size-10" id="wtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:Down" on-tap="_openWorkflowActivityLov"></pebble-icon>
                         </div>
-                        <div id="iconDiv" slot="cell-slot-content">
-                            <pebble-icon-updated class="dropdown-icon pebble-icon-size-10" id="rtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:Down" on-tap="_onOpenFilterPopover"></pebble-icon-updated>
-                        </div>                                                
-                    </template>  
+                    </template>
                 </data-table-column>
-        </pebble-data-table>
+            </pebble-data-table>
         </div>
-        <pebble-popover id="relAttributesPopover" for="" no-overlap vertical-align="auto" horizontal-align="auto">
-            <pebble-lov id="relAttributeModelLov" on-selection-changed="_onRelAttributeLovSelectionChanged"></pebble-lov>
-        </pebble-popover>       
-    </div>
-        <!--div class="queryHeading">
-            <pebble-button icon="pebble-icon:AddFill" class="queryHeadingButton" on-tap="_addSearchAttributes" button-text="HAVING"></pebble-button>                   
+        <pebble-popover id="workflowPopover" for="" no-overlap vertical-align="auto" horizontal-align="auto">
+            <pebble-lov id="workflowModelLov" on-selection-changed="_onWorkflowLovSelectionChanged"></pebble-lov>
+        </pebble-popover>
+        <pebble-popover id="workflowActivityPopover" for="" no-overlap vertical-align="auto" horizontal-align="auto">
+            <pebble-lov id="workflowActivityLov" on-selection-changed="_onWorkflowActivityLovSelectionChanged"></pebble-lov>
+        </pebble-popover>
         </div>
+        <!--</template>-->
+        <liquid-entity-model-get id="getWorkflowMappingDefinition" operation="getbyids" request-id="req1" request-data={{workflowMappingDefinitionRequest}}
+        on-response="_onWfMappingsReceived" on-error="_onMappingsGetFailed"></liquid-entity-model-get>
+        <liquid-entity-model-get id="entityGetWorkflowDefinition" operation="getbyids" request-id="req1" request-data={{workflowDefinitionRequest}}
+        on-response="_onDefinitionReceived" on-error="_onDefinitionGetFailed"></liquid-entity-model-get>
 
-        <div class="queryHeading">
-            <pebble-button icon="pebble-icon:AddFill" class="queryHeadingButton" on-tap="_addSearchAttributes" button-text="IN"></pebble-button>                   
+        <div class="actionButtons">
+            <pebble-button id="cancelButton" class="close btn btn-secondary m-r-5" button-text="Cancel" noink elevation="2" on-tap="_onClose"></pebble-button>
+            <pebble-button id="confirmButton" class="apply btn btn-success" button-text="Apply" noink elevation="2" on-tap="_onApply"></pebble-button>
         </div>
-
-        <div class="queryHeading">
-            <pebble-button icon="pebble-icon:AddFill" class="queryHeadingButton" on-tap="_addSearchAttributes" button-text="PENDING"></pebble-button>                   
-        </div>
-    
-
-    <!-- WF search -->
-    <!--<template is="dom-if" if="[[_isWorkflowSearchEnabled(workflowName)]]">-->
-        <div class="workflowGridContainer">
-            <div class="queryHeading">
-                <pebble-button class="queryHeadingButton" target-id="workflow-grid" button-text="PENDING"></pebble-button>
-                <div class="queryHeadingReset">
-                    <pebble-button class="btn-link" on-tap="_onResetWorkflowGrid" button-text="Reset"></pebble-button>                   
-                </div>
+       
             </div>
-            <div class="p-10">
-                <pebble-data-table id="workflow-grid" items="{{workflowGridData}}">                   
-                    <data-table-column slot="column-slot">
-                        <template>
-                            <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
-                                <pebble-textbox readonly id="workflow-text_[[index]]" row-id="[[index]]" value="{{item.name}}" no-label-float="true"></pebble-textbox>
-                            </div>
-                            <div id="iconDiv" slot="cell-slot-content">
-                                <pebble-icon-updated class="dropdown-icon pebble-icon-size-10" id="wtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:Down" on-tap="_openWorkflowModelLov"></pebble-icon-updated>
-                            </div>
-                        </template>
-                    </data-table-column>
-                    <data-table-column slot="column-slot">
-                        <template>
-                            <div id="inputDiv" slot="cell-slot-content" on-tap="" index="[[index]]">
-                                <pebble-textbox readonly id="workflow-value_[[index]]" row-id="[[index]]" value="{{item.value}}" no-label-float="true"></pebble-textbox>
-                            </div>
-                            <div id="iconDiv" slot="cell-slot-content">
-                                <pebble-icon-updated class="dropdown-icon pebble-icon-size-10" id="wtxtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:Down" on-tap="_openWorkflowActivityLov"></pebble-icon-updated>
-                            </div>
-                        </template>
-                    </data-table-column>
-                </pebble-data-table>
-            </div>
-            <pebble-popover id="workflowPopover" for="" no-overlap vertical-align="auto" horizontal-align="auto">
-                <pebble-lov id="workflowModelLov" on-selection-changed="_onWorkflowLovSelectionChanged"></pebble-lov>
-            </pebble-popover>
-            <pebble-popover id="workflowActivityPopover" for="" no-overlap vertical-align="auto" horizontal-align="auto">
-                <pebble-lov id="workflowActivityLov" on-selection-changed="_onWorkflowActivityLovSelectionChanged"></pebble-lov>
-            </pebble-popover>
-        </div>
-    <!--</template>-->
-    <liquid-entity-model-get id="getWorkflowMappingDefinition" operation="getbyids" request-id="req1" request-data={{workflowMappingDefinitionRequest}}
-                on-response="_onWfMappingsReceived" on-error="_onMappingsGetFailed"></liquid-entity-model-get>
-    <liquid-entity-model-get id="entityGetWorkflowDefinition" operation="getbyids" request-id="req1" request-data={{workflowDefinitionRequest}}
-                on-response="_onDefinitionReceived" on-error="_onDefinitionGetFailed"></liquid-entity-model-get>
-    
-    <div class="actionButtons">
-        <pebble-button id="cancelButton" class="close btn btn-secondary m-r-5" button-text="Cancel" noink elevation="2" on-tap="_onClose"></pebble-button>
-        <pebble-button id="confirmButton" class="apply btn btn-success" button-text="Apply" noink elevation="2" on-tap="_onApply"></pebble-button>
+        </paper-card>
     </div>
-           
-    
-  </template>
+</template>
+
   <script>
       
     class RockQueryBuilder extends Polymer.mixinBehaviors([RUFBehaviors.UIBehavior,RUFBehaviors.AppContextBehavior,RUFBehaviors.QueryBuilderBehavior, RUFBehaviors.ComponentContextBehavior], Polymer.Element) {
@@ -465,7 +429,7 @@
             selectedRelationshipName:{
                 type: String,
                 computed: "getSelectedRelationship(selectedRelationship)"
-            },
+            },          
             _showAttributeSearchGrid: {
                 type: Boolean,
                 value: false
@@ -508,7 +472,7 @@
                         }                           
                     ];
                 }
-            },
+            },           
             workflowGridData:{
                 type: Array,
                 value: function () {
@@ -523,83 +487,7 @@
             workflowEntityTypes:{
                  type: Array,
                  value: {}
-            },
-            currentFilterObj: {
-                type: Object,
-                notify: true                
-            },
-
-            txtBoxCollection: {
-                type: Array,
-                value: function() {
-                    return [];
-                }
-            },
-            txtAreaInput:{
-                type: String,
-                value: ""
-            },
-            booleanvalue:{
-                type: Boolean                
-            },
-            gte: {
-                type: String,
-                value: function () {
-                    return "";
-                },
-                observer: '_isMaxGreaterThanMin'
-            },
-            /**
-             * <b><i>Content development is under progress... </b></i> 
-             */
-            lte: {
-                type: String,
-                value: function () {
-                    return "";
-                },
-                observer: '_isMaxGreaterThanMin'
-            },
-            /**
-             * <b><i>Content development is under progress... </b></i> 
-             */
-            equalNum: {
-                type: String,
-                value: function () {
-                    return "";
-                }
-            },
-            /**
-             * <b><i>Content development is under progress... </b></i> 
-             */
-            numericMinInvalid: {
-                type: Boolean,
-                value: false
-            },
-            /**
-             * <b><i>Content development is under progress... </b></i> 
-             */
-            numericMaxInvalid: {
-                type: Boolean,
-                value: false
-            },
-            /**
-             * <b><i>Content development is under progress... </b></i> 
-             */
-            numericEqualInvalid: {
-                type: Boolean,
-                value: false
-            },
-
-            _updateDisable: {
-                type: Boolean,
-                computed: '_disableUpdate(numericMinInvalid, numericMaxInvalid, _tagsNumericCollection, _tagNumericInput, gte, lte)'
-            },
-            _tagsNumericCollection: {
-                type: Array,
-                value: function() {
-                    return [];
-                }
-            },
+            },            
             _selectedItems: {
                 type: Array,
                 value: function () {
@@ -611,7 +499,7 @@
                 value: function () {
                     return {};
                 }
-            },
+            },           
             domain:{
                 type:String
             }, 
@@ -658,6 +546,39 @@
             workflowCriterion: {
                 type: Object,
                 value: function () { return {}; }
+            },
+            selectedRelEntity:{
+                type: String,
+                value: ""
+            },
+            selectedRelEntityName:{
+                type: String,
+                computed: "getSelectedRelEntityName(selectedRelEntity)"
+            },
+            relEntityGridData:{
+                type: Array,
+                value: function () {
+                    return [
+                        {
+                            "name": "",
+                            "value": ""    
+                        }                           
+                    ];
+                }
+            },
+            relEntityAttributeRequest:{
+                type: Object,
+                value: function () {
+                    return {};
+                }
+            },
+            currentTargetRowName:{
+                type: String,
+                value: ""
+            },
+            currentTargetRowId:{
+                type: String,
+                value: ""
             }
             }
         }      
@@ -690,7 +611,7 @@
         */
         _openLov(e) {
             var targetId = e.target.getAttribute("target-id");
-            this.shadowRoot.querySelector("#"+targetId).open();
+            this.shadowRoot.querySelector("#"+targetId).show();
         }
         
         /**
@@ -734,7 +655,13 @@
                 this._onResetRelationship();
                 this._onResetWorkflowGrid();  
                 this.reset = false;
-            }             
+            }
+            
+            if(this.selectedRelEntity){
+                this.showBlock('.relEntityContainer');
+            } else {
+                this.hideBlock('.relEntityContainer');
+            }            
         }
 
         /**
@@ -753,6 +680,12 @@
         _onResetRelationship(){
             this.selectedRelationship = [];
             this._onResetRelationshipGrid();
+            this.selectedRelEntity = "";
+            //Remove the dropdown list items 
+            var relAttributeModelLov = this.shadowRoot.querySelector('#relAttributeModelLov');
+            relAttributeModelLov.items = new Array();
+            var relEntityAttributeModelLov = this.shadowRoot.querySelector('#relEntityAttributeModelLov');
+            relEntityAttributeModelLov.items = new Array();      
         }
 
         /**
@@ -762,9 +695,12 @@
             this.relationshipGridData = [];
             this._selectedItems = [];
             this.currentFilterObj = "";
-            this.relationshipGridData = [{"name": "","value": ""}];             
+            this.relationshipGridData = [{"name": "","value": ""}];
+            this.currentTargetRowName = "";
+            this.currentTargetRowId = ""; 
+            this._onResetRelEntityGrid();            
         }
-
+       
         /**
          * Function to reset the workflow attributes
          */ 
@@ -774,6 +710,27 @@
             this.workflowGridData = [{"name": "","value": ""}]; 
         }
 
+         /**
+         * Function to reset the relationship attributes
+         */ 
+         _onResetRelEntityGrid(){
+            this.relEntityGridData = [];
+            this._selectedItems = [];
+            this.currentFilterObj = "";
+            this.relEntityGridData = [{"name": "","value": ""}];
+            this.currentTargetRowName = "";
+            this.currentTargetRowId = "";
+        }
+
+        //Rerendering of grids 
+        reRenderGrid(){
+            var relationshipGrid = this.shadowRoot.querySelector('#relationship-grid');
+            relationshipGrid.clearCache();
+            var relGrid = this.shadowRoot.querySelector('#relEntity-grid');
+            relGrid.clearCache();
+            var workflowGrid = this.shadowRoot.querySelector('#workflow-grid');
+            workflowGrid.clearCache();
+        }
         /**
          * Function to get the query builder data to form the query
          */
@@ -787,6 +744,13 @@
             }
             if(this.relationshipGridData) {
                 queryBuilderData.relationshipGridData = this.relationshipGridData;
+            }
+
+            if(this.selectedRelEntityName){
+                queryBuilderData.relEntity = this.selectedRelEntityName;
+            }
+            if(this.relEntityGridData) {
+                queryBuilderData.relEntityGridData = this.relEntityGridData;
             }
             if(this.workflowGridData) {
                 queryBuilderData.workflowGridData = this.workflowGridData;
@@ -849,6 +813,7 @@
                                 var newItem = {
                                     id: rel.id,
                                     title: rel.properties && rel.properties.externalName ? rel.properties.externalName : "",
+                                    relEntityType: rel.properties.relatedEntityInfo[0].relEntityType,
                                     attributes: rel.attributes
                                 };
                                 rels.push(newItem);
@@ -1223,331 +1188,6 @@
         }
 
         /**
-         *   When attribute is selected, which popover component need to show
-        */        
-        _showTagModifier(displayType) {
-            if(!this.currentFilterObj){
-                return;
-            } else if (this.currentFilterObj.dataType.toLowerCase() == "integer" || this.currentFilterObj.dataType.toLowerCase() == "decimal"){
-                this.currentFilterObj.displayType = "numeric";
-            } 
-            
-            if (this.currentFilterObj.displayType.toLowerCase() == displayType.toLowerCase()) {
-                return true;
-            }
-            return false;
-        }
-
-        /**
-         *   Handles the opening of filter popover
-        */ 
-        _onOpenFilterPopover(e) {  
-
-            var rowId = e.currentTarget.rowId;
-            var filterInputValue = "";
-            //var attributeValTxtbox = this.root.querySelector("#attributes-value_" + rowId);
-            var attributeValTxtbox = this.root.querySelector("#relationship-value_" + rowId);
-            if(attributeValTxtbox.value){
-                filterInputValue = attributeValTxtbox.value;
-            }
-
-            var row = this._getParentRow(attributeValTxtbox)
-            if(row) {
-                this.currentFilterObj = row.item.attributeModel;
-            }
-            
-            //DateTime Control
-            if (this.currentFilterObj.displayType.toLowerCase() == "datetime" || this.currentFilterObj.displayType.toLowerCase() == "date"){
-                var rangePicker = this.shadowRoot.querySelector('#rangepicker');
-                if(filterInputValue == ""){
-                    rangePicker.startDateValue = "";
-                    rangePicker.endDateValue = "";
-                    rangePicker.setDate(new Date());
-                    rangePicker.setRangeType(null);                                                     
-                } else {
-                    if(filterInputValue.indexOf('-')> -1){
-                        filterInputValues = filterInputValue.split('-');
-                        rangePicker.startDateValue = filterInputValues[0];
-                        rangePicker.endDateValue = filterInputValues[1];
-                    } else {
-                        rangePicker.startDateValue = filterInputValue;
-                        rangePicker.endDateValue = "";
-                    }
-                    var _date = new Date(rangePicker.startDateValue);
-                    rangePicker.setDate(_date);
-                }
-
-                rangePicker.positionTarget = e.currentTarget;
-                rangePicker.noOverlap = true;
-                rangePicker.rowId = rowId; 
-                rangePicker.show(true);
-                return; 
-            }
-            
-            var filterPopover = this.shadowRoot.querySelector('#filterPopover');
-            filterPopover.for = "";            
-            if(rowId >= 0) {
-                //filterPopover.for = "attributes-value_" + rowId;
-                filterPopover.for = "relationship-value_" + rowId;
-                filterPopover.show();
-            }
-                                            
-            if (this.currentFilterObj.displayType.toLowerCase() == "textbox") {
-                Polymer.Async.microTask.run(() => {
-                    var collectionInput = filterPopover.querySelector('#textCollection').shadowRoot.querySelector("#txtInputTag"); 
-                    this.txtBoxCollection = new Array();
-                    if(filterInputValue) {
-                        var filterInputValues = filterInputValue.split(' '+ 'or' +' ');
-                        //If the value has already been added, show it in the textbox for updating
-                        this.txtBoxCollection = filterInputValues;
-                    }
-                    collectionInput.value = "";                    
-                    collectionInput.focus();
-                });
-            } else if (this.currentFilterObj.displayType.toLowerCase() == "textarea"){
-                var filterInput = filterPopover.querySelector('.input');
-                this.txtAreaInput = "";
-                if (filterInput) {
-                    filterInput.value = filterInputValue;
-                    this.txtAreaInput = filterInputValue;
-                    filterInput.focus();  
-                }  
-            } else if (this.currentFilterObj.displayType.toLowerCase() == "richtexteditor"){
-                var filterInput = filterPopover.querySelector('.input');
-                this.txtAreaInput = "";
-                if (filterInput) {
-                    filterInput.value = filterInputValue;
-                    this.txtAreaInput = filterInputValue;
-                    filterInput.focus();  
-                }  
-            } else if (this.currentFilterObj.displayType.toLowerCase() == "boolean") {
-                var filterInput = filterPopover.querySelector('#booleanDisplay');
-                this.booleanvalue = "";
-                if (filterInput) {
-                    filterInput.value = filterInputValue;
-                    this.booleanvalue = filterInputValue;
-                }
-            } else if (this.currentFilterObj.displayType.toLowerCase() == "referencelist") {               
-
-                var lovComponent = filterPopover.querySelector('#rockEntityLov');  
-                if(lovComponent) {
-                    var titlePattern = "";
-                    var subTitlePattern = "";
-                    if(this.currentFilterObj.referenceEntityInfo && this.currentFilterObj.referenceEntityInfo.length) {
-                        titlePattern = this.currentFilterObj.referenceEntityInfo[0].listTitle;
-                        subTitlePattern = this.currentFilterObj.referenceEntityInfo[0].listSubTitle;
-                    }
-                    lovComponent.idField = "id";
-                    lovComponent.titlePattern = titlePattern;
-                    lovComponent.subTitlePattern = subTitlePattern;
-                    lovComponent.valueField = "name";
-                    this._selectedItems = [];
-                    if(filterInputValue) {
-                        lovComponent.selectedItems = row.item.selectedItems;
-                        this._selectedItems = row.item.selectedItems;
-                    }  
-                    var refEntityTypes = [this.currentFilterObj.referenceEntityInfo[0].refEntityType];
-                    var itemContexts = [];
-                    for (var i in refEntityTypes) {
-                        itemContexts.push({
-                            "type": refEntityTypes[i]
-                        });
-                    }
-                    var contextData = DataHelper.cloneObject(this.contextData);
-                    contextData[this.CONTEXT_TYPE_ITEM] = itemContexts;
-                    lovComponent.requestData = DataRequestHelper.createEntityGetRequest(contextData);
-                    lovComponent.requestData.params.additionalIds = this.currentFilterObj.selectedIds;
-                    lovComponent.reset();
-                } 
-            } else if (this.currentFilterObj.displayType.toLowerCase() == "numeric"){
-
-                this._tagsNumericCollection = [];
-                this._tagNumericInput = ""; 
-                this.lte = "";
-                this.gte = "";
-
-                if(filterInputValue) {
-                    var filterInputValues= [];
-                    if(filterInputValue.indexOf('-') > -1) {
-                        filterInputValues = filterInputValue.split('-');
-                        this.gte = filterInputValues[0];
-                        this.lte = filterInputValues[1];
-                    } else if (filterInputValue.indexOf('<=') > -1) {
-                        filterInputValues = filterInputValue.split('<=');
-                        this.lte = filterInputValues[1];
-                        this.gte = "";
-                    } else if (filterInputValue.indexOf('>=') > -1) {
-                        filterInputValues = filterInputValue.split('>=');
-                        this.gte = filterInputValues[1];
-                        this.lte = "";
-                    } else {
-                        this._tagsNumericCollection = filterInputValue;
-                    }
-                }           
-                 
-            } 
-
-        }
-
-        /**
-        * validate the input for numeric display type and disables the update button
-        */
-        _disableUpdate(numericMinInvalid, numericMaxInvalid, _tagsNumericCollection, _tagNumericInput, gte, lte) {
-            if (!_.isEmpty(this.gte + "") || !_.isEmpty(this.lte + "") || !_.isEmpty(_tagsNumericCollection) || _tagNumericInput) {
-            if (this.shadowRoot.querySelector('paper-radio-group') && this.shadowRoot.querySelector('paper-radio-group').selected == "range") {
-                return (numericMaxInvalid || numericMinInvalid);
-            } else {
-                return _.isEmpty(_tagsNumericCollection) && !_tagNumericInput;
-            }
-            } else {
-                return true;
-            }
-        }
-        
-        /**
-         * checks if the min value is less than maximum value in numeric display type popover
-        */
-        _isMaxGreaterThanMin() {
-            if (!_.isEmpty(this.gte + "") && !_.isEmpty(this.lte + "")) {
-            if (parseFloat(this.gte) > parseFloat(this.lte)) {
-                this.set('numericMaxInvalid', true);
-            } else {
-                this.set('numericMaxInvalid', false);
-            }
-            } else {
-            this.set('numericMaxInvalid', false);
-            }
-        }
-
-        /**
-         *  Handles updating of the filter popover content 
-        */ 
-        _onUpdateValue(e){
-
-            //Updating Date and Datetime inputs
-            if(this.currentFilterObj.displayType.toLowerCase() == "datetime" || this.currentFilterObj.displayType.toLowerCase() == "date"){
-                if (this.gte == this.lte) { 
-                    filterInputValue = this.displaygte;
-                } else {                    
-                    if (this.displaygte == this.displaylte) {
-                        filterInputValue = this.displaygte;
-                    } else {
-                        filterInputValue = this.displaygte + " - " + this.displaylte;
-                    }
-                } 
-                
-                //var attributeValTxtbox = this.root.querySelector("#attributes-value_" + e.currentTarget.rowId);
-                var attributeValTxtbox = this.root.querySelector("#relationship-value_" + e.currentTarget.rowId);
-                var row = this._getParentRow(attributeValTxtbox);              
-                if(row) {
-                    row.item.value = filterInputValue;
-                    attributeValTxtbox.value = filterInputValue;
-                    attributeValTxtbox.title = filterInputValue;
-                }
-                return;
-            }
-           
-            //Updating other inputs
-            var filterPopover = this.shadowRoot.querySelector('#filterPopover');
-            var attributeValTxtbox = this.root.querySelector("#"+ filterPopover.for);
-            var row = this._getParentRow(attributeValTxtbox);
-
-            var filterInput;
-            var filterInputValue;
-            if (this.currentFilterObj.displayType.toLowerCase() == "textbox") {
-                var collectionInput = filterPopover.querySelector('#textCollection').shadowRoot.querySelector("#txtInputTag"); 
-                filterInputValue = collectionInput.value;               
-                if(this.txtBoxCollection.length > 0) {
-                    filterInputValue = this.txtBoxCollection.join(' '+ 'or' +' ');
-                }
-            } else if (this.currentFilterObj.displayType.toLowerCase() == "textarea") {
-                filterInput = filterPopover.querySelector('.input');
-                filterInputValue = filterInput.value;
-            } else if (this.currentFilterObj.displayType.toLowerCase() == "richtexteditor") {
-                filterInput = filterPopover.querySelector('.input');
-                filterInputValue = filterInput.value;
-            } else if (this.currentFilterObj.displayType.toLowerCase() == "boolean") {
-                filterInput = filterPopover.querySelector('#booleanDisplay');
-                filterInputValue = filterInput.value;
-            } else if(this.currentFilterObj.displayType.toLowerCase() == "numeric"){
-                if (this.shadowRoot.querySelector('paper-radio-group').selected == "range") {
-                    if (this.gte == "") {
-                        this.gte = undefined;
-                    }
-                    if (this.lte == "") {
-                        this.lte = undefined;
-                    }
-                    if (!(this.gte || this.lte)) {
-                        this.logWarning("FilterValuesEmpty");
-                        return;
-                    } else {
-                        var gteAsString = (parseFloat(this.gte)).toString();
-                        var lteAsString = (parseFloat(this.lte)).toString();
-                        if (!this.gte) {                   
-                            filterInputValue = "<= " + lteAsString;
-                        } else if (!this.lte) {                  
-                            filterInputValue = ">= " + gteAsString;
-                        } else {                   
-                            filterInputValue = gteAsString + " - " + lteAsString;
-                        }
-                    }
-                } else if (this._tagsNumericCollection.length > 0){
-                    filterInputValue = this._tagsNumericCollection;
-                } 
-            }
-
-            //Update the grid row
-            if(row) {
-                row.item.value = filterInputValue;
-                attributeValTxtbox.value = filterInputValue;
-                attributeValTxtbox.title = filterInputValue;
-            }     
-            
-            //close the filter popover
-            filterPopover.close();
-
-        }
-
-        /**
-         *  Handles referencelist confirm tap 
-        */ 
-        _onLOVConfirmTap(){
-
-            var filterPopover = this.shadowRoot.querySelector('#filterPopover');
-            var attributeValTxtbox = this.root.querySelector("#"+ filterPopover.for);
-            var row = this._getParentRow(attributeValTxtbox);   
-
-            var filterInputValue = [];
-            var selectedItemsObj = this._selectedItems;
-            
-            for (let i = 0; i < selectedItemsObj.length; i++) {
-                if (selectedItemsObj[i].title) {
-                    filterInputValue.push(selectedItemsObj[i].title);
-                }            
-            }
-           
-            //Update the grid row
-            if(row) {
-                row.item.value = filterInputValue;
-                row.item.selectedItems = this._selectedItems;
-                attributeValTxtbox.value = filterInputValue;
-                attributeValTxtbox.title = filterInputValue;
-            }  
-            
-            //close the filter popover
-            filterPopover.close();
-
-        }
-
-        /**
-         *  Handles referencelist close tap 
-        */ 
-        _onLOVCloseTap(e,detail){
-            var filterPopover = this.shadowRoot.querySelector('#filterPopover');
-            filterPopover.close();
-        }
-
-        /**
          *  Open relationship lov 
         */ 
         _openRelationshipModelLov() {
@@ -1607,9 +1247,86 @@
             
            //Close the relationshipModelLov
            var relationshipPopover = this.shadowRoot.querySelector('#relationshipPopover');
-           relationshipPopover.close(); 
+           relationshipPopover.close();
+           
+           //Display the related entity
+           this.populateRelatedEntity(e);           
+        }
+                
+        /**
+        * Function to display the selected relationship item's related Entity Type
+        * Populate the related entity's attributes 
+        */
+        populateRelatedEntity(e){
+
+            this.showBlock('.relEntityContainer');
+            
+            //Rerender the grids to prevent dynamic calculation of the width while hiding/showing the grid contents 
+            this.reRenderGrid();
+
+            this.selectedRelEntity = e.detail.item.relEntityType;
+            var clonedContextData = DataHelper.cloneObject(this.contextData);
+            var itemContexts = [];
+            var itemContext = {};
+            itemContext.type = this.selectedRelEntity;
+            itemContext.relationships = ["_ALL"];
+            itemContext.relationshipAttributes = ["_ALL"];
+            itemContexts.push(itemContext);
+            clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
+            var req = DataRequestHelper.createEntityModelCompositeGetRequest(clonedContextData);
+            req.params.fields.attributes = ["_ALL"];
+
+            /*let req = DataRequestHelper.createGetManageModelRequest([this.selectedRelEntity]);*/
+            this.set("relEntityAttributeRequest", req);
+            let refModelsGetLiquid = this.shadowRoot.querySelector("#liquidRelEntityAttributeGet");
+            if (refModelsGetLiquid) {
+                refModelsGetLiquid.generateRequest();
+            }          
+        }
+
+        showBlock(className) {
+            var displayBlock = this.shadowRoot.querySelector(className);
+            if(displayBlock) {
+                displayBlock.style.display = "block";
+            }            
+        }
+
+        hideBlock(className) {
+            var hideBlock = this.shadowRoot.querySelector(className);
+            if(hideBlock) {
+                hideBlock.style.display = "none";
+            }
+        }
+
+        _onRelEntityAttributeGetReceived(e,detail){
+            var response = e.detail.response;
+            var referenceModels = {};
+            var responseContent = DataHelper.validateAndGetResponseContent(detail.response);
+
+            if (responseContent && !_.isEmpty(responseContent.entityModels)) {  
+                var attributesList = responseContent.entityModels[0].data.attributes;            
+                var attributes = new Array();        
+                for(var obj in attributesList){
+                    var newItem = {
+                        name : obj,
+                        title : attributesList[obj].properties.externalName,
+                        dataType : attributesList[obj].properties.dataType,
+                        displayType : attributesList[obj].properties.displayType,
+                        groupName : attributesList[obj].properties.groupName,
+                        referenceEntityInfo : attributesList[obj].properties.referenceEntityInfo                           
+                    }                        
+                    attributes.push(newItem);
+                }              
+                var relEntityAttributeModelLov = this.shadowRoot.querySelector('#relEntityAttributeModelLov');
+                relEntityAttributeModelLov.items = new Array();
+                relEntityAttributeModelLov.items = attributes;
+            }
         }
         
+       
+        _onRelEntityAttributeGetFailed(e){
+            this.logWarning("relEntity Attribute get failed with error",JSON.stringify(e.detail)); 
+        }
         /**
         * Function to display the selected relationship on the button
         */
@@ -1620,7 +1337,18 @@
                 return "Relationships";
             }
         }
-                
+        
+        /**
+        * Function to display the selected relationship on the button
+        */
+        getSelectedRelEntityName(selectedRelEntity){
+            if(selectedRelEntity){
+                return selectedRelEntity;
+            } else {
+                return "Related Entity";
+            }
+        }
+
         /**
          *  Function to open relationship attributes lov
          */
@@ -1632,6 +1360,22 @@
                 if(lov && popover) {
                     lov.currentRowId = rowId;
                     popover.for = "relationship-text_" + rowId;
+                    popover.show();
+                }
+            } 
+        }
+
+         /**
+         *  Function to open relationship attributes lov
+         */
+         _openRelEntityAttributeModelLov(e){
+            var rowId = e.currentTarget.rowId;
+            if(rowId >= 0) {
+                var lov = this.shadowRoot.querySelector("#relEntityAttributeModelLov");
+                var popover = this.shadowRoot.querySelector("#relEntityAttributesPopover");
+                if(lov && popover) {
+                    lov.currentRowId = rowId;
+                    popover.for = "relEntity-text_" + rowId;
                     popover.show();
                 }
             } 
@@ -1664,6 +1408,32 @@
             popover.hide();
         }
 
+         /**
+         *  Function to select related entity attribute from the lov
+         */
+        _onRelEntityAttributeLovSelectionChanged(e){
+            var lov = this.shadowRoot.querySelector("#relEntityAttributeModelLov");
+            if(lov) {
+                var rowId = lov.currentRowId;
+                if(rowId >= 0) {
+                    var relattributeTxtbox = this.root.querySelector("#relEntity-text_" + rowId);
+                    if(!relattributeTxtbox) {
+                        relattributeTxtbox = this.shadowRoot.querySelector("#relEntity-text_" + rowId);
+                    }                
+                    var row = this._getParentRow(relattributeTxtbox)
+                    if(row) {
+                        row.item.attributeModel = e.detail.item;
+                        row.item["rowModified"] = true;
+                        row.item.name = e.detail.item.title;
+                        relattributeTxtbox.value = row.item.name;
+                        relattributeTxtbox.title = row.item.name;
+                    }                               
+                }
+            }
+            var popover = this.shadowRoot.querySelector("#relEntityAttributesPopover");
+            popover.for = "";
+            popover.hide();
+        }
         /**
         * Open the Workflow Lov
         */
@@ -1764,7 +1534,7 @@
                 var popover = this.shadowRoot.querySelector("#workflowActivityPopover");
                 if(lov && popover) {
                     lov.currentRowId = rowId;
-                    popover.for = "relationship-value_" + rowId;
+                    popover.for = "workflow-value_" + rowId;
                     popover.show();
                 }
             } 
@@ -1803,6 +1573,48 @@
                 return false;
             }
             return true;
+        }
+
+        _onOpenFilterPopover(e){
+            var rowId = e.currentTarget.rowId;
+            this.currentTargetRowName = "";
+            this.currentTargetRowId = "";
+
+            this.currentTargetRowName = e.currentTarget.getAttribute("target-row-name");
+            this.currentTargetRowId = rowId;
+
+            var filterInputValue = "";
+            var attributeValTxtbox = this.root.querySelector("#"+ this.currentTargetRowName + this.currentTargetRowId);
+            if(attributeValTxtbox.value){
+                filterInputValue = attributeValTxtbox.value;
+            }
+
+            var row = this._getParentRow(attributeValTxtbox);            
+            var rockFilterObj = this.shadowRoot.querySelector("#rockfilter");
+            var forTarget = "";
+            var items = "";
+            if(rowId >= 0) {
+                forTarget = this.currentTargetRowName  + rowId;
+                items = row.item;
+            }
+            rockFilterObj.onOpenFilterPopover(filterInputValue,items,forTarget);
+        }
+
+        onUpdateFilter(eventDetail){
+            var filterInputValue = "";
+            if(eventDetail){
+                filterInputValue = eventDetail.detail.filterInputValue;
+            }
+              
+            var attributeValTxtbox = this.root.querySelector("#"+ this.currentTargetRowName + this.currentTargetRowId);
+            var row = this._getParentRow(attributeValTxtbox);
+
+            if(row) {
+                row.item.selectedItems = eventDetail.detail.selectedItems;                
+                row.item.value = filterInputValue;
+                attributeValTxtbox.value = filterInputValue;
+                attributeValTxtbox.title = filterInputValue;
+            }
         }
     }
 
