@@ -1,0 +1,271 @@
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../bedrock-app-behavior/bedrock-app-behavior.html">
+<link rel="import" href="../bedrock-business-function-behavior/bedrock-business-function-behavior.html">
+<link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
+<link rel="import" href="../bedrock-helpers/component-helper.html">
+<link rel="import" href="../bedrock-helpers/context-helper.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-common.html">
+<link rel="import" href="../bedrock-style-manager/styles/bedrock-style-gridsystem.html">
+
+<link rel="import" href="../liquid-config-aggregate-get/liquid-config-aggregate-get.html">
+<link rel="import" href="../liquid-config-get/liquid-config-get.html" />
+<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+
+<link rel="import" href="../pebble-icons/pebble-icons.html">
+<link rel="import" href="../pebble-actions/pebble-actions.html">
+
+<link rel="import" href="../rock-layout/rock-layout.html">
+<link rel="import" href="../rock-model-download/rock-model-download.html">
+<link rel="import" href="../rock-wizard/rock-wizard.html">
+<link rel="import" href="../rock-component-config-behavior/rock-component-config-behavior.html">
+
+<dom-module id="rock-model-integration">
+  <template>
+    <style include="bedrock-style-common bedrock-style-gridsystem">
+      .downloadButton {
+        float: right;
+        margin : 10px;
+      }
+      rock-wizard {
+        --placeholder:{
+            width: 100% !important;
+        }
+        --drop-zone-height:{
+            height: 100% !important;
+        }
+      }
+     
+    </style>
+
+    <div class="row-wrap align-items-center">
+      <div class="col-4">
+        <template is="dom-if" if="[[showDomain]]">
+          <pebble-dropdown class="dropdown" label="Domain" items="[[domains]]" selected-value="{{selectedDomain}}"></pebble-dropdown>
+        </template>
+        </div> 
+      <div class="col-8">
+          <pebble-button class="btn dropdown-success downloadButton tooltip-bottom" icon="pebble-icon:Download" button-text="Download" data-tooltip="Download Model" on-click="_onModelDownloadClick"></pebble-button>
+          <rock-model-download id="modelDownload"></rock-model-download>
+      </div> 
+    </div>
+       
+    <rock-layout>
+      <rock-wizard id="rockwizard" config="{{wizardConfig}}" shared-data="[[sharedData]]" hide-stepper="true"></rock-wizard>
+    </rock-layout>
+    <bedrock-pubsub event-name="onNext" handler="_onModelUploadSuccess"></bedrock-pubsub>
+    <bedrock-pubsub event-name="onDownloadSuccess" handler="_onModelDownloadSuccess"></bedrock-pubsub>
+    <liquid-rest id="liquidGetDomains" url="/data/pass-through/entitymodelservice/get" method="POST" on-liquid-response="_onDomainsReceived" on-liquid-error="_onDomiansGetFailed"></liquid-rest>
+  </template>
+
+  <script>
+    (function () {
+      'use strict';
+
+      Polymer({
+        is: 'rock-model-integration',
+        properties: {
+          contextData: {
+            type: Object,
+            value: function () {
+              return {};
+            }
+          },
+          config: {
+            type: Object,
+            value: function () { return {}; }
+          },
+          entityType: {
+            type: String,
+            value: null
+          },
+          appName: {
+            type: String,
+            value: "rock-model-integration"
+          },
+          channel: {
+              type: String,
+              value: ""              
+          },
+          profiles: {
+            type: String,
+            value: ""
+          },
+          showDomain:{
+            type: Boolean,
+            value: ""
+          },
+          domains:{
+            type: Array,
+            value: []
+          },
+          selectedDomain:{
+            type: String,
+            value: ""
+          }   
+          
+        },
+        behaviors: [
+          RUFBehaviors.AppBehavior,
+          RUFBehaviors.BusinessFunctionBehavior,
+          RUFBehaviors.ComponentConfigBehavior
+        ],
+        created: function () {
+          this.entityType = DataHelper.getParamValue('type');
+
+          if (this.entityType) {
+            var itemContext = {
+              'type': this.entityType
+            };
+
+            this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+          }
+
+          var userContext = {
+            "role": this.roleId,
+            "user": this.userId,
+            "tenant": this.tenantId
+          };
+
+          this.contextData[ContextHelper.CONTEXT_TYPE_USER] = [userContext];
+          var valueContext = DataHelper.getDefaultValContext();
+          if(valueContext) {
+            this.contextData[ContextHelper.CONTEXT_TYPE_VALUE] = [valueContext];
+          }
+        },
+
+        attached: function () {
+          //Setting context information to loading component
+          if(_.isEmpty(this.sharedData) || _.isEmpty(this.sharedData["context-data"])) {
+            this.sharedData = {"context-data": this.contextData};
+          }
+
+          this._searchTimeStamp = new Date().toLocaleString();
+          this.requestConfig(this.name, this.contextData);
+
+          //Fetch the available domains 
+          if(this.showDomain){
+            this.getDomains();
+          }
+          
+        },
+
+        /**
+        * Function to read the config info
+        */
+        onConfigLoaded: function (componentConfig) {
+          if (!componentConfig || !componentConfig.config) {
+            this.showErrorToast("Component configuration is missing, please contact administrator.");
+            this._onCancel();
+            return;
+          }
+          
+          var config = componentConfig.config.upload;          
+          //Update the channel for the model to be uploaded
+          if(config.steps){
+            config.steps = DataHelper.convertObjectToArray(config.steps);
+            config.steps[0].component.properties["cop-context"].channel = this.channel; 
+          }
+          this.set('config', config); //set the configuration
+        },
+
+        /**
+        * Function to display the left nav info
+        */
+        getAppCurrentStatus: function (customArgs) {
+          var titleStr = "";
+          if (customArgs.title) {
+            titleStr = customArgs.title;
+          }
+          var queryParams = "";
+          if (customArgs.queryParams && customArgs.queryParams.type) {
+            titleStr = titleStr + " : " + customArgs.queryParams.type;
+            queryParams = customArgs.queryParams;
+          }
+          return {
+            title: titleStr,
+            subTitle: "Last Opened",
+            subTitleValue: this._searchTimeStamp ? this._searchTimeStamp : new Date().toLocaleString(),
+            queryParams: queryParams
+          };
+        },
+        
+        /**
+        * Function to generate a request for fetching available domains 
+        */
+        getDomains: function(){
+          var req = {
+            "params": {
+                "query": {
+                    "filters": {
+                        "typesCriterion": ["domain"]
+                    }
+                },
+                "fields": {
+                  "properties": ["_ALL"]
+                }
+            }
+          };
+
+          var domainsGet = this.shadowRoot.querySelector("#liquidGetDomains");
+          if (domainsGet) {
+            domainsGet.requestData = req;
+            domainsGet.generateRequest();
+          }
+
+        },
+
+        /**
+        * Function to handle liquidGetDomains call success
+        * Populating the received domains in the dropdown
+        */
+        _onDomainsReceived: function(e){
+          if (e.detail && e.detail.response && e.detail.response.response) {
+            var response = e.detail.response.response;          
+            var domainList = response.entityModels;
+            var domains = [];
+            for(var i=0; i<domainList.length;i++){
+                let item = {};
+                item.title = domainList[i].properties.externalName;
+                item.value = domainList[i].id;
+                //item.id = domainList[i].name;
+                domains.push(item);
+            } 
+            this.set('domains', domains); 
+          }
+        },
+
+        /**
+        * Function to handle liquidGetDomains call failure 
+        */
+        _onDomiansGetFailed: function(){
+          this.showErrorToast("Unable to perform the action now. Please contact administrator.");
+        },
+
+        /**
+        * Function to handle successful model upload 
+        */
+        _onModelUploadSuccess: function(){
+          this.showSuccessToast("Data Model uploaded successfully");
+          this.fireBedrockEvent("onRefreshWidget","",{ignoreId: true});
+        },
+
+        /**
+        * Function to handle download model button click
+        */
+        _onModelDownloadClick: function (e, detail) {          
+          this.$.modelDownload.onDownload(this.profiles,this.selectedDomain);
+        },
+
+        /**
+        * Function to handle successful model download 
+        */
+        _onModelDownloadSuccess: function (){
+          this.showSuccessToast("Data Model downloaded successfully");
+        }
+
+
+      });
+    })();
+  </script>
+</dom-module>
