@@ -321,7 +321,7 @@ DataObjectFalcorUtil.getOrCreate = function (obj, key, defaultVal) {
     return keyObj;
 };
 
-DataObjectFalcorUtil.mergeObjects = function (target, source, addMissing = true) {
+DataObjectFalcorUtil.mergeObjects = function (target, source, addMissing = true, overrideArrays = false) {
 
     if (!target) {
         if (addMissing) {
@@ -342,7 +342,11 @@ DataObjectFalcorUtil.mergeObjects = function (target, source, addMissing = true)
 
         if (sourceObj) {
             //console.log('deep assign---- target:', JSON.stringify(targetObj), 'source:', JSON.stringify(sourceObj));
-            target[targetObjKey] = DataObjectFalcorUtil.deepAssign(targetObj, sourceObj);
+            if(overrideArrays) {
+                target[targetObjKey] = DataObjectFalcorUtil.deepAssignArrayOverride(targetObj, sourceObj);
+            } else {
+                target[targetObjKey] = DataObjectFalcorUtil.deepAssign(targetObj, sourceObj);
+            }
             //console.log('deep assign---- target result:', JSON.stringify(target[targetObjKey]));
         }
     }
@@ -701,6 +705,43 @@ DataObjectFalcorUtil.deepAssign = function (...objs) {
         }
     }
 
+    return target;
+};
+
+DataObjectFalcorUtil.deepAssignArrayOverride = function (...objs) {
+    
+    if (objs.length < 2) {
+        throw new Error('Need two or more objects to merge');
+    }
+    
+    var target = objs[0];
+    for (var i = 1; i < objs.length; i++) {
+        var source = objs[i];
+        if (!DataObjectFalcorUtil.isObject(source) && !Array.isArray(source)) {
+            target = source;
+        }
+        else {
+            Object.keys(source).forEach(prop => {
+                
+                var value = source[prop];
+                if (value == "_DEEP_ASSIGN_DELETE_") {
+                    delete target[prop];
+                } else {
+                    if (DataObjectFalcorUtil.isObject(value)) {
+                        if (target.hasOwnProperty(prop) && DataObjectFalcorUtil.isObject(target[prop])) {
+                            target[prop] = DataObjectFalcorUtil.deepAssignArrayOverride(target[prop], value);
+                        } else {
+                            target[prop] = {};
+                            target[prop] = DataObjectFalcorUtil.deepAssignArrayOverride(target[prop], value);
+                        }
+                    } else {
+                        target[prop] = value;
+                    }
+                }
+            });
+        }
+    }
+    
     return target;
 };
 
