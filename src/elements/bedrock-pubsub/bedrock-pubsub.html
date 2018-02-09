@@ -23,9 +23,6 @@
                 
         @demo demo/index.html
         */
-        //pubsub instance storage
-        this.pubsubInstances = [];
-        this._pubsubListenerRegistry = []
         
         Polymer({
             is: 'bedrock-pubsub',
@@ -56,54 +53,29 @@
                 targetId: {
                     type: String,
                     value: ""
-                },
-
-                _pubsubListenerRegistry: {
-                    type: Array,
-                    value: function () {
-                        return [];
-                    }
                 }
             },
             /**
               * Content is not appearing - Content development is under progress. 
               */
             attached: function () {
-
-                var mainApp = RUFUtilities.mainApp;
-                if (mainApp && mainApp.shadowRoot) {
-                    var contentViewMgr = mainApp.shadowRoot.querySelector("rock-content-view-manager");
-                    if (contentViewMgr) {
-                        var activeContentView = contentViewMgr.$.contentViewManager.querySelector(
-                            "rock-content-view:not([hidden])");
-                        if (activeContentView) {
-                            var viewComponent = activeContentView.shadowRoot.querySelector("#content-view-container").querySelector(".view-component");
-                            if (viewComponent && DataHelper.isEmptyObject(this.appId)) {
-                                this.appId = viewComponent.id;
-                            }
-                        }
-                    }
+                //pubsub instance storage
+                if (!RUFUtilities.pubsubListenerRegistry) {
+                    RUFUtilities.pubsubListenerRegistry  = {'universalListeners' : []};
+                    RUFUtilities.pubsubEventNameRegistry = {'universalEvents' : []};
+                }                
+                var activeApp = ComponentHelper.getCurrentActiveApp();
+                if (activeApp) {
+                    this.appId = activeApp.id;
+                }               
+                Polymer.Async.microTask.run(() => {
                     this._registerEvent();
-                } else {
-                    this._registerEvent();
-                }
-                pubsubInstances.push(this);
+                });
             },
             /**
               * Content is not appearing - Content development is under progress. 
               */
             detached: function () {
-                var _pubsubListenerRegistryDetach=[];
-                var i = pubsubInstances.indexOf(this);
-                if (i >= 0) {
-                    pubsubInstances.splice(i, 1);
-                }               
-                _pubsubListenerRegistryDetach = _pubsubListenerRegistry;
-                _pubsubListenerRegistryDetach.forEach(function (v,index) {
-                    if (v.pubsubElement == this) {                       
-                        _pubsubListenerRegistry.splice(index, 1);
-                    }
-                }.bind(this));
             },
 
             _getPubSubContainer: function (element) {
@@ -149,9 +121,21 @@
                     }                    
                     pubsubContent.element = pubSubContainer
                     pubsubContent.eventName = eventAttr;
-                    pubsubContent.pubsubElement = this;
-                    _pubsubListenerRegistry.push(pubsubContent);
                     pubSubContainer.listen(pubSubContainer, eventAttr, this.handler);
+                    
+                    if(this.appId) {
+                        RUFUtilities.pubsubListenerRegistry[this.appId] = RUFUtilities.pubsubListenerRegistry[this.appId] || [];
+                        RUFUtilities.pubsubListenerRegistry[this.appId].push(pubsubContent);
+                        RUFUtilities.pubsubEventNameRegistry[this.appId] = RUFUtilities.pubsubEventNameRegistry[this.appId] || [];
+                        RUFUtilities.pubsubEventNameRegistry[this.appId].push(eventAttr);
+                    } else {
+                        RUFUtilities.pubsubListenerRegistry['universalListeners'].push(pubsubContent);
+                        RUFUtilities.pubsubEventNameRegistry['universalEvents'].push(eventAttr);
+                    }
+
+                    Polymer.Async.microTask.run(function () {
+                        ComponentHelper.removeNode(this);
+                    })
                 }
             },
             /**
@@ -161,26 +145,6 @@
                 this._registerEvent();
             }
         });
-
-        
-
-        // event dispatcher
-        function publish(name, data) {
-            var rufEevent = new CustomEvent('bedrock-event-' + name, {
-                bubbles: false,
-                detail: data
-            });
-            // dispatch named-event to all pubsubInstances
-            pubsubInstances.forEach(function (s) {
-                s.dispatchEvent(rufEevent);
-            });
-        }
-
-        // signal listener at document
-        document.addEventListener('bedrock-event', function (e) {
-            publish(e.detail.name, e.detail.data);
-        });
-
     })();
 
 </script>

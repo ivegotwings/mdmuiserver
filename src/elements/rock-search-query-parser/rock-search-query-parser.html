@@ -61,6 +61,14 @@
             type: Object,
             value: function () { return {}; }
           },
+          _relatedEntityAttributes: {
+            type: Object,
+            value: function () { return {}; }
+          },
+          _relToEntityTypes: {
+            type: Array,
+            value: function () { return []; }
+          },
           searchFilters: {
             type: Object,
             value: function () { return {}; }
@@ -88,13 +96,15 @@
           var itemContexts = [];
           var itemContext = {};
 
+          var entityTypes = queryObject.entityData && queryObject.entityData.types ? queryObject.entityData.types : [];
+
           var searchQuery = queryObject.searchQuery ? queryObject.searchQuery : undefined;
           this.searchFilters["searchQuery"] = searchQuery;
 
           var workflowCriterion = queryObject.workflowCriterion ? queryObject.workflowCriterion : undefined;
           this.searchFilters["workflowCriterion"] = workflowCriterion;
 
-          var attributeNames = queryObject.entityData && queryObject.entityData.attributes ? this._getAttributeNames(queryObject.entityData.attributes) : "_ALL";
+          var attributeNames = queryObject.entityData && queryObject.entityData.attributes ? this._getAttributeNames(queryObject.entityData.attributes) : ["_ALL"];
           itemContext.attributeNames = attributeNames;
           this._entityAttributes = queryObject.entityData && queryObject.entityData.attributes ? queryObject.entityData.attributes : undefined;
 
@@ -102,12 +112,25 @@
           this.searchFilters["relationshipName"] = relationshipName;
           if (relationshipName) {
             itemContext.relationships = [relationshipName];
-            var relationshipAttributes = queryObject.entityRelationships && queryObject.entityRelationships.attributes ? this._getAttributeNames(queryObject.entityRelationships.attributes) : "_ALL";
-            itemContext.relationshipAttributes = relationshipAttributes;
             this._relationshipAttributes = queryObject.entityRelationships && queryObject.entityRelationships.attributes ? queryObject.entityRelationships.attributes : undefined;
+            var relationshipAttributes = this._relationshipAttributes ? this._getAttributeNames(this._relationshipAttributes) : "_ALL";
+            itemContext.relationshipAttributes = relationshipAttributes;
+
+            this._relatedEntityAttributes = undefined;
+            this._relToEntityTypes = [];
+            if(queryObject.entityRelationships && queryObject.entityRelationships.relatedEntityData) {
+              this._relatedEntityAttributes = queryObject.entityRelationships.relatedEntityData.attributes ? queryObject.entityRelationships.relatedEntityData.attributes : undefined;
+              var relEntityAttributes = this._relatedEntityAttributes ? this._getAttributeNames(this._relationshipAttributes) : undefined;
+
+              if(relEntityAttributes) {
+                itemContext.attributeNames.concat(relEntityAttributes);
+              }
+
+              this._relToEntityTypes = queryObject.entityRelationships.relatedEntityData.types || [];
+              entityTypes.concat(this._relToEntityTypes);
+            }
           }
 
-          var entityTypes = queryObject.entityData && queryObject.entityData.types ? queryObject.entityData.types : [];
           if (entityTypes && entityTypes.length > 0) {
             this.searchFilters["typesCriterion"] = entityTypes;
             this._currentIndex = entityTypes.length;
@@ -158,7 +181,7 @@
               }
 
               var attrsCriterion = this._prepareAttrsCriterion(compositeModels, this._entityAttributes);
-              var relationshipsCriterion = this._prepareRelationshipsCriterion(relationshipModels, this._relationshipAttributes);
+              var relationshipsCriterion = this._prepareRelationshipsCriterion(relationshipModels, this._relationshipAttributes, this._relatedEntityAttributes, this._relToEntityTypes, compositeModels);
               this.searchFilters["attributesCriterion"] = !_.isEmpty(attrsCriterion) ? attrsCriterion : undefined;
               this.searchFilters["relationshipsCriterion"] = !_.isEmpty(relationshipsCriterion) ? [relationshipsCriterion] : undefined;
               this.searchFilters["compositeModels"] = compositeModels;
@@ -304,10 +327,27 @@
           return attributes;
         },
 
-        _prepareRelationshipsCriterion: function (relationshipModels, relationshipAttributes) {
+        _prepareRelationshipsCriterion: function (relationshipModels, relationshipAttributes, relatedEntityAttributes, relToEntityTypes, compositeModels) {
           var relType = this.searchFilters["relationshipName"];
           var relationshipsCriterion = {};
           if (relType) {
+            if(!_.isEmpty(relToEntityTypes)) {
+              relationshipsCriterion[relType] = relationshipsCriterion[relType] || {};
+              relationshipsCriterion[relType]["relTo"] = {
+                "type": relToEntityTypes[0]
+              };
+              relationshipsCriterion[relType]["query"] = {
+                "filters": {
+                    "typesCriterion": relToEntityTypes
+                  }
+              };
+
+              if(!_.isEmpty(relatedEntityAttributes)) {
+                var relEntityAttrsCriterion = this._prepareAttrsCriterion(compositeModels, relatedEntityAttributes);
+
+                relationshipsCriterion[relType].query.filters.attributesCriterion = relEntityAttrsCriterion;
+              }
+            }
             var rel = relationshipModels[relType] && relationshipModels[relType].length ? relationshipModels[relType][0] : undefined;
             if (rel && rel.attributes) {
               var relData = {};
@@ -322,9 +362,8 @@
                 }
               }
               var relationshipAttrsCriterion = this._prepareAttrsCriterion(relationshipAttributeModels, relationshipAttributes);
-              relationshipsCriterion[relType] = {
-                "attributes": relationshipAttrsCriterion
-              };
+              relationshipsCriterion[relType] = relationshipsCriterion[relType] || {};
+              relationshipsCriterion[relType]["attributes"] = relationshipAttrsCriterion;
             }
           }
 
