@@ -4,6 +4,7 @@
 <link rel="import" href="../bedrock-pubsub/bedrock-pubsub.html">
 <link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
 
+<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
 <link rel="import" href="../liquid-entity-data-get/liquid-entity-data-get.html">
 <link rel="import" href="../liquid-rest/liquid-rest.html">
 
@@ -138,33 +139,36 @@
             }
         </style>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
+        <div id="grid-heading">
+            <strong>Value Mapping - [[_attributeTitle]]</strong>
+        </div>
         <div id="gridManage">
             <pebble-button class="iconButton m-r-5" title="Add" id="add" icon="pebble-icon:Add" raised on-tap="_onAddTap"></pebble-button>
             <pebble-button class="iconButton m-r-5" title="Delete" id="delete" icon="pebble-icon:Delete" raised on-tap="_onDeleteTap"></pebble-button>
         </div>
         <div id="grid-container">
-            <!-- <template is="dom-if" if="[[_isDataAvailable(_gridData)]]"> -->
             <pebble-data-table id="mapping-grid" items="{{_gridData}}" multi-selection>
                 <data-table-column slot="column-slot" name="Given Value">
                     <template>
                         <pebble-textbox slot="cell-slot-content" class="column-text" id="given-value_[[index]]" row-id="[[index]]" value="{{item.givenValue}}"
-                            title="{{item.givenValue}}" on-change="_onGivenValueChange"></pebble-textbox>
+                            title="{{item.givenValue}}" on-change="_onRowChange"></pebble-textbox>
                     </template>
                 </data-table-column>
                 <data-table-column slot="column-slot" name="Governed Value">
                     <template>
                         <div id="inputDiv" slot="cell-slot-content" on-tap="_onAttributeTap" index="[[index]]">
-                            <pebble-textbox readonly class="attributes-text" id="govern-text_[[index]]" row-id="[[index]]" value="[[item.governedValue]]"
-                                title="[[item.governedValue]]"></pebble-textbox>
+                            <pebble-textbox readonly$="[[_isReferenceField]]" class="attributes-text" id="govern-text_[[index]]" row-id="[[index]]" value="[[item.governedValue]]" title="[[item.governedValue]]"
+                                on-change="_onRowChange"></pebble-textbox>
                         </div>
-                        <div id="iconDiv" slot="cell-slot-content">
-                            <pebble-icon-updated class="dropdown-icon pebble-icon-size-10" id="txtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:Down"
-                                on-tap="_showReferenceLOV"></pebble-icon-updated>
-                        </div>
+                        <template is="dom-if" if="[[_isReferenceField]]">
+                            <div id="iconDiv" slot="cell-slot-content">
+                                <pebble-icon class="dropdown-icon pebble-icon-size-10" id="txtDropdownIcon_[[index]]" row-id="[[index]]" icon="pebble-icon:Down"
+                                    on-tap="_showReferenceLOV"></pebble-icon>
+                            </div>
+                        </template>
                     </template>
                 </data-table-column>
             </pebble-data-table>
-            <!-- </template> -->
             <bedrock-pubsub event-name="entity-lov-selection-changed" handler="_onReferenceSelection" target-id="rockReferenceLov"></bedrock-pubsub>
             <pebble-popover class="reference-popover" id="referencePopover" for="" no-overlap vertical-align="auto" horizontal-align="auto">
                 <rock-entity-lov id="rockReferenceLov" request-data="[[_lovRequestData]]" title-pattern="{entity.name}"></rock-entity-lov>
@@ -174,11 +178,10 @@
             <pebble-button class="action-button btn btn-secondary m-r-5" id="cancel" button-text="Cancel" raised on-tap="_onCancelTap"></pebble-button>
             <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="next" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
         </div>
-        <liquid-entity-data-get id="initiateSearch" operation="initiatesearch" request-data="{{_valueMappingRequest}}" last-response="{{initiateSearchResponse}}"
-            on-error="_onGetSearchError" on-response="_onInitiateSearchResponse"></liquid-entity-data-get>
-        <liquid-entity-data-get id="getSearchResultDetail" operation="getsearchresultdetail" request-data="{{_valueMappingRequest}}"
-            request-id="[[initiateSearchResponse.content.requestId]]" last-response="{{getEntitySearchResultsResponse}}" on-error="_onGetSearchError"
-            on-response="_onGetSearchResultDetailResponse"></liquid-entity-data-get>
+        <liquid-entity-model-get name="liquidAttributeModelGet" operation="getbyids" request-data={{attributeModelRequest}} on-response="_onAttributeModelGetResponse"
+            on-error="_onAttributeModelError"></liquid-entity-model-get>
+        <liquid-rest id="getMappings" url="/data/cop/getMappings" method="POST" request-data="[[_getMappingsRequest]]" on-liquid-response="_onGetMappingsResponse" on-liquid-error="_onMappingsError"></liquid-rest>
+        <liquid-rest id="saveMappings" url="/data/cop/saveMappings" method="POST" request-data="[[_saveMappingsRequest]]" on-liquid-response="_onMappingsSaveResponse" on-liquid-error="_onMappingsError"></liquid-rest>
     </template>
     <script>
         (function () {
@@ -189,6 +192,13 @@
 
                 properties: {
                     contextData: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    copContext: {
                         type: Object,
                         value: function () {
                             return {};
@@ -244,12 +254,88 @@
                     _lovRequestData: {
                         type: Object,
                         value: function () {
+                            return {};
+                        }
+                    },
+
+                    attributeModelRequest: {
+                        type: Object,
+                        value: function () {
                             return {
                                 "params": {
                                     "query": {
-                                        "valueContexts": [],
                                         "filters": {
-                                            "typesCriterion": []
+                                            "typesCriterion": [
+                                                "attributeModel"
+                                            ]
+                                        }
+                                    },
+                                    "fields": {
+                                        "attributes": ["externalName"]
+                                    }
+                                }
+                            };
+                        }
+                    },
+
+                    _deletedMappings: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
+                    },
+
+                    _attributeTitle: {
+                        type: String,
+                        value: null
+                    },
+
+                    _attributeModel: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    _isReferenceField: {
+                        type: Boolean,
+                        value: false
+                    }
+                },
+                observers: [
+                    "_onMappingsDataChange(mappingsData, contextData, copContext)"
+                ],
+                behaviors: [
+                    RUFBehaviors.UIBehavior,
+                    RUFBehaviors.ComponentContextBehavior
+                ],
+
+                _onMappingsDataChange: function () {
+                    if (!_.isEmpty(this.contextData) && !_.isEmpty(this.mappingsData) && !_.isEmpty(this.copContext)) {
+                        this.attributeModelRequest.params.query.ids = [this.mappingsData.attribute + "_attributeModel"];
+
+                        var liquidModelGet = this.shadowRoot.querySelector("[name=liquidAttributeModelGet]");
+                        if (liquidModelGet) {
+                            liquidModelGet.generateRequest();
+                        }
+                    }
+                },
+
+                _onAttributeModelGetResponse: function (e, detail) {
+                    var response = e.detail.response;
+                    if (response.content && !_.isEmpty(response.content.entityModels)) {
+                        this._attributeModel = response.content.entityModels[0];
+                        this._attributeTitle = this._attributeModel.properties.externalName;
+
+                        //Set LOV request
+                        if (this._attributeModel.properties.referenceEntityInfo) {
+                            var refInfo = this._attributeModel.properties.referenceEntityInfo;
+                            var lovRequest = {
+                                "params": {
+                                    "query": {
+                                        "valueContexts": this.contextData.ValContexts,
+                                        "filters": {
+                                            "typesCriterion": [refInfo[0].refEntityType]
                                         }
                                     },
                                     "fields": {
@@ -259,73 +345,60 @@
                                     }
                                 }
                             }
-                        }
-                    },
 
-                    _deletedMappings: {
-                        type: Array,
-                        value: function () {
-                            return [];
+                            this.set("_lovRequestData", lovRequest);
+                            this._isReferenceField = true;
+                        }
+
+                        //Get Mappings
+                        //To-do: Contexts hardcoded here, will be removed once context header logic is implemented
+                        this.selectedContexts = [
+                            {
+                                "type": "taxonomy",
+                                "value": "_ALL"
+                            },
+                            {
+                                "type": "classification",
+                                "value": "_ALL"
+                            }
+                        ];
+                        var types = [this.mappingsData.valueMappingTypeName];
+
+                        var req = DataRequestHelper.createMappingsGetRequest(this.contextData, this.copContext, this.selectedContexts, types);
+                        req.params.query.contexts[0].ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "";
+                        delete req.params.query.contexts[0].entitytype;
+                        this.set("_getMappingsRequest", req);
+                        var getMappings = this.shadowRoot.querySelector("#getMappings");
+                        if (getMappings) {
+                            getMappings.generateRequest();
                         }
                     }
                 },
-                observers: [
-                    "_onMappingsDataChange(mappingsData, contextData)"
-                ],
-                behaviors: [
-                    RUFBehaviors.UIBehavior,
-                    RUFBehaviors.ComponentContextBehavior
-                ],
 
-                _onMappingsDataChange: function () {
-                    if (!_.isEmpty(this.contextData) && !_.isEmpty(this.mappingsData)) {
-                        this._valueMappingRequest.params.query.valueContexts = this.contextData.ValContexts;
-                        var userContext = ContextHelper.getFirstUserContext(this.contextData);
-                        this._valueMappingRequest.params.query.contexts.push({
-                            "suppliername": userContext.tenant,
-                            "attributename": this.mappingsData.attribute
-                        });
-                        this._valueMappingRequest.params.query.filters.typesCriterion.push(this.mappingsData.valueMappingTypeName);
-
-                        var liqGetInitiateSearch = this.shadowRoot.querySelector("#initiateSearch");
-                        if (liqGetInitiateSearch) {
-                            liqGetInitiateSearch.generateRequest();
-                        }
-
-                        //Set LOV request
-                        this._lovRequestData.params.query.valueContexts = this.contextData.ValContexts;
-                        this._lovRequestData.params.query.filters.typesCriterion.push(this.mappingsData.attribute);
-                    }
+                _onAttributeModelError: function(e, detail) {
+                    this.logError("Entity attribute model get error", detail);
+                    this.showSuccessToast("Unable to get entity attribute model, please contact administrator.");
                 },
 
-                _onInitiateSearchResponse: function (e) {
-                    var liqGetSearchResultDetail = this.shadowRoot.querySelector('#getSearchResultDetail');
-                    if (liqGetSearchResultDetail) {
-                        liqGetSearchResultDetail.generateRequest();
+                _onGetMappingsResponse: function (e, detail) {
+                    var response = detail.response.response;
+                    if(!response || response.status != "success") {
+                        this.showErrorToast("Unable to fetch attribute mappings, please contact administrator.");
+                        return;
                     }
-                },
 
-                _onGetSearchResultDetailResponse: function (e, detail) {
-                    //console.log('response str', JSON.stringify(detail.response.content.entities[0].data.contexts, null, 4));
-                    if (DataHelper.isValidObjectPath(detail, "response.content.entities")) {
-                        var entities = detail.response.content.entities;
-                        var gridData = [];
-                        for (var i = 0; i < entities.length; i++) {
-                            if (entities[i].data && entities[i].data.contexts && entities[i].data.contexts.length > 0) {
-                                var dataContexts = entities[i].data.contexts[0]; // Which contains attributes
-                                var attributeValue = "";
-                                if (DataHelper.isValidObjectPath(dataContexts, "attributes.attributevalue.values")) {
-                                    attributeValue = dataContexts.attributes.attributevalue.values[0];
-                                }
-
-                                if (DataHelper.isValidObjectPath(dataContexts, "attributes.mappedvalue.values")) {
-                                    if (dataContexts.attributes.mappedvalue.values.length > 0) {
-                                        //Prepare row data and push to grid
-                                        var mappedValues = dataContexts.attributes.mappedvalue.values;
-                                        for (var j = 0; j < mappedValues.length; j++) {
+                    var gridData = [];
+                    if (response && response.status && response.status.toLowerCase() == "success" && response.entities) {
+                        if (response.entities.length > 0) {
+                            this.valueMappingId = response.entities[0].id;
+                            if(DataHelper.isValidObjectPath(response, "entities.0.data.contexts.0.attributes")) {
+                                this._mappingAttributes = response.entities[0].data.contexts[0].attributes;
+                                for(var key in this._mappingAttributes) {
+                                    if(this._mappingAttributes[key]) {
+                                        for(var i = 0; i < this._mappingAttributes[key].values; i++) {
                                             gridData.push({
-                                                "givenValue": mappedValues[j].value,
-                                                "governedValue": attributeValue.value,
+                                                "givenValue": this._mappingAttributes[key].values[i].value,
+                                                "governedValue": key,
                                                 "source": "system",
                                                 "action": ""
                                             });
@@ -334,9 +407,9 @@
                                 }
                             }
                         }
-
-                        this.set("_gridData", gridData);
                     }
+
+                    this.set("_gridData", gridData);
                 },
 
                 _isDataAvailable: function (data) {
@@ -363,6 +436,7 @@
                             lov.currentRowId = rowId;
                             popover.for = "govern-text_" + rowId;
                             popover.show();
+                            lov.refreshLOVData();
                         }
                     }
                 },
@@ -449,7 +523,7 @@
                     return undefined;
                 },
 
-                _onGivenValueChange: function (e, detail) {
+                _onRowChange: function (e, detail) {
                     var rowId = e.currentTarget.rowId;
                     if (rowId >= 0) {
                         var givenTxtbox = this.root.querySelector("#given-value_" + rowId);
@@ -468,13 +542,150 @@
                 },
 
                 _onSaveTap: function () {
-                    //take the _gridData & _deletedMappings details and do the save value mappings, 
-                    //on saveMappings response trigger below event
-                    var eventName = "value-mapping-save";
-                    var eventDetail = {
-                        "name": eventName,
-                    };
-                    this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                    var mappings = this._transformGridDataToSaveMappings();
+                    if (!_.isEmpty(mappings)) {
+                        var saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, this.selectedContexts, this.mappingsData.valueMappingTypeName);
+                        if(!_.isEmpty(saveRequest)) {
+                            saveRequest.entity.id = this.valueMappingId || "";
+                            saveRequest.entity.data.contexts[0].attributes = mappings;
+                            saveRequest.entity.data.contexts[0].context.ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "";
+                            delete saveRequest.entity.data.contexts[0].context.entitytype;
+                            this.set("_saveMappingsRequest", saveRequest);
+                            var saveMappings = this.shadowRoot.querySelector("#saveMappings");
+                            if (saveMappings) {
+                                saveMappings.generateRequest();
+                            }
+                        }
+                    } else {
+                        this.showSuccessToast("There are no changes in mappings to save.");
+                    }
+                },
+
+                _onMappingsSaveResponse: function (e, detail) {
+                    var response = detail.response.response;
+                    if(response && response.status == "success") {
+                        this.showSuccessToast("Mappings saved successfully.");
+
+                        //on saveMappings response trigger below event
+                        var eventName = "value-mapping-save";
+                        var eventDetail = {
+                            "name": eventName,
+                        };
+                        this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+
+                        return;
+                    }
+
+                    this.showErrorToast("Unable to save mappings, please contact administrator.");
+                },
+
+                _transformGridDataToSaveMappings: function () {
+                    var mappings = {};
+                    //For updated and new
+                    this._gridData.forEach(function (row) {
+                        if (row.action == "updated" || row.action == "new") {
+                            if (row.givenValue && row.governedValue) {
+                                if (mappings[row.governedValue]) {
+                                    mappings[row.governedValue].values.push({
+                                        "value": row.givenValue,
+                                        "locale": "en-US",
+                                        "id": ""
+                                    });
+                                } else {
+                                    mappings[row.governedValue] = {
+                                        "properties": {
+                                            "enabled": true
+                                        },
+                                        "values": [
+                                            {
+                                                "value": row.givenValue,
+                                                "locale": "en-US",
+                                                "id": ""
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    //For delete
+                    this._deletedMappings.forEach(function (row) {
+                        if (row.givenValue && row.governedValue) {
+                            if (mappings[row.governedValue]) {
+                                mappings[row.governedValue].values.push({
+                                    "value": row.givenValue,
+                                    "locale": "en-US",
+                                    "id": "",
+                                    "action": "delete"
+                                });
+                            } else {
+                                mappings[row.governedValue] = {
+                                    "action": "delete",
+                                    "properties": {
+                                        "enabled": true
+                                    },
+                                    "values": [
+                                        {
+                                            "value": row.givenValue,
+                                            "locale": "en-US",
+                                            "id": ""
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    });
+
+                    //Modified above having untouched mappings
+                    this._gridData.forEach(function (row) {
+                        if (row.action == "" && row.givenValue && row.governedValue) {
+                            if (mappings[row.governedValue]) {
+                                if(mappings[row.governedValue].action == "delete") {
+                                    for(var i = 0; i < mappings[row.governedValue].values.length; i++) {
+                                        mappings[row.governedValue].values[i].action = "delete";
+                                    }
+                                    delete mappings[row.governedValue].action;
+                                    mappings[row.governedValue].values.push({
+                                        "value": row.givenValue,
+                                        "locale": "en-US",
+                                        "id": ""
+                                    });
+                                } else {
+                                    mappings[row.governedValue].values.push({
+                                        "value": row.givenValue,
+                                        "locale": "en-US",
+                                        "id": ""
+                                    });
+                                }
+                            }
+                        }
+                    });
+
+                    this._setUniqueIds(mappings);
+                    return mappings;
+                },
+
+                _setUniqueIds: function(mappings) {
+                    if(!_.isEmpty(mappings)) {
+                        for(var key in mappings) {
+                            if(mappings[key] && mappings[key].properties && !mappings[key].properties.id) {
+                                if(this._mappingAttributes && this._mappingAttributes[key]) {
+                                    mappings[key].properties.id = this._mappingAttributes[key].properties.id;
+                                } else {
+                                    mappings[key].properties.id = this._generateMappingId();
+                                }
+                            }
+                        }
+                    }
+                },
+
+                _generateMappingId: function(item) {
+                    var source = "ui";
+                    var itemContext = this.getFirstItemContext(this.contextData);
+                    var entityType = itemContext.type;
+                    var unique = source + entityType;
+                    return unique.hashCode();
                 }
             });
         })();

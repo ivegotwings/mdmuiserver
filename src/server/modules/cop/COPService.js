@@ -134,14 +134,13 @@ COPService.prototype = {
         var files = request.files;
 
         var getHeaderFieldsRequest = JSON.parse(request.body.requestData);
-        getHeaderFieldsRequest.binaryObject.id = uuidV1();
-        getHeaderFieldsRequest.binaryObject.data.blob = this._getFileContent(fileName, files);
+        getHeaderFieldsRequest.dataObject.id = uuidV1();
+        getHeaderFieldsRequest.dataObject.data.blob = this._getFileContent(fileName, files);
         return await this.post(getHeaderFieldsURL, getHeaderFieldsRequest);
     },
     getMappings: async function (request) {
         var getMappingsURL = "copservice/getMappings";
-        var validationResult = this._validateRequest(request);
-        if (!validationResult) {
+        if (!request.body) {
             return {
                 "entityOperationResponse": {
                     "status": "Error",
@@ -153,19 +152,11 @@ COPService.prototype = {
                 }
             };
         }
-
-        var fileName = request.body.fileName;
-        var files = request.files;
-
-        var getMappingsRequest = JSON.parse(request.body.requestData);
-        getMappingsRequest.binaryObject.id = uuidV1();
-        getMappingsRequest.binaryObject.data.blob = this._getFileContent(fileName, files);
-        return await this.post(getMappingsURL, getMappingsRequest);
+        return await this.post(getMappingsURL, request.body);
     },
     saveMappings: async function (request) {
         var saveMappingsURL = "copservice/saveMappings";
-        var validationResult = this._validateRequest(request);
-        if (!validationResult) {
+        if (!request.body) {
             return {
                 "entityOperationResponse": {
                     "status": "Error",
@@ -177,14 +168,8 @@ COPService.prototype = {
                 }
             };
         }
-
-        var fileName = request.body.fileName;
-        var files = request.files;
-
-        var saveMappingsRequest = JSON.parse(request.body.requestData);
-        saveMappingsRequest.binaryObject.id = uuidV1();
-        saveMappingsRequest.binaryObject.data.blob = this._getFileContent(fileName, files);
-        return await this.post(saveMappingsURL, saveMappingsRequest);
+        console.log(JSON.stringify(request.body));
+        return await this.post(saveMappingsURL, request.body);
     },
     downloadModelExcel: async function (request, response) {
         var downloadModelURL = "copservice/downloadModelExcel";

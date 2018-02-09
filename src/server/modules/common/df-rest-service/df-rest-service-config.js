@@ -257,13 +257,13 @@ var SERVICE_CONFIG = {
             }
         },
         "copservice/getMappings": {
-            "url": "/rsConnectService/getMappings",
+            "url": "/rsConnectService/getmappings",
             "mode": "online",
             "offlineSettings": {
             }
         },
         "copservice/saveMappings": {
-            "url": "/rsConnectService/saveMappings",
+            "url": "/rsConnectService/savemappings",
             "mode": "online",
             "offlineSettings": {
             }
