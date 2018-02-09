@@ -169,7 +169,7 @@ ConfigurationService.prototype = {
                 var configContext = configContextData.context;
                 var configData = configContextData.jsonData.config;
 
-                mergedConfigData = falcorUtil.mergeObjects(mergedConfigData, configData, true);
+                mergedConfigData = falcorUtil.mergeObjects(mergedConfigData, configData, true, true);
                 mergedContext = this._mergeResponseContexts(mergedContext, configContext);
             }
 
