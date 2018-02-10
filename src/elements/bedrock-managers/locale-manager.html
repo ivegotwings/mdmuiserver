@@ -1,0 +1,109 @@
+<link rel="import" href="../../../bower_components/polymer/polymer-element.html">
+
+<link rel="import" href="../bedrock-app-context-behavior/bedrock-app-context-behavior.html">
+<link rel="import" href="../bedrock-component-context-behavior/bedrock-component-context-behavior.html">
+<link rel="import" href="../bedrock-ui-behavior/bedrock-ui-behavior.html">
+<link rel="import" href="../bedrock-helpers/context-helper.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+<link rel="import" href="../bedrock-helpers/data-request-helper.html">
+
+
+<script>
+    'use strict';
+    class LocaleManager {
+        constructor() {
+            this.entityType = "locale";
+            this.contextData = new Object();
+            this.localeColumnMapCollection = {
+                "id": "{entity.id}",
+                "name": "{entity.name}",
+                "externalName": "{entity.attributes.extrenalName}",
+                "code": "{entity.attributes.code}"
+            };
+            this.relationshipType = "fallbacklocale";
+            this.relationshipAttribute = "fallbacksequence";
+            this.localesJson = new Array();
+            this.fallbackLocalesThreshold = 3;
+            this.promiseResolve;
+        }
+
+        _initiateEntityGetRequest() {
+            var itemContext = {
+                "type": this.entityType,
+                "attributeNames": ["_ALL"],
+                "relationships": [this.relationshipType],
+                "relationshipAttributes": [this.relationshipAttribute]
+            };
+
+            this.contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+
+            var entityGetRequest = DataRequestHelper.createEntityGetRequest(this.contextData, true);
+
+            var liquidCustomElement = customElements.get("liquid-entity-data-get");
+
+            var liquidElement = new liquidCustomElement();
+
+            liquidElement.requestData = entityGetRequest;
+            liquidElement.operation = "searchandget";
+            liquidElement.addEventListener("response", this._onEntityGetResponse.bind(this));
+
+            liquidElement.generateRequest();
+        }
+
+        _onEntityGetResponse(e) {
+            var res = e.detail.response;
+            if (res && res.content) {
+                var entities = res.content.entities;
+                if (entities && entities.length > 0) {
+                    var formattedEntities = DataTransformHelper.transformLocaleEntitiesToLocalesJson(entities, this.localeColumnMapCollection, this.relationshipType, this.relationshipAttribute, this.fallbackLocalesThreshold);
+                    this.localesJson = formattedEntities;
+                }
+            }
+            if(this.promiseResolve){
+                this.promiseResolve();
+            }
+        }
+
+        _getById(Id) {
+            return this._getByProp("id", id);
+        }
+
+        _getByName(name) {
+            return this._getByProp("name", name);
+        }
+
+        _getByProp(propName, propValue) {
+            var locale;
+            if (propName) {
+                locale = this.localesJson.find(locale => locale[propName] === propValue);
+            }
+            return locale;
+        }
+
+        async getLocaleByName(name) {
+            if(!_.isEmpty(this.localesJson)) {
+                return this._getByName(name);
+            } else {
+                var callLiquid = await this._getDataFromLiquid(name);
+                return this._getByName(name);
+            }
+        }
+
+        async getLocaleById(id) {
+            if(!_.isEmpty(this.localesJson)) {
+                return this._getById(id);
+            } else {
+                var callLiquid = await this._getDataFromLiquid(id);
+                return this._getById(id);
+            }
+        }
+
+        _getDataFromLiquid(data){
+            return new Promise((resolve, reject) => {
+                this.promiseResolve = resolve;
+                this._initiateEntityGetRequest();
+            });
+        }
+    }
+
+</script>
