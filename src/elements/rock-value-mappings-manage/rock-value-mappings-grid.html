@@ -157,8 +157,8 @@
                 <data-table-column slot="column-slot" name="Governed Value">
                     <template>
                         <div id="inputDiv" slot="cell-slot-content" on-tap="_onAttributeTap" index="[[index]]">
-                            <pebble-textbox readonly$="[[_isReferenceField]]" class="attributes-text" id="govern-text_[[index]]" row-id="[[index]]" value="[[item.governedValue]]" title="[[item.governedValue]]"
-                                on-change="_onRowChange"></pebble-textbox>
+                            <pebble-textbox readonly$="[[_isReferenceField]]" class="attributes-text" id="govern-text_[[index]]" row-id="[[index]]" value="[[item.governedValue]]"
+                                title="[[item.governedValue]]" on-change="_onRowChange"></pebble-textbox>
                         </div>
                         <template is="dom-if" if="[[_isReferenceField]]">
                             <div id="iconDiv" slot="cell-slot-content">
@@ -180,8 +180,12 @@
         </div>
         <liquid-entity-model-get name="liquidAttributeModelGet" operation="getbyids" request-data={{attributeModelRequest}} on-response="_onAttributeModelGetResponse"
             on-error="_onAttributeModelError"></liquid-entity-model-get>
-        <liquid-rest id="getMappings" url="/data/cop/getMappings" method="POST" request-data="[[_getMappingsRequest]]" on-liquid-response="_onGetMappingsResponse" on-liquid-error="_onMappingsError"></liquid-rest>
-        <liquid-rest id="saveMappings" url="/data/cop/saveMappings" method="POST" request-data="[[_saveMappingsRequest]]" on-liquid-response="_onMappingsSaveResponse" on-liquid-error="_onMappingsError"></liquid-rest>
+        <liquid-entity-model-get name="liquidReferenceManageModelGet" operation="getbyids" request-data={{referenceModelRequest}}
+            on-response="_onReferenceManageModelGetResponse" on-error="_onReferenceManageModelGetError"></liquid-entity-model-get>
+        <liquid-rest id="getMappings" url="/data/cop/getMappings" method="POST" request-data="[[_getMappingsRequest]]" on-liquid-response="_onGetMappingsResponse"
+            on-liquid-error="_onMappingsError"></liquid-rest>
+        <liquid-rest id="saveMappings" url="/data/cop/saveMappings" method="POST" request-data="[[_saveMappingsRequest]]" on-liquid-response="_onMappingsSaveResponse"
+            on-liquid-error="_onMappingsError"></liquid-rest>
     </template>
     <script>
         (function () {
@@ -278,6 +282,26 @@
                         }
                     },
 
+                    referenceModelRequest: {
+                        type: Object,
+                        value: function () {
+                            return {
+                                "params": {
+                                    "query": {
+                                        "filters": {
+                                            "typesCriterion": [
+                                                "entityManageModel"
+                                            ]
+                                        }
+                                    },
+                                    "fields": {
+                                        "attributes": ["_ALL"]
+                                    }
+                                }
+                            };
+                        }
+                    },
+
                     _deletedMappings: {
                         type: Array,
                         value: function () {
@@ -329,8 +353,9 @@
 
                         //Set LOV request
                         if (this._attributeModel.properties.referenceEntityInfo) {
+                            this._isReferenceField = true;
                             var refInfo = this._attributeModel.properties.referenceEntityInfo;
-                            var lovRequest = {
+                            this.referenceLOVRequest = {
                                 "params": {
                                     "query": {
                                         "valueContexts": this.contextData.ValContexts,
@@ -346,44 +371,81 @@
                                 }
                             }
 
-                            this.set("_lovRequestData", lovRequest);
-                            this._isReferenceField = true;
-                        }
+                            //Before setting the reference request to LOV, set LOV title pattern
+                            var ids = [];
+                            ids.push(refInfo[0].refEntityType + "_entityManageModel");
+                            this.referenceModelRequest.params.query.ids = ids;
 
-                        //Get Mappings
-                        //To-do: Contexts hardcoded here, will be removed once context header logic is implemented
-                        this.selectedContexts = [
-                            {
-                                "type": "taxonomy",
-                                "value": "_ALL"
-                            },
-                            {
-                                "type": "classification",
-                                "value": "_ALL"
+                            var liquidModelGet = this.shadowRoot.querySelector("[name=liquidReferenceManageModelGet]");
+                            if (liquidModelGet) {
+                                liquidModelGet.generateRequest();
                             }
-                        ];
-                        var types = [this.mappingsData.valueMappingTypeName];
-
-                        var req = DataRequestHelper.createMappingsGetRequest(this.contextData, this.copContext, this.selectedContexts, types);
-                        req.params.query.contexts[0].ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "";
-                        delete req.params.query.contexts[0].entitytype;
-                        this.set("_getMappingsRequest", req);
-                        var getMappings = this.shadowRoot.querySelector("#getMappings");
-                        if (getMappings) {
-                            getMappings.generateRequest();
+                        } else {
+                            //Get Mappings
+                            this._getMappings();
                         }
                     }
                 },
 
-                _onAttributeModelError: function(e, detail) {
+                // This is to set title pattern, success/error - process will not stop
+                _onReferenceManageModelGetResponse: function(e, detail) {
+                    if(detail && detail.response && detail.response.status == "success") {
+                        if(DataHelper.isValidObjectPath(detail, "response.content.entityModels.0.data.attributes")) {
+                            var attributes = detail.response.content.entityModels[0].data.attributes;
+                            for(var key in attributes) {
+                                if(attributes[key].properties.isExternalName) {
+                                    var lov = this.shadowRoot.querySelector("#rockReferenceLov");
+                                    if(lov) {
+                                        lov.titlePattern = "{entity.attributes."+ key +"}"
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    this.set("_lovRequestData", this.referenceLOVRequest);
+                    this._getMappings();
+                },
+
+                //Issue in setting title pattern, no need to stop the process
+                _onReferenceManageModelGetError: function(e, detail) {
+                    this.set("_lovRequestData", this.referenceLOVRequest);
+                    this._getMappings();
+                },
+
+                _getMappings: function () {
+                    //To-do: Contexts hardcoded here, will be removed once context header logic is implemented
+                    this.selectedContexts = [
+                        {
+                            "type": "taxonomy",
+                            "value": "_ALL"
+                        },
+                        {
+                            "type": "classification",
+                            "value": "_ALL"
+                        }
+                    ];
+                    var types = [this.mappingsData.valueMappingTypeName];
+
+                    var req = DataRequestHelper.createMappingsGetRequest(this.contextData, this.copContext, this.selectedContexts, types);
+                    req.params.query.contexts[0].ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "";
+                    delete req.params.query.contexts[0].entitytype;
+                    this.set("_getMappingsRequest", req);
+                    var getMappings = this.shadowRoot.querySelector("#getMappings");
+                    if (getMappings) {
+                        getMappings.generateRequest();
+                    }
+                },
+
+                _onAttributeModelError: function (e, detail) {
                     this.logError("Entity attribute model get error", detail);
                     this.showSuccessToast("Unable to get entity attribute model, please contact administrator.");
                 },
 
                 _onGetMappingsResponse: function (e, detail) {
                     var response = detail.response.response;
-                    if(!response || response.status != "success") {
-                        this.showErrorToast("Unable to fetch attribute mappings, please contact administrator.");
+                    if (!response || response.status != "success") {
+                        this.showErrorToast("Unable to fetch value mappings, please contact administrator.");
                         return;
                     }
 
@@ -391,11 +453,11 @@
                     if (response && response.status && response.status.toLowerCase() == "success" && response.entities) {
                         if (response.entities.length > 0) {
                             this.valueMappingId = response.entities[0].id;
-                            if(DataHelper.isValidObjectPath(response, "entities.0.data.contexts.0.attributes")) {
+                            if (DataHelper.isValidObjectPath(response, "entities.0.data.contexts.0.attributes")) {
                                 this._mappingAttributes = response.entities[0].data.contexts[0].attributes;
-                                for(var key in this._mappingAttributes) {
-                                    if(this._mappingAttributes[key]) {
-                                        for(var i = 0; i < this._mappingAttributes[key].values; i++) {
+                                for (var key in this._mappingAttributes) {
+                                    if (this._mappingAttributes[key]) {
+                                        for (var i = 0; i < this._mappingAttributes[key].values; i++) {
                                             gridData.push({
                                                 "givenValue": this._mappingAttributes[key].values[i].value,
                                                 "governedValue": key,
@@ -545,7 +607,7 @@
                     var mappings = this._transformGridDataToSaveMappings();
                     if (!_.isEmpty(mappings)) {
                         var saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, this.selectedContexts, this.mappingsData.valueMappingTypeName);
-                        if(!_.isEmpty(saveRequest)) {
+                        if (!_.isEmpty(saveRequest)) {
                             saveRequest.entity.id = this.valueMappingId || "";
                             saveRequest.entity.data.contexts[0].attributes = mappings;
                             saveRequest.entity.data.contexts[0].context.ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "";
@@ -563,8 +625,8 @@
 
                 _onMappingsSaveResponse: function (e, detail) {
                     var response = detail.response.response;
-                    if(response && response.status == "success") {
-                        this.showSuccessToast("Mappings saved successfully.");
+                    if (response && response.status == "success") {
+                        this.showSuccessToast("Value mappings saved successfully.");
 
                         //on saveMappings response trigger below event
                         var eventName = "value-mapping-save";
@@ -576,33 +638,22 @@
                         return;
                     }
 
-                    this.showErrorToast("Unable to save mappings, please contact administrator.");
+                    this.showErrorToast("Unable to save value mappings, please contact administrator.");
                 },
 
                 _transformGridDataToSaveMappings: function () {
                     var mappings = {};
+                    var self = this;
                     //For updated and new
                     this._gridData.forEach(function (row) {
                         if (row.action == "updated" || row.action == "new") {
                             if (row.givenValue && row.governedValue) {
+                                var value = self._populateMappingValue(row.givenValue);
                                 if (mappings[row.governedValue]) {
-                                    mappings[row.governedValue].values.push({
-                                        "value": row.givenValue,
-                                        "locale": "en-US",
-                                        "id": ""
-                                    });
+                                    mappings[row.governedValue].values.push(value);
                                 } else {
                                     mappings[row.governedValue] = {
-                                        "properties": {
-                                            "enabled": true
-                                        },
-                                        "values": [
-                                            {
-                                                "value": row.givenValue,
-                                                "locale": "en-US",
-                                                "id": ""
-                                            }
-                                        ]
+                                        "values": [ value ]
                                     }
                                 }
                             }
@@ -612,26 +663,14 @@
                     //For delete
                     this._deletedMappings.forEach(function (row) {
                         if (row.givenValue && row.governedValue) {
+                            var value = self._populateMappingValue(row.givenValue);
                             if (mappings[row.governedValue]) {
-                                mappings[row.governedValue].values.push({
-                                    "value": row.givenValue,
-                                    "locale": "en-US",
-                                    "id": "",
-                                    "action": "delete"
-                                });
+                                value.action = "delete";
+                                mappings[row.governedValue].values.push(value);
                             } else {
                                 mappings[row.governedValue] = {
                                     "action": "delete",
-                                    "properties": {
-                                        "enabled": true
-                                    },
-                                    "values": [
-                                        {
-                                            "value": row.givenValue,
-                                            "locale": "en-US",
-                                            "id": ""
-                                        }
-                                    ]
+                                    "values": [ value ]
                                 }
                             }
                         }
@@ -641,51 +680,32 @@
                     this._gridData.forEach(function (row) {
                         if (row.action == "" && row.givenValue && row.governedValue) {
                             if (mappings[row.governedValue]) {
-                                if(mappings[row.governedValue].action == "delete") {
-                                    for(var i = 0; i < mappings[row.governedValue].values.length; i++) {
+                                var value = self._populateMappingValue(row.givenValue);
+                                if (mappings[row.governedValue].action == "delete") {
+                                    for (var i = 0; i < mappings[row.governedValue].values.length; i++) {
                                         mappings[row.governedValue].values[i].action = "delete";
                                     }
                                     delete mappings[row.governedValue].action;
-                                    mappings[row.governedValue].values.push({
-                                        "value": row.givenValue,
-                                        "locale": "en-US",
-                                        "id": ""
-                                    });
+                                    mappings[row.governedValue].values.push(value);
                                 } else {
-                                    mappings[row.governedValue].values.push({
-                                        "value": row.givenValue,
-                                        "locale": "en-US",
-                                        "id": ""
-                                    });
+                                    mappings[row.governedValue].values.push(value);
                                 }
                             }
                         }
                     });
 
-                    this._setUniqueIds(mappings);
                     return mappings;
                 },
 
-                _setUniqueIds: function(mappings) {
-                    if(!_.isEmpty(mappings)) {
-                        for(var key in mappings) {
-                            if(mappings[key] && mappings[key].properties && !mappings[key].properties.id) {
-                                if(this._mappingAttributes && this._mappingAttributes[key]) {
-                                    mappings[key].properties.id = this._mappingAttributes[key].properties.id;
-                                } else {
-                                    mappings[key].properties.id = this._generateMappingId();
-                                }
-                            }
-                        }
+                _populateMappingValue: function (value) {
+                    var valContext = ContextHelper.getFirstValueContext(this.contextData);
+                    var value = {
+                        "value": value,
+                        "locale": valContext.locale,
+                        "id": ""
                     }
-                },
 
-                _generateMappingId: function(item) {
-                    var source = "ui";
-                    var itemContext = this.getFirstItemContext(this.contextData);
-                    var entityType = itemContext.type;
-                    var unique = source + entityType;
-                    return unique.hashCode();
+                    return value;
                 }
             });
         })();

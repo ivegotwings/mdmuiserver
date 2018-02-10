@@ -142,8 +142,10 @@
                 margin-right: 10px;
             }
         </style>
-        <liquid-rest id="getMappings" url="/data/cop/getMappings" method="POST" request-data="[[_getMappingsRequest]]" on-liquid-response="_onGetMappingsResponse" on-liquid-error="_onMappingsError"></liquid-rest>
-        <liquid-rest id="saveMappings" url="/data/cop/saveMappings" method="POST" request-data="[[_saveMappingsRequest]]" on-liquid-response="_onMappingsSaveResponse" on-liquid-error="_onMappingsError"></liquid-rest>
+        <liquid-rest id="getMappings" url="/data/cop/getMappings" method="POST" request-data="[[_getMappingsRequest]]" on-liquid-response="_onGetMappingsResponse"
+            on-liquid-error="_onMappingsError"></liquid-rest>
+        <liquid-rest id="saveMappings" url="/data/cop/saveMappings" method="POST" request-data="[[_saveMappingsRequest]]" on-liquid-response="_onMappingsSaveResponse"
+            on-liquid-error="_onMappingsError"></liquid-rest>
         <div id="grid-heading">
             <strong>Attribute Mapping</strong>
         </div>
@@ -188,7 +190,8 @@
             <pebble-button class="action-button-focus dropdownText btn btn-success m-r-5" id="save" button-text="Save" raised on-tap="_onSaveTap"></pebble-button>
             <pebble-button class="action-button btn btn-primary m-r-5" id="import" button-text="Import" raised on-tap="_onImportTap"></pebble-button>
         </div>
-        <pebble-dialog id="confirmationDialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click no-cancel-on-esc-key>
+        <pebble-dialog id="confirmationDialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click
+            no-cancel-on-esc-key>
             <p>Mappings saved recently, import may not process on latest mappings, do you still want to continue?</p>
         </pebble-dialog>
         <bedrock-pubsub event-name="on-buttonok-clicked" handler="_onImportConfirm" target-id="confirmationDialog"></bedrock-pubsub>
@@ -246,22 +249,6 @@
                         value: function () {
                             return {};
                         }
-                    },
-                    _getOverridesRequest: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-                    _saveOverridesRequest: {
-                        type: Object,
-                        value: function () {
-                            return {};
-                        }
-                    },
-                    _deletedOverrides: {
-                        type: Array,
-                        value: function () { return []; }
                     },
                     copContext: {
                         type: Object,
@@ -329,7 +316,7 @@
 
                 _onGetMappingsResponse: function (e, detail) {
                     var response = detail.response.response;
-                    if(!response || response.status != "success") {
+                    if (!response || response.status != "success") {
                         this.showErrorToast("Unable to fetch attribute mappings, please contact administrator.");
                         return;
                     }
@@ -575,7 +562,7 @@
                 },
 
                 _fireDeleteEvent: function (e) {
-                    this._deletedOverrides.push(e.model.item);
+                    this._deletedMappings.push(e.model.item);
                     var grid = this.shadowRoot.querySelector("#mapping-grid");
                     var index = grid.items.indexOf(e.model.item);
                     grid.items.splice(index, 1);
@@ -633,7 +620,7 @@
                     var mappings = this._transformGridDataToSaveMappings();
                     if (!_.isEmpty(mappings)) {
                         var saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, this.selectedContexts, "attributemapping")
-                        if(!_.isEmpty(saveRequest)) {
+                        if (!_.isEmpty(saveRequest)) {
                             saveRequest.entity.data.contexts[0].attributes = mappings;
                             saveRequest.entity.data.contexts[0].context.ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "";
                             this.set("_saveMappingsRequest", saveRequest);
@@ -649,53 +636,40 @@
 
                 _onMappingsSaveResponse: function (e, detail) {
                     var response = detail.response.response;
-                    if(response && response.status == "success") {
+                    if (response && response.status == "success") {
                         this.isMappingsChanged = true;
                         this._resetMappings(); //Call this on save mappings success
-                        this.showSuccessToast("Mappings saved successfully.");
+                        this.showSuccessToast("Attribute mappings saved successfully.");
                         return;
                     }
 
-                    this.showErrorToast("Unable to save mappings, please contact administrator.");
+                    this.showErrorToast("Unable to save attribute mappings, please contact administrator.");
                 },
 
-                _onMappingsError: function(e, detail) {
+                _onMappingsError: function (e, detail) {
                     this.logError("Mapping get/save error", detail);
                     this.showErrorToast("Unable to perform mappings operation, please contact administrator.");
                 },
 
-                _resetMappings: function() {
+                _resetMappings: function () {
                     this._deletedMappings = [];
-                    for(var i = 0; i < this._gridData.length; i++) {
+                    for (var i = 0; i < this._gridData.length; i++) {
                         this._gridData[i].action = "";
                     }
                 },
 
                 _transformGridDataToSaveMappings: function () {
                     var mappings = {};
+                    var self = this;
                     //For updated and new
                     this._gridData.forEach(function (row) {
                         if (row.action == "updated" || row.action == "new") {
                             if (row.excelColumnName && row.attributeModel) {
                                 if (mappings[row.attributeModel.id]) {
-                                    mappings[row.attributeModel.id].values.push({
-                                        "value": row.excelColumnName,
-                                        "locale": "en-US",
-                                        "id": ""
-                                    });
+                                    var value = self._populateMappingValue(row.excelColumnName);
+                                    mappings[row.attributeModel.id].values.push(value);
                                 } else {
-                                    mappings[row.attributeModel.id] = {
-                                        "properties": {
-                                            "enabled": true
-                                        },
-                                        "values": [
-                                            {
-                                                "value": row.excelColumnName,
-                                                "locale": "en-US",
-                                                "id": ""
-                                            }
-                                        ]
-                                    }
+                                    mappings[row.attributeModel.id] = self._populateMappingValue(row.excelColumnName, true);
                                 }
                             }
                         }
@@ -705,26 +679,13 @@
                     this._deletedMappings.forEach(function (row) {
                         if (row.excelColumnName && row.attributeModel) {
                             if (mappings[row.attributeModel.id]) {
-                                mappings[row.attributeModel.id].values.push({
-                                    "value": row.excelColumnName,
-                                    "locale": "en-US",
-                                    "id": "",
-                                    "action": "delete"
-                                });
+                                var value = self._populateMappingValue(row.excelColumnName);
+                                value.action = "delete";
+                                mappings[row.attributeModel.id].values.push(value);
                             } else {
-                                mappings[row.attributeModel.id] = {
-                                    "action": "delete",
-                                    "properties": {
-                                        "enabled": true
-                                    },
-                                    "values": [
-                                        {
-                                            "value": row.excelColumnName,
-                                            "locale": "en-US",
-                                            "id": ""
-                                        }
-                                    ]
-                                }
+                                var value = self._populateMappingValue(row.excelColumnName, true);
+                                value.action = "delete";
+                                mappings[row.attributeModel.id] = value;
                             }
                         }
                     });
@@ -733,22 +694,15 @@
                     this._gridData.forEach(function (row) {
                         if (row.action == "" && row.excelColumnName && row.attributeModel) {
                             if (mappings[row.attributeModel.id]) {
-                                if(mappings[row.attributeModel.id].action == "delete") {
-                                    for(var i = 0; i < mappings[row.attributeModel.id].values.length; i++) {
+                                var value = self._populateMappingValue(row.excelColumnName);
+                                if (mappings[row.attributeModel.id].action == "delete") {
+                                    for (var i = 0; i < mappings[row.attributeModel.id].values.length; i++) {
                                         mappings[row.attributeModel.id].values[i].action = "delete";
                                     }
                                     delete mappings[row.attributeModel.id].action;
-                                    mappings[row.attributeModel.id].values.push({
-                                        "value": row.excelColumnName,
-                                        "locale": "en-US",
-                                        "id": ""
-                                    });
+                                    mappings[row.attributeModel.id].values.push(value);
                                 } else {
-                                    mappings[row.attributeModel.id].values.push({
-                                        "value": row.excelColumnName,
-                                        "locale": "en-US",
-                                        "id": ""
-                                    });
+                                    mappings[row.attributeModel.id].values.push(value);
                                 }
                             }
                         }
@@ -758,11 +712,11 @@
                     return mappings;
                 },
 
-                _setUniqueIds: function(mappings) {
-                    if(!_.isEmpty(mappings)) {
-                        for(var key in mappings) {
-                            if(mappings[key] && mappings[key].properties && !mappings[key].properties.id) {
-                                if(this._mappingAttributes && this._mappingAttributes[key]) {
+                _setUniqueIds: function (mappings) {
+                    if (!_.isEmpty(mappings)) {
+                        for (var key in mappings) {
+                            if (mappings[key] && mappings[key].properties && !mappings[key].properties.id) {
+                                if (this._mappingAttributes && this._mappingAttributes[key]) {
                                     mappings[key].properties.id = this._mappingAttributes[key].properties.id;
                                 } else {
                                     mappings[key].properties.id = this._generateMappingId();
@@ -772,7 +726,7 @@
                     }
                 },
 
-                _generateMappingId: function(item) {
+                _generateMappingId: function (item) {
                     var source = "ui";
                     var itemContext = this.getFirstItemContext(this.contextData);
                     var entityType = itemContext.type;
@@ -789,14 +743,14 @@
                 },
 
                 _onImportTap: function (e) {
-                    if(this.isMappingsChanged) {
+                    if (this.isMappingsChanged) {
                         this.shadowRoot.querySelector("#confirmationDialog").open();
                         return;
                     }
                     this._onImportConfirm();
                 },
 
-                _onImportConfirm: function(e, detail) {
+                _onImportConfirm: function (e, detail) {
                     var eventName = "field-map-import";
                     var eventDetail = {
                         "name": eventName,
@@ -843,6 +797,7 @@
 
                     return false;
                 },
+
                 _onTapValueMapping: function (e, detail) {
                     var valueMappingAttribute = e.currentTarget.getAttribute('data-args');
 
@@ -919,6 +874,28 @@
                                 }
                             }
                         }
+                    }
+                },
+
+                _populateMappingValue: function (value, isSetProperties = false) {
+                    var valContext = ContextHelper.getFirstValueContext(this.contextData);
+                    var value = {
+                        "value": value,
+                        "locale": valContext.locale,
+                        "id": ""
+                    }
+
+                    if(!isSetProperties) {
+                        return value;
+                    }
+
+                    return {
+                        "properties": {
+                            "enabled": true
+                        },
+                        "values": [
+                            value
+                        ]
                     }
                 }
             });
