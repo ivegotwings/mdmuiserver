@@ -23,7 +23,8 @@
                 
         @demo demo/index.html
         */
-        
+        this.globalPubSubInstances = {};
+
         Polymer({
             is: 'bedrock-pubsub',
             properties: {
@@ -53,6 +54,11 @@
                 targetId: {
                     type: String,
                     value: ""
+                },
+
+                name: {
+                    type: String,
+                    value: ""
                 }
             },
             /**
@@ -63,13 +69,35 @@
                 if (!RUFUtilities.pubsubListenerRegistry) {
                     RUFUtilities.pubsubListenerRegistry  = {'universalListeners' : []};
                     RUFUtilities.pubsubEventNameRegistry = {'universalEvents' : []};
-                }                
+                    // event dispatcher		
+                    function publish(name, data) {		
+                        var rufEevent = new CustomEvent('bedrock-event-' + name, {		
+                            bubbles: false,		
+                            detail: data		
+                        });
+                        var instance = globalPubSubInstances['bedrock-event-' + name];
+                        if (instance && instance.length > 0) {
+                            instance.forEach((i) => i.dispatchEvent(rufEevent));
+                        }
+                    }		
+                    // signal listener at document		
+                    document.addEventListener('bedrock-event', function (e) {		
+                        publish(e.detail.name, e.detail.data);		
+                    });
+                }   
+
                 var activeApp = ComponentHelper.getCurrentActiveApp();
                 if (activeApp) {
                     this.appId = activeApp.id;
                 }               
                 Polymer.Async.microTask.run(() => {
                     this._registerEvent();
+                    if (this.name) {
+                        if (!globalPubSubInstances[this.name]) {
+                            globalPubSubInstances[this.name] = [];    
+                        }
+                        globalPubSubInstances[this.name].push(this);
+                    }
                 });
             },
             /**
@@ -132,10 +160,10 @@
                         RUFUtilities.pubsubListenerRegistry['universalListeners'].push(pubsubContent);
                         RUFUtilities.pubsubEventNameRegistry['universalEvents'].push(eventAttr);
                     }
-
-                    Polymer.Async.microTask.run(function () {
-                        ComponentHelper.removeNode(this);
-                    })
+                    
+                    if (!this.name) {
+                        ComponentHelper.addToDeleteQueue(this);
+                    }
                 }
             },
             /**
