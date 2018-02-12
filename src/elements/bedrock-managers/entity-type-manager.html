@@ -1,0 +1,74 @@
+<link rel="import" href="../liquid-entity-model-get/liquid-entity-model-get.html">
+<link rel="import" href="../bedrock-helpers/data-helper.html">
+
+<script>
+    'use strict';
+
+    class EntityTypeManager {
+        constructor() {
+            this.entityTypeByIds;
+            this.promiseResolve;
+        }
+        _generateRequest() {
+            var liquidEntityCustomElement = customElements.get("liquid-entity-model-get");
+            var liquidEntityModelGet = new liquidEntityCustomElement();
+            liquidEntityModelGet.addEventListener("response", this._onResponse.bind(this));
+            liquidEntityModelGet.addEventListener("error", this._onError.bind(this));
+            liquidEntityModelGet.requestId = "";
+            liquidEntityModelGet.operation = "searchandget";
+            var contextData = {};
+            var itemContext = {
+                "type": "entityType",
+            };
+            // itemContext.domain = "thing";
+            contextData[ContextHelper.CONTEXT_TYPE_ITEM] = [itemContext];
+            contextData[ContextHelper.CONTEXT_TYPE_VALUE] = [];
+            contextData[ContextHelper.CONTEXT_TYPE_DATA] = [];
+            var req = DataRequestHelper.createEntityGetRequest(contextData);
+            delete req.params.options.maxRecords;
+            req.params.fields.attributes = ["externalName"];
+            liquidEntityModelGet.requestData = req;
+            liquidEntityModelGet.generateRequest();
+        }
+        _onResponse(ev) {
+            if (ev && ev.detail && ev.detail.response && ev.detail.response.content) {
+                var entityTypes = ev.detail.response.content.entityModels;
+                this.entityTypeByIds = {}
+                entityTypes.forEach(element => {
+                    if (element && !_.isEmpty(element)) {
+                        this.entityTypeByIds[element.id] = element;
+                    }
+                });
+            }
+            if (this.promiseResolve) {
+                this.promiseResolve();
+            }
+        }
+        _onError(ev) {
+            console.log(ev)
+        }
+        _getDataFromLiquid(data) {
+            return new Promise((resolve, reject) => {
+                this.promiseResolve = resolve;
+                this._generateRequest();
+            })
+        }
+        getTypeExternalName(entityTypeId) {
+            var _entityTypeId = entityTypeId + "_entityType";
+            var obj = this.entityTypeByIds[_entityTypeId];
+            if (obj && !_.isEmpty(obj) && obj.properties && obj.properties.externalName) {
+                return obj.properties.externalName;
+            }
+            return entityTypeId;
+        }
+        async getExternalName(entityTypeId) {
+            if (this.entityTypeByIds) {
+                return this.getTypeExternalName(entityTypeId);
+            } else {
+                var callLiquid = await this._getDataFromLiquid(entityTypeId);
+                return this.getTypeExternalName(entityTypeId);
+            }
+        }
+    }
+
+</script>
