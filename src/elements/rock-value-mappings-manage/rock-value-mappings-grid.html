@@ -137,12 +137,19 @@
                 text-align: right;
                 margin-right: 10px;
             }
+
+            .gridCountMsg {
+                font-weight: bold;
+                margin-right: 10px;
+                font-size: var(--grid-msg-font-size, 12px);
+            }
         </style>
         <pebble-spinner active="[[_loading]]"></pebble-spinner>
         <div id="grid-heading">
             <strong>Value Mapping - [[_attributeTitle]]</strong>
         </div>
         <div id="gridManage">
+            <span class="gridCountMsg">Showing [[_getGridRecordsCount(_gridData)]] items</span>
             <pebble-button class="iconButton m-r-5" title="Add" id="add" icon="pebble-icon:Add" raised on-tap="_onAddTap"></pebble-button>
             <pebble-button class="iconButton m-r-5" title="Delete" id="delete" icon="pebble-icon:Delete" raised on-tap="_onDeleteTap"></pebble-button>
         </div>
@@ -184,7 +191,7 @@
             on-response="_onReferenceManageModelGetResponse" on-error="_onReferenceManageModelGetError"></liquid-entity-model-get>
         <liquid-rest id="getMappings" url="/data/cop/getMappings" method="POST" request-data="[[_getMappingsRequest]]" on-liquid-response="_onGetMappingsResponse"
             on-liquid-error="_onMappingsError"></liquid-rest>
-        <liquid-rest id="saveMappings" url="/data/cop/saveMappings" method="POST" request-data="[[_saveMappingsRequest]]" on-liquid-response="_onMappingsSaveResponse"
+        <liquid-rest id="saveMappings" url="/data/cop/saveMappings" method="POST" on-liquid-response="_onMappingsSaveResponse"
             on-liquid-error="_onMappingsError"></liquid-rest>
     </template>
     <script>
@@ -388,15 +395,15 @@
                 },
 
                 // This is to set title pattern, success/error - process will not stop
-                _onReferenceManageModelGetResponse: function(e, detail) {
-                    if(detail && detail.response && detail.response.status == "success") {
-                        if(DataHelper.isValidObjectPath(detail, "response.content.entityModels.0.data.attributes")) {
+                _onReferenceManageModelGetResponse: function (e, detail) {
+                    if (detail && detail.response && detail.response.status == "success") {
+                        if (DataHelper.isValidObjectPath(detail, "response.content.entityModels.0.data.attributes")) {
                             var attributes = detail.response.content.entityModels[0].data.attributes;
-                            for(var key in attributes) {
-                                if(attributes[key].properties.isExternalName) {
+                            for (var key in attributes) {
+                                if (attributes[key].properties.isExternalName) {
                                     var lov = this.shadowRoot.querySelector("#rockReferenceLov");
-                                    if(lov) {
-                                        lov.titlePattern = "{entity.attributes."+ key +"}"
+                                    if (lov) {
+                                        lov.titlePattern = "{entity.attributes." + key + "}"
                                     }
                                     break;
                                 }
@@ -408,7 +415,7 @@
                 },
 
                 //Issue in setting title pattern, no need to stop the process
-                _onReferenceManageModelGetError: function(e, detail) {
+                _onReferenceManageModelGetError: function (e, detail) {
                     this.set("_lovRequestData", this.referenceLOVRequest);
                     this._getMappings();
                 },
@@ -452,15 +459,17 @@
                     var gridData = [];
                     if (response && response.status && response.status.toLowerCase() == "success" && response.entities) {
                         if (response.entities.length > 0) {
-                            this.valueMappingId = response.entities[0].id;
-                            if (DataHelper.isValidObjectPath(response, "entities.0.data.contexts.0.attributes")) {
-                                this._mappingAttributes = response.entities[0].data.contexts[0].attributes;
-                                for (var key in this._mappingAttributes) {
-                                    if (this._mappingAttributes[key]) {
-                                        for (var i = 0; i < this._mappingAttributes[key].values; i++) {
+                            this._valueMappingEntities = response.entities;
+
+                            for (var i = 0; i < this._valueMappingEntities.length; i++) {
+                                if (DataHelper.isValidObjectPath(this._valueMappingEntities[i], "data.contexts.0.attributes")) {
+                                    var mappingAttributes = this._valueMappingEntities[i].data.contexts[0].attributes;
+                                    if(mappingAttributes.attributevalue && mappingAttributes.mappedvalue) {
+                                        var attrValue = mappingAttributes.attributevalue.values[0].value;
+                                        for (var j = 0; j < mappingAttributes.mappedvalue.values.length; j++) {
                                             gridData.push({
-                                                "givenValue": this._mappingAttributes[key].values[i].value,
-                                                "governedValue": key,
+                                                "givenValue": mappingAttributes.mappedvalue.values[j].value,
+                                                "governedValue": attrValue,
                                                 "source": "system",
                                                 "action": ""
                                             });
@@ -540,6 +549,11 @@
                         "source": "ui",
                         "action": "new"
                     });
+
+                    //Notify Grid data
+                    var temp = this._gridData;
+                    this._gridData = [];
+                    this._gridData = temp;
                 },
 
                 _onDeleteTap: function () {
@@ -554,7 +568,7 @@
                         for (var i = 0; i < this._gridData.length; i++) {
                             var isDelete = false;
                             for (var j = 0; j < selectedItems.length; j++) {
-                                if (this._gridData[i].givenValue.toLowerCase() == selectedItems[j].givenValue.toLowerCase()) {
+                                if (this._gridData[i].givenValue == selectedItems[j].givenValue) {
                                     isDelete = true;
                                     break;
                                 }
@@ -605,16 +619,28 @@
 
                 _onSaveTap: function () {
                     var mappings = this._transformGridDataToSaveMappings();
+                    var saveRequests = [];
                     if (!_.isEmpty(mappings)) {
-                        var saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, this.selectedContexts, this.mappingsData.valueMappingTypeName);
-                        if (!_.isEmpty(saveRequest)) {
-                            saveRequest.entity.id = this.valueMappingId || "";
-                            saveRequest.entity.data.contexts[0].attributes = mappings;
+                        for(var key in mappings) {
+                            var saveRequest = DataRequestHelper.createMappingsSaveRequest(this.contextData, this.copContext, this.selectedContexts, this.mappingsData.valueMappingTypeName);
+                            saveRequest.entity.data.contexts[0].attributes = mappings[key];
                             saveRequest.entity.data.contexts[0].context.ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "";
                             delete saveRequest.entity.data.contexts[0].context.entitytype;
-                            this.set("_saveMappingsRequest", saveRequest);
-                            var saveMappings = this.shadowRoot.querySelector("#saveMappings");
-                            if (saveMappings) {
+
+                            if( mappings[key].action == "delete") {
+                                saveRequest.entity.action = "delete";
+                            }
+
+                            saveRequest.entity.id = this._getValueMappingId(key);
+                            saveRequests.push(saveRequest);
+                        }
+
+                        var saveMappings = this.shadowRoot.querySelector("#saveMappings");
+                        if (saveMappings) {
+                            this._generatedRequestCount = 0;
+                            for(var i = 0; i < saveRequests.length; i++) {
+                                saveMappings.requestData = saveRequests[i];
+                                this._generatedRequestCount++;
                                 saveMappings.generateRequest();
                             }
                         }
@@ -623,22 +649,44 @@
                     }
                 },
 
+                _getValueMappingId: function(key) {
+                    if(this._valueMappingEntities && this._valueMappingEntities.length > 0) {
+                        for(var i = 0; i < this._valueMappingEntities.length; i++) {
+                            var mappingAttributes = this._valueMappingEntities[i].data.contexts[0].attributes;
+                            if(mappingAttributes.attributevalue.values[0].value == key) {
+                                return this._valueMappingEntities[i].id;
+                            }
+                        }
+                    }
+
+                    //Generate guid and send
+                    return DataHelper.generateUUID();
+                },
+
                 _onMappingsSaveResponse: function (e, detail) {
                     var response = detail.response.response;
                     if (response && response.status == "success") {
-                        this.showSuccessToast("Value mappings saved successfully.");
-
+                        this.isSuccess = true;
                         //on saveMappings response trigger below event
                         var eventName = "value-mapping-save";
                         var eventDetail = {
                             "name": eventName,
                         };
-                        this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
-
-                        return;
+                    } else {
+                        this.isFailed = true;
                     }
 
-                    this.showErrorToast("Unable to save value mappings, please contact administrator.");
+                    if(--this._generatedRequestCount == 0) {
+                        if(this.isSuccess && !this.isFailed) {
+                            this.showSuccessToast("Value mappings saved successfully.");
+                        } else if(!this.isSuccess && this.isFailed) {
+                            this.showErrorToast("Unable to save value mappings, please contact administrator.");
+                        } else {
+                            this.showWarningToast("Value mappings processed with errors.");
+                        }
+
+                        this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
+                    }
                 },
 
                 _transformGridDataToSaveMappings: function () {
@@ -650,10 +698,16 @@
                             if (row.givenValue && row.governedValue) {
                                 var value = self._populateMappingValue(row.givenValue);
                                 if (mappings[row.governedValue]) {
-                                    mappings[row.governedValue].values.push(value);
+                                    mappings[row.governedValue].mappedvalue.values.push(value);
                                 } else {
+                                    var attrValue = self._populateMappingValue(row.governedValue);
                                     mappings[row.governedValue] = {
-                                        "values": [ value ]
+                                        "attributevalue": {
+                                            "values": [attrValue]
+                                        },
+                                        "mappedvalue": {
+                                            "values": [value]
+                                        }
                                     }
                                 }
                             }
@@ -664,13 +718,19 @@
                     this._deletedMappings.forEach(function (row) {
                         if (row.givenValue && row.governedValue) {
                             var value = self._populateMappingValue(row.givenValue);
+                            value.action = "delete";
                             if (mappings[row.governedValue]) {
-                                value.action = "delete";
-                                mappings[row.governedValue].values.push(value);
+                                mappings[row.governedValue].mappedvalue.values.push(value);
                             } else {
+                                var attrValue = self._populateMappingValue(row.governedValue);
                                 mappings[row.governedValue] = {
                                     "action": "delete",
-                                    "values": [ value ]
+                                    "attributevalue": {
+                                        "values": [attrValue]
+                                    },
+                                    "mappedvalue": {
+                                        "values": [value]
+                                    }
                                 }
                             }
                         }
@@ -682,13 +742,13 @@
                             if (mappings[row.governedValue]) {
                                 var value = self._populateMappingValue(row.givenValue);
                                 if (mappings[row.governedValue].action == "delete") {
-                                    for (var i = 0; i < mappings[row.governedValue].values.length; i++) {
-                                        mappings[row.governedValue].values[i].action = "delete";
+                                    for (var i = 0; i < mappings[row.governedValue].mappedvalue.values.length; i++) {
+                                        mappings[row.governedValue].mappedvalue.values[i].action = "delete";
                                     }
                                     delete mappings[row.governedValue].action;
-                                    mappings[row.governedValue].values.push(value);
+                                    mappings[row.governedValue].mappedvalue.values.push(value);
                                 } else {
-                                    mappings[row.governedValue].values.push(value);
+                                    mappings[row.governedValue].mappedvalue.values.push(value);
                                 }
                             }
                         }
@@ -700,12 +760,20 @@
                 _populateMappingValue: function (value) {
                     var valContext = ContextHelper.getFirstValueContext(this.contextData);
                     var value = {
-                        "value": value,
+                        "source": valContext.source,
                         "locale": valContext.locale,
-                        "id": ""
+                        "value": value
                     }
 
                     return value;
+                },
+
+                _getGridRecordsCount: function () {
+                    if (!this._gridData) {
+                        return 0;
+                    }
+
+                    return this._gridData.length;
                 }
             });
         })();
