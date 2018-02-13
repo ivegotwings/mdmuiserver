@@ -168,7 +168,6 @@ COPService.prototype = {
                 }
             };
         }
-        console.log(JSON.stringify(request.body));
         return await this.post(saveMappingsURL, request.body);
     },
     downloadModelExcel: async function (request, response) {

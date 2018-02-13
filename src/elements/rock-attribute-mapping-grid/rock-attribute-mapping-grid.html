@@ -276,6 +276,12 @@
                     isMappingsChanged: {
                         type: Boolean,
                         value: false
+                    },
+                    _refChangeDeletedMappings: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
                     }
                 },
 
@@ -322,14 +328,15 @@
                 },
 
                 _onGetMappingsResponse: function (e, detail) {
-                    var response = detail.response.response;
-                    if (!response || response.status != "success") {
+                    if ( !DataHelper.isValidObjectPath(detail, "response.response.status") || 
+                          detail.response.response.status.toLowerCase() != "success") {
                         this.showErrorToast("Unable to fetch attribute mappings, please contact administrator.");
                         return;
                     }
 
+                    var response = detail.response.response;
                     var destinationAttributes = [];
-                    if (response && response.status && response.status.toLowerCase() == "success" && response.entities) {
+                    if (response.entities) {
                         if (response.entities.length > 0 && DataHelper.isValidObjectPath(response, "entities.0.data.contexts.0.attributes")) {
                             this._mappingAttributes = response.entities[0].data.contexts[0].attributes;
                             this._setHeaderFields(this._mappingAttributes);
@@ -340,25 +347,10 @@
                     }
 
                     if (destinationAttributes && destinationAttributes.length > 0) {
-                        var modelGetRequest = {
-                            "params": {
-                                "query": {
-                                    "filters": {
-                                        "typesCriterion": [
-                                            "attributeModel"
-                                        ]
-                                    }
-                                },
-                                "fields": {
-                                    "attributes": ["externalName"]
-                                }
-                            }
-                        };
-                        var ids = [];
-                        for (var i = 0; i < destinationAttributes.length; i++) {
-                            ids.push(destinationAttributes[i] + '_attributeModel');
-                        }
-                        modelGetRequest.params.query.ids = ids;
+                        var attributes = [];
+                        attributes.push("externalName");
+                        var modelGetRequest = DataRequestHelper.createGetAttributeModelRequest(destinationAttributes, attributes);
+
                         this.set("attributeModelRequest", modelGetRequest);
 
                         var liquidModelGet = this.shadowRoot.querySelector("[name=liquidAttributeModelGet]");
@@ -370,17 +362,26 @@
 
                 //Remove context fields
                 _setHeaderFields: function (attributes) {
-                    for (var key in attributes) {
-                        if (attributes[key] && !attributes[key].properties.isAttribute) {
-                            for (var i = 0; i < attributes[key].values.length; i++) {
-                                var index = this.mappingsRequestData.headerFields.indexOf(attributes[key].values[i].value);
-                                if (index != -1) {
-                                    this.mappingsRequestData.headerFields.splice(index, 1);
-                                    break;
+                    var nonContextFields = [];
+                    for(var i = 0; i < this.mappingsRequestData.headerFields.length; i++) {
+                        var isFound = false;
+                        for (var key in attributes) {
+                            if (attributes[key]) {
+                                for (var j = 0; j < attributes[key].values.length; j++) {
+                                    if (this.mappingsRequestData.headerFields[i] == attributes[key].values[j].value) {
+                                        isFound = true;
+                                        nonContextFields.push(this.mappingsRequestData.headerFields[i]);
+                                        break;
+                                    }
                                 }
+                            }
+                            if(isFound) {
+                                break;
                             }
                         }
                     }
+
+                    this.mappingsRequestData.headerFields = nonContextFields;
                 },
 
                 _onAttributeModelGetResponse: function (e) {
@@ -402,24 +403,10 @@
                 },
 
                 _getEntityManageModel: function () {
-                    var modelGetRequest = {
-                        "params": {
-                            "query": {
-                                "filters": {
-                                    "typesCriterion": [
-                                        "entityManageModel"
-                                    ]
-                                }
-                            },
-                            "fields": {
-                                "attributes": ["_ALL"]
-                            }
-                        }
-                    };
-                    var ids = [];
-                    ids.push(this.getFirstItemContext().type + "_entityManageModel");
+                    var types = [];
+                    types.push(this.getFirstItemContext().type);
+                    var modelGetRequest = DataRequestHelper.createGetManageModelRequest(types);
 
-                    modelGetRequest.params.query.ids = ids;
                     this.set("entityManageModelRequest", modelGetRequest);
 
                     var liquidModelGet = this.shadowRoot.querySelector("[name=liquidEntityManageModelGet]");
@@ -489,6 +476,12 @@
                     if (dataWithDestination) {
                         sortedData = sortedData.concat(dataWithDestination);
                     }
+
+                    //Set row index on the sorted data
+                    for(var i = 0; i < sortedData.length; i++) {
+                        sortedData[i].index = i;
+                    }
+
                     this.set("_gridData", sortedData);
                 },
 
@@ -515,7 +508,8 @@
                                 attributeTxtbox = this.shadowRoot.querySelector("#attributes-text_" + rowId);
                             }
                             if (attributeTxtbox) {
-                                var row = this._getParentRow(attributeTxtbox)
+                                var row = this._getParentRow(attributeTxtbox);
+                                this._setRowAsDeletedOnSelectionChange(DataHelper.cloneObject(row.item));
                                 if (row) {
                                     row.item.attributeModel = detail.data;
                                     if (row.item["action"] != "new") {
@@ -531,6 +525,11 @@
                     var popover = this.shadowRoot.querySelector("#attributesPopover");
                     popover.for = "";
                     popover.hide();
+                },
+
+                _setRowAsDeletedOnSelectionChange: function(row) {
+                    row.action = "deleted";
+                    this._refChangeDeletedMappings.push(row);
                 },
 
                 _getParentRow: function (element) {
@@ -682,6 +681,21 @@
                         }
                     });
 
+                    //Deleted mappings on reference change
+                    for(var i = 0; i < this._refChangeDeletedMappings.length; i++) {
+                        var isFound = false;
+                        for(var key in mappings) {
+                            if(this._refChangeDeletedMappings[i].attributeModel.id == key) {
+                                isFound = true;
+                                break;
+                            }
+                        }
+
+                        if(!isFound) {
+                            this._deletedMappings.push(this._refChangeDeletedMappings[i]);
+                        }
+                    }
+
                     //For delete
                     this._deletedMappings.forEach(function (row) {
                         if (row.excelColumnName && row.attributeModel) {
@@ -830,7 +844,8 @@
                     this.push("_gridData", {
                         "excelColumnName": "",
                         "source": "ui",
-                        "action": "new"
+                        "action": "new",
+                        "index": this._gridData.length
                     });
 
                     //Notify Grid data
@@ -851,7 +866,8 @@
                         for (var i = 0; i < this._gridData.length; i++) {
                             var isDelete = false;
                             for (var j = 0; j < selectedItems.length; j++) {
-                                if (this._gridData[i].excelColumnName.toLowerCase() == selectedItems[j].excelColumnName.toLowerCase()) {
+                                if (this._gridData[i].excelColumnName.toLowerCase() == selectedItems[j].excelColumnName.toLowerCase() &&
+                                    this._gridData[i].index == selectedItems[j].index) {
                                     isDelete = true;
                                     break;
                                 }
@@ -865,6 +881,11 @@
                                     this._deletedMappings.push(this._gridData[i]);
                                 }
                             }
+                        }
+
+                        //Reset row index
+                        for(var i = 0; i < gridData.length; i++) {
+                            gridData[i].index = i;
                         }
 
                         this.set("_gridData", gridData);

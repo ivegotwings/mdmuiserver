@@ -240,28 +240,6 @@
                         }
                     },
 
-                    _valueMappingRequest: {
-                        type: Object,
-                        value: function () {
-                            return {
-                                "params": {
-                                    "query": {
-                                        "valueContexts": [],
-                                        "contexts": [],
-                                        "filters": {
-                                            "typesCriterion": []
-                                        }
-                                    },
-                                    "fields": {
-                                        "attributes": [
-                                            "_ALL"
-                                        ]
-                                    }
-                                }
-                            }
-                        }
-                    },
-
                     _lovRequestData: {
                         type: Object,
                         value: function () {
@@ -272,40 +250,14 @@
                     attributeModelRequest: {
                         type: Object,
                         value: function () {
-                            return {
-                                "params": {
-                                    "query": {
-                                        "filters": {
-                                            "typesCriterion": [
-                                                "attributeModel"
-                                            ]
-                                        }
-                                    },
-                                    "fields": {
-                                        "attributes": ["externalName"]
-                                    }
-                                }
-                            };
+                            return {};
                         }
                     },
 
                     referenceModelRequest: {
                         type: Object,
                         value: function () {
-                            return {
-                                "params": {
-                                    "query": {
-                                        "filters": {
-                                            "typesCriterion": [
-                                                "entityManageModel"
-                                            ]
-                                        }
-                                    },
-                                    "fields": {
-                                        "attributes": ["_ALL"]
-                                    }
-                                }
-                            };
+                            return {};
                         }
                     },
 
@@ -331,6 +283,20 @@
                     _isReferenceField: {
                         type: Boolean,
                         value: false
+                    },
+
+                    _referenceLOVRequest: {
+                        type: Object,
+                        value: function () {
+                            return {};
+                        }
+                    },
+
+                    _refChangeDeletedMappings: {
+                        type: Array,
+                        value: function () {
+                            return [];
+                        }
                     }
                 },
                 observers: [
@@ -343,7 +309,11 @@
 
                 _onMappingsDataChange: function () {
                     if (!_.isEmpty(this.contextData) && !_.isEmpty(this.mappingsData) && !_.isEmpty(this.copContext)) {
-                        this.attributeModelRequest.params.query.ids = [this.mappingsData.attribute + "_attributeModel"];
+                        var types = []; 
+                        var attributes = [];
+                        types.push(this.mappingsData.attribute);
+                        attributes.push("externalName");
+                        this.attributeModelRequest = DataRequestHelper.createGetAttributeModelRequest(types, attributes);
 
                         var liquidModelGet = this.shadowRoot.querySelector("[name=liquidAttributeModelGet]");
                         if (liquidModelGet) {
@@ -362,26 +332,14 @@
                         if (this._attributeModel.properties.referenceEntityInfo) {
                             this._isReferenceField = true;
                             var refInfo = this._attributeModel.properties.referenceEntityInfo;
-                            this.referenceLOVRequest = {
-                                "params": {
-                                    "query": {
-                                        "valueContexts": this.contextData.ValContexts,
-                                        "filters": {
-                                            "typesCriterion": [refInfo[0].refEntityType]
-                                        }
-                                    },
-                                    "fields": {
-                                        "attributes": [
-                                            "_ALL"
-                                        ]
-                                    }
-                                }
-                            }
+                            var types = [];
+                            types.push(refInfo[0].refEntityType);
+                            this._referenceLOVRequest = DataRequestHelper.createGetReferenceRequest(this.contextData, types);
 
                             //Before setting the reference request to LOV, set LOV title pattern
                             var ids = [];
-                            ids.push(refInfo[0].refEntityType + "_entityManageModel");
-                            this.referenceModelRequest.params.query.ids = ids;
+                            ids.push(refInfo[0].refEntityType);
+                            this.referenceModelRequest = DataRequestHelper.createGetManageModelRequest(ids);
 
                             var liquidModelGet = this.shadowRoot.querySelector("[name=liquidReferenceManageModelGet]");
                             if (liquidModelGet) {
@@ -403,20 +361,20 @@
                                 if (attributes[key].properties.isExternalName) {
                                     var lov = this.shadowRoot.querySelector("#rockReferenceLov");
                                     if (lov) {
-                                        lov.titlePattern = "{entity.attributes." + key + "}"
+                                        lov.titlePattern = "{" + key + "}";
                                     }
                                     break;
                                 }
                             }
                         }
                     }
-                    this.set("_lovRequestData", this.referenceLOVRequest);
+                    this.set("_lovRequestData", this._referenceLOVRequest);
                     this._getMappings();
                 },
 
                 //Issue in setting title pattern, no need to stop the process
                 _onReferenceManageModelGetError: function (e, detail) {
-                    this.set("_lovRequestData", this.referenceLOVRequest);
+                    this.set("_lovRequestData", this._referenceLOVRequest);
                     this._getMappings();
                 },
 
@@ -437,6 +395,7 @@
                     var req = DataRequestHelper.createMappingsGetRequest(this.contextData, this.copContext, this.selectedContexts, types);
                     req.params.query.contexts[0].ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "";
                     delete req.params.query.contexts[0].entitytype;
+                    delete req.params.query.contexts[0].service;
                     this.set("_getMappingsRequest", req);
                     var getMappings = this.shadowRoot.querySelector("#getMappings");
                     if (getMappings) {
@@ -450,17 +409,19 @@
                 },
 
                 _onGetMappingsResponse: function (e, detail) {
-                    var response = detail.response.response;
-                    if (!response || response.status != "success") {
+                    if (!DataHelper.isValidObjectPath(detail, "response.response.status") || 
+                         detail.response.response.status.toLowerCase() != "success") {
                         this.showErrorToast("Unable to fetch value mappings, please contact administrator.");
                         return;
                     }
 
+                    var response = detail.response.response;
                     var gridData = [];
-                    if (response && response.status && response.status.toLowerCase() == "success" && response.entities) {
+                    if (response.entities) {
                         if (response.entities.length > 0) {
                             this._valueMappingEntities = response.entities;
 
+                            var index = 0;
                             for (var i = 0; i < this._valueMappingEntities.length; i++) {
                                 if (DataHelper.isValidObjectPath(this._valueMappingEntities[i], "data.contexts.0.attributes")) {
                                     var mappingAttributes = this._valueMappingEntities[i].data.contexts[0].attributes;
@@ -471,8 +432,10 @@
                                                 "givenValue": mappingAttributes.mappedvalue.values[j].value,
                                                 "governedValue": attrValue,
                                                 "source": "system",
-                                                "action": ""
+                                                "action": "",
+                                                "index": index
                                             });
+                                            index++;
                                         }
                                     }
                                 }
@@ -523,6 +486,7 @@
                             }
                             if (governTxtbox) {
                                 var row = this._getParentRow(governTxtbox)
+                                this._setRowAsDeletedOnSelectionChange(DataHelper.cloneObject(row.item));
                                 if (row) {
                                     row.item.attributeModel = detail.data;
                                     if (row.item["action"] != "new") {
@@ -542,12 +506,18 @@
                     }
                 },
 
+                _setRowAsDeletedOnSelectionChange: function(row) {
+                    row.action = "deleted";
+                    this._refChangeDeletedMappings.push(row);
+                },
+
                 _onAddTap: function () {
                     this.push("_gridData", {
                         "givenValue": "",
                         "governedValue": "",
                         "source": "ui",
-                        "action": "new"
+                        "action": "new",
+                        "index": this._gridData.length
                     });
 
                     //Notify Grid data
@@ -564,11 +534,13 @@
                             //Show message if needed - Please select an item for delete
                             return;
                         }
+
                         var gridData = [];
                         for (var i = 0; i < this._gridData.length; i++) {
                             var isDelete = false;
                             for (var j = 0; j < selectedItems.length; j++) {
-                                if (this._gridData[i].givenValue == selectedItems[j].givenValue) {
+                                if (this._gridData[i].givenValue == selectedItems[j].givenValue &&
+                                    this._gridData[i].index == selectedItems[j].index) {
                                     isDelete = true;
                                     break;
                                 }
@@ -582,6 +554,11 @@
                                     this._deletedMappings.push(this._gridData[i]);
                                 }
                             }
+                        }
+
+                        //Reset row index
+                        for(var i = 0; i < gridData.length; i++) {
+                            gridData[i].index = i;
                         }
 
                         this.set("_gridData", gridData);
@@ -617,7 +594,21 @@
                     }
                 },
 
+                _isDuplicateGridDataAvailable: function() {
+                    var uniqueGivenValues = [...new Set(this._gridData.map((obj) => obj.givenValue))];
+
+                    if(this._gridData.length != uniqueGivenValues.length) {
+                        return true;
+                    }
+
+                    return false;
+                },
+
                 _onSaveTap: function () {
+                    if(this._isDuplicateGridDataAvailable()) {
+                        this.showErrorToast("Please provide unique given values.");
+                        return;
+                    }
                     var mappings = this._transformGridDataToSaveMappings();
                     var saveRequests = [];
                     if (!_.isEmpty(mappings)) {
@@ -626,6 +617,7 @@
                             saveRequest.entity.data.contexts[0].attributes = mappings[key];
                             saveRequest.entity.data.contexts[0].context.ownershipdata = this.ownershipdata && this.ownershipdata != "undefined" ? this.ownershipdata : "";
                             delete saveRequest.entity.data.contexts[0].context.entitytype;
+                            delete saveRequest.entity.data.contexts[0].context.service;
 
                             if( mappings[key].action == "delete") {
                                 saveRequest.entity.action = "delete";
@@ -664,28 +656,29 @@
                 },
 
                 _onMappingsSaveResponse: function (e, detail) {
-                    var response = detail.response.response;
-                    if (response && response.status == "success") {
+                    if (DataHelper.isValidObjectPath(detail, "response.response.status") &&
+                        detail.response.response.status.toLowerCase() == "success") {
                         this.isSuccess = true;
-                        //on saveMappings response trigger below event
-                        var eventName = "value-mapping-save";
-                        var eventDetail = {
-                            "name": eventName,
-                        };
                     } else {
                         this.isFailed = true;
                     }
 
                     if(--this._generatedRequestCount == 0) {
+                        //on saveMappings response trigger below event
+                        var eventName = "value-mapping-save";
+                        var eventDetail = {
+                            "name": eventName,
+                        };
+
                         if(this.isSuccess && !this.isFailed) {
                             this.showSuccessToast("Value mappings saved successfully.");
+                            this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
                         } else if(!this.isSuccess && this.isFailed) {
                             this.showErrorToast("Unable to save value mappings, please contact administrator.");
                         } else {
                             this.showWarningToast("Value mappings processed with errors.");
+                            this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
                         }
-
-                        this.fireBedrockEvent(eventName, eventDetail, { ignoreId: true });
                     }
                 },
 
@@ -714,6 +707,21 @@
                         }
                     });
 
+                    //Deleted mappings on reference change
+                    for(var i = 0; i < this._refChangeDeletedMappings.length; i++) {
+                        var isFound = false;
+                        for(var key in mappings) {
+                            if(this._refChangeDeletedMappings[i].governedValue == key) {
+                                isFound = true;
+                                break;
+                            }
+                        }
+
+                        if(!isFound) {
+                            this._deletedMappings.push(this._refChangeDeletedMappings[i]);
+                        }
+                    }
+
                     //For delete
                     this._deletedMappings.forEach(function (row) {
                         if (row.givenValue && row.governedValue) {
@@ -735,6 +743,7 @@
                             }
                         }
                     });
+
 
                     //Modified above having untouched mappings
                     this._gridData.forEach(function (row) {
