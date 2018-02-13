@@ -10,6 +10,8 @@ var compression = require('compression');
 var cookieParser = require('cookie-parser');
 var fileUpload = require('express-fileupload');
 var path = require("path");
+var RuntimeVersionManager = require('../version-service/RuntimeVersionManager');
+var ModuleVersionManager = require('../version-service/ModuleVersionManager');
 
 var config = require('config');
 
@@ -35,6 +37,11 @@ if (relativePath) {
 
 console.log('build path: ', buildPath);
 logger.info('Web engine start - build path identified', { "buildPath": buildPath });
+
+var pjson = require(buildPath + '/package.json');
+const buildVersion = pjson.version;
+RuntimeVersionManager.initialize(buildVersion);
+ModuleVersionManager.initialize();
 
 var app = express();
 var http = require('http').Server(app);
@@ -70,11 +77,6 @@ app.get('/', function (req, res) {
 });
 
 logger.info('Web engine start - default location route is loaded');
-
-// register static file content folder path..
-//app.use(express.static(buildPath, { maxAge: "1s" }));
-
-logger.info('Web engine start - static content routes are loaded');
 
 var contextMgrMiddleware = require('../common/context-manager/middleware');
 contextMgrMiddleware(app);
@@ -147,6 +149,11 @@ var fileUploadRoute = require('../file-upload/file-upload-route');
 fileUploadRoute(app);
 
 logger.info('Web engine start - fileupload routes are loaded');
+
+var versionRoute = require('../version-service/version-route');
+versionRoute(app);
+
+logger.info('Web engine start - version routes are loaded');
 
 //app.use(express.static(path.join(buildPath, "../static"), { maxAge: "1s" }));
 app.use(express.static(buildPath, { maxAge: "1s" }));
@@ -221,7 +228,7 @@ app.get('*', function (req, res) {
 
 logger.info('Web engine start - base static file root route is loaded');
 
-function renderAuthenticatedPage(req, res) {
+async function renderAuthenticatedPage(req, res) {
     var userId = req.header("x-rdp-userid");
     var tenantId = req.header("x-rdp-tenantid");
     var userRoles = req.header("x-rdp-userroles");
@@ -244,7 +251,27 @@ function renderAuthenticatedPage(req, res) {
         }
 
         var noPreload = true;
-        res.render('index', { isAuthenticated: true, tenantId: tenantId, userId: userId, roleId: userRoles, fullName: fullName, userName: userName, ownershipData: ownershipData, noPreload: noPreload });
+
+        var versionInfo = {
+            'buildVersion': await RuntimeVersionManager.getBuildVersion(),
+            'runtimeVersion': await RuntimeVersionManager.getVersion(),
+            'moduleVersions': ModuleVersionManager.getAll()
+        }
+
+        //console.log('version info: ', JSON.stringify(versionInfo, null, 2));
+
+        res.render('index', 
+            {
+                isAuthenticated: true, 
+                tenantId: tenantId, 
+                userId: userId, 
+                roleId: userRoles,
+                fullName: fullName, 
+                userName: userName, 
+                ownershipData: ownershipData, 
+                noPreload: noPreload,
+                versionInfo: JSON.stringify(versionInfo)
+            });
 
         return true;
     } else {
