@@ -31,7 +31,7 @@ It is responsible to "get" and "save" the relationship attributes.
 <dom-module id="rock-relationship-attribute-manage">
     <template>
         <style include="bedrock-style-common">
-            :host{
+            :host {
                 @apply --rock-attribute-manage;
             }
 
@@ -39,7 +39,7 @@ It is responsible to "get" and "save" the relationship attributes.
                 position: relative;
                 padding: 0;
                 text-align: center;
-                bottom:10px;
+                bottom: 10px;
             }
 
             .dataFunctionButton {
@@ -68,12 +68,14 @@ It is responsible to "get" and "save" the relationship attributes.
                 <pebble-button id="ok" button-text="Fix" on-tap="_fixServerErrors"></pebble-button>
             </div>
         </pebble-dialog>
-        <pebble-dialog id="cancelDialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click no-cancel-on-esc-key>
+        <pebble-dialog id="cancelDialog" dialog-title="Confirmation" modal alert-box show-cancel show-ok no-cancel-on-outside-click
+            no-cancel-on-esc-key>
             <p>Are you sure you want to discard the unsaved changes.</p>
         </pebble-dialog>
         <bedrock-pubsub event-name="on-buttonok-clicked" handler="_revertAll" target-id="cancelDialog"></bedrock-pubsub>
-        <rock-attribute-list context-data="[[contextData]]" readonly$="[[readonly]]" show-group-name$=[[showGroupName]] group-name="[[groupName]]" attribute-values="[[_attributeValues]]"
-            attribute-models="[[relationshipAttributeModels]]" no-of-columns="[[noOfColumns]]" mode="[[mode]]" attribute-messages="[[_attributeMessages]]" on-list-mode-changed="_onListModeChanged"></rock-attribute-list>
+        <rock-attribute-list context-data="[[contextData]]" readonly$="[[readonly]]" show-group-name$=[[showGroupName]] group-name="[[groupName]]"
+            attribute-values="[[_attributeValues]]" attribute-models="[[relationshipAttributeModels]]" no-of-columns="[[noOfColumns]]"
+            mode="[[mode]]" attribute-messages="[[_attributeMessages]]" on-list-mode-changed="_onListModeChanged"></rock-attribute-list>
         <liquid-entity-data-get name="attributeGetDataService" operation="getbyids" request-data="{{_attributeRequest}}" last-response="{{_attributeResponse}}"></liquid-entity-data-get>
         <liquid-entity-govern-data-get id="attributeGetMessageService" operation="getbyids" request-data={{_attributeMessageRequest}}
             on-response="_onAttributesMessageReceived" on-error="_onEntityGetFailed"></liquid-entity-govern-data-get>
@@ -89,8 +91,11 @@ It is responsible to "get" and "save" the relationship attributes.
         </template>
         <div id="buttonContainer" hidden align="center" class="defaultButton">
             <pebble-button id="cancel" class="btn btn-secondary m-r-10" button-text="Cancel" on-tap="_openCancelDialog" elevation=1 raised></pebble-button>
-            <pebble-button id="save" class="focus btn btn-success" disabled$="[[readonly]]" button-text="Save" on-tap="_save" elevation=1 raised></pebble-button>
+            <pebble-button id="save" class="focus btn btn-success" disabled$="[[readonly]]" button-text="Save" on-tap="_save" elevation=1
+                raised></pebble-button>
         </div>
+        <liquid-rest id="contextModelGet" url="/data/pass-through/entitymodelservice/getcontext" method="POST" request-data="{{_contextModelGetReq}}"
+            on-liquid-response="_onContextModelGetResponse" on-liquid-error="_onContextModelGetFailed"></liquid-rest>
     </template>
     <script>
         (function () {
@@ -156,6 +161,10 @@ It is responsible to "get" and "save" the relationship attributes.
                     successMessage: {
                         type: String,
                         value: ''
+                    },
+                    applyContextCoalesce: {
+                        type: String,
+                        value: false
                     },
                     /**
                      * Indicates the request object that is passed to the data element to retrive the attribute data.
@@ -291,7 +300,23 @@ It is responsible to "get" and "save" the relationship attributes.
                     readonly: {
                         type: Boolean,
                         value: false
+                    },
+
+                    _contextModelGetReq: {
+                        type: Object,
+                        value: function () { return {}; }
+                    },
+
+                    _contextModels: {
+                        type: Object,
+                        value: function () { return {}; }
+                    },
+
+                    _relationshipModels: {
+                        type: Object,
+                        value: function () { return {}; }
                     }
+
                 },
                 behaviors: [
                     RUFBehaviors.UIBehavior,
@@ -319,7 +344,7 @@ It is responsible to "get" and "save" the relationship attributes.
                     if (!mode) return;
 
                     this.mode = mode;
-                    
+
                     this.$.buttonContainer.hidden = mode !== 'edit';
                 },
                 _contextChanged: function (valueContexts) {
@@ -339,8 +364,15 @@ It is responsible to "get" and "save" the relationship attributes.
                     }
                     this._relationshipName = itemContext.relationships[0];
                     this._relationshipId = itemContext.relationshipId;
-                    var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
+                    this._relationshipType = itemContext.relationshipType;
 
+                    this._contextModelGetReq = DataRequestHelper.createContextModelGetRequest(itemContext.type);
+                    var liquidElement = this.$$('#contextModelGet');
+                    if (liquidElement) {
+                        liquidElement.generateRequest();
+                    }
+
+                    var compositeModelGetRequest = DataRequestHelper.createEntityModelCompositeGetRequest(this.contextData);
                     this.set("_attributeModelRequest", compositeModelGetRequest);
                     var liquidModelGet = this.shadowRoot.querySelector("[name=compositeAttributeModelGet]");
                     if (liquidModelGet && compositeModelGetRequest) {
@@ -356,7 +388,7 @@ It is responsible to "get" and "save" the relationship attributes.
                         }
                         var compositeModel = e.detail.response.content.entityModels[0];
                         if (relType && compositeModel && compositeModel.data) {
-                            var relationships = DataTransformHelper.transformRelationshipModels(compositeModel, this.contextData);
+                            var relationships = this._relationshipModels = DataTransformHelper.transformRelationshipModels(compositeModel, this.contextData);
 
                             if (relationships && relationships[relType]) {
                                 var rel = relationships[relType] && relationships[relType].length ? relationships[relType][0] : undefined;
@@ -412,11 +444,11 @@ It is responsible to "get" and "save" the relationship attributes.
                         this._attributeMessages = {};
                         return;
                     }
-                    var relationshipId=this._relationshipId;
-                    var relationships=entity.data.relationships;
-                    var relationshipEntities=relationships[this._relationshipName];
-                    var relationship=relationshipEntities.find(function (rel) {
-                        return rel.relTo.id==relationshipId;
+                    var relationshipId = this._relationshipId;
+                    var relationships = entity.data.relationships;
+                    var relationshipEntities = relationships[this._relationshipName];
+                    var relationship = relationshipEntities.find(function (rel) {
+                        return rel.relTo.id == relationshipId;
                     });
                     if (relationship) {
                         var attributes = relationship.attributes;
@@ -437,14 +469,14 @@ It is responsible to "get" and "save" the relationship attributes.
                     if (DataHelper.validateGetEntitiesResponse(_attributeResponse) && this.relationshipAttributeModels) {
                         var entity = _attributeResponse.content.entities[0];
                         var relationships = EntityHelper.getRelationshipsBasedOnContext(entity, this.getFirstDataContext(), this._selfContext);
-                        var relationshipId=this._relationshipId;
+                        var relationshipId = this._relationshipId;
                         if (relationships && !_.isEmpty(relationships)) {
-                            var relationshipEntities=relationships[this._relationshipName];
-                            var relationship=relationshipEntities.find(function (rel) {
-                                return rel.relTo.id==relationshipId;
+                            var relationshipEntities = relationships[this._relationshipName];
+                            var relationship = relationshipEntities.find(function (rel) {
+                                return rel.relTo.id == relationshipId;
                             });
-                            var relData={"data":{}};
-                            if(relationship) {
+                            var relData = { "data": {} };
+                            if (relationship) {
                                 relData.data.attributes = relationship.attributes;
                             }
                             attributes = DataTransformHelper.transformAttributes(relData, this.relationshipAttributeModels, this.contextData, "array", true);
@@ -455,7 +487,7 @@ It is responsible to "get" and "save" the relationship attributes.
                 },
                 _save: function (e) {
                     //TODO: Needs to check with Vishal.
-                    if(e.currentTarget.disabled == true){
+                    if (e.currentTarget.disabled == true) {
                         return;
                     }
 
@@ -491,28 +523,12 @@ It is responsible to "get" and "save" the relationship attributes.
                         attributesJSON.push(attributeJSON);
                     }
 
-                    var firstItemContext = this.getFirstItemContext();
-                    var relationshipName = firstItemContext.relationships[0];
-                    var relationshipId = firstItemContext.relationshipId;
                     this.logInfo("AttributeManageSave", "attributes", JSON.stringify(attributesJSON, null, 2));
                     var firstValueContext = this.getFirstValueContext();
                     var newEntity = {};
                     if (this._attributeResponse && this._attributeResponse.content && this._attributeResponse.content.entities && this._attributeResponse.content.entities.length > 0) {
                         var originalEntity = this._attributeResponse.content.entities[0];
-                        newEntity = DataHelper.cloneObject(originalEntity);
-                        var relationships = EntityHelper.getRelationshipByType(newEntity, this.getFirstDataContext(), relationshipName, this._selfContext);
-                        var relationship=relationships.find(function (rel) {
-                            return rel.relTo.id==relationshipId;
-                        });
-                        if (relationship) {
-                            var attributes = {};
-                            for (var i = 0; i < attributesJSON.length; i++) {
-                                var attributeJSON = attributesJSON[i];
-                                var attr = DataTransformHelper.createAttributeInstance(attributeJSON, firstValueContext);
-                                attributes[attributeJSON.name] = attr;
-                            }
-                            relationship.attributes = attributes;
-                        }
+                        newEntity = DataTransformHelper.prepareEntityForRelationshipSave(originalEntity, attributesJSON, this.contextData, this._relationshipModels, this._contextModels);
                         this._entityDataOperation = "update";
 
                         if (!_.isEmpty(newEntity)) {
@@ -654,14 +670,14 @@ It is responsible to "get" and "save" the relationship attributes.
                 },
                 _skipServerErrors: function () {
                     var errorDialog = this.$.errorsDialog;
-                    if(errorDialog) {
+                    if (errorDialog) {
                         errorDialog.close();
                     }
                     this._saveEntity();
                 },
                 _fixServerErrors: function () {
                     var errorDialog = this.$.errorsDialog;
-                    if(errorDialog) {
+                    if (errorDialog) {
                         errorDialog.close();
                     }
                     if (this._syncValidationErrors) {
@@ -690,7 +706,19 @@ It is responsible to "get" and "save" the relationship attributes.
                     if (attributeList && attributeList.getIsDirty) {
                         return attributeList.getIsDirty();
                     }
-                }              
+                },
+
+                _onContextModelGetResponse: function (e) {
+                    var response = e.detail.response.response;
+
+                    if (response) {
+                        var entityModels = response.entityModels;
+
+                        if (entityModels && entityModels.length) {
+                            this._contextModels = entityModels[0].data ? entityModels[0].data.contexts : undefined;
+                        }
+                    }
+                }
             });
         })();
     </script>
