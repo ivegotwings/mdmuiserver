@@ -77,12 +77,13 @@
                 throw 'exception: operation ' + op + ' is not supported in ' + this.is + ' element.';
             }
         },
-        _formatResponse: function (request, rawResponsePkg) {
+        _formatResponse: async function (request, rawResponsePkg) {
             var op = request.operation;
             var pathKeys = this._pathKeys;
             var dataIndex = this.dataIndex;
             var dataSubIndex = this.dataSubIndex;
             var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
+            var includeTypeExternalName = request.requestData ? request.requestData.includeTypeExternalName : false;
 
             if (!_.isEmpty(dataIndexInfo.dataSubIndexInfo)) {
                 dataIndexInfo = dataIndexInfo.dataSubIndexInfo[dataSubIndex];
@@ -100,7 +101,7 @@
                 var formattedDataObjects = [];
                 if (rawResponsePkg != undefined && rawResponsePkg.json && rawResponsePkg.json[pathKeys.root]) {
                     var dataObjects = this._getDataObjects(rawResponsePkg, dataIndex, this.dataSubIndex, request);
-                    formattedDataObjects = this._formatData(dataIndex, dataObjects);
+                    formattedDataObjects = await this._formatData(dataIndex, dataObjects, includeTypeExternalName);
                 }
 
                 var searchResultDetailResponse = {};
@@ -111,7 +112,7 @@
                 var formattedDataObjects = [];
                 if (rawResponsePkg !== undefined && rawResponsePkg.json && rawResponsePkg.json[pathKeys.root]) {
                     var dataObjects = this._getDataObjects(rawResponsePkg, dataIndex, this.dataSubIndex, request);
-                    formattedDataObjects = this._formatData(dataIndex, dataObjects);
+                    formattedDataObjects = await this._formatData(dataIndex, dataObjects, includeTypeExternalName);
 
                     if (formattedDataObjects && this._relIdsCountOfRelGetRequest && !_.isEmpty(this._relIdsCountOfRelGetRequest)) {
                         for (let dataObject of formattedDataObjects) {
@@ -282,7 +283,7 @@
             var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
 
             var relTypes = reqData.params.fields.relationships === undefined ? [] : reqData.params.fields.relationships;
-
+            
             var isRelationshipsRequested = relTypes.length > 0 || false;
             var dataObjectFields = ['id', 'name', 'version', 'type', 'properties', 'domain'];
 
@@ -437,6 +438,7 @@
             var op = request.operation;
             var pathKeys = this._pathKeys;
             var dataIndex = this.dataIndex;
+            var dataSubIndex = this.dataSubIndex;
             var dataIndexInfo = pathKeys.dataIndexInfo[dataIndex];
             var self = this;
 
@@ -446,8 +448,8 @@
                 if (rawResponsePkg) {
                     self.removeFalcorKeys(rawResponsePkg);
 
-                    var resSearchResultId = Object.keys(rawResponsePkg.json[pathKeys.root][dataIndex][pathKeys.searchResults])[0];
-                    var initiateSearchResponse = self._formatInitiateSearchResponse(rawResponsePkg.json[pathKeys.root][dataIndex][pathKeys.searchResults][resSearchResultId]);
+                    var resSearchResultId = Object.keys(rawResponsePkg.json[pathKeys.root][dataIndex][dataSubIndex][pathKeys.searchResults])[0];
+                    var initiateSearchResponse = self._formatInitiateSearchResponse(rawResponsePkg.json[pathKeys.root][dataIndex][dataSubIndex][pathKeys.searchResults][resSearchResultId]);
 
                     if (initiateSearchResponse && initiateSearchResponse.resultRecordSize && initiateSearchResponse.resultRecordSize > 0) {
                         request.requestId = initiateSearchResponse.requestId;
@@ -554,13 +556,16 @@
 
             return output;
         },
-        _formatData: function (dataIndex, dataObjects) {
+        _formatData: async function (dataIndex, dataObjects, includeTypeExternalName) {
             var utils = SharedUtils.DataObjectFalcorUtil;
             var formattedDataObjects = [];
 
             for (var dataObjectId in dataObjects) {
                 var dataObject = dataObjects[dataObjectId];
                 var formattedDataObject = utils.transformToExternal(dataObject);
+                if(includeTypeExternalName && formattedDataObject.type){
+                    formattedDataObject["typeExternalName"] = await DataHelper.getEntityTypeExternalNameAsync(formattedDataObject.type);
+                }
                 formattedDataObjects.push(formattedDataObject);
             }
 
