@@ -381,20 +381,19 @@ queryParser.getFinalQuery = function(parsedQuery) {
         var entityAttributes = parsedQuery.with && parsedQuery.with.length > 0 ? parsedQuery.with : undefined;
         var relatioshipsSection = parsedQuery.having && parsedQuery.having[0] ? parsedQuery.having[0] : undefined;
         var relationshipName;
+        var relationshipAttributes;
+        var relatedEntityQuery;
         if(relatioshipsSection) {
             if(typeof(relatioshipsSection) === "string") {
                 relationshipName = relatioshipsSection;
             } else if(typeof(relatioshipsSection) === "object") {
                 relationshipName = Object.keys(relatioshipsSection) && Object.keys(relatioshipsSection).length > 0 ? Object.keys(relatioshipsSection)[0] : undefined;
             }
-        }
-        
-        var relationshipAttributes;
-        var relatedEntityQuery;
-        if(relationshipName && parsedQuery.having[0][relationshipName] && parsedQuery.having[0][relationshipName].length >0 && parsedQuery.having[0][relationshipName][0]) {
-            let relData = parsedQuery.having[0][relationshipName][0];
-            relationshipAttributes = relData.with && relData.with.length > 0 ? relData.with : undefined;
-            relatedEntityQuery = relData.show && relData.show.length > 0 ? queryParser.getFinalQuery(relData.show[0]) : undefined;
+            if(relationshipName && relatioshipsSection[relationshipName] && relatioshipsSection[relationshipName].length >0 && relatioshipsSection[relationshipName][0]) {
+                let relData = relatioshipsSection[relationshipName][0];
+                relationshipAttributes = relData.with && relData.with.length > 0 ? relData.with : undefined;
+                relatedEntityQuery = relData.show && relData.show.length > 0 ? queryParser.getFinalQuery(relData.show[0]) : undefined;
+            }
         }
         var workflowName = parsedQuery.pending && parsedQuery.pending.length > 0 ? parsedQuery.pending[0] : undefined;
         var workflowActivityName = parsedQuery.pending && parsedQuery.pending.length > 0 ? parsedQuery.pending[1] : undefined;
