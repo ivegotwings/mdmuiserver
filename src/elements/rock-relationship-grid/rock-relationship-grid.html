@@ -34,7 +34,6 @@
 <link rel="import" href="../rock-entity-lov/rock-entity-lov.html">
 <link rel="import" href="../rock-grid/rock-grid.html">
 <link rel="import" href="../rock-grid-data-sources/entity-relationship-grid-datasource.html">
-<link rel="import" href="../rock-business-function-dialog/rock-business-function-dialog.html">
 <link rel="import" href="../rock-entity-relationship-search-result-actions/rock-entity-relationship-search-result-actions.html">
 
 
@@ -451,7 +450,6 @@ The following JSON object is a sample of data which binds the grid.
 
     </template>
 
-    <rock-business-function-dialog id="addRelDialog" name="rock-wizard-entity-relationship-add" context-data="[[contextData]]"></rock-business-function-dialog>
     <bedrock-pubsub event-name="refresh-relationship-grid" handler="_onRefreshRelationshipGridEvent" target-id="addRelDialog"></bedrock-pubsub>
     <liquid-rest id="getDownloadUrl" url="/data/binarystreamobjectservice/prepareDownload" method="POST" on-liquid-response="_onGetDownloadUrlResponse">
     </liquid-rest>
@@ -463,7 +461,6 @@ The following JSON object is a sample of data which binds the grid.
     <bedrock-pubsub target-id="gridMsgDialog" event-name="on-buttonok-clicked" handler="_onDialogOk"></bedrock-pubsub>
     <bedrock-pubsub event-name="global-edit" handler="_onGlobalEdit"></bedrock-pubsub>
     <bedrock-pubsub event-name="quick-manage-event" handler="_onTapQuickManage"></bedrock-pubsub>
-    <rock-business-function-dialog id="entityEditDialog"></rock-business-function-dialog>
   </template>
   <script>
     (function () {
@@ -1099,23 +1096,25 @@ The following JSON object is a sample of data which binds the grid.
             popover.show();
           } else {
             var rel = e.currentTarget.relationship;
-            var typesCriterion = this.relationshipGridConfig.relatedEntityTypes;
-            var title = this._getRelationshipTypeTitle(rel);
-            var dialog = this.shadowRoot.querySelector("#addRelDialog");
-            var itemContext = ContextHelper.getFirstItemContext(this.contextData);
-            var entity = { "id": itemContext.id, "type": itemContext.type };
+            const { relatedEntityTypes, selfContext } = this.relationshipGridConfig;
+            const {id, type} = ContextHelper.getFirstItemContext(this.contextData);
             var mode = this.relationshipType == "Relationships" ? "relationship" : "asset";
-            dialog.sharedData = {
-              "mode": mode,
-              "context-data": this.contextData,
-              "types-criterion": typesCriterion,
-              "relationship-type": rel,
-              "heading": title,
-              "selected-entities": [entity],
-              "self-context": this.relationshipGridConfig.selfContext,
-              "add-relationship-grid-config": this.addRelationshipGridConfig
+            const detail = {
+              name: 'rock-wizard-entity-relationship-add',
+              contextData: this.contextData,
+              sharedData: {
+                "mode": mode,
+                "context-data": this.contextData,
+                "types-criterion": relatedEntityTypes,
+                "relationship-type": rel,
+                "heading": this._getRelationshipTypeTitle(rel),
+                "selected-entities": [{id, type}],
+                "self-context": selfContext,
+                "add-relationship-grid-config": this.addRelationshipGridConfig
+              }
             };
-            dialog.open();
+
+            ComponentHelper.fireBedrockEvent("business-dialog-opened", detail, { ignoreId: true });
           }
         },
         _convertIntoEntityLovList: function (entitiesResponse) {
@@ -1606,16 +1605,13 @@ The following JSON object is a sample of data which binds the grid.
             }
 
             //Dialog is opened
-            var dialogObj = relGridContainer.querySelector('#addRelDialog');
-            if (dialogObj && dialogObj.getControlIsDirty) {
-              dialogControlDirty = dialogObj.getControlIsDirty();
+            var businessFunctionDialog = RUFUtilities.appCommon.getFunctionDialog();
+            if (businessFunctionDialog) {
+              dialogControlDirty = businessFunctionDialog.getControlIsDirty();
             }
           }
 
-          if (quickManageControlDirty || relGridControlDirty || popoverControlDirty || dialogControlDirty) {
-            return true;
-          }
-          return false;
+          return quickManageControlDirty || relGridControlDirty || popoverControlDirty || dialogControlDirty;
         },
 
         refresh: function () {
@@ -1929,20 +1925,21 @@ The following JSON object is a sample of data which binds the grid.
 
             var clonedContextData = DataHelper.cloneObject(this.contextData);
             clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = [{ "type": selectedItemTypes[0] }];
-            var entityEditDialog = this.shadowRoot.querySelector("#entityEditDialog");
-            entityEditDialog.name = "rock-wizard-entity-bulk-edit";
-            entityEditDialog.configName = "wizardConfig";
-            entityEditDialog.sharedData = {
-              "context-data": clonedContextData,
-              "workflow-criterion": this.workflowCriterion,
-              "selection-query": selectionQuery,
-              "selection-mode": selectionMode,
-              "selected-entities": selectedItems,
-              "edit-attributes-only": true,
-              "edit-relationship-attributes-only": false
+            const detail = {
+              name: 'rock-wizard-entity-bulk-edit',
+              contextData: this.contextData,
+              configName: 'wizardConfig',
+              sharedData: {
+                "context-data": clonedContextData,
+                "workflow-criterion": this.workflowCriterion,
+                "selection-query": selectionQuery,
+                "selection-mode": selectionMode,
+                "selected-entities": selectedItems,
+                "edit-attributes-only": true,
+                "edit-relationship-attributes-only": false
+              }
             };
-            entityEditDialog.contextData = clonedContextData;
-            entityEditDialog.open();
+            ComponentHelper.fireBedrockEvent("business-dialog-opened", detail, { ignoreId: true });
           } else {
             this.showInformationToast("Please select at least one entity from grid to edit.");
           }
@@ -1979,21 +1976,23 @@ The following JSON object is a sample of data which binds the grid.
             selectionQuery.filters.typesCriterion = typesCriterion; //Based on relationship entityType
             var clonedContextData = DataHelper.cloneObject(this.contextData);
             clonedContextData[ContextHelper.CONTEXT_TYPE_ITEM] = itemContexts;
-            var entityEditDialog = this.shadowRoot.querySelector("#entityEditDialog");
-            entityEditDialog.name = "rock-wizard-entity-bulk-edit";
-            entityEditDialog.configName = "wizardConfig";
-            entityEditDialog.sharedData = {
-              "context-data": clonedContextData,
-              "selection-query": selectionQuery,
-              "selection-mode": selectionMode,
-              "selected-entities": selectedItems,
-              "original-entity": originalEntity,
-              "relationship": currentRel,
-              "edit-attributes-only": false,
-              "edit-relationship-attributes-only": true
+            const detail = {
+                name: 'rock-wizard-entity-bulk-edit',
+                configName: 'wizardConfig',
+                contextData: this.contextData,
+                sharedData: {
+                  "context-data": clonedContextData,
+                  "selection-query": selectionQuery,
+                  "selection-mode": selectionMode,
+                  "selected-entities": selectedItems,
+                  "original-entity": originalEntity,
+                  "relationship": currentRel,
+                  "edit-attributes-only": false,
+                  "edit-relationship-attributes-only": true
+              }
             };
-            entityEditDialog.contextData = clonedContextData;
-            entityEditDialog.open();
+
+            ComponentHelper.fireBedrockEvent("business-dialog-opened", detail, { ignoreId: true });
           } else {
             this.showInformationToast("Please select at least one entity from grid to edit.");
           }
