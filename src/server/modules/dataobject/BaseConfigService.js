@@ -1,6 +1,8 @@
 'use strict';
 
 var DFRestService = require('../common/df-rest-service/DFRestService');
+var RuntimeVersionManager = require('../version-service/RuntimeVersionManager');
+
 const fs = require('fs'),
     path = require('path');
 
@@ -23,8 +25,8 @@ BaseConfigService.prototype = {
         if (serviceConfig && serviceConfig.baseConfigMode && serviceConfig.baseConfigMode == "offline") {
             mode = "offline";
         }
-        var fileId = baseConfigRequest.params.query.id;
-        var cacheKey = tenant + "_" + fileId;
+        var configId = baseConfigRequest.params.query.id;
+        var cacheKey = await this.getCacheKey(tenant, configId);
 
         if (localConfigCache[cacheKey]) {
             return falcorUtil.cloneObject(localConfigCache[cacheKey]);
@@ -32,7 +34,7 @@ BaseConfigService.prototype = {
 
         var baseConfigResponse;
         if (mode == "offline") {
-            baseConfigResponse = await this._getOfflineBaseConfig(url, fileId);
+            baseConfigResponse = await this._getOfflineBaseConfig(url, configId);
         } else {
             baseConfigResponse = await this.post(url, baseConfigRequest);
         }
@@ -40,6 +42,11 @@ BaseConfigService.prototype = {
         localConfigCache[cacheKey] = falcorUtil.cloneObject(baseConfigResponse);
 
         return baseConfigResponse;
+    },
+    getCacheKey: async function(tenant, configId) {
+        var runtimeVersion = await RuntimeVersionManager.getVersion();
+        var cacheKey = "".concat(tenant,"_", configId,"_", runtimeVersion);
+        return cacheKey;
     },
     _getOfflineBaseConfig: async function (url, fileId) {
         var fileName = fileId.replace("-base_uiConfig", "") + ".json";
