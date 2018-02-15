@@ -306,7 +306,7 @@ queryParser.splitValuesByKeywords = function(keyValues, keywords, isSubQuery) {
                 valueList = [queryParser.parseQuery(val)];
             } else {
                 valueList = value.split(regex).map(function(item) {
-                    return item.replace(/'|"/g, '').trim();
+                    return item.trim();
                 });
             }
             if(valueList) {
