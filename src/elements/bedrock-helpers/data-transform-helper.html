@@ -587,12 +587,21 @@
 
         DataTransformHelper._transformAttributes = function (attributes, attributeModels, contextModels, valueContext, dataContext) {
             var transformedAttributes = {};
-            var additionalContexts = undefined;
+            var additionalContexts = [];
+            var primaryContexts = [];
 
             if (!_.isEmpty(contextModels) && !_.isEmpty(dataContext)) {
                 var contextModel = DataTransformHelper._getContextModelBasedOnCurrentDataContext(contextModels, dataContext);
                 if (contextModel) {
                     additionalContexts = contextModel.properties ? contextModel.properties.additionalcontexts : undefined;
+
+                    if (!_.isEmpty(additionalContexts)) {
+                        Object.keys(contextModel.context).filter(function (item) {
+                            if (additionalContexts.indexOf(item) < 0) {
+                                primaryContexts.push(item);
+                            }
+                        }, this);
+                    }
                 }
             }
 
@@ -605,7 +614,7 @@
                     if (attribute && attribute.values) {
 
                         if (!_.isEmpty(additionalContexts)) {
-                            this._removeCoalescePropertiesBasedOnAdditionalContext(attribute, attributeModel, additionalContexts);
+                            this._removeCoalescePropertiesBasedOnAdditionalContext(attribute, attributeModel, additionalContexts, primaryContexts);
                         }
 
                         attributeJSON = AttributeHelper.getCurrentValue(attribute.values, valueContext, attributeModel);
@@ -1655,7 +1664,7 @@
 
                             if (context && context.attributes) {
                                 var attributes = context.attributes;
-                                DataTransformHelper.addRemoveAttributesBasedOnAdditionalContext(attributes, attributeModels, additionalContexts, partialContextData);
+                                DataTransformHelper._addRemoveAttributesBasedOnAdditionalContext(attributes, attributeModels, additionalContexts, partialContextData);
                             }
                         }
 
@@ -1689,7 +1698,7 @@
             return data;
         };
 
-        DataTransformHelper.addRemoveAttributesBasedOnAdditionalContext = function (attributes, attributeModels, additionalContexts, partialContextData) {
+        DataTransformHelper._addRemoveAttributesBasedOnAdditionalContext = function (attributes, attributeModels, additionalContexts, partialContextData) {
             if (attributes && attributeModels && additionalContexts) {
                 Object.keys(attributeModels).filter(function (attrKey) {
                     var attrModel = attributeModels[attrKey];
@@ -1698,14 +1707,14 @@
 
                         if (properties.instanceCoalesce) {
 
-                            if (!DataTransformHelper.isAdditionalContexts(additionalContexts, properties.instanceCoalesce, "instance")) {
+                            if (!DataTransformHelper._isAdditionalContexts(additionalContexts, properties.instanceCoalesce, "instance")) {
                                 partialContextData.attributes[attrModel.name] = attributes[attrModel.name];
                                 delete attributes[attrModel.name];
                             }
                         }
 
                         if (properties.contextCoalesce) {
-                            if (!DataTransformHelper.isAdditionalContexts(additionalContexts, properties.contextCoalesce, "context")) {
+                            if (!DataTransformHelper._isAdditionalContexts(additionalContexts, properties.contextCoalesce, "context")) {
                                 partialContextData.attributes[attrModel.name] = attributes[attrModel.name];
                                 delete attributes[attrModel.name];
                             }
@@ -1715,14 +1724,22 @@
             }
         };
 
-        DataTransformHelper._removeCoalescePropertiesBasedOnAdditionalContext = function (attribute, attributeModel, additionalContexts) {
+        DataTransformHelper._removeCoalescePropertiesBasedOnAdditionalContext = function (attribute, attributeModel, additionalContexts, primaryContexts) {
             if (attribute && attributeModel && additionalContexts) {
                 if (attributeModel.properties) {
                     var properties = attributeModel.properties;
+                    var isAdditionalContextAttribute = true;
 
-                    if (properties.instanceCoalesce || properties.contextCoalesce) {
-                        if (!DataTransformHelper.isAdditionalContexts(additionalContexts, properties.instanceCoalesce, "instance") || !DataTransformHelper.isAdditionalContexts(additionalContexts, properties.contextCoalesce, "context")) {
-                            delete attribute.properties.instanceCoalesce;
+                    if (properties.instanceCoalesce) {
+                        isAdditionalContextAttribute = DataTransformHelper._isAdditionalContexts(additionalContexts, properties.instanceCoalesce, "instance");
+                    }
+
+                    if (properties.contextCoalesce) {
+                        isAdditionalContextAttribute = DataTransformHelper._isAdditionalContexts(additionalContexts, properties.contextCoalesce, "instance");
+                    }
+
+                    if (!isAdditionalContextAttribute && attribute.properties && attribute.properties.contextCoalesce) {
+                        if (!DataTransformHelper._isPartialPrimaryContexts(primaryContexts, attribute.properties.contextCoalesce)) {
                             delete attribute.properties.contextCoalesce;
                         }
                     }
@@ -1730,7 +1747,7 @@
             }
         };
 
-        DataTransformHelper.isAdditionalContexts = function (additionalContexts, coalesceProperties, coalesceType) {
+        DataTransformHelper._isAdditionalContexts = function (additionalContexts, coalesceProperties, coalesceType) {
             var isAdditionalContext = false;
             if (additionalContexts && coalesceProperties) {
                 if (coalesceType == "instance") {
@@ -1743,15 +1760,30 @@
                     Object.keys(coalesceProperties[0]).forEach(function (ctx) {
                         if (additionalContexts.indexOf(ctx) > -1) {
                             isAdditionalContext = true;
-                        } else {
-                            if (!isAdditionalContext) {
-                                isAdditionalContext = false;
-                            }
                         }
                     }, this);
                 }
             }
             return isAdditionalContext;
+        };
+
+        DataTransformHelper._isPartialPrimaryContexts = function (primaryContexts, coalesceProperties) {
+            var isPartialPrimaryContext = false;
+            if (primaryContexts && coalesceProperties) {
+                var contextKeys = Object.keys(coalesceProperties[0]);
+                if (!_.isEmpty(contextKeys)) {
+                    contextKeys.forEach(function (ctx) {
+                        if (primaryContexts.indexOf(ctx) < 0) {
+                            isPartialPrimaryContext = true;
+                        }
+                    }, this);
+
+                    if (!isPartialPrimaryContext && (primaryContexts.length != contextKeys.length)) {
+                        isPartialPrimaryContext = true;
+                    }
+                }
+            }
+            return isPartialPrimaryContext;
         };
 
         DataTransformHelper.getContextCoalescePaths = function (properties, dataContext) {
