@@ -53,7 +53,7 @@ var COPRouter = function (app) {
     });
     app.post('/data/cop/saveMappings', async function (req, res) {
         var response = await copService.saveMappings(req);
-        console.log('cop response:', JSON.stringify(response, null, 2));
+        //console.log('cop response:', JSON.stringify(response, null, 2));
         res.status(200).send(response);
     });
     app.post('/data/cop/publish', async function (req, res) {
